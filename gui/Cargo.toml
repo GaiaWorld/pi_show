@@ -1,0 +1,9 @@
+[package]
+name = "gui"
+version = "0.1.0"
+authors = ["yineng <zmythleo@gmail.com>"]
+
+[dependencies]
+wcs = { path = "../../pi_lib/wcs" }
+cg = { path = "../../pi_math/cg" }
+lazy_static = "*"
