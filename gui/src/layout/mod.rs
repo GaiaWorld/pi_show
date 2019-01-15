@@ -1,9 +1,9 @@
 use std::mem::transmute;
 use std::ops::{Deref, DerefMut};
 use std::default::Default;
+use std::fmt;
 
 use wasm_bindgen::prelude::*;
-use components::Vector2;
 
 pub struct YgNodeP(Node);
 
@@ -113,19 +113,21 @@ impl YgNodeP {
         self.0.calculateLayout(width, height, direction as u8);
     }
 
-    pub fn get_computed_position(&self) -> Vector2 {
-        Vector2{
-            x: self.0.getComputedLeft(),
-            y: self.0.getComputedTop()
+    pub fn get_computed_layout(&self) -> Layout {
+        Layout{
+            left: self.0.getComputedLeft(),
+            top: self.0.getComputedTop(),
+            width: self.0.getComputedTop(),
+            height: self.0.getComputedTop(),
         }
     }
 
-    pub fn get_computed_size(&self) -> Vector2 {
-        Vector2{
-            x: self.0.getComputedWidth(), 
-            y:self.0.getComputedHeight()
-        }
-    }
+    // pub fn get_computed_size(&self) -> Vector2 {
+    //     Vector2{
+    //         x: self.0.getComputedWidth(), 
+    //         y:self.0.getComputedHeight()
+    //     }
+    // }
 
     pub fn get_computed_margin(&self, edge: Edge) -> f32 { self.0.getComputedMargin(edge as u8) }
     pub fn get_computed_border(&self, edge: Edge) -> f32 { self.0.getComputedBorder(edge as u8) }
@@ -173,6 +175,20 @@ impl Default for YgNode{
     fn default() -> YgNode{
         YgNode::create()
     }
+}
+
+impl fmt::Debug for YgNode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let layout = self.get_computed_layout();
+        write!(f, "YgNode {{ left: {}, top: {}, width:{}, height:{} }}", layout.left, layout.top, layout.width, layout.height)
+    }
+}
+
+pub struct Layout{
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 #[wasm_bindgen(module = "./yoga")]
