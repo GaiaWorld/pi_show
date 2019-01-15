@@ -1,8 +1,11 @@
 #![feature(rustc_const_unstable)] 
 #![feature(core_intrinsics)]
 #![feature(custom_attribute)] 
+#[allow(unused_attributes)]
+
 extern crate cfg_if;
 extern crate wasm_bindgen;
+extern crate fast_deque;
 
 extern crate cg;
 extern crate wcs;
@@ -12,11 +15,12 @@ extern crate wcs_macro;
 // #[macro_use]
 // extern crate lazy_static;
 
-pub mod components;
+pub mod component;
 pub mod system;
-pub mod yoga;
+pub mod layout;
 
 mod utils;
+pub mod test;
 
 use cfg_if::cfg_if;
 use wasm_bindgen::prelude::*;
