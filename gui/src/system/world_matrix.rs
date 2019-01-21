@@ -137,8 +137,7 @@ fn modify_matrix(node_point: &NodePoint, component_mgr: &mut GuiComponentMgr) {
 
     let mut child = {
         let mut node_ref = component_mgr.get_node_mut(node_point);
-        let mut world_matrix_ref = node_ref.get_world_matrix_mut();
-        world_matrix_ref.modify(|matrix: &mut Matrix4|{
+        node_ref.get_world_matrix_mut().modify(|matrix: &mut Matrix4|{
             matrix.x = world_matrix.x;
             matrix.y = world_matrix.y;
             matrix.z = world_matrix.z;
@@ -286,6 +285,7 @@ fn test_world_matrix(world: &mut World<GuiComponentMgr, ()>){
 
     println!("modify run-----------------------------------------");
     world.run(());
+    print_node(&world.component_mgr, &root);
     print_node(&world.component_mgr, &node1);
     print_node(&world.component_mgr, &node2);
     print_node(&world.component_mgr, &node3);
