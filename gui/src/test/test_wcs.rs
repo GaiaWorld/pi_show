@@ -1,5 +1,4 @@
 // //! Test suite for the Web and headless browsers.
-// extern crate wcs;
 
 // use std::rc::Rc;
 
@@ -9,7 +8,6 @@
 // use system::{layout::Layout, world_matrix::WorldMatrix, oct::Oct};
 // use layout::{Direction};
 // use component::math::{Aabb3, Point3};
-// // use alert;
 
 // pub fn create_world() -> World<GuiComponentMgr, ()> {
 //     let mut world: World<GuiComponentMgr, ()> = World::new();
@@ -69,6 +67,18 @@
 //     }
 
 //     world.run(());
+//     let mut s = "{".to_string();
+//     s = s + "node_group: " + format!("{:?}", world.component_mgr.node._group).as_str();
+//     s = s + "transform_group:" + format!("{:?}", world.component_mgr.node.transform._group).as_str();
+//     s = s + "size_group:" + format!("{:?}", world.component_mgr.node.size._group).as_str();
+//     s = s + "world_matrix_group:" + format!("{:?}", world.component_mgr.node.world_matrix._group).as_str();
+//     s = s + "}";
+
+//     //let arr = Array::new();
+//     //let js_value = format_args!("{}", s).to_string().into();
+//     //arr.push(&js_value);
+//     // log(&format_args!("{}", s).to_string());
+//     //console::log(&arr);
 //     world
 // }
 
