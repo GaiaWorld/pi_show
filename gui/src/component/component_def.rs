@@ -39,6 +39,8 @@
 // }
 
 use std::sync::Arc;
+use std::rc::{Rc, Weak};
+use std::cell::RefCell;
 use std::default::Default;
 use std::mem::uninitialized;
 use std::ptr::write;
@@ -46,10 +48,11 @@ use std::ops::{Deref, DerefMut};
 
 use cg::color::{Color};
 
-// use fast_deque::FastDeque;
-use wcs::component::{Event, ComponentGroup, Point, ComponentGroupTree, notify};
+use deque::deque::{Deque, Node as DeNode};
+use slab::{Slab};
+use wcs::component::{Event, ComponentGroup, Point, ComponentGroupTree, notify, ComponentHandler};
 use wcs::world::{ID, ComponentMgr};
-use layout::{YgNode};
+// use layout::{YgNode};
 
 use component::math::*;
 
@@ -116,46 +119,118 @@ pub struct Node{
     #[Must]
     pub world_matrix: Matrix4Point, //世界矩阵组件
     pub world_matrix_dirty: bool, //暂时将world_matrix的脏标志设置在node中
-    pub bound_box: usize, //包围盒组件
+    pub bound_box: usize, //包围盒组件在八叉树中的index
+    pub bound_box_data: Aabb3, //包围盒组件
     pub bound_box_dirty: bool, //暂时将bound_box的脏标志设置在node中
     pub object: Object,
-    pub yoga_node: YgNode,
+    // pub yoga_node: YgNode,
     pub layer: usize,
-    #[Ignore]
-    pub childs: Vec<NodePoint>,
+    pub childs: Deque<NodePoint, Slab<DeNode<NodePoint>>>,
+    pub qid: usize, //在父节点中的id，即在父节点的子容器中的key， 如果没有父节点， 该值为0
 }
 
-impl NodePoint {
-    pub fn create_child<M: ComponentMgr>(&mut self, index: usize, group: &mut NodeGroup<M>) -> NodePoint {
-        let node_point = NodePoint::create(group, &self);
-        let n_yoga = node_point.get_yoga_node(group).clone_node();
-        self.get_yoga_node_mut(group).insert_child(n_yoga, index);
-        node_point.set_layer(self.get_layer(group).clone(), group);
-        // group._group.notify(EventType::ModifyField(self.clone(), "childs"));
-        node_point
-    }
+// impl NodePoint {
+//     pub fn create_child<M: ComponentMgr>(&mut self, index: usize, group: &mut NodeGroup<M>) -> NodePoint {
+//         let node_point = NodePoint::create(group, &self);
+//         // let n_yoga = node_point.get_yoga_node(group).clone_node();
+//         // self.get_yoga_node_mut(group).insert_child(n_yoga, index);
+//         node_point.set_layer(self.get_layer(group).clone(), group);
+//         self.childs.push
+//         // group._group.notify(EventType::ModifyField(self.clone(), "childs"));
+//         node_point
+//     }
 
-    pub fn remove_child<M: ComponentMgr>(&mut self, point: &NodePoint, group: &mut NodeGroup<M>) -> Node {
-        let yoga_node = point.get_yoga_node(group).clone_node();
-        self.get_yoga_node_mut(group).remove_child_unfree(yoga_node);
-        point.clone().set_layer(0, group);
-        let node = group._group.remove(point);
-        //事件处理 TODO
-        node.owner
-    }
+//     pub fn remove_child<M: ComponentMgr>(&mut self, point: &NodePoint, group: &mut NodeGroup<M>) -> Node {
+//         // let yoga_node = point.get_yoga_node(group).clone_node();
+//         // self.get_yoga_node_mut(group).remove_child_unfree(yoga_node);
+//         point.clone().set_layer(0, group);
+//         let node = group._group.remove(point);
+//         //事件处理 TODO
+//         node.owner
+//     }
+// }
+
+pub trait Children {
+    fn create_child_back(&mut self) -> NodeWriteRef<GuiComponentMgr>;
+    fn create_child_front(&mut self) -> NodeWriteRef<GuiComponentMgr>;
+    fn create_child_to_back(&mut self, brother_pid: usize) -> NodeWriteRef<GuiComponentMgr>;
+    fn create_child_to_front(&mut self, brother_pid: usize) -> NodeWriteRef<GuiComponentMgr>;
+    fn remove_child(&mut self, pid: usize);
 }
 
 impl<'a, M: ComponentMgr> NodeWriteRef<'a, M> {
-    pub fn create_child(&mut self, index: usize) -> NodeWriteRef<M> {
-        NodeWriteRef{
-            point: self.point.create_child(index, unsafe{&mut *(self.groups as *mut NodeGroup<M>)}),
-            groups: self.groups.clone(),
-            mgr: &mut self.mgr
-        }
+    #[inline]
+    fn create_child(&mut self) -> NodeWriteRef<M> {
+        let layer = self.get_layer().clone();
+        let mut w_ref = NodeWriteRef::create(&self.point, self.groups, self.mgr);
+        w_ref.set_layer(layer + 1);
+        w_ref
     }
 
-    pub fn remove_child(&mut self, point: &NodePoint) -> Node {
-        self.point.remove_child(point, unsafe{&mut *(self.groups as *mut NodeGroup<M>)})
+    #[inline]
+    fn info(&self) -> (Rc<RefCell<Vec<Weak<ComponentHandler<NodePoint, M>>>>>, usize, NodePoint) {
+        let (handler, parent) = {
+            let group = NodeGroup::<M>::from_usize(self.groups);
+            group._group.get_handlers();
+            (group._group.get_handlers(), group._group.get(&self.point).parent)
+        };
+        (handler, parent, self.point.clone())
+    }
+}
+
+impl<'a> Children for NodeWriteRef<'a, GuiComponentMgr> {
+    fn create_child_back(&mut self) -> NodeWriteRef<GuiComponentMgr> {
+        let (handler, parent, point) = self.info();
+        let w_point = self.create_child().point;
+        let qid = self.point.get_childs_mut(NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)).push_back(w_point.clone(), &mut self.mgr.node_container);
+        w_point.set_qid(qid, NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)); //不会发出qid改变的监听， 应该通知？
+        notify(Event::ModifyField{point: point, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);
+        NodeWriteRef::new(w_point, self.groups, self.mgr)
+    }
+
+    fn create_child_front(&mut self) -> NodeWriteRef<GuiComponentMgr> {
+        let (handler, parent, point) = self.info();
+        let w_point = self.create_child().point;
+        let qid = self.point.get_childs_mut(NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)).push_front(w_point.clone(), &mut self.mgr.node_container);
+        w_point.set_qid(qid, NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)); //不会发出qid改变的监听， 应该通知？
+        notify(Event::ModifyField{point: point, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);
+        NodeWriteRef::new(w_point, self.groups, self.mgr)
+    }
+
+    fn create_child_to_back(&mut self, brother_pid: usize) -> NodeWriteRef<GuiComponentMgr> {
+        if !self.mgr.node_container.contains(brother_pid){
+            panic!("create_child_to_back fail!, node is not exist, qid:{}", brother_pid);
+        }
+
+        let (handler, parent, point) = self.info();
+        let w_point = self.create_child().point;
+        let qid = unsafe{self.point.get_childs_mut(NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)).push_to_back(w_point.clone(), brother_pid, &mut self.mgr.node_container)};
+        w_point.set_qid(qid, NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)); //不会发出qid改变的监听， 应该通知？
+        notify(Event::ModifyField{point: point, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);
+        NodeWriteRef::new(w_point, self.groups, self.mgr)
+    }
+
+    fn create_child_to_front(&mut self, brother_pid: usize) -> NodeWriteRef<GuiComponentMgr> {
+        if !self.mgr.node_container.contains(brother_pid){
+            panic!("create_child_to_front fail!, node is not exist, qid:{}", brother_pid);
+        }
+        let (handler, parent, point) = self.info();
+        let w_point = self.create_child().point;
+        let qid = unsafe{self.point.get_childs_mut(NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)).push_to_front(w_point.clone(), brother_pid, &mut self.mgr.node_container)};
+        w_point.set_qid(qid, NodeGroup::<GuiComponentMgr>::from_usize_mut(self.groups)); //不会发出qid改变的监听， 应该通知？
+        notify(Event::ModifyField{point: point, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);
+        NodeWriteRef::new(w_point, self.groups, self.mgr)
+    }
+
+    fn remove_child(&mut self, qid: usize) {
+        if !self.mgr.node_container.contains(qid){
+            panic!("remove_child fail!, node is not exist, qid:{}", qid);
+        }
+        let (handler, parent, point) = self.info();
+        let w_point = unsafe{&*(self as *mut NodeWriteRef<GuiComponentMgr>)}.get_childs_mut().remove(qid, &mut self.mgr.node_container);
+        notify(Event::ModifyField{point: point, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);
+        NodeWriteRef::new(w_point, self.groups, self.mgr).destroy();
+
     }
 }
 
@@ -367,6 +442,8 @@ impl Default for Object{
 
 world!(
     struct GuiComponentMgr{
-        node: Node
+        #[Component]
+        node: Node,
+        node_container: Slab<DeNode<NodePoint>>,
     }
 );

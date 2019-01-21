@@ -15,15 +15,14 @@
 // // use gui::system::world_matrix::WorldMatrix;
 // // use gui::system::layout::Layout;
 // // use gui::yoga::{Direction};
-// use gui::alert;
 
 // wasm_bindgen_test_configure!(run_in_browser);
 
-// #[wasm_bindgen_test]
-// pub fn test() {
-//     let world = create_world();
-    
-
-//     alert("ccccccccccccccccc");
-// }
+// // #[wasm_bindgen_test]
+// // pub fn test() {
+// //     //let world = create_world();
+// //     console_log!("xxx{}", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+// //     let world:  = World::new();
+// //     // alert("ccccccccccccccccc");
+// // }
 

@@ -72,23 +72,24 @@ wee_alloc = { version = "0.4.2", optional = true }
 
 wcs = { path = "f:\\awork\\rust\\pi_lib\\wcs" }
 wcs_macro = { path = "../../pi_lib/wcs_macro" }
-cg = { path = "../../pi_math/cg" }
-fast_deque = {path="../../pi_lib/fast_deque"}
+cg = { path = "f:\\awork\\rust\\pi_math\\cg" }
+deque = {path="f:\\awork\\rust\\pi_lib\\deque"}
+slab = {path="f:\\awork\\rust\\pi_lib\\slab"}
 
 # lazy_static = "*"
 
-[dependencies.web-sys]
-version = "0.3.4"
-features = [
-  'Document',
-  'Element',
-  'HtmlCanvasElement',
-  'WebGlBuffer',
-  'WebGlRenderingContext',
-  'WebGlProgram',
-  'WebGlShader',
-  'Window',
-]
+# [dependencies.web-sys]
+# version = "0.3.4"
+# features = [
+#   'Document',
+#   'Element',
+#   'HtmlCanvasElement',
+#   'WebGlBuffer',
+#   'WebGlRenderingContext',
+#   'WebGlProgram',
+#   'WebGlShader',
+#   'Window',
+# ]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.2"
