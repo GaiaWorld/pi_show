@@ -52,7 +52,6 @@ use deque::deque::{Deque, Node as DeNode};
 use slab::{Slab};
 use wcs::component::{Event, ComponentGroup, Point, ComponentGroupTree, notify, ComponentHandler};
 use wcs::world::{ID, ComponentMgr};
-// use layout::{YgNode};
 
 use component::math::*;
 
@@ -125,32 +124,10 @@ pub struct Node{
     pub bound_box_data: Aabb3Point, //包围盒组件
     pub bound_box_dirty: bool, //暂时将bound_box的脏标志设置在node中
     pub object: Object,
-    // pub yoga_node: YgNode,
     pub layer: usize,
     pub childs: Deque<NodePoint, Slab<DeNode<NodePoint>>>,
     pub qid: usize, //在父节点中的id，即在父节点的子容器中的key， 如果没有父节点， 该值为0
 }
-
-// impl NodePoint {
-//     pub fn create_child<M: ComponentMgr>(&mut self, index: usize, group: &mut NodeGroup<M>) -> NodePoint {
-//         let node_point = NodePoint::create(group, &self);
-//         // let n_yoga = node_point.get_yoga_node(group).clone_node();
-//         // self.get_yoga_node_mut(group).insert_child(n_yoga, index);
-//         node_point.set_layer(self.get_layer(group).clone(), group);
-//         self.childs.push
-//         // group._group.notify(EventType::ModifyField(self.clone(), "childs"));
-//         node_point
-//     }
-
-//     pub fn remove_child<M: ComponentMgr>(&mut self, point: &NodePoint, group: &mut NodeGroup<M>) -> Node {
-//         // let yoga_node = point.get_yoga_node(group).clone_node();
-//         // self.get_yoga_node_mut(group).remove_child_unfree(yoga_node);
-//         point.clone().set_layer(0, group);
-//         let node = group._group.remove(point);
-//         //事件处理 TODO
-//         node.owner
-//     }
-// }
 
 pub trait Children {
     fn create_child_back(&mut self) -> NodeWriteRef<GuiComponentMgr>;
