@@ -119,7 +119,8 @@ pub struct Node{
     #[Must]
     pub world_matrix: Matrix4Point, //世界矩阵组件
     pub world_matrix_dirty: bool, //暂时将world_matrix的脏标志设置在node中
-    pub bound_box: usize, //包围盒组件
+    pub bound_box: usize, //包围盒组件在八叉树中的index
+    pub bound_box_data: Aabb3, //包围盒组件
     pub bound_box_dirty: bool, //暂时将bound_box的脏标志设置在node中
     pub object: Object,
     // pub yoga_node: YgNode,

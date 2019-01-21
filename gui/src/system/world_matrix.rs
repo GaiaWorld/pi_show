@@ -158,7 +158,6 @@ fn modify_matrix(node_point: &NodePoint, component_mgr: &mut GuiComponentMgr) {
             child = v.next;
             v.elem.clone()
         };
-        // println!("node_point-----------------------{:?}", node_point);
         modify_matrix(&node_point, component_mgr);
     }
 }
@@ -175,7 +174,11 @@ fn test(){
     let mut world: World<GuiComponentMgr, ()> = World::new();
     let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![WorldMatrix::init(&mut world.component_mgr)];
     world.set_systems(systems);
+    test_world_matrix(&mut world);
+}
 
+#[cfg(test)]
+fn test_world_matrix(world: &mut World<GuiComponentMgr, ()>){
     let (root, node1, node2, node3, node4, node5) = {
         let component_mgr = &mut world.component_mgr;
         {
@@ -288,22 +291,6 @@ fn test(){
     print_node(&world.component_mgr, &node3);
     print_node(&world.component_mgr, &node4);
     print_node(&world.component_mgr, &node5);
-
-    // root.remove_child
-
-    // let mut s = "{".to_string();
-    // s = s + "node_group: " + format!("{:?}", world.component_mgr.node._group).as_str();
-    // s = s + "transform_group:" + format!("{:?}", world.component_mgr.node.transform._group).as_str();
-    // s = s + "size_group:" + format!("{:?}", world.component_mgr.node.size._group).as_str();
-    // s = s + "world_matrix_group:" + format!("{:?}", world.component_mgr.node.world_matrix._group).as_str();
-    // s = s + "}";
-
-    // //let arr = Array::new();
-    // //let js_value = format_args!("{}", s).to_string().into();
-    // //arr.push(&js_value);
-    // // log(&format_args!("{}", s).to_string());
-    // //console::log(&arr);
-    // world
 }
 
 #[cfg(test)]
@@ -314,7 +301,3 @@ fn print_node(mgr: &GuiComponentMgr, id: &usize) {
 
     println!("nodeid: {}, transform:{:?}, world_matrix: {:?}, matrix_dirty: {}", id, transform, matrix, node.world_matrix_dirty);
 }
-
-
-
-
