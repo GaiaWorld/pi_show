@@ -141,8 +141,12 @@ impl<'a, M: ComponentMgr> NodeWriteRef<'a, M> {
     #[inline]
     fn create_child(&mut self) -> NodeWriteRef<M> {
         let layer = self.get_layer().clone();
-        let mut w_ref = NodeWriteRef::create(&self.point, self.groups, self.mgr);
-        w_ref.set_layer(layer + 1);
+        let groups = NodeGroup::<M>::from_usize_mut(self.groups);
+        let point = NodePoint::create(groups, &self.point);
+        point.set_layer(layer + 1, groups);
+
+        let mut w_ref = NodeWriteRef::new(point, self.groups, self.mgr);
+        w_ref.recursive_create_notify();
         w_ref
     }
 
