@@ -88,6 +88,14 @@ pub struct Transform {
     pub dirty: bool,
 }
 
+#[derive(Debug, Clone, Copy, Component)]
+pub struct ZIndex {
+    pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0
+    pub order: usize, // 当前的排序位置
+    pub min_z: usize, // 节点的最小z值，也是节点自身的z值
+    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样
+}
+
 #[derive(Component, Default, Debug, Clone)]
 pub struct Text{
     pub text: String,
@@ -127,6 +135,14 @@ pub struct Node{
     pub layer: usize,
     pub childs: Deque<NodePoint, Slab<DeNode<NodePoint>>>,
     pub qid: usize, //在父节点中的id，即在父节点的子容器中的key， 如果没有父节点， 该值为0
+
+    #[Component]
+    #[Must]
+    pub zindex: ZIndexPoint,
+    pub z_dirty: bool, // 子节点设zindex时，将不是auto的父节点设脏
+    pub z_index: isize,
+
+    pub count: usize,
 }
 
 pub trait Children {

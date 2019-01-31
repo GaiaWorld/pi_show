@@ -9,3 +9,4 @@ wcs_macro = { path = "../../pi_lib/wcs_macro" }
 cg = { path = "../../pi_math/cg" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
+heap = {path="../../pi_lib/heap"}
