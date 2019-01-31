@@ -14,23 +14,7 @@ impl WorldMatrix {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<WorldMatrix>{
         let system = Rc::new(WorldMatrix(RefCell::new(WorldMatrixImpl::new())));
         component_mgr.node.transform._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<TransformPoint, GuiComponentMgr>>)));
-        component_mgr.node._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<NodePoint, GuiComponentMgr>>)));
         system
-    }
-}
-
-impl ComponentHandler<NodePoint, GuiComponentMgr> for WorldMatrix{
-    fn handle(&self, event: &Event<NodePoint>, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::ModifyField{point, parent: _, field} => {
-                if field != &"layer"{
-                    return;
-                }
-                 println!("ModifyField layer-----------------------");
-                self.0.borrow_mut().marked_dirty(point.0.clone(), component_mgr);
-            },
-            _ => ()
-        }
     }
 }
 
@@ -41,14 +25,13 @@ impl ComponentHandler<TransformPoint, GuiComponentMgr> for WorldMatrix{
                 println!("ModifyField TransformPoint-----------------------");
                 self.0.borrow_mut().marked_dirty(parent.clone(), component_mgr);
             },
-            //不监听创建， 该系统以来layer， 创建Transform可能还没有初始化layer
-            // Event::Create{point: _, parent} => {
-            //     println!("Create TransformPoint-----------------------");
-            //     self.0.borrow_mut().marked_dirty(parent.clone(), component_mgr);
-            // },
-            Event::Delete{point, parent: _} => {
+            Event::Create{point: _, parent} => {
+                println!("Create TransformPoint-----------------------");
+                self.0.borrow_mut().marked_dirty(parent.clone(), component_mgr);
+            },
+            Event::Delete{point: _, parent} => {
                 println!("Delete TransformPoint-----------------------");
-                self.0.borrow_mut().delete_dirty(&point);
+                self.0.borrow_mut().delete_dirty(parent.clone(), component_mgr);
             },
             _ => ()
         }
@@ -92,26 +75,25 @@ impl WorldMatrixImpl {
                 return;
             }
             node.world_matrix_dirty = true;
-            if node.layer == 0 {
-                return;
-            }
             node.layer
         };
 
-        if self.dirtys.len() < layer{
-            for _i in 0..layer - self.dirtys.len(){
+        if self.dirtys.len() <= layer{
+            for _i in 0..(layer + 1 - self.dirtys.len()){
                 self.dirtys.push(Vec::new());
             }
         }
-        self.dirtys[layer - 1].push(NodePoint(node_index));
+        self.dirtys[layer].push(NodePoint(node_index));
     }
 
-    pub fn delete_dirty(&mut self, transfrom: &TransformPoint){
-        for i in 0..self.dirtys.len(){
-            for j in 0..self.dirtys[i].len(){
-                if self.dirtys[i][j].0 == transfrom.0{
-                    self.dirtys[i].remove(j);
-                    return;
+    pub fn delete_dirty(&mut self, node_index: usize, mgr: &mut GuiComponentMgr){
+        if mgr.node._group.get_mut(&node_index).world_matrix_dirty == true {
+            for i in 0..self.dirtys.len() {
+                for j in 0..self.dirtys[i].len() {
+                    if self.dirtys[i][j].0 == node_index {
+                        self.dirtys[i].swap_remove(j);
+                        return;
+                    }
                 }
             }
         }

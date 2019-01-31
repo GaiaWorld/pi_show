@@ -31,7 +31,7 @@ impl ComponentHandler<SizePoint, GuiComponentMgr> for Oct{
             Event::Delete{point:_, parent} => {
                 let node = NodePoint(parent.clone());
                 self.0.borrow_mut().remove_aabb(&node, component_mgr);
-                self.0.borrow_mut().delete_dirty(&node);
+                self.0.borrow_mut().delete_dirty(&node, component_mgr);
             },
             Event::ModifyField{point:_, parent, field: _} => {
                 self.0.borrow_mut().marked_dirty(&NodePoint(parent.clone()), component_mgr);
@@ -110,13 +110,16 @@ impl OctImpl {
         self.dirtys.push(node_point.clone());
     }
 
-    pub fn delete_dirty(&mut self, node: &NodePoint){
-        for i in 0..self.dirtys.len(){
-            if self.dirtys[i].0 == node.0{
-                self.dirtys.remove(i);
-                return;
+    pub fn delete_dirty(&mut self, node: &NodePoint, mgr: &mut GuiComponentMgr){
+        if mgr.node._group.get_mut(&node).bound_box_dirty == true {
+            for i in 0..self.dirtys.len(){
+                if self.dirtys[i].0 == node.0{
+                    self.dirtys.swap_remove(i);
+                    return;
+                }
             }
-        }
+        }   
+        
     }
 
     pub fn add_aabb(&mut self, node_point: &NodePoint, mgr: &mut GuiComponentMgr){
