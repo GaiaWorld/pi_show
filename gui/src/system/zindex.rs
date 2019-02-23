@@ -6,7 +6,7 @@ use wcs::component::{ComponentHandler, Event};
 use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
 
-use component::component_def::{GuiComponentMgr, Node, NodePoint, ZIndex, ZIndexPoint};
+use component::component_def::{GuiComponentMgr, Node, ZIndex};
 
 pub struct ZIndexS(RefCell<ZIndexImpl>);
 
@@ -14,30 +14,30 @@ impl ZIndexS {
   pub fn init(mgr: &mut GuiComponentMgr) -> Rc<ZIndexS> {
     let rc = Rc::new(ZIndexS(RefCell::new(ZIndexImpl::new())));
     mgr.node.zindex._group.register_handler(Rc::downgrade(
-      &(rc.clone() as Rc<ComponentHandler<ZIndexPoint, GuiComponentMgr>>),
+      &(rc.clone() as Rc<ComponentHandler<ZIndex, GuiComponentMgr>>),
     ));
     rc
   }
 }
 
-impl ComponentHandler<ZIndexPoint, GuiComponentMgr> for ZIndexS {
-  fn handle(&self, event: &Event<ZIndexPoint>, mgr: &mut GuiComponentMgr) {
+impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexS {
+  fn handle(&self, event: &Event, mgr: &mut GuiComponentMgr) {
     match event {
-      Event::Create { point: _, parent } => {
+      Event::Create { id: _, parent } => {
         self.0.borrow_mut().set_dirty(*parent, mgr);
       }
-      Event::Delete { point: _, parent } => {
+      Event::Delete { id: _, parent } => {
         self.0.borrow_mut().delete_dirty(*parent, mgr);
       }
       Event::ModifyField {
-        point,
+        id,
         parent,
         field: _,
       } => {
-        let zi = mgr.node.zindex._group.get_mut(&point);
+        let zi = mgr.node.zindex._group.get_mut(*id);
         let z = zi.zindex;
         // 更新z_auto
-        let node = mgr.node._group.get_mut(parent);
+        let node = mgr.node._group.get_mut(*parent);
         if z == node.z_index {
           return;
         }
@@ -69,7 +69,7 @@ const AUTO: isize = -1;
 struct ZSort (isize, usize, usize); // (zindex, index, node_id)
 
 struct ZIndexImpl {
-  dirty: (Vec<Vec<NodePoint>>, usize, usize), // 脏节点, 及脏节点数量，及脏节点的起始层
+  dirty: (Vec<Vec<usize>>, usize, usize), // 脏节点, 及脏节点数量，及脏节点的起始层
   // 计算z排序时使用的临时数据结构
   node_heap: SimpleHeap<ZSort>,
   negative_heap: SimpleHeap<ZSort>,
@@ -88,7 +88,7 @@ impl ZIndexImpl {
     }
   }
   // 标记指定节点的脏
-  fn marked_dirty(&mut self, node_index: usize, layer: usize) {
+  fn marked_dirty(&mut self, node_id: usize, layer: usize) {
     self.dirty.1 += 1;
     if self.dirty.2 > layer {
       self.dirty.2 = layer;
@@ -99,29 +99,29 @@ impl ZIndexImpl {
       }
     }
     let vec = unsafe { self.dirty.0.get_unchecked_mut(layer) };
-    vec.push(NodePoint(node_index));
+    vec.push(node_id);
   }
   // 设置节点对应堆叠上下文的节点脏
-  fn set_dirty(&mut self, mut node_index: usize, mgr: &mut GuiComponentMgr) {
-    while node_index > 0 {
-      let node = mgr.node._group.get_mut(&node_index);
+  fn set_dirty(&mut self, mut node_id: usize, mgr: &mut GuiComponentMgr) {
+    while node_id > 0 {
+      let node = mgr.node._group.get_mut(node_id);
       // 如果为z为auto，则向上找zindex不为auto的节点，zindex不为auto的节点有堆叠上下文
       if node.z_index != AUTO {
         if !node.z_dirty {
           node.z_dirty = true;
-          self.marked_dirty(node_index, node.layer);
+          self.marked_dirty(node_id, node.layer);
         }
         return;
       }
-      node_index = node.parent;
+      node_id = node.parent;
     }
   }
-  fn delete_dirty(&mut self, node_index: usize, mgr: &mut GuiComponentMgr) {
-    let node = mgr.node._group.get_mut(&node_index);
+  fn delete_dirty(&mut self, node_id: usize, mgr: &mut GuiComponentMgr) {
+    let node = mgr.node._group.get_mut(node_id);
     if node.z_dirty {
       let vec = unsafe { self.dirty.0.get_unchecked_mut(node.layer) };
       for i in 0..vec.len() {
-        if vec[i].0 == node_index {
+        if vec[i] == node_id {
           vec.swap_remove(i);
           self.dirty.1 -= 1;
           break;
@@ -144,7 +144,7 @@ impl ZIndexImpl {
       }
       for j in 0..c {
         let np = unsafe { vec.get_unchecked(j) };
-        let node = mgr.node._group.get_mut(np);
+        let node = mgr.node._group.get_mut(*np);
         if !node.z_dirty {
           continue;
         }
@@ -152,24 +152,24 @@ impl ZIndexImpl {
         if node.z_index == AUTO {
           continue;
         }
-        let zi = mgr.node.zindex._group.get_mut(&node.zindex);
+        let zi = mgr.node.zindex._group.get_mut(node.zindex);
         if node.count >= zi.max_z - zi.min_z {
           // 如果z范围超过自身全部子节点及其下子节点数量，则向上调整以获得足够的z范围
 
         }
-        /// zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
+        // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
         let mut i = 0;
         for r in node.childs.iter(&mut mgr.node_container) {
-          let n = mgr.node._group.get_mut(&i);
+          let n = mgr.node._group.get_mut(i);
           if n.z_index == 0 {
-            self.z_zero.push(r.0);
+            self.z_zero.push(*r);
           }else if n.z_index == -1 {
-            self.z_auto.push(r.0);
+            self.z_auto.push(*r);
             // TODO 继续递归其子节点
           }else if n.z_index > 0 {
-            self.node_heap.push(ZSort(n.z_index, i, r.0));
+            self.node_heap.push(ZSort(n.z_index, i, *r));
           }else{
-            self.negative_heap.push(ZSort(-1, i, r.0));
+            self.negative_heap.push(ZSort(-1, i, *r));
           }
           i+=1;
         }

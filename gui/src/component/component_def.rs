@@ -89,6 +89,15 @@ pub struct Node{
     pub bound_box: usize, //包围盒组件
     pub bound_box_dirty: bool, //暂时将bound_box的脏标志设置在node中
 
+    #[Component(ZIndex)]
+    #[Builder(Build(Default))]
+	pub zindex: usize, //zindex组件
+	pub z_dirty: bool, // 子节点设zindex时，将不是auto的父节点设脏
+	pub z_index: isize,
+
+    //记录所有子节点及递归包含的子节点的数量
+	pub count: usize,
+
     #[ignore]
     pub layer: usize,
     #[ignore]
@@ -128,6 +137,13 @@ impl Default for RectSize {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, Component)]
+pub struct ZIndex {
+    pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0
+    pub order: usize, // 当前的排序位置
+    pub min_z: usize, // 节点的最小z值，也是节点自身的z值
+    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样
+}
 
 #[derive(Debug, Component, Default)]
 pub struct Border{

@@ -8,7 +8,6 @@ extern crate deque;
 extern crate cg;
 extern crate wcs;
 extern crate slab;
-extern crate heap;
 #[macro_use]
 extern crate wcs_macro;
 #[macro_use]
