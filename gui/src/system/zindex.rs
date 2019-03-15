@@ -1,3 +1,8 @@
+//zindex系统
+// zindex的min max, 设计分配如下： 如果父容器为 0 100.
+//  子节点为1个的话：1 100. 为2个的话： 1 51, 51 100. 为3个的话： 1 34, 34 67, 67 100.
+
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::cmp::{Ordering};
@@ -45,7 +50,7 @@ impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexS {
         node.z_index = z;
         let mut zimpl = self.0.borrow_mut();
         if old == AUTO && !node.z_dirty {
-          // 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏
+          // 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。 ？？ 好像也不需要
           node.z_dirty = true;
           zimpl.marked_dirty(*parent, node.layer);
         }
@@ -66,14 +71,14 @@ impl System<(), GuiComponentMgr> for ZIndexS {
 const AUTO: isize = -1;
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-struct ZSort (isize, usize, usize); // (zindex, index, node_id)
+struct ZSort (isize, usize, usize, usize); // (zindex, index, node_id, children_count)
 
 struct ZIndexImpl {
   dirty: (Vec<Vec<usize>>, usize, usize), // 脏节点, 及脏节点数量，及脏节点的起始层
   // 计算z排序时使用的临时数据结构
   node_heap: SimpleHeap<ZSort>,
   negative_heap: SimpleHeap<ZSort>,
-  z_zero: Vec<usize>,
+  z_zero: Vec<ZSort>,
   z_auto: Vec<usize>,
 }
 
@@ -81,8 +86,8 @@ impl ZIndexImpl {
   fn new() -> ZIndexImpl {
     ZIndexImpl {
       dirty: (Vec::new(), 0, usize::max_value()),
-      node_heap: SimpleHeap::new(Ordering::Greater),
-      negative_heap: SimpleHeap::new(Ordering::Greater),
+      node_heap: SimpleHeap::new(Ordering::Less),
+      negative_heap: SimpleHeap::new(Ordering::Less),
       z_zero: Vec::new(),
       z_auto: Vec::new(),
     }
@@ -128,7 +133,8 @@ impl ZIndexImpl {
         }
       }
     }
-    self.set_dirty(node.parent, mgr);
+    // 删除无需设脏，z值可以继续使用
+    //self.set_dirty(node.parent, mgr);
   }
   // 整理方法
   fn cal_z(&mut self, mgr: &mut GuiComponentMgr) {
@@ -149,7 +155,7 @@ impl ZIndexImpl {
           continue;
         }
         node.z_dirty = false;
-        if node.z_index == AUTO {
+        if node.z_index == AUTO || node.count === 0 {
           continue;
         }
         let zi = mgr.node.zindex._group.get_mut(node.zindex);
@@ -158,26 +164,36 @@ impl ZIndexImpl {
 
         }
         // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
-        let mut i = 0;
+        let mut order = 0;
+        let mut children_count = 0;
         for r in node.childs.iter(&mut mgr.node_container) {
-          let n = mgr.node._group.get_mut(i);
+          let n = mgr.node._group.get_mut(r);
           if n.z_index == 0 {
-            self.z_zero.push(*r);
+            self.z_zero.push(ZSort(n.z_index, order, *r, n.count));
           }else if n.z_index == -1 {
             self.z_auto.push(*r);
             // TODO 继续递归其子节点
+            continue;
           }else if n.z_index > 0 {
-            self.node_heap.push(ZSort(n.z_index, i, *r));
+            self.node_heap.push(ZSort(n.z_index, order, *r, n.count));
           }else{
-            self.negative_heap.push(ZSort(-1, i, *r));
+            self.negative_heap.push(ZSort(n.z_index-1, order, *r, n.count));
           }
-          i+=1;
+          children_count += n.count + 1;
+          order+=1;
         }
-        //let split = (zi.max_z - zi.min_z) / (self.node_heap.len() + self.node_heap.len() + 1);
-        // 分为3种情况。1 只有zindex>=0的，0的范围为{min_z + 1, order}。 2 zindex有-1, 3 zindex < -1.
+        let split = if children_count > 0 {
+          (zi.max_z - zi.min_z - 1 - self.z_auto.len()) / children_count
+        }else{
+          1
+        };
+        let start = zi.min_z + 1;
+        while self.negative_heap.len() > 0 {
+
+        }
         // zindex为-1（代表auto）的z范围仅min_z有效，max_z为min_z。
         // 如果子节点的z范围变大，则可以不继续处理该子节点。z范围变小或相交，则重新排列一次，因为记录了order，成本也很低。
-        // collect(
+        self.adjust(mgr, );
         //   &mut self.oct_slab,
         //   &mut self.ab_slab,
         //   &self.adjust,
@@ -194,4 +210,38 @@ impl ZIndexImpl {
     self.dirty.1 = 0;
     self.dirty.2 = usize::max_value();
   }
+  // 整理方法，。z范围变小或相交，则重新扫描一次，因为记录了order，可以根据order和rate重新计算min max，成本也很低。
+  fn adjust(&mut self, mgr: &mut GuiComponentMgr, node_id: usize, min_z: usize, max_z: usize) {
+    let node = mgr.node._group.get_mut(node_id);
+    let (rate, old_min) = {
+      let zi = mgr.node.zindex._group.get_mut(node.zindex);
+      if !node.z_dirty {
+        // 如果节点脏，则设置最大最小z值后跳过
+        zi.max_z = max_z;
+        zi.min_z = min_z;
+        return;
+      }
+      let old_max_z = zi.max_z;
+      let old_min_z = zi.min_z;
+      if max_z >= old_max_z && min_z <= old_min_z {
+        // 如果子节点的z范围变大，则可以不继续处理该子节点，为了一致性，也不更新最大最小z值
+        return;
+      }
+      zi.max_z = max_z;
+      zi.min_z = min_z;
+      ((max_z - min_z - 1) as f32 / (old_max_z - old_min_z - 1), old_min_z + 1)
+    }
+    for r in node.childs.iter(&mut mgr.node_container) {
+      let n = mgr.node._group.get_mut(r);
+      let zi = mgr.node.zindex._group.get_mut(node.zindex);
+      zi.max_z = ((zi.max_z - old_min) * rate) as usize + min_z + 1;
+      zi.min_z = ((zi.min_z - old_min) * rate) as usize + min_z + 1;
+      if n.z_index == -1 {
+
+        // TODO 继续递归其子节点
+        continue;
+      }
+    }
+  }
 }
+

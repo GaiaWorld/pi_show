@@ -142,7 +142,7 @@ pub struct ZIndex {
     pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0
     pub order: usize, // 当前的排序位置
     pub min_z: usize, // 节点的最小z值，也是节点自身的z值
-    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样
+    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样。
 }
 
 #[derive(Debug, Component, Default)]
