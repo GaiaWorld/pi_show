@@ -9,7 +9,11 @@ use fnv::FnvHashMap;
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 
-use component::component_def::{GuiComponentMgr, SdfStyle, Border, RectElem, Rect, ElementId, CircleElem };
+use component::style::border::Border;
+use component::style::element::{Rect, ElementId};
+use component::style::color::{ColorId};
+use component::math::{Color as CgColor};
+use world::{GuiComponentMgr};
 use component::math::{ Aabb3 };
 use render::vector_sdf::Index;
 
@@ -18,18 +22,13 @@ pub struct Sdf(RefCell<SdfRenderImpl>);
 impl Sdf {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<Sdf>{
         let system = Rc::new(Sdf(RefCell::new(SdfRenderImpl::new())));
-        component_mgr.node.element.rect._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<RectElem, GuiComponentMgr>>)));
-        component_mgr.node.element.rect.shape._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Rect, GuiComponentMgr>>)));
-        component_mgr.node.bound_box._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Aabb3, GuiComponentMgr>>)));
+        component_mgr.node.element.rect._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Rect, GuiComponentMgr>>)));
         component_mgr.node.border._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Border, GuiComponentMgr>>)));
-        component_mgr.node.element.rect.style._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<SdfStyle, GuiComponentMgr>>)));
-        component_mgr.node.element.circle.style._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<SdfStyle, GuiComponentMgr>>)));
-        component_mgr.node.element.circle._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<CircleElem, GuiComponentMgr>>)));
         system
     }
 }
 
-impl ComponentHandler<RectElem, GuiComponentMgr> for Sdf{
+impl ComponentHandler<Rect, GuiComponentMgr> for Sdf{
     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
         match event {
             Event::Create{id: _, parent} => {
@@ -41,27 +40,28 @@ impl ComponentHandler<RectElem, GuiComponentMgr> for Sdf{
                 let mut s = self.0.borrow_mut();
                 s.free_from_sdf(*parent, component_mgr)
             },
+            Event::ModifyField{id: _, parent, field: _} => self.0.borrow_mut().marked_style_dirty(*parent),
             _ => ()
         }
     }
 }
 
-impl ComponentHandler<CircleElem, GuiComponentMgr> for Sdf{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id: _, parent} => {
-                console::log_2(&("CircleElem create".into()), &(parent.to_string().into()));
-                let mut s = self.0.borrow_mut();
-                s.alloc_from_sdf(*parent, component_mgr)
-            },
-            Event::Delete{id: _, parent} => {
-                let mut s = self.0.borrow_mut();
-                s.free_from_sdf(*parent, component_mgr)
-            },
-            _ => ()
-        }
-    }
-}
+// impl ComponentHandler<CircleElem, GuiComponentMgr> for Sdf{
+//     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
+//         match event {
+//             Event::Create{id: _, parent} => {
+//                 console::log_2(&("CircleElem create".into()), &(parent.to_string().into()));
+//                 let mut s = self.0.borrow_mut();
+//                 s.alloc_from_sdf(*parent, component_mgr)
+//             },
+//             Event::Delete{id: _, parent} => {
+//                 let mut s = self.0.borrow_mut();
+//                 s.free_from_sdf(*parent, component_mgr)
+//             },
+//             _ => ()
+//         }
+//     }
+// }
 
 impl ComponentHandler<Aabb3, GuiComponentMgr> for Sdf{
     fn handle(&self, event: &Event, _component_mgr: &mut GuiComponentMgr){
@@ -74,20 +74,20 @@ impl ComponentHandler<Aabb3, GuiComponentMgr> for Sdf{
     }
 }
 
-impl ComponentHandler<Rect, GuiComponentMgr> for Sdf{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            //此处只监听了Rect的radius字段的改变， Rect的其他字段对渲染没有意义， 最终的各点坐标还与布局有关（布局影响的包围盒）， 
-            Event::ModifyField{id: _, parent, field} => {
-                if *field == "radius" {
-                    let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
-                    self.0.borrow_mut().marked_shape_dirty(parent)
-                }
-            },
-            _ => ()
-        }
-    }
-}
+// impl ComponentHandler<Rect, GuiComponentMgr> for Sdf{
+//     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
+//         match event {
+//             //此处只监听了Rect的radius字段的改变， Rect的其他字段对渲染没有意义， 最终的各点坐标还与布局有关（布局影响的包围盒）， 
+//             Event::ModifyField{id: _, parent, field} => {
+//                 if *field == "radius" {
+//                     let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
+//                     self.0.borrow_mut().marked_shape_dirty(parent)
+//                 }
+//             },
+//             _ => ()
+//         }
+//     }
+// }
 
 // impl ComponentHandler<Circle, GuiComponentMgr> for Sdf{
 //     fn handle(&self, event: &Event, _component_mgr: &mut GuiComponentMgr){
@@ -114,16 +114,16 @@ impl ComponentHandler<Border, GuiComponentMgr> for Sdf{
     }
 }
 
-impl ComponentHandler<SdfStyle, GuiComponentMgr> for Sdf{
-    fn handle(&self, event: &Event, _component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id: _, parent} => self.0.borrow_mut().marked_style_dirty(*parent),
-            Event::ModifyField{id: _, parent, field: _} => self.0.borrow_mut().marked_style_dirty(*parent),
-            Event::Delete{id: _, parent} => self.0.borrow_mut().marked_style_dirty(*parent),
-            _ => ()
-        }
-    }
-}
+// impl ComponentHandler<SdfStyle, GuiComponentMgr> for Sdf{
+//     fn handle(&self, event: &Event, _component_mgr: &mut GuiComponentMgr){
+//         match event {
+//             Event::Create{id: _, parent} => self.0.borrow_mut().marked_style_dirty(*parent),
+//             Event::ModifyField{id: _, parent, field: _} => self.0.borrow_mut().marked_style_dirty(*parent),
+//             Event::Delete{id: _, parent} => self.0.borrow_mut().marked_style_dirty(*parent),
+//             _ => ()
+//         }
+//     }
+// }
 
 
 impl System<(), GuiComponentMgr> for Sdf{
@@ -137,16 +137,16 @@ impl System<(), GuiComponentMgr> for Sdf{
             let bound_box = component_mgr.node.bound_box._group.get(node.bound_box);
             match node.element {
                 ElementId::Rect(rect_elem_id) => {
-                    let shape_id = component_mgr.node.element.rect._group.get(rect_elem_id).shape;
-                    let radius = component_mgr.node.element.rect.shape._group.get(shape_id).radius;
+                    let rect = component_mgr.node.element.rect._group.get(rect_elem_id);
+                    let radius = rect.radius;
                     unsafe {component_mgr.opaque_vector.update_rect(bound_box.min.x, bound_box.min.y, bound_box.max.x, bound_box.max.y, bound_box.min.z, radius, &index.index)};
                 },
-                ElementId::Circle(_) => {
-                    let radius = (bound_box.max.x - bound_box.min.x)/2.0;
-                    let center = (bound_box.min.x + radius, bound_box.min.y + radius);
-                    console::log_3(&("Circle index".into()), &(index.index.tex.to_string().into()), &(index.index.attribute.to_string().into()));
-                    unsafe {component_mgr.opaque_vector.update_circle(center, radius, bound_box.min.z, &index.index) };
-                },
+                // ElementId::Circle(_) => {
+                //     let radius = (bound_box.max.x - bound_box.min.x)/2.0;
+                //     let center = (bound_box.min.x + radius, bound_box.min.y + radius);
+                //     console::log_3(&("Circle index".into()), &(index.index.tex.to_string().into()), &(index.index.attribute.to_string().into()));
+                //     unsafe {component_mgr.opaque_vector.update_circle(center, radius, bound_box.min.z, &index.index) };
+                // },
                 _ => {}
             }
 
@@ -159,15 +159,24 @@ impl System<(), GuiComponentMgr> for Sdf{
             let border = component_mgr.node.border._group.get(node.border).value;
             match node.element {
                 ElementId::Rect(rect_elem_id) => {
-                    let style_id = component_mgr.node.element.rect._group.get(rect_elem_id).style;
-                    let style = component_mgr.node.element.rect.style._group.get(style_id);
-                    unsafe {component_mgr.opaque_vector.update_style(border, &style.color, index.index.tex) };
+                    let rect = component_mgr.node.element.rect._group.get(rect_elem_id);
+                    match rect.color {
+                        ColorId::RGB(ref c) => {
+                            unsafe {component_mgr.opaque_vector.update_style(border, component_mgr.node.element.rect.color.rgb._group.get(*c), index.index.tex) };
+                        },
+                        ColorId::RGBA(ref c) => {
+                            unsafe {component_mgr.opaque_vector.update_style(border, component_mgr.node.element.rect.color.rgb._group.get(*c), index.index.tex) };
+                        },
+                        _ => {
+                            unsafe {component_mgr.opaque_vector.update_style(border, &CgColor::default(), index.index.tex) };
+                        }
+                    };
                 },
-                ElementId::Circle(circle_elem_id) => {
-                    let style_id = component_mgr.node.element.circle._group.get(circle_elem_id).style;
-                    let style = component_mgr.node.element.circle.style._group.get(style_id);
-                    unsafe {component_mgr.opaque_vector.update_style(border, &style.color, index.index.tex) };
-                },
+                // ElementId::Circle(circle_elem_id) => {
+                //     let style_id = component_mgr.node.element.circle._group.get(circle_elem_id).style;
+                //     let style = component_mgr.node.element.circle.style._group.get(style_id);
+                //     unsafe {component_mgr.opaque_vector.update_style(border, &style.color, index.index.tex) };
+                // },
                 _ => {}
             }
         }

@@ -6,9 +6,11 @@ use web_sys::*;
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 
-use component::component_def::{ GuiComponentMgr, RectSize, Border, Node, Rect, Circle};
+use component::style::border::Border;
+use component::node::{Node, RectSize};
+use world::GuiComponentMgr;
 use component::math::{ Vector3 };
-use layout::{Edge, YgNode};
+use layout::{Edge, YgNodeP};
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -16,8 +18,8 @@ impl Layout {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<Layout>{
         let system = Rc::new(Layout(RefCell::new(LayoutImpl::new())));
         component_mgr.node._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, GuiComponentMgr>>)));
-        component_mgr.node.element.rect.shape._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Rect, GuiComponentMgr>>)));
-        component_mgr.node.element.circle.shape._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Circle, GuiComponentMgr>>)));
+        // component_mgr.node.style.rect.shape._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Rect, GuiComponentMgr>>)));
+        // component_mgr.node.element.circle.shape._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Circle, GuiComponentMgr>>)));
         system
     }
 }
@@ -42,67 +44,67 @@ impl ComponentHandler<Node, GuiComponentMgr> for Layout{
     }
 }
 
-impl ComponentHandler<Rect, GuiComponentMgr> for Layout{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id, parent} => {
-                let Rect{left_top, width, height, radius: _ } = component_mgr.node.element.rect.shape._group.get_mut(*id).owner;
-                let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
-                let node = component_mgr.node._group.get_mut(parent);
-                node.yoga_node.set_width(width);
-                node.yoga_node.set_height(height);
-                node.yoga_node.set_position(Edge::Left,left_top.x);
-                node.yoga_node.set_position(Edge::Top, left_top.y);
-                let ptr = &node.yoga_node as *const YgNode as usize;
-                console::log_7(&("Rect create".into()), &(width.to_string().into()), &(height.to_string().into()), &(left_top.x.to_string().into()), &(left_top.y.to_string().into()), &(ptr.to_string().into()),  &(parent.to_string().into()));
-            },
-            Event::ModifyField{id, parent, field} => {
-                let Rect{left_top, width, height, radius: _ } = component_mgr.node.element.rect.shape._group.get_mut(*id).owner;
-                let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
-                let node = component_mgr.node._group.get_mut(parent);
-                if field == &"width" {
-                    node.yoga_node.set_width(width);
-                }else if field == &"height"{
-                    node.yoga_node.set_height(height);
-                }else if field == &"left_top" {
-                    node.yoga_node.set_position(Edge::Left,left_top.x);
-                    node.yoga_node.set_position(Edge::Top, left_top.y);
-                }
-            },
-            _ => ()
-        }
-    }
-}
+// impl ComponentHandler<Rect, GuiComponentMgr> for Layout{
+//     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
+//         match event {
+//             Event::Create{id, parent} => {
+//                 let Rect{left_top, width, height, radius: _ } = component_mgr.node.element.rect.shape._group.get_mut(*id).owner;
+//                 let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
+//                 let node = component_mgr.node._group.get_mut(parent);
+//                 node.layout.set_width(width);
+//                 node.layout.set_height(height);
+//                 node.layout.set_position(Edge::Left,left_top.x);
+//                 node.layout.set_position(Edge::Top, left_top.y);
+//                 let ptr = &node.layout as *const YgNode as usize;
+//                 console::log_7(&("Rect create".into()), &(width.to_string().into()), &(height.to_string().into()), &(left_top.x.to_string().into()), &(left_top.y.to_string().into()), &(ptr.to_string().into()),  &(parent.to_string().into()));
+//             },
+//             Event::ModifyField{id, parent, field} => {
+//                 let Rect{left_top, width, height, radius: _ } = component_mgr.node.element.rect.shape._group.get_mut(*id).owner;
+//                 let parent = component_mgr.node.element.rect._group.get_mut(*parent).parent;
+//                 let node = component_mgr.node._group.get_mut(parent);
+//                 if field == &"width" {
+//                     node.layout.set_width(width);
+//                 }else if field == &"height"{
+//                     node.layout.set_height(height);
+//                 }else if field == &"left_top" {
+//                     node.layout.set_position(Edge::Left,left_top.x);
+//                     node.layout.set_position(Edge::Top, left_top.y);
+//                 }
+//             },
+//             _ => ()
+//         }
+//     }
+// }
 
-impl ComponentHandler<Circle, GuiComponentMgr> for Layout{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id, parent} => {
-                let Circle{center, radius } = component_mgr.node.element.circle.shape._group.get_mut(*id).owner;
-                let parent = component_mgr.node.element.circle._group.get_mut(*parent).parent;
-                let node = component_mgr.node._group.get_mut(parent);
-                let size = radius * 2.0;
-                node.yoga_node.set_width(size);
-                node.yoga_node.set_height(size);
-                node.yoga_node.set_position(Edge::Left,center.x - radius);
-                node.yoga_node.set_position(Edge::Top, center.y - radius);
-                let ptr = &node.yoga_node as *const YgNode as usize;
-                console::log_6(&("Circle create".into()), &(size.to_string().into()), &((center.x - radius).to_string().into()), &((center.y - radius).to_string().into()), &(ptr.to_string().into()), &(parent.to_string().into()));
-            },
-            Event::ModifyField{id, parent, field: _} => {
-                let Circle{center, radius } = component_mgr.node.element.circle.shape._group.get_mut(*id).owner;
-                let parent = component_mgr.node.element.circle._group.get_mut(*parent).parent;
-                let node = component_mgr.node._group.get_mut(parent);
-                let size = radius * 2.0;
-                node.yoga_node.set_width(size);
-                node.yoga_node.set_height(size);
-                node.yoga_node.set_position(Edge::Left,center.x - radius);
-                node.yoga_node.set_position(Edge::Top, center.y - radius);
-            },
-            _ => ()
-        }
-    }
-}
+// impl ComponentHandler<Circle, GuiComponentMgr> for Layout{
+//     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
+//         match event {
+//             Event::Create{id, parent} => {
+//                 let Circle{center, radius } = component_mgr.node.element.circle.shape._group.get_mut(*id).owner;
+//                 let parent = component_mgr.node.element.circle._group.get_mut(*parent).parent;
+//                 let node = component_mgr.node._group.get_mut(parent);
+//                 let size = radius * 2.0;
+//                 node.layout.set_width(size);
+//                 node.layout.set_height(size);
+//                 node.layout.set_position(Edge::Left,center.x - radius);
+//                 node.layout.set_position(Edge::Top, center.y - radius);
+//                 let ptr = &node.layout as *const YgNode as usize;
+//                 console::log_6(&("Circle create".into()), &(size.to_string().into()), &((center.x - radius).to_string().into()), &((center.y - radius).to_string().into()), &(ptr.to_string().into()), &(parent.to_string().into()));
+//             },
+//             Event::ModifyField{id, parent, field: _} => {
+//                 let Circle{center, radius } = component_mgr.node.element.circle.shape._group.get_mut(*id).owner;
+//                 let parent = component_mgr.node.element.circle._group.get_mut(*parent).parent;
+//                 let node = component_mgr.node._group.get_mut(parent);
+//                 let size = radius * 2.0;
+//                 node.layout.set_width(size);
+//                 node.layout.set_height(size);
+//                 node.layout.set_position(Edge::Left,center.x - radius);
+//                 node.layout.set_position(Edge::Top, center.y - radius);
+//             },
+//             _ => ()
+//         }
+//     }
+// }
 
 impl System<(), GuiComponentMgr> for Layout{
     fn run(&self, _e: &(), component_mgr: &mut GuiComponentMgr){
@@ -126,8 +128,11 @@ impl LayoutImpl {
     pub fn update_layout(&mut self, mgr: &mut GuiComponentMgr){
         for node_id in self.list.iter() {
             let (layout, border) = {
-                let yoga = &mgr.node._group.get(*node_id).yoga_node;
-                let ptr = yoga as *const YgNode as usize;
+                let yoga = match mgr.node._group.get(*node_id).yoga.as_ref() {
+                    Some(y) => (*y).clone(),
+                    None => continue,
+                };
+                let ptr = &yoga as *const YgNodeP as usize;
                 console::log_5(&("update_layout".into()), &(yoga.get_height().to_string().into()), &(yoga.get_width().to_string().into()),  &(ptr.to_string().into()),  &(node_id.to_string().into()));
                 (yoga.get_computed_layout(), yoga.get_computed_border(Edge::Left))
                 

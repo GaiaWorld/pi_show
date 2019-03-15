@@ -9,7 +9,7 @@ use wcs::world::{System};
 
 use render::vector_sdf::{VectorSdf};
 use render::gl::{compile_shader, link_program, GuiWorldViewProjection};
-use component::component_def::{GuiComponentMgr};
+use world::{GuiComponentMgr};
 
 pub struct Render(RefCell<RenderImpl>);
 

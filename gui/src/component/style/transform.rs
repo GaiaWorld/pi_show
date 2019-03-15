@@ -1,6 +1,27 @@
-use cg::Matrix;
+use std::ops::{Deref};
 
-use component::component_def::Transform;
+use cg::Matrix;
+use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
+use wcs::world::{ComponentMgr};
+
+use component::math::*;
+
+
+#[allow(unused_attributes)]
+#[derive(Debug, Clone, Copy, Component, Builder, Default)]
+pub struct Transform {
+    #[builder(export)]
+    pub scale: Scale,
+    #[builder(export)]
+    pub position: Vector3,
+    #[builder(export)]
+    pub rotation: Vector3,
+    #[ignore]
+    pub dirty: bool,
+    #[ignore]
+    pub quaternion: Quaternion,
+}
+
 /// `Transform` is used to store and manipulate the postiion, rotation and scale
 /// of the object. We use a left handed, y-up world coordinate system.
 

@@ -405,6 +405,7 @@ extern "C" {
 }
 
 //定义横轴方向， 当主轴为横轴是， 会与FlexDirection的值相会影响
+#[derive(Debug, Copy, Clone)]
 pub enum Direction {
     Inherit,
     LTR,
@@ -412,6 +413,7 @@ pub enum Direction {
 }
 
 //主轴
+#[derive(Debug, Copy, Clone)]
 pub enum FlexDirection {
     Column, //主轴为垂直方向，起点在上沿。(默认)
     ColumnReverse,//主轴为垂直方向，起点在下沿。
@@ -420,6 +422,7 @@ pub enum FlexDirection {
 }
 
 //flex-wrap属性定义，如果一条轴线排不下，如何换行
+#[derive(Debug, Copy, Clone)]
 pub enum FlexWrap {
     NoWrap, //不换行
     Wrap, //下一行在下方
@@ -427,6 +430,7 @@ pub enum FlexWrap {
 }
 
 //定义了项目在主轴上的对齐方式
+#[derive(Debug, Copy, Clone)]
 pub enum JustifyContent {
     Start, //主轴方向起点对齐
     Center, //主轴方向居中对齐对齐
@@ -436,6 +440,7 @@ pub enum JustifyContent {
 }
 
 //定义项目在交叉轴上如何对齐
+#[derive(Debug, Copy, Clone)]
 pub enum AlignItems {
     Start, //交叉轴方向起点对齐
     Center, //交叉轴方向居中对齐
@@ -445,6 +450,7 @@ pub enum AlignItems {
 }
 
 // 定义了多根轴线的对齐方式。如果项目只有一根轴线，该属性不起作用
+#[derive(Debug, Copy, Clone)]
 pub enum AlignContent {
     Start, //与交叉轴的起点对齐
     Center, // 与交叉轴的中点对齐
@@ -455,6 +461,7 @@ pub enum AlignContent {
 }
 
 //align-self属性允许单个项目有与其他项目不一样的对齐方式，可覆盖align-items属性。默认值为auto，表示继承父元素的align-items属性，如果没有父元素，则等同于stretch
+#[derive(Debug, Copy, Clone)]
 pub enum AlignSelf {
     Auto,
     Start,
@@ -465,11 +472,13 @@ pub enum AlignSelf {
 }
 
 //定位类型
+#[derive(Debug, Copy, Clone)]
 pub enum PositionType {
     Relative,
     Absolute,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum Edge {
     Left,
     Top,
@@ -482,12 +491,14 @@ pub enum Edge {
     All,
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum Overflow {
     YGOverflowVisible,
     YGOverflowHidden,
     YGOverflowScroll
 }
 
+#[derive(Debug, Copy, Clone)]
 pub enum Display {
     Flex,
     None
