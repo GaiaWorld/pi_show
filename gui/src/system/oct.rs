@@ -8,7 +8,8 @@ use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 use cg::octree::*;
 
-use component::component_def::{GuiComponentMgr, RectSize};
+use component::node::{RectSize};
+use world::GuiComponentMgr;
 use component::math::{Matrix4, Aabb3 as C_Aabb3};
 use cg::{Aabb3, Vector4, Point3};
 // use alert;

@@ -5,7 +5,8 @@ use web_sys::*;
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 
-use component::component_def::{GuiComponentMgr, Transform};
+use component::style::transform::{Transform};
+use world::GuiComponentMgr;
 use component::math::{Matrix4, Vector3};
 // use alert;
 

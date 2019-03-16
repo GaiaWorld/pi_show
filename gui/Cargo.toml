@@ -35,8 +35,11 @@ cg = { path = "../../pi_math/cg" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
 heap = {path="../../pi_lib/heap"}
+pointer = {path="../../pi_lib/pointer"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
+lazy_static = "*"
+ucd = "0.1.1"
 
 # lazy_static = "*"
 

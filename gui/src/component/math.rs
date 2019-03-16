@@ -295,6 +295,46 @@ component!(
 );
 
 #[derive(Debug, Clone, Copy)]
+pub struct Color(pub cg::color::Color<f32>);
+
+impl Deref for Color{
+    type Target = cg::color::Color<f32>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Color{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl Default for Color{
+    fn default() -> Color{
+        Color(cg::color::Color::new(0.0, 0.0, 0.0, 0.0))
+    }
+}
+
+getter_setter!(
+    struct Color{
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    }
+);
+
+component!(
+    struct Color{
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    }
+);
+
+#[derive(Debug, Clone, Copy)]
 pub struct Scale(pub cg::Vector3<f32>);
 
 impl Deref for Scale{
