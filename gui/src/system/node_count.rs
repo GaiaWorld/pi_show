@@ -1,8 +1,9 @@
 use std::rc::Rc;
 
 use wcs::component::{ComponentHandler, Event};
+use world::GuiComponentMgr;
 
-use component::component_def::{Node, GuiComponentMgr};
+use component::node::{Node};
 
 pub struct NodeCount();
 

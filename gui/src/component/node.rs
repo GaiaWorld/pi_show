@@ -34,7 +34,18 @@ pub struct Node{
 
     pub yoga: Option<YgNode>,
 
+    #[Component(ZIndex)]
+    #[Builder(Build(Default))]
+	pub zindex: usize, //zindex组件
+
     //以下数据由system设置
+    //记录所有子节点及递归包含的子节点的数量
+	pub count: usize,
+
+    // 子节点设zindex时，将不是auto的父节点设脏
+	pub z_dirty: bool,
+	pub z_index: isize,
+
     //布局数据
     #[component(Vector3)]
     #[builder(build(Default))]
@@ -206,4 +217,13 @@ pub enum InsertType{
 pub struct RectSize{
     pub width: f32,
     pub height: f32,
+}
+
+#[derive(Debug, Clone, Copy, Default, Component)]
+pub struct ZIndex {
+    pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0
+    pub pre_min_z: usize, // 预设置的节点的最小z值
+    pub pre_max_z: usize, // 预设置的节点的最大z值
+    pub min_z: usize, // 节点的最小z值，也是节点自身的z值
+    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样。
 }
