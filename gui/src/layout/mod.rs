@@ -203,7 +203,7 @@ pub struct Layout{
     pub height: f32,
 }
 
-#[wasm_bindgen(module = "./yoga")]
+#[wasm_bindgen(module = "yoga")]
 extern "C" {
     pub type Node;
     #[wasm_bindgen(constructor)]

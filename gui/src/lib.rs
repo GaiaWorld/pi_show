@@ -5,7 +5,7 @@
 #[allow(unused_attributes)]
 
 extern crate deque;
-//extern crate cg;
+extern crate cg;
 extern crate wcs;
 extern crate slab;
 #[macro_use]

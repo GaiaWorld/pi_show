@@ -222,8 +222,8 @@ fn test_buffer_data(){
     
     // let mut arr2: Vec<u16> = Vec::new();
     // println!("ptr----------{}", arr2.as_mut_ptr() as usize);
-    let mut buffer_data4: BufferData4<u16> = BufferData4::new();
-    let mut buffer_data6: BufferData6<u16> = BufferData6::new();
-    buffer_data4.push([1, 1, 1, 1]);
-    buffer_data6.push([1, 1, 1, 1, 1, 1]);
+    // let mut buffer_data4: BufferData4<u16> = BufferData4::new();
+    // let mut buffer_data6: BufferData6<u16> = BufferData6::new();
+    // buffer_data4.push([1, 1, 1, 1]);
+    // buffer_data6.push([1, 1, 1, 1, 1, 1]);
 }

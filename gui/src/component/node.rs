@@ -15,7 +15,7 @@ use component::style::border::*;
 use component::style::style::*;
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Builder)]
+#[derive(Debug, Component, Builder, Default)]
 pub struct Node{
     //由外部设置的部分
     #[builder(export)]
@@ -34,8 +34,8 @@ pub struct Node{
 
     pub yoga: Option<YgNode>,
 
-    #[Component(ZIndex)]
-    #[Builder(Build(Default))]
+    #[component(ZIndex)]
+    #[builder(build(Default))]
 	pub zindex: usize, //zindex组件
 
     //以下数据由system设置
@@ -222,8 +222,8 @@ pub struct RectSize{
 #[derive(Debug, Clone, Copy, Default, Component)]
 pub struct ZIndex {
     pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0
-    pub pre_min_z: usize, // 预设置的节点的最小z值
-    pub pre_max_z: usize, // 预设置的节点的最大z值
-    pub min_z: usize, // 节点的最小z值，也是节点自身的z值
-    pub max_z: usize, // 节点的最大z值，z-index == -1, 则和min_z一样。
+    pub pre_min_z: f32, // 预设置的节点的最小z值
+    pub pre_max_z: f32, // 预设置的节点的最大z值
+    pub min_z: f32, // 节点的最小z值，也是节点自身的z值
+    pub max_z: f32, // 节点的最大z值，z-index == -1, 则和min_z一样。
 }
