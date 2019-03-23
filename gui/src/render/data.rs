@@ -202,14 +202,14 @@ tex_data!(TexData12, BufferData12, 12);
 
 #[test]
 fn test_tex_data(){
-    let mut tex_data = TexData12::new(8);
-    tex_data.use_data();
+    // let mut tex_data = TexData12::new(8);
+    // tex_data.use_data();
 
-    unsafe{tex_data.update(0, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    unsafe{tex_data.update(1, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    unsafe{tex_data.update(2, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    let data = tex_data.use_data().unwrap();
-    println!("{:?}, {:?}, {}", data.1, data.0, data.1.len());
+    // unsafe{tex_data.update(0, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // unsafe{tex_data.update(1, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // unsafe{tex_data.update(2, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // let data = tex_data.use_data().unwrap();
+    // println!("{:?}, {:?}, {}", data.1, data.0, data.1.len());
 }
 
 #[test]

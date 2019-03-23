@@ -75,6 +75,7 @@ impl System<(), GuiComponentMgr> for ZIndexS {
 }
 
 const AUTO: isize = -1;
+const MAX: f32 = 8388608.0;
 
 #[derive(Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 struct ZSort (isize, usize, usize, usize); // (zindex, index, node_id, children_count)
@@ -115,9 +116,11 @@ impl ZIndexImpl {
           node.z_dirty = true;
           self.marked_dirty(node_id, node.layer);
         }
-        let zi = mgr.node.zindex._group.get_mut(node.zindex);
-        if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
-          return;
+        if node.zindex > 0 {
+          let zi = mgr.node.zindex._group.get(node.zindex);
+          if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
+            return;
+          }
         }
         // 如果z范围超过自身全部子节点及其下子节点数量，则继续向上设置脏，等calc_z调整以获得足够的z范围
       }
@@ -318,10 +321,13 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
 use wcs::world::{World};
 #[cfg(test)]
 use component::node::{Node, InsertType};
+#[cfg(test)]
+use super::node_count::{NodeCount};
+
 #[test]
 fn test(){
-    let mut world: World<GuiComponentMgr, ()> = World::new();
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexS::init(&mut world.component_mgr)];
+    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![NodeCount::init(&mut world.component_mgr), ZIndexS::init(&mut world.component_mgr)];
     world.set_systems(systems);
     test_world_z(&mut world);
 }
@@ -335,13 +341,20 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
             let (root, node1, node2, node3, node4, node5) = {
                 let mut root = Node::default();
                 let mut root_ref = component_mgr.add_node(root);
-                (   
-                    root_ref.id,root_ref.id,root_ref.id,root_ref.id,root_ref.id,root_ref.id,
-                    //(root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    // (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    // (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    // (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    // (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                let mut size = root_ref.get_zindex_mut();
+                size.set_zindex(0);
+                size.set_pre_min_z(-MAX);
+                size.set_pre_max_z(MAX);
+                size.set_min_z(-MAX);
+                size.set_max_z(MAX);
+                //println!("size:{:?}", size.0);
+                (
+                    root_ref.id,
+                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
                 )
            };
             print_node(component_mgr, node1);
@@ -446,7 +459,10 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
 #[cfg(test)]
 fn print_node(mgr: &GuiComponentMgr, id: usize) {
     let node = mgr.node._group.get(id);
-    let z = mgr.node.zindex._group.get(node.zindex);
+    let mut z = &ZIndex::default();
+    if node.zindex > 0 {
+      z = mgr.node.zindex._group.get(node.zindex)
+    };
 
     println!("nodeid: {}, z:{:?}, z_index: {:?}, z_dirty: {}", id, z, node.z_index, node.z_dirty);
 }

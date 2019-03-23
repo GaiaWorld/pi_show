@@ -18,3 +18,20 @@ world!(
         // transparent_vector: VectorSdf,    //透明的矢量图形
     } 
 );
+
+impl Default for GuiComponentMgr {
+    fn default() -> Self {
+        GuiComponentMgr{
+            node: NodeGroup::default(),
+            node_container: Slab::default(),
+            opaque_vector: VectorSdf::new(),
+            world_view: ViewPortGroup::default(),
+        }
+    }
+}
+
+impl QidContainer for GuiComponentMgr {
+    fn get_qid_container(&mut self) -> &mut Slab<DeNode<usize>>{
+        &mut self.node_container
+    }
+}
