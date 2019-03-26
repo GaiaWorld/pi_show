@@ -234,3 +234,8 @@ pub struct ZIndex {
 pub struct LayoutChange{
     pub value: bool,
 }
+
+pub struct YogaContex {
+    pub node_id: usize,
+    pub mgr: usize,
+}
