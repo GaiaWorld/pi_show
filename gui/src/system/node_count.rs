@@ -39,14 +39,7 @@ impl ComponentHandler<Node, GuiComponentMgr> for NodeCount {
         }
       },
       _ => {
-        unreachable!();
       }
     }
-  }
-}
-// TODO 应该可以不要
-impl System<(), GuiComponentMgr> for NodeCount {
-  fn run(&self, _e: &(), mgr: &mut GuiComponentMgr) {
-
   }
 }

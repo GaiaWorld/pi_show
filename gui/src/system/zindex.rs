@@ -7,12 +7,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::cmp::{Ordering};
 
-use wcs::component::{ComponentHandler, Event};
+use wcs::component::{ComponentHandler, Builder, Event, notify};
 use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
 use world::GuiComponentMgr;
 
-use component::node::{ZIndex};
+use component::node::{NodeBuilder, ZIndex, ZIndexWriteRef};
 
 pub struct ZIndexS(RefCell<ZIndexImpl>);
 
@@ -30,7 +30,8 @@ impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexS {
   fn handle(&self, event: &Event, mgr: &mut GuiComponentMgr) {
     match event {
       Event::Create { id: _, parent } => {
-        self.0.borrow_mut().set_dirty(*parent, mgr);
+        let node = mgr.node._group.get_mut(*parent);
+        self.0.borrow_mut().set_dirty(node.parent, mgr);
       }
       Event::Delete { id: _, parent } => {
         self.0.borrow_mut().delete_dirty(*parent, mgr);
@@ -116,11 +117,9 @@ impl ZIndexImpl {
           node.z_dirty = true;
           self.marked_dirty(node_id, node.layer);
         }
-        if node.zindex > 0 {
-          let zi = mgr.node.zindex._group.get(node.zindex);
-          if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
-            return;
-          }
+        let zi = mgr.node.zindex._group.get(node.zindex);
+        if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
+          return;
         }
         // 如果z范围超过自身全部子节点及其下子节点数量，则继续向上设置脏，等calc_z调整以获得足够的z范围
       }
@@ -214,6 +213,7 @@ impl Cache {
             child = v.next;
             v.elem.clone()
         };
+    //println!("-----------sort, {} {}", node_id, order);
         let (zi, count, child_id) = {
           let n = mgr.node._group.get_mut(node_id);
           (n.z_index, n.count, n.get_childs_mut().get_first())
@@ -270,11 +270,13 @@ impl Cache {
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
 fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+    //println!("-----------adjust, node_id {}, min_z {}, max_z {}, rate {}, parent_min {}", node_id, min_z, max_z, rate, parent_min);
   let (mut child, min, r, old_min) = {
     let node = mgr.node._group.get_mut(node_id);
-    let zi = mgr.node.zindex._group.get_mut(node.zindex);
+    let zi_id = node.zindex;
+    let zi = mgr.node.zindex._group.get_mut(zi_id);
     let (min, max) = if rate > 0. {
-      (((zi.min_z - parent_min) * rate) + min_z + 1., ((zi.max_z - parent_min) * rate) + min_z + 1.)
+      (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
       (min_z, max_z)
     };
@@ -293,12 +295,15 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
     // 更新当前值
     zi.min_z = min;
     zi.max_z = max;
+    let child = node.get_childs_mut().get_first();
+    notify(Event::ModifyField{id: zi_id, parent: node_id, field: "min_z"}, &mgr.node.zindex._group.get_handlers().borrow(), mgr);
+    //ZIndexWriteRef::new(zi); TODO 改成node_ref.set_z(min)
     // 判断是否为auto
     if min != max {
-      (node.get_childs_mut().get_first(), min, (max_z - min_z - 1.) as f32 / (old_max_z - old_min_z), old_min_z)
+      (child, min, (max_z - min_z - 1.) as f32 / (old_max_z - old_min_z), old_min_z)
     }else if rate > 0.{
       // 如果是auto，则重用min_z, rate, parent_min
-      (node.get_childs_mut().get_first(), min_z, rate, parent_min)
+      (child, min_z, rate, parent_min)
     }else{
       return
     }
@@ -327,7 +332,8 @@ use super::node_count::{NodeCount};
 #[test]
 fn test(){
     let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![NodeCount::init(&mut world.component_mgr), ZIndexS::init(&mut world.component_mgr)];
+    let nc = NodeCount::init(&mut world.component_mgr);
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexS::init(&mut world.component_mgr)];
     world.set_systems(systems);
     test_world_z(&mut world);
 }
@@ -339,109 +345,46 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
         {
             
             let (root, node1, node2, node3, node4, node5) = {
-                let mut root = Node::default();
-                let mut root_ref = component_mgr.add_node(root);
-                let mut size = root_ref.get_zindex_mut();
-                size.set_zindex(0);
-                size.set_pre_min_z(-MAX);
-                size.set_pre_max_z(MAX);
-                size.set_min_z(-MAX);
-                size.set_max_z(MAX);
-                //println!("size:{:?}", size.0);
+                let root = Node::default(); // 创建根节点
+                let root_id = component_mgr.add_node(root).id;// NodeWriteRef{id, component_mgr write 'a Ref}
+                // let mut zi_ref = root_ref.get_zindex_mut(); // ZIndexWriteRef{id = 0, component_mgr write 'a Ref}
+                // 根节点必须手工设置zindex及其范围
+                let mut zi = ZIndex::default();
+                zi.zindex = 0;
+                zi.pre_min_z = -MAX;
+                zi.pre_max_z = MAX;
+                zi.min_z = -MAX;
+                zi.pre_max_z = MAX;
+                let zi_id = component_mgr.node.zindex._group.insert(zi, root_id);
+                let n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
+                n.zindex = zi_id; // 避免引发监听
+                let node1 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node2 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node3 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node4 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node5 = NodeBuilder::new().build(&mut component_mgr.node);
+                // let mut root_ref = component_mgr.get_node_mut(root_id);
+                let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
+                let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+                let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
+                let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
+                let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
                 (
-                    root_ref.id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    root_id,
+                    n1_id,
+                    n2_id,
+                    n3_id,
+                    n4_id,
+                    n5_id,
                 )
            };
+           component_mgr.get_node_mut(node1).get_zindex_mut().set_zindex(-1);
+           component_mgr.get_node_mut(node3).get_zindex_mut().set_zindex(2);
             print_node(component_mgr, node1);
             print_node(component_mgr, node2);
             print_node(component_mgr, node3);
             print_node(component_mgr, node4);
             print_node(component_mgr, node5);
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&root);
-            //     let mut size = node.get_size_mut();
-            //     size.set_width(500.0);
-            //     size.set_height(500.0);
-            // }
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&node1);
-            //     let mut size = node.get_size_mut();
-            //     size.set_width(100.0);
-            //     size.set_height(100.0);
-            // }
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&node2);
-            //     {
-            //         let mut size = node.get_size_mut();
-            //         size.set_width(100.0);
-            //         size.set_height(100.0);
-            //     }
-            //     {
-            //         let mut transform = node.get_transform_mut();
-            //         transform.set_position(Vector3::new(100.0, 0.0, 0.0));
-            //     }
-                
-            // }
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&node3);
-            //     {
-            //         let mut size = node.get_size_mut();
-            //         size.set_width(100.0);
-            //         size.set_height(100.0);
-            //     }
-            //     {
-            //         let mut transform = node.get_transform_mut();
-            //         transform.set_position(Vector3::new(200.0, 0.0, 0.0));
-            //     }
-                
-            // }
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&node4);
-            //     {
-            //         let mut size = node.get_size_mut();
-            //         size.set_width(100.0);
-            //         size.set_height(100.0);
-            //     }
-            //     {
-            //         let mut transform = node.get_transform_mut();
-            //         transform.set_position(Vector3::new(100.0, 0.0, 0.0));
-            //         transform.set_position(Vector3::new(400.0, 0.0, 0.0));
-            //     }
-                
-            // }
-
-            // {
-            //     let mut node = component_mgr.get_node_mut(&node5);
-            //     {
-            //         let mut size = node.get_size_mut();
-            //         size.set_width(100.0);
-            //         size.set_height(100.0);
-            //     }
-            //     {
-            //         let mut transform = node.get_transform_mut();
-            //         transform.set_position(Vector3::new(0.0, 100.0, 0.0));
-            //     }
-                
-            // }
-            println!("modify-----------------------------------------");
-            print_node(component_mgr, node1);
-            print_node(component_mgr, node2);
-            print_node(component_mgr, node3);
-            print_node(component_mgr, node4);
-            print_node(component_mgr, node5);
-
-            //let node2_qid = component_mgr.get_node_mut(&node2).get_qid().clone();
-            //component_mgr.get_node_mut(&root).remove_child(node2_qid);
             (root, node1, node2, node3, node4, node5)
         }
     };
@@ -454,6 +397,17 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
     print_node(&world.component_mgr, node3);
     print_node(&world.component_mgr, node4);
     print_node(&world.component_mgr, node5);
+    let n = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
+    println!("modify2 run-----------------------------------------");
+    world.run(());
+    print_node(&world.component_mgr, root);
+    print_node(&world.component_mgr, node1);
+    print_node(&world.component_mgr, node2);
+    print_node(&world.component_mgr, node3);
+    print_node(&world.component_mgr, node4);
+    print_node(&world.component_mgr, node5);
+    print_node(&world.component_mgr, node6);
 }
 
 #[cfg(test)]
@@ -464,5 +418,5 @@ fn print_node(mgr: &GuiComponentMgr, id: usize) {
       z = mgr.node.zindex._group.get(node.zindex)
     };
 
-    println!("nodeid: {}, z:{:?}, z_index: {:?}, z_dirty: {}", id, z, node.z_index, node.z_dirty);
+    println!("nodeid: {}, z:{:?}, z_index: {:?}, z_dirty: {}, count: {}", id, z, node.z_index, node.z_dirty, node.count);
 }

@@ -46,6 +46,9 @@ pub struct Node{
 	pub z_dirty: bool,
 	pub z_index: isize,
 
+    //受到的裁剪矩形的加集 TODO 好像应该放在3种渲染元素上
+	pub clip_rect: usize,
+
     //布局数据
     #[component(Vector3)]
     #[builder(build(Default))]
