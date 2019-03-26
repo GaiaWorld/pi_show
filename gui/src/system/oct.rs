@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use std::rc::{Rc};
 use std::ops::Deref;
 
-use web_sys::*;
-
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 use cg::octree::*;
@@ -37,7 +35,9 @@ impl ComponentHandler<RectSize, GuiComponentMgr> for Oct{
                 self.0.borrow_mut().delete_dirty(*parent);
             },
             Event::ModifyField{id:_, parent, field: _} => {
-                console::log_1(&("oct_extent_modify".into()));
+                js!{
+                    console.log("RectSize---------------------modify");
+                }
                 self.0.borrow_mut().marked_dirty(*parent, component_mgr);
             },
             _ => ()
@@ -78,6 +78,10 @@ impl OctImpl {
 
     //计算包围盒
     pub fn cal_bound_box(&mut self, mgr: &mut GuiComponentMgr){
+        let len = self.dirtys.len() as u32;
+        js!{
+            console.log("cal_bound_box---------------------start, len: ", @{len});
+        }
         for node_id in self.dirtys.iter() {
             mgr.node._group.get_mut(*node_id).bound_box_dirty = false;
 
@@ -87,7 +91,6 @@ impl OctImpl {
                 let extent = mgr.node.extent._group.get(node.extent);
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
                 let aabb = cal_bound_box(extent, world_matrix);
-                console::log_3(&("extent".into()), &(extent.width.to_string().into()), &(extent.height.to_string().into()));
                 //更新八叉树
                 self.octree.update(node.bound_box_id, aabb.clone());
                 aabb
@@ -96,12 +99,17 @@ impl OctImpl {
                 //修改包围盒
                 let mut node_ref = mgr.get_node_mut(*node_id);
                 node_ref.get_bound_box_mut().modify(|aabb3: &mut C_Aabb3|{
-                    console::log_5(&("oct_box".into()), &(aabb.min.x.to_string().into()), &(aabb.min.y.to_string().into()), &(aabb.max.x.to_string().into()), &(aabb.max.y.to_string().into()));
                     aabb3.min = aabb.min;
                     aabb3.max = aabb.max;
+                    js!{
+                        console.log("cal_bound_box---------------------modify, min_x: ", @{aabb.min.x}, ",min_y:", @{aabb.min.y}, ",max_x:", @{aabb.max.x}, ",max_y:", @{aabb.max.y});
+                    }
                     true
                 });
             }
+        }
+        js!{
+            console.log("cal_bound_box---------------------end");
         }
     }
 
@@ -129,9 +137,7 @@ impl OctImpl {
     pub fn add_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
         let aabb = mgr.node.bound_box._group.get_mut(mgr.node._group.get(node_id).bound_box).owner.clone();
         let oct_id = self.octree.add(aabb.0, node_id);
-        console::log_1(&("set_bound_box_id start".into()));
         mgr.get_node_mut(node_id).set_bound_box_id(oct_id);
-        console::log_1(&("set_bound_box_id end".into()));
     }
 
     pub fn remove_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){

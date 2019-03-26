@@ -4,6 +4,6 @@ use wcs::world::{ComponentMgr};
 
 #[derive(Debug, Component, Default, Builder)]
 pub struct ViewPort{
-    width: f32,
-    height: f32,
+    pub width: f32,
+    pub height: f32,
 }

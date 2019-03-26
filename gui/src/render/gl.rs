@@ -1,23 +1,20 @@
 use std::ops::{Deref, DerefMut};
-
-use web_sys::*;
+use webgl_rendering_context::{WebGLRenderingContext, WebGLShader, WebGLProgram};
+use stdweb::unstable::TryInto;
 
 pub fn compile_shader(
-    gl: &WebGlRenderingContext,
+    gl: &WebGLRenderingContext,
     shader_type: u32,
     source: &str,
-) -> Result<WebGlShader, String> {
+) -> Result<WebGLShader, String> {
     let shader = gl
         .create_shader(shader_type)
         .ok_or_else(|| String::from("Unable to create shader object"))?;
     gl.shader_source(&shader, source);
     gl.compile_shader(&shader);
 
-    if gl
-        .get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)
-        .as_bool()
-        .unwrap_or(false)
-    {
+    let parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
+    if parameter{
         Ok(shader)
     } else {
         Err(gl
@@ -26,10 +23,10 @@ pub fn compile_shader(
     }
 }
 
-pub fn link_program<'a, T: IntoIterator<Item = &'a WebGlShader>>(
-    gl: &WebGlRenderingContext,
+pub fn link_program<'a, T: IntoIterator<Item = &'a WebGLShader>>(
+    gl: &WebGLRenderingContext,
     shaders: T,
-) -> Result<WebGlProgram, String> {
+) -> Result<WebGLProgram, String> {
     let program = gl
         .create_program()
         .ok_or_else(|| String::from("Unable to create shader object"))?;
@@ -38,11 +35,8 @@ pub fn link_program<'a, T: IntoIterator<Item = &'a WebGlShader>>(
     }
     gl.link_program(&program);
 
-    if gl
-        .get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
-        .as_bool()
-        .unwrap_or(false)
-    {
+    let parameter: bool = gl.get_program_parameter(&program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
+    if parameter{
         Ok(program)
     } else {
         Err(gl

@@ -4,4 +4,5 @@ pub mod world_matrix;
 pub mod sdf;
 pub mod render;
 pub mod layout;
+pub mod opacity;
 // pub mod text;

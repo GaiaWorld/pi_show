@@ -5,7 +5,7 @@ pub mod transform;
 pub mod sdf;
 pub mod element;
 pub mod border;
-pub mod style;
+// pub mod style;
 // pub mod properties;
 pub mod flex;
 pub mod generic;

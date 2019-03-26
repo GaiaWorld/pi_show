@@ -1,38 +1,65 @@
 use std::ops::{Deref};
-
+use std::os::raw::{c_void};
 // use web_sys::*;
 
 use deque::deque::{Deque, Node as DeNode};
 use slab::{Slab};
 use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
 use wcs::world::{ComponentMgr};
+use atom::Atom;
 
 use layout::{YgNode};
 use component::math::*;
-use component::style::element::{ElementId, Element, ElementReadRef, ElementWriteRef, ElementGroup, ElementBuilder};
-use component::style::transform::*;
+use component::style::element::{ElementId, Element, ElementReadRef, ElementWriteRef, ElementGroup};
 use component::style::border::*;
-use component::style::style::*;
+use component::style::transform::*;
+use component::style::generic::*;
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Builder)]
+#[derive(Debug, Component, Builder, Default)]
 pub struct Node{
     //由外部设置的部分
+    // #[builder(export)]
+    // #[component(Style)]
+    // pub style: usize,
+
     #[builder(export)]
-    #[component(Style)]
-    pub style: usize,
+    pub display: Option<Display>,
+
+    #[builder(export)]
+    pub class_name: Vec<Atom>,
+
+    // #[builder(export)]
+    // #[component(Layout)]
+    // pub layout: usize,
+
+    #[builder(build(Default), export)]
+    #[component(LayoutChange)]
+    pub layout_change: usize,
+
+    #[builder(export)]
+    #[component(Transform)]
+    pub transform: usize,
+
+     #[builder(export)]
+    #[component(ClipPath)]
+    pub clip: usize,
+
+    #[builder(export)]
+    #[component(Overflow)]
+    pub overflow: usize,
+
+    #[builder(export)]
+    #[component(Opacity)]
+    pub opacity: usize,
 
     #[enum_component(Element)]
-    #[builder(build(Builder), export)]
+    #[builder(export)]
     pub element: ElementId,
-
-    #[component(Transform)]
-    #[builder(build(Default), export)]
-    pub transform: usize, // 几何变换组件
 
     pub childs: Deque<usize, Slab<DeNode<usize>>>,
 
-    pub yoga: Option<YgNode>,
+    pub yoga: YgNode,
 
     //以下数据由system设置
     //布局数据
@@ -47,6 +74,10 @@ pub struct Node{
     #[component(Border)]
     #[builder(build(Default))]
     pub border: usize, //边框
+
+    #[builder(build(Default))]
+    #[component(Opacity)]
+    pub real_opacity: usize, //不透明度
 
 
     #[component(Matrix4)]
@@ -67,9 +98,6 @@ pub struct Node{
 
     #[ignore]
     pub qid: usize, //在父节点中的id，即在父节点的子容器中的key， 如果没有父节点， 该值为0
-
-    #[ignore]
-    pub inherit_value: f32, //继承自父节点的不透明度
 }
 
 pub trait QidContainer {
@@ -78,86 +106,56 @@ pub trait QidContainer {
 
 
 impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
-    pub fn insert_child(&mut self, mut child: Node, ty: InsertType) -> NodeWriteRef<M> {
+    pub fn insert_child(&mut self, child: Node, ty: InsertType) -> NodeWriteRef<M> {
         let group = NodeGroup::<M>::from_usize_mut(self.groups);
-        let (handler, parent) = {
-            let elem = group._group.get(self.id);
-            match elem.element {
-                ElementId::Text(_) | ElementId::Image(_) => panic!("leaf node can't insert child, id:{}", self.id),
-                _ => (),
-            };
-            child.layer = elem.layer + 1; //设置layer
-            (group._group.get_handlers(), elem.parent)
+        let child_id = group._group.insert(child, 0);
+        self.insert_child_with_id(child_id, ty)
+    }
+
+    pub fn insert_child_with_id(&mut self, child_id: usize, ty: InsertType) -> NodeWriteRef<M> {
+        let group = NodeGroup::<M>::from_usize_mut(self.groups);
+        let (element, parent, handler) = {
+            let node = group._group.get(self.id);
+            (node.element.clone(), node.parent, group._group.get_handlers())
         };
-        let (qid, child_id) = match ty {
-            InsertType::Back => {
-                let display = group.style._group.get_mut(child.style).display;
-                match display {
-                    Some(_d) => {
-                        let yoga = YgNode::default();
-                        {
-                            let node = group._group.get_mut(self.id);
-                            let index = node.childs.len();
-                            node.yoga.as_ref().unwrap().insert_child(yoga.clone(), index);
-                        }
-                        child.yoga = Some(yoga);
+        match element {
+            ElementId::None => {
+                let yoga = group._group.get(child_id).yoga;
+                let yoga_context = Box::into_raw(Box::new(YogaContex {
+                    node_id: child_id,
+                    mgr: self.mgr as *const M as usize,
+                })) as usize;
+                yoga.set_context(yoga_context as *mut c_void);
+                let qid = match ty {
+                    InsertType::Back => {
+                        let node = group._group.get_mut(self.id);
+                        let index = node.childs.len();
+                        node.yoga.insert_child(yoga.clone(), index as u32);
+                        node.childs.push_back(child_id, &mut self.mgr.get_qid_container())
                     },
-                    None => ()
-                }
-                let child_id = group._group.insert(child, self.id); // 将节点插入容器
-                let node = group._group.get_mut(self.id);
-                (node.childs.push_back(child_id, &mut self.mgr.get_qid_container()), child_id)
-            },
-            InsertType::Front => {
-                match group.style._group.get_mut(child.style).display {
-                    Some(_d) => {
-                        let yoga = YgNode::default();
-                        {
-                            let node = group._group.get_mut(self.id);
-                            node.yoga.as_ref().unwrap().insert_child(yoga.clone(), 0);
-                        }
-                        child.yoga = Some(yoga);
+                    InsertType::Front => {
+                        let node = group._group.get_mut(self.id);
+                        node.yoga.insert_child(yoga.clone(), 0);
+                        node.childs.push_front(child_id, &mut self.mgr.get_qid_container())
                     },
-                    None => ()
-                }
-                let child_id = group._group.insert(child, self.id); // 将节点插入容器
-                let node = group._group.get_mut(self.id);
-                (node.childs.push_front(child_id, &mut self.mgr.get_qid_container()), child_id)
-            },
-            InsertType::ToBack(yoga_index, brother_pid) => {
-                match group.style._group.get_mut(child.style).display {
-                    Some(_d) => {
-                        let yoga = YgNode::default();
-                        {
-                            let node = group._group.get_mut(self.id);
-                            node.yoga.as_ref().unwrap().insert_child(yoga.clone(), yoga_index);
-                        }
-                        child.yoga = Some(yoga);
+                    InsertType::ToBack(yoga_index, brother_pid) => {
+                        let node = group._group.get_mut(self.id);
+                        node.yoga.insert_child(yoga.clone(), yoga_index as u32);
+                        unsafe{node.childs.push_to_back(child_id, brother_pid, &mut self.mgr.get_qid_container())}
+
                     },
-                    None => ()
-                }
-                let child_id = group._group.insert(child, self.id); // 将节点插入容器
-                let node = group._group.get_mut(self.id);
-                (unsafe{node.childs.push_to_back(child_id, brother_pid, &mut self.mgr.get_qid_container())}, child_id)
-            },
-            InsertType::ToFront(yoga_index, brother_pid) => {
-                match group.style._group.get_mut(child.style).display {
-                    Some(_d) => {
-                        let yoga = YgNode::default();
-                        {
-                            let node = group._group.get_mut(self.id);
-                            node.yoga.as_ref().unwrap().insert_child(yoga.clone(), yoga_index);
-                        }
-                        child.yoga = Some(yoga);
+                    InsertType::ToFront(yoga_index, brother_pid) => {
+                        let node = group._group.get_mut(self.id);
+                        node.yoga.insert_child(yoga.clone(), yoga_index as u32);
+                        unsafe{node.childs.push_to_front(child_id, brother_pid, &mut self.mgr.get_qid_container())}
                     },
-                    None => ()
-                }
-                let child_id = group._group.insert(child, self.id); // 将节点插入容器
-                let node = group._group.get_mut(self.id);
-                (unsafe{node.childs.push_to_front(child_id, brother_pid, &mut self.mgr.get_qid_container())}, child_id)
+                };
+                let child = group._group.get_mut(child_id);
+                child.yoga = yoga;
+                child.qid = qid; //不会发出qid改变的监听， 应该通知？
             },
+            _ => panic!(format!("insert_child error, this is a leaf node")),
         };
-        group._group.get_mut(child_id).qid = qid; //不会发出qid改变的监听， 应该通知？
 
         notify(Event::ModifyField{id: self.id, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);  //通知childs字段改变
         let mut child_ref = NodeWriteRef::new(child_id, self.groups, self.mgr);
@@ -173,21 +171,25 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         let group = NodeGroup::<M>::from_usize_mut(self.groups);
         let child_id = group._group.get_mut(self.id).childs.remove(qid, &mut self.mgr.get_qid_container()); //从childs移除child
         let parent = {
-            let child_yoga = match group._group.get(child_id).yoga.as_ref() {
-                Some(child_yoga) => Some((*child_yoga).clone()),
-                None => None,
-            };
-            match child_yoga {
-                Some(child_yoga) => {
-                    let node = group._group.get_mut(self.id);
-                    node.yoga.as_mut().unwrap().remove_child_unfree(child_yoga);
-                    node.parent
-                },
-                None => {
-                    let node = group._group.get_mut(self.id);
-                    node.parent
-                },
-            }
+            let child_yoga = group._group.get(child_id).yoga;
+            let node = group._group.get_mut(self.id);
+            node.yoga.remove_child(child_yoga);
+            node.parent
+            // let child_yoga = match group._group.get(child_id).yoga.as_ref() {
+            //     Some(child_yoga) => Some((*child_yoga).clone()),
+            //     None => None,
+            // };
+            // match child_yoga {
+            //     Some(child_yoga) => {
+            //         let node = group._group.get_mut(self.id);
+            //         node.yoga.as_mut().unwrap().remove_child_unfree(child_yoga);
+            //         node.parent
+            //     },
+            //     None => {
+            //         let node = group._group.get_mut(self.id);
+            //         node.parent
+            //     },
+            // }
         };
         let handler = group._group.get_handlers();
         notify(Event::ModifyField{id: self.id, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr); //通知childs字段改变
@@ -206,4 +208,14 @@ pub enum InsertType{
 pub struct RectSize{
     pub width: f32,
     pub height: f32,
+}
+
+#[derive(Debug, Component, Default)]
+pub struct LayoutChange{
+    pub value: bool,
+}
+
+pub struct YogaContex{
+    pub node_id: usize,
+    pub mgr: usize, //ComponentMgr的指针
 }

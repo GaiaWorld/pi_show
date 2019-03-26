@@ -42,79 +42,96 @@ use component::style::generic::StyleUnit;
 //flex container 的设置
 #[derive(Debug, Component, Default)]
 pub struct FlexContainer {
-    align_content: Option<AlignContent>,
-    align_items: Option<AlignItems>,
-    justify_ontent: Option<JustifyContent>,
+    pub align_content: Option<YGAlign>,
+    pub align_items: Option<YGAlign>,
+    pub justify_ontent: Option<YGJustify>,
     // aspect_ratio:f32,
-    flex_direction: Option<FlexDirection>,
-    flex_wrap: Option<FlexWrap>,
+    pub flex_direction: Option<YGDirection>,
+    pub flex_wrap: Option<YGWrap>,
 }
 
 //flex item 的设置
 #[derive(Debug, Component, Default)]
 pub struct FlexItem{
-    flex_grow: Option<f32>,
-    flex_shrink: Option<f32>,
-    flex_basis: Option<StyleUnit>,
-    align_self: Option<AlignSelf>,
+    pub flex_grow: Option<f32>,
+    pub flex_shrink: Option<f32>,
+    pub flex_basis: Option<StyleUnit>,
+    pub align_self: Option<YGAlign>,
 }
 
 #[derive(Debug, Component, Default)]
 pub struct Boundary{
-    bottom: Option<StyleUnit>,
-    left: Option<StyleUnit>,
-    right: Option<StyleUnit>,
-    top: Option<StyleUnit>,
+    pub bottom: Option<StyleUnit>,
+    pub left: Option<StyleUnit>,
+    pub right: Option<StyleUnit>,
+    pub top: Option<StyleUnit>,
 }
 
 #[derive(Debug, Component, Default)]
 pub struct Rect {
-    width: Option<StyleUnit>,
-    height: Option<StyleUnit>,
+    pub width: Option<StyleUnit>,
+    pub height: Option<StyleUnit>,
+}
+
+impl Rect {
+    pub fn new(width: Option<StyleUnit>, height: Option<StyleUnit>) -> Rect{
+        Rect {
+            width,
+            height
+        }
+    }
 }
 
 
 #[derive(Debug, Component, Default)]
 pub struct MinMax {
-    max_height: Option<StyleUnit>,
-    max_width: Option<StyleUnit>,
-    min_height: Option<StyleUnit>,
-    min_hidth: Option<StyleUnit>,
+    pub max_height: Option<StyleUnit>,
+    pub max_width: Option<StyleUnit>,
+    pub min_height: Option<StyleUnit>,
+    pub min_hidth: Option<StyleUnit>,
 }
 
 #[derive(Debug, Component, Default)]
 pub struct Position {
-    ty: Option<PositionType>,
-    bottom: Option<StyleUnit>,
-    left: Option<StyleUnit>,
-    right: Option<StyleUnit>,
-    top: Option<StyleUnit>,
+    pub ty: Option<YGPositionType>,
+    pub bottom: Option<StyleUnit>,
+    pub left: Option<StyleUnit>,
+    pub right: Option<StyleUnit>,
+    pub top: Option<StyleUnit>,
 }
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Builder)]
 pub struct Layout{
+    #[builder(export)]
     #[component(FlexContainer)]
     pub container: usize,
 
+    #[builder(export)]
     #[component(FlexItem)]
     pub item: usize,
 
+    #[builder(export)]
     #[component(Boundary)]
     pub paddind: usize,
 
+    #[builder(export)]
     #[component(Boundary)]
     pub margin: usize,
 
+    #[builder(export)]
     #[component(Boundary)]
     pub border: usize,
 
+    #[builder(export)]
     #[component(Boundary)]
     pub padding: usize,
 
+    #[builder(export)]
     #[component(Rect)]
     pub wh: usize,
 
+    #[builder(export)]
     #[component(Position)]
     pub position: usize,
 }

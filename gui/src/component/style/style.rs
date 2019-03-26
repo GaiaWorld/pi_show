@@ -4,65 +4,66 @@ use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder}
 use wcs::world::{ComponentMgr};
 
 use component::style::flex::{Layout, LayoutReadRef, LayoutWriteRef, LayoutGroup};
-use component::style::generic::*;
-use component::style::text::*;
-use component::style::font::*;
-use component::style::color::*;
+// use component::style::generic::*;
+// use component::style::text::*;
+// use component::style::font::*;
+// use component::style::color::*;
 use component::style::transform::*;
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum Display {
-    Flex,
-    Inline,
-    Display,
-}
+// #[derive(Debug, Clone, Copy, EnumDefault)]
+// pub enum Display {
+//     Flex,
+//     Inline,
+//     Display,
+//     None,
+// }
 
-#[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
-pub struct Style{
-    pub display: Option<Display>,
+// #[allow(unused_attributes)]
+// #[derive(Component, Default, Debug, Clone)]
+// pub struct Opacity {
+//     value: f32
+// }
 
-    #[component(Layout)]
-    pub layout: usize,
+// #[allow(unused_attributes)]
+// #[derive(Debug, Component, Default, Builder)]
+// pub struct Style{
+//     #[builder(export)]
+//     pub display: Option<Display>,
 
-    #[component(ClipPath)]
-    pub clip: usize,
+//     #[builder(export)]
+//     #[component(Layout)]
+//     pub layout: usize,
 
-    #[component(Text)]
-    pub text: usize,
+//     // #[builder(export)]
+//     // #[component(ClipPath)]
+//     // pub clip: usize,
 
-    #[enum_component(Color)]
-    pub rect: ColorId,
+//     // #[builder(export)]
+//     // #[component(Overflow)]
+//     // pub overflow: usize,
 
-    #[component(Transform)]
-    pub transform: usize,
+//     // #[builder(export)]
+//     // #[component(Text)]
+//     // pub text: usize,
 
-    #[component(Opacity)]
-    pub opacity: usize,
-}
+//     // #[builder(export)]
+//     // #[enum_component(Color)]
+//     // pub rect_color: ColorId,
 
-#[allow(unused_attributes)]
-#[derive(Component, Default, Debug, Clone)]
-pub struct Opacity {
-    value: f32
-}
+//     #[builder(export)]
+//     #[component(Transform)]
+//     pub transform: usize,
 
-#[allow(unused_attributes)]
-#[derive(Component, Default, Debug, Clone, Builder)]
-pub struct Text{
-    #[component(TextStyle)]
-    #[builder(export)]
-    pub text: usize,
+//     #[builder(export)]
+//     #[component(Opacity)]
+//     pub opacity: usize,
+// }
 
-    #[component(Font)]
-    #[builder(export)]
-    pub font: usize,
-}
 
-#[allow(unused_attributes)]
-#[derive(Component, Default, Debug, Clone)]
-pub struct Image{
-    // #[builder(export)]
-    // pub font: RcFont,
-    pub url: String,
-}
+// #[allow(unused_attributes)]
+// #[derive(Component, Default, Debug, Clone)]
+// pub struct Image{
+//     // #[builder(export)]
+//     // pub font: RcFont,
+//     pub url: String,
+// }
