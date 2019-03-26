@@ -61,7 +61,18 @@ pub struct Node{
 
     pub yoga: YgNode,
 
+    #[component(ZIndex)]
+    #[builder(build(Default))]
+	pub zindex: usize, //zindex组件
+
     //以下数据由system设置
+    //记录所有子节点及递归包含的子节点的数量
+	pub count: usize,
+
+    // 子节点设zindex时，将不是auto的父节点设脏
+	pub z_dirty: bool,
+	pub z_index: isize,
+
     //布局数据
     #[component(Vector3)]
     #[builder(build(Default))]
@@ -210,12 +221,16 @@ pub struct RectSize{
     pub height: f32,
 }
 
+#[derive(Debug, Clone, Copy, Default, Component)]
+pub struct ZIndex {
+    pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0 
+    pub pre_min_z: f32, // 预设置的节点的最小z值 // 下面4个值需要单独独立出来吗？ TODO
+    pub pre_max_z: f32, // 预设置的节点的最大z值
+    pub min_z: f32, // 节点的最小z值，也是节点自身的z值
+    pub max_z: f32, // 节点的最大z值，z-index == -1, 则和min_z一样。
+}
+
 #[derive(Debug, Component, Default)]
 pub struct LayoutChange{
     pub value: bool,
-}
-
-pub struct YogaContex{
-    pub node_id: usize,
-    pub mgr: usize, //ComponentMgr的指针
 }

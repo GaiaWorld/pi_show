@@ -239,14 +239,14 @@ tex_data!(TexData16, BufferData16, 16);
 
 #[test]
 fn test_tex_data(){
-    let mut tex_data = TexData12::new(8);
-    tex_data.use_data();
+    // let mut tex_data = TexData12::new(8);
+    // tex_data.use_data();
 
-    unsafe{tex_data.update(0, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    unsafe{tex_data.update(1, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    unsafe{tex_data.update(2, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
-    let data = tex_data.use_data().unwrap();
-    println!("{:?}, {:?}, {}", data.1, data.0, data.1.len());
+    // unsafe{tex_data.update(0, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // unsafe{tex_data.update(1, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // unsafe{tex_data.update(2, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
+    // let data = tex_data.use_data().unwrap();
+    // println!("{:?}, {:?}, {}", data.1, data.0, data.1.len());
 }
 
 #[test]
@@ -259,8 +259,8 @@ fn test_buffer_data(){
     
     // let mut arr2: Vec<u16> = Vec::new();
     // println!("ptr----------{}", arr2.as_mut_ptr() as usize);
-    let mut buffer_data4: BufferData4<u16> = BufferData4::new();
-    let mut buffer_data6: BufferData6<u16> = BufferData6::new();
-    buffer_data4.push([1, 1, 1, 1]);
-    buffer_data6.push([1, 1, 1, 1, 1, 1]);
+    // let mut buffer_data4: BufferData4<u16> = BufferData4::new();
+    // let mut buffer_data6: BufferData6<u16> = BufferData6::new();
+    // buffer_data4.push([1, 1, 1, 1]);
+    // buffer_data6.push([1, 1, 1, 1, 1, 1]);
 }
