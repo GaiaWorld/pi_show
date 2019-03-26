@@ -1,7 +1,10 @@
+/**
+ * 监听transform和position组件， 利用transform和position递归计算节点的世界矩阵（worldmatrix组件）
+ */
+
 use std::cell::RefCell;
 use std::rc::{Rc};
 
-use web_sys::*;
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, Event};
 
@@ -23,13 +26,11 @@ impl WorldMatrix {
 
 impl ComponentHandler<Transform, GuiComponentMgr> for WorldMatrix{
     fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        console::log_1(&("Transform handle".into()));
         match event {
             Event::ModifyField{id: _, parent, field: _} => {
                 self.0.borrow_mut().marked_dirty(*parent, component_mgr);
             },
             Event::Create{id: _, parent} => {
-                console::log_1(&("Transform cretae".into()));
                 self.0.borrow_mut().marked_dirty(*parent, component_mgr);
             },
             Event::Delete{id, parent: _} => {
@@ -71,16 +72,14 @@ impl WorldMatrixImpl {
 
     //计算世界矩阵
     pub fn cal_matrix(&mut self, component_mgr: &mut GuiComponentMgr){
-        console::log_1(&("cal_matrix".into()));
         for d1 in self.dirtys.iter() {
             for node_id in d1.iter() {
                 //修改节点世界矩阵及子节点的世界矩阵
-                console::log_1(&("modify_matrix".into()));
                 modify_matrix(*node_id, component_mgr);
             }
         }
 
-        //处理完脏列表，需要清空， 此处暂时不清空， TODO
+        self.dirtys.clear();
     }
 
     pub fn marked_dirty(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
@@ -117,13 +116,14 @@ impl WorldMatrixImpl {
 
 fn modify_matrix(node_id: usize, component_mgr: &mut GuiComponentMgr) {
     // 设置脏标志
-    {
+    let parent_id = {
         let node = component_mgr.node._group.get_mut(node_id);
         if node.world_matrix_dirty == false {
             return;
         }
         node.world_matrix_dirty = false;
-    }
+        node.parent
+    };
 
     //计算世界矩阵(应该递归计算并修改子节点的世界矩阵， TODO)
 
@@ -132,12 +132,20 @@ fn modify_matrix(node_id: usize, component_mgr: &mut GuiComponentMgr) {
             let node = component_mgr.node._group.get(node_id);
             (node.transform, node.position)
         };
-        let transform = component_mgr.node.transform._group.get(transform_id).matrix();
+        let transform = match transform_id == 0 {
+            true => Transform::default().matrix(),
+            false => component_mgr.node.transform._group.get(transform_id).matrix(),
+        };
         let p = component_mgr.node.position._group.get(position_id).owner.0;
         let position = cg::Matrix4::from_translation(p.clone());
-        console::log_4(&("position".into()), &(p.x.to_string().into()), &(p.y.to_string().into()), &(p.z.to_string().into()));
         transform * position
+    };
 
+    //与parent的matrix相乘
+    let world_matrix = {
+        let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
+        let parent_world_matrix = component_mgr.node.world_matrix._group.get(parent_world_matrix_id);
+        world_matrix * &parent_world_matrix.owner.0
     };
 
     let mut child = {

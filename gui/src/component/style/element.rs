@@ -2,12 +2,14 @@ use std::ops::{Deref};
 
 use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
 use wcs::world::{ComponentMgr};
+use atom::Atom;
 
 use component::style::color::{ColorReadRef, ColorWriteRef, Color, ColorId, ColorGroup};
 // use component::style::sdf::*;
 // use component::style::shape::*;
-// use component::style::text::*;
-// use component::style::font::*;
+use component::style::text::*;
+use component::style::font::*;
+// use component::style::generic::*;
 
 #[allow(unused_attributes)]
 #[derive(Debug, EnumComponent, Builder)]
@@ -15,7 +17,7 @@ pub enum Element {
     Rect(#[builder(build(Builder))]Rect),
     // Circle(CircleElem),
     Text(Text),
-    Image(Image)
+    Image(Image),
 }
 
 // #[allow(unused_attributes)]
@@ -63,16 +65,25 @@ pub enum Element {
 
 #[derive(Component, Default, Debug, Clone)]
 pub struct Image{
-    pub url: String,
-}
-
-#[derive(Component, Default, Debug, Clone)]
-pub struct Text{
-    pub value: String,
+    pub url: Atom,
 }
 
 #[allow(unused_attributes)]
-#[derive(Component, Debug, Clone, Builder)]
+#[derive(Component, Default, Debug, Clone, Builder)]
+pub struct Text{
+    pub value: Atom,
+
+    #[builder(export)]
+    #[component(TextStyle)]
+    pub text_style: usize,
+
+    #[builder(export)]
+    #[component(Font)]
+    pub font: usize,
+}
+
+#[allow(unused_attributes)]
+#[derive(Component, Debug, Clone, Builder, Default)]
 pub struct Rect{
     #[builder(export)]
     pub radius: f32,

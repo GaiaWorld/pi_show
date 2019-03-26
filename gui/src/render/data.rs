@@ -10,6 +10,7 @@ macro_rules! buffer_data{
     ($name: ident,  $unit: expr) => {
         pub struct $name<T>{
             data: Vec<T>,
+            dirty_block: (usize, usize),
         }
 
         impl<T: Clone> $name<T> {
@@ -17,6 +18,7 @@ macro_rules! buffer_data{
                 // println!("new--------------------------");
                 $name {
                     data: Vec::new(),
+                    dirty_block: (0, 0),
                 }
             }
 
@@ -25,11 +27,13 @@ macro_rules! buffer_data{
                 unsafe{arr.set_len(capacity)};
                 $name {
                     data: arr,
+                    dirty_block: (0, 0)
                 }
             }
 
             pub fn with_data(data: Vec<T>) -> $name<T> {
                 $name {
+                    dirty_block: (0, data.len()),
                     data: data,
                 }
             }
@@ -63,11 +67,17 @@ macro_rules! buffer_data{
             pub unsafe fn update (&mut self, index: usize, offset: usize, data: &[T]){
                 assert!($unit - offset >= data.len()); //data长度不能超出index位置的数据段 
                 ptr::copy(data.as_ptr(), self.data.as_mut_ptr().add(index * $unit + offset), data.len());
+                self.update_dirty(index);
             }
 
+
             //data的长度必须等于self.unit, 否则painc
-            pub unsafe fn get_unchecked_mut(&mut self, index: usize ) -> &mut [T; $unit]{
+            pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut [T; $unit]{
                 &mut *(self.data.as_mut_ptr().add(index * $unit) as usize as *mut [T; $unit])
+            }
+
+            pub fn cancel_dirty(&mut self){
+                self.dirty_block = (0, 0);
             }
 
             #[inline]
@@ -84,89 +94,6 @@ macro_rules! buffer_data{
             pub fn get_data(&self) -> &[T]{
                 self.data.as_slice()
             }
-        }
-    }
-}
-
-buffer_data!(BufferData12, 12);
-buffer_data!(BufferData4, 4);
-buffer_data!(BufferData6, 6);
-
-#[macro_export]
-macro_rules! tex_data{
-    ($name: ident, $buffer_name: ident,  $unit: expr) => {
-        pub struct $name{
-            buffer: $buffer_name<f32>, //buffer数据
-            vacancy_list: SimpleHeap<usize>,
-            dirty_block: (usize, usize), // 描述Tex改变的最大范围， (左上x, 左上y, 右下x, 右下y), 从1开始, 如果是(0,0,0,0)
-            size: usize,
-        }
-
-        impl $name {
-            pub fn new (size: usize) -> $name{
-                let buffer_len = size * size * 4; //每个像素包含rgba四个元素
-                let heap_len = buffer_len/$unit;
-                let mut min_heap = SimpleHeap::new(Ordering::Less);
-                for i in 0..heap_len{
-                    min_heap.push(i);
-                }
-
-                let buffer = $buffer_name::with_len(buffer_len);
-                $name {
-                    buffer,
-                    vacancy_list: min_heap,
-                    dirty_block: (0, buffer_len),
-                    size,
-                }
-            }
-
-            //分配一个数据
-            pub fn alloc (&mut self) -> Option<usize>{
-                match self.vacancy_list.pop() {
-                    Some(index) => Some(index),
-                    None => None,
-                }
-            }
-
-            //更新纹理数据，不会检查index是否是一个空位， 如果是， 那么之后该位置会被使用，  index和offset以及data溢出时会painc
-            pub unsafe fn update (&mut self, index: usize, offset: usize, data: &[f32]){
-                self.buffer.update(index, offset, data);
-                self.update_dirty(index);
-            }
-
-            #[inline]
-            pub unsafe fn delete (&mut self, index: usize) {
-                self.vacancy_list.push(index);
-            }
-
-            //self.dirty_block != (0, 0,0,0), 否则panic
-            #[inline]
-            pub fn use_data(&mut self) -> Option<((usize, usize, usize, usize), &[f32])>{
-                if self.is_dirty() {
-                    
-                    let line_start = ((self.dirty_block.0)/4)/self.size;
-                    let column_start = ((self.dirty_block.0)/4)%self.size;
-                    let line_end = ((self.dirty_block.1 - 1)/4)/self.size;
-                    let column_end = ((self.dirty_block.1 - 1)/4)%self.size;
-                    let block = if line_end > line_start {
-                        (line_start, 0, self.size, line_end - line_start + 1)
-                    }else {
-                        (line_start, column_start, column_end - column_start + 1 , 1)
-                    };
-                    println!("{:?}", block);
-                    // let dirty_block = self.dirty_block;
-                    self.dirty_block = (0, 0);
-                    let line_len = 4*self.size;
-                    Some((block, &self.buffer.get_data()[block.0*line_len + block.1*4..(block.0 + block.3 - 1)*line_len + (block.1 + block.2)*4]))
-                } else {
-                    None
-                }
-            }
-
-            #[inline]
-            pub fn cancel_dirty(&mut self){
-                self.dirty_block = (0, 0);
-            }
 
             #[inline]
             pub fn is_dirty(&mut self) -> bool {
@@ -177,7 +104,6 @@ macro_rules! tex_data{
                 }
             }
 
-            //更新脏范围
             fn update_dirty (&mut self, index: usize){
                 let offset = index*$unit;
 
@@ -198,7 +124,118 @@ macro_rules! tex_data{
     }
 }
 
+buffer_data!(BufferData12, 12);
+buffer_data!(BufferData16, 16);
+buffer_data!(BufferData4, 4);
+buffer_data!(BufferData6, 6);
+
+#[macro_export]
+macro_rules! tex_data{
+    ($name: ident, $buffer_name: ident,  $unit: expr) => {
+        pub struct $name{
+            buffer: $buffer_name<f32>, //buffer数据
+            vacancy_list: SimpleHeap<usize>,
+            // dirty_block: (usize, usize), // 描述Tex改变的最大范围， (左上x, 左上y, 右下x, 右下y), 从1开始, 如果是(0,0,0,0)
+            size: usize,
+        }
+
+        impl $name {
+            pub fn new (size: usize) -> $name{
+                let buffer_len = size * size * 4; //每个像素包含rgba四个元素
+                let heap_len = buffer_len/$unit;
+                let mut min_heap = SimpleHeap::new(Ordering::Less);
+                for i in 0..heap_len{
+                    min_heap.push(i);
+                }
+
+                let buffer = $buffer_name::with_len(buffer_len);
+                $name {
+                    buffer,
+                    vacancy_list: min_heap,
+                    // dirty_block: (0, buffer_len),
+                    size,
+                }
+            }
+
+            //分配一个数据
+            pub fn alloc (&mut self) -> Option<usize>{
+                match self.vacancy_list.pop() {
+                    Some(index) => Some(index),
+                    None => None,
+                }
+            }
+
+            //更新纹理数据，不会检查index是否是一个空位， 如果是， 那么之后该位置会被使用，  index和offset以及data溢出时会painc
+            pub unsafe fn update (&mut self, index: usize, offset: usize, data: &[f32]){
+                self.buffer.update(index, offset, data);
+                self.buffer.update_dirty(index);
+            }
+
+            #[inline]
+            pub unsafe fn delete (&mut self, index: usize) {
+                self.vacancy_list.push(index);
+            }
+
+            //self.dirty_block != (0, 0,0,0), 否则panic
+            #[inline]
+            pub fn use_data(&mut self) -> Option<((usize, usize, usize, usize), &[f32])>{
+                if self.buffer.is_dirty() {
+                    let line_start = ((self.buffer.dirty_block.0)/4)/self.size;
+                    let column_start = ((self.buffer.dirty_block.0)/4)%self.size;
+                    let line_end = ((self.buffer.dirty_block.1 - 1)/4)/self.size;
+                    let column_end = ((self.buffer.dirty_block.1 - 1)/4)%self.size;
+                    let block = if line_end > line_start {
+                        (line_start, 0, self.size, line_end - line_start + 1)
+                    }else {
+                        (line_start, column_start, column_end - column_start + 1 , 1)
+                    };
+                    println!("{:?}", block);
+                    // let dirty_block = self.dirty_block;
+                    self.buffer.cancel_dirty();
+                    let line_len = 4*self.size;
+                    Some((block, &self.buffer.get_data()[block.0*line_len + block.1*4..(block.0 + block.3 - 1)*line_len + (block.1 + block.2)*4]))
+                } else {
+                    None
+                }
+            }
+
+            #[inline]
+            pub fn cancel_dirty(&mut self){
+                self.buffer.cancel_dirty();
+            }
+
+            // #[inline]
+            // pub fn is_dirty(&mut self) -> bool {
+            //     if self.dirty_block.0 == self.dirty_block.1 {
+            //         false
+            //     }else {
+            //         true
+            //     }
+            // }
+
+            //更新脏范围
+            // fn update_dirty (&mut self, index: usize){
+            //     let offset = index*$unit;
+
+            //     if self.dirty_block.0 == self.dirty_block.1 { //没有脏数据
+            //         self.dirty_block = (offset,offset + $unit);
+            //         return;
+            //     }
+            //     if offset < self.dirty_block.0 {
+            //         self.dirty_block.0 = offset;
+            //     }else{
+            //         let offset = offset + $unit;
+            //         if offset > self.dirty_block.1 {
+            //             self.dirty_block.1  = offset;
+            //         }
+            //     }
+            // }
+        }
+    }
+}
+
 tex_data!(TexData12, BufferData12, 12);
+tex_data!(TexData16, BufferData16, 16);
 
 #[test]
 fn test_tex_data(){
