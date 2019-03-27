@@ -6,11 +6,11 @@ use world::GuiComponentMgr;
 use component::node::{Node};
 
 
-pub struct NodeCount();
+pub struct NodeCountSys();
 
-impl NodeCount {
-  pub fn init(mgr: &mut GuiComponentMgr) -> Rc<NodeCount> {
-    let rc = Rc::new(NodeCount());
+impl NodeCountSys {
+  pub fn init(mgr: &mut GuiComponentMgr) -> Rc<NodeCountSys> {
+    let rc = Rc::new(NodeCountSys());
     mgr.node._group.register_create_handler(Rc::downgrade(
       &(rc.clone() as Rc<ComponentHandler<Node, CreateEvent, GuiComponentMgr>>),
     ));
@@ -21,7 +21,7 @@ impl NodeCount {
   }
 }
 
-impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for NodeCount {
+impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for NodeCountSys {
   fn handle(&self, event: &CreateEvent, component_mgr: &mut GuiComponentMgr) {
     let CreateEvent{id: _, parent} = event;
     let mut p = *parent;
@@ -32,7 +32,7 @@ impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for NodeCount {
     }
   }
 }
-impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for NodeCount {
+impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for NodeCountSys {
   fn handle(&self, event: &DeleteEvent, component_mgr: &mut GuiComponentMgr) {
     let DeleteEvent{id: _, parent} = event;
     let mut p = *parent;
