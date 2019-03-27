@@ -1,5 +1,5 @@
 // use stdweb::web::html_element::CanvasElement;
-use webgl_rendering_context::{WebGLRenderingContext};
+// use webgl_rendering_context::{WebGLRenderingContext};
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
@@ -9,16 +9,16 @@ use wcs::world::{ComponentMgr};
 use component::node::*;
 // use component::style::style::*;
 // use component::viewport::*;
-use render::vector_sdf::VectorSdf;
-use render::render::Render;
+// use render::vector_sdf::VectorSdf;
+// use render::render::Render;
 
 world!(
     struct GuiComponentMgr{
         #[component]
         node: Node,
         node_container: Slab<DeNode<usize>>,
-        opaque_vector: VectorSdf,    //不透明渲染对象列表
-        render:  Render,
+        // opaque_vector: VectorSdf,    //不透明渲染对象列表
+        // render:  Render,
         root_id: usize,
         root_width: f32,
         root_height: f32,
@@ -36,17 +36,31 @@ impl QidContainer for GuiComponentMgr {
 }
 
 impl GuiComponentMgr {
-    pub fn new(gl: WebGLRenderingContext) -> Self{
+    pub fn new() -> Self{
         GuiComponentMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
-            render: Render::new(gl),
-            opaque_vector: VectorSdf::new(),
+            // render: Render::new(gl),
+            // opaque_vector: VectorSdf::new(),
             root_id: 0,
             root_width: 0.0,
             root_height: 0.0,
         }
     }
+}
+
+impl GuiComponentMgr {
+    // pub fn new(gl: WebGLRenderingContext) -> Self{
+    //     GuiComponentMgr {
+    //         node: NodeGroup::default(),
+    //         node_container: Slab::default(),
+    //         // render: Render::new(gl),
+    //         // opaque_vector: VectorSdf::new(),
+    //         root_id: 0,
+    //         root_width: 0.0,
+    //         root_height: 0.0,
+    //     }
+    // }
 
     pub fn set_size(&mut self, width: f32, height: f32) {
         self.root_width = width;

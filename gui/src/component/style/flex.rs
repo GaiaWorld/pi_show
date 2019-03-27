@@ -1,6 +1,6 @@
 use std::ops::{Deref};
 
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent , Builder};
 use wcs::world::{ComponentMgr};
 
 use layout::*;

@@ -4,10 +4,10 @@ use std::os::raw::{c_void};
 use std::mem::forget;
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, Event};
+use wcs::component::{ComponentHandler, ModifyFieldEvent, DeleteEvent};
 
 use component::style::border::Border;
-use component::node::{RectSize, YogaContex, LayoutChange};
+use component::node::{RectSize, YogaContex, Node};
 use world::GuiComponentMgr;
 use component::math::{ Vector3 };
 use layout::{YGEdge, YGDirection};
@@ -17,33 +17,33 @@ pub struct Layout(RefCell<LayoutImpl>);
 impl Layout {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<Layout>{
         let system = Rc::new(Layout(RefCell::new(LayoutImpl::new())));
-        component_mgr.node.layout_change._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<LayoutChange, GuiComponentMgr>>)));
+        component_mgr.node.layout_change.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr>>)));
+        component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, GuiComponentMgr>>)));
         system
     }
 }
 
 //监听LayoutChange组件的变化， 如果修改， 设置脏标志
-impl ComponentHandler<LayoutChange, GuiComponentMgr> for Layout{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::ModifyField{id: _, parent, field: _} => {
-                let mut borrow_mut = self.0.borrow_mut();
-                borrow_mut.dirtys.push(*parent); //设置脏
-            },
-            Event::Delete{id, parent} => {
-                if component_mgr.node.layout_change._group.get(*id).value == true {
-                    let mut borrow_mut = self.0.borrow_mut();
-                    for i in 0..borrow_mut.dirtys.len() {
-                        //删除脏
-                        if borrow_mut.dirtys[i] == *parent {
-                            borrow_mut.dirtys.swap_remove(i);
-                            break;
-                        }
-                    }
+impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for Layout{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent {id, parent: _, field: _} = event;
+        self.0.borrow_mut().dirtys.push(*id);//设置脏
+    }
+}
+
+//监听node的删除事件，以便删除脏
+impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for Layout{
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut GuiComponentMgr){
+        let DeleteEvent {id, parent: _} = event;
+         if component_mgr.node._group.get(*id).layout_change == true {
+            let mut borrow_mut = self.0.borrow_mut();
+            for i in 0..borrow_mut.dirtys.len() {
+                //删除脏
+                if borrow_mut.dirtys[i] == *id {
+                    borrow_mut.dirtys.swap_remove(i);
+                    break;
                 }
-            },
-            //create事件不需要监听， node初始化就会创建LayoutChange组件， 但只有LayoutChange改变时， 布局才会发生变化
-            _ => ()
+            }
         }
     }
 }
@@ -112,8 +112,8 @@ impl LayoutImpl {
                 true
             });
 
-            node_ref.get_layout_change_mut().modify(|layout_change: &mut LayoutChange| {
-                layout_change.value = false;
+            node_ref.modify(|node: &mut Node| {
+                node.layout_change = false;
                 false //不发监听
             });
         }
@@ -124,107 +124,10 @@ impl LayoutImpl {
 //回调函数
 #[no_mangle]
 extern "C" fn callback(context: *const c_void) {
-    // js!{
-    //     console.log("ccccccccccccccccccccccccccxxxxxxxxxxxxxx");
-    // }
     //更新布局
     let yoga_context = unsafe { Box::from_raw(context as usize as *mut YogaContex) };
     let component_mgr = unsafe{ &mut *(yoga_context.mgr as *mut GuiComponentMgr) };
     let mut node_ref = component_mgr.get_node_mut(yoga_context.node_id);
-    node_ref.get_layout_change_mut().modify(|change: &mut LayoutChange|{
-        change.value = true;
-        true
-    });
-    // js!{
-    //     console.log("yyyyyyyyyyyyyyyyyyyyyyyy");
-    // }
+    node_ref.set_layout_change(true);
     forget(yoga_context);
-    // js!{
-    //     console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-    // }
-}
-
-#[cfg(test)]
-mod test {
-    use std::mem::{uninitialized, forget};
-    use std::rc::Rc;
-    use std::os::raw::{c_void};
-
-    use stdweb::*;
-
-    use wcs::world::{World, System};
-    use wcs::component::Builder;
-
-    use world::GuiComponentMgr;
-    use system::layout::Layout;
-    use component::node::{NodeBuilder, InsertType, YogaContex};
-    use layout::{YGFlexDirection};
-
-    #[test]
-    pub fn test_layout_system(){
-        let mut world = new_world();
-        let node1 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
-
-        node1.yoga.set_width(100.0);
-        node1.yoga.set_height(100.0);
-        node2.yoga.set_width(200.0);
-        node2.yoga.set_height(200.0); 
-        node3.yoga.set_width(300.0);
-        node3.yoga.set_height(300.0); 
-        node4.yoga.set_width(400.0);
-        node4.yoga.set_height(500.0);
-
-        world.component_mgr.set_size(500.0, 500.0);
-        let (root, root_yoga, node_ids) = {
-            let root = NodeBuilder::new().build(&mut world.component_mgr.node);
-            let root_yoga = root.yoga;
-            let mut root_ref = world.component_mgr.add_node(root);
-            (   
-                root_ref.id,
-                root_yoga,
-                [
-                    root_ref.insert_child(node1, InsertType::Back).id,
-                    root_ref.insert_child(node2, InsertType::Back).id,
-                    root_ref.insert_child(node3, InsertType::Back).id,
-                    root_ref.insert_child(node4, InsertType::Back).id,
-                ]
-            )
-        };
-        let yoga_context = Box::into_raw(Box::new(YogaContex {
-            node_id: root,
-            mgr: &world.component_mgr as *const GuiComponentMgr as usize,
-        })) as usize;
-        root_yoga.set_context(yoga_context as *mut c_void);
-        root_yoga.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
-        world.component_mgr.set_root(root);
-
-        // root_yoga.calculate_layout(500.0, 500.0, YGDirection::YGDirectionLTR);
-        world.run(());
-        for i in node_ids.iter(){
-            {
-                let node_ref = world.component_mgr.get_node_mut(*i);
-                let width = node_ref.get_extent().get_width().clone();
-                let height = node_ref.get_extent().get_height().clone();
-                let x = node_ref.get_position().get_x().clone();
-                let y = node_ref.get_position().get_y().clone();
-
-                let node_s = format!("test_layout_system, node{} position_x:{:?}, position_y:{:?}, width:{:?}, heigth: {:?}", i, x, y, width, height);
-                js!{
-                    console.log(@{node_s} );
-                }
-            }
-        }
-
-        forget(world);
-    }
-
-    fn new_world() -> World<GuiComponentMgr, ()>{
-        let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new(unsafe{uninitialized()}));
-        let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Layout::init(&mut world.component_mgr)];
-        world.set_systems(systems);
-        world
-    }
 }

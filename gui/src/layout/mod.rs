@@ -152,11 +152,11 @@ impl YgNode {
     }
 
     pub fn insert_child(&self, _node: YgNode, _index: u32){
-        unimplemented!()
+
     }
 
     pub fn remove_child(&self, _node: YgNode){
-        unimplemented!()
+
     }
 
     pub fn get_child(&self, _index: u32) -> YgNode {

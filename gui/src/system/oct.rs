@@ -3,7 +3,7 @@ use std::rc::{Rc};
 use std::ops::Deref;
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, Event};
+use wcs::component::{ComponentHandler, ModifyFieldEvent. CreateEvent, DeleteEvent};
 use cg::octree::*;
 
 use component::node::{RectSize};
