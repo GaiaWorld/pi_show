@@ -7,18 +7,18 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::cmp::{Ordering};
 
-use wcs::component::{ComponentHandler, Builder, Event, notify};
+use wcs::component::{ComponentHandler, Builder, Event};//, notify
 use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
+use vecmap::VecMap;
 use world::GuiComponentMgr;
 
-use component::node::{NodeBuilder, ZIndex, ZIndexWriteRef};
 
-pub struct ZIndexS(RefCell<ZIndexImpl>);
+pub struct ZIndexSys(RefCell<ZIndexImpl>);
 
-impl ZIndexS {
-  pub fn init(mgr: &mut GuiComponentMgr) -> Rc<ZIndexS> {
-    let rc = Rc::new(ZIndexS(RefCell::new(ZIndexImpl::new())));
+impl ZIndexSys {
+  pub fn init(mgr: &mut GuiComponentMgr) -> Rc<ZIndexSys> {
+    let rc = Rc::new(ZIndexSys(RefCell::new(ZIndexImpl::new())));
     mgr.node.zindex._group.register_handler(Rc::downgrade(
       &(rc.clone() as Rc<ComponentHandler<ZIndex, GuiComponentMgr>>),
     ));
@@ -26,7 +26,7 @@ impl ZIndexS {
   }
 }
 
-impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexS {
+impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexSys {
   fn handle(&self, event: &Event, mgr: &mut GuiComponentMgr) {
     match event {
       Event::Create { id: _, parent } => {
@@ -69,7 +69,7 @@ impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexS {
     }
   }
 }
-impl System<(), GuiComponentMgr> for ZIndexS {
+impl System<(), GuiComponentMgr> for ZIndexSys {
   fn run(&self, _e: &(), mgr: &mut GuiComponentMgr) {
     self.0.borrow_mut().calc(mgr);
   }
@@ -78,7 +78,7 @@ impl System<(), GuiComponentMgr> for ZIndexS {
 const AUTO: isize = -1;
 const MAX: f32 = 8388608.0;
 
-#[derive(Debug, Clone, Copy, Default, Component)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ZIndex {
   pub dirty: bool, // 子节点设zindex时，将不是auto的父节点设脏
   pub old: isize, // 旧值
@@ -90,7 +90,7 @@ pub struct ZIndex {
 
 struct ZIndexImpl {
   dirty: (Vec<Vec<usize>>, usize, usize), // 脏节点, 及脏节点数量，及脏节点的起始层
-  links: Slab<bool>,
+  links: VecMap<ZIndex>,
   cache: Cache,
 }
 
@@ -307,7 +307,7 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
     zi.min_z = min;
     zi.max_z = max;
     let child = node.get_childs_mut().get_first();
-    notify(Event::ModifyField{id: zi_id, parent: node_id, field: "min_z"}, &mgr.node.zindex._group.get_handlers().borrow(), mgr);
+    //notify(Event::ModifyField{id: zi_id, parent: node_id, field: "min_z"}, &mgr.node.zindex._group.get_handlers().borrow(), mgr);
     //ZIndexWriteRef::new(zi); TODO 改成node_ref.set_z(min)
     // 判断是否为auto
     if min != max {
@@ -344,7 +344,7 @@ use super::node_count::{NodeCount};
 fn test(){
     let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
     let nc = NodeCount::init(&mut world.component_mgr);
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexS::init(&mut world.component_mgr)];
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexSys::init(&mut world.component_mgr)];
     world.set_systems(systems);
     test_world_z(&mut world);
 }
