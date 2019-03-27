@@ -7,6 +7,7 @@ use slab::{Slab};
 use wcs::world::{ComponentMgr};
 
 use component::node::*;
+use component::math::{Point2};
 // use component::style::style::*;
 // use component::viewport::*;
 use render::vector_sdf::VectorSdf;
@@ -22,6 +23,7 @@ world!(
         root_id: usize,
         root_width: f32,
         root_height: f32,
+        overflow: ([usize;8], [[Point2;4];8;]), // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
         // #[component]
         // view_port: ViewPort,
         // root: usize,

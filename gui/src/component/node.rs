@@ -73,6 +73,9 @@ pub struct Node{
 	pub z_dirty: bool,
 	pub z_index: isize,
 
+    // 被裁剪
+    pub by_overflow: usize,
+
     //布局数据
     #[component(Vector3)]
     #[builder(build(Default))]
