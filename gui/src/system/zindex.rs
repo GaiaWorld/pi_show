@@ -176,6 +176,8 @@ impl ZIndexImpl {
           zi.max_z = zi.pre_max_z;
           (zi.min_z, zi.max_z, node.count, node.get_childs_mut().get_first())
         };
+        // 设置node.z_depth, 其他系统会监听该值
+        mgr.get_node_mut(*node_id).set_z_depth(min_z);
         if count == 0 {
           continue;
         }
@@ -226,7 +228,6 @@ impl Cache {
             child = v.next;
             v.elem.clone()
         };
-    //println!("-----------sort, {} {}", node_id, order);
         let (zi, count, child_id) = {
           let n = mgr.node._group.get_mut(node_id);
           (n.zindex, n.count, n.get_childs_mut().get_first())
@@ -298,7 +299,6 @@ fn marked_dirty(dirty: &mut(Vec<Vec<usize>>, usize, usize), node_id: usize, laye
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
 fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
-    //println!("-----------adjust, node_id {}, min_z {}, max_z {}, rate {}, parent_min {}", node_id, min_z, max_z, rate, parent_min);
   let (mut child, min, r, old_min) = {
     let node = mgr.node._group.get_mut(node_id);
     let zi = unsafe{links.get_unchecked_mut(node_id)};
@@ -350,25 +350,32 @@ fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut GuiComponentMgr, node_id: usize,
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use wcs::world::{World};
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use wcs::component::{Builder};
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use component::node::{NodeBuilder, InsertType};
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use super::node_count::{NodeCountSys};
 
+#[cfg(not(feature = "web"))]
 #[test]
 fn test(){
     let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
     let nc = NodeCountSys::init(&mut world.component_mgr);
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexSys::init(&mut world.component_mgr)];
+    let zz = ZIndexSys::init(&mut world.component_mgr);
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![zz.clone()];
     world.set_systems(systems);
-    test_world_z(&mut world);
+    test_world_z(&mut world, zz);
 }
 
+#[cfg(not(feature = "web"))]
 #[cfg(test)]
-fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
+fn test_world_z(world: &mut World<GuiComponentMgr, ()>, zz: Rc<ZIndexSys>){
     let (root, node1, node2, node3, node4, node5) = {
         let component_mgr = &mut world.component_mgr;
         {
@@ -400,39 +407,41 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
            };
            component_mgr.get_node_mut(node1).set_zindex(-1);
            component_mgr.get_node_mut(node3).set_zindex(2);
-            print_node(component_mgr, node1);
-            print_node(component_mgr, node2);
-            print_node(component_mgr, node3);
-            print_node(component_mgr, node4);
-            print_node(component_mgr, node5);
+            print_node(component_mgr, zz.clone(), node1);
+            print_node(component_mgr, zz.clone(), node2);
+            print_node(component_mgr, zz.clone(), node3);
+            print_node(component_mgr, zz.clone(), node4);
+            print_node(component_mgr, zz.clone(), node5);
             (root, node1, node2, node3, node4, node5)
         }
     };
 
     println!("modify run-----------------------------------------");
     world.run(());
-    print_node(&world.component_mgr, root);
-    print_node(&world.component_mgr, node1);
-    print_node(&world.component_mgr, node2);
-    print_node(&world.component_mgr, node3);
-    print_node(&world.component_mgr, node4);
-    print_node(&world.component_mgr, node5);
+    print_node(&world.component_mgr, zz.clone(), root);
+    print_node(&world.component_mgr, zz.clone(), node1);
+    print_node(&world.component_mgr, zz.clone(), node2);
+    print_node(&world.component_mgr, zz.clone(), node3);
+    print_node(&world.component_mgr, zz.clone(), node4);
+    print_node(&world.component_mgr, zz.clone(), node5);
     let n = NodeBuilder::new().build(&mut world.component_mgr.node);
     let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
     println!("modify2 run-----------------------------------------");
     world.run(());
-    print_node(&world.component_mgr, root);
-    print_node(&world.component_mgr, node1);
-    print_node(&world.component_mgr, node2);
-    print_node(&world.component_mgr, node3);
-    print_node(&world.component_mgr, node4);
-    print_node(&world.component_mgr, node5);
-    print_node(&world.component_mgr, node6);
+    print_node(&world.component_mgr, zz.clone(), root);
+    print_node(&world.component_mgr, zz.clone(), node1);
+    print_node(&world.component_mgr, zz.clone(), node2);
+    print_node(&world.component_mgr, zz.clone(), node3);
+    print_node(&world.component_mgr, zz.clone(), node4);
+    print_node(&world.component_mgr, zz.clone(), node5);
+    print_node(&world.component_mgr, zz.clone(), node6);
 }
 
 #[cfg(test)]
-fn print_node(mgr: &GuiComponentMgr, id: usize) {
+fn print_node(mgr: &GuiComponentMgr, zz: Rc<ZIndexSys>, id: usize) {
     let node = mgr.node._group.get(id);
+    let zimpl = zz.0.borrow_mut();
+    let zi = unsafe{zimpl.links.get_unchecked(id)};
 
-    println!("nodeid: {}, zindex: {:?}, z_depth: {}, count: {}", id, node.zindex, node.z_depth, node.count);
+    println!("nodeid: {}, zindex: {:?}, z_depth: {}, zz: {:?}, count: {}, parent: {}", id, node.zindex, node.z_depth, zi, node.count, node.parent);
 }
