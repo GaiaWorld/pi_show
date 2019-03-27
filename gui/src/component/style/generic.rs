@@ -1,7 +1,7 @@
 use std::ops::{Deref};
 use std::default::Default;
 
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
 #[derive(Debug, Copy, Clone)]

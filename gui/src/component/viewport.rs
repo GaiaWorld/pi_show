@@ -1,4 +1,4 @@
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use std::ops::{Deref};
 use wcs::world::{ComponentMgr};
 

@@ -115,7 +115,7 @@ use std::ops::{Deref, DerefMut};
 use std::default::Default;
 
 use cg::Zero;
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
 #[derive(Debug, Clone, Copy)]

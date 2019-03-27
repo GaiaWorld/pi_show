@@ -4,7 +4,7 @@ use std::os::raw::{c_void};
 
 use deque::deque::{Deque, Node as DeNode};
 use slab::{Slab};
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify, Builder};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder, Handlers};
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
@@ -33,25 +33,23 @@ pub struct Node{
     // #[component(Layout)]
     // pub layout: usize,
 
-    #[builder(build(Default), export)]
-    #[component(LayoutChange)]
-    pub layout_change: usize,
+    #[listen]
+    pub layout_change: bool,
 
     #[builder(export)]
     #[component(Transform)]
     pub transform: usize,
 
-     #[builder(export)]
+    #[builder(export)]
     #[component(ClipPath)]
     pub clip: usize,
 
-    #[builder(export)]
-    #[component(Overflow)]
-    pub overflow: usize,
+    #[listen]
+    pub overflow: bool,
 
-    #[builder(export)]
-    #[component(Opacity)]
-    pub opacity: usize,
+    #[builder(export, build(value=1.0) )]
+    #[listen]
+    pub opacity: f32,
 
     #[enum_component(Element)]
     #[builder(export)]
@@ -61,19 +59,20 @@ pub struct Node{
 
     pub yoga: YgNode,
 
-    #[component(ZIndex)]
-    #[builder(build(Default))]
-	pub zindex: usize, //zindex组件
+    //zindex, -1表示auto
+    #[listen]
+	pub zindex: isize,
 
-    //以下数据由system设置
     //记录所有子节点及递归包含的子节点的数量
+    #[ignore]
 	pub count: usize,
 
-    // 子节点设zindex时，将不是auto的父节点设脏
-	pub z_dirty: bool,
-	pub z_index: isize,
+    // z深度
+    #[listen]
+    pub z_depth: f32,
 
     // 被裁剪
+    #[listen]
     pub by_overflow: usize,
 
     //布局数据
@@ -90,8 +89,8 @@ pub struct Node{
     pub border: usize, //边框
 
     #[builder(build(Default))]
-    #[component(Opacity)]
-    pub real_opacity: usize, //不透明度
+    #[listen]
+    pub real_opacity: f32, //不透明度
 
 
     #[component(Matrix4)]
@@ -171,7 +170,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
             _ => panic!(format!("insert_child error, this is a leaf node")),
         };
 
-        notify(Event::ModifyField{id: self.id, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr);  //通知childs字段改变
+        handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr);  //通知childs字段改变
         let mut child_ref = NodeWriteRef::new(child_id, self.groups, self.mgr);
         child_ref.set_parent(self.id);
         child_ref.create_notify(); //通知Node及Node子组件的创建
@@ -206,7 +205,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
             // }
         };
         let handler = group._group.get_handlers();
-        notify(Event::ModifyField{id: self.id, parent: parent, field: "childs"}, &handler.borrow(), &mut self.mgr); //通知childs字段改变
+        handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr); //通知childs字段改变
         NodeWriteRef::new(child_id, self.groups, self.mgr).destroy(); //从容器中删除child的数据， 并抛出Node及Node子组件销毁的事件
     }
 }
@@ -224,14 +223,6 @@ pub struct RectSize{
     pub height: f32,
 }
 
-#[derive(Debug, Clone, Copy, Default, Component)]
-pub struct ZIndex {
-    pub zindex: isize, // -1表示auto, 设置负zindex全部额外-1, 默认为0 
-    pub pre_min_z: f32, // 预设置的节点的最小z值 // 下面4个值需要单独独立出来吗？ TODO
-    pub pre_max_z: f32, // 预设置的节点的最大z值
-    pub min_z: f32, // 节点的最小z值，也是节点自身的z值
-    pub max_z: f32, // 节点的最大z值，z-index == -1, 则和min_z一样。
-}
 
 #[derive(Debug, Component, Default)]
 pub struct LayoutChange{

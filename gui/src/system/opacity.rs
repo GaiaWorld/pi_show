@@ -6,10 +6,9 @@ use std::cell::RefCell;
 use std::rc::{Rc};
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, Event};
+use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use slab::Slab;
 
-use component::style::generic::{Opacity};
 use component::node::{Node};
 use world::GuiComponentMgr;
 
@@ -18,41 +17,38 @@ pub struct OpacitySys(RefCell<OpacitySysImpl>);
 impl OpacitySys {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<OpacitySys>{
         let system = Rc::new(OpacitySys(RefCell::new(OpacitySysImpl::new())));
-        component_mgr.node.opacity._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Opacity, GuiComponentMgr>>)));
+        component_mgr.node.opacity.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr>>)));
+        component_mgr.node._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, CreateEvent, GuiComponentMgr>>)));
+        component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, GuiComponentMgr>>)));
         system
     }
 }
 
-impl ComponentHandler<Opacity, GuiComponentMgr> for OpacitySys{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::ModifyField{id: _, parent, field: _} => {
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            Event::Create{id, parent} => {
-                if component_mgr.node.opacity._group.get(*id).value != 1.0{
-                    self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-                }
-            },
-            Event::Delete{id, parent: _} => {
-                self.0.borrow_mut().delete_dirty(*id, component_mgr);
-            },
-            _ => ()
-        }
+//监听opacity属性的改变
+impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for OpacitySys{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent{id, parent: _, field: _} = event;
+        self.0.borrow_mut().marked_dirty(*id, component_mgr);
     }
 }
 
-impl ComponentHandler<Node, GuiComponentMgr> for OpacitySys{
-    fn handle(&self, event: &Event, _component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id, parent: _} => {
-                self.0.borrow_mut().dirty_mark_list.insert_at(*id, true);
-            },
-            Event::Delete{id, parent: _} => {
-                self.0.borrow_mut().dirty_mark_list.remove(*id);
-            },
-            _ => ()
-        }
+//监听Node的创建， 设置脏标志
+impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for OpacitySys{
+    fn handle(&self, event: &CreateEvent, component_mgr: &mut GuiComponentMgr){
+        let CreateEvent{id, parent: _} = event;
+        let mut borrow = self.0.borrow_mut();
+        borrow.dirty_mark_list.insert_at(*id, false);
+        borrow.marked_dirty(*id, component_mgr);
+    }
+}
+
+//监听Node的删除创建， 删除脏标志
+impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OpacitySys{
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut GuiComponentMgr){
+        let DeleteEvent{id, parent: _} = event;
+        let mut borrow = self.0.borrow_mut();
+        borrow.delete_dirty(*id, component_mgr);
+        borrow.dirty_mark_list.remove(*id);
     }
 }
 
@@ -79,8 +75,20 @@ impl OpacitySysImpl {
     pub fn cal_opacity(&mut self, component_mgr: &mut GuiComponentMgr){
         for d1 in self.dirtys.iter() {
             for node_id in d1.iter() {
-                //修改节点世界矩阵及子节点的世界矩阵
-                modify_opacity(&mut self.dirty_mark_list, *node_id, component_mgr);
+                {
+                    let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*node_id)};
+                    if *dirty_mark == false {
+                        continue;
+                    }
+                    *dirty_mark = false;
+                }
+
+                let parent_id = component_mgr.node._group.get(*node_id).parent;
+                if parent_id > 0 {
+                    modify_opacity(&mut self.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
+                }else {
+                    modify_opacity(&mut self.dirty_mark_list, 1.0, *node_id, component_mgr);
+                }
             }
         }
 
@@ -122,43 +130,18 @@ impl OpacitySysImpl {
 }
 
 //递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
-fn modify_opacity(dirty_mark_list: &mut Slab<bool>, node_id: usize, component_mgr: &mut GuiComponentMgr) {
-    // 设置脏标志
-    {
-        let dirty_mark = unsafe{dirty_mark_list.get_unchecked_mut(node_id)};
-        if *dirty_mark == false {
-            return;
-        }
-        *dirty_mark = false;
-    }
-    let (node_opacity_id, parent_id) = {
+fn modify_opacity(dirty_mark_list: &mut Slab<bool>, parent_real_opacity: f32, node_id: usize, component_mgr: &mut GuiComponentMgr) {
+    let (node_opacity, node_old_real_opacity) = {
         let node = component_mgr.node._group.get(node_id);
-        (node.opacity, node.parent)
+        (node.opacity, node.real_opacity)
     };
+    let node_real_opacity = node_opacity * parent_real_opacity;
 
-    let parent_opacity_id = component_mgr.node._group.get(parent_id).parent;
-
-    let node_opacity;
-    let parent_opacity = component_mgr.node.real_opacity._group.get(parent_opacity_id).value; //real_opacity组件一定存在
-    if node_opacity_id == 0 {
-        node_opacity = 1.0;
-    }else {
-        node_opacity = component_mgr.node.opacity._group.get(node_opacity_id).value
-    }
-
-    let value = node_opacity * parent_opacity;
-    
     let mut child = {
         let mut node_ref = component_mgr.get_node_mut(node_id);
-        node_ref.get_real_opacity_mut().modify(|opacity: &mut Opacity|{
-            if value == opacity.value {
-                false
-            }else {
-                opacity.value = value;
-                true
-            }
-        });
-
+        if node_real_opacity != node_old_real_opacity {
+            node_ref.set_real_opacity(node_real_opacity);
+        }
         node_ref.get_childs_mut().get_first()
     };
     //递归计算子节点的世界矩阵
@@ -171,145 +154,99 @@ fn modify_opacity(dirty_mark_list: &mut Slab<bool>, node_id: usize, component_mg
             child = v.next;
             v.elem.clone()
         };
-        modify_opacity(dirty_mark_list, node_id, component_mgr);
+        modify_opacity(dirty_mark_list, node_real_opacity, node_id, component_mgr);
     }
 }
 
-// #[cfg(test)]
-// use wcs::world::{World};
-// #[cfg(test)]
-// use component::math_component::{Vector3};
+#[cfg(test)]
+use wcs::component::Builder;
+#[cfg(test)]
+use wcs::world::{World};
 
-// #[test]
-// fn test(){
-//     let mut world: World<GuiComponentMgr, ()> = World::new();
-//     let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![OpacitySys::init(&mut world.component_mgr)];
-//     world.set_systems(systems);
-//     test_world_matrix(&mut world);
-// }
+#[cfg(test)]
+use component::node::{NodeBuilder, InsertType};
 
-// #[cfg(test)]
-// fn test_world_matrix(world: &mut World<GuiComponentMgr, ()>){
-//     let (root, node1, node2, node3, node4, node5) = {
-//         let component_mgr = &mut world.component_mgr;
-//         {
-            
-//             let (root, node1, node2, node3, node4, node5) = {
-//                 let mut root = component_mgr.create_node(0);
-//                 root.set_layer(1);
-//                 (   
-//                     root.id.0.clone(),
-//                     root.create_child_back().id.0.clone(), 
-//                     root.create_child_back().id.0.clone(),
-//                     root.create_child_back().id.0.clone(),
-//                     root.create_child_back().id.0.clone(),
-//                     root.create_child_back().id.0.clone(),
-//                 )
-//            };
-//             print_node(component_mgr, &node1);
-//             print_node(component_mgr, &node2);
-//             print_node(component_mgr, &node3);
-//             print_node(component_mgr, &node4);
-//             print_node(component_mgr, &node5);
+#[test]
+fn test(){
+    let mut world = new_world();
+    let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&root);
-//                 let mut size = node.get_size_mut();
-//                 size.set_width(500.0);
-//                 size.set_height(500.0);
-//             }
+    world.component_mgr.set_size(500.0, 500.0);
+    let (root, node_ids) = {
+        let root = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let root_id = world.component_mgr.add_node(root).id;
+        let mgr = &mut world.component_mgr;
+        
+        //root的直接子节点
+        let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+        let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&node1);
-//                 let mut size = node.get_size_mut();
-//                 size.set_width(100.0);
-//                 size.set_height(100.0);
-//             }
+        //node2的直接子节点
+        let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
+        let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&node2);
-//                 {
-//                     let mut size = node.get_size_mut();
-//                     size.set_width(100.0);
-//                     size.set_height(100.0);
-//                 }
-//                 {
-//                     let mut transform = node.get_transform_mut();
-//                     transform.set_position(Vector3::new(100.0, 0.0, 0.0));
-//                 }
-                
-//             }
+        //node3的直接子节点
+        let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
+        let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&node3);
-//                 {
-//                     let mut size = node.get_size_mut();
-//                     size.set_width(100.0);
-//                     size.set_height(100.0);
-//                 }
-//                 {
-//                     let mut transform = node.get_transform_mut();
-//                     transform.set_position(Vector3::new(200.0, 0.0, 0.0));
-//                 }
-                
-//             }
+        //node4的直接子节点
+        let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
+        let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&node4);
-//                 {
-//                     let mut size = node.get_size_mut();
-//                     size.set_width(100.0);
-//                     size.set_height(100.0);
-//                 }
-//                 {
-//                     let mut transform = node.get_transform_mut();
-//                     transform.set_position(Vector3::new(100.0, 0.0, 0.0));
-//                     transform.set_position(Vector3::new(400.0, 0.0, 0.0));
-//                 }
-                
-//             }
+        (
+            root_id,
+            vec![node2, node3, node4, node5, node6, node7, node8, node9]
+        )
+    };
 
-//             {
-//                 let mut node = component_mgr.get_node_mut(&node5);
-//                 {
-//                     let mut size = node.get_size_mut();
-//                     size.set_width(100.0);
-//                     size.set_height(100.0);
-//                 }
-//                 {
-//                     let mut transform = node.get_transform_mut();
-//                     transform.set_position(Vector3::new(0.0, 100.0, 0.0));
-//                 }
-                
-//             }
-//             println!("modify-----------------------------------------");
-//             print_node(component_mgr, &node1);
-//             print_node(component_mgr, &node2);
-//             print_node(component_mgr, &node3);
-//             print_node(component_mgr, &node4);
-//             print_node(component_mgr, &node5);
+    //  mgr.get_node_mut(root).
+    world.run(());
+    for i in node_ids.iter(){
+        {
+            let node_ref = world.component_mgr.get_node_mut(*i);
+            let real_opacity = node_ref.get_real_opacity();
+            println!("test_opacity1, node{} , real_opacity:{}", i, real_opacity);
+        }
+    }
 
-//             let node2_qid = component_mgr.get_node_mut(&node2).get_qid().clone();
-//             component_mgr.get_node_mut(&root).remove_child(node2_qid);
-//             (root, node1, node2, node3, node4, node5)
-//         }
-//     };
+    world.component_mgr.get_node_mut(root).set_opacity(0.5);
+    world.run(());
+    println!("-----------------------------------------------------------------");
+    for i in node_ids.iter(){
+        {
+            let node_ref = world.component_mgr.get_node_mut(*i);
+            let real_opacity = node_ref.get_real_opacity();
+            println!("test_opacity2, node{} , real_opacity:{}", i, real_opacity);
+        }
+    }
 
-//     println!("modify run-----------------------------------------");
-//     world.run(());
-//     print_node(&world.component_mgr, &root);
-//     print_node(&world.component_mgr, &node1);
-//     print_node(&world.component_mgr, &node2);
-//     print_node(&world.component_mgr, &node3);
-//     print_node(&world.component_mgr, &node4);
-//     print_node(&world.component_mgr, &node5);
-// }
+    //修改node2的opacity
+    world.component_mgr.get_node_mut(node_ids[0]).set_opacity(0.5);
+    world.component_mgr.get_node_mut(node_ids[2]).set_opacity(0.5);
+    world.run(());
+    println!("-----------------------------------------------------------------");
+    for i in node_ids.iter(){
+        {
+            let node_ref = world.component_mgr.get_node_mut(*i);
+            let real_opacity = node_ref.get_real_opacity();
+            println!("test_opacity3, node{} , real_opacity:{}, opacity{}", i, real_opacity, node_ref.get_opacity());
+        }
+    }
 
-// #[cfg(test)]
-// fn print_node(mgr: &GuiComponentMgr, id: &usize) {
-//     let node = mgr.node._group.get(&id);
-//     let transform = mgr.node.transform._group.get(&node.transform);
-//     let matrix = mgr.node.world_matrix._group.get(&node.world_matrix);
+    // forget(world);
+}
 
-//     println!("nodeid: {}, transform:{:?}, world_matrix: {:?}, matrix_dirty: {}", id, transform, matrix, node.world_matrix_dirty);
-// }
+#[cfg(test)]
+fn new_world() -> World<GuiComponentMgr, ()>{
+    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![OpacitySys::init(&mut world.component_mgr)];
+    world.set_systems(systems);
+    world
+}

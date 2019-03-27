@@ -78,11 +78,19 @@ impl System<(), GuiComponentMgr> for ZIndexS {
 const AUTO: isize = -1;
 const MAX: f32 = 8388608.0;
 
-#[derive(Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-struct ZSort (isize, usize, usize, usize); // (zindex, index, node_id, children_count)
+#[derive(Debug, Clone, Copy, Default, Component)]
+pub struct ZIndex {
+  pub dirty: bool, // 子节点设zindex时，将不是auto的父节点设脏
+  pub old: isize, // 旧值
+  pub pre_min_z: f32, // 预设置的节点的最小z值 // 下面4个值需要单独独立出来吗？ TODO
+  pub pre_max_z: f32, // 预设置的节点的最大z值
+  pub min_z: f32, // 节点的最小z值，也是节点自身的z值
+  pub max_z: f32, // 节点的最大z值，z-index == -1, 则和min_z一样。
+}
 
 struct ZIndexImpl {
   dirty: (Vec<Vec<usize>>, usize, usize), // 脏节点, 及脏节点数量，及脏节点的起始层
+  links: Slab<bool>,
   cache: Cache,
 }
 
@@ -183,6 +191,9 @@ impl ZIndexImpl {
   }
 
 }
+
+#[derive(Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+struct ZSort (isize, usize, usize, usize); // (zindex, index, node_id, children_count)
 
 // 计算z排序时使用的临时数据结构
 struct Cache {

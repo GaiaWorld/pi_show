@@ -1,5 +1,5 @@
 // use stdweb::web::html_element::CanvasElement;
-use webgl_rendering_context::{WebGLRenderingContext};
+// use webgl_rendering_context::{WebGLRenderingContext};
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
@@ -10,20 +10,21 @@ use component::node::*;
 use component::math::{Point2};
 // use component::style::style::*;
 // use component::viewport::*;
-use render::vector_sdf::VectorSdf;
-use render::render::Render;
+// use render::vector_sdf::VectorSdf;
+// use render::render::Render;
 
+pub struct Overflow([usize;8], [[Point2;4];8]);
 world!(
     struct GuiComponentMgr{
         #[component]
         node: Node,
         node_container: Slab<DeNode<usize>>,
-        opaque_vector: VectorSdf,    //不透明渲染对象列表
-        render:  Render,
+        // opaque_vector: VectorSdf,    //不透明渲染对象列表
+        // render:  Render,
         root_id: usize,
         root_width: f32,
         root_height: f32,
-        overflow: ([usize;8], [[Point2;4];8;]), // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
+        overflow: Overflow, // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
         // #[component]
         // view_port: ViewPort,
         // root: usize,
@@ -38,17 +39,32 @@ impl QidContainer for GuiComponentMgr {
 }
 
 impl GuiComponentMgr {
-    pub fn new(gl: WebGLRenderingContext) -> Self{
+    pub fn new() -> Self{
         GuiComponentMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
-            render: Render::new(gl),
-            opaque_vector: VectorSdf::new(),
+            // render: Render::new(gl),
+            // opaque_vector: VectorSdf::new(),
             root_id: 0,
             root_width: 0.0,
             root_height: 0.0,
+            overflow: Overflow([0;8],[[Point2::default();4];8]),
         }
     }
+}
+
+impl GuiComponentMgr {
+    // pub fn new(gl: WebGLRenderingContext) -> Self{
+    //     GuiComponentMgr {
+    //         node: NodeGroup::default(),
+    //         node_container: Slab::default(),
+    //         // render: Render::new(gl),
+    //         // opaque_vector: VectorSdf::new(),
+    //         root_id: 0,
+    //         root_width: 0.0,
+    //         root_height: 0.0,
+    //     }
+    // }
 
     pub fn set_size(&mut self, width: f32, height: f32) {
         self.root_width = width;

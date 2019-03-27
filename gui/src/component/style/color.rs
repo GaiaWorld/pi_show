@@ -1,6 +1,6 @@
 use std::ops::{Deref};
 
-use wcs::component::{Event, ComponentGroup, ComponentGroupTree, notify};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
 use component::math::{Color as CgColor, ColorReadRef as CgColorReadRef, ColorGroup as CgColorGroup, ColorWriteRef as CgColorWriteRef};
