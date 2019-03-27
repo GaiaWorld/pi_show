@@ -3,7 +3,7 @@ use std::rc::{Rc};
 use std::ops::Deref;
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, ModifyFieldEvent. CreateEvent, DeleteEvent};
+use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use cg::octree::*;
 
 use component::node::{RectSize};
@@ -17,43 +17,43 @@ pub struct Oct(RefCell<OctImpl>);
 impl Oct {
     pub fn init(component_mgr: &mut GuiComponentMgr, extent: Aabb3<f32>) -> Rc<Oct>{
         let r = Rc::new(Oct(RefCell::new(OctImpl::new(extent))));
-        component_mgr.node.extent._group.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, GuiComponentMgr>>)));
-        component_mgr.node.world_matrix._group.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Matrix4, GuiComponentMgr>>)));
+        component_mgr.node.extent._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, ModifyFieldEvent, GuiComponentMgr>>)));
+        component_mgr.node.extent._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, DeleteEvent, GuiComponentMgr>>)));
+        component_mgr.node.extent._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, CreateEvent, GuiComponentMgr>>)));
+        component_mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Matrix4, ModifyFieldEvent, GuiComponentMgr>>)));
         r
     }
 }
 
-impl ComponentHandler<RectSize, GuiComponentMgr> for Oct{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::Create{id:_, parent} => {
-                self.0.borrow_mut().add_aabb(*parent, component_mgr);
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            Event::Delete{id:_, parent} => {
-                self.0.borrow_mut().remove_aabb(*parent, component_mgr);
-                self.0.borrow_mut().delete_dirty(*parent);
-            },
-            Event::ModifyField{id:_, parent, field: _} => {
-                js!{
-                    console.log("RectSize---------------------modify");
-                }
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            _ => ()
-        }
+impl ComponentHandler<RectSize, ModifyFieldEvent, GuiComponentMgr> for Oct{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent{id: _, parent, field: _} = event;
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
     }
 }
 
-impl ComponentHandler<Matrix4, GuiComponentMgr> for Oct{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::ModifyField{id:_, parent, field: _} => {
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            //监听了size组件的创建和销毁， 不需要在监听Matrix4组件的创建和销毁
-            _ => ()
-        }
+impl ComponentHandler<RectSize, CreateEvent, GuiComponentMgr> for Oct{
+    fn handle(&self, event: &CreateEvent, component_mgr: &mut GuiComponentMgr){
+        let CreateEvent{id: _, parent} = event;
+        self.0.borrow_mut().add_aabb(*parent, component_mgr);
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
+    }
+}
+
+impl ComponentHandler<RectSize, DeleteEvent, GuiComponentMgr> for Oct{
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut GuiComponentMgr){
+        let DeleteEvent{id: _, parent} = event;
+        self.0.borrow_mut().remove_aabb(*parent, component_mgr);
+        self.0.borrow_mut().delete_dirty(*parent);
+    }
+}
+
+//监听了size组件的创建和销毁， 不需要在监听Matrix4组件的创建和销毁
+impl ComponentHandler<Matrix4, ModifyFieldEvent, GuiComponentMgr> for Oct{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent{id: _, parent, field: _} = event;
+        self.0.borrow_mut().remove_aabb(*parent, component_mgr);
+        self.0.borrow_mut().delete_dirty(*parent);
     }
 }
 
@@ -78,10 +78,6 @@ impl OctImpl {
 
     //计算包围盒
     pub fn cal_bound_box(&mut self, mgr: &mut GuiComponentMgr){
-        let len = self.dirtys.len() as u32;
-        js!{
-            console.log("cal_bound_box---------------------start, len: ", @{len});
-        }
         for node_id in self.dirtys.iter() {
             mgr.node._group.get_mut(*node_id).bound_box_dirty = false;
 
@@ -101,15 +97,9 @@ impl OctImpl {
                 node_ref.get_bound_box_mut().modify(|aabb3: &mut C_Aabb3|{
                     aabb3.min = aabb.min;
                     aabb3.max = aabb.max;
-                    js!{
-                        console.log("cal_bound_box---------------------modify, min_x: ", @{aabb.min.x}, ",min_y:", @{aabb.min.y}, ",max_x:", @{aabb.max.x}, ",max_y:", @{aabb.max.y});
-                    }
                     true
                 });
             }
-        }
-        js!{
-            console.log("cal_bound_box---------------------end");
         }
     }
 

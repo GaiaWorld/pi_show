@@ -7,7 +7,7 @@ use std::rc::{Rc};
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
-use slab::Slab;
+use vecmap::VecMap;
 
 use component::node::{Node};
 use world::GuiComponentMgr;
@@ -37,7 +37,7 @@ impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for OpacitySys{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut GuiComponentMgr){
         let CreateEvent{id, parent: _} = event;
         let mut borrow = self.0.borrow_mut();
-        borrow.dirty_mark_list.insert_at(*id, false);
+        borrow.dirty_mark_list.insert(*id, false);
         borrow.marked_dirty(*id, component_mgr);
     }
 }
@@ -48,7 +48,7 @@ impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OpacitySys{
         let DeleteEvent{id, parent: _} = event;
         let mut borrow = self.0.borrow_mut();
         borrow.delete_dirty(*id, component_mgr);
-        borrow.dirty_mark_list.remove(*id);
+        unsafe {borrow.dirty_mark_list.remove(*id)};
     }
 }
 
@@ -60,14 +60,14 @@ impl System<(), GuiComponentMgr> for OpacitySys{
 
 pub struct OpacitySysImpl {
     dirtys: Vec<Vec<usize>>, //Vec<Vec<node_id>>
-    dirty_mark_list: Slab<bool>,
+    dirty_mark_list: VecMap<bool>,
 }
 
 impl OpacitySysImpl {
     pub fn new() -> OpacitySysImpl{
         OpacitySysImpl{
             dirtys: Vec::new(),
-            dirty_mark_list: Slab::new(),
+            dirty_mark_list: VecMap::new(),
         }
     }
 
@@ -85,9 +85,9 @@ impl OpacitySysImpl {
 
                 let parent_id = component_mgr.node._group.get(*node_id).parent;
                 if parent_id > 0 {
-                    modify_opacity(&mut self.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
+                    modify_opacity(component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
                 }else {
-                    modify_opacity(&mut self.dirty_mark_list, 1.0, *node_id, component_mgr);
+                    modify_opacity(1.0, *node_id, component_mgr);
                 }
             }
         }
@@ -130,7 +130,7 @@ impl OpacitySysImpl {
 }
 
 //递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
-fn modify_opacity(dirty_mark_list: &mut Slab<bool>, parent_real_opacity: f32, node_id: usize, component_mgr: &mut GuiComponentMgr) {
+fn modify_opacity(parent_real_opacity: f32, node_id: usize, component_mgr: &mut GuiComponentMgr) {
     let (node_opacity, node_old_real_opacity) = {
         let node = component_mgr.node._group.get(node_id);
         (node.opacity, node.real_opacity)
@@ -154,7 +154,7 @@ fn modify_opacity(dirty_mark_list: &mut Slab<bool>, parent_real_opacity: f32, no
             child = v.next;
             v.elem.clone()
         };
-        modify_opacity(dirty_mark_list, node_real_opacity, node_id, component_mgr);
+        modify_opacity(node_real_opacity, node_id, component_mgr);
     }
 }
 

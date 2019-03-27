@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::{Rc};
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, Event};
+use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
 
 use component::style::transform::{Transform};
 use world::GuiComponentMgr;
@@ -18,38 +18,39 @@ pub struct WorldMatrix(RefCell<WorldMatrixImpl>);
 impl WorldMatrix {
     pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<WorldMatrix>{
         let system = Rc::new(WorldMatrix(RefCell::new(WorldMatrixImpl::new())));
-        component_mgr.node.transform._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, GuiComponentMgr>>)));
-        component_mgr.node.position._group.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Vector3, GuiComponentMgr>>)));
+        component_mgr.node.transform._group.register_modify_field_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, ModifyFieldEvent, GuiComponentMgr>>)));
+        component_mgr.node.transform._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, DeleteEvent, GuiComponentMgr>>)));
+        component_mgr.node.transform._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, CreateEvent, GuiComponentMgr>>)));
+        component_mgr.node.position._group.register_modify_field_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Vector3, ModifyFieldEvent, GuiComponentMgr>>)));
         system
     }
 }
 
-impl ComponentHandler<Transform, GuiComponentMgr> for WorldMatrix{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
-        match event {
-            Event::ModifyField{id: _, parent, field: _} => {
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            Event::Create{id: _, parent} => {
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            Event::Delete{id, parent: _} => {
-                self.0.borrow_mut().delete_dirty(*id, component_mgr);
-            },
-            _ => ()
-        }
+impl ComponentHandler<Transform, ModifyFieldEvent, GuiComponentMgr> for WorldMatrix{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent{id: _, parent, field: _} = event;
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
     }
 }
 
-impl ComponentHandler<Vector3, GuiComponentMgr> for WorldMatrix{
-    fn handle(&self, event: &Event, component_mgr: &mut GuiComponentMgr){
+impl ComponentHandler<Transform, DeleteEvent, GuiComponentMgr> for WorldMatrix{
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut GuiComponentMgr){
+        let DeleteEvent{id: _, parent} = event;
+        self.0.borrow_mut().delete_dirty(*parent, component_mgr);
+    }
+}
 
-        match event {
-            Event::ModifyField{id: _, parent, field: _} => {
-                self.0.borrow_mut().marked_dirty(*parent, component_mgr);
-            },
-            _ => ()
-        }
+impl ComponentHandler<Transform, CreateEvent, GuiComponentMgr> for WorldMatrix{
+    fn handle(&self, event: &CreateEvent, component_mgr: &mut GuiComponentMgr){
+        let CreateEvent{id: _, parent} = event;
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
+    }
+}
+
+impl ComponentHandler<Vector3, ModifyFieldEvent, GuiComponentMgr> for WorldMatrix{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+        let ModifyFieldEvent{id: _, parent, field: _} = event;
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
     }
 }
 
