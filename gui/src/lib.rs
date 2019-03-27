@@ -19,11 +19,11 @@ extern crate enum_default_macro;
 extern crate pointer;
 #[macro_use]
 extern crate lazy_static;
-// #[macro_use]
-// extern crate stdweb;
-// // #[macro_use]
-// extern crate stdweb_derive;
-// extern crate webgl_rendering_context;
+
+#[cfg(feature = "web")]
+extern crate stdweb;
+#[cfg(feature = "web")]
+extern crate webgl_rendering_context;
 
 extern crate num_traits;
 extern crate heap;
@@ -34,9 +34,10 @@ extern crate atom;
 pub mod component;
 pub mod world;
 pub mod system;
-// pub mod render;
 pub mod layout;
 pub mod text_layout;
+#[cfg(feature = "web")]
+pub mod render;
 // pub mod bind;
 
 
