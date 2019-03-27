@@ -37,7 +37,6 @@ impl ComponentHandler<RectSize, CreateEvent, GuiComponentMgr> for Oct{
         let CreateEvent{id: _, parent} = event;
         let mut borrow = self.0.borrow_mut();
         borrow.dirty_mark_list.insert(*parent, false);
-        println!("CreateEvent--------------RectSize, id:{}", parent);
         borrow.add_aabb(*parent, component_mgr);
         borrow.marked_dirty(*parent);
     }
@@ -93,7 +92,6 @@ impl OctImpl {
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
                 let aabb = cal_bound_box(extent, world_matrix);
                 //更新八叉树
-                println!("update_oct------------id: {}, {:?}", node.bound_box_id, aabb);
                 self.octree.update(node.bound_box_id, aabb.clone());
                 aabb
             };
@@ -130,14 +128,11 @@ impl OctImpl {
 
     pub fn add_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
         let aabb = mgr.node.bound_box._group.get_mut(mgr.node._group.get(node_id).bound_box).owner.clone();
-        println!("add_aabb-----------------{:?}", aabb);
         let oct_id = self.octree.add(aabb.0, node_id);
         mgr.get_node_mut(node_id).set_bound_box_id(oct_id);
-        println!("oct_id-----------------{}", oct_id);
     }
 
     pub fn remove_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
-        println!("remove_aabb-----------------");
         let node = mgr.node._group.get_mut(node_id);
         if node.bound_box > 0 {
             self.octree.remove(node.bound_box);
@@ -185,95 +180,101 @@ fn cal_bound_box(size: &RectSize, matrix: &Matrix4) -> Aabb3<f32>{
     Aabb3::new(min, max)
 }
 
-// #[cfg(test)]
-// use wcs::component::Builder;
-// #[cfg(test)]
-// use wcs::world::{World};
+#[cfg(test)]
+mod test {
+    use std::rc::Rc;
 
-// #[cfg(test)]
-// use component::node::{NodeBuilder, InsertType};
+    use wcs::component::Builder;
+    use wcs::world::{World, System};
+    use cg::{Aabb3, Point3};
 
-// #[test]
-// fn test(){
-//     let mut world = new_world();
-//     let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//     let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
+    use component::node::{NodeBuilder, InsertType};
+    use component::node::{RectSize};
+    use world::GuiComponentMgr;
+    use system::oct::Oct;
 
-//     world.component_mgr.set_size(500.0, 500.0);
-//     let (root, node_ids) = {
-//         let root = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let root_id = world.component_mgr.add_node(root).id;
-//         let mgr = &mut world.component_mgr;
+    #[test]
+    fn test(){
+        let mut world = new_world();
+        let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
+        let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
+
+        world.component_mgr.set_size(500.0, 500.0);
+        let (root, node_ids) = {
+            let root = NodeBuilder::new().build(&mut world.component_mgr.node);
+            let root_id = world.component_mgr.add_node(root).id;
+            let mgr = &mut world.component_mgr;
+            
+            //root的直接子节点
+            let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+            let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
+
+            //node2的直接子节点
+            let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
+            let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
+
+            //node3的直接子节点
+            let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
+            let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
+
+            //node4的直接子节点
+            let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
+            let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
+
+            (
+                root_id,
+                vec![node2, node3, node4, node5, node6, node7, node8, node9]
+            )
+        };
+
+        //  mgr.get_node_mut(root).
+        world.run(());
+        for i in node_ids.iter(){
+            let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
+            let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
+            println!("test_bound_box1, node{} , bound_box:{:?}", i, bound_box);
+        }
+
+        world.component_mgr.get_node_mut(root).get_extent_mut().modify(|t: &mut RectSize| {
+            t.width = 100.0;
+            t.height = 100.0;
+            true
+        });
         
-//         //root的直接子节点
-//         let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-//         let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
+        world.run(());
+        println!("-----------------------------------------------------------------");
+        for i in node_ids.iter(){
+            let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
+            let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
+            println!("test_bound_box2, node{} , bound_box:{:?}", i, bound_box);
+        }
 
-//         //node2的直接子节点
-//         let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
-//         let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
+        //修改node2的extent
+        world.component_mgr.get_node_mut(node_ids[6]).get_extent_mut().modify(|t: &mut RectSize| {
+            t.width = 100.0;
+            t.height = 100.0;
+            true
+        });
+        world.run(());
+        println!("-----------------------------------------------------------------");
+        for i in node_ids.iter(){
+            let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
+            let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
+            println!("test_bound_box3, node{} , bound_box:{:?}", i, bound_box);
+        }
+    }
 
-//         //node3的直接子节点
-//         let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
-//         let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
-
-//         //node4的直接子节点
-//         let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
-//         let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
-
-//         (
-//             root_id,
-//             vec![node2, node3, node4, node5, node6, node7, node8, node9]
-//         )
-//     };
-
-//     //  mgr.get_node_mut(root).
-//     world.run(());
-//     for i in node_ids.iter(){
-//         let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
-//         let bound_box = world.component_mgr.node.world_matrix._group.get(bound_box_id);
-//         println!("test_bound_box1, node{} , bound_box:{:?}", i, bound_box);
-//     }
-
-//     world.component_mgr.get_node_mut(root).get_extent_mut().modify(|t: &mut RectSize| {
-//         t.width = 100.0;
-//         t.height = 100.0;
-//         true
-//     });
-    
-//     world.run(());
-//     println!("-----------------------------------------------------------------");
-//     for i in node_ids.iter(){
-//         let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
-//         let bound_box = world.component_mgr.node.world_matrix._group.get(bound_box_id);
-//         println!("test_bound_box2, node{} , bound_box:{:?}", i, bound_box);
-//     }
-
-//     //修改node2的extent
-//     world.component_mgr.get_node_mut(node_ids[6]).get_extent_mut().modify(|t: &mut RectSize| {
-//         t.width = 100.0;
-//         t.height = 100.0;
-//         true
-//     });
-//     world.run(());
-//     println!("-----------------------------------------------------------------");
-//     for i in node_ids.iter(){
-//         let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
-//         let bound_box = world.component_mgr.node.world_matrix._group.get(bound_box_id);
-//         println!("test_bound_box3, node{} , bound_box:{:?}", i, bound_box);
-//     }
-// }
-
-// #[cfg(test)]
-// fn new_world() -> World<GuiComponentMgr, ()>{
-//     let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
-//     let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Oct::init(&mut world.component_mgr, Aabb3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1000.0, 1000.0, 1000.0)))];
-//     world.set_systems(systems);
-//     world
-// }
+    #[cfg(test)]
+    fn new_world() -> World<GuiComponentMgr, ()>{
+        let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
+        let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Oct::init(&mut world.component_mgr, Aabb3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1000.0, 1000.0, 1000.0)))];
+        world.set_systems(systems);
+        world
+    }
+}
