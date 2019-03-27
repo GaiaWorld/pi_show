@@ -1,8 +1,7 @@
-pub mod yoga;
-
 use std::default::Default;
 use std::os::raw::{c_void};
 
+use layout::yoga;
 pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
 // pub struct YgNode(YgNodeP);
