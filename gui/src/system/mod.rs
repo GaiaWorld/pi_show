@@ -4,7 +4,7 @@ pub mod world_matrix;
 #[cfg(feature="web")]
 pub mod layout;
 pub mod node_count;
-//pub mod zindex;
+pub mod zindex;
 pub mod opacity;
 
 #[cfg(feature = "web")]

@@ -7,68 +7,74 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::cmp::{Ordering};
 
-use wcs::component::{ComponentHandler, Builder, Event};//, notify
+use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
 use vecmap::VecMap;
-use world::GuiComponentMgr;
 
+use world::GuiComponentMgr;
+use component::node::{Node};
 
 pub struct ZIndexSys(RefCell<ZIndexImpl>);
 
 impl ZIndexSys {
   pub fn init(mgr: &mut GuiComponentMgr) -> Rc<ZIndexSys> {
     let rc = Rc::new(ZIndexSys(RefCell::new(ZIndexImpl::new())));
-    mgr.node.zindex._group.register_handler(Rc::downgrade(
-      &(rc.clone() as Rc<ComponentHandler<ZIndex, GuiComponentMgr>>),
+    mgr.node.zindex.register_handler(Rc::downgrade(&(rc.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr>>)));
+    mgr.node._group.register_create_handler(Rc::downgrade(
+      &(rc.clone() as Rc<ComponentHandler<Node, CreateEvent, GuiComponentMgr>>),
+    ));
+    mgr.node._group.register_delete_handler(Rc::downgrade(
+      &(rc.clone() as Rc<ComponentHandler<Node, DeleteEvent, GuiComponentMgr>>),
     ));
     rc
   }
 }
-
-impl ComponentHandler<ZIndex, GuiComponentMgr> for ZIndexSys {
-  fn handle(&self, event: &Event, mgr: &mut GuiComponentMgr) {
-    match event {
-      Event::Create { id: _, parent } => {
-        let node = mgr.node._group.get_mut(*parent);
-        self.0.borrow_mut().set_dirty(node.parent, mgr);
-      }
-      Event::Delete { id: _, parent } => {
-        self.0.borrow_mut().delete_dirty(*parent, mgr);
-      }
-      Event::ModifyField {
-        id,
-        parent,
-        field: _,
-      } => {
-        let zi = mgr.node.zindex._group.get_mut(*id);
-        let z = zi.zindex;
-        // 更新z_auto
-        let node = mgr.node._group.get_mut(*parent);
-        if z == node.z_index {
-          return;
-        }
-        let old = node.z_index;
-        node.z_index = z;
-        let mut zimpl = self.0.borrow_mut();
-        if old == AUTO {
-          if !node.z_dirty {
-            // 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。
-            node.z_dirty = true;
-            zimpl.marked_dirty(*parent, node.layer);
-          }
-        }else if z == AUTO {
-          // 为了防止adjust的auto跳出，提前设置为false
-          node.z_dirty = false;
-        }
-        zimpl.set_dirty(node.parent, mgr);
-      }
-      _ => {
-        unreachable!();
-      }
+//监听zindex属性的改变
+impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for ZIndexSys {
+  fn handle(&self, event: &ModifyFieldEvent, mgr: &mut GuiComponentMgr) {
+    let ModifyFieldEvent{id, parent, field: _} = event;
+    let mut zimpl = self.0.borrow_mut();
+    let zi = unsafe {zimpl.links.get_unchecked_mut(*id)};
+    let node = mgr.node._group.get_mut(*id);
+    let z = node.zindex;
+    if z == zi.old {
+      return;
     }
+    let old = zi.old;
+    zi.old = z;
+    if old == AUTO {
+      if !zi.dirty {
+        // 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。
+        zi.dirty = true;
+        marked_dirty(&mut zimpl.dirty, *id, node.layer);
+      }
+    }else if z == AUTO {
+      // 为了防止adjust的auto跳出，提前设置为false
+      zi.dirty = false;
+    }
+    zimpl.set_dirty(*parent, mgr);
   }
 }
+//监听Node的创建， 设置脏标志
+impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for ZIndexSys {
+  fn handle(&self, event: &CreateEvent, mgr: &mut GuiComponentMgr) {
+    let CreateEvent{id, parent} = event;
+    let mut zi = ZIndex::default();
+    zi.old = mgr.node._group.get(*id).zindex;
+    let mut zimpl = self.0.borrow_mut();
+    zimpl.links.insert(*id, zi);
+    zimpl.set_dirty(*parent, mgr);
+  }
+}
+//监听Node的删除创建， 删除脏标志
+impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for ZIndexSys {
+  fn handle(&self, event: &DeleteEvent, mgr: &mut GuiComponentMgr) {
+    let DeleteEvent{id, parent: _} = event;
+    self.0.borrow_mut().delete_dirty(*id, mgr);
+  }
+}
+
 impl System<(), GuiComponentMgr> for ZIndexSys {
   fn run(&self, _e: &(), mgr: &mut GuiComponentMgr) {
     self.0.borrow_mut().calc(mgr);
@@ -96,36 +102,32 @@ struct ZIndexImpl {
 
 impl ZIndexImpl {
   fn new() -> ZIndexImpl {
+    let mut links = VecMap::new();
+    // 为root节点设置最大范围值
+    let mut zi = ZIndex::default();
+    zi.pre_min_z = -MAX;
+    zi.pre_max_z = MAX;
+    zi.min_z = -MAX;
+    zi.pre_max_z = MAX;
+    links.insert(1, zi);
     ZIndexImpl {
       dirty: (Vec::new(), 0, usize::max_value()),
+      links: links,
       cache: Cache::new(),
     }
   }
-  // 标记指定节点的脏
-  fn marked_dirty(&mut self, node_id: usize, layer: usize) {
-    self.dirty.1 += 1;
-    if self.dirty.2 > layer {
-      self.dirty.2 = layer;
-    }
-    if self.dirty.0.len() <= layer {
-      for _ in self.dirty.0.len()..layer + 1 {
-        self.dirty.0.push(Vec::new())
-      }
-    }
-    let vec = unsafe { self.dirty.0.get_unchecked_mut(layer) };
-    vec.push(node_id);
-  }
+
   // 设置节点对应堆叠上下文的节点脏
   fn set_dirty(&mut self, mut node_id: usize, mgr: &mut GuiComponentMgr) {
     while node_id > 0 {
       let node = mgr.node._group.get_mut(node_id);
       // 如果为z为auto，则向上找zindex不为auto的节点，zindex不为auto的节点有堆叠上下文
-      if node.z_index != AUTO {
-        if !node.z_dirty {
-          node.z_dirty = true;
-          self.marked_dirty(node_id, node.layer);
+      if node.zindex != AUTO {
+        let zi = unsafe {self.links.get_unchecked_mut(node_id)};
+        if !zi.dirty {
+          zi.dirty = true;
+          marked_dirty(&mut self.dirty, node_id, node.layer);
         }
-        let zi = mgr.node.zindex._group.get(node.zindex);
         if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
           return;
         }
@@ -135,9 +137,9 @@ impl ZIndexImpl {
     }
   }
   fn delete_dirty(&mut self, node_id: usize, mgr: &mut GuiComponentMgr) {
-    let node = mgr.node._group.get_mut(node_id);
-    if node.z_dirty {
-      let vec = unsafe { self.dirty.0.get_unchecked_mut(node.layer) };
+    let zi = unsafe {self.links.get_unchecked_mut(node_id)};
+    if zi.dirty {
+      let vec = unsafe { self.dirty.0.get_unchecked_mut(mgr.node._group.get_mut(node_id).layer) };
       for i in 0..vec.len() {
         if vec[i] == node_id {
           vec.swap_remove(i);
@@ -165,20 +167,22 @@ impl ZIndexImpl {
         let node_id = unsafe { vec.get_unchecked(j) };
         let (min_z, max_z, count, child) = {
           let node = mgr.node._group.get_mut(*node_id);
-          if !node.z_dirty {
+          let zi = unsafe {self.links.get_unchecked_mut(*node_id)};
+          if !zi.dirty {
             continue;
           }
-          node.z_dirty = false;
-          let zi = mgr.node.zindex._group.get_mut(node.zindex);
+          zi.dirty = false;
           zi.min_z = zi.pre_min_z;
           zi.max_z = zi.pre_max_z;
           (zi.min_z, zi.max_z, node.count, node.get_childs_mut().get_first())
         };
+        // 设置node.z_depth, 其他系统会监听该值
+        mgr.get_node_mut(*node_id).set_z_depth(min_z);
         if count == 0 {
           continue;
         }
         cache.sort(mgr, child, 0);
-        cache.calc(mgr, min_z, max_z, count);
+        cache.calc(&mut self.links, mgr, min_z, max_z, count);
       }
       if count <= c {
         break;
@@ -224,10 +228,9 @@ impl Cache {
             child = v.next;
             v.elem.clone()
         };
-    //println!("-----------sort, {} {}", node_id, order);
         let (zi, count, child_id) = {
           let n = mgr.node._group.get_mut(node_id);
-          (n.z_index, n.count, n.get_childs_mut().get_first())
+          (n.zindex, n.count, n.get_childs_mut().get_first())
         };
         if zi == 0 {
             self.z_zero.push(ZSort(zi, order, node_id, count));
@@ -244,7 +247,7 @@ impl Cache {
     }
   }
   // 计算真正的z
-  fn calc(&mut self, mgr: &mut GuiComponentMgr, mut min_z: f32, mut max_z: f32, count: usize) {
+  fn calc(&mut self, links: &mut VecMap<ZIndex>, mgr: &mut GuiComponentMgr, mut min_z: f32, mut max_z: f32, count: usize) {
     let auto_len = self.z_auto.len();
     // 计算大致的劈分间距
     let split = if count > auto_len {
@@ -255,37 +258,50 @@ impl Cache {
     min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(mgr, n_id, min_z, max_z, 0., 0.);
+      adjust(links, mgr, n_id, min_z, max_z, 0., 0.);
       min_z = max_z;
     }
     for n_id in &self.z_auto {
-      adjust(mgr, *n_id, min_z, min_z, 0., 0.);
+      adjust(links, mgr, *n_id, min_z, min_z, 0., 0.);
       min_z += 1.;
     }
     self.z_auto.clear();
     for zs in &self.z_zero {
       max_z = min_z + split + split * zs.3 as f32;
-      adjust(mgr, zs.2, min_z, max_z, 0., 0.);
+      adjust(links, mgr, zs.2, min_z, max_z, 0., 0.);
       min_z = max_z;
     }
     self.z_zero.clear();
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(mgr, n_id, min_z, max_z, 0., 0.);
+      adjust(links, mgr, n_id, min_z, max_z, 0., 0.);
       min_z = max_z;
     }
   }
 }
 //================================ 内部静态方法
+// 标记指定节点的脏
+fn marked_dirty(dirty: &mut(Vec<Vec<usize>>, usize, usize), node_id: usize, layer: usize) {
+  dirty.1 += 1;
+  if dirty.2 > layer {
+    dirty.2 = layer;
+  }
+  if dirty.0.len() <= layer {
+    for _ in dirty.0.len()..layer + 1 {
+      dirty.0.push(Vec::new())
+    }
+  }
+  let vec = unsafe { dirty.0.get_unchecked_mut(layer) };
+  vec.push(node_id);
+}
+
 // 整理方法。z范围变小或相交，则重新扫描修改一次。两种情况。
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
-fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
-    //println!("-----------adjust, node_id {}, min_z {}, max_z {}, rate {}, parent_min {}", node_id, min_z, max_z, rate, parent_min);
+fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
   let (mut child, min, r, old_min) = {
     let node = mgr.node._group.get_mut(node_id);
-    let zi_id = node.zindex;
-    let zi = mgr.node.zindex._group.get_mut(zi_id);
+    let zi = unsafe{links.get_unchecked_mut(node_id)};
     let (min, max) = if rate > 0. {
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
@@ -293,7 +309,7 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
     };
     zi.pre_min_z = min;
     zi.pre_max_z = max;
-    if node.z_dirty {
+    if zi.dirty {
       // 如果节点脏，则跳过，后面会进行处理
       return;
     }
@@ -307,8 +323,8 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
     zi.min_z = min;
     zi.max_z = max;
     let child = node.get_childs_mut().get_first();
-    //notify(Event::ModifyField{id: zi_id, parent: node_id, field: "min_z"}, &mgr.node.zindex._group.get_handlers().borrow(), mgr);
-    //ZIndexWriteRef::new(zi); TODO 改成node_ref.set_z(min)
+    // 设置node.z_depth, 其他系统会监听该值
+    mgr.get_node_mut(node_id).set_z_depth(min);
     // 判断是否为auto
     if min != max {
       (child, min, (max_z - min_z - 1.) as f32 / (old_max_z - old_min_z), old_min_z)
@@ -329,46 +345,46 @@ fn adjust(mgr: &mut GuiComponentMgr, node_id: usize, min_z: f32, max_z: f32, rat
           child = v.next;
           v.elem.clone()
       };
-      adjust(mgr, node_id, min, 0., r, old_min);
+      adjust(links, mgr, node_id, min, 0., r, old_min);
   }
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use wcs::world::{World};
 #[cfg(test)]
-use component::node::{Node, InsertType};
+#[cfg(not(feature = "web"))]
+use wcs::component::{Builder};
 #[cfg(test)]
-use super::node_count::{NodeCount};
+#[cfg(not(feature = "web"))]
+use component::node::{NodeBuilder, InsertType};
+#[cfg(test)]
+#[cfg(not(feature = "web"))]
+use super::node_count::{NodeCountSys};
 
+#[cfg(not(feature = "web"))]
 #[test]
 fn test(){
-    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
-    let nc = NodeCount::init(&mut world.component_mgr);
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![ZIndexSys::init(&mut world.component_mgr)];
+    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
+    let nc = NodeCountSys::init(&mut world.component_mgr);
+    let zz = ZIndexSys::init(&mut world.component_mgr);
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![zz.clone()];
     world.set_systems(systems);
-    test_world_z(&mut world);
+    test_world_z(&mut world, zz);
 }
 
+#[cfg(not(feature = "web"))]
 #[cfg(test)]
-fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
+fn test_world_z(world: &mut World<GuiComponentMgr, ()>, zz: Rc<ZIndexSys>){
     let (root, node1, node2, node3, node4, node5) = {
         let component_mgr = &mut world.component_mgr;
         {
             
             let (root, node1, node2, node3, node4, node5) = {
-                let root = Node::default(); // 创建根节点
-                let root_id = component_mgr.add_node(root).id;// NodeWriteRef{id, component_mgr write 'a Ref}
-                // let mut zi_ref = root_ref.get_zindex_mut(); // ZIndexWriteRef{id = 0, component_mgr write 'a Ref}
-                // 根节点必须手工设置zindex及其范围
-                let mut zi = ZIndex::default();
-                zi.zindex = 0;
-                zi.pre_min_z = -MAX;
-                zi.pre_max_z = MAX;
-                zi.min_z = -MAX;
-                zi.pre_max_z = MAX;
-                let zi_id = component_mgr.node.zindex._group.insert(zi, root_id);
+                let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
+                println!("root element: {:?}", root.element);
+                let root_id = component_mgr.node._group.insert(root, 0);// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
                 let n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
-                n.zindex = zi_id; // 避免引发监听
                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
                 let node2 = NodeBuilder::new().build(&mut component_mgr.node);
                 let node3 = NodeBuilder::new().build(&mut component_mgr.node);
@@ -389,45 +405,43 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>){
                     n5_id,
                 )
            };
-           component_mgr.get_node_mut(node1).get_zindex_mut().set_zindex(-1);
-           component_mgr.get_node_mut(node3).get_zindex_mut().set_zindex(2);
-            print_node(component_mgr, node1);
-            print_node(component_mgr, node2);
-            print_node(component_mgr, node3);
-            print_node(component_mgr, node4);
-            print_node(component_mgr, node5);
+           component_mgr.get_node_mut(node1).set_zindex(-1);
+           component_mgr.get_node_mut(node3).set_zindex(2);
+            print_node(component_mgr, zz.clone(), node1);
+            print_node(component_mgr, zz.clone(), node2);
+            print_node(component_mgr, zz.clone(), node3);
+            print_node(component_mgr, zz.clone(), node4);
+            print_node(component_mgr, zz.clone(), node5);
             (root, node1, node2, node3, node4, node5)
         }
     };
 
     println!("modify run-----------------------------------------");
     world.run(());
-    print_node(&world.component_mgr, root);
-    print_node(&world.component_mgr, node1);
-    print_node(&world.component_mgr, node2);
-    print_node(&world.component_mgr, node3);
-    print_node(&world.component_mgr, node4);
-    print_node(&world.component_mgr, node5);
+    print_node(&world.component_mgr, zz.clone(), root);
+    print_node(&world.component_mgr, zz.clone(), node1);
+    print_node(&world.component_mgr, zz.clone(), node2);
+    print_node(&world.component_mgr, zz.clone(), node3);
+    print_node(&world.component_mgr, zz.clone(), node4);
+    print_node(&world.component_mgr, zz.clone(), node5);
     let n = NodeBuilder::new().build(&mut world.component_mgr.node);
     let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
     println!("modify2 run-----------------------------------------");
     world.run(());
-    print_node(&world.component_mgr, root);
-    print_node(&world.component_mgr, node1);
-    print_node(&world.component_mgr, node2);
-    print_node(&world.component_mgr, node3);
-    print_node(&world.component_mgr, node4);
-    print_node(&world.component_mgr, node5);
-    print_node(&world.component_mgr, node6);
+    print_node(&world.component_mgr, zz.clone(), root);
+    print_node(&world.component_mgr, zz.clone(), node1);
+    print_node(&world.component_mgr, zz.clone(), node2);
+    print_node(&world.component_mgr, zz.clone(), node3);
+    print_node(&world.component_mgr, zz.clone(), node4);
+    print_node(&world.component_mgr, zz.clone(), node5);
+    print_node(&world.component_mgr, zz.clone(), node6);
 }
 
 #[cfg(test)]
-fn print_node(mgr: &GuiComponentMgr, id: usize) {
+fn print_node(mgr: &GuiComponentMgr, zz: Rc<ZIndexSys>, id: usize) {
     let node = mgr.node._group.get(id);
-    let mut z = &ZIndex::default();
-    if node.zindex > 0 {
-      z = mgr.node.zindex._group.get(node.zindex)
-    };
+    let zimpl = zz.0.borrow_mut();
+    let zi = unsafe{zimpl.links.get_unchecked(id)};
 
-    println!("nodeid: {}, z:{:?}, z_index: {:?}, z_dirty: {}, count: {}", id, z, node.z_index, node.z_dirty, node.count);
+    println!("nodeid: {}, zindex: {:?}, z_depth: {}, zz: {:?}, count: {}, parent: {}", id, node.zindex, node.z_depth, zi, node.count, node.parent);
 }
