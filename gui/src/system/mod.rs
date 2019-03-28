@@ -9,3 +9,5 @@ pub mod opacity;
 
 #[cfg(feature = "web")]
 pub mod render;
+#[cfg(feature = "web")]
+pub mod sdf;
