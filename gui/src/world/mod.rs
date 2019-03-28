@@ -87,7 +87,7 @@ impl GuiComponentMgr {
     }
 }
 
-pub struct Overflow([usize;8], [[Point2;4];8]);
+pub struct Overflow(pub [usize;8], pub [[Point2;4];8]);
 
 impl QidContainer for GuiComponentMgr {
     fn get_qid_container(&mut self) -> &mut Slab<DeNode<usize>>{

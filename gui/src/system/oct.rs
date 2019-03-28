@@ -51,7 +51,7 @@ impl ComponentHandler<RectSize, DeleteEvent, GuiComponentMgr> for Oct{
     }
 }
 
-//监听了size组件的创建和销毁， 不需要在监听Matrix4组件的创建和销毁
+//监听了Matrix组件的修改
 impl ComponentHandler<Matrix4, ModifyFieldEvent, GuiComponentMgr> for Oct{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut GuiComponentMgr){
         let ModifyFieldEvent{id: _, parent, field: _} = event;
@@ -143,37 +143,37 @@ impl OctImpl {
 fn cal_bound_box(size: &RectSize, matrix: &Matrix4) -> Aabb3<f32>{
     // let half_width = size.width/2.0;
     // let half_height = size.height/2.0;
-    // let let_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
+    // let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
     // let right_top = matrix.deref() * Vector4::new(size.width-half_width, -half_height, 0.0, 1.0);
     // let left_bottom = matrix.deref() * Vector4::new(-half_width, size.height - half_height, 0.0, 1.0);
     // let right_bottom = matrix.deref() * Vector4::new(size.width - half_width, size.height - half_width, 0.0, 1.0);
-    let let_top = matrix.deref() * Vector4::new(0.0, 0.0, 0.0, 1.0);
+    let left_top = matrix.deref() * Vector4::new(0.0, 0.0, 0.0, 1.0);
     let right_top = matrix.deref() * Vector4::new(size.width, 0.0, 0.0, 1.0);
-    let left_bottom = matrix.deref() * Vector4::new(size.height, 0.0, 0.0, 1.0);
+    let left_bottom = matrix.deref() * Vector4::new(0.0, size.height, 0.0, 1.0);
     let right_bottom = matrix.deref() * Vector4::new(size.width, size.height, 0.0, 1.0);
 
     // let min = Point3::new(
-    //     let_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x) + half_width,
-    //     let_top.y.min(right_top.y).min(left_bottom.y).min(right_bottom.y) + half_height,
+    //     left_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x) + half_width,
+    //     left_top.y.min(right_top.y).min(left_bottom.y).min(right_bottom.y) + half_height,
     //     0.0,
     // );
 
     // let max = Point3::new(
-    //     let_top.x.max(right_top.x).max(left_bottom.x).max(right_bottom.x) + half_width,
-    //     let_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y) + half_height,
+    //     left_top.x.max(right_top.x).max(left_bottom.x).max(right_bottom.x) + half_width,
+    //     left_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y) + half_height,
     //     1.0,
     // );
     // let x = matrix
     // console::log_5(&("matrix".into()), );
     let min = Point3::new(
-        let_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x),
-        let_top.y.min(right_top.y).min(left_bottom.y).min(right_bottom.y),
+        left_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x),
+        left_top.y.min(right_top.y).min(left_bottom.y).min(right_bottom.y),
         0.0,
     );
 
     let max = Point3::new(
-        let_top.x.max(right_top.x).max(left_bottom.x).max(right_bottom.x),
-        let_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y),
+        left_top.x.max(right_top.x).max(left_bottom.x).max(right_bottom.x),
+        left_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y),
         1.0,
     );
 
