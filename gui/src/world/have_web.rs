@@ -2,12 +2,13 @@ use webgl_rendering_context::{WebGLRenderingContext};
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
-// use wcs::component::{ComponentGroupTree};
+// use wcs::component::{SingleCase, SingleCaseWriteRef};
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
 use component::node::*;
 use component::math::{Point2};
+use component::render::*;
 use world::shader::{Shader, ShaderStore};
 use shaders::*;
 use render::engine::Engine;
@@ -27,6 +28,10 @@ world!(
         sdf_shader: Shader,
         shader_store: ShaderStore,
         engine: Engine,
+
+        #[component]
+        sdf_program: SdfProgram,
+
         // #[component]
         // view_port: ViewPort,
         // root: usize,
@@ -53,6 +58,7 @@ impl GuiComponentMgr {
             engine: Engine::new(gl),
             sdf_shader: sdf_shader,
             shader_store: shader_store,
+            sdf_program:SdfProgramGroup::default(),
         }
     }
 }

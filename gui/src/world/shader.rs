@@ -38,6 +38,10 @@ impl ShaderStore {
     pub fn remove(&mut self, name: &Atom) {
         self.shaders.remove(name);
     }
+
+    pub fn get(&self, name: &Atom) -> Option<&ShaderCode> {
+        self.shaders.get(name)
+    }
 }
 
 pub struct ShaderCode {

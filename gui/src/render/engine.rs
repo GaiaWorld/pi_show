@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 
@@ -11,7 +10,7 @@ use render::extension::*;
 
 pub struct Engine {
     pub gl: WebGLRenderingContext,
-    compiled_programs: FnvHashMap<u64, Rc<WebGLProgram>>,
+    compiled_programs: FnvHashMap<u64, WebGLProgram>,
 }
 
 pub enum ShaderType{
@@ -33,7 +32,7 @@ impl Engine {
         }
     }
 
-    pub fn create_program<S: Hash + AsRef<str>>(&mut self, vertex_code: &S, fragment_code: &S, defines: &Vec<S>) -> Result<Rc<WebGLProgram>, String>{
+    pub fn create_program<C: Hash + AsRef<str>, D: Hash + AsRef<str>>(&mut self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<u64, String>{
         let mut hasher = DefaultHasher::new();
         vertex_code.hash(&mut hasher);
         fragment_code.hash(&mut hasher);
@@ -42,31 +41,30 @@ impl Engine {
         }
         let hash = hasher.finish();
         match self.compiled_programs.get(&hash) {
-            Some(v) => Ok(v.clone()),
+            Some(_) => Ok(hash),
             None => {
                 let shader_program = self.create_shader_program(vertex_code, fragment_code, defines)?;
-                let e = Rc::new(shader_program);
-                self.compiled_programs.insert(hash, e.clone());
-                Ok(e)
+                self.compiled_programs.insert(hash, shader_program);
+                Ok(hash)
             },
         }
     }
 
-    pub fn create_shader_program<S: AsRef<str>>(&self, vertex_code: &S, fragment_code: &S, defines: &Vec<S>) -> Result<WebGLProgram, String> {
+    pub fn create_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<WebGLProgram, String> {
         let vertex_shader = self.compile_shader(vertex_code, ShaderType::Vertex, defines)?;
         let fragment_shader = self.compile_shader(fragment_code, ShaderType::Fragment, defines)?;
 
         self._create_shader_program(&vertex_shader, &fragment_shader)
     }
 
-    pub fn create_raw_shader_program<S: AsRef<str>>(&self, vertex_code: &S, fragment_code: &S) -> Result<WebGLProgram, String>{
+    pub fn create_raw_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C) -> Result<WebGLProgram, String>{
         let vertex_shader = self.compile_raw_shader(vertex_code, ShaderType::Vertex)?;
         let fragment_shader = self.compile_raw_shader(fragment_code, ShaderType::Fragment)?;
 
         self._create_shader_program(&vertex_shader, &fragment_shader)
     }
 
-    pub fn compile_shader<S: AsRef<str>>(&self, source: &S, ty: ShaderType, defines: &Vec<S>) -> Result<WebGLShader, String> {
+    pub fn compile_shader<C: AsRef<str>, D: AsRef<str>>(&self, source: &C, ty: ShaderType, defines: &Vec<D>) -> Result<WebGLShader, String> {
         let mut s = "".to_string();
         for v in defines.iter() {
             s += "define ";
@@ -76,7 +74,7 @@ impl Engine {
         self.compile_raw_shader(&(s + source.as_ref()), ty)
     }
 
-    pub fn compile_raw_shader<S: AsRef<str>>(&self, source: &S, ty: ShaderType) -> Result<WebGLShader, String> {
+    pub fn compile_raw_shader<C: AsRef<str>>(&self, source: &C, ty: ShaderType) -> Result<WebGLShader, String> {
         let gl = &self.gl;
         let shader = gl.create_shader(match ty {
             ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
@@ -136,4 +134,3 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.get_extension::<WEBGLDrawBuffers>();
     gl.get_extension::<GLOESStandardDerivatives>();
 }
-

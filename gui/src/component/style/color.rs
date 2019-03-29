@@ -3,10 +3,10 @@ use std::ops::{Deref};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
-use component::math::{Color as CgColor, ColorReadRef as CgColorReadRef, ColorGroup as CgColorGroup, ColorWriteRef as CgColorWriteRef};
+use component::math::{Color as CgColor};
 
 // 颜色， 支持rgb，rgba， 线性渐变， 劲向渐变
-#[derive(Debug, Clone, EnumDefault, EnumComponent)]
+#[derive(Debug, Clone, EnumDefault, Component)]
 pub enum Color{
     RGB(CgColor),
     RGBA(CgColor),

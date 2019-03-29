@@ -105,6 +105,7 @@ impl OctImpl {
                 });
             }
         }
+        self.dirtys.clear();
     }
 
     pub fn marked_dirty(&mut self, node_id: usize){

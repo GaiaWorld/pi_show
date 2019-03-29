@@ -4,7 +4,7 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, Builder, ModifyFieldEve
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
-use component::style::color::{ColorReadRef, ColorWriteRef, Color, ColorId, ColorGroup};
+use component::style::color::{ColorReadRef, ColorWriteRef, Color, ColorGroup};
 // use component::style::sdf::*;
 // use component::style::shape::*;
 use component::style::text::*;
@@ -89,25 +89,29 @@ pub struct Rect{
     pub radius: f32,
 
     #[builder(export)]
-    #[enum_component(Color)]
-    pub color: ColorId,
+    #[component(Color)]
+    pub color: usize,
 
     #[builder(export)]
-    #[enum_component(Color)]
-    pub border_color: ColorId,
+    #[component(Color)]
+    pub border_color: usize,
 
     #[builder(export)]
     #[component(BoxShadow)]
     pub shadow: usize,
+
+    pub program: usize, //一个index, 真正的实例定义在外部的某个容器中
 }
 
 #[allow(unused_attributes)]
 #[derive(Component, Debug, Clone)]
 pub struct BoxShadow{
-    h: f32,
-    v: f32,
-    blur: f32,
-    spread: f32,
-    #[enum_component(Color)]
-    color: ColorId
+    pub h: f32,
+    pub v: f32,
+    pub blur: f32,
+    pub spread: f32,
+    #[component(Color)]
+    pub color: usize,
+
+    pub program: usize, //一个index, 真正的实例定义在外部的某个容器中
 }
