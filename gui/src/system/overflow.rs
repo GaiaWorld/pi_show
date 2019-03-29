@@ -7,8 +7,7 @@ use std::rc::Rc;
 use std::ops::Deref;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent, SingleModifyEvent};
-use wcs::world::System;
-use cg::{Vector4, Point3};
+use cg::{Vector4};
 
 use world::{GuiComponentMgr, Overflow};
 use component::node::{Node, RectSize};
@@ -34,7 +33,7 @@ impl OverflowSys {
 //监听overflow属性的改变
 impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for OverflowSys {
   fn handle(&self, event: &ModifyFieldEvent, mgr: &mut GuiComponentMgr) {
-    let ModifyFieldEvent{id, parent, field: _} = event;
+    let ModifyFieldEvent{id, parent: _, field: _} = event;
     let (index, by, child) = {
       let node = mgr.node._group.get_mut(*id);
       if node.overflow {
@@ -59,7 +58,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for OverflowSys {
     }else{
       adjust(mgr, child, index, del_index);
     }
-    mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
+    mgr.overflow.get_handlers().notify(SingleModifyEvent{field:""}, mgr);
   }
 }
 //监听了Matrix组件的修改
@@ -74,7 +73,7 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, GuiComponentMgr> for OverflowSy
             let pos = mgr.node.position._group.get(node.position);
             let size = mgr.node.extent._group.get(node.extent);
             mgr.overflow.1[i] = calc_point(pos, size, world_matrix);
-            mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
+            mgr.overflow.get_handlers().notify(SingleModifyEvent{field:""}, mgr);
           }
         }
     }
@@ -98,7 +97,7 @@ impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for OverflowSys {
       }
     };
     mgr.get_node_mut(*id).set_by_overflow(by);
-    mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
+    mgr.overflow.get_handlers().notify(SingleModifyEvent{field:""}, mgr);
   }
 }
 //监听Node的删除创建， 删除脏标志
@@ -109,7 +108,7 @@ impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OverflowSys {
     if mgr.node._group.get_mut(*id).overflow {
       // 删除根上的overflow的裁剪矩形
       if set_index(&mut mgr.overflow, *id, 0) > 0 {
-        mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
+        mgr.overflow.get_handlers().notify(SingleModifyEvent{field:""}, mgr);
       }
     }
   }
@@ -120,7 +119,6 @@ impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OverflowSys {
 // 寻找指定当前值cur的偏移量
 #[inline]
 fn get_index(overflow: &Overflow, cur: usize) -> usize {
-  let mut i = 1;
   for i in 0..overflow.0.len() {
     if cur == overflow.0[i] {
       return i;
@@ -183,58 +181,65 @@ fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;
 }
 
 #[cfg(test)]
-use wcs::world::{World};
-#[cfg(test)]
-use component::node::{Node, InsertType};
+#[cfg(not(feature = "web"))]
+mod test {
+    use wcs::world::{World};
 
-#[test]
-fn test(){
-    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![NodeCount::init(&mut world.component_mgr), OverflowSys::init(&mut world.component_mgr)];
-    world.set_systems(systems);
-    test_world_overflow(&mut world);
+    use component::node::{Node, InsertType};
+    use world::GuiComponentMgr;
+    use system::node_count::NodeCountSys;
+    use system::overflow::OverflowSys;
+
+    #[test]
+    fn test(){
+        let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
+        let _node_count = NodeCountSys::init(&mut world.component_mgr);
+        let _overflow_sys = OverflowSys::init(&mut world.component_mgr);
+        // let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![NodeCountSys::init(&mut world.component_mgr), OverflowSys::init(&mut world.component_mgr)];
+        // world.set_systems(systems);
+        test_world_overflow(&mut world);
+    }
+
+    fn test_world_overflow(world: &mut World<GuiComponentMgr, ()>){
+        let (root, node1, node2, node3, node4, node5) = {
+            let component_mgr = &mut world.component_mgr;
+            {
+                
+                let (root, node1, node2, node3, node4, node5) = {
+                    let root = Node::default();
+                    let mut root_ref = component_mgr.add_node(root);
+                    (
+                        root_ref.id,
+                        (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                        (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                        (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                        (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                        (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    )
+            };
+                print_node(component_mgr, node1);
+                print_node(component_mgr, node2);
+                print_node(component_mgr, node3);
+                print_node(component_mgr, node4);
+                print_node(component_mgr, node5);
+                (root, node1, node2, node3, node4, node5)
+            }
+        };
+
+        println!("modify run-----------------------------------------");
+        world.run(());
+        print_node(&world.component_mgr, root);
+        print_node(&world.component_mgr, node1);
+        print_node(&world.component_mgr, node2);
+        print_node(&world.component_mgr, node3);
+        print_node(&world.component_mgr, node4);
+        print_node(&world.component_mgr, node5);
+    }
+
+    fn print_node(mgr: &GuiComponentMgr, id: usize) {
+        let node = mgr.node._group.get(id);
+
+        println!("nodeid: {}, ov:{:?}, byov: {}", id, node.overflow, node.by_overflow);
+    }
 }
 
-#[cfg(test)]
-fn test_world_overflow(world: &mut World<GuiComponentMgr, ()>){
-    let (root, node1, node2, node3, node4, node5) = {
-        let component_mgr = &mut world.component_mgr;
-        {
-            
-            let (root, node1, node2, node3, node4, node5) = {
-                let mut root = Node::default();
-                let mut root_ref = component_mgr.add_node(root);
-                (
-                    root_ref.id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                )
-           };
-            print_node(component_mgr, node1);
-            print_node(component_mgr, node2);
-            print_node(component_mgr, node3);
-            print_node(component_mgr, node4);
-            print_node(component_mgr, node5);
-            (root, node1, node2, node3, node4, node5)
-        }
-    };
-
-    println!("modify run-----------------------------------------");
-    world.run(());
-    print_node(&world.component_mgr, root);
-    print_node(&world.component_mgr, node1);
-    print_node(&world.component_mgr, node2);
-    print_node(&world.component_mgr, node3);
-    print_node(&world.component_mgr, node4);
-    print_node(&world.component_mgr, node5);
-}
-
-#[cfg(test)]
-fn print_node(mgr: &GuiComponentMgr, id: usize) {
-    let node = mgr.node._group.get(id);
-
-    println!("nodeid: {}, ov:{:?}, byov: {}", id, node.overflow, node.by_overflow);
-}

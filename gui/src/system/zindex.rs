@@ -366,7 +366,7 @@ use super::node_count::{NodeCountSys};
 #[test]
 fn test(){
     let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
-    let nc = NodeCountSys::init(&mut world.component_mgr);
+    let _nc = NodeCountSys::init(&mut world.component_mgr);
     let zz = ZIndexSys::init(&mut world.component_mgr);
     let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![zz.clone()];
     world.set_systems(systems);
@@ -384,7 +384,7 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>, zz: Rc<ZIndexSys>){
                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
                 println!("root element: {:?}", root.element);
                 let root_id = component_mgr.node._group.insert(root, 0);// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
-                let n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
+                let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
                 let node2 = NodeBuilder::new().build(&mut component_mgr.node);
                 let node3 = NodeBuilder::new().build(&mut component_mgr.node);
