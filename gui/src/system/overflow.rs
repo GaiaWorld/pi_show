@@ -6,7 +6,7 @@
 use std::rc::Rc;
 use std::ops::Deref;
 
-use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
+use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent, SingleModifyEvent};
 use wcs::world::System;
 use cg::{Vector4, Point3};
 
@@ -59,7 +59,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for OverflowSys {
     }else{
       adjust(mgr, child, index, del_index);
     }
-    // TODO mgr.overflow.notify
+    mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
   }
 }
 //监听了Matrix组件的修改
@@ -74,7 +74,7 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, GuiComponentMgr> for OverflowSy
             let pos = mgr.node.position._group.get(node.position);
             let size = mgr.node.extent._group.get(node.extent);
             mgr.overflow.1[i] = calc_point(pos, size, world_matrix);
-            // TODO mgr.overflow.notify
+            mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
           }
         }
     }
@@ -98,7 +98,7 @@ impl ComponentHandler<Node, CreateEvent, GuiComponentMgr> for OverflowSys {
       }
     };
     mgr.get_node_mut(*id).set_by_overflow(by);
-    // TODO mgr.overflow.notify
+    mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
   }
 }
 //监听Node的删除创建， 删除脏标志
@@ -109,7 +109,7 @@ impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OverflowSys {
     if mgr.node._group.get_mut(*id).overflow {
       // 删除根上的overflow的裁剪矩形
       if set_index(&mut mgr.overflow, *id, 0) > 0 {
-        // TODO mgr.overflow.notify
+        mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, mgr);
       }
     }
   }

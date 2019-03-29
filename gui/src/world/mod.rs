@@ -4,7 +4,7 @@ use webgl_rendering_context::{WebGLRenderingContext};
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
-// use wcs::component::{ComponentGroupTree};
+use wcs::component::{SingleCase, SingleCaseWriteRef};
 use wcs::world::{ComponentMgr};
 
 use component::node::*;
@@ -25,6 +25,7 @@ world!(
         root_id: usize,
         root_width: f32,
         root_height: f32,
+        #[single_component]
         overflow: Overflow, // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
         // #[component]
         // view_port: ViewPort,
@@ -44,7 +45,7 @@ impl GuiComponentMgr {
             root_id: 0,
             root_width: 0.0,
             root_height: 0.0,
-            overflow: Overflow([0;8],[[Point2::default();4];8]),
+            overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
         }
     }
 }
@@ -60,13 +61,14 @@ world!(
         root_id: usize,
         root_width: f32,
         root_height: f32,
+        #[single_component]
         overflow: Overflow, // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
         gl: WebGLRenderingContext,
         // #[component]
         // view_port: ViewPort,
         // root: usize,
         // transparent_vector: VectorSdf,    //透明的矢量图形
-    } 
+    }
 );
 
 
@@ -82,7 +84,7 @@ impl GuiComponentMgr {
             root_width: 0.0,
             root_height: 0.0,
             gl: gl,
-            overflow: Overflow([0;8],[[Point2::default();4];8]),
+            overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
         }
     }
 }
