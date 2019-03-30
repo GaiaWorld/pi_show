@@ -120,10 +120,9 @@ impl ComponentHandler<Node, DeleteEvent, GuiComponentMgr> for OverflowSys {
 // 寻找指定当前值cur的偏移量
 #[inline]
 fn get_index(overflow: &Overflow, cur: usize) -> usize {
-  let mut i = 1;
   for i in 0..overflow.0.len() {
     if cur == overflow.0[i] {
-      return i;
+      return i + 1;
     }
   }
   0
@@ -183,14 +182,21 @@ fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 use wcs::world::{World};
 #[cfg(test)]
-use component::node::{Node, InsertType};
+#[cfg(not(feature = "web"))]
+use wcs::component::{Builder};
+#[cfg(test)]
+#[cfg(not(feature = "web"))]
+use component::node::{NodeBuilder, InsertType};
 
+#[cfg(not(feature = "web"))]
 #[test]
 fn test(){
-    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::default());
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![NodeCount::init(&mut world.component_mgr), OverflowSys::init(&mut world.component_mgr)];
+    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
+    let zz = OverflowSys::init(&mut world.component_mgr);
+    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![];
     world.set_systems(systems);
     test_world_overflow(&mut world);
 }
@@ -202,15 +208,27 @@ fn test_world_overflow(world: &mut World<GuiComponentMgr, ()>){
         {
             
             let (root, node1, node2, node3, node4, node5) = {
-                let mut root = Node::default();
-                let mut root_ref = component_mgr.add_node(root);
+                let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
+                println!("root element: {:?}", root.element);
+                let root_id = component_mgr.node._group.insert(root, 0);// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
+                let n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
+                let node1 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node2 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node3 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node4 = NodeBuilder::new().build(&mut component_mgr.node);
+                let node5 = NodeBuilder::new().build(&mut component_mgr.node);
+                let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
+                let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+                let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
+                let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
+                let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
                 (
-                    root_ref.id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
-                    (root_ref.insert_child(Node::default(), InsertType::Back)).id,
+                    root_id,
+                    n1_id,
+                    n2_id,
+                    n3_id,
+                    n4_id,
+                    n5_id,
                 )
            };
             print_node(component_mgr, node1);
@@ -221,9 +239,11 @@ fn test_world_overflow(world: &mut World<GuiComponentMgr, ()>){
             (root, node1, node2, node3, node4, node5)
         }
     };
+    world.component_mgr.get_node_mut(node1).set_overflow(true);
 
     println!("modify run-----------------------------------------");
     world.run(());
+    println!("ooo:{:?}", world.component_mgr.overflow.deref());
     print_node(&world.component_mgr, root);
     print_node(&world.component_mgr, node1);
     print_node(&world.component_mgr, node2);

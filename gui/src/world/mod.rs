@@ -89,6 +89,7 @@ impl GuiComponentMgr {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Overflow(pub [usize;8], pub [[Point2;4];8]);
 
 impl QidContainer for GuiComponentMgr {
