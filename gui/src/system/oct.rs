@@ -105,6 +105,7 @@ impl OctImpl {
                 });
             }
         }
+        self.dirtys.clear();
     }
 
     pub fn marked_dirty(&mut self, node_id: usize){
@@ -181,6 +182,7 @@ fn cal_bound_box(size: &RectSize, matrix: &Matrix4) -> Aabb3<f32>{
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "web"))]
 mod test {
     use std::rc::Rc;
 

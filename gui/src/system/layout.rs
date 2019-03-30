@@ -25,7 +25,7 @@ impl Layout {
 
 //监听LayoutChange组件的变化， 如果修改， 设置脏标志
 impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for Layout{
-    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut GuiComponentMgr){
+    fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut GuiComponentMgr){
         let ModifyFieldEvent {id, parent: _, field: _} = event;
         self.0.borrow_mut().dirtys.push(*id);//设置脏
     }

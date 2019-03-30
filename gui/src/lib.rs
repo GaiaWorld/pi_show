@@ -21,6 +21,7 @@ extern crate pointer;
 extern crate lazy_static;
 
 #[cfg(feature = "web")]
+#[macro_use]
 extern crate stdweb;
 #[cfg(feature = "web")]
 extern crate webgl_rendering_context;
@@ -36,8 +37,12 @@ pub mod world;
 pub mod system;
 pub mod layout;
 pub mod text_layout;
+
 #[cfg(feature = "web")]
 pub mod render;
+
+#[cfg(feature = "web")]
+pub mod shaders;
 // pub mod bind;
 
 

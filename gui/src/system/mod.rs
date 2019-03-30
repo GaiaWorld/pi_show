@@ -10,3 +10,7 @@ pub mod opacity;
 
 #[cfg(feature = "web")]
 pub mod render;
+#[cfg(feature = "web")]
+pub mod rect;
+#[cfg(feature = "web")]
+pub mod defines_change;

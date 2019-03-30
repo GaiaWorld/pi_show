@@ -21,11 +21,11 @@ pub struct Rect{
     #[builder(export)]
     pub radius: f32,
 
-    #[enum_component(Color)]
-    pub color: ColorId,
+    #[component(Color)]
+    pub color: usize,
 
-    #[enum_component(Color)]
-    pub border_color: ColorId,
+    #[component(Color)]
+    pub border_color: usize,
 
     #[component(BoxShadow)]
     pub shadow: usize,
@@ -38,6 +38,6 @@ pub struct BoxShadow{
     v: f32,
     blur: f32,
     spread: f32,
-    #[enum_component(Color)]
-    color: ColorId
+    #[component(Color)]
+    color: usize
 }
