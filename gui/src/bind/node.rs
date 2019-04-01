@@ -1,5 +1,7 @@
 use atom::Atom;
+use cg::octree::intersects;
 
+use world::{Z_MAX, World, GuiComponentMgr};
 use component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use component::node::{InsertType, NodeWriteRef};
 
@@ -120,4 +122,45 @@ pub fn insert_before(own: u32, child: u32, brother: u32, brother_index: u32){
         _ => (),
     }
     js!{console.log("set_src");} 
+}
+
+#[no_mangle] pub fn query(world_p: u32, x: u32, y: u32, type: u32)-> u32{
+    let world = unsafe {&*(world_p as *const World)};
+    let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+    let mut args = AbQueryArgs::new(aabb.clone());
+    world.component_mgr.tree.query(&aabb, intersects, &mut args, ab_query_func);
+    js!{console.log("result");} 
+    args.result
+}
+/// aabb的查询函数的参数
+struct AbQueryArgs<'a> {
+  mgr: &'a GuiComponentMgr,
+  aabb: Aabb3<f32>,
+  type: u32,
+  max_z: f32,
+  result: u32,
+}
+impl<'a> AbQueryArgs<'a> {
+  pub fn new(mgr: &GuiComponentMgr, aabb: Aabb3<f32>, type: u32) -> AbQueryArgs {
+    AbQueryArgs{
+      mgr: mgr,
+      aabb: aabb,
+      type: type,
+      max_z: -Z_MAX,
+      result: 0,
+    }
+  }
+}
+/// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
+fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &u32) {
+  if intersects(&arg.aabb, aabb) {
+    let node = mgr.node._group.get(*bind);
+    // 判断类型是否有相交
+    if node.event_type & arg.type != 0 {
+        // 取最大z的node
+        if node.z_depth > arg.max_z {
+           arg.result = bind.clone();
+        }
+    }
+  }
 }

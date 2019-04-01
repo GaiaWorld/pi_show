@@ -5,6 +5,8 @@ use slab::{Slab};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
 use wcs::world::{ComponentMgr};
 use atom::Atom;
+use cg::octree::*;
+use cg::{Aabb3, Vector4, Point3};
 
 use component::node::*;
 use component::math::{Point2};
@@ -12,6 +14,8 @@ use component::render::*;
 use world::shader::{Shader, ShaderStore};
 use shaders::*;
 use render::engine::Engine;
+
+pub const Z_MAX: f32 = 8388608.0;
 
 world!(
     struct GuiComponentMgr{
@@ -27,10 +31,10 @@ world!(
         sdf_shader: Shader,
         shader_store: ShaderStore,
         engine: Engine,
-
         #[component]
         sdf_program: SdfProgram,
 
+        octree: Tree<f32, usize>,
         #[single_component]
         overflow: Overflow, // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
 
@@ -60,6 +64,7 @@ impl GuiComponentMgr {
             sdf_shader: sdf_shader,
             shader_store: shader_store,
             sdf_program:SdfProgramGroup::default(),
+            octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-8388608f32), Point3::new(3072f32,3072f32,8388608f32)), 0, 0, 0, 0),
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
         }
     }

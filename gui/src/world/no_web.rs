@@ -2,9 +2,13 @@ use deque::deque::{Node as DeNode};
 use slab::{Slab};
 use wcs::world::{ComponentMgr};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
+use cg::octree::*;
+use cg::{Aabb3, Vector4, Point3};
 
 use component::node::*;
 use component::math::{Point2};
+
+pub const Z_MAX: f32 = 8388608.0;
 
 world!(
     struct GuiComponentMgr{
@@ -16,6 +20,7 @@ world!(
         root_id: usize,
         root_width: f32,
         root_height: f32,
+        octree: Tree<f32, usize>,
         #[single_component]
         overflow: Overflow, // ([节点id 8个], [剪切矩形clip_rect 8个]), 每个矩形需要4个点定义。
         // #[component]
@@ -35,6 +40,7 @@ impl GuiComponentMgr {
             root_id: 0,
             root_width: 0.0,
             root_height: 0.0,
+            octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), 0, 0, 0, 0),
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
         }
     }

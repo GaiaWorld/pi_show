@@ -1,10 +1,11 @@
+//八叉树系统, 现在主要为事件做索引
+
 use std::cell::RefCell;
 use std::rc::{Rc};
 use std::ops::Deref;
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
-use cg::octree::*;
 use vecmap::VecMap;
 
 use component::node::{RectSize};
@@ -15,8 +16,8 @@ use cg::{Aabb3, Vector4, Point3};
 pub struct Oct(RefCell<OctImpl>);
 
 impl Oct {
-    pub fn init(component_mgr: &mut GuiComponentMgr, extent: Aabb3<f32>) -> Rc<Oct>{
-        let r = Rc::new(Oct(RefCell::new(OctImpl::new(extent))));
+    pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<Oct>{
+        let r = Rc::new(Oct(RefCell::new(OctImpl::new())));
         component_mgr.node.extent._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, ModifyFieldEvent, GuiComponentMgr>>)));
         component_mgr.node.extent._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, DeleteEvent, GuiComponentMgr>>)));
         component_mgr.node.extent._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, CreateEvent, GuiComponentMgr>>)));
@@ -68,14 +69,12 @@ impl System<(), GuiComponentMgr> for Oct{
 pub struct OctImpl {
     dirtys: Vec<usize>, //Vec<node_id>
     dirty_mark_list: VecMap<bool>,
-    octree: Tree<f32, usize>,
 }
 
 impl OctImpl {
-    pub fn new(size: Aabb3<f32>) -> OctImpl{
+    pub fn new() -> OctImpl{
         OctImpl{
             dirtys: Vec::new(),
-            octree: Tree::new(size, 0, 0, 0, 0),
             dirty_mark_list: VecMap::new(),
         }
     }
@@ -92,7 +91,7 @@ impl OctImpl {
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
                 let aabb = cal_bound_box(extent, world_matrix);
                 //更新八叉树
-                self.octree.update(node.bound_box_id, aabb.clone());
+                mgr.octree.update(node.bound_box_id, aabb.clone());
                 aabb
             };
             {
@@ -128,15 +127,15 @@ impl OctImpl {
     }
 
     pub fn add_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
-        let aabb = mgr.node.bound_box._group.get_mut(mgr.node._group.get(node_id).bound_box).owner.clone();
-        let oct_id = self.octree.add(aabb.0, node_id);
-        mgr.get_node_mut(node_id).set_bound_box_id(oct_id);
+        let node = mgr.node._group.get_mut(node_id);
+        let aabb = mgr.node.bound_box._group.get_mut(node.bound_box).owner.clone();
+        node.bound_box_id = mgr.octree.add(aabb.0, node_id);
     }
 
     pub fn remove_aabb(&mut self, node_id: usize, mgr: &mut GuiComponentMgr){
         let node = mgr.node._group.get_mut(node_id);
         if node.bound_box > 0 {
-            self.octree.remove(node.bound_box);
+            mgr.octree.remove(node.bound_box_id);
         }
     }
 }
