@@ -1,140 +1,125 @@
 use std::cell::RefCell;
 use std::rc::{Rc};
-use std::cmp::{Ord, Ordering, Eq, PartialEq
-};
+use std::cmp::{Ord, Ordering, Eq, PartialEq};
 
 
 use wcs::world::{System};
-use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
-use heap::slab_heap::SlabHeap;
-use vecmap::VecMap;
-
-use component::style::transform::{Transform};
-use component::render::{SdfDefines, SdfProgram};
 use world::GuiComponentMgr;
-use component::math::{Matrix4, Vector3};
 
 pub struct Render(RefCell<RenderImpl>);
 
 impl Render {
-    pub fn init(component_mgr: &mut GuiComponentMgr) -> Rc<Render>{
+    pub fn init(_component_mgr: &mut GuiComponentMgr) -> Rc<Render>{
         let system = Rc::new(Render(RefCell::new(RenderImpl::new())));
+        // component_mgr.render_obj._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<RenderObj, CreateEvent, GuiComponentMgr>>)));
+        // component_mgr.render_obj._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<RenderObj, DeleteEvent, GuiComponentMgr>>)));
+        // component_mgr.render_obj.is_opaque.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<RenderObj, ModifyFieldEvent, GuiComponentMgr>>)));
+        // component_mgr.render_obj.z_index.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<RenderObj, ModifyFieldEvent, GuiComponentMgr>>)));
         system
     }
 }
 
-//渲染
+//渲染, 
 impl System<(), GuiComponentMgr> for Render{
     fn run(&self, _e: &(), component_mgr: &mut GuiComponentMgr){
-        // let mut borrow_mut = self.0.borrow_mut();
-        // for defines_id in borrow_mut.dirtys.iter() {
-        //     let (difines, parent_id) = {
-        //         let difines = component_mgr.sdf_program.defines._group.get(*defines_id);
-        //         (difines.to_vec(), difines.parent)
-        //     };
-        //     let program = component_mgr.engine.create_program(component_mgr.shader_store.get(&component_mgr.sdf_shader.vs).unwrap(), component_mgr.shader_store.get(&component_mgr.sdf_shader.fs).unwrap(), &difines);
-        //     component_mgr.sdf_program._group.get_mut(parent_id).program = program.unwrap();
-        // }
-        // borrow_mut.dirtys.clear();
+        self.0.borrow_mut().render(component_mgr);
     }
 }
-
-impl ComponentHandler<SdfProgram, CreateEvent, GuiComponentMgr> for Render{
-    fn handle(&self, event: &CreateEvent, _component_mgr: &mut GuiComponentMgr){
-        let CreateEvent{id, parent: _} = event;
-        let mut borrow = self.0.borrow_mut();
-        borrow.mark_list.insert(*id, Mark::new(false, RenderType::Opaque, 0));
-        borrow.marked_dirty(*id);
-    }
-}
-
-//监听is_opaque字段的变化
-impl ComponentHandler<SdfProgram, ModifyFieldEvent, GuiComponentMgr> for Render{
-    fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut GuiComponentMgr){
-        let ModifyFieldEvent{id, parent: _, field: _} = event;
-        self.0.borrow_mut().marked_dirty(*id);
-    }
-}
-
-//监听is_opaque字段的变化
-// impl ComponentHandler<SdfProgram, ModifyFieldEvent, GuiComponentMgr> for Render{
-//     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut GuiComponentMgr){
-//         let ModifyFieldEvent{id, parent: _, field: _} = event;
-//         self.0.borrow_mut().marked_dirty(*id);
-//     }
-// }
-
-        // let ty = match component_mgr.sdf_program._group.get(*id).is_opaque {
-        //     true => RenderType::Opaque,
-        //     false => RenderType::Transparent,
-        // };
-
-// impl ComponentHandler<SdfDefines, DeleteEvent, GuiComponentMgr> for Render{
-//     fn handle(&self, event: &DeleteEvent, _component_mgr: &mut GuiComponentMgr){
-//         let DeleteEvent{id, parent:_} = event;
-//         self.0.borrow_mut().delete_dirty(*id);
-//     }
-// }
 
 pub struct RenderImpl{
     //透明的渲染对象
-    transparent_objs: SlabHeap<Obj>,
+    transparent_objs: Vec<Obj>,
+    //透明的渲染对象
+    // transparent_objs: SlabHeap<Obj>, // Obj.id对应RenderObj在slab中的位子
     //不透明的渲染对象
-    opaque_opaque: SlabHeap<Obj>,
-    dirtys: Vec<usize>,
-    mark_list: VecMap<Mark>,
+    opaque_objs: Vec<usize>, // Obj.id对应RenderObj在slab中的位子
 }
 
 impl RenderImpl {
     pub fn new() -> RenderImpl{
         RenderImpl{
-            transparent_objs: SlabHeap::new(Ordering::Greater),
-            opaque_opaque: SlabHeap::new(Ordering::Less),
-            dirtys: Vec::new(),
-            mark_list: VecMap::new(),
+            transparent_objs: Vec::new(),
+            opaque_objs: Vec::new(),
         }
     }
 
-    pub fn marked_dirty(&mut self, defines_id: usize){
-        let dirty_mark = unsafe{self.mark_list.get_unchecked_mut(defines_id)};
-        if dirty_mark.dirty == true {
-            return;
-        }
-        dirty_mark.dirty = true;
+    // pub fn marked_dirty(&mut self, defines_id: usize){
+    //     let dirty_mark = unsafe{self.mark_list.get_unchecked_mut(defines_id)};
+    //     if dirty_mark.dirty == true {
+    //         return;
+    //     }
+    //     dirty_mark.dirty = true;
 
-        self.dirtys.push(defines_id.clone());
+    //     self.dirtys.push(defines_id.clone());
+    // }
+
+    // pub fn delete_dirty(&mut self, defines_id: usize){
+    //     for i in 0..self.dirtys.len(){
+    //         if self.dirtys[i] == defines_id{
+    //             self.dirtys.remove(i);
+    //             return;
+    //         }
+    //     }
+    // }
+
+    pub fn render(&mut self, mgr: &mut GuiComponentMgr) {
+        self.list_obj(mgr);
+        let mgr_ptr = mgr as *const GuiComponentMgr as usize;
+        for v in self.opaque_objs.iter() {
+            //bind an render
+            unsafe {mgr.render_obj._group.get(*v).bind.bind(mgr_ptr, *v)};
+            //render
+        }
+
+        for v in self.transparent_objs.iter() {
+            //bind an render
+            unsafe {mgr.render_obj._group.get(v.id).bind.bind(mgr_ptr, v.id)};
+            //render
+        }
+        self.opaque_objs.clear();
+        self.transparent_objs.clear();
     }
 
-    pub fn delete_dirty(&mut self, defines_id: usize){
-        for i in 0..self.dirtys.len(){
-            if self.dirtys[i] == defines_id{
-                self.dirtys.remove(i);
-                return;
+    //对不透明物体和透明物体排序
+    fn list_obj(&mut self, mgr: &mut GuiComponentMgr){
+        for v in mgr.render_obj._group.iter() {
+            if v.1.is_opaque {
+                self.opaque_objs.push(v.0);
+            }else {
+                self.transparent_objs.push(Obj{z: v.1.z_index, id: v.0} );
             }
         }
+        self.transparent_objs.sort();
     }
 }
 
-pub struct Mark {
-    dirty: bool,
-    old_render_type: RenderType,
-    index: usize,
-}
+// pub struct Mark {
+//     render_type: RenderType, // RenderType::None表示不在heap中
+//     index: usize,   //index==0 && render_type==RenderType::None， 表示插入， index!=0 && render_type==RenderType::None表示删除,
+// }
 
-impl Mark {
-    pub fn new(dirty: bool, old_render_type: RenderType, index: usize) -> Self {
-       Mark {
-           dirty,
-           old_render_type,
-           index
-       } 
-    }
-}
+// impl Mark {
+//     pub fn new(render_type: RenderType, index: usize) -> Self {
+//        Mark {
+//            render_type,
+//            index,
+//        } 
+//     }
+// }
 
-pub enum RenderType{
-    Transparent,
-    Opaque,
-}
+// #[derive(Clone, Copy, Debug)]
+// pub enum RenderType{
+//     None,
+//     Transparent,
+//     Opaque,
+// }
+
+// #[derive(Clone, Copy, Debug)]
+// pub enum DirtyType{
+//     Insert,
+//     Delete,
+//     Modify,
+// }
 
 pub struct Obj {
     z: f32,
@@ -157,7 +142,11 @@ impl Eq for Obj{}
 
 impl Ord for Obj{
 	fn cmp(&self, other: &Obj) -> Ordering {
-        self.partial_cmp(&other).unwrap()
+        js!{console.log("mmmmmmmmmmmmmmmmmmmmmmmmmmmm")}
+        let r = self.partial_cmp(&other).unwrap();
+        js!{console.log("nnnnnnnnaaaaaaaaaaaaaaaaaaaaaaaa")}
+        r
+
     }
 }
 

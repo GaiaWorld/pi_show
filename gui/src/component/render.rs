@@ -4,6 +4,11 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, Creat
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
+pub trait DefinesList {
+    fn list(&self) -> Vec<Atom>{
+        return Vec::new();
+    }
+}
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
@@ -17,8 +22,8 @@ pub struct SdfDefines {
     pub color: bool, //单色
 }
 
-impl SdfDefines {
-    pub fn to_vec(&self) -> Vec<Atom>{
+impl DefinesList for SdfDefines {
+    fn list(&self) -> Vec<Atom> {
         let mut arr = Vec::new();
         if self.sdf_rect {
             arr.push(SDF_RECT.clone());
@@ -42,20 +47,51 @@ impl SdfDefines {
     }
 }
 
+#[derive(Component, Default, Debug, Clone)]
+pub struct TextDefines{
+}
+
+impl DefinesList for TextDefines{
+
+}
+
+#[derive(Component, Default, Debug, Clone)]
+pub struct ImageDefines{
+
+}
+
+impl DefinesList for ImageDefines{
+    
+}
+
 #[allow(unused_attributes)]
 #[derive(Component)]
-pub struct SdfProgram {
-    #[component(SdfDefines)]
-    pub defines: usize,
+pub struct RenderObj {
+
+    #[enum_component(Defines)]
+    pub defines: DefinesId,
+
     pub program: u64,
+
     #[listen]
     pub is_opaque: bool, //是否不透明
+
+    #[listen]
+    pub z_index: f32,
 
     pub bind: Box<Bind>,
 }
 
+#[derive(EnumComponent)]
+pub enum Defines {
+    Sdf(SdfDefines),
+    Text(TextDefines),
+    Image(ImageDefines),
+}
+
 pub trait Bind {
-    unsafe fn bind(&self, context: usize);
+    unsafe fn bind(&self, context: usize, id: usize);
+    unsafe fn init_locations(&self, context: usize, id: usize);
 }
 
 // defines
@@ -66,5 +102,5 @@ lazy_static! {
     static ref SDF_LINEAR_COLOR_GRADIENT_2: Atom = Atom::from("LINEAR_COLOR_GRADIENT_2");
     static ref SDF_LINEAR_COLOR_GRADIENT_4: Atom = Atom::from("LINEAR_COLOR_GRADIENT_4");
     static ref SDF_ELLIPSE_COLOR_GRADIENT: Atom = Atom::from("ELLIPSE_COLOR_GRADIENT");
-    static ref SDF_COLOR: Atom = Atom::from("SDF_COLOR");
+    static ref SDF_COLOR: Atom = Atom::from("COLOR");
 }

@@ -3,14 +3,16 @@ use std::collections::hash_map::DefaultHasher;
 
 use fnv::FnvHashMap;
 
-use webgl_rendering_context::{WebGLRenderingContext, WebGLShader, WebGLProgram};
+use webgl_rendering_context::{WebGLRenderingContext, WebGLShader, WebGLProgram, WebGLUniformLocation};
 use stdweb::unstable::TryInto;
+
+use atom::Atom;
 
 use render::extension::*;
 
 pub struct Engine {
     pub gl: WebGLRenderingContext,
-    compiled_programs: FnvHashMap<u64, WebGLProgram>,
+    compiled_programs: FnvHashMap<u64, Program>,
 }
 
 pub enum ShaderType{
@@ -32,6 +34,14 @@ impl Engine {
         }
     }
 
+    pub fn lookup_program(&self, id: u64) -> Option<&Program>{
+        self.compiled_programs.get(&id)
+    }
+
+    pub fn lookup_program_mut(&mut self, id: u64) -> Option<&mut Program>{
+        self.compiled_programs.get_mut(&id)
+    }
+
     pub fn create_program<C: Hash + AsRef<str>, D: Hash + AsRef<str>>(&mut self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<u64, String>{
         let mut hasher = DefaultHasher::new();
         vertex_code.hash(&mut hasher);
@@ -44,7 +54,12 @@ impl Engine {
             Some(_) => Ok(hash),
             None => {
                 let shader_program = self.create_shader_program(vertex_code, fragment_code, defines)?;
-                self.compiled_programs.insert(hash, shader_program);
+                let program = Program{
+                    program: shader_program,
+                    uniform_locations: FnvHashMap::default(),
+                    attr_locations: FnvHashMap::default(),
+                };
+                self.compiled_programs.insert(hash, program);
                 Ok(hash)
             },
         }
@@ -67,9 +82,9 @@ impl Engine {
     pub fn compile_shader<C: AsRef<str>, D: AsRef<str>>(&self, source: &C, ty: ShaderType, defines: &Vec<D>) -> Result<WebGLShader, String> {
         let mut s = "".to_string();
         for v in defines.iter() {
-            s += "define ";
+            s += "#define ";
             s += v.as_ref();
-            s += ";";
+            s += "\n";
         }
         self.compile_raw_shader(&(s + source.as_ref()), ty)
     }
@@ -101,16 +116,38 @@ impl Engine {
         gl.attach_shader(&shader_program, vertex_shader);
         gl.attach_shader(&shader_program, fragment_shader);
 
+        js!{
+            console.log("link_program");
+        }
         gl.link_program(&shader_program);
+        js!{
+            console.log("end");
+        }
 
         let parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
         if parameter{
+            js!{
+            console.log("link_program ok");
+        }
             Ok(shader_program)
         } else {
             Err(gl
                 .get_program_info_log(&shader_program)
                 .unwrap_or_else(|| "Unknown error creating program object".into()))
         }
+    }
+}
+
+pub struct Program {
+    pub program: WebGLProgram,
+    pub uniform_locations: FnvHashMap<Atom, WebGLUniformLocation>,
+    pub attr_locations: FnvHashMap<Atom, u32>,
+}
+
+pub fn get_uniform_location(gl: &WebGLRenderingContext,program: &WebGLProgram ,name: &Atom) -> WebGLUniformLocation{
+    match gl.get_uniform_location(program, name) {
+        Some(v) => v,
+        None => panic!("get_uniform_location is None: {:?}", name),
     }
 }
 
@@ -133,4 +170,9 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.get_extension::<EXTShaderTextureLod>();
     gl.get_extension::<WEBGLDrawBuffers>();
     gl.get_extension::<GLOESStandardDerivatives>();
+    gl.enable(WebGLRenderingContext::BLEND);
+    gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
+
+    gl.clear_color(1.0, 0.0, 0.0, 1.0);
+    gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
 }

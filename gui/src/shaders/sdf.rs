@@ -6,8 +6,8 @@ pub fn sdf_vertex_shader() -> String{
         attribute vec3 position;
 
         // Uniforms
-        uniform vec2 center;
         uniform vec2 screenSize;
+        uniform vec2 center;
         uniform mat4 worldViewProjection;
     
         // Varyings
@@ -16,7 +16,7 @@ pub fn sdf_vertex_shader() -> String{
         void main(void) {
             gl_Position = worldViewProjection * vec4(position, 1.0);
 
-            vec4 c = vec4(0.0, 0.0, 0.0, 1.0);
+            vec4 c = vec4(center, 0.0, 1.0);
             c = worldViewProjection * c;
             c.xy = c.xy / c.w;
             // c.xy 在这里 [-1, 1]

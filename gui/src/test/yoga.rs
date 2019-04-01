@@ -1,8 +1,16 @@
-use std::mem::{uninitialized, forget};
+// use std::mem::{uninitialized, forget};
 use std::rc::Rc;
 use std::os::raw::{c_void};
 
+use stdweb::web::html_element::CanvasElement;
 use stdweb::*;
+use webgl_rendering_context::{WebGLRenderingContext};
+use stdweb::web::{
+    IParentNode,
+    document,
+};
+use stdweb::unstable::TryInto;
+
 
 use wcs::world::{World, System};
 use wcs::component::Builder;
@@ -13,6 +21,7 @@ use component::node::{NodeBuilder, InsertType, YogaContex};
 use layout::{YgNode, YGDirection, YGFlexDirection};
 
 pub fn test_layout_system(){
+
     let mut world = new_world();
     let node1 = NodeBuilder::new().build(&mut world.component_mgr.node);
     let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
@@ -27,6 +36,10 @@ pub fn test_layout_system(){
     node3.yoga.set_height(300.0); 
     node4.yoga.set_width(400.0);
     node4.yoga.set_height(500.0);
+
+    js!{
+        console.log("11111111111111111111111111111111111111");
+    }
 
     world.component_mgr.set_size(500.0, 500.0);
     let (root, root_yoga, node_ids) = {
@@ -50,10 +63,18 @@ pub fn test_layout_system(){
     })) as usize;
     root_yoga.set_context(yoga_context as *mut c_void);
     root_yoga.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
-    world.component_mgr.set_root(root);
+    world.component_mgr.root_id = root;
+    
+    js!{
+        console.log("22222222222222222222222222222");
+    }
 
     // root_yoga.calculate_layout(500.0, 500.0, YGDirection::YGDirectionLTR);
     world.run(());
+    
+    js!{
+        console.log("333333333333333333333333333");
+    }
     for i in node_ids.iter(){
         {
             let node_ref = world.component_mgr.get_node_mut(*i);
@@ -69,11 +90,14 @@ pub fn test_layout_system(){
         }
     }
 
-    forget(world);
+    // forget(world);
 }
 
 fn new_world() -> World<GuiComponentMgr, ()>{
-    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new(unsafe{uninitialized()}));
+    let canvas: CanvasElement = document().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
+    let gl: WebGLRenderingContext = canvas.get_context().unwrap();
+
+    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new(gl));
     let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Layout::init(&mut world.component_mgr)];
     world.set_systems(systems);
     world

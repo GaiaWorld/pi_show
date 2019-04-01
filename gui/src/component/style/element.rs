@@ -100,7 +100,9 @@ pub struct Rect{
     #[component(BoxShadow)]
     pub shadow: usize,
 
-    pub program: usize, //一个index, 真正的实例定义在外部的某个容器中
+    pub render_obj: usize, //一个index, 真正的实例定义在外部的某个容器中
+    #[builder(build(value=true))]
+    pub shape_dirty: bool,
 }
 
 #[allow(unused_attributes)]
@@ -113,5 +115,7 @@ pub struct BoxShadow{
     #[component(Color)]
     pub color: usize,
 
-    pub program: usize, //一个index, 真正的实例定义在外部的某个容器中
+    pub render_obj: usize, //一个index, 真正的实例定义在外部的某个容器中
+    #[builder(build(value=true))]
+    pub shape_dirty: bool,
 }

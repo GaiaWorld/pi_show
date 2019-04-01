@@ -437,6 +437,7 @@ fn test_world_z(world: &mut World<GuiComponentMgr, ()>, zz: Rc<ZIndexSys>){
     print_node(&world.component_mgr, zz.clone(), node6);
 }
 
+#[cfg(not(feature = "web"))]
 #[cfg(test)]
 fn print_node(mgr: &GuiComponentMgr, zz: Rc<ZIndexSys>, id: usize) {
     let node = mgr.node._group.get(id);
