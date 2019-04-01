@@ -12,7 +12,7 @@ use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
 use vecmap::VecMap;
 
-use world::GuiComponentMgr;
+use world::{Z_MAX, GuiComponentMgr};
 use component::node::{Node};
 
 pub struct ZIndexSys(RefCell<ZIndexImpl>);
@@ -82,7 +82,6 @@ impl System<(), GuiComponentMgr> for ZIndexSys {
 }
 
 const AUTO: isize = -1;
-const MAX: f32 = 8388608.0;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ZIndex {
@@ -105,10 +104,10 @@ impl ZIndexImpl {
     let mut links = VecMap::new();
     // 为root节点设置最大范围值
     let mut zi = ZIndex::default();
-    zi.pre_min_z = -MAX;
-    zi.pre_max_z = MAX;
-    zi.min_z = -MAX;
-    zi.pre_max_z = MAX;
+    zi.pre_min_z = -Z_MAX;
+    zi.pre_max_z = Z_MAX;
+    zi.min_z = -Z_MAX;
+    zi.pre_max_z = Z_MAX;
     links.insert(1, zi);
     ZIndexImpl {
       dirty: (Vec::new(), 0, usize::max_value()),

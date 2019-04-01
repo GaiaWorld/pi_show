@@ -26,6 +26,7 @@ use component::style::color::{Color};
 // use component::style::generic::{StyleUnit};
 use component::math::{Color as MathColor};
 
+
 pub fn test(){
     let canvas: CanvasElement = document().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
     let gl: WebGLRenderingContext = canvas.get_context().unwrap();
@@ -39,7 +40,7 @@ pub fn test(){
 
     let layout_sys = LayoutSys::init(&mut world.component_mgr);
     let world_matrix_sys = WorldMatrix::init(&mut world.component_mgr);
-    let oct_sys = Oct::init(&mut world.component_mgr, Aabb3::new(Point3::new(-200.0, -200.0, 0.0), Point3::new(2000.0, -2000.0, 1.0)));
+    let oct_sys = Oct::init(&mut world.component_mgr);
     let create_program_sys = create_program::CreateProgram::init(&mut world.component_mgr);
     let render_sys = render::Render::init(&mut world.component_mgr);
 
