@@ -127,7 +127,7 @@ pub fn insert_before(own: u32, child: u32, brother: u32, brother_index: u32){
 #[no_mangle] pub fn query(world_p: u32, x: u32, y: u32, type: u32)-> u32{
     let world = unsafe {&*(world_p as *const World)};
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-    let mut args = AbQueryArgs::new(aabb.clone());
+    let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), type);
     world.component_mgr.tree.query(&aabb, intersects, &mut args, ab_query_func);
     js!{console.log("result");} 
     args.result
