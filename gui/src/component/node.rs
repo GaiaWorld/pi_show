@@ -170,8 +170,10 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
             },
             _ => panic!(format!("insert_child error, this is a leaf node")),
         };
-
-        handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr);  //通知childs字段改变
+        //根結點的修改事件不通知
+        if self.id > 1 {
+            handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr);  //通知childs字段改变
+        }
         let mut child_ref = NodeWriteRef::new(child_id, self.groups, self.mgr);
         child_ref.set_parent(self.id);
         child_ref.create_notify(); //通知Node及Node子组件的创建

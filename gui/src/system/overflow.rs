@@ -33,7 +33,7 @@ impl OverflowSys {
 //监听overflow属性的改变
 impl ComponentHandler<Node, ModifyFieldEvent, GuiComponentMgr> for OverflowSys {
   fn handle(&self, event: &ModifyFieldEvent, mgr: &mut GuiComponentMgr) {
-    let ModifyFieldEvent{id, parent, field: _} = event;
+    let ModifyFieldEvent{id, parent: _, field: _} = event;
     let (index, by, child) = {
       let node = mgr.node._group.get_mut(*id);
       if node.overflow {
@@ -182,7 +182,7 @@ fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;
 
 #[cfg(test)]
 #[cfg(not(feature = "web"))]
-use wcs::world::{World};
+use wcs::world::{World, System};
 #[cfg(test)]
 #[cfg(not(feature = "web"))]
 use wcs::component::{Builder};

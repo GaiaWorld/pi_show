@@ -80,6 +80,7 @@ pub struct RenderObj {
     pub z_index: f32,
 
     pub bind: Box<Bind>,
+    
 }
 
 #[derive(EnumComponent)]

@@ -274,7 +274,7 @@ mod test {
     #[cfg(test)]
     fn new_world() -> World<GuiComponentMgr, ()>{
         let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new());
-        let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Oct::init(&mut world.component_mgr, Aabb3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(1000.0, 1000.0, 1000.0)))];
+        let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Oct::init(&mut world.component_mgr)];
         world.set_systems(systems);
         world
     }

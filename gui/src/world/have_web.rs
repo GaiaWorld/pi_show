@@ -1,11 +1,12 @@
 use std::ops::{Deref, DerefMut};
+use std::os::raw::{c_void};
 
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
-use wcs::component::{SingleCase, SingleCaseWriteRef};
-use wcs::world::{ComponentMgr};
+use wcs::component::{SingleCase, SingleCaseWriteRef, Builder};
+use wcs::world::{ComponentMgr, World};
 use atom::Atom;
 use cg::octree::*;
 use cg::{Aabb3, Point3};
@@ -13,6 +14,7 @@ use cg::{Aabb3, Point3};
 use component::node::*;
 use component::math::{Point2};
 use component::render::*;
+use object2d::Object2dMgr;
 use world::shader::{Shader, ShaderStore};
 use shaders::*;
 use render::engine::Engine;
@@ -42,10 +44,7 @@ world!(
 
         world_view: GuiWorldViewProjection,
 
-        // #[component]
-        // view_port: ViewPort,
-        // root: usize,
-        // transparent_vector: VectorSdf,    //透明的矢量图形
+        object2d: World<Object2dMgr, ()>,
     } 
 );
 
@@ -56,7 +55,7 @@ impl GuiComponentMgr {
         shader_store.store(&sdf_shader.fs, sdf_fragment_shader());
         shader_store.store(&sdf_shader.vs, sdf_vertex_shader());
 
-        let mgr = GuiComponentMgr {
+        let mut mgr = GuiComponentMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
             // render: Render::new(gl),
@@ -71,11 +70,23 @@ impl GuiComponentMgr {
             octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-8388608f32), Point3::new(3072f32,3072f32,8388608f32)), 0, 0, 0, 0),
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
             world_view: GuiWorldViewProjection::new(0.0, 0.0),
-        };
-        // let root = NodeBuilder::new()
-        // .build(&mut mgr.node);
 
-        // mgr.root_id = mgr.add_node(root).id;
+            object2d: World::default()
+        };
+
+        let root = NodeBuilder::new()
+        .build(&mut mgr.node);
+
+        //设置yoga的上下文
+        let yoga_context = Box::into_raw(Box::new(YogaContex {
+            node_id: 1,
+            mgr: &mgr as *const GuiComponentMgr as usize,
+        })) as usize;
+        root.yoga.set_context(yoga_context as *mut c_void);
+
+        //插入根节点, 不抛出创建事件
+        mgr.node._group.insert(root, 0); 
+        mgr.root_id = 1;
 
         mgr
     }

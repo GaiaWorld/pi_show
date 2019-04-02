@@ -45,6 +45,10 @@ pub mod render;
 pub mod shaders;
 // pub mod bind;
 
+pub mod object2d;
+
+pub mod generic_component;
+
 
 //测试
 #[cfg(feature = "web")]
@@ -52,5 +56,5 @@ mod test;
 fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();
-    test::render::test();
+    // test::render::test();
 }

@@ -127,6 +127,10 @@ extern "C" fn callback(context: *const c_void) {
     //更新布局
     let yoga_context = unsafe { Box::from_raw(context as usize as *mut YogaContex) };
     let component_mgr = unsafe{ &mut *(yoga_context.mgr as *mut GuiComponentMgr) };
+    //默认node_id为1的节点为根节点，根节点创建时不会发出创建时间， 因此也不应该处理根节点的布局变化， 否则其他某些监听Node创建事件的系统可能存在问题
+    if yoga_context.node_id == 1 {
+        return;
+    }
     let mut node_ref = component_mgr.get_node_mut(yoga_context.node_id);
     node_ref.set_layout_change(true);
     forget(yoga_context);
