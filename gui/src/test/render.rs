@@ -4,7 +4,7 @@ use stdweb::web::html_element::CanvasElement;
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::web::{
     IParentNode,
-    document,
+    world_doc,
 };
 use stdweb::unstable::TryInto;
 
@@ -13,23 +13,23 @@ use wcs::component::{Builder};
 use cg::color::{Color as CgColor};
 
 // use layout::{YGDirection, YgNode};
-use document::system::{world_matrix::WorldMatrix, oct::Oct};
+use world_doc::system::{world_matrix::WorldMatrix, oct::Oct};
 
-use document::system::{layout::Layout as LayoutSys, rect, create_program, render};
-use document::DocumentMgr;
-use document::component::node::{NodeBuilder, InsertType};
-use document::component::style::element::{ElementBuilder, RectBuilder};
-use document::component::style::color::{Color};
-// use document::component::style::flex::{LayoutBuilder, Rect as WH};
-// use document::component::style::generic::{StyleUnit};
-use generic_component::math::{Color as MathColor};
+use world_doc::system::{layout::Layout as LayoutSys, rect, create_program, render};
+use world_doc::WorldDocMgr;
+use world_doc::component::node::{NodeBuilder, InsertType};
+use world_doc::component::style::element::{ElementBuilder, RectBuilder};
+use world_doc::component::style::color::{Color};
+// use world_doc::component::style::flex::{LayoutBuilder, Rect as WH};
+// use world_doc::component::style::generic::{StyleUnit};
+use component::math::{Color as MathColor};
 
 
 pub fn test(){
-    let canvas: CanvasElement = document().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
+    let canvas: CanvasElement = world_doc().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
     let gl: WebGLRenderingContext = canvas.get_context().unwrap();
 
-    let mut world: World<DocumentMgr, ()> = World::new(DocumentMgr::new(gl));
+    let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new(gl));
 
     let _rect_set = rect::RectSet::init(&mut world.component_mgr);
     let _radius_set = rect::RadiusSet::init(&mut world.component_mgr);
@@ -42,7 +42,7 @@ pub fn test(){
     let create_program_sys = create_program::CreateProgram::init(&mut world.component_mgr);
     let render_sys = render::Render::init(&mut world.component_mgr);
 
-    let systems: Vec<Rc<System<(), DocumentMgr>>> = vec![layout_sys, world_matrix_sys, oct_sys, create_program_sys, render_sys];
+    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![layout_sys, world_matrix_sys, oct_sys, create_program_sys, render_sys];
     world.set_systems(systems);
 
     let node2 = NodeBuilder::new()

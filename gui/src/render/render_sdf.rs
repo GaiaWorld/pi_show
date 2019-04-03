@@ -10,7 +10,7 @@ use wcs::world::{System};
 use render::vector_sdf::{VectorSdf};
 use render::extension::*;
 use render::gl::{compile_shader, link_program, GuiWorldViewProjection};
-use world::{DocumentMgr};
+use world::{WorldDocMgr};
 
 pub struct Render(RefCell<RenderImpl>);
 
@@ -21,7 +21,7 @@ pub struct RenderImpl{
 }
 
 impl Render {
-    pub fn init(component_mgr: &mut DocumentMgr, canvas: &CanvasElement) -> Result<Rc<Render>, String> {
+    pub fn init(component_mgr: &mut WorldDocMgr, canvas: &CanvasElement) -> Result<Rc<Render>, String> {
         let gl: WebGLRenderingContext = canvas.get_context().unwrap();
         gl.get_extension::<OESElementIndexUint>();
         gl.get_extension::<ANGLEInstancedArrays>();
@@ -60,8 +60,8 @@ impl Render {
     }
 }
 
-impl System<(), DocumentMgr> for Render{
-    fn run(&self, _e: &(), component_mgr: &mut DocumentMgr){
+impl System<(), WorldDocMgr> for Render{
+    fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
         let mut render = self.0.borrow_mut();
         let len = render.opaque_sdf_render.update(&render.gl, &mut component_mgr.opaque_vector);
         render.opaque_sdf_render.indices_buffer_len = len;

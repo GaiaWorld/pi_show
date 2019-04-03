@@ -4,7 +4,7 @@
 
 pub struct TextStyle {
     // _id: usize,
-    // world: Rc<RefCell<World<DocumentMgr, ()>>>,
+    // world: Rc<RefCell<World<WorldDocMgr, ()>>>,
 }
 
 #[no_mangle] pub fn font(_own: u32) -> u32 {
@@ -110,7 +110,7 @@ pub struct TextStyle {
 
 pub struct TextShadow {
     _id: usize,
-    // world: Rc<RefCell<World<DocumentMgr, ()>>>,
+    // world: Rc<RefCell<World<WorldDocMgr, ()>>>,
 }
 
 #[no_mangle] pub fn set_h_text_shadow(_own: u32, _value: f32){
@@ -131,7 +131,7 @@ pub struct TextShadow {
 
 pub struct Font {
     _id: usize,
-    // world: Rc<RefCell<World<DocumentMgr, ()>>>,
+    // world: Rc<RefCell<World<WorldDocMgr, ()>>>,
 }
 
 

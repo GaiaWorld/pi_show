@@ -32,9 +32,10 @@ extern crate fnv;
 extern crate ucd;
 extern crate atom;
 
-pub mod document;
+pub mod world_doc;
 pub mod layout;
 pub mod text_layout;
+#[cfg(feature = "web")]
 mod util;
 
 #[cfg(feature = "web")]
@@ -42,9 +43,9 @@ pub mod render;
 
 // pub mod bind;
 
-pub mod object2d;
+pub mod world_2d;
 
-pub mod generic_component;
+pub mod component;
 
 
 //测试

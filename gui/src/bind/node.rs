@@ -1,9 +1,9 @@
 use atom::Atom;
 use cg::octree::intersects;
 
-use world::{Z_MAX, World, DocumentMgr};
-use document::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
-use document::component::node::{InsertType, NodeWriteRef};
+use world::{Z_MAX, World, WorldDocMgr};
+use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
+use world_doc::component::node::{InsertType, NodeWriteRef};
 
 use bind::{Pointer};
 
@@ -134,14 +134,14 @@ pub fn insert_before(own: u32, child: u32, brother: u32, brother_index: u32){
 }
 /// aabb的查询函数的参数
 struct AbQueryArgs<'a> {
-  mgr: &'a DocumentMgr,
+  mgr: &'a WorldDocMgr,
   aabb: Aabb3<f32>,
   type: u32,
   max_z: f32,
   result: u32,
 }
 impl<'a> AbQueryArgs<'a> {
-  pub fn new(mgr: &DocumentMgr, aabb: Aabb3<f32>, type: u32) -> AbQueryArgs {
+  pub fn new(mgr: &WorldDocMgr, aabb: Aabb3<f32>, type: u32) -> AbQueryArgs {
     AbQueryArgs{
       mgr: mgr,
       aabb: aabb,

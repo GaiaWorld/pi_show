@@ -11,12 +11,12 @@ use webgl_rendering_context::{WebGLRenderingContext};
 use wcs::world::World;
 use wcs::component::{Builder};
 
-use document::DocumentMgr;
+use world_doc::WorldDocMgr;
 use layout::{YgNode};
-use document::component::node::{NodeBuilder};
-use document::component::style::element::{ElementBuilder};
-use document::component::style::generic::{Display};
-use document::component::style::element::{Text as TextElement, Image as ImageElement};
+use world_doc::component::node::{NodeBuilder};
+use world_doc::component::style::element::{ElementBuilder};
+use world_doc::component::style::generic::{Display};
+use world_doc::component::style::element::{Text as TextElement, Image as ImageElement};
 
 pub mod data;
 pub mod layout;
@@ -28,14 +28,14 @@ pub mod node;
 
 pub struct Pointer{
     id: usize,
-    world: Rc<RefCell<World<DocumentMgr, ()>>>,
+    world: Rc<RefCell<World<WorldDocMgr, ()>>>,
 }
 
 /**创建一个gui的实例 */
 #[no_mangle]
 pub fn create_gui(gl: WebGLRenderingContext) -> u32{
     js!{console.log("create_gui");}
-    let mut world: World<DocumentMgr, ()> = World::new(DocumentMgr::new(gl));
+    let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new(gl));
 
     // 创建一个宽，高与canvase相等的根节点
     let mut root = NodeBuilder::new()
@@ -162,7 +162,7 @@ pub fn from_raw_mut<T>(ptr: u32) -> &'static T {
 }
 
 
-//相当于document
+//相当于world_doc
 // #[no_mangle]
 // fn root(_own: u32) -> u32 {
 //     1
@@ -174,7 +174,7 @@ pub fn from_raw_mut<T>(ptr: u32) -> &'static T {
 // #[wasm_bindgen]
 // impl Gui{
 //     #[js_export] pub fn new(&self, width: f32, height: f32) -> Gui{
-//         let mut world: World<DocumentMgr, ()> = World::new();
+//         let mut world: World<WorldDocMgr, ()> = World::new();
 //         let root = {
 //             let mgr = &mut world.component_mgr;
 //             let node = NodeBuilder::new().style(StyleBuilder::new().layout(LayoutBuilder::new().wh(Rect::new(Some(StyleUnit::Length(width)), Some(StyleUnit::Length(height)))).build(&mut mgr.node.style.layout)).build(&mut mgr.node.style)).build(&mut mgr.node);

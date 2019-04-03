@@ -6,13 +6,13 @@ use stdweb::web::TypedArray;
 
 use wcs::component::{Builder};
 
-use document::component::node::{ NodeWriteRef};
-use document::component::style::element::{ElementId, RectWriteRef, Element};
-use document::component::style::generic::{Overflow, OverflowWriteRef, ClipPathWriteRef};
-use document::component::style::element::{ RectBuilder as RectElementBuilder};
-use document::component::style::color::{Color};
-use document::component::style::generic::{ClipPath, Clip, Opacity, OpacityWriteRef};
-use generic_component::math::{Color as CgColor};
+use world_doc::component::node::{ NodeWriteRef};
+use world_doc::component::style::element::{ElementId, RectWriteRef, Element};
+use world_doc::component::style::generic::{Overflow, OverflowWriteRef, ClipPathWriteRef};
+use world_doc::component::style::element::{ RectBuilder as RectElementBuilder};
+use world_doc::component::style::color::{Color};
+use world_doc::component::style::generic::{ClipPath, Clip, Opacity, OpacityWriteRef};
+use component::math::{Color as CgColor};
 use cg::color::{Color as CgColor1};
 
 use bind::{Pointer};

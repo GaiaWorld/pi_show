@@ -1,7 +1,7 @@
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use render::vector_sdf::VectorSdf;
-use document::component::viewport::*;
+use world_doc::component::viewport::*;
 
 pub struct Render{
     pub sdf: VectorSdf,

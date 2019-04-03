@@ -448,7 +448,7 @@ var Yoga = function (bind, lib) {
         Module["load"] = importScripts;
       }if (typeof Module["setWindowTitle"] === "undefined") {
         Module["setWindowTitle"] = function (title) {
-          document.title = title;
+          world_doc.title = title;
         };
       }
     } else {
@@ -1052,7 +1052,7 @@ var Yoga = function (bind, lib) {
           }if (!b) {
             var bb = new Browser.BlobBuilder();bb.append(new Uint8Array(byteArray).buffer);b = bb.getBlob();
           }var url = Browser.URLObject.createObjectURL(b);var img = new Image();img.onload = function img_onload() {
-            assert(img.complete, "Image " + name + " could not be decoded");var canvas = document.createElement("canvas");canvas.width = img.width;canvas.height = img.height;var ctx = canvas.getContext("2d");ctx.drawImage(img, 0, 0);Module["preloadedImages"][name] = canvas;Browser.URLObject.revokeObjectURL(url);if (onload) onload(byteArray);
+            assert(img.complete, "Image " + name + " could not be decoded");var canvas = world_doc.createElement("canvas");canvas.width = img.width;canvas.height = img.height;var ctx = canvas.getContext("2d");ctx.drawImage(img, 0, 0);Module["preloadedImages"][name] = canvas;Browser.URLObject.revokeObjectURL(url);if (onload) onload(byteArray);
           };img.onerror = function img_onerror(event) {
             console.log("Image " + url + " could not be decoded");if (onerror) onerror();
           };img.src = url;
@@ -1089,9 +1089,9 @@ var Yoga = function (bind, lib) {
             return fail();
           }
         };Module["preloadPlugins"].push(audioPlugin);function pointerLockChange() {
-          Browser.pointerLock = document["pointerLockElement"] === Module["canvas"] || document["mozPointerLockElement"] === Module["canvas"] || document["webkitPointerLockElement"] === Module["canvas"] || document["msPointerLockElement"] === Module["canvas"];
+          Browser.pointerLock = world_doc["pointerLockElement"] === Module["canvas"] || world_doc["mozPointerLockElement"] === Module["canvas"] || world_doc["webkitPointerLockElement"] === Module["canvas"] || world_doc["msPointerLockElement"] === Module["canvas"];
         }var canvas = Module["canvas"];if (canvas) {
-          canvas.requestPointerLock = canvas["requestPointerLock"] || canvas["mozRequestPointerLock"] || canvas["webkitRequestPointerLock"] || canvas["msRequestPointerLock"] || function () {};canvas.exitPointerLock = document["exitPointerLock"] || document["mozExitPointerLock"] || document["webkitExitPointerLock"] || document["msExitPointerLock"] || function () {};canvas.exitPointerLock = canvas.exitPointerLock.bind(document);document.addEventListener("pointerlockchange", pointerLockChange, false);document.addEventListener("mozpointerlockchange", pointerLockChange, false);document.addEventListener("webkitpointerlockchange", pointerLockChange, false);document.addEventListener("mspointerlockchange", pointerLockChange, false);if (Module["elementPointerLock"]) {
+          canvas.requestPointerLock = canvas["requestPointerLock"] || canvas["mozRequestPointerLock"] || canvas["webkitRequestPointerLock"] || canvas["msRequestPointerLock"] || function () {};canvas.exitPointerLock = world_doc["exitPointerLock"] || world_doc["mozExitPointerLock"] || world_doc["webkitExitPointerLock"] || world_doc["msExitPointerLock"] || function () {};canvas.exitPointerLock = canvas.exitPointerLock.bind(world_doc);world_doc.addEventListener("pointerlockchange", pointerLockChange, false);world_doc.addEventListener("mozpointerlockchange", pointerLockChange, false);world_doc.addEventListener("webkitpointerlockchange", pointerLockChange, false);world_doc.addEventListener("mspointerlockchange", pointerLockChange, false);if (Module["elementPointerLock"]) {
             canvas.addEventListener("click", function (ev) {
               if (!Browser.pointerLock && Module["canvas"].requestPointerLock) {
                 Module["canvas"].requestPointerLock();ev.preventDefault();
@@ -1117,14 +1117,14 @@ var Yoga = function (bind, lib) {
         }return ctx;
       }, destroyContext: function (canvas, useWebGL, setInModule) {}, fullscreenHandlersInstalled: false, lockPointer: undefined, resizeCanvas: undefined, requestFullscreen: function (lockPointer, resizeCanvas, vrDevice) {
         Browser.lockPointer = lockPointer;Browser.resizeCanvas = resizeCanvas;Browser.vrDevice = vrDevice;if (typeof Browser.lockPointer === "undefined") Browser.lockPointer = true;if (typeof Browser.resizeCanvas === "undefined") Browser.resizeCanvas = false;if (typeof Browser.vrDevice === "undefined") Browser.vrDevice = null;var canvas = Module["canvas"];function fullscreenChange() {
-          Browser.isFullscreen = false;var canvasContainer = canvas.parentNode;if ((document["fullscreenElement"] || document["mozFullScreenElement"] || document["msFullscreenElement"] || document["webkitFullscreenElement"] || document["webkitCurrentFullScreenElement"]) === canvasContainer) {
-            canvas.exitFullscreen = document["exitFullscreen"] || document["cancelFullScreen"] || document["mozCancelFullScreen"] || document["msExitFullscreen"] || document["webkitCancelFullScreen"] || function () {};canvas.exitFullscreen = canvas.exitFullscreen.bind(document);if (Browser.lockPointer) canvas.requestPointerLock();Browser.isFullscreen = true;if (Browser.resizeCanvas) Browser.setFullscreenCanvasSize();
+          Browser.isFullscreen = false;var canvasContainer = canvas.parentNode;if ((world_doc["fullscreenElement"] || world_doc["mozFullScreenElement"] || world_doc["msFullscreenElement"] || world_doc["webkitFullscreenElement"] || world_doc["webkitCurrentFullScreenElement"]) === canvasContainer) {
+            canvas.exitFullscreen = world_doc["exitFullscreen"] || world_doc["cancelFullScreen"] || world_doc["mozCancelFullScreen"] || world_doc["msExitFullscreen"] || world_doc["webkitCancelFullScreen"] || function () {};canvas.exitFullscreen = canvas.exitFullscreen.bind(world_doc);if (Browser.lockPointer) canvas.requestPointerLock();Browser.isFullscreen = true;if (Browser.resizeCanvas) Browser.setFullscreenCanvasSize();
           } else {
             canvasContainer.parentNode.insertBefore(canvas, canvasContainer);canvasContainer.parentNode.removeChild(canvasContainer);if (Browser.resizeCanvas) Browser.setWindowedCanvasSize();
           }if (Module["onFullScreen"]) Module["onFullScreen"](Browser.isFullscreen);if (Module["onFullscreen"]) Module["onFullscreen"](Browser.isFullscreen);Browser.updateCanvasDimensions(canvas);
         }if (!Browser.fullscreenHandlersInstalled) {
-          Browser.fullscreenHandlersInstalled = true;document.addEventListener("fullscreenchange", fullscreenChange, false);document.addEventListener("mozfullscreenchange", fullscreenChange, false);document.addEventListener("webkitfullscreenchange", fullscreenChange, false);document.addEventListener("MSFullscreenChange", fullscreenChange, false);
-        }var canvasContainer = document.createElement("div");canvas.parentNode.insertBefore(canvasContainer, canvas);canvasContainer.appendChild(canvas);canvasContainer.requestFullscreen = canvasContainer["requestFullscreen"] || canvasContainer["mozRequestFullScreen"] || canvasContainer["msRequestFullscreen"] || (canvasContainer["webkitRequestFullscreen"] ? function () {
+          Browser.fullscreenHandlersInstalled = true;world_doc.addEventListener("fullscreenchange", fullscreenChange, false);world_doc.addEventListener("mozfullscreenchange", fullscreenChange, false);world_doc.addEventListener("webkitfullscreenchange", fullscreenChange, false);world_doc.addEventListener("MSFullscreenChange", fullscreenChange, false);
+        }var canvasContainer = world_doc.createElement("div");canvas.parentNode.insertBefore(canvasContainer, canvas);canvasContainer.appendChild(canvas);canvasContainer.requestFullscreen = canvasContainer["requestFullscreen"] || canvasContainer["mozRequestFullScreen"] || canvasContainer["msRequestFullscreen"] || (canvasContainer["webkitRequestFullscreen"] ? function () {
           canvasContainer["webkitRequestFullscreen"](Element["ALLOW_KEYBOARD_INPUT"]);
         } : null) || (canvasContainer["webkitRequestFullScreen"] ? function () {
           canvasContainer["webkitRequestFullScreen"](Element["ALLOW_KEYBOARD_INPUT"]);
@@ -1260,7 +1260,7 @@ var Yoga = function (bind, lib) {
           } else {
             h = Math.round(w / Module["forcedAspectRatio"]);
           }
-        }if ((document["fullscreenElement"] || document["mozFullScreenElement"] || document["msFullscreenElement"] || document["webkitFullscreenElement"] || document["webkitCurrentFullScreenElement"]) === canvas.parentNode && typeof screen != "undefined") {
+        }if ((world_doc["fullscreenElement"] || world_doc["mozFullScreenElement"] || world_doc["msFullscreenElement"] || world_doc["webkitFullscreenElement"] || world_doc["webkitCurrentFullScreenElement"]) === canvas.parentNode && typeof screen != "undefined") {
           var factor = Math.min(screen.width / w, screen.height / h);w = Math.round(w * factor);h = Math.round(h * factor);
         }if (Browser.resizeCanvas) {
           if (canvas.width != w) canvas.width = w;if (canvas.height != h) canvas.height = h;if (typeof canvas.style != "undefined") {

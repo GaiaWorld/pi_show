@@ -6,7 +6,7 @@
 #[derive(Debug, Clone)]
 pub struct Transform{
     _id: usize,
-    // world: Rc<RefCell<World<DocumentMgr, ()>>>,
+    // world: Rc<RefCell<World<WorldDocMgr, ()>>>,
 }
 
 #[no_mangle]
