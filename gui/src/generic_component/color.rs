@@ -3,7 +3,7 @@ use std::ops::{Deref};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
-use component::math::{Color as CgColor};
+use generic_component::math::{Color as CgColor};
 
 // 颜色， 支持rgb，rgba， 线性渐变， 劲向渐变
 #[derive(Debug, Clone, EnumDefault, Component)]

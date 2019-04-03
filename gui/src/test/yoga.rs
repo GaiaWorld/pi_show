@@ -15,9 +15,9 @@ use stdweb::unstable::TryInto;
 use wcs::world::{World, System};
 use wcs::component::Builder;
 
-use world::GuiComponentMgr;
-use system::layout::Layout;
-use component::node::{NodeBuilder, InsertType, YogaContex};
+use document::DocumentMgr;
+use document::system::layout::Layout;
+use document::component::node::{NodeBuilder, InsertType, YogaContex};
 use layout::{YgNode, YGDirection, YGFlexDirection};
 
 pub fn test_layout_system(){
@@ -59,7 +59,7 @@ pub fn test_layout_system(){
     };
     let yoga_context = Box::into_raw(Box::new(YogaContex {
         node_id: root,
-        mgr: &world.component_mgr as *const GuiComponentMgr as usize,
+        mgr: &world.component_mgr as *const DocumentMgr as usize,
     })) as usize;
     root_yoga.set_context(yoga_context as *mut c_void);
     root_yoga.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
@@ -93,12 +93,12 @@ pub fn test_layout_system(){
     // forget(world);
 }
 
-fn new_world() -> World<GuiComponentMgr, ()>{
+fn new_world() -> World<DocumentMgr, ()>{
     let canvas: CanvasElement = document().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
     let gl: WebGLRenderingContext = canvas.get_context().unwrap();
 
-    let mut world: World<GuiComponentMgr, ()> = World::new(GuiComponentMgr::new(gl));
-    let systems: Vec<Rc<System<(), GuiComponentMgr>>> = vec![Layout::init(&mut world.component_mgr)];
+    let mut world: World<DocumentMgr, ()> = World::new(DocumentMgr::new(gl));
+    let systems: Vec<Rc<System<(), DocumentMgr>>> = vec![Layout::init(&mut world.component_mgr)];
     world.set_systems(systems);
     world
 }

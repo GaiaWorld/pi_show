@@ -3,7 +3,7 @@
 
 // use wcs::world::{World};
 
-// use world::GuiComponentMgr;
+// use document::DocumentMgr;
 use std::mem::transmute;
 
 use stdweb::web::TypedArray;
@@ -11,16 +11,16 @@ use stdweb::web::TypedArray;
 // use wcs::world::World;
 // use wcs::component::{Builder};
 
-// use world::GuiComponentMgr;
+// use document::DocumentMgr;
 // use layout::{YgNode};
-// use component::node::{NodeBuilder};
-// use component::style::element::{ElementBuilder};
-// use component::style::style::{StyleBuilder, Display, StyleWriteRef};
-// use component::style::flex::{LayoutBuilder, Rect as WH};
-use component::style::generic::{LengthUnit, Polygon};
-// use component::style::element::{Text as TextElement, Image as ImageElement, Rect as RectElement};
-use component::style::color::{LinearGradientColor, RadialGradientColor, ColorAndPosition};
-use component::math::{Color as CgColor};
+// use document::component::node::{NodeBuilder};
+// use document::component::style::element::{ElementBuilder};
+// use document::component::style::style::{StyleBuilder, Display, StyleWriteRef};
+// use document::component::style::flex::{LayoutBuilder, Rect as WH};
+use document::component::style::generic::{LengthUnit, Polygon};
+// use document::component::style::element::{Text as TextElement, Image as ImageElement, Rect as RectElement};
+use document::component::style::color::{LinearGradientColor, RadialGradientColor, ColorAndPosition};
+use generic_component::math::{Color as CgColor};
 use cg::color::{Color as CgColor1};
 
 // use {Pointer, to_raw};

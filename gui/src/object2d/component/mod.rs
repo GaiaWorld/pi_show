@@ -1,3 +1,3 @@
 pub mod sdf;
-pub mod word;
+pub mod char_block;
 pub mod image;

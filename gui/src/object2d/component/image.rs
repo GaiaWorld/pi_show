@@ -4,15 +4,16 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, Creat
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
-use component::math::{Vector2};
+use generic_component::math::{Vector2};
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
 pub struct Image{
-
     //alpha
     #[listen]
     pub alpha: f32,
+
+    pub is_opaque: bool,
 
     // z深度
     #[listen]
@@ -34,3 +35,31 @@ pub struct Image{
     //url
     pub url: Atom,
 }
+
+#[allow(unused_attributes)]
+#[derive(Debug, Component, Default)]
+pub struct ImageEffect {
+    pub program: u64,
+
+    #[component(ImageDefines)]
+    pub defines: usize,
+
+    pub image_id: usize,
+}
+
+#[allow(unused_attributes)]
+#[derive(Debug, Component, Default)]
+pub struct ImageDefines {
+
+}
+
+impl ImageDefines {
+    pub fn list(&self) -> Vec<Atom> {
+        Vec::new()
+    }
+}
+
+// // defines
+// lazy_static! {
+// 	static ref SDF_RECT: Atom = Atom::from("SDF_RECT");
+// }

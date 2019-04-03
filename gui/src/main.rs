@@ -32,17 +32,14 @@ extern crate fnv;
 extern crate ucd;
 extern crate atom;
 
-pub mod component;
-pub mod world;
-pub mod system;
+pub mod document;
 pub mod layout;
 pub mod text_layout;
+mod util;
 
 #[cfg(feature = "web")]
 pub mod render;
 
-#[cfg(feature = "web")]
-pub mod shaders;
 // pub mod bind;
 
 pub mod object2d;
@@ -51,10 +48,10 @@ pub mod generic_component;
 
 
 //测试
-#[cfg(feature = "web")]
-mod test;
-fn main(){
-    // test::yoga::test();
-    // test::yoga::test_layout_system();
-    // test::render::test();
-}
+// #[cfg(feature = "web")]
+// mod test;
+// fn main(){
+//     // test::yoga::test();
+//     // test::yoga::test_layout_system();
+//     // test::render::test();
+// }
