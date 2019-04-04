@@ -65,9 +65,16 @@ pub struct OpacitySysImpl {
 
 impl OpacitySysImpl {
     pub fn new() -> OpacitySysImpl{
+        // 默认id为1的node为根， 根的创建没有事件， 因此默认插入根的脏
+        let mut dirty_mark_list = VecMap::new();
+        let mut dirtys = Vec::new();
+        dirtys.push(Vec::new());
+        dirtys[0].push(1);
+        dirty_mark_list.insert(1, true);
+
         OpacitySysImpl{
-            dirtys: Vec::new(),
-            dirty_mark_list: VecMap::new(),
+            dirtys,
+            dirty_mark_list,
         }
     }
 

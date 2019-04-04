@@ -1,11 +1,11 @@
 use std::ops::{Deref};
 use std::default::Default;
 
-use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers, Builder};
 use wcs::world::{ComponentMgr};
-use atom::Atom;
 
 use component::color::*;
+use component::math::{Color as MathColor, ColorReadRef as MathColorReadRef, ColorWriteRef as MathColorWriteRef, ColorGroup as MathColorGroup};
 
 #[derive(Debug, Copy, Clone)]
 pub enum StyleUnit{
@@ -82,9 +82,40 @@ impl Default for Opacity {
 }
 
 #[allow(unused_attributes)]
-#[derive(Component, Debug, Clone)]
-pub struct BackGround {
+#[derive(Component, Debug, Clone, Builder, Default)]
+pub struct Decorate {
     #[component(Color)]
-    color: usize,
-    image: Option<Atom>,
+    #[builder(export)]
+    pub background_color: usize,
+
+    #[listen]
+    #[builder(export)]
+    pub backgroud_image: u32,
+
+    #[component(BoxShadow)]
+    #[builder(export)]
+    pub box_shadow: usize,
+
+    #[component(MathColor)]
+    #[builder(export)]
+    pub border_color: usize,
+
+    #[listen]
+    #[builder(export)]
+    pub border_radius: f32,
+}
+
+#[allow(unused_attributes)]
+#[derive(Component, Debug, Clone, Default, Builder)]
+pub struct BoxShadow{
+    #[builder(export)]
+    pub h: f32,
+    #[builder(export)]
+    pub v: f32,
+    #[builder(export)]
+    pub blur: f32,
+    #[builder(export)]
+    pub spread: f32,
+    #[builder(export)]
+    pub color: MathColor,
 }

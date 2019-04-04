@@ -11,7 +11,7 @@ use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEven
 use world_doc::component::style::transform::{Transform};
 use world_doc::component::node::Node;
 use world_doc::WorldDocMgr;
-use component::math::{Matrix4, Vector3};
+use component::math::{Matrix4};
 use vecmap::VecMap;
 // use alert;
 
@@ -23,8 +23,9 @@ impl WorldMatrix {
         component_mgr.node.transform._group.register_modify_field_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.transform._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, DeleteEvent, WorldDocMgr>>)));
         component_mgr.node.transform._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, CreateEvent, WorldDocMgr>>)));
-        component_mgr.node.position._group.register_modify_field_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Vector3, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.layout.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, CreateEvent, WorldDocMgr>>)));
+        component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, WorldDocMgr>>)));
         system
     }
 }
@@ -39,30 +40,38 @@ impl ComponentHandler<Transform, ModifyFieldEvent, WorldDocMgr> for WorldMatrix{
 impl ComponentHandler<Transform, DeleteEvent, WorldDocMgr> for WorldMatrix{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr){
         let DeleteEvent{id: _, parent} = event;
-        self.0.borrow_mut().delete_dirty(*parent, component_mgr);
-        //不需要从dirty_mark_list中删除
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
     }
 }
 
 impl ComponentHandler<Transform, CreateEvent, WorldDocMgr> for WorldMatrix{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr){
         let CreateEvent{id: _, parent} = event;
-        let mut borrow = self.0.borrow_mut();
-        borrow.marked_dirty(*parent, component_mgr);
+        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
+    }
+}
+
+impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for WorldMatrix{
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr){
+        let ModifyFieldEvent{id, parent: _, field: _} = event;
+        self.0.borrow_mut().marked_dirty(*id, component_mgr);
     }
 }
 
 impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for WorldMatrix{
-    fn handle(&self, event: &CreateEvent, _component_mgr: &mut WorldDocMgr){
+    fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr){
         let CreateEvent{id, parent: _} = event;
         self.0.borrow_mut().dirty_mark_list.insert(*id, false);
+        self.0.borrow_mut().marked_dirty(*id, component_mgr);
     }
 }
 
-impl ComponentHandler<Vector3, ModifyFieldEvent, WorldDocMgr> for WorldMatrix{
-    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr){
-        let ModifyFieldEvent{id: _, parent, field: _} = event;
-        self.0.borrow_mut().marked_dirty(*parent, component_mgr);
+impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for WorldMatrix{
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr){
+        let DeleteEvent{id, parent : _} = event;
+        self.0.borrow_mut().delete_dirty(*id, component_mgr);
+        
+        //不需要从dirty_mark_list中删除
     }
 }
 
@@ -79,9 +88,16 @@ pub struct WorldMatrixImpl {
 
 impl WorldMatrixImpl {
     pub fn new() -> WorldMatrixImpl{
+        // 默认id为1的node为根， 根的创建没有事件， 因此默认插入根的脏
+        let mut dirty_mark_list = VecMap::new();
+        let mut dirtys = Vec::new();
+        dirtys.push(Vec::new());
+        dirtys[0].push(1);
+        dirty_mark_list.insert(1, true);
+
         WorldMatrixImpl{
-            dirtys: Vec::new(),
-            dirty_mark_list: VecMap::new()
+            dirtys,
+            dirty_mark_list,
         }
     }
 
@@ -93,6 +109,7 @@ impl WorldMatrixImpl {
                 if dirty_mark == false {
                     continue;
                 }
+
                 //修改节点世界矩阵及子节点的世界矩阵
                 modify_matrix(&mut self.dirty_mark_list, *node_id, component_mgr);
             }
@@ -134,21 +151,32 @@ impl WorldMatrixImpl {
 
 //计算世界矩阵
 fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_mgr: &mut WorldDocMgr) {
-    let mut world_matrix = {
-        let (transform_id, position_id) = {
+    let (mut world_matrix, parent_id) = {
+        let (transform_id, l, parent) = {
             let node = component_mgr.node._group.get(node_id);
-            (node.transform, node.position)
+            (node.transform, &node.layout, node.parent)
         };
+
+        let center = if parent > 0 {
+            //parent_layout
+            let pl = &component_mgr.node._group.get(parent).layout;
+            cg::Vector3::new(
+                l.width/2.0 + l.left + pl.padding_left + pl.border - pl.width/2.0,
+                l.height/2.0 + l.top + pl.padding_top + pl.border - pl.height/2.0,
+                0.0,
+            )
+        }else {
+            cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
+        };
+
         let transform = match transform_id == 0 {
-            true => Transform::default().matrix(),
+            true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
             false => component_mgr.node.transform._group.get(transform_id).matrix(),
         };
-        let p = component_mgr.node.position._group.get(position_id).owner.0;
-        let position = cg::Matrix4::from_translation(p.clone());
-        (transform * position)
-    };
 
-    let parent_id = component_mgr.node._group.get(node_id).parent;
+        let center_matrix = cg::Matrix4::from_translation(center);
+        (transform * center_matrix, parent)
+    };
 
     if parent_id != 0 {
         let parent_world_matrix = {

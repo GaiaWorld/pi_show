@@ -10,8 +10,8 @@ use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEven
 use cg::{Vector4};
 
 use world_doc::{WorldDocMgr};
-use world_doc::component::node::{Node, RectSize};
-use component::math::{Matrix4, Vector3, Point2};
+use world_doc::component::node::{Node};
+use component::math::{Matrix4, Point2};
 use world_2d::{Overflow};
 
 pub struct OverflowSys();
@@ -71,9 +71,7 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
-            let pos = mgr.node.position._group.get(node.position);
-            let size = mgr.node.extent._group.get(node.extent);
-            mgr.world_2d.component_mgr.overflow.1[i] = calc_point(pos, size, world_matrix);
+            mgr.world_2d.component_mgr.overflow.1[i] = calc_point((node.layout.width, node.layout.height), world_matrix);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
@@ -167,18 +165,34 @@ fn adjust(mgr: &mut WorldDocMgr, mut child: usize, index: usize, ops: fn(a:usize
   }
 }
 // 计算指定矩形的4个点
-fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;4] {
-  let p = position.deref();
-  let m = matrix.deref();
-  let left_top = m * Vector4::new(p.x, p.y, 0.0, 1.0);
-  let right_top = m * Vector4::new(p.x + size.width, p.y, 0.0, 1.0);
-  let left_bottom = m * Vector4::new(p.x, p.y + size.height, 0.0, 1.0);
-  let right_bottom = m * Vector4::new(p.x + size.width, p.y + size.height, 0.0, 1.0);
-  let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
-  let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
-  let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
-  let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
-  [lt, rt, lb, rb]
+// fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;4] {
+//   let p = position.deref();
+//   let m = matrix.deref();
+//   let left_top = m * Vector4::new(p.x, p.y, 0.0, 1.0);
+//   let right_top = m * Vector4::new(p.x + size.width, p.y, 0.0, 1.0);
+//   let left_bottom = m * Vector4::new(p.x, p.y + size.height, 0.0, 1.0);
+//   let right_bottom = m * Vector4::new(p.x + size.width, p.y + size.height, 0.0, 1.0);
+//   let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
+//   let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
+//   let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
+//   let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
+//   [lt, rt, lb, rb]
+// }
+
+fn calc_point(size: (f32, f32), matrix: &Matrix4) -> [Point2;4]{
+    let half_width = size.0/2.0;
+    let half_height = size.1/2.0;
+    let m = matrix.deref();
+    let left_top = m * Vector4::new(-half_width, -half_height, 0.0, 1.0);
+    let right_top = m * Vector4::new(half_width, -half_height, 0.0, 1.0);
+    let left_bottom = m * Vector4::new(-half_width, half_height, 0.0, 1.0);
+    let right_bottom = m * Vector4::new(half_width, half_height, 0.0, 1.0);
+
+    let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
+    let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
+    let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
+    let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
+    [lt, rt, lb, rb]
 }
 
 #[cfg(test)]

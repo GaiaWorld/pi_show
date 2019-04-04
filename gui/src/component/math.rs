@@ -140,6 +140,12 @@ impl Default for Aabb3{
     }
 }
 
+impl Aabb3 {
+    pub fn new(min: cg::Point3<f32>, max: cg::Point3<f32>) -> Aabb3{
+        Aabb3(cg::Aabb3::new(min, max))
+    }
+}
+
 getter_setter!(
     struct Aabb3{
         min: cg::Point3<f32>,
@@ -156,6 +162,12 @@ component!(
 
 #[derive(Debug, Clone, Copy)]
 pub struct Vector2(pub cg::Vector2<f32>);
+
+impl Vector2 {
+    pub fn new(x: f32, y: f32) -> Vector2{
+        Vector2(cg::Vector2::new(x, y))
+    }
+}
 
 impl Deref for Vector2{
     type Target = cg::Vector2<f32>;
@@ -259,6 +271,12 @@ impl Default for Quaternion{
 #[derive(Debug, Clone, Copy)]
 pub struct Vector3(pub cg::Vector3<f32>);
 
+impl Vector3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Vector3{
+        Vector3(cg::Vector3::new(x, y, z))
+    }
+}
+
 impl Deref for Vector3{
     type Target = cg::Vector3<f32>;
     fn deref(&self) -> &Self::Target {
@@ -296,6 +314,12 @@ component!(
 
 #[derive(Debug, Clone, Copy)]
 pub struct Color(pub cg::color::Color<f32>);
+
+impl Color {
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Color{
+        Color(cg::color::Color::new(r, g, b, a))
+    }
+}
 
 impl Deref for Color{
     type Target = cg::color::Color<f32>;

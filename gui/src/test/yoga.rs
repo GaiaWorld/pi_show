@@ -78,8 +78,8 @@ pub fn test_layout_system(){
     for i in node_ids.iter(){
         {
             let node_ref = world.component_mgr.get_node_mut(*i);
-            let width = node_ref.get_extent().get_width().clone();
-            let height = node_ref.get_extent().get_height().clone();
+            let width = node_ref.get_extend().get_width().clone();
+            let height = node_ref.get_extend().get_height().clone();
             let x = node_ref.get_position().get_x().clone();
             let y = node_ref.get_position().get_y().clone();
 

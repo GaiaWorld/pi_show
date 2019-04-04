@@ -8,9 +8,9 @@ use wcs::world::{System};
 use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use vecmap::VecMap;
 
-use world_doc::component::node::{RectSize};
 use world_doc::WorldDocMgr;
-use component::math::{Matrix4, Aabb3 as C_Aabb3};
+use world_doc::component::node::Node;
+use component::math::{Matrix4, Aabb3 as C_Aabb3, Vector2};
 use cg::{Aabb3, Vector4, Point3};
 
 pub struct Oct(RefCell<OctImpl>);
@@ -18,44 +18,49 @@ pub struct Oct(RefCell<OctImpl>);
 impl Oct {
     pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<Oct>{
         let r = Rc::new(Oct(RefCell::new(OctImpl::new())));
-        component_mgr.node.extent._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.extent._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, DeleteEvent, WorldDocMgr>>)));
-        component_mgr.node.extent._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<RectSize, CreateEvent, WorldDocMgr>>)));
+        component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, DeleteEvent, WorldDocMgr>>)));
+        component_mgr.node._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, CreateEvent, WorldDocMgr>>)));
         component_mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
 
-impl ComponentHandler<RectSize, ModifyFieldEvent, WorldDocMgr> for Oct{
+//监听layout的改变，设脏
+impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
-        let ModifyFieldEvent{id: _, parent, field: _} = event;
-        self.0.borrow_mut().marked_dirty(*parent);
+        let ModifyFieldEvent{id, parent: _, field: _} = event;
+        println!("marked_dirty111111111111111ModifyFieldEvent11{}", id);
+        self.0.borrow_mut().marked_dirty(*id);
     }
 }
 
-impl ComponentHandler<RectSize, CreateEvent, WorldDocMgr> for Oct{
+// 监听Node的创建事件， 设脏
+impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr){
-        let CreateEvent{id: _, parent} = event;
+        let CreateEvent{id, parent : _} = event;
         let mut borrow = self.0.borrow_mut();
-        borrow.dirty_mark_list.insert(*parent, false);
-        borrow.add_aabb(*parent, component_mgr);
-        borrow.marked_dirty(*parent);
+        borrow.dirty_mark_list.insert(*id, false);
+        borrow.add_aabb(*id, component_mgr);
+        borrow.marked_dirty(*id);
     }
 }
 
-impl ComponentHandler<RectSize, DeleteEvent, WorldDocMgr> for Oct{
+// 监听Node的删除事件， 设脏
+impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr){
-        let DeleteEvent{id: _, parent} = event;
+        let DeleteEvent{id, parent : _} = event;
         let mut borrow = self.0.borrow_mut();
-        borrow.remove_aabb(*parent, component_mgr);
-        borrow.delete_dirty(*parent);
+        borrow.remove_aabb(*id, component_mgr);
+        borrow.delete_dirty(*id);
     }
 }
 
-//监听了Matrix组件的修改
+//监听了Matrix组件的修改, 设脏
 impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
         let ModifyFieldEvent{id: _, parent, field: _} = event;
+        println!("marked_dirty111111111111111ModifyFieldEvent11{}", parent);
         self.0.borrow_mut().marked_dirty(*parent);
     }
 }
@@ -73,9 +78,14 @@ pub struct OctImpl {
 
 impl OctImpl {
     pub fn new() -> OctImpl{
+        let mut dirty_mark_list = VecMap::new();
+        let mut dirtys = Vec::new();
+        dirtys.push(1);
+        dirty_mark_list.insert(1, true);
+
         OctImpl{
-            dirtys: Vec::new(),
-            dirty_mark_list: VecMap::new(),
+            dirtys,
+            dirty_mark_list,
         }
     }
 
@@ -84,15 +94,15 @@ impl OctImpl {
         for node_id in self.dirtys.iter() {
             unsafe{*self.dirty_mark_list.get_unchecked_mut(*node_id) = false};
 
-            let aabb = {
+            let (aabb, size) = {
                 //计算包围盒
                 let node = mgr.node._group.get(*node_id);
-                let extent = mgr.node.extent._group.get(node.extent);
+                let layout = &node.layout;
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
-                let aabb = cal_bound_box(extent, world_matrix);
+                let (aabb, size) = cal_bound_box((layout.width, layout.height), world_matrix);
                 //更新八叉树
                 mgr.octree.update(node.bound_box_id, aabb.clone());
-                aabb
+                (aabb, size)
             };
             {
                 //修改包围盒
@@ -102,19 +112,23 @@ impl OctImpl {
                     aabb3.max = aabb.max;
                     true
                 });
+                node_ref.set_size(Vector2::new(size.0, size.1))
             }
         }
         self.dirtys.clear();
     }
 
     pub fn marked_dirty(&mut self, node_id: usize){
+        println!("marked_dirty11111111111111111111111{}", node_id);
         let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(node_id)};
+        println!("marked_dirty11111111111111111111111c");
         if *dirty_mark == true {
             return;
         }
         *dirty_mark = true;
 
-        self.dirtys.push(node_id.clone());
+        self.dirtys.push(node_id);
+        println!("marked_dirty11111111111111111111111e");
     }
 
     pub fn delete_dirty(&mut self, node_id: usize){
@@ -140,17 +154,22 @@ impl OctImpl {
     }
 }
 
-fn cal_bound_box(size: &RectSize, matrix: &Matrix4) -> Aabb3<f32>{
-    // let half_width = size.width/2.0;
-    // let half_height = size.height/2.0;
+fn cal_bound_box(size: (f32, f32), matrix: &Matrix4) -> (Aabb3<f32>, (f32, f32)){
+    let half_width = size.0/2.0;
+    let half_height = size.1/2.0;
     // let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
     // let right_top = matrix.deref() * Vector4::new(size.width-half_width, -half_height, 0.0, 1.0);
     // let left_bottom = matrix.deref() * Vector4::new(-half_width, size.height - half_height, 0.0, 1.0);
     // let right_bottom = matrix.deref() * Vector4::new(size.width - half_width, size.height - half_width, 0.0, 1.0);
-    let left_top = matrix.deref() * Vector4::new(0.0, 0.0, 0.0, 1.0);
-    let right_top = matrix.deref() * Vector4::new(size.width, 0.0, 0.0, 1.0);
-    let left_bottom = matrix.deref() * Vector4::new(0.0, size.height, 0.0, 1.0);
-    let right_bottom = matrix.deref() * Vector4::new(size.width, size.height, 0.0, 1.0);
+    let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
+    let right_top = matrix.deref() * Vector4::new(half_width, -half_height, 0.0, 1.0);
+    let left_bottom = matrix.deref() * Vector4::new(-half_width, half_height, 0.0, 1.0);
+    let right_bottom = matrix.deref() * Vector4::new(half_width, half_height, 0.0, 1.0);
+
+    let size_x = right_top.x - left_top.x;
+    let size_y = left_bottom.y - left_top.y;
+
+    println!("box--------------------------size_x: {}, size_y: {}, width: {}, heigth: {}", size_x, size_y, size.0, size.1);
 
     // let min = Point3::new(
     //     left_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x) + half_width,
@@ -177,7 +196,7 @@ fn cal_bound_box(size: &RectSize, matrix: &Matrix4) -> Aabb3<f32>{
         1.0,
     );
 
-    Aabb3::new(min, max)
+    (Aabb3::new(min, max), (size_x, size_y))
 }
 
 #[cfg(test)]
@@ -241,7 +260,7 @@ mod test {
             println!("test_bound_box1, node{} , bound_box:{:?}", i, bound_box);
         }
 
-        world.component_mgr.get_node_mut(root).get_extent_mut().modify(|t: &mut RectSize| {
+        world.component_mgr.get_node_mut(root).get_extend_mut().modify(|t: &mut RectSize| {
             t.width = 100.0;
             t.height = 100.0;
             true
@@ -255,8 +274,8 @@ mod test {
             println!("test_bound_box2, node{} , bound_box:{:?}", i, bound_box);
         }
 
-        //修改node2的extent
-        world.component_mgr.get_node_mut(node_ids[6]).get_extent_mut().modify(|t: &mut RectSize| {
+        //修改node2的extend
+        world.component_mgr.get_node_mut(node_ids[6]).get_extend_mut().modify(|t: &mut RectSize| {
             t.width = 100.0;
             t.height = 100.0;
             true

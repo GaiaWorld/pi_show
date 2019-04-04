@@ -52,12 +52,15 @@ pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWra
 //     }
 // }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Layout{
     pub left: f32,
     pub top: f32,
     pub width: f32,
     pub height: f32,
+    pub border: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
 }
 // pub type YgNodeP = YgNode;
 
@@ -299,6 +302,14 @@ impl YgNode {
         yoga::yg_node_get_child_count(self.0)
     }
 
+    pub fn get_width(&self) -> f32 {
+        yoga::yg_node_style_get_width(self.0).value
+    }
+
+    pub fn get_height(&self) -> f32 {
+        yoga::yg_node_style_get_height(self.0).value
+    }
+
     // pub fn is_reference_baseline(&self) -> bool { 
     //     yoga::yg_node_style_get_position_type(self.0)
     // }
@@ -317,8 +328,8 @@ impl YgNode {
         yoga::yg_node_calculate_layout(self.0, width, height, direction);
     }
 
-    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: yoga::YGCalcCallbackFunc) {
-        yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, callback);
+    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: yoga::YGCalcCallbackFunc, arg: *const c_void) {
+        yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, callback, arg);
     }
 
 //     为指定节点设置上下文
@@ -341,6 +352,9 @@ impl YgNode {
             top: yoga::yg_node_layout_get_top(self.0),
             width: yoga::yg_node_layout_get_width(self.0),
             height: yoga::yg_node_layout_get_height(self.0),
+            border: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft),
+            padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft),
+            padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop),
         }
     }
 

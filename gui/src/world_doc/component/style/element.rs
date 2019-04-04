@@ -114,8 +114,4 @@ pub struct BoxShadow{
     pub spread: f32,
     #[component(Color)]
     pub color: usize,
-
-    pub render_obj: usize, //一个index, 真正的实例定义在外部的某个容器中
-    #[builder(build(value=true))]
-    pub shape_dirty: bool,
 }

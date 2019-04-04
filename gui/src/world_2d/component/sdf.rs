@@ -6,10 +6,8 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, Creat
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
-
-use component::math::{Vector2};
 use component::color::{Color};
-use component::math::{Color as CgColor, Aabb3};
+use component::math::{Color as MathColor, Aabb3, Vector2};
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
@@ -38,6 +36,7 @@ pub struct Sdf{
     pub blur: f32,
 
     // 中心點
+    #[listen]
     pub center: Vector2,
 
     // extend
@@ -58,7 +57,7 @@ pub struct Sdf{
 
     // 边框
     #[listen]
-    pub border_color: CgColor,
+    pub border_color: MathColor,
 }
 
 

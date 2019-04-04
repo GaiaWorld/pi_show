@@ -1,3 +1,5 @@
+#![allow(unused_attributes)]
+#![allow(non_camel_case_types)]
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_float, c_void};
 
@@ -142,11 +144,8 @@ pub enum YGWrap {
     YGWrapWrapReverse = 2,
 }
 
-#[allow(non_camel_case_types)]
 pub type __builtin_va_list = *mut c_char;
-#[allow(non_camel_case_types)]
 pub type __gnuc_va_list = __builtin_va_list;
-#[allow(non_camel_case_types)]
 pub type va_list = __gnuc_va_list;
 
 #[repr(C)]
@@ -188,7 +187,7 @@ pub type YGCloneNodeFunc = Option<
     unsafe extern "C" fn(oldNode: YGNodeRef, owner: YGNodeRef, childIndex: c_int) -> YGNodeRef,
 >;
 
-pub type YGCalcCallbackFunc = unsafe extern "C" fn(context: *const c_void);
+pub type YGCalcCallbackFunc = unsafe extern "C" fn(args: *const c_void, context: *const c_void);
 
 pub type YGMeasureFunc = Option<
     unsafe extern "C" fn(
@@ -210,7 +209,6 @@ pub type YGLogger = Option<
     ) -> c_int,
 >;
 
-#[allow(unused_attributes)]
 #[link_args = "yoga.bc"]
 extern "C" {
     #[link_name = "\u{1}YGValueUndefined"]
@@ -262,6 +260,7 @@ extern "C" {
         availableHeight: c_float,
         ownerDirection: YGDirection,
         calcCallback: YGCalcCallbackFunc,
+        callbackArgs: *const c_void,
     );
     fn YGNodeMarkDirty(node: YGNodeRef);
     fn YGNodeMarkDirtyAndPropogateToDescendants(node: YGNodeRef);
@@ -627,9 +626,10 @@ pub fn yg_node_calculate_layout_by_callback(
     available_height: f32,
     owner_direction: YGDirection,
     callback: YGCalcCallbackFunc,
+    args: *const c_void,
 ) {
     unsafe {
-        YGNodeCalculateLayoutByCallback(node, available_width, available_height, owner_direction, callback);
+        YGNodeCalculateLayoutByCallback(node, available_width, available_height, owner_direction, callback, args);
     }
 }
 

@@ -40,6 +40,7 @@ impl ComponentHandler<SdfEffect, DeleteEvent, World2dMgr> for CreateSdfProgram{
 impl ComponentHandler<SdfEffect, CreateEvent, World2dMgr> for CreateSdfProgram{
     fn handle(&self, event: &CreateEvent, _component_mgr: &mut World2dMgr){
         let CreateEvent{id, parent: _} = event;
+        self.0.borrow_mut().dirty_mark_list.insert(*id, false);
         self.0.borrow_mut().marked_dirty(*id);
     }
 }

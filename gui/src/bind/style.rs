@@ -42,14 +42,14 @@ use bind::data::*;
 //     1
 // }
 
-// #[no_mangle] pub fn get_backgroud_color(_own: u32) -> u32{
+// #[no_mangle] pub fn get_background_color(_own: u32) -> u32{
 //     1
 // }
 
 // 设置背景颜色， 类型为rgba
 #[no_mangle]
 pub fn set_backgroud_rgba_color(own: u32, r: f32, g: f32, b: f32, a: f32){
-    js!{console.log("set_backgroud_color");}
+    js!{console.log("set_background_color");}
     let node = unsafe {&*(own as *const Pointer)};
     let mut world = node.world.borrow_mut();
     let element_id = world.component_mgr.node._group.get(node.id).element.clone();

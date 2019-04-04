@@ -1,16 +1,37 @@
 use std::default::Default;
+use std::rc::Rc;
 use std::ops::{Deref, DerefMut};
 
 use webgl_rendering_context::{WebGLRenderingContext};
 
-use wcs::world::{ComponentMgr};
+use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
 use world_2d::component::image::*;
 use world_2d::component::sdf::*;
 use world_2d::component::char_block::*;
 use world_2d::shaders::*;
+use world_2d::system::create_effect::CreateEffect;
+use world_2d::system::create_sdf_program::CreateSdfProgram;
+use world_2d::system::render::Render;
 use component::math::{Point2};
 use render::engine::Engine;
+
+pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
+    let mut mgr = World2dMgr::new(gl);
+
+    let create_effect = CreateEffect::init(&mut mgr);
+    let create_sdf_program = CreateSdfProgram::init(&mut mgr);
+    let render = Render::init(&mut mgr);
+
+    let mut world = World::new(mgr);
+    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, render];
+    world.set_systems(systems);
+
+    world
+}
+//创建world_2d的system
+        
+
 
 world!(
     struct World2dMgr{

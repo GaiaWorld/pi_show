@@ -32,8 +32,8 @@ pub struct Image{
     // 旋轉角度
     pub rotate: f32,
 
-    //url
-    pub url: Atom,
+    //src
+    pub src: u32,
 }
 
 #[allow(unused_attributes)]

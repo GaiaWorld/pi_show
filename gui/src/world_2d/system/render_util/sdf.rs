@@ -228,7 +228,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //extend
     js! {
-        console.log("extent", @{sdf.extend.x}, @{sdf.extend.y});
+        console.log("extend", @{sdf.extend.x}, @{sdf.extend.y});
     }
     gl.uniform2f(uniform_locations.get(&EXTEND), sdf.extend.x, sdf.extend.y);
 

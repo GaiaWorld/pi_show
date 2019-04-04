@@ -8,10 +8,9 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, Creat
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
-use layout::{YgNode};
+use layout::{YgNode, Layout};
 use component::math::*;
 use world_doc::component::style::element::{ElementId, Element, ElementReadRef, ElementWriteRef, ElementGroup};
-use world_doc::component::style::border::*;
 use world_doc::component::style::transform::*;
 use world_doc::component::style::generic::*;
 
@@ -29,11 +28,9 @@ pub struct Node{
     #[builder(export)]
     pub class_name: Vec<Atom>,
 
-    // #[builder(export)]
-    // #[component(Layout)]
-    // pub layout: usize,
-    #[component(BackGround)]
-    pub background: usize,
+    #[builder(export)]
+    #[component(Decorate)]
+    pub decorate: usize,
 
     #[listen]
     pub layout_change: bool,
@@ -78,22 +75,22 @@ pub struct Node{
     pub by_overflow: usize,
 
     //布局数据
-    #[component(Vector3)]
-    #[builder(build(Default))]
-    pub position: usize, //位置（包括border）
-    
-    #[component(RectSize)]
-    #[builder(build(Default))]
-    pub extent: usize, //最大宽高（包括border）
+    #[listen]
+    pub layout: Layout,
+    // #[component(Vector3)]
+    // #[builder(build(Default))]
+    // pub position: usize, //位置（包括border）
 
-    #[component(Border)]
-    #[builder(build(Default))]
-    pub border: usize, //边框
+    //中心点的位置
+    // #[listen]
+    // pub center: Vector3,
+
+    #[listen]
+    pub size: Vector2, //size
 
     #[builder(build(Default))]
     #[listen]
     pub real_opacity: f32, //不透明度
-
 
     #[component(Matrix4)]
     #[builder(build(Default))]
