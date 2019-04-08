@@ -63,11 +63,7 @@ impl WorldDocMgr {
         .build(&mut mgr.node);
 
         //设置yoga的上下文
-        let yoga_context = Box::into_raw(Box::new(YogaContex {
-            node_id: 1,
-            mgr: &mgr as *const WorldDocMgr as usize,
-        })) as usize;
-        root.yoga.set_context(yoga_context as *mut c_void);
+        root.yoga.set_context(1 as *mut c_void);
 
         //插入根节点, 不抛出创建事件
         mgr.node._group.insert(root, 0); 
@@ -102,34 +98,5 @@ impl WorldDocMgr {
 
     pub fn get_root_mut(&mut self) -> NodeWriteRef<Self> {
         self.get_node_mut(self.root_id)
-    }
-}
-
-#[derive(Clone)]
-pub struct GuiWorldViewProjection([f32; 16]);
-
-impl GuiWorldViewProjection {
-    pub fn new(width: f32, height: f32) -> GuiWorldViewProjection{
-        let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, 0.1, 1000.0);
-        GuiWorldViewProjection([
-                2.0 / (right - left),                  0.0,                               0.0,                        0.0,
-                    0.0,                     2.0 / (top - bottom),                       0.0,                        0.0,
-                    0.0,                              0.0,                       -2.0 / (far - near),   -(far + near) / (far - near),
-            -(right + left) / (right - left), -(top + bottom) / (top - bottom),           0.0,                        1.0
-            ]
-        )
-    }
-}
-
-impl Deref for GuiWorldViewProjection{
-    type Target = [f32];
-    fn deref(&self) -> &[f32]{
-        &self.0
-    }
-}
-
-impl DerefMut for GuiWorldViewProjection{
-    fn deref_mut(&mut self) -> &mut [f32]{
-        &mut self.0
     }
 }

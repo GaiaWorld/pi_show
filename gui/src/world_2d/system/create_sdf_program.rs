@@ -54,6 +54,7 @@ impl System<(), World2dMgr> for CreateSdfProgram{
                 let defines = component_mgr.sdf_effect.defines._group.get(defines_id);
                 (defines.list(), defines_id)
             };
+            println!("defines1----------------------{:?}", defines);
 
             let program = component_mgr.engine.create_program(
                 component_mgr.shader_store.get(&component_mgr.sdf_shader.vs).unwrap(),

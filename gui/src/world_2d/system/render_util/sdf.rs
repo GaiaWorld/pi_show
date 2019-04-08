@@ -196,7 +196,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let sdf_effect = mgr.sdf_effect._group.get(effect_id);
     let sdf = mgr.sdf._group.get(sdf_effect.sdf_id);
 
-    let defines = mgr.sdf_effect.defines._group.get(effect_id);
+    let defines = mgr.sdf_effect.defines._group.get(sdf_effect.defines);
+    println!("defines---------------------------{:?}", defines);
+
 
     let gl = &mgr.engine.gl;
 
@@ -222,9 +224,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //blur
     js! {
-        console.log("blur", 1.0);
+        console.log("blur",1.0);
     }
-    // gl.uniform1f(uniform_locations.get(&BLUR), 1.0);
+    gl.uniform1f(uniform_locations.get(&BLUR), 1.0);
 
     //extend
     js! {
@@ -233,6 +235,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.uniform2f(uniform_locations.get(&EXTEND), sdf.extend.x, sdf.extend.y);
 
     // alpha
+    js! {
+        console.log("alpha", @{sdf.alpha});
+    }
     gl.uniform1f(uniform_locations.get(&ALPHA), sdf.alpha);
 
     // screenSize
@@ -382,20 +387,15 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         }
     }
 
-    gl.uniform2f(
-        uniform_locations.get(&CENTER),
-        sdf.center.x,
-        sdf.center.y,
-    );
-
     //position
     gl.bind_buffer(
         WebGLRenderingContext::ARRAY_BUFFER,
         Some(&sdf_effect.positions_buffer),
     );
+
+    let bound_box = &sdf.bound_box;
     //如果shape_dirty， 更新定点顶点数据
     if sdf_effect.positions_dirty {
-        let bound_box = &sdf.bound_box;
         let buffer = [
             bound_box.min.x,
             bound_box.min.y,
@@ -410,7 +410,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             bound_box.min.y,
             sdf.z_depth, // right_top
         ];
-
         let buffer = unsafe { UnsafeTypedArray::new(&buffer) };
         js! {
             console.log("position", @{&buffer});
@@ -429,6 +428,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         0,
     );
     gl.enable_vertex_attrib_array(position_location);
+
+    println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
+    gl.uniform2f(
+        uniform_locations.get(&CENTER),
+        (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
+        (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
+    );
 
     //index
     gl.bind_buffer(

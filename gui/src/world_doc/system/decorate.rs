@@ -5,7 +5,7 @@ use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEven
 use wcs::world::System;
 use vecmap::VecMap;
 
-use component::math::{Color as MathColor, Vector2};
+use component::math::{Color as MathColor, Vector2, Aabb3};
 use component::color::Color;
 use world_doc::component::node::{Node};
 use world_doc::component::style::generic::{ Decorate, BoxShadow };
@@ -39,6 +39,9 @@ impl BBSys {
         component_mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.size.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+
+        //监听boundbox的变化
+        component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -296,6 +299,29 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
     }
 }
 
+impl ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr> for BBSys {
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
+        let ModifyFieldEvent { id, parent, field: _ } = event; 
+        let node = component_mgr.node._group.get(*parent);
+        if node.decorate == 0 {
+            return;
+        }
+
+        let decorate_id = node.decorate;
+        let borrow = self.0.borrow();
+        let bound_box = component_mgr.node.bound_box._group.get(*id).owner.clone();
+        // if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
+        //     component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_bound_box(bound_box);
+        // }
+        if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_bound_box(bound_box);
+        }
+        if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_bound_box(bound_box);
+        }
+    }
+}
+
 impl System<(), WorldDocMgr> for BBSys{
     fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
     }
@@ -379,7 +405,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.by_overflow = node.by_overflow;
 
     let bound_box = mgr.node.bound_box._group.get(node.bound_box);
-    sdf.center = Vector2::new(bound_box.max.x - bound_box.min.x, bound_box.max.y - bound_box.min.y);
+    sdf.center = Vector2::new(0.0, 0.0);
 
     let layout = &node.layout;
     let size = &node.size;

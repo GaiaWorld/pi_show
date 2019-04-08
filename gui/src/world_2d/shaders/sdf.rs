@@ -252,8 +252,10 @@ pub fn sdf_fragment_shader() -> String{
         void main(void) {
 
             // gl_FragCoord的范围是[0, screenSize)，需要变成 [-screenSize/2, screenSize/2)
-            vec2 coord = gl_FragCoord.xy - screenSize / 2.0;
-
+            // vec2 coord = gl_FragCoord.xy - screenSize / 2.0;
+            
+            vec2 coord = gl_FragCoord.xy;
+            
             coord = translate(coord, -vcenter);
             coord = rotate(coord, -angle);
             
@@ -289,9 +291,9 @@ pub fn sdf_fragment_shader() -> String{
 
             bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
             bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
-            if (!bitAnd(notM1, notM2, i1, i2)) {
-                discard;
-            }
+            // if (!bitAnd(notM1, notM2, i1, i2)) {
+            //     discard;
+            // }
     #endif
 
             coord = coord / screenSize;
@@ -308,24 +310,10 @@ pub fn sdf_fragment_shader() -> String{
             float anti = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
             c = vec4(c.rgb, c.a * anti);
 
-    #ifdef STROKE
-            vec2 fsStrokeSize = vec2(strokeSize / screenSize);
-        
-        #ifdef SDF_RECT
-            d = sdfRect(coord, size + fsStrokeSize, rectRadius);
-        #else
-            d = sdfEllipse(coord, size + fsStrokeSize);
-        #endif
-
-            c.rgb = mix(strokeColor.rgb, c.rgb, c.a);
-            c.a = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
-    #endif
-            
             c.a = c.a * alpha;
             if (c.a < 0.02) {
                 discard;
             }
-            
             gl_FragColor = c;
         }
     "#.to_string()

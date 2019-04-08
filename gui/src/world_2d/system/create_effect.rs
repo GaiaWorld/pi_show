@@ -42,6 +42,7 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
         let CreateEvent{id, parent:_} = event;
         let mut defines = SdfDefines::default();
         defines.sdf_rect = true;
+        defines.color = true;
         let defines_id = component_mgr.sdf_effect.defines._group.insert(defines, 0);
         let sdf_effect = SdfEffect {
             program: 0,
@@ -101,6 +102,10 @@ impl ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr> for CreateEffect {
         }
     }
 }
+
+// fn init_defines(effect_id: usize, &mut Defines, mgr: &mut World2dMgr){
+//     if 
+// }
 
 fn modify_color_defines(effect_id: usize, color: &Color, mgr: &mut World2dMgr) {
     let mut effect_ref = mgr.get_sdf_effect_mut(effect_id);

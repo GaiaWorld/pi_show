@@ -1,3 +1,4 @@
+pub mod clip;
 pub mod render;
 pub mod render_util;
 pub mod create_effect;

@@ -2,7 +2,7 @@ use std::default::Default;
 use std::rc::Rc;
 use std::ops::{Deref, DerefMut};
 
-use webgl_rendering_context::{WebGLRenderingContext};
+use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -57,6 +57,9 @@ world!(
         sdf_shader: Shader,
         word_shader: Shader,
         image_shader: Shader,
+        clip_shader: Shader,
+
+        overflow_texture: RenderTarget,
 
         engine: Engine,
 
@@ -69,9 +72,13 @@ impl World2dMgr {
         let sdf_shader = Shader::new(Atom::from("sdf_sharder"), Atom::from("sdf_fs_sharder"), Atom::from("sdf_vs_sharder"));
         let image_shader = Shader::new(Atom::from("image_sharder"), Atom::from("image_fs_sharder"), Atom::from("image_vs_sharder"));
         let word_shader = Shader::new(Atom::from("word_sharder"), Atom::from("word_fs_sharder"), Atom::from("word_vs_sharder"));
+        let clip_shader = Shader::new(Atom::from("clip_sharder"), Atom::from("clip_fs_sharder"), Atom::from("clip_vs_sharder"));
         let mut shader_store = ShaderStore::new();
         shader_store.store(&sdf_shader.fs, sdf_fragment_shader());
         shader_store.store(&sdf_shader.vs, sdf_vertex_shader());
+
+        shader_store.store(&clip_shader.vs, clip_vertex_shader());
+        shader_store.store(&clip_shader.vs, clip_vertex_shader());
 
         World2dMgr{
             sdf: SdfGroup::default(),
@@ -87,7 +94,9 @@ impl World2dMgr {
             sdf_shader: sdf_shader,
             image_shader: image_shader,
             word_shader: word_shader,
+            clip_shader: clip_shader,
 
+            overflow_texture: RenderTarget::create(&gl),
 
             engine: Engine::new(gl),
             shader_store: shader_store,
@@ -202,5 +211,27 @@ impl Hash for ShaderCode{
 impl AsRef<str> for ShaderCode {
     fn as_ref(&self) -> &str {
         &self.code
+    }
+}
+
+pub struct RenderTarget {
+    pub frambuffer: WebGLFramebuffer,
+    pub texture: WebGLTexture,
+}
+
+impl RenderTarget {
+    pub fn create(gl: &WebGLRenderingContext) -> RenderTarget{
+        let frambuffer = gl.create_framebuffer().unwrap();
+        let texture = gl.create_texture().unwrap();
+        gl.active_texture(WebGLRenderingContext::TEXTURE0);
+
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&frambuffer));
+        gl.framebuffer_texture2_d(WebGLRenderingContext::FRAMEBUFFER,WebGLRenderingContext::COLOR_ATTACHMENT0, WebGLRenderingContext::TEXTURE_2D, Some(&texture), 0);
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+
+        RenderTarget {
+            frambuffer, 
+            texture
+        }
     }
 }

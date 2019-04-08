@@ -138,7 +138,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
                     node_id: child_id,
                     mgr: self.mgr as *const M as usize,
                 })) as usize;
-                yoga.set_context(yoga_context as *mut c_void);
+                yoga.set_context(child_id as *mut c_void);
                 let qid = match ty {
                     InsertType::Back => {
                         let node = group._group.get_mut(self.id);
