@@ -134,10 +134,6 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         match element {
             ElementId::None => {
                 let yoga = group._group.get(child_id).yoga;
-                let yoga_context = Box::into_raw(Box::new(YogaContex {
-                    node_id: child_id,
-                    mgr: self.mgr as *const M as usize,
-                })) as usize;
                 yoga.set_context(child_id as *mut c_void);
                 let qid = match ty {
                     InsertType::Back => {

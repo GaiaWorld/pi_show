@@ -13,7 +13,7 @@ use cg::color::{Color as CgColor};
 
 use world_doc::{create_world };
 use world_doc::component::node::{NodeBuilder, InsertType};
-use world_doc::component::style::generic::{ Decorate, DecorateBuilder };
+use world_doc::component::style::generic::{DecorateBuilder };
 // use world_doc::component::style::flex::{LayoutBuilder, Rect as WH};
 // use world_doc::component::style::generic::{StyleUnit};
 use component::math::{Color as MathColor};

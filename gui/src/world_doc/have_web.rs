@@ -1,4 +1,3 @@
-use std::ops::{Deref, DerefMut};
 use std::os::raw::{c_void};
 use std::rc::Rc;
 

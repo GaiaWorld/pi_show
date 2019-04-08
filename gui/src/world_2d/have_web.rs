@@ -1,8 +1,8 @@
 use std::default::Default;
 use std::rc::Rc;
-use std::ops::{Deref, DerefMut};
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
+use cg::Matrix4;
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -51,7 +51,9 @@ world!(
         //全局数据
         width: f32,
         height: f32,
-        world_view: GuiWorldViewProjection,
+        view: Matrix4<f32>, //v
+        projection: GuiWorldViewProjection, //p
+
         #[single_component]
         overflow: Overflow,
         sdf_shader: Shader,
@@ -90,7 +92,8 @@ impl World2dMgr {
             width: 0.0,
             height: 0.0,
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
-            world_view: GuiWorldViewProjection::new(0.0, 0.0),
+            projection: GuiWorldViewProjection::new(0.0, 0.0),
+            view: Matrix4::new(1.0, 0.0, 0.0, 0.0,  0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0),
             sdf_shader: sdf_shader,
             image_shader: image_shader,
             word_shader: word_shader,
@@ -106,7 +109,7 @@ impl World2dMgr {
     pub fn set_size(&mut self, width: f32, height: f32) {
         self.width = width;
         self.height = height;
-        self.world_view = GuiWorldViewProjection::new(width, height);
+        self.projection = GuiWorldViewProjection::new(width, height);
     }
 }
 
@@ -114,33 +117,32 @@ impl World2dMgr {
 pub struct Overflow(pub [usize;8], pub [[Point2;4];8]);
 
 #[derive(Clone)]
-pub struct GuiWorldViewProjection([f32; 16]);
+pub struct GuiWorldViewProjection(pub Matrix4<f32>);
 
 impl GuiWorldViewProjection {
     pub fn new(width: f32, height: f32) -> GuiWorldViewProjection{
         let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, 0.1, 1000.0);
-        GuiWorldViewProjection([
+        GuiWorldViewProjection(Matrix4::new(
                 2.0 / (right - left),                  0.0,                               0.0,                        0.0,
                     0.0,                     2.0 / (top - bottom),                       0.0,                        0.0,
                     0.0,                              0.0,                       -2.0 / (far - near),   -(far + near) / (far - near),
             -(right + left) / (right - left), -(top + bottom) / (top - bottom),           0.0,                        1.0
-            ]
-        )
+        ))
     }
 }
 
-impl Deref for GuiWorldViewProjection{
-    type Target = [f32];
-    fn deref(&self) -> &[f32]{
-        &self.0
-    }
-}
+// impl Deref for GuiWorldViewProjection{
+//     type Target = [f32];
+//     fn deref(&self) -> &[f32]{
+//         &[]
+//     }
+// }
 
-impl DerefMut for GuiWorldViewProjection{
-    fn deref_mut(&mut self) -> &mut [f32]{
-        &mut self.0
-    }
-}
+// impl DerefMut for GuiWorldViewProjection{
+//     fn deref_mut(&mut self) -> &mut [f32]{
+//         &mut self.0
+//     }
+// }
 
 use std::hash::{Hash, Hasher};
 use std::convert::AsRef;
