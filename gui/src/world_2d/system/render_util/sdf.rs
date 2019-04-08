@@ -12,7 +12,7 @@ use render::engine::{Engine, get_uniform_location};
 lazy_static! {
     static ref POSITION: Atom = Atom::from("position");
     static ref WORLD_VIEW_PROJECTION: Atom = Atom::from("worldViewProjection");
-    static ref CENTER: Atom = Atom::from("center");
+    // static ref CENTER: Atom = Atom::from("center");
     static ref BLUR: Atom = Atom::from("blur");
     static ref EXTEND: Atom = Atom::from("extend");
     static ref ALPHA: Atom = Atom::from("alpha");
@@ -58,10 +58,10 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         WORLD_VIEW_PROJECTION.clone(),
         get_uniform_location(&gl,program, &WORLD_VIEW_PROJECTION),
     );
-    uniform_locations.insert(
-        CENTER.clone(),
-        get_uniform_location(&gl,program, &CENTER),
-    );
+    // uniform_locations.insert(
+    //     CENTER.clone(),
+    //     get_uniform_location(&gl,program, &CENTER),
+    // );
     uniform_locations.insert(
         BLUR.clone(),
         get_uniform_location(&gl,program, &BLUR),
@@ -213,13 +213,14 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     
 
     //设置worldViewProjection
+    let arr: &[f32; 16] = mgr.projection.0.as_ref();
     js! {
-        console.log("world_view", @{&(*mgr.world_view)});
+        console.log("world_view", @{&arr[0..16]});
     }
     gl.uniform_matrix4fv(
         uniform_locations.get(&WORLD_VIEW_PROJECTION),
         false,
-        &(*mgr.world_view),
+        &arr[0..16],
     );
 
     //blur
@@ -429,12 +430,12 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
     gl.enable_vertex_attrib_array(position_location);
 
-    println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
-    gl.uniform2f(
-        uniform_locations.get(&CENTER),
-        (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
-        (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
-    );
+    // println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
+    // gl.uniform2f(
+    //     uniform_locations.get(&CENTER),
+    //     (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
+    //     (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
+    // );
 
     //index
     gl.bind_buffer(

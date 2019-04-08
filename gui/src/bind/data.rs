@@ -19,7 +19,7 @@ use stdweb::web::TypedArray;
 // use world_doc::component::style::flex::{LayoutBuilder, Rect as WH};
 use world_doc::component::style::generic::{LengthUnit, Polygon};
 // use world_doc::component::style::element::{Text as TextElement, Image as ImageElement, Rect as RectElement};
-use world_doc::component::style::color::{LinearGradientColor, RadialGradientColor, ColorAndPosition};
+use component::color::{LinearGradientColor, RadialGradientColor, ColorAndPosition};
 use component::math::{Color as CgColor};
 use cg::color::{Color as CgColor1};
 

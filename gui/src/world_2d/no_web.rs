@@ -10,13 +10,13 @@ use component::math::{Point2};
 world!(
     struct World2dMgr{
         #[component]
-        sdfs: Sdf,
+        sdf: Sdf,
 
         #[component]
-        words: CharBlock,
+        word: CharBlock,
 
         #[component]
-        images: Image,
+        image: Image,
 
         //全局数据
         #[single_component]
@@ -29,9 +29,9 @@ world!(
 impl World2dMgr {
     pub fn new() -> World2dMgr{
         World2dMgr{
-            sdfs: SdfGroup::default(),
-            words: CharBlockGroup::default(),
-            images: ImageGroup::default(),
+            sdf: SdfGroup::default(),
+            word: CharBlockGroup::default(),
+            image: ImageGroup::default(),
 
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
             width: 0.0,

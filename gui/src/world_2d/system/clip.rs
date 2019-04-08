@@ -34,6 +34,12 @@ impl System<(), World2dMgr> for ClipSys{
         }
         borrow_mut.dirty = false;
 
+        // for i in 0..8 {
+        //     let p = &component_mgr.overflow.1[i];
+        //     let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
+        //     borrow_mut.angles.push(0.0 * PI / 180.0); //旋转暂时为0， TODO
+        //     borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0 /2.0, p[0].y + extend.1 /2.0, extend.0, extend.1]);
+        // }
         for i in 0..8 {
             let p = &component_mgr.overflow.1[i];
             let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
@@ -50,7 +56,13 @@ impl System<(), World2dMgr> for ClipSys{
         // use_program
         gl.use_program(Some(program));
 
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+
+        let arr: &[f32; 16] = component_mgr.view.as_ref();
+        gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
+
+        let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
+        gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
         gl.uniform1fv(uniform_locations.get(&ANGLES), borrow_mut.angles.as_slice());
@@ -74,7 +86,7 @@ impl System<(), World2dMgr> for ClipSys{
         //draw
         gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
 
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
     }
 }
  
@@ -198,6 +210,10 @@ pub fn create_program(component_mgr: &mut World2dMgr) -> u64 {
 
     uniform_locations.insert( TRANSLATE_SCALE.clone(), get_uniform_location(&gl,program, &TRANSLATE_SCALE));
 
+    uniform_locations.insert( PROJECTION.clone(), get_uniform_location(&gl,program, &PROJECTION));
+
+    uniform_locations.insert( VIEW.clone(), get_uniform_location(&gl,program, &VIEW));
+
     program_id
 }
 
@@ -207,6 +223,6 @@ lazy_static! {
     static ref TRANSLATE_SCALE: Atom = Atom::from("translateScale");
     static ref POSITION: Atom = Atom::from("position");
     static ref MESH_INDEX: Atom = Atom::from("meshIndex");
-
+    static ref VIEW: Atom = Atom::from("view");
+    static ref PROJECTION: Atom = Atom::from("projection");
 }
-

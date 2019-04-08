@@ -1,12 +1,15 @@
 use std::default::Default;
 use std::os::raw::{c_void};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Layout{
     pub left: f32,
     pub top: f32,
     pub width: f32,
     pub height: f32,
+    pub border: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
 }
 // pub type YgNodeP = YgNode;
 
