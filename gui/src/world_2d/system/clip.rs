@@ -59,21 +59,11 @@ impl System<(), World2dMgr> for ClipSys{
         // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
 
         let v = &component_mgr.view;
-        let arr = vec![
-            v.x.x, v.x.y, v.x.z, v.x.w, 
-            v.y.x, v.y.x, v.y.x, v.y.x,
-            v.z.x ,v.z.x, v.z.x, v.z.x,
-            v.w.x, v.w.x, v.w.x, v.w.x,
-        ];
-        gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, arr.as_slice());
-        let p = &component_mgr.projection;
-        let arr = vec![
-            p.0.x.x, p.0.x.y, p.0.x.z, p.0.x.w, 
-            p.0.y.x, p.0.y.x, p.0.y.x, p.0.y.x,
-            p.0.z.x ,p.0.z.x, p.0.z.x, p.0.z.x,
-            p.0.w.x, p.0.w.x, p.0.w.x, p.0.w.x,
-        ];
-        gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, arr.as_slice());
+        let arr: &[f32; 16] = component_mgr.view.as_ref();
+        gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
+
+        let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
+        gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
         gl.uniform1fv(uniform_locations.get(&ANGLES), borrow_mut.angles.as_slice());

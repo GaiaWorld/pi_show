@@ -213,20 +213,14 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     
 
     //设置worldViewProjection
-    let p = &mgr.projection;
-    let arr = vec![
-        p.0.x.x, p.0.x.y, p.0.x.z, p.0.x.w, 
-        p.0.y.x, p.0.y.x, p.0.y.x, p.0.y.x,
-        p.0.z.x ,p.0.z.x, p.0.z.x, p.0.z.x,
-        p.0.w.x, p.0.w.x, p.0.w.x, p.0.w.x,
-    ];
+    let arr: &[f32; 16] = mgr.projection.0.as_ref();
     js! {
-        console.log("world_view", @{&arr});
+        console.log("world_view", @{&arr[0..16]});
     }
     gl.uniform_matrix4fv(
         uniform_locations.get(&WORLD_VIEW_PROJECTION),
         false,
-        arr.as_slice(),
+        &arr[0..16],
     );
 
     //blur
