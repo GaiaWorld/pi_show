@@ -32,9 +32,6 @@ pub struct Node{
     #[component(Decorate)]
     pub decorate: usize,
 
-    #[listen]
-    pub layout_change: bool,
-
     #[builder(export)]
     #[component(Transform)]
     pub transform: usize,

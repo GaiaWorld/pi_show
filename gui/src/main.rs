@@ -40,8 +40,8 @@ mod util;
 
 #[cfg(feature = "web")]
 pub mod render;
-
-// pub mod bind;
+#[cfg(feature = "web")]
+pub mod bind;
 
 pub mod world_2d;
 
@@ -54,5 +54,5 @@ mod test;
 fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();
-    test::render::test();
+    // test::render::test();
 }

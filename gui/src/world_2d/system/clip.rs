@@ -58,7 +58,6 @@ impl System<(), World2dMgr> for ClipSys{
 
         // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
 
-        let v = &component_mgr.view;
         let arr: &[f32; 16] = component_mgr.view.as_ref();
         gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
 
