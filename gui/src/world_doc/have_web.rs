@@ -63,9 +63,6 @@ impl WorldDocMgr {
         let root = NodeBuilder::new()
         .build(&mut mgr.node);
 
-        //设置yoga的上下文
-        root.yoga.set_context(1 as *mut c_void);
-
         //插入根节点, 不抛出创建事件
         mgr.node._group.insert(root, 0); 
         mgr.root_id = 1;
