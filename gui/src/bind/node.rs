@@ -93,12 +93,12 @@ pub fn set_text_content(world: u32, node_id: u32, value: &str){
             if text_id == 0 {
                 let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
                 let mut text = Text::default();
-                text.value = Atom::from(value);
+                text.value = value.to_string();
                 node_ref.set_element(Element::Text(text));
             } else {
                 let mut text_ref = TextWriteRef::new(text_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
                 text_ref.modify(|text: &mut Text| {
-                    text.value = Atom::from(value);
+                    text.value = value.to_string();
                     true
                 });
             }

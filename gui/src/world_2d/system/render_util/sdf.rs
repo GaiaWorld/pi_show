@@ -209,8 +209,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     // use_program
     gl.use_program(Some(program));
-    gl.viewport(0,0,1000,1000);
-    
 
     //设置worldViewProjection
     let arr: &[f32; 16] = mgr.projection.0.as_ref();
