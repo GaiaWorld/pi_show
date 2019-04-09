@@ -71,7 +71,7 @@ pub struct Image{
 #[allow(unused_attributes)]
 #[derive(Component, Default, Debug, Clone, Builder)]
 pub struct Text{
-    pub value: Atom,
+    pub value: String,
 
     #[builder(export)]
     #[component(TextStyle)]

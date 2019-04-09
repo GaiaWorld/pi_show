@@ -401,3 +401,12 @@ impl Default for Point2{
         Point2(cg::Point2::new(0.0, 0.0))
     }
 }
+
+/// UV
+#[derive(Debug, Clone, Copy)]
+pub struct UV (pub cg::Point2<f32>, pub cg::Point2<f32>);
+impl Default for UV{
+    fn default() -> UV{
+        UV(cg::Point2::new(0.0, 0.0), cg::Point2::new(0.0, 0.0))
+    }
+}

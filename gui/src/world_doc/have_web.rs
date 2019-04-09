@@ -10,6 +10,7 @@ use wcs::world::{ComponentMgr, World, System};
 use cg::octree::*;
 use cg::{Aabb3, Point3};
 
+use text_layout::font::{FontMgr};
 use world_doc::component::node::*;
 use world_doc::system::{layout::Layout as LayoutSys, world_matrix::WorldMatrix as WorldMatrixSys, oct::Oct as OctSys, opacity::OpacitySys, decorate::BBSys , run_world_2d::RunWorld2d as RunWorld2dSys};
 use world_2d::World2dMgr;
@@ -41,7 +42,7 @@ world!(
         node_container: Slab<DeNode<usize>>,
 
         root_id: usize,
-
+        font_mgr: FontMgr,
         octree: Tree<f32, usize>,
 
         world_2d: World<World2dMgr, ()>,
@@ -54,6 +55,7 @@ impl WorldDocMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
             root_id: 0,
+            font_mgr: FontMgr::new(),
             octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-8388608f32), Point3::new(3072f32,3072f32,8388608f32)), 0, 0, 0, 0),
             world_2d: world_2d::create_world(gl),
         };
@@ -90,7 +92,9 @@ impl WorldDocMgr {
         
         self.world_2d.component_mgr.set_size(width, height);
     }
-
+    pub fn get_root_id(&self) -> usize {
+        1
+    }
     pub fn get_root(&mut self) -> NodeReadRef<Self> {
         self.get_node(self.root_id)
     }
