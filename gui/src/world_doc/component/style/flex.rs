@@ -113,10 +113,6 @@ pub struct Layout{
 
     #[builder(export)]
     #[component(Boundary)]
-    pub paddind: usize,
-
-    #[builder(export)]
-    #[component(Boundary)]
     pub margin: usize,
 
     #[builder(export)]

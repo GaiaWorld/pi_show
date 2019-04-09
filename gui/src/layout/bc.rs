@@ -135,6 +135,9 @@ impl YgNode {
     pub fn set_flex_basis_percent(&self, value: f32) { 
         yoga::yg_node_style_set_flex_basis_percent(self.0, value); 
     }
+    pub fn set_flex_basis_auto(&self) { 
+        yoga::yg_node_style_set_flex_basis_auto(self.0); 
+    }
     pub fn set_flex_grow(&self, value: f32) { 
         yoga::yg_node_style_set_flex_grow(self.0, value);
     }

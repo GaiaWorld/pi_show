@@ -252,9 +252,7 @@ pub fn sdf_fragment_shader() -> String{
         void main(void) {
 
             // gl_FragCoord的范围是[0, screenSize)，需要变成 [-screenSize/2, screenSize/2)
-            // vec2 coord = gl_FragCoord.xy - screenSize / 2.0;
-            
-            vec2 coord = gl_FragCoord.xy;
+            vec2 coord = gl_FragCoord.xy - screenSize / 2.0;
             
             coord = translate(coord, -vcenter);
             coord = rotate(coord, -angle);
@@ -291,9 +289,9 @@ pub fn sdf_fragment_shader() -> String{
 
             bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
             bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
-            // if (!bitAnd(notM1, notM2, i1, i2)) {
-            //     discard;
-            // }
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
     #endif
 
             coord = coord / screenSize;

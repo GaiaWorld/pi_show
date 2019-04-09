@@ -31,7 +31,7 @@ impl System<(), WorldDocMgr> for Layout{
         //计算布局，如果布局更改， 调用回调来设置layout属性
         component_mgr.node._group.get(root_id).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, context as *const c_void);
 
-        update(component_mgr, 1);
+        // update(component_mgr, 1);
         // let yoga = &component_mgr.node._group.get(1).yoga;
         // println!("update_layout1, layout: {:?}, node_id:{}",  yoga.get_layout(), 1);
     }
@@ -45,7 +45,7 @@ struct CallbackContext {
 fn update(mgr: &mut WorldDocMgr, node_id: usize) {
     let layout = {
         let yoga = &mgr.node._group.get(node_id).yoga;
-        println!("update_layout, layout: {:?}, node_id:{}",  yoga.get_layout(), node_id);
+        // println!("update_layout, layout: {:?}, node_id:{}",  yoga.get_layout(), node_id);
         yoga.get_layout()
     };
 

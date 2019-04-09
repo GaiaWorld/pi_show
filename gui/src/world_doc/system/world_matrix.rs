@@ -274,7 +274,7 @@ mod test{
             {
                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-                println!("test_world_matrix1, node{} , world_matrix:{:?}", i, world_matrix);
+                // println!("test_world_matrix1, node{} , world_matrix:{:?}", i, world_matrix);
             }
         }
         {
@@ -293,12 +293,12 @@ mod test{
         }
         
         world.run(());
-        println!("-----------------------------------------------------------------");
+        // println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-                println!("test_world_matrix2, node{} , world_matrix:{:?}", i, world_matrix);
+                // println!("test_world_matrix2, node{} , world_matrix:{:?}", i, world_matrix);
             }
         }
 
@@ -310,12 +310,12 @@ mod test{
             true
         });
         world.run(());
-        println!("-----------------------------------------------------------------");
+        // println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-                println!("test_world_matrix3, node{} , world_matrix:{:?}", i, world_matrix);
+                // println!("test_world_matrix3, node{} , world_matrix:{:?}", i, world_matrix);
             }
         }
     }

@@ -39,12 +39,12 @@ impl RenderImpl {
     }
 
     pub fn render(&mut self, mgr: &mut World2dMgr) {
-        println!("render---------------------------------", );
+        // println!("render---------------------------------", );
         self.list_obj(mgr);
         for v in self.opaque_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
-                    println!("sdf opaque_objs render---------------------------------", );
+                    // println!("sdf opaque_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
                 },
                 _ => (),
@@ -54,7 +54,7 @@ impl RenderImpl {
         for v in self.transparent_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
-                    println!("sdf transparent_objs render---------------------------------", );
+                    // println!("sdf transparent_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
                 },
                 _ => (),
@@ -66,7 +66,7 @@ impl RenderImpl {
 
     //对不透明物体和透明物体排序
     fn list_obj(&mut self, mgr: &mut World2dMgr){
-        println!("list_obj---------------------------------", );
+        // println!("list_obj---------------------------------", );
         for v in mgr.image._group.iter() {
             if v.1.is_opaque {
                 self.opaque_objs.push(SortObject {
@@ -84,7 +84,7 @@ impl RenderImpl {
         }
 
         for v in mgr.sdf._group.iter() {
-            println!("sdf render---------------------------------", );
+            // println!("sdf render---------------------------------", );
             if v.1.is_opaque {
                 self.opaque_objs.push(SortObject {
                     z: v.1.z_depth,

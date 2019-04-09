@@ -173,6 +173,6 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.enable(WebGLRenderingContext::BLEND);
     gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
 
-    gl.clear_color(1.0, 0.0, 0.0, 1.0);
+    gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
 }

@@ -12,7 +12,7 @@ use render::engine::{Engine, get_uniform_location};
 lazy_static! {
     static ref POSITION: Atom = Atom::from("position");
     static ref WORLD_VIEW_PROJECTION: Atom = Atom::from("worldViewProjection");
-    // static ref CENTER: Atom = Atom::from("center");
+    static ref CENTER: Atom = Atom::from("center");
     static ref BLUR: Atom = Atom::from("blur");
     static ref EXTEND: Atom = Atom::from("extend");
     static ref ALPHA: Atom = Atom::from("alpha");
@@ -58,10 +58,10 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         WORLD_VIEW_PROJECTION.clone(),
         get_uniform_location(&gl,program, &WORLD_VIEW_PROJECTION),
     );
-    // uniform_locations.insert(
-    //     CENTER.clone(),
-    //     get_uniform_location(&gl,program, &CENTER),
-    // );
+    uniform_locations.insert(
+        CENTER.clone(),
+        get_uniform_location(&gl,program, &CENTER),
+    );
     uniform_locations.insert(
         BLUR.clone(),
         get_uniform_location(&gl,program, &BLUR),
@@ -266,13 +266,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), sdf.border_color.r, sdf.border_color.g, sdf.border_color.b, sdf.border_color.a);
     }
     if defines.clip_plane {
-        //TODO
-        panic!("ccccccccccccccccccccccccc");
-        // uniform float clipIndices;
-        // uniform sampler2D clipTexture;
-        // uniform float clipTextureSize;
-
-        // arr.push(SDF_CLIP_PLANE.clone());
+        gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), sdf.by_overflow as f32);
+        gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&mgr.overflow_texture.texture));
+        gl.uniform1i(uniform_locations.get(&CLIP_TEXTURE), 0);
     }
 
     match &sdf.color {
@@ -430,12 +427,12 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
     gl.enable_vertex_attrib_array(position_location);
 
-    // println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
-    // gl.uniform2f(
-    //     uniform_locations.get(&CENTER),
-    //     (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
-    //     (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
-    // );
+    println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
+    gl.uniform2f(
+        uniform_locations.get(&CENTER),
+        (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
+        (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
+    );
 
     //index
     gl.bind_buffer(
@@ -443,9 +440,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         Some(&sdf_effect.indeices_buffer),
     );
 
-    js! {
-        console.log("draw_elements-------------------");
-    }
+    // js! {
+    //     console.log("draw_elements-------------------");
+    // }
     //draw
     gl.draw_elements(
         WebGLRenderingContext::TRIANGLES,
@@ -454,9 +451,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         0,
     );
 
-    js! {
-        console.log("draw_elements-------------------end");
-    }
+    // js! {
+    //     console.log("draw_elements-------------------end");
+    // }
 
     gl.disable_vertex_attrib_array(position_location);
 }

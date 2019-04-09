@@ -2,7 +2,7 @@ use std::default::Default;
 use std::rc::Rc;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
-use cg::Matrix4;
+use cg::{Matrix4, Point2 as CgPoint2};
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -13,6 +13,7 @@ use world_2d::shaders::*;
 use world_2d::system::create_effect::CreateEffect;
 use world_2d::system::create_sdf_program::CreateSdfProgram;
 use world_2d::system::render::Render;
+use world_2d::system::clip::ClipSys;
 use component::math::{Point2};
 use render::engine::Engine;
 
@@ -21,6 +22,7 @@ pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
 
     let create_effect = CreateEffect::init(&mut mgr);
     let create_sdf_program = CreateSdfProgram::init(&mut mgr);
+    // let clip = ClipSys::init(&mut mgr);
     let render = Render::init(&mut mgr);
 
     let mut world = World::new(mgr);
@@ -30,7 +32,10 @@ pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
     world
 }
 //创建world_2d的system
-        
+
+fn create_overflow() -> Overflow{
+    Overflow([0;8],[[Point2(CgPoint2::new(100.0, 100.0)), Point2(CgPoint2::new(200.0, 100.0)), Point2(CgPoint2::new(200.0, 200.0)), Point2(CgPoint2::new(100.0, 200.0))];8])
+}    
 
 
 world!(
@@ -79,7 +84,7 @@ impl World2dMgr {
         shader_store.store(&sdf_shader.fs, sdf_fragment_shader());
         shader_store.store(&sdf_shader.vs, sdf_vertex_shader());
 
-        shader_store.store(&clip_shader.vs, clip_vertex_shader());
+        shader_store.store(&clip_shader.fs, clip_fragment_shader());
         shader_store.store(&clip_shader.vs, clip_vertex_shader());
 
         World2dMgr{
@@ -92,6 +97,7 @@ impl World2dMgr {
             width: 0.0,
             height: 0.0,
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
+            // overflow: SingleCase::new(create_overflow()),
             projection: GuiWorldViewProjection::new(0.0, 0.0),
             view: Matrix4::new(1.0, 0.0, 0.0, 0.0,  0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0),
             sdf_shader: sdf_shader,
@@ -226,6 +232,8 @@ impl RenderTarget {
         let frambuffer = gl.create_framebuffer().unwrap();
         let texture = gl.create_texture().unwrap();
         gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
+        gl.tex_image2_d::<&[u8]>(WebGLRenderingContext::TEXTURE_2D, 0, WebGLRenderingContext::RGB as i32, 1024, 1024, 0, WebGLRenderingContext::RGB, WebGLRenderingContext::UNSIGNED_BYTE, None);
 
         gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&frambuffer));
         gl.framebuffer_texture2_d(WebGLRenderingContext::FRAMEBUFFER,WebGLRenderingContext::COLOR_ATTACHMENT0, WebGLRenderingContext::TEXTURE_2D, Some(&texture), 0);

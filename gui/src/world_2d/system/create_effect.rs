@@ -85,7 +85,12 @@ impl ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr> for CreateEffect {
         let effect_id = unsafe { *(self.0.borrow_mut().sdf_effect_map.get_unchecked(*id)) };
         
         if *field == "by_overflow" {
-
+            let by_overflow = component_mgr.sdf._group.get(*id).by_overflow;
+            if by_overflow == 0 {
+                component_mgr.get_sdf_effect_mut(effect_id).get_defines_mut().set_clip_plane(false);
+            }else {
+                component_mgr.get_sdf_effect_mut(effect_id).get_defines_mut().set_clip_plane(true);
+            }
         }else if *field == "color" {
             let mgr = unsafe {&mut *(component_mgr as *mut World2dMgr) };
             let color = &component_mgr.sdf._group.get(*id).color;

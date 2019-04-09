@@ -30,7 +30,7 @@ impl Oct {
 impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
         let ModifyFieldEvent{id, parent: _, field: _} = event;
-        println!("marked_dirty111111111111111ModifyFieldEvent11{}", id);
+        // println!("marked_dirty111111111111111ModifyFieldEvent11{}", id);
         self.0.borrow_mut().marked_dirty(*id);
     }
 }
@@ -60,7 +60,7 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for Oct{
 impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Oct{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
         let ModifyFieldEvent{id: _, parent, field: _} = event;
-        println!("marked_dirty111111111111111ModifyFieldEvent11{}", parent);
+        // println!("marked_dirty111111111111111ModifyFieldEvent11{}", parent);
         self.0.borrow_mut().marked_dirty(*parent);
     }
 }
@@ -119,16 +119,16 @@ impl OctImpl {
     }
 
     pub fn marked_dirty(&mut self, node_id: usize){
-        println!("marked_dirty11111111111111111111111{}", node_id);
+        // println!("marked_dirty11111111111111111111111{}", node_id);
         let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(node_id)};
-        println!("marked_dirty11111111111111111111111c");
+        // println!("marked_dirty11111111111111111111111c");
         if *dirty_mark == true {
             return;
         }
         *dirty_mark = true;
 
         self.dirtys.push(node_id);
-        println!("marked_dirty11111111111111111111111e");
+        // println!("marked_dirty11111111111111111111111e");
     }
 
     pub fn delete_dirty(&mut self, node_id: usize){
@@ -169,7 +169,7 @@ fn cal_bound_box(size: (f32, f32), matrix: &Matrix4) -> (Aabb3<f32>, (f32, f32))
     let size_x = right_top.x - left_top.x;
     let size_y = left_bottom.y - left_top.y;
 
-    println!("box--------------------------size_x: {}, size_y: {}, width: {}, heigth: {}", size_x, size_y, size.0, size.1);
+    // println!("box--------------------------size_x: {}, size_y: {}, width: {}, heigth: {}", size_x, size_y, size.0, size.1);
 
     // let min = Point3::new(
     //     left_top.x.min(right_top.x).min(left_bottom.x).min(right_bottom.x) + half_width,
@@ -257,7 +257,7 @@ mod test {
         for i in node_ids.iter(){
             let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
             let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
-            println!("test_bound_box1, node{} , bound_box:{:?}", i, bound_box);
+            // println!("test_bound_box1, node{} , bound_box:{:?}", i, bound_box);
         }
 
         world.component_mgr.get_node_mut(root).get_extend_mut().modify(|t: &mut RectSize| {
@@ -267,11 +267,10 @@ mod test {
         });
         
         world.run(());
-        println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
             let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
-            println!("test_bound_box2, node{} , bound_box:{:?}", i, bound_box);
+            // println!("test_bound_box2, node{} , bound_box:{:?}", i, bound_box);
         }
 
         //修改node2的extend
@@ -281,11 +280,11 @@ mod test {
             true
         });
         world.run(());
-        println!("-----------------------------------------------------------------");
+        // println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             let bound_box_id = world.component_mgr.node._group.get(*i).bound_box;
             let bound_box = world.component_mgr.node.bound_box._group.get(bound_box_id);
-            println!("test_bound_box3, node{} , bound_box:{:?}", i, bound_box);
+            // println!("test_bound_box3, node{} , bound_box:{:?}", i, bound_box);
         }
     }
 

@@ -34,12 +34,6 @@ impl System<(), World2dMgr> for ClipSys{
         }
         borrow_mut.dirty = false;
 
-        // for i in 0..8 {
-        //     let p = &component_mgr.overflow.1[i];
-        //     let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
-        //     borrow_mut.angles.push(0.0 * PI / 180.0); //旋转暂时为0， TODO
-        //     borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0 /2.0, p[0].y + extend.1 /2.0, extend.0, extend.1]);
-        // }
         for i in 0..8 {
             let p = &component_mgr.overflow.1[i];
             let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
@@ -56,17 +50,28 @@ impl System<(), World2dMgr> for ClipSys{
         // use_program
         gl.use_program(Some(program));
 
-        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+        gl.blend_func(WebGLRenderingContext::ONE, WebGLRenderingContext::ONE);
+        gl.enable(WebGLRenderingContext::BLEND);
 
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+
+        //view
         let arr: &[f32; 16] = component_mgr.view.as_ref();
+        println!("clip view: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
 
+        //projection
         let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
+        println!("clip projection: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
+        println!("clip mesh_num: {:?}", 8.0);
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
+
+        println!("clip angles: {:?}", borrow_mut.angles.as_slice());
         gl.uniform1fv(uniform_locations.get(&ANGLES), borrow_mut.angles.as_slice());
-        gl.uniform1fv(uniform_locations.get(&ANGLES), borrow_mut.translate_scale.as_slice());
+        println!("clip translate_scale: {:?}", borrow_mut.translate_scale.as_slice());
+        gl.uniform4fv(uniform_locations.get(&TRANSLATE_SCALE), borrow_mut.translate_scale.as_slice());
 
         //position
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&borrow_mut.positions_buffer));
@@ -77,7 +82,7 @@ impl System<(), World2dMgr> for ClipSys{
         //meshIndex
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&borrow_mut.index_buffer));
         let mesh_index_location = *(attr_locations.get(&MESH_INDEX).unwrap()) ;
-        gl.vertex_attrib_pointer(mesh_index_location,1,WebGLRenderingContext::FLOAT,false,0,0,);
+        gl.vertex_attrib_pointer(mesh_index_location,1,WebGLRenderingContext::FLOAT,false,0,0);
         gl.enable_vertex_attrib_array(mesh_index_location);
 
         //index
@@ -86,7 +91,8 @@ impl System<(), World2dMgr> for ClipSys{
         //draw
         gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
 
-        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+        gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
     }
 }
  
@@ -138,14 +144,14 @@ impl ClipSysImpl {
         }
 
         let buffer = unsafe { UnsafeTypedArray::new(&indexs) };
-        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&positions_buffer));
+        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&index_buffer));
         js! {
             console.log("indexs", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
 
         let buffer = unsafe { UnsafeTypedArray::new(&indeices) };
-        gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,Some(&positions_buffer));
+        gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,Some(&indeices_buffer));
         js! {
             console.log("indeices", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
@@ -170,7 +176,6 @@ impl ClipSysImpl {
 // 初始化location
 pub fn create_program(component_mgr: &mut World2dMgr) -> u64 {
     let gl = component_mgr.engine.gl.clone();
-
     let program = component_mgr.engine.create_program(
         component_mgr.shader_store.get(&component_mgr.clip_shader.vs).unwrap(),
         component_mgr.shader_store.get(&component_mgr.clip_shader.fs).unwrap(),

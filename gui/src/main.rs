@@ -55,4 +55,5 @@ fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();
     // test::render::test();
+    test::bind::test();
 }
