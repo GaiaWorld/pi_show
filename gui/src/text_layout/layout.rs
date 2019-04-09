@@ -1,4 +1,4 @@
-use ucd::Codepoint;
+use ucd::{Codepoint};
 
 // pub struct TextLayout1{
 //     // pub direction: Direction, //设置文本方向
@@ -108,7 +108,7 @@ impl<'a> Iterator for SplitWorldSpace<'a> {
             return None
         }else {
             let c = self.chars[self.offset];
-            if c.is_whitespace() || !c.is_cased() { // 如果字符为单字字符（如中文，韩文，日文）或空白字符， 直接返回该字符
+            if c.is_white() || !c.is_alpha() { // 如果字符为单字字符（如中文，韩文，日文）或空白字符， 直接返回该字符
                 self.offset += 1;
                 return Some((self.offset - 1, 1));
             }else {
@@ -119,7 +119,7 @@ impl<'a> Iterator for SplitWorldSpace<'a> {
                         return Some((start, self.offset - start))
                     }else {
                         let c = self.chars[self.offset];
-                        if c.is_whitespace() || !c.is_cased() {
+                        if c.is_white() || !c.is_alpha() {
                             return Some((start, self.offset - start));
                         }else { //是单词的一个元素
                             self.offset += 1;
@@ -246,7 +246,7 @@ fn filter_white_space(white_space: &WhiteSpace, text: &str) -> Vec<char>{
 
     let mut chars = text.chars();
     let mut pre = chars.next().unwrap();
-    if !pre.is_whitespace() {
+    if !pre.is_white() {
         arr.push(pre);
     }
 
@@ -259,8 +259,8 @@ fn filter_white_space(white_space: &WhiteSpace, text: &str) -> Vec<char>{
                 };
                 // 将忽略字符串头部和尾部的所有空白符， 字符之间的空白符将合并成一个空格
                 
-                if !next.is_whitespace() {
-                    if pre.is_whitespace() && arr.len() > 0 {
+                if !next.is_white() {
+                    if pre.is_white() && arr.len() > 0 {
                         arr.push(space()); 
                     }
                     arr.push(next);
@@ -277,13 +277,13 @@ fn filter_white_space(white_space: &WhiteSpace, text: &str) -> Vec<char>{
                 if next == next_line() {
                     arr.push(next);
                     pre = next;
-                } else if !next.is_whitespace() {
-                    if pre.is_whitespace() && pre != next_line() && arr.len() > 0 {
+                } else if !next.is_white() {
+                    if pre.is_white() && pre != next_line() && arr.len() > 0 {
                         arr.push(space()); 
                     }
                     arr.push(next);
                     pre = next;
-                } else if !pre.is_whitespace(){
+                } else if !pre.is_white(){
                     pre = next;
                 }
             }
@@ -325,12 +325,12 @@ fn test_ucd() {
     let c5 = 'た';
     
     
-    println!("xxxxxxxxxxx:{}", c.is_cased()); 
-    println!("xxxxxxxxxxx:{}", c1.is_cased());
-    println!("xxxxxxxxxxx:{}", c2.is_cased()); 
-    println!("xxxxxxxxxxx:{}", c3.is_cased());
-    println!("xxxxxxxxxxx:{}", c4.is_cased());
-    println!("xxxxxxxxxxx:{}", c5.is_cased());
+    println!("xxxxxxxxxxx:{}", c.is_alpha()); 
+    println!("xxxxxxxxxxx:{}", c1.is_alpha());
+    println!("xxxxxxxxxxx:{}", c2.is_alpha()); 
+    println!("xxxxxxxxxxx:{}", c3.is_alpha());
+    println!("xxxxxxxxxxx:{}", c4.is_alpha());
+    println!("xxxxxxxxxxx:{}", c5.is_alpha());
 
     let s = "Löwe 老虎 Léopard";
     assert!(s.is_char_boundary(0));

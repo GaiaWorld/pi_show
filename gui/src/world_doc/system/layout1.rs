@@ -95,7 +95,7 @@ impl LayoutImpl {
     }
     // 立即生成yoga节点并加入
     pub fn create_text(&mut self, text_id: usize, node_id: usize) {
-        // TODO 计算字体高度，计算parent_ref
+        // TODO 计算字体高度，根据父节点的布局，获取对应的parent_ref
         // self.node_map.insert(node_id, TextImpl {
         //     action: action,
         //     chars: Vec::new(),
@@ -103,6 +103,9 @@ impl LayoutImpl {
     }
     // 如果是图文混排布局，立即删除yoga节点。 如果是普通布局，则由节点进行yaga节点的删除
     pub fn delete_text(&mut self, text_id: usize, node_id: usize) {
+        let text = component_mgr.node.element.text._group.get(text_id);
+        let font = component_mgr.node.element.text._group.get(text.font);
+        let text_style = component_mgr.node.element.text._group.get(text.text_style);
         // match self.node_map.entry(node_id) {
         //     Entry::Occupied(mut e) => {
         //         let v = e.get_mut();

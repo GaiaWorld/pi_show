@@ -29,8 +29,8 @@ extern crate webgl_rendering_context;
 extern crate num_traits;
 extern crate heap;
 extern crate fnv;
-extern crate ucd;
 extern crate atom;
+extern crate ucd;
 
 pub mod world_doc;
 pub mod layout;
