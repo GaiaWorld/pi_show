@@ -15,10 +15,10 @@ vecmap = {path="../../pi_lib/vecmap"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
 atom = {path="../../pi_lib/atom"}
+ucd = {path="../../pi_lib/ucd"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
-ucd = "0.1.1"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"

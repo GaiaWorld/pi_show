@@ -217,14 +217,3 @@ pub struct RectSize{
     pub width: f32,
     pub height: f32,
 }
-
-
-#[derive(Debug, Component, Default)]
-pub struct LayoutChange{
-    pub value: bool,
-}
-
-pub struct YogaContex {
-    pub node_id: usize,
-    pub mgr: usize,
-}

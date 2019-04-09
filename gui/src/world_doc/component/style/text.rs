@@ -4,7 +4,7 @@ use std::default::{Default};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
 
-use text_layout::{TextAlign, LineHeight, WhiteSpace};
+use text_layout::layout::{TextAlign, LineHeight, WhiteSpace};
 use component::color::Color;
 
 #[derive(Component, Default, Debug, Clone)]
