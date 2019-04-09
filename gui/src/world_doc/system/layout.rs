@@ -29,7 +29,7 @@ impl System<(), WorldDocMgr> for Layout{
         // component_mgr.node._group.get(root_id).yoga.calculate_layout(width, height, YGDirection::YGDirectionLTR);
         // println!("layout------------------------{:?}", component_mgr.node._group.get(root_id).yoga.get_layout());
         //计算布局，如果布局更改， 调用回调来设置layout属性
-        component_mgr.node._group.get(root_id).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, context as *const c_void);
+        component_mgr.node._group.get(root_id).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback1, context as *const c_void);
 
         // update(component_mgr, 1);
         // let yoga = &component_mgr.node._group.get(1).yoga;
@@ -57,7 +57,7 @@ fn update(mgr: &mut WorldDocMgr, node_id: usize) {
 
 //回调函数
 #[no_mangle]
-extern "C" fn callback(callback_context: *const c_void, context: *const c_void) {
+extern "C" fn callback1(callback_context: *const c_void, context: *const c_void) {
     let node_id = context as usize;
     let callback_context = unsafe { Box::from_raw(callback_context as usize as *mut CallbackContext)};
     let component_mgr = unsafe {&mut *(callback_context.mgr as *mut WorldDocMgr)};

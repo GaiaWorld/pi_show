@@ -9,6 +9,7 @@ use std::rc::{Rc};
 use std::os::raw::{c_void};
 use std::mem::forget;
 use std::collections::hash_map::Entry;
+use std::ops::Deref;
 
 use fnv::FnvHashMap;
 
@@ -53,7 +54,7 @@ impl ComponentHandler<Text, DeleteEvent, WorldDocMgr> for Layout{
 //监听文本修改事件
 impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
-        let ModifyFieldEvent {id, parent, field: "value"} = event; // TODO 其他要判断样式是否影响布局
+        let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
         self.0.borrow_mut().modify_text(*id, *parent);
     }
 }
@@ -62,8 +63,9 @@ impl System<(), WorldDocMgr> for Layout{
     fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
         let width = mgr.world_2d.component_mgr.width;
         let height = mgr.world_2d.component_mgr.height;
+        let layoutImpl = self.0.borrow_mut().deref() as *const LayoutImpl;
         //计算布局，如果布局更改， 调用回调来设置layout属性
-        mgr.node._group.get(mgr.get_root_id()).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, self.0.borrow_mut() as *const c_void);
+        mgr.node._group.get(mgr.get_root_id()).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, layoutImpl as *const c_void);
     }
 }
 
@@ -81,16 +83,16 @@ pub struct CharImpl {
 }
 pub struct LayoutImpl{
     node_map: FnvHashMap<usize,TextImpl>,
-    char_slab: Slab<CharImpl>,
-    mgr: *const WorldDocMgr,
+    //char_slab: Slab<CharImpl>,
+    mgr: *mut WorldDocMgr,
 }
 
 impl LayoutImpl {
-    pub fn new(mgr: &WorldDocMgr) -> LayoutImpl{
+    pub fn new(mgr: &mut WorldDocMgr) -> LayoutImpl{
         LayoutImpl{
             node_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
-            char_map: Slab::new(),
-            mgr: mgr as *const WorldDocMgr,
+            //char_slab: Slab::new(),
+            mgr: mgr as *mut WorldDocMgr,
         }
     }
     // 立即生成yoga节点并加入
@@ -103,9 +105,9 @@ impl LayoutImpl {
     }
     // 如果是图文混排布局，立即删除yoga节点。 如果是普通布局，则由节点进行yaga节点的删除
     pub fn delete_text(&mut self, text_id: usize, node_id: usize) {
-        let text = component_mgr.node.element.text._group.get(text_id);
-        let font = component_mgr.node.element.text._group.get(text.font);
-        let text_style = component_mgr.node.element.text._group.get(text.text_style);
+        // let text = component_mgr.node.element.text._group.get(text_id);
+        // let font = component_mgr.node.element.text._group.get(text.font);
+        // let text_style = component_mgr.node.element.text._group.get(text.text_style);
         // match self.node_map.entry(node_id) {
         //     Entry::Occupied(mut e) => {
         //         let v = e.get_mut();
@@ -127,7 +129,7 @@ impl LayoutImpl {
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
-        let mut char_map = self.char_map;
+        // let mut char_map = self.char_map;
         // for (key, val) in self.node_map.iter_mut() {
         //     match val.dirty {
         //         ActionType::Delete => {
@@ -160,7 +162,7 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
     //更新布局
     let node_id = unsafe { context as isize};
     let layoutImpl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
-    let mgr = unsafe{ &mut *layoutImpl.mgr };
+    let mgr = unsafe{ &mut *(layoutImpl.mgr) };
     if node_id > 0 {
         update(mgr, node_id as usize);
     }else if node_id < 0 {
