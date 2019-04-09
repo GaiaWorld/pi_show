@@ -1,17 +1,19 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use cg::{Matrix4, Quaternion, Euler, Deg};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use vecmap::VecMap;
 
-use component::math::{Color as MathColor, Vector2, Aabb3};
+use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
 use world_doc::component::node::{Node};
 use world_doc::component::style::generic::{ Decorate, BoxShadow };
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::Sdf;
+use util::math::decompose;
 
 //背景边框系统
 pub struct BBSys(Rc<RefCell<BBSysImpl>>);
@@ -42,6 +44,9 @@ impl BBSys {
 
         //监听boundbox的变化
         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
+
+        //监听world_matrix的变化
+        component_mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -322,6 +327,30 @@ impl ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr> for BBSys {
     }
 }
 
+impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
+        let ModifyFieldEvent { id, parent, field: _ } = event; 
+        let node = component_mgr.node._group.get(*parent);
+        if node.decorate == 0 {
+            return;
+        }
+
+        let decorate_id = node.decorate;
+        let borrow = self.0.borrow();
+        let world_matrix = component_mgr.node.world_matrix._group.get(*id);
+        let rotate = matrix_to_rotate(world_matrix);
+        // if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
+        //     component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_bound_box(bound_box);
+        // }
+        if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_rotate(rotate);
+        }
+        if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_rotate(rotate);
+        }
+    }
+}
+
 impl System<(), WorldDocMgr> for BBSys{
     fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
     }
@@ -413,7 +442,12 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let border_size = layout.border * ratio; 
     sdf.extend = Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size);
 
-    sdf.rotate = 0.0; //TODO
+    if node.world_matrix == 0 {
+        sdf.rotate = 0.0;
+    }else {
+        let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+        sdf.rotate = matrix_to_rotate(world_matrix);
+    }
 
     sdf.bound_box = bound_box.owner.clone();
 
@@ -454,7 +488,13 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let size = &node.size;
     sdf.extend = Vector2::new(size.x/2.0, size.y/2.0);
 
-    sdf.rotate = 0.0; //TODO
+    
+    if node.world_matrix == 0 {
+        sdf.rotate = 0.0;
+    }else {
+        let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+        sdf.rotate = matrix_to_rotate(world_matrix);
+    }
 
     sdf.bound_box = bound_box.owner.clone();
     sdf.color = Color::RGBA(shadow.color.clone());
@@ -488,3 +528,10 @@ fn color_is_opaque(color: &Color) -> bool{
     }
 }
 
+fn matrix_to_rotate(m: &Matrix4<f32>) -> f32 {
+    let mut q = Quaternion::new(0.0, 0.0, 0.0, 0.0);
+    decompose(m, None, Some(&mut q), None);
+    let e = Euler::from(q);
+    let z: Deg<f32> = Deg::from(e.z);
+    z.0
+}

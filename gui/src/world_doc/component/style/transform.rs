@@ -1,10 +1,10 @@
 use std::ops::{Deref};
 
-use cg::Matrix;
+use cg::{Euler, Deg, Quaternion};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use wcs::world::{ComponentMgr};
 
-use component::math::*;
+use component::math::{Scale, Vector3};
 
 
 #[allow(unused_attributes)]
@@ -15,11 +15,7 @@ pub struct Transform {
     #[builder(export)]
     pub position: Vector3,
     #[builder(export)]
-    pub rotation: Vector3,
-    #[ignore]
-    pub dirty: bool,
-    #[ignore]
-    pub quaternion: Quaternion,
+    pub rotation: f32,
 }
 
 /// `Transform` is used to store and manipulate the postiion, rotation and scale
@@ -65,7 +61,13 @@ impl Transform {
     where
         T: Into<cg::Vector3<f32>>,
     {
-        (*self.quaternion) * v.into()
+        let e = Euler {
+            x: Deg(0.0),
+            y: Deg(0.0),
+            z: Deg(self.rotation),
+        };
+        let q = Quaternion::from(e);
+        (q) * v.into()
     }
 
     /// Transforms vector from local space to transform's space.
@@ -107,21 +109,27 @@ impl Transform {
         self.transform_direction(cg::Vector3::new(1.0, 0.0, 0.0))
     }
 
-    // Returns the view matrix from world space to view space.
-    #[inline]
-    pub fn view_matrix(&self) -> cg::Matrix4<f32> {
-        // M = ( T * R ) ^ -1
-        let it = cg::Matrix4::from_translation(-*self.position);
-        let ir = cg::Matrix4::from(*self.quaternion).transpose();
-        ir * it
-    }
+    // // Returns the view matrix from world space to view space.
+    // #[inline]
+    // pub fn view_matrix(&self) -> cg::Matrix4<f32> {
+    //     // M = ( T * R ) ^ -1
+    //     let it = cg::Matrix4::from_translation(-*self.position);
+    //     let ir = cg::Matrix4::from(*self.quaternion).transpose();
+    //     ir * it
+    // }
 
     /// Returns the matrix representation.
     #[inline]
     pub fn matrix(&self) -> cg::Matrix4<f32> {
+        let e = Euler {
+            x: Deg(0.0),
+            y: Deg(0.0),
+            z: Deg(self.rotation),
+        };
+        let q = Quaternion::from(e);
         // M = T * R * S
         let t: cg::Matrix4<f32> =  cg::Matrix4::from_translation(*self.position);
-        let r: cg::Matrix4<f32> = (*self.quaternion).into();
+        let r: cg::Matrix4<f32> = q.into();
         let s: cg::Matrix4<f32> = cg::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         t * r * s
     }

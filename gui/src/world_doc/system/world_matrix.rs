@@ -183,7 +183,8 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
             ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
         };
-        world_matrix = parent_world_matrix * world_matrix
+        world_matrix = parent_world_matrix * world_matrix;
+        println!("world_matrix----------------{:?}, node_id: {}", world_matrix, node_id);
     }
 
     let mut child = {

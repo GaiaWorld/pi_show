@@ -197,6 +197,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let sdf = mgr.sdf._group.get(sdf_effect.sdf_id);
 
     let defines = mgr.sdf_effect.defines._group.get(sdf_effect.defines);
+    #[cfg(feature = "log")]
     println!("defines---------------------------{:?}", defines);
 
 
@@ -212,6 +213,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //设置worldViewProjection
     let arr: &[f32; 16] = mgr.projection.0.as_ref();
+    #[cfg(feature = "log")]
     js! {
         console.log("world_view", @{&arr[0..16]});
     }
@@ -222,18 +224,21 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     //blur
+    #[cfg(feature = "log")]
     js! {
         console.log("blur",1.0);
     }
     gl.uniform1f(uniform_locations.get(&BLUR), 1.0);
 
     //extend
+    #[cfg(feature = "log")]
     js! {
         console.log("extend", @{sdf.extend.x}, @{sdf.extend.y});
     }
     gl.uniform2f(uniform_locations.get(&EXTEND), sdf.extend.x, sdf.extend.y);
 
     // alpha
+    #[cfg(feature = "log")]
     js! {
         console.log("alpha", @{sdf.alpha});
     }
@@ -245,11 +250,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         mgr.width,
         mgr.height,
     );
+    #[cfg(feature = "log")]
     js!{console.log("SCREEN_SIZE", @{mgr.width}, @{mgr.height})}
 
     //angle
-    js!{console.log("ANGLE", 0)}
-    gl.uniform1f(uniform_locations.get(&ANGLE), 0.0); //TODO
+    #[cfg(feature = "log")]
+    println!("ANGLE: {}", sdf.rotate);
+    gl.uniform1f(uniform_locations.get(&ANGLE), sdf.rotate);
 
     //set_uniforms
     if defines.sdf_rect {
@@ -272,6 +279,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     match &sdf.color {
         Color::RGB(color) | Color::RGBA(color) => {
+            #[cfg(feature = "log")]
             js!{console.log("color", @{color.r}, @{color.g}, @{color.b}, @{color.a})}
             // color
             gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a,
@@ -406,9 +414,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             bound_box.min.y,
             sdf.z_depth, // right_top
         ];
+        #[cfg(feature = "log")]
+        println!("position: {:?}", buffer);
         let buffer = unsafe { UnsafeTypedArray::new(&buffer) };
         js! {
-            console.log("position", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
     }
@@ -425,6 +434,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
     gl.enable_vertex_attrib_array(position_location);
 
+    #[cfg(feature = "log")]
     println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
     gl.uniform2f(
         uniform_locations.get(&CENTER),
