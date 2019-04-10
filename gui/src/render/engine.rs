@@ -53,6 +53,7 @@ impl Engine {
         match self.compiled_programs.get(&hash) {
             Some(_) => Ok(hash),
             None => {
+                // println!("defines12----------------------------{}", hash);
                 let shader_program = self.create_shader_program(vertex_code, fragment_code, defines)?;
                 let program = Program{
                     program: shader_program,
@@ -86,6 +87,7 @@ impl Engine {
             s += v.as_ref();
             s += "\n";
         }
+        // println!("ssssss----------------------------{:?}", s.clone() + source.as_ref());
         self.compile_raw_shader(&(s + source.as_ref()), ty)
     }
 

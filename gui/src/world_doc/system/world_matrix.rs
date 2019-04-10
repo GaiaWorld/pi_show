@@ -174,6 +174,7 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             false => component_mgr.node.transform._group.get(transform_id).matrix(),
         };
 
+        println!("transform world_matrix----------------{:?}, node_id: {}", transform, node_id);
         let center_matrix = cg::Matrix4::from_translation(center);
         (transform * center_matrix, parent)
     };

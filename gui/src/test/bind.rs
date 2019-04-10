@@ -1,3 +1,4 @@
+use std::mem::transmute;
 use stdweb::web::html_element::CanvasElement;
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::web::{
@@ -5,6 +6,8 @@ use stdweb::web::{
     document,
 };
 use stdweb::unstable::TryInto;
+
+use layout::yoga::YGEdge;
 
 use bind::*;
 use bind::node::*;
@@ -34,7 +37,12 @@ pub fn test(){
     set_width(world, node3, 500.0);
     set_height(world, node3, 500.0);
     set_backgroud_rgba_color(world, node3, 0.0, 0.0, 1.0, 1.0);
-    transform_rotate(world, node3, 45.0);
+    // set_border_color(world, node3, 0.0, 1.0, 0.0, 1.0);
+    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeLeft)}, 10.0);
+    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeRight)}, 10.0);
+    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
+    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeBottom)}, 10.0);
+    // transform_rotate(world, node3, 45.0);
 
     // let node4 = create_node(world);
     // append_child(world, node2, node4);

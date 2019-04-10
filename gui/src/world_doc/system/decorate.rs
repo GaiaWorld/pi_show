@@ -12,7 +12,7 @@ use world_doc::component::node::{Node};
 use world_doc::component::style::generic::{ Decorate, BoxShadow };
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
-use world_2d::component::sdf::Sdf;
+use world_2d::component::sdf::{ Sdf, SdfType };
 use util::math::decompose;
 
 //背景边框系统
@@ -288,8 +288,15 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
         } else if *field == "size" {
             let layout = &node.layout;
             let size = &node.size;
-            let ratio = size.x/layout.width;
+            let ratio;
+            if layout.width != 0.0 {
+                ratio = size.x/layout.width;
+            }else {
+                ratio = 0.0;
+            }
+           
             let border_size = layout.border * ratio; 
+            println!("border_size1-----------------{}", border_size);
             if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
                 component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_extend(Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size));
             }
@@ -338,15 +345,15 @@ impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
         let decorate_id = node.decorate;
         let borrow = self.0.borrow();
         let world_matrix = component_mgr.node.world_matrix._group.get(*id);
-        let rotate = matrix_to_rotate(world_matrix);
+        // let rotate = matrix_to_rotate(world_matrix);
         // if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
         //     component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_bound_box(bound_box);
         // }
         if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_rotate(rotate);
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.owner.clone());
         }
         if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_rotate(rotate);
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.owner.clone());
         }
     }
 }
@@ -432,22 +439,29 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
     sdf.z_depth = node.z_depth;
     sdf.by_overflow = node.by_overflow;
+    sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
     let bound_box = mgr.node.bound_box._group.get(node.bound_box);
     sdf.center = Vector2::new(0.0, 0.0);
 
     let layout = &node.layout;
     let size = &node.size;
-    let ratio = size.x/layout.width;
+    let ratio;
+    if layout.width != 0.0 {
+        ratio = size.x/layout.width;
+    }else {
+        ratio = 0.0;
+    }
+    println!("layout.border------------------{}, {}", layout.border, ratio);
     let border_size = layout.border * ratio; 
     sdf.extend = Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size);
 
-    if node.world_matrix == 0 {
-        sdf.rotate = 0.0;
-    }else {
-        let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
-        sdf.rotate = matrix_to_rotate(world_matrix);
-    }
+    // if node.world_matrix == 0 {
+    //     sdf.rotate = 0.0;
+    // }else {
+    //     let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+    //     sdf.rotate = matrix_to_rotate(world_matrix);
+    // }
 
     sdf.bound_box = bound_box.owner.clone();
 
@@ -478,6 +492,7 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.alpha = node.real_opacity;
     sdf.z_depth = node.z_depth;
     sdf.by_overflow = node.by_overflow;
+    sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
     let shadow_id = mgr.node.decorate._group.get(node.decorate).box_shadow;
     let shadow = mgr.node.decorate.box_shadow._group.get(shadow_id);
@@ -489,12 +504,12 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.extend = Vector2::new(size.x/2.0, size.y/2.0);
 
     
-    if node.world_matrix == 0 {
-        sdf.rotate = 0.0;
-    }else {
-        let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
-        sdf.rotate = matrix_to_rotate(world_matrix);
-    }
+    // if node.world_matrix == 0 {
+    //     sdf.rotate = 0.0;
+    // }else {
+    //     let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+    //     sdf.rotate = matrix_to_rotate(world_matrix);
+    // }
 
     sdf.bound_box = bound_box.owner.clone();
     sdf.color = Color::RGBA(shadow.color.clone());
