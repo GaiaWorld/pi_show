@@ -478,6 +478,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         Some(&sdf_effect.indeices_buffer),
     );
 
+    #[cfg(feature = "log")]
+    println!("is_opaque: {}", sdf.is_opaque);
+    
+
     // js! {
     //     console.log("draw_elements-------------------");
     // }

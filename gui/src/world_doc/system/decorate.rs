@@ -276,17 +276,19 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                     component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_is_opaque(false);
                 }else if !component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).get_is_opaque(){
                     let decorate = component_mgr.node.decorate._group.get(decorate_id);
+
+                    if decorate.border_color > 0 {
+                        let color = component_mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
+                        if color.a < 1.0 {
+                            return;
+                        }
+                    }
+
                     if decorate.background_color > 0 {
                         let color = component_mgr.node.decorate.background_color._group.get(decorate.background_color).owner.clone();
                         component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_is_opaque(color_is_opaque(&color));
                     }
 
-                    if decorate.border_color > 0 {
-                        let color = component_mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
-                        if color.a == 1.0 {
-                            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_is_opaque(true);
-                        }
-                    }
                 }
             }
         } else if *field == "layout" {
