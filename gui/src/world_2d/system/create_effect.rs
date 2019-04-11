@@ -78,6 +78,9 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
                 defines.ellipse_color_gradient = true;
             }
         };
+        if sdf.by_overflow > 0 {
+            defines.clip_plane = true;
+        }
         let defines_id = component_mgr.sdf_effect.defines._group.insert(defines, 0);
         let sdf_effect = SdfEffect {
             program: 0,

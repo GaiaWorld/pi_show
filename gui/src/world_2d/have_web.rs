@@ -22,7 +22,7 @@ pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
 
     let create_effect = CreateEffect::init(&mut mgr);
     let create_sdf_program = CreateSdfProgram::init(&mut mgr);
-    // let clip = ClipSys::init(&mut mgr);
+    let clip = ClipSys::init(&mut mgr);
     let render = Render::init(&mut mgr);
 
     let mut world = World::new(mgr);
@@ -35,8 +35,7 @@ pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
 
 fn create_overflow() -> Overflow{
     Overflow([0;8],[[Point2(CgPoint2::new(100.0, 100.0)), Point2(CgPoint2::new(200.0, 100.0)), Point2(CgPoint2::new(200.0, 200.0)), Point2(CgPoint2::new(100.0, 200.0))];8])
-}    
-
+}
 
 world!(
     struct World2dMgr{

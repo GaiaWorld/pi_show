@@ -38,7 +38,7 @@ impl System<(), World2dMgr> for ClipSys{
             let p = &component_mgr.overflow.1[i];
             let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
             borrow_mut.angles.push(0.0 * PI / 180.0); //旋转暂时为0， TODO
-            borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0 /2.0, p[0].y + extend.1 /2.0, extend.0, extend.1]);
+            borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0, p[0].y + extend.1, extend.0, extend.1]);
         }
 
         let program = component_mgr.engine.lookup_program(borrow_mut.program).unwrap();
@@ -53,7 +53,7 @@ impl System<(), World2dMgr> for ClipSys{
         gl.blend_func(WebGLRenderingContext::ONE, WebGLRenderingContext::ONE);
         gl.enable(WebGLRenderingContext::BLEND);
 
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
 
         //view
         let arr: &[f32; 16] = component_mgr.view.as_ref();
@@ -92,7 +92,7 @@ impl System<(), World2dMgr> for ClipSys{
         gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
 
         gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
     }
 }
  
