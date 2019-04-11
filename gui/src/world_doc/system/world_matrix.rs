@@ -174,9 +174,9 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             false => component_mgr.node.transform._group.get(transform_id).matrix(),
         };
 
-        println!("transform world_matrix----------------{:?}, node_id: {}", transform, node_id);
-        let center_matrix = cg::Matrix4::from_translation(center);
-        (transform * center_matrix, parent)
+        let center_matrix = cg::Matrix4::from_translation(center.clone());
+        println!("transform world_matrix----------------{:?}, node_id: {}, center_matrix: {:?}", transform, node_id, center_matrix);
+        (center_matrix * transform, parent)
     };
 
     if parent_id != 0 {
@@ -185,7 +185,7 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
         };
         world_matrix = parent_world_matrix * world_matrix;
-        println!("world_matrix----------------{:?}, node_id: {}", world_matrix, node_id);
+        println!("world_matrix----------------{:?}, node_id: {}, parent_world_matrix: {:?}", world_matrix, node_id, parent_world_matrix);
     }
 
     let mut child = {

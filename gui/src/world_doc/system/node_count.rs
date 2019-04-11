@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent};
+use wcs::world::System;
 use world_doc::WorldDocMgr;
 
 use world_doc::component::node::{Node};
@@ -19,6 +20,11 @@ impl NodeCountSys {
     ));
     rc
   }
+}
+
+impl System<(), WorldDocMgr> for NodeCountSys{
+    fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
+    }
 }
 
 impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for NodeCountSys {

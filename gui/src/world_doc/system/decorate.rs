@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use cg::{Matrix4, Quaternion, Euler, Deg};
+use cg::{Vector3 as CgVector3};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use vecmap::VecMap;
@@ -10,10 +10,12 @@ use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4
 use component::color::Color;
 use world_doc::component::node::{Node};
 use world_doc::component::style::generic::{ Decorate, BoxShadow };
+use world_doc::component::style::transform::Transform;
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
-use world_2d::component::sdf::{ Sdf, SdfType };
-use util::math::decompose;
+use world_2d::component::sdf::{ Sdf };
+use util::dirty_mark::DirtyMark;
+// use util::math::decompose;
 
 //背景边框系统
 pub struct BBSys(Rc<RefCell<BBSysImpl>>);
@@ -29,17 +31,17 @@ impl BBSys {
         component_mgr.node.decorate.background_color._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, DeleteEvent, WorldDocMgr>>)));
         //监听border_color修改事件， 修改sdf2d上对应的值
         component_mgr.node.decorate.border_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.decorate.border_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.decorate.border_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.decorate.border_color._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, CreateEvent, WorldDocMgr>>)));
+        component_mgr.node.decorate.border_color._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, DeleteEvent, WorldDocMgr>>)));
         //监听box_shadow修改事件， 修改sdf2d上对应的值
         component_mgr.node.decorate.box_shadow._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.decorate.box_shadow._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.decorate.box_shadow._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.decorate.box_shadow._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr>>)));
+        component_mgr.node.decorate.box_shadow._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr>>)));
     
         // 监听node的改变， 修改sdf2d， image2d组件
         component_mgr.node.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.size.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
 
         //监听boundbox的变化
@@ -196,7 +198,10 @@ impl ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr> for BBSys {
         let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
         let sdf = create_shadow_sdf2d(component_mgr, node_id);
         let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
-        self.0.borrow_mut().color_sdf2d_map.insert(*parent, sdf_id);
+        let mut borrow_mut = self.0.borrow_mut();
+        borrow_mut.shadow_sdf2d_map.insert(*parent, sdf_id);
+        borrow_mut.shadow_matrix_dirty.dirty_mark_list.insert(*parent, false);
+        borrow_mut.shadow_matrix_dirty.marked_dirty(*parent);
     }
 }
 
@@ -204,7 +209,9 @@ impl ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr> for BBSys {
 impl ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &DeleteEvent, _component_mgr: &mut WorldDocMgr) {
         let DeleteEvent { id: _, parent } = event; 
-        let _sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent).clone() };
+        let mut borrow_mut = self.0.borrow_mut();
+        let _sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.get_unchecked(*parent).clone() };
+        borrow_mut.shadow_matrix_dirty.delete_dirty(*parent);
         //删除sdf2d TODO
     }
 }
@@ -213,14 +220,11 @@ impl ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
         let ModifyFieldEvent { id, parent, field } = event; 
         let shadow = component_mgr.node.decorate.box_shadow._group.get(*id);
-        let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent).clone() };
+        let sdf_id = unsafe { self.0.borrow_mut().shadow_sdf2d_map.get_unchecked(*parent).clone() };
         if *field == "blur" {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_blur(shadow.blur);
+            // component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_blur(shadow.blur);
         }else if *field == "h" || *field == "v"{
-            let node_id = component_mgr.node.decorate._group.get(*parent).parent;
-            let node = component_mgr.node._group.get(node_id);
-            let size = &node.size;
-            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_center(Vector2::new(size.x/2.0 + shadow.h, size.y/2.0 + shadow.v));
+            self.0.borrow_mut().shadow_matrix_dirty.marked_dirty(*parent);
         } else if *field == "color" {
             component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_color(Color::RGBA(shadow.color.clone()));
         }
@@ -243,7 +247,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_z_depth(node.z_depth);
             }
             if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_z_depth(node.z_depth);
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_z_depth(node.z_depth - 0.00001);
             }
             if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_z_depth(node.z_depth);
@@ -285,27 +289,17 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                     }
                 }
             }
-        } else if *field == "size" {
+        } else if *field == "layout" {
             let layout = &node.layout;
-            let size = &node.size;
-            let ratio;
-            if layout.width != 0.0 {
-                ratio = size.x/layout.width;
-            }else {
-                ratio = 0.0;
-            }
-           
-            let border_size = layout.border * ratio; 
-            println!("border_size1-----------------{}", border_size);
             if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_extend(Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size));
+                component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
             }
             if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(size.x/2.0, size.y/2.0));
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(layout.width/2.0, layout.height/2.0));
             }
             if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size));
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(border_size);
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(layout.border);
             }
         }
     }
@@ -343,23 +337,32 @@ impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
         }
 
         let decorate_id = node.decorate;
-        let borrow = self.0.borrow();
-        let world_matrix = component_mgr.node.world_matrix._group.get(*id);
-        // let rotate = matrix_to_rotate(world_matrix);
-        // if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
-        //     component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_bound_box(bound_box);
-        // }
-        if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.owner.clone());
+        let mut borrow_mut = self.0.borrow_mut();
+        if let Some(_sdf_id) = borrow_mut.shadow_sdf2d_map.get(decorate_id) {
+            borrow_mut.shadow_matrix_dirty.marked_dirty(decorate_id);
         }
-        if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+        if let Some(sdf_id) = borrow_mut.color_sdf2d_map.get(decorate_id) {
+            let world_matrix = component_mgr.node.world_matrix._group.get(*id);
             component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.owner.clone());
         }
     }
 }
 
 impl System<(), WorldDocMgr> for BBSys{
-    fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
+    fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
+        let mut borrow_mut = self.0.borrow_mut();
+        for decorate_id in borrow_mut.shadow_matrix_dirty.dirtys.iter() {
+            let (node_id, box_shadow_id) = {
+                let decorate = component_mgr.node.decorate._group.get(*decorate_id);
+                (decorate.parent, decorate.box_shadow)
+            };
+            
+            let world_matrix = cal_shadow_matrix(node_id, box_shadow_id, component_mgr);
+            if let Some(sdf_id) = borrow_mut.shadow_sdf2d_map.get(*decorate_id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.clone());
+            }
+        }
+        borrow_mut.shadow_matrix_dirty.dirtys.clear();
     }
 }
 
@@ -410,6 +413,8 @@ pub struct BBSysImpl {
     shadow_sdf2d_map: VecMap<usize>, // id: decorate_id, value: sdf_id
     color_sdf2d_map: VecMap<usize>, // id: decorate_id, value: sdf_id
     image_image2d_map: VecMap<usize>,
+    shadow_matrix_dirty: DirtyMark,
+
 }
 
 impl BBSysImpl {
@@ -418,6 +423,7 @@ impl BBSysImpl {
             shadow_sdf2d_map: VecMap::new(),
             color_sdf2d_map: VecMap::new(),
             image_image2d_map: VecMap::new(),
+            shadow_matrix_dirty: DirtyMark::new(),
         }
     }
 }
@@ -437,6 +443,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     if sdf.alpha < 1.0 {
         sdf.is_opaque = false;
     }
+    sdf.blur = 1.0;
     sdf.z_depth = node.z_depth;
     sdf.by_overflow = node.by_overflow;
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
@@ -445,16 +452,8 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.center = Vector2::new(0.0, 0.0);
 
     let layout = &node.layout;
-    let size = &node.size;
-    let ratio;
-    if layout.width != 0.0 {
-        ratio = size.x/layout.width;
-    }else {
-        ratio = 0.0;
-    }
-    println!("layout.border------------------{}, {}", layout.border, ratio);
-    let border_size = layout.border * ratio; 
-    sdf.extend = Vector2::new(size.x/2.0 - border_size, size.y/2.0 - border_size);
+    println!("layout.border------------------{}", layout.border);
+    sdf.extend = Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border);
 
     // if node.world_matrix == 0 {
     //     sdf.rotate = 0.0;
@@ -475,12 +474,14 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
 
     if decorate.border_color > 0 {
+        println!("bordercolor====================");
         let color = mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
         if color.a < 1.0 {
             sdf.is_opaque = false;
         }
+        println!("bordercolor===================={:?}", color);
         sdf.border_color = color;
-        sdf.border_size = border_size;
+        sdf.border_size = layout.border;
     }
     sdf
 }
@@ -490,18 +491,22 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let mut sdf = Sdf::default();
     let node = mgr.node._group.get(node_id);
     sdf.alpha = node.real_opacity;
-    sdf.z_depth = node.z_depth;
+    sdf.z_depth = node.z_depth - 0.00001;
     sdf.by_overflow = node.by_overflow;
+
+    // let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
+    // let offset_matrix = cg::Matrix4::from_translation(Ve);
+
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
     let shadow_id = mgr.node.decorate._group.get(node.decorate).box_shadow;
     let shadow = mgr.node.decorate.box_shadow._group.get(shadow_id);
-    sdf.blur = shadow.blur;
+    sdf.blur = 5.0;
     let bound_box = mgr.node.bound_box._group.get(node.bound_box);
     sdf.center = Vector2::new(bound_box.max.x - bound_box.min.x + shadow.h, bound_box.max.y - bound_box.min.y + shadow.v);
 
-    let size = &node.size;
-    sdf.extend = Vector2::new(size.x/2.0, size.y/2.0);
+    let layout = &node.layout;
+    sdf.extend = Vector2::new(layout.width/2.0, layout.height/2.0);
 
     
     // if node.world_matrix == 0 {
@@ -543,10 +548,55 @@ fn color_is_opaque(color: &Color) -> bool{
     }
 }
 
-fn matrix_to_rotate(m: &Matrix4<f32>) -> f32 {
-    let mut q = Quaternion::new(0.0, 0.0, 0.0, 0.0);
-    decompose(m, None, Some(&mut q), None);
-    let e = Euler::from(q);
-    let z: Deg<f32> = Deg::from(e.z);
-    z.0
+// fn matrix_to_rotate(m: &Matrix4<f32>) -> f32 {
+//     let mut q = Quaternion::new(0.0, 0.0, 0.0, 0.0);
+//     decompose(m, None, Some(&mut q), None);
+//     let e = Euler::from(q);
+//     let z: Deg<f32> = Deg::from(e.z);
+//     z.0
+// }
+
+fn cal_shadow_matrix(node_id: usize, shadow_id: usize, component_mgr: &mut WorldDocMgr) -> MathMatrix4{
+    let (mut world_matrix, parent_id) = {
+        let (transform_id, l, parent) = {
+            let node = component_mgr.node._group.get(node_id);
+            (node.transform, &node.layout, node.parent)
+        };
+
+        let center = if parent > 0 {
+            //parent_layout
+            let pl = &component_mgr.node._group.get(parent).layout;
+            cg::Vector3::new(
+                l.width/2.0 + l.left + pl.padding_left + pl.border - pl.width/2.0,
+                l.height/2.0 + l.top + pl.padding_top + pl.border - pl.height/2.0,
+                0.0,
+            )
+        }else {
+            cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
+        };
+
+        let transform = match transform_id == 0 {
+            true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
+            false => component_mgr.node.transform._group.get(transform_id).matrix(),
+        };
+
+        let shadow_offset = {
+            let shadow = component_mgr.node.decorate.box_shadow._group.get(shadow_id);
+            CgVector3::new(shadow.h, shadow.v, 0.0)
+        };
+        let offset_matrix = cg::Matrix4::from_translation(shadow_offset);
+
+        let center_matrix = cg::Matrix4::from_translation(center.clone());
+        (center_matrix * offset_matrix * transform, parent)
+    };
+
+    if parent_id != 0 {
+        let parent_world_matrix = {
+            let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
+            ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
+        };
+        world_matrix = parent_world_matrix * world_matrix;
+    }
+
+    MathMatrix4(world_matrix)
 }

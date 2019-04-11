@@ -109,7 +109,7 @@ pub fn set_box_shadow_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a:
             let mut decorate_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
             decorate_ref.set_box_shadow(box_shadow);
         } else {
-            let mut box_shadow_ref = BoxShadowWriteRef::new(decorate_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
+            let mut box_shadow_ref = BoxShadowWriteRef::new(box_shadow_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
             box_shadow_ref.set_color(CgColor(CgColor1::new(r, g, b, a)));
         }
     }
@@ -124,22 +124,34 @@ pub fn set_box_shadow_h(world: u32, node_id: u32, h: f32){
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
     if decorate_id == 0 {
+        js!{console.log("set_box_shadow_h1");}
         let decorate = DecorateBuilder::new()
         .box_shadow(BoxShadowBuilder::new().h(h)
             .build(&mut world.component_mgr.node.decorate.box_shadow))
         .build(&mut world.component_mgr.node.decorate);
+        js!{console.log("set_box_shadow_h2");}
         let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+        js!{console.log("set_box_shadow_h3");}
         node_ref.set_decorate(decorate);
+        js!{console.log("set_box_shadow_4");}
     }else {
+        js!{console.log("set_box_shadow_h5");}
         let box_shadow_id = world.component_mgr.node.decorate._group.get(decorate_id).box_shadow;
+        js!{console.log("set_box_shadow_h6");}
         if box_shadow_id == 0 {
+            js!{console.log("set_box_shadow_h7");}
             let box_shadow = BoxShadowBuilder::new().h(h)
             .build(&mut world.component_mgr.node.decorate.box_shadow);
             let mut decorate_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
+            js!{console.log("set_box_shadow_h8");}
             decorate_ref.set_box_shadow(box_shadow);
+            js!{console.log("set_box_shadow_h9");}
         } else {
-            let mut box_shadow_ref = BoxShadowWriteRef::new(decorate_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
+            js!{console.log("set_box_shadow_h10");}
+            let mut box_shadow_ref = BoxShadowWriteRef::new(box_shadow_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
+            js!{console.log("set_box_shadow_h11");}
             box_shadow_ref.set_h(h);
+            js!{console.log("set_box_shadow_h12");}
         }
     }
 }
@@ -166,7 +178,7 @@ pub fn set_box_shadow_v(world: u32, node_id: u32, v: f32){
             let mut decorate_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
             decorate_ref.set_box_shadow(box_shadow);
         } else {
-            let mut box_shadow_ref = BoxShadowWriteRef::new(decorate_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
+            let mut box_shadow_ref = BoxShadowWriteRef::new(box_shadow_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
             box_shadow_ref.set_v(v);
         }
     }

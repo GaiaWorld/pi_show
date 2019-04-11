@@ -121,15 +121,9 @@ impl Transform {
     /// Returns the matrix representation.
     #[inline]
     pub fn matrix(&self) -> cg::Matrix4<f32> {
-        let e = Euler {
-            x: Deg(0.0),
-            y: Deg(0.0),
-            z: Deg(self.rotation),
-        };
-        let q = Quaternion::from(e);
         // M = T * R * S
         let t: cg::Matrix4<f32> =  cg::Matrix4::from_translation(*self.position);
-        let r: cg::Matrix4<f32> = q.into();
+        let r: cg::Matrix4<f32> = cg::Matrix4::from_angle_z(cg::Deg(self.rotation));
         let s: cg::Matrix4<f32> = cg::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
         t * r * s
     }

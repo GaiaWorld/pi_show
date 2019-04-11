@@ -30,18 +30,21 @@ pub fn test(){
     append_child(world, 1, node2);
     set_width(world, node2, 1000.0);
     set_height(world, node2, 700.0);
-    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 1.0);
+    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 0.5);
 
     let node3 = create_node(world);
     append_child(world, node2, node3);
     set_width(world, node3, 500.0);
     set_height(world, node3, 500.0);
     set_backgroud_rgba_color(world, node3, 0.0, 0.0, 1.0, 1.0);
-    // set_border_color(world, node3, 0.0, 1.0, 0.0, 1.0);
-    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeLeft)}, 10.0);
-    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeRight)}, 10.0);
-    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
-    // set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeBottom)}, 10.0);
+    set_border_color(world, node3, 0.0, 1.0, 0.0, 1.0);
+    set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeLeft)}, 10.0);
+    set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeRight)}, 10.0);
+    set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
+    set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeBottom)}, 10.0);
+    set_box_shadow_color(world, node3, 0.0, 0.0, 0.0, 0.5);
+    set_box_shadow_h(world, node3, 50.0);
+    set_box_shadow_v(world, node3, 50.0);
     // transform_rotate(world, node3, 45.0);
 
     // let node4 = create_node(world);

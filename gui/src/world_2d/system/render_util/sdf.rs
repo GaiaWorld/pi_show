@@ -220,6 +220,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     println!("p_matrix----------------{:?}", mgr.projection.0);
     let arr: &[f32; 16] = world_view.as_ref();
     println!("world_matrix----------------{:?}", sdf.world_matrix.0);
+    // let arr = [0.002 , 0.0 , 0.0 , 0.0 , -0.00285714 , 0.0 , 0.0 , 0.0 , -0.0001 , 0.0,499.0 , 351.0 , 0.0 , 1.0];
+    // let arr = &arr;
     // let arr: &[f32; 16] = mgr.projection.0.as_ref();
     #[cfg(feature = "log")]
     js! {
@@ -233,10 +235,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //blur
     #[cfg(feature = "log")]
-    js! {
-        console.log("blur",1.0);
-    }
-    gl.uniform1f(uniform_locations.get(&BLUR), 1.0);
+    println!("blur: {}", sdf.blur);
+    gl.uniform1f(uniform_locations.get(&BLUR), sdf.blur);
 
     //extend
     #[cfg(feature = "log")]
@@ -273,9 +273,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     }
     if defines.stroke {
         //设置strokeSize
+        #[cfg(feature = "log")]
+        println!("border_size:{:?}", sdf.border_size);
         gl.uniform1f(uniform_locations.get(&STROKE_SIZE), sdf.border_size);
 
         //设置strokeColor
+        #[cfg(feature = "log")]
+        println!("border_color:{:?}", sdf.border_color);
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), sdf.border_color.r, sdf.border_color.g, sdf.border_color.b, sdf.border_color.a);
     }
     if defines.clip_plane {
@@ -406,23 +410,39 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     let extend = &sdf.extend;
+    let border_size = sdf.border_size;
+    let pad = 5.0;
     // let extend = Vector2::new(extend.x * 2.0, extend.y *2.0);
     //如果shape_dirty， 更新定点顶点数据
     if sdf_effect.positions_dirty {
         let buffer = [
-            -extend.x,
-            0.0,
+            -extend.x - border_size - pad,
+            -extend.y - border_size - pad,
             sdf.z_depth, // left_top
-            -extend.x,
-            extend.y,
+            -extend.x - border_size - pad,
+            extend.y + border_size + pad,
             sdf.z_depth, // left_bootom
-            extend.x,
-            extend.y,
+            extend.x + border_size + pad,
+            extend.y + border_size + pad,
             sdf.z_depth, // right_bootom
-            extend.x,
-            -extend.y,
+            extend.x + border_size + pad,
+            -extend.y - border_size - pad,
             sdf.z_depth, // right_top
         ];
+        // let buffer = [
+        //     -extend.x - border_size - pad,
+        //     -extend.y - border_size - pad,
+        //     -8388607.0, // left_top
+        //     -extend.x - border_size - pad,
+        //     extend.y + border_size + pad,
+        //     -1.0, // left_bootom
+        //     extend.x + border_size + pad,
+        //     extend.y + border_size + pad,
+        //     -1.0, // right_bootom
+        //     extend.x + border_size + pad,
+        //     -extend.y - border_size - pad,
+        //     -1.0, // right_top
+        // ];
         // let buffer = [0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0];
         #[cfg(feature = "log")]
         println!("position: {:?}", buffer);
