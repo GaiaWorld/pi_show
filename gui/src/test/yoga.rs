@@ -122,6 +122,7 @@ pub fn test(){
     let node2 = YgNode::new();
     // node2.set_width(100.0);
     // node2.set_height(100.0);
+    node2.set_width_auto();
     node2.set_border(YGEdge::YGEdgeLeft, 10.0);
     node2.set_border(YGEdge::YGEdgeTop, 10.0);
     node2.set_border(YGEdge::YGEdgeRight, 10.0);
@@ -133,10 +134,18 @@ pub fn test(){
     root.insert_child(node2.clone(), 1);
     root.calculate_layout(500.0, 500.0, YGDirection::YGDirectionLTR);
 
+    let node3 = YgNode::new();
+    node3.set_width(100.0);
+    node3.set_height(100.0);
+    node2.insert_child(node3.clone(), 0);
+
     let layout = node1.get_layout();
     println!("node1_layout: {:?}", layout);
 
     let layout = node2.get_layout();
     println!("node2_layout: {:?}", layout);
+
+    let layout = node3.get_layout();
+    println!("node3_layout: {:?}", layout);
 }
 

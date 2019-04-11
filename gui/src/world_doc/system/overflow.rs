@@ -7,6 +7,7 @@ use std::rc::Rc;
 use std::ops::Deref;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent, SingleModifyEvent};
+use wcs::world::System;
 use cg::{Vector4};
 
 use world_doc::{WorldDocMgr};
@@ -29,6 +30,11 @@ impl OverflowSys {
     mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(rc.clone() as Rc<ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr>>)));
     rc
   }
+}
+
+impl System<(), WorldDocMgr> for OverflowSys{
+    fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
+    }
 }
 
 //监听overflow属性的改变

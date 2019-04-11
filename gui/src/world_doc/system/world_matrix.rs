@@ -154,20 +154,22 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
     let (mut world_matrix, parent_id) = {
         let (transform_id, l, parent) = {
             let node = component_mgr.node._group.get(node_id);
+            println!("layout-------------------{:?}", &node.layout);
             (node.transform, &node.layout, node.parent)
         };
-
+        
         let center = if parent > 0 {
             //parent_layout
             let pl = &component_mgr.node._group.get(parent).layout;
             cg::Vector3::new(
-                l.width/2.0 + l.left + pl.padding_left + pl.border - pl.width/2.0,
-                l.height/2.0 + l.top + pl.padding_top + pl.border - pl.height/2.0,
+                l.width/2.0 + l.left - pl.width/2.0,
+                l.height/2.0 + l.top - pl.height/2.0,
                 0.0,
             )
         }else {
             cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
         };
+        
 
         let transform = match transform_id == 0 {
             true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO

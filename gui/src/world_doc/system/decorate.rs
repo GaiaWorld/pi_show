@@ -91,12 +91,13 @@ impl ComponentHandler<Color, ModifyFieldEvent, WorldDocMgr> for BBSys {
         let ModifyFieldEvent { id: _, parent, field: _ } = event; 
         let sdf_id = *(unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent) });
 
-        let color_id = component_mgr.node.decorate._group.get(*parent).background_color;
+        let (color_id, node_id) = {
+            let decorate = component_mgr.node.decorate._group.get(*parent);
+            (decorate.background_color, decorate.parent)
+        };
         let color = component_mgr.node.decorate.background_color._group.get(color_id).owner.clone();
 
-        if !color_is_opaque(&color) {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_is_opaque(false);
-        }
+        modify_is_opacity(node_id, sdf_id, *parent, component_mgr);
 
         component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_color(color);
     }
@@ -108,21 +109,22 @@ impl ComponentHandler<Color, CreateEvent, WorldDocMgr> for BBSys {
         let CreateEvent { id, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
         //background_color创建时，其对应的sdf2d能已经被创建（border_color对应的sdf2d与background_color对应的sdf2d是同一个）
-        match borrow_mut.color_sdf2d_map.get(*parent) {
+        let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
+        let sdf_id = match borrow_mut.color_sdf2d_map.get(*parent) {
             //如果已经存在sdf2d, 直接修改其color值
             Some(sdf_id) => {
                 let color = component_mgr.node.decorate.background_color._group.get(*id).owner.clone();
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_color(color);
-                return;
+                *sdf_id
             }, 
-            //如果不存在sdf2d， 创建一个， 插入decorate_id与sdf_id的索引， 以便通过decorate_id插入、删除、和修改sdf
-            None => (),
-        }
-
-        let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
-        let sdf = create_box_sdf2d(component_mgr, node_id);
-        let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
-        borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
+            None => {
+                let sdf = create_box_sdf2d(component_mgr, node_id);
+                let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
+                borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
+                sdf_id
+            },
+        };
+        modify_is_opacity(node_id, sdf_id, *parent, component_mgr);
     }
 }
 
@@ -144,21 +146,24 @@ impl ComponentHandler<MathColor, CreateEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr) {
         let CreateEvent { id, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
+        let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
         //border_color创建时，其对应的sdf2d可能已经被创建（border_color对应的sdf2d与background_color对应的sdf2d是同一个）
-        match borrow_mut.color_sdf2d_map.get(*parent) {
+        let sdf_id = match borrow_mut.color_sdf2d_map.get(*parent) {
             //如果已经存在sdf2d, 直接修改其border_color值
             Some(sdf_id) => {
                 let border_color = component_mgr.node.decorate.border_color._group.get(*id).owner.clone();
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_color(border_color);
-                return;
+                *sdf_id
             },
             //如果不存在sdf2d， 创建一个， 插入decorate_id与sdf_id的索引， 以便通过decorate_id插入、删除、和修改sdf
-            None => (),
-        }
-        let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
-        let sdf = create_box_sdf2d(component_mgr, node_id);
-        let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
-        borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
+            None => {
+                let sdf = create_box_sdf2d(component_mgr, node_id);
+                let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
+                borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
+                sdf_id
+            },
+        };
+        modify_is_opacity(node_id, sdf_id, *parent, component_mgr);
     }
 }
 
@@ -180,12 +185,13 @@ impl ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr> for BBSys {
         let ModifyFieldEvent { id: _, parent, field: _ } = event; 
         let sdf_id = *(unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent) });
 
-        let border_color_id = component_mgr.node.decorate._group.get(*parent).border_color;
+        let (border_color_id, node_id) = {
+            let decorate = component_mgr.node.decorate._group.get(*parent);
+            (decorate.border_color, decorate.parent)
+        };
         let color = component_mgr.node.decorate.border_color._group.get(border_color_id).owner.clone();
 
-        if color.a < 1.0 {
-            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_is_opaque(false);
-        }
+        modify_is_opacity(node_id, sdf_id, *parent, component_mgr);
 
         component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_border_color(color);
     }
@@ -272,24 +278,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
             if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_alpha(node.real_opacity);
                 //设置is_opacity
-                if node.real_opacity < 1.0 {
-                    component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_is_opaque(false);
-                }else if !component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).get_is_opaque(){
-                    let decorate = component_mgr.node.decorate._group.get(decorate_id);
-
-                    if decorate.border_color > 0 {
-                        let color = component_mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
-                        if color.a < 1.0 {
-                            return;
-                        }
-                    }
-
-                    if decorate.background_color > 0 {
-                        let color = component_mgr.node.decorate.background_color._group.get(decorate.background_color).owner.clone();
-                        component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_is_opaque(color_is_opaque(&color));
-                    }
-
-                }
+                modify_is_opacity(*id, *sdf_id, decorate_id, component_mgr);
             }
         } else if *field == "layout" {
             let layout = &node.layout;
@@ -550,6 +539,27 @@ fn color_is_opaque(color: &Color) -> bool{
     }
 }
 
+fn modify_is_opacity(node_id: usize, sdf_id: usize, decorate_id: usize, component_mgr: &mut WorldDocMgr) {
+    let node = component_mgr.node._group.get(node_id);
+    if node.real_opacity < 1.0 {
+        component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_is_opaque(false);
+    }else if !component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).get_is_opaque(){
+        let decorate = component_mgr.node.decorate._group.get(decorate_id);
+
+        if decorate.border_color > 0 {
+            let color = component_mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
+            if color.a < 1.0 {
+                return;
+            }
+        }
+
+        if decorate.background_color > 0 {
+            let color = component_mgr.node.decorate.background_color._group.get(decorate.background_color).owner.clone();
+            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_is_opaque(color_is_opaque(&color));
+        }
+    }
+}
+
 // fn matrix_to_rotate(m: &Matrix4<f32>) -> f32 {
 //     let mut q = Quaternion::new(0.0, 0.0, 0.0, 0.0);
 //     decompose(m, None, Some(&mut q), None);
@@ -569,8 +579,8 @@ fn cal_shadow_matrix(node_id: usize, shadow_id: usize, component_mgr: &mut World
             //parent_layout
             let pl = &component_mgr.node._group.get(parent).layout;
             cg::Vector3::new(
-                l.width/2.0 + l.left + pl.padding_left + pl.border - pl.width/2.0,
-                l.height/2.0 + l.top + pl.padding_top + pl.border - pl.height/2.0,
+                l.width/2.0 + l.left - pl.width/2.0,
+                l.height/2.0 + l.top - pl.height/2.0,
                 0.0,
             )
         }else {

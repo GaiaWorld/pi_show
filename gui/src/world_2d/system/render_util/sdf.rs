@@ -261,11 +261,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     #[cfg(feature = "log")]
     js!{console.log("SCREEN_SIZE", @{mgr.width}, @{mgr.height})}
 
-    // //angle
-    // #[cfg(feature = "log")]
-    // println!("ANGLE: {}", sdf.rotate);
-    // gl.uniform1f(uniform_locations.get(&ANGLE), sdf.rotate);
-
     //set_uniforms
     if defines.sdf_rect {
         //设置radius
@@ -283,6 +278,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), sdf.border_color.r, sdf.border_color.g, sdf.border_color.b, sdf.border_color.a);
     }
     if defines.clip_plane {
+        #[cfg(feature = "log")]
+        println!("by_overflow:{:?}", sdf.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), sdf.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&mgr.overflow_texture.texture));
@@ -432,16 +429,16 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         // let buffer = [
         //     -extend.x - border_size - pad,
         //     -extend.y - border_size - pad,
-        //     -8388607.0, // left_top
+        //     -0.0, // left_top
         //     -extend.x - border_size - pad,
         //     extend.y + border_size + pad,
-        //     -1.0, // left_bootom
+        //     -0.0, // left_bootom
         //     extend.x + border_size + pad,
         //     extend.y + border_size + pad,
-        //     -1.0, // right_bootom
+        //     -0.0, // right_bootom
         //     extend.x + border_size + pad,
         //     -extend.y - border_size - pad,
-        //     -1.0, // right_top
+        //     -0.0, // right_top
         // ];
         // let buffer = [0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0];
         #[cfg(feature = "log")]

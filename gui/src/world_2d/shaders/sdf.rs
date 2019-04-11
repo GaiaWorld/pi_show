@@ -234,6 +234,25 @@ pub fn sdf_fragment_shader() -> String{
 
         void main(void) {
 
+    #ifdef CLIP_PLANE
+
+            vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
+            vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
+
+            int index = int(clipIndices);
+            int mask = int(clipColor.r * 256.0);
+            
+            bvec4 m1, m2, i1, i2;
+            toBit(mask, m1, m2);
+            toBit(index, i1, i2);
+
+            bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
+    #endif
+
             // gl_FragCoord的范围是[0, screenSize)，需要变成 [-screenSize/2, screenSize/2)
             vec2 coord = vpos;
 
@@ -255,25 +274,6 @@ pub fn sdf_fragment_shader() -> String{
             c = color;
     #endif
 
-    #ifdef CLIP_PLANE
-
-            vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
-            vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
-
-            int index = int(clipIndices);
-            int mask = int(clipColor.r * 256.0);
-            
-            bvec4 m1, m2, i1, i2;
-            toBit(mask, m1, m2);
-            toBit(index, i1, i2);
-
-            bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
-            bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
-            if (!bitAnd(notM1, notM2, i1, i2)) {
-                discard;
-            }
-    #endif
-
             coord = coord / screenSize;
             vec2 size = extend / screenSize;
             
@@ -284,9 +284,8 @@ pub fn sdf_fragment_shader() -> String{
     #else
             d = sdfEllipse(coord, size);
     #endif
-
-            float anti = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
-            c = vec4(c.rgb, c.a * anti);
+            float antiBody = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
+            c.a = c.a * antiBody;
 
     #ifdef STROKE
             vec2 fsStrokeSize = vec2(strokeSize / screenSize);
@@ -297,8 +296,10 @@ pub fn sdf_fragment_shader() -> String{
             d = sdfEllipse(coord, size + fsStrokeSize);
         #endif
 
-            c.rgb = mix(strokeColor.rgb, c.rgb, c.a);
-            c.a = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
+            vec4 sc = strokeColor;
+            float antiStroke = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
+            sc.a = sc.a * antiStroke;
+            c = mix(sc, c, antiBody);        
     #endif
             
             c.a = c.a * alpha;
