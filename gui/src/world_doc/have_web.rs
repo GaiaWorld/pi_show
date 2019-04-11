@@ -13,6 +13,8 @@ use cg::{Aabb3, Point3};
 use world_doc::font::{FontSheet};
 use world_doc::component::node::*;
 use world_doc::system::{layout::Layout as LayoutSys, world_matrix::WorldMatrix as WorldMatrixSys, oct::Oct as OctSys, opacity::OpacitySys, decorate::BBSys , run_world_2d::RunWorld2d as RunWorld2dSys};
+use world_doc::system::node_count::NodeCountSys;
+use world_doc::system::zindex::ZIndexSys;
 use world_2d::World2dMgr;
 use world_2d;
 
@@ -21,15 +23,18 @@ pub const Z_MAX: f32 = 8388608.0;
 pub fn create_world(gl: WebGLRenderingContext) -> World<WorldDocMgr, ()>{
     let mut mgr = WorldDocMgr::new(gl);
 
+    let node_count_sys = NodeCountSys::init(&mut mgr);
     let layout_sys = LayoutSys::init(&mut mgr);
     let world_matrix_sys = WorldMatrixSys::init(&mut mgr);
     let oct_sys = OctSys::init(&mut mgr);
     let opacity_sys = OpacitySys::init(&mut mgr);
     let bb_sys = BBSys::init(&mut mgr);
     let run_world_2d_sys = RunWorld2dSys::init(&mut mgr);
+    let z_index_sys = ZIndexSys::init(&mut mgr);
+    
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![layout_sys, world_matrix_sys, oct_sys, opacity_sys, bb_sys, run_world_2d_sys];
+    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![node_count_sys, z_index_sys, layout_sys, world_matrix_sys, oct_sys, opacity_sys, bb_sys, run_world_2d_sys];
     world.set_systems(systems);
 
     world
@@ -63,6 +68,7 @@ impl WorldDocMgr {
         let root = NodeBuilder::new()
         .build(&mut mgr.node);
 
+        root.yoga.set_context(1 as *mut c_void);
         //插入根节点, 不抛出创建事件
         mgr.node._group.insert(root, 0); 
         mgr.root_id = 1;

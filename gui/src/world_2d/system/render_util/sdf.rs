@@ -6,18 +6,18 @@ use atom::Atom;
 use world_2d::World2dMgr;
 use world_2d::component::sdf::{SdfDefines};
 use component::color::Color;
-use component::math::Color as MathColor;
+use component::math::{Color as MathColor, Vector2};
 use render::engine::{Engine, get_uniform_location};
 
 lazy_static! {
     static ref POSITION: Atom = Atom::from("position");
     static ref WORLD_VIEW_PROJECTION: Atom = Atom::from("worldViewProjection");
-    static ref CENTER: Atom = Atom::from("center");
+    // static ref CENTER: Atom = Atom::from("center");
     static ref BLUR: Atom = Atom::from("blur");
     static ref EXTEND: Atom = Atom::from("extend");
     static ref ALPHA: Atom = Atom::from("alpha");
     static ref SCREEN_SIZE: Atom = Atom::from("screenSize");
-    static ref ANGLE: Atom = Atom::from("angle");
+    // static ref ANGLE: Atom = Atom::from("angle");
     static ref RADIUS: Atom = Atom::from("radius");
     static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
     static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
@@ -37,7 +37,8 @@ lazy_static! {
 // 初始化location
 pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64) {
     let gl = engine.gl.clone();
-
+    
+    println!("program_id-----------------------{}", program_id);
     let program = engine.lookup_program_mut(program_id).unwrap();
     let uniform_locations = &mut program.uniform_locations;
     let attr_locations = &mut program.attr_locations;
@@ -58,10 +59,10 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         WORLD_VIEW_PROJECTION.clone(),
         get_uniform_location(&gl,program, &WORLD_VIEW_PROJECTION),
     );
-    uniform_locations.insert(
-        CENTER.clone(),
-        get_uniform_location(&gl,program, &CENTER),
-    );
+    // uniform_locations.insert(
+    //     CENTER.clone(),
+    //     get_uniform_location(&gl,program, &CENTER),
+    // );
     uniform_locations.insert(
         BLUR.clone(),
         get_uniform_location(&gl,program, &BLUR),
@@ -78,10 +79,10 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         SCREEN_SIZE.clone(),
         get_uniform_location(&gl,program, &SCREEN_SIZE),
     );
-    uniform_locations.insert(
-        ANGLE.clone(),
-        get_uniform_location(&gl,program, &ANGLE),
-    );
+    // uniform_locations.insert(
+    //     ANGLE.clone(),
+    //     get_uniform_location(&gl,program, &ANGLE),
+    // );
 
     if defines.sdf_rect {
         uniform_locations.insert(
@@ -90,10 +91,12 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         );
     }
     if defines.stroke {
+        println!("defines.stroke-------------------start");
         uniform_locations.insert(
             STROKE_SIZE.clone(),
             get_uniform_location(&gl,program, &STROKE_SIZE),
         );
+        println!("defines.stroke-------------------end");
         uniform_locations.insert(
             STROKE_COLOR.clone(),
             get_uniform_location(&gl,program, &STROKE_COLOR),
@@ -197,6 +200,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let sdf = mgr.sdf._group.get(sdf_effect.sdf_id);
 
     let defines = mgr.sdf_effect.defines._group.get(sdf_effect.defines);
+    #[cfg(feature = "log")]
     println!("defines---------------------------{:?}", defines);
 
 
@@ -211,7 +215,15 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.use_program(Some(program));
 
     //设置worldViewProjection
-    let arr: &[f32; 16] = mgr.projection.0.as_ref();
+    let world_view = mgr.projection.0 * sdf.world_matrix.0;
+    // let world_view = sdf.world_matrix.0 * mgr.projection.0;
+    println!("p_matrix----------------{:?}", mgr.projection.0);
+    let arr: &[f32; 16] = world_view.as_ref();
+    println!("world_matrix----------------{:?}", sdf.world_matrix.0);
+    // let arr = [0.002 , 0.0 , 0.0 , 0.0 , -0.00285714 , 0.0 , 0.0 , 0.0 , -0.0001 , 0.0,499.0 , 351.0 , 0.0 , 1.0];
+    // let arr = &arr;
+    // let arr: &[f32; 16] = mgr.projection.0.as_ref();
+    #[cfg(feature = "log")]
     js! {
         console.log("world_view", @{&arr[0..16]});
     }
@@ -222,18 +234,19 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     //blur
-    js! {
-        console.log("blur",1.0);
-    }
-    gl.uniform1f(uniform_locations.get(&BLUR), 1.0);
+    #[cfg(feature = "log")]
+    println!("blur: {}", sdf.blur);
+    gl.uniform1f(uniform_locations.get(&BLUR), sdf.blur);
 
     //extend
+    #[cfg(feature = "log")]
     js! {
         console.log("extend", @{sdf.extend.x}, @{sdf.extend.y});
     }
     gl.uniform2f(uniform_locations.get(&EXTEND), sdf.extend.x, sdf.extend.y);
 
     // alpha
+    #[cfg(feature = "log")]
     js! {
         console.log("alpha", @{sdf.alpha});
     }
@@ -245,11 +258,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         mgr.width,
         mgr.height,
     );
+    #[cfg(feature = "log")]
     js!{console.log("SCREEN_SIZE", @{mgr.width}, @{mgr.height})}
 
-    //angle
-    js!{console.log("ANGLE", 0)}
-    gl.uniform1f(uniform_locations.get(&ANGLE), 0.0); //TODO
+    // //angle
+    // #[cfg(feature = "log")]
+    // println!("ANGLE: {}", sdf.rotate);
+    // gl.uniform1f(uniform_locations.get(&ANGLE), sdf.rotate);
 
     //set_uniforms
     if defines.sdf_rect {
@@ -258,9 +273,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     }
     if defines.stroke {
         //设置strokeSize
+        #[cfg(feature = "log")]
+        println!("border_size:{:?}", sdf.border_size);
         gl.uniform1f(uniform_locations.get(&STROKE_SIZE), sdf.border_size);
 
         //设置strokeColor
+        #[cfg(feature = "log")]
+        println!("border_color:{:?}", sdf.border_color);
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), sdf.border_color.r, sdf.border_color.g, sdf.border_color.b, sdf.border_color.a);
     }
     if defines.clip_plane {
@@ -272,6 +291,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     match &sdf.color {
         Color::RGB(color) | Color::RGBA(color) => {
+            #[cfg(feature = "log")]
             js!{console.log("color", @{color.r}, @{color.g}, @{color.b}, @{color.a})}
             // color
             gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a,
@@ -389,26 +409,45 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         Some(&sdf_effect.positions_buffer),
     );
 
-    let bound_box = &sdf.bound_box;
+    let extend = &sdf.extend;
+    let border_size = sdf.border_size;
+    let pad = 5.0;
+    // let extend = Vector2::new(extend.x * 2.0, extend.y *2.0);
     //如果shape_dirty， 更新定点顶点数据
     if sdf_effect.positions_dirty {
         let buffer = [
-            bound_box.min.x,
-            bound_box.min.y,
+            -extend.x - border_size - pad,
+            -extend.y - border_size - pad,
             sdf.z_depth, // left_top
-            bound_box.min.x,
-            bound_box.max.y,
+            -extend.x - border_size - pad,
+            extend.y + border_size + pad,
             sdf.z_depth, // left_bootom
-            bound_box.max.x,
-            bound_box.max.y,
+            extend.x + border_size + pad,
+            extend.y + border_size + pad,
             sdf.z_depth, // right_bootom
-            bound_box.max.x,
-            bound_box.min.y,
+            extend.x + border_size + pad,
+            -extend.y - border_size - pad,
             sdf.z_depth, // right_top
         ];
+        // let buffer = [
+        //     -extend.x - border_size - pad,
+        //     -extend.y - border_size - pad,
+        //     -8388607.0, // left_top
+        //     -extend.x - border_size - pad,
+        //     extend.y + border_size + pad,
+        //     -1.0, // left_bootom
+        //     extend.x + border_size + pad,
+        //     extend.y + border_size + pad,
+        //     -1.0, // right_bootom
+        //     extend.x + border_size + pad,
+        //     -extend.y - border_size - pad,
+        //     -1.0, // right_top
+        // ];
+        // let buffer = [0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0];
+        #[cfg(feature = "log")]
+        println!("position: {:?}", buffer);
         let buffer = unsafe { UnsafeTypedArray::new(&buffer) };
         js! {
-            console.log("position", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
     }
@@ -425,18 +464,23 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
     gl.enable_vertex_attrib_array(position_location);
 
-    println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
-    gl.uniform2f(
-        uniform_locations.get(&CENTER),
-        (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
-        (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
-    );
+    // #[cfg(feature = "log")]
+    // println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
+    // gl.uniform2f(
+    //     uniform_locations.get(&CENTER),
+    //     (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
+    //     (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
+    // );
 
     //index
     gl.bind_buffer(
         WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,
         Some(&sdf_effect.indeices_buffer),
     );
+
+    #[cfg(feature = "log")]
+    println!("is_opaque: {}", sdf.is_opaque);
+    
 
     // js! {
     //     console.log("draw_elements-------------------");

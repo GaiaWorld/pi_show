@@ -12,7 +12,7 @@ use vecmap::VecMap;
 
 use component::color::Color;
 use world_2d::World2dMgr;
-use world_2d::component::sdf::{Sdf, SdfEffect, SdfEffectWriteRef, SdfDefines};
+use world_2d::component::sdf::{Sdf, SdfEffect, SdfEffectWriteRef, SdfDefines, SdfType};
 
 pub struct CreateEffect(Rc<RefCell<CreateEffectImpl>>);
 
@@ -41,8 +41,43 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut World2dMgr){
         let CreateEvent{id, parent:_} = event;
         let mut defines = SdfDefines::default();
-        defines.sdf_rect = true;
-        defines.color = true;
+        let sdf = &component_mgr.sdf._group.get(*id);
+        match sdf.ty {
+            SdfType::Rect => defines.sdf_rect = true,
+            _ => (),
+        };
+        println!("border_size-------------------{}", sdf.border_size);
+        if sdf.border_size > 0.0 {
+            defines.stroke = true;
+        }
+        match &sdf.color {
+            Color::RGB(_) | Color::RGBA(_) => {
+                //修改COLOR宏
+                defines.color = true;
+                defines.linear_color_gradient_2 = false;
+                defines.linear_color_gradient_4 = false;
+                defines.ellipse_color_gradient = false;
+            }
+            Color::LinearGradient(v) => {
+                //修改COLOR宏
+                defines.color = false;
+                if v.list.len() == 2 {
+                    defines.linear_color_gradient_2 = true;
+                    defines.linear_color_gradient_4 = false;
+                } else {
+                    defines.linear_color_gradient_2 = false;
+                    defines.linear_color_gradient_4 = true;
+                }
+                defines.ellipse_color_gradient = false;
+            }
+            Color::RadialGradient(_) => {
+                //修改COLOR宏
+                defines.color = false;
+                defines.linear_color_gradient_2 = false;
+                defines.linear_color_gradient_4 = false;
+                defines.ellipse_color_gradient = true;
+            }
+        };
         let defines_id = component_mgr.sdf_effect.defines._group.insert(defines, 0);
         let sdf_effect = SdfEffect {
             program: 0,

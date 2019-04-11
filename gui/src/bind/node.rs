@@ -1,13 +1,13 @@
 use atom::Atom;
-// use cg::octree::intersects;
+use cg::octree::intersects;
 
 use wcs::world::World;
 
-// use world_doc::{Z_MAX, WorldDocMgr};
-use world_doc::{ WorldDocMgr};
+use world_doc::{Z_MAX, WorldDocMgr};
+// use world_doc::{ WorldDocMgr};
 use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use world_doc::component::node::{InsertType, NodeWriteRef};
-// use cg::{Aabb3, Point3};
+use cg::{Aabb3, Point3};
 
 // use bind::{Pointer};
 
@@ -132,44 +132,44 @@ pub fn set_src(world: u32, node_id: u32, value: &str){
     js!{console.log("set_src");} 
 }
 
-// #[no_mangle]
-// pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{
-//     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-//     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-//     let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), ty);
-//     world.component_mgr.octree.query(&aabb, intersects, &mut args, ab_query_func);
-//     js!{console.log("result");} 
-//     args.result
-// }
-// /// aabb的查询函数的参数
-// struct AbQueryArgs<'a> {
-//   mgr: &'a WorldDocMgr,
-//   aabb: Aabb3<f32>,
-//   ty: u32,
-//   max_z: f32,
-//   result: u32,
-// }
-// impl<'a> AbQueryArgs<'a> {
-//   pub fn new(mgr: &WorldDocMgr, aabb: Aabb3<f32>, ty: u32) -> AbQueryArgs {
-//     AbQueryArgs{
-//       mgr: mgr,
-//       aabb: aabb,
-//       ty: ty,
-//       max_z: -Z_MAX,
-//       result: 0,
-//     }
-//   }
-// }
-// /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
-// fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &u32) {
-//   if intersects(&arg.aabb, aabb) {
-//     let node = mgr.node._group.get(*bind as usize);
-//     // 判断类型是否有相交
-//     if node.event_ty & arg.ty != 0 {
-//         // 取最大z的node
-//         if node.z_depth > arg.max_z {
-//            arg.result = bind.clone();
-//         }
-//     }
-//   }
-// }
+#[no_mangle]
+pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+    let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), ty);
+    world.component_mgr.octree.query(&aabb, intersects, &mut args, ab_query_func);
+    js!{console.log("result");} 
+    args.result as u32
+}
+/// aabb的查询函数的参数
+struct AbQueryArgs<'a> {
+  mgr: &'a WorldDocMgr,
+  aabb: Aabb3<f32>,
+  ev_type: u32,
+  max_z: f32,
+  result: usize,
+}
+impl<'a> AbQueryArgs<'a> {
+  pub fn new(mgr: &WorldDocMgr, aabb: Aabb3<f32>, ev_type: u32) -> AbQueryArgs {
+    AbQueryArgs{
+      mgr: mgr,
+      aabb: aabb,
+      ev_type: ev_type,
+      max_z: -Z_MAX,
+      result: 0,
+    }
+  }
+}
+/// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
+fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &usize) {
+  if intersects(&arg.aabb, aabb) {
+    let node = arg.mgr.node._group.get(*bind);
+    // 判断类型是否有相交
+    if (node.event_type as u32) & arg.ev_type != 0 {
+        // 取最大z的node
+        if node.z_depth > arg.max_z {
+           arg.result = *bind;
+        }
+    }
+  }
+}

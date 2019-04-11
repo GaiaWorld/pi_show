@@ -7,11 +7,14 @@ use wcs::world::{ComponentMgr};
 use atom::Atom;
 
 use component::color::{Color};
-use component::math::{Color as MathColor, Aabb3, Vector2};
+use component::math::{Color as MathColor, Aabb3, Vector2, Matrix4};
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component, Default, Clone)]
 pub struct Sdf{
+    //alpha
+    #[listen]
+    pub world_matrix: Matrix4,
 
     //alpha
     #[listen]
@@ -42,8 +45,8 @@ pub struct Sdf{
     // extend
     pub extend: Vector2,
 
-    // 旋轉角度
-    pub rotate: f32,
+    // // 旋轉角度
+    // pub rotate: f32,
 
     #[listen]
     pub bound_box: Aabb3,
@@ -58,6 +61,15 @@ pub struct Sdf{
     // 边框
     #[listen]
     pub border_color: MathColor,
+
+    pub ty: SdfType,
+}
+
+#[derive(Debug, EnumDefault, Clone)]
+pub enum SdfType {
+    Rect,
+    Ellipse,
+    Shadow,
 }
 
 

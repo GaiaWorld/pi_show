@@ -2,7 +2,7 @@ use std::default::Default;
 use std::rc::Rc;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
-use cg::{Matrix4, Point2 as CgPoint2};
+use cg::{Matrix4, Point2 as CgPoint2, Ortho};
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -127,7 +127,16 @@ pub struct GuiWorldViewProjection(pub Matrix4<f32>);
 
 impl GuiWorldViewProjection {
     pub fn new(width: f32, height: f32) -> GuiWorldViewProjection{
-        let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, 0.1, 1000.0);
+        // let ortho = Ortho {
+        //     left: 0.0,
+        //     right: width,
+        //     bottom: height, 
+        //     top: 0.0,
+        //     near: -10000.0,
+        //     far: 10000.0,
+        // };
+        // GuiWorldViewProjection(Matrix4::from(ortho))
+        let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
         GuiWorldViewProjection(Matrix4::new(
                 2.0 / (right - left),                  0.0,                               0.0,                        0.0,
                     0.0,                     2.0 / (top - bottom),                       0.0,                        0.0,

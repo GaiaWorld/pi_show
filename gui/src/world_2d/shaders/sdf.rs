@@ -7,20 +7,14 @@ pub fn sdf_vertex_shader() -> String{
 
         // Uniforms
         uniform vec2 screenSize;
-        uniform vec2 center;
         uniform mat4 worldViewProjection;
     
         // Varyings
-        varying vec2 vcenter;
+        varying vec2 vpos;
 
         void main(void) {
             gl_Position = worldViewProjection * vec4(position, 1.0);
-
-            vec4 c = vec4(center, 0.0, 1.0);
-            c = worldViewProjection * c;
-            c.xy = c.xy / c.w;
-            // c.xy 在这里 [-1, 1]
-            vcenter.xy = c.xy * screenSize / 2.0;
+            vpos = position.xy;
         }
     "#.to_string()
 }
@@ -34,7 +28,6 @@ pub fn sdf_fragment_shader() -> String{
         uniform vec2 extend;
         uniform float alpha;
         uniform vec2 screenSize;
-        uniform float angle;
 
         #ifdef SDF_RECT
             uniform float radius;
@@ -78,18 +71,8 @@ pub fn sdf_fragment_shader() -> String{
         #endif
 
         // Varyings
-        varying vec2 vcenter;
+        varying vec2 vpos;
         
-        vec2 translate(vec2 coord, vec2 offset) {
-            return coord + offset;
-        }
-
-        vec2 rotate(vec2 coord, float angle) {
-            float c = cos(angle);
-            float s = sin(angle);
-            return vec2(c * coord.x + s * coord.y, c * coord.y - s * coord.x);
-        }
-
         // 8位int型变二进制数组
         void toBit(int num, out bvec4 r1, out bvec4 r2) {
             for (int i = 0; i < 4; ++i) {
@@ -252,11 +235,8 @@ pub fn sdf_fragment_shader() -> String{
         void main(void) {
 
             // gl_FragCoord的范围是[0, screenSize)，需要变成 [-screenSize/2, screenSize/2)
-            vec2 coord = gl_FragCoord.xy - screenSize / 2.0;
-            
-            coord = translate(coord, -vcenter);
-            coord = rotate(coord, -angle);
-            
+            vec2 coord = vpos;
+
             vec4 c;
             float percent;
     #ifdef LINEAR_COLOR_GRADIENT_2
@@ -308,10 +288,24 @@ pub fn sdf_fragment_shader() -> String{
             float anti = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
             c = vec4(c.rgb, c.a * anti);
 
+    #ifdef STROKE
+            vec2 fsStrokeSize = vec2(strokeSize / screenSize);
+        
+        #ifdef SDF_RECT
+            d = sdfRect(coord, size + fsStrokeSize, rectRadius);
+        #else
+            d = sdfEllipse(coord, size + fsStrokeSize);
+        #endif
+
+            c.rgb = mix(strokeColor.rgb, c.rgb, c.a);
+            c.a = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
+    #endif
+            
             c.a = c.a * alpha;
             if (c.a < 0.02) {
                 discard;
             }
+            
             gl_FragColor = c;
         }
     "#.to_string()
