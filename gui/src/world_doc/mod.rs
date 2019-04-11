@@ -1,5 +1,6 @@
 pub mod component;
 pub mod system;
+pub mod font;
 
 #[cfg(feature = "web")]
 mod have_web;

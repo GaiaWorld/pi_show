@@ -1,13 +1,11 @@
 // 布局系统， 同时负责布局文本。
-// 文本节点的布局判断：
-// 情况一： 图文混排布局。如果该节点的父节点是无布局的节点，则将清空父yoga节点的子yoga节点，将其子yoga节点重新插入，将文本拆成每个字（英文为单词）的yaga节点加入父yoga节点。这样可以支持图文混排。
-// 情况二： 普通布局。如果该节点的父节点是有布局的节点，则将该文本节点作为父节点，将字yaga节点加入该文本的yoga节点。
+// 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yaga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
+// 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yaga节点来模拟。
 
 use std::cell::RefCell;
 use std::rc::{Rc};
 use std::os::raw::{c_void};
-use std::mem::forget;
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
 
@@ -33,6 +31,8 @@ impl Layout {
         mgr.node.element.text._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, CreateEvent, WorldDocMgr>>)));
         mgr.node.element.text._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, DeleteEvent, WorldDocMgr>>)));
         mgr.node.element.text._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr>>)));
+        // 世界矩阵的监听
+        //mgr.node.element.text._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -41,21 +41,21 @@ impl Layout {
 impl ComponentHandler<Text, CreateEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &CreateEvent, mgr: &mut WorldDocMgr){
         let CreateEvent {id, parent} = event;
-        self.0.borrow_mut().create_text(*id, *parent);
+        self.0.borrow_mut().create_text(mgr, *id, *parent);
     }
 }
 //监听文本删除事件
 impl ComponentHandler<Text, DeleteEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &DeleteEvent, mgr: &mut WorldDocMgr){
         let DeleteEvent {id, parent} = event;
-        self.0.borrow_mut().delete_text(*id, *parent);
+        self.0.borrow_mut().delete_text(mgr, *id, *parent);
     }
 }
 //监听文本修改事件
 impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
-    fn handle(&self, event: &ModifyFieldEvent, _component_mgr: &mut WorldDocMgr){
+    fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
         let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
-        self.0.borrow_mut().modify_text(*id, *parent);
+        self.0.borrow_mut().modify_text(mgr, *id, *parent);
     }
 }
 
@@ -63,15 +63,14 @@ impl System<(), WorldDocMgr> for Layout{
     fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
         let width = mgr.world_2d.component_mgr.width;
         let height = mgr.world_2d.component_mgr.height;
-        let layoutImpl = self.0.borrow_mut().deref() as *const LayoutImpl;
-        //计算布局，如果布局更改， 调用回调来设置layout属性
-        mgr.node._group.get(mgr.get_root_id()).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, layoutImpl as *const c_void);
+        let layout_impl = self.0.borrow_mut();
+        //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
+        mgr.node._group.get(mgr.get_root_id()).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, layout_impl.deref() as *const LayoutImpl as *const c_void);
     }
 }
 
 
 pub struct TextImpl {
-  pub parent_ref: usize, // 初始化时，获得的对应的yoga节点。该节点取决于是否为图文混排布局。 每次计算要检查该节点
   pub height: usize, // 字体高度
   pub chars: Vec<usize>, // 字符集合
 }
@@ -83,7 +82,7 @@ pub struct CharImpl {
 }
 pub struct LayoutImpl{
     node_map: FnvHashMap<usize,TextImpl>,
-    //char_slab: Slab<CharImpl>,
+    char_slab: Slab<CharImpl>,
     mgr: *mut WorldDocMgr,
 }
 
@@ -91,23 +90,33 @@ impl LayoutImpl {
     pub fn new(mgr: &mut WorldDocMgr) -> LayoutImpl{
         LayoutImpl{
             node_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
-            //char_slab: Slab::new(),
+            char_slab: Slab::default(),
             mgr: mgr as *mut WorldDocMgr,
         }
     }
     // 立即生成yoga节点并加入
-    pub fn create_text(&mut self, text_id: usize, node_id: usize) {
-        // TODO 计算字体高度，根据父节点的布局，获取对应的parent_ref
+    pub fn create_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
+        // 获得字体高度
+        let text = mgr.node.element.text._group.get(text_id);
+        let font = mgr.node.element.text.font._group.get(text.font);
+        let text_style = mgr.node.element.text.text_style._group.get(text.text_style);
+        //let font_size = 
         // self.node_map.insert(node_id, TextImpl {
         //     action: action,
         //     chars: Vec::new(),
         // });
     }
-    // 如果是图文混排布局，立即删除yoga节点。 如果是普通布局，则由节点进行yaga节点的删除
-    pub fn delete_text(&mut self, text_id: usize, node_id: usize) {
-        // let text = component_mgr.node.element.text._group.get(text_id);
-        // let font = component_mgr.node.element.text._group.get(text.font);
-        // let text_style = component_mgr.node.element.text._group.get(text.text_style);
+    // 立即删除自己增加的yoga节点
+    pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, _node_id: usize) {
+        let text = mgr.node.element.text._group.get(text_id);
+        match self.node_map.remove(&text_id) {
+            Some(t) => {
+                for id in t.chars {
+                    self.char_slab.remove(id).node.free();
+                }
+            },
+            _ => ()
+        }
         // match self.node_map.entry(node_id) {
         //     Entry::Occupied(mut e) => {
         //         let v = e.get_mut();
@@ -124,7 +133,7 @@ impl LayoutImpl {
         // }
     }
     // 更新文字， 先删除yoga节点，再生成yoga节点并加入
-    pub fn modify_text(&mut self, text_id: usize, node_id: usize) {
+    pub fn modify_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
         
     }
     // 文本布局改变
@@ -157,17 +166,14 @@ fn update(mgr: &mut WorldDocMgr, node_id: usize) {
 }
 
 //回调函数
-#[no_mangle]
 extern "C" fn callback(callback_context: *const c_void, context: *const c_void) {
     //更新布局
     let node_id = unsafe { context as isize};
-    let layoutImpl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
-    let mgr = unsafe{ &mut *(layoutImpl.mgr) };
+    let layout_impl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
+    let mgr = unsafe{ &mut *(layout_impl.mgr) };
     if node_id > 0 {
         update(mgr, node_id as usize);
     }else if node_id < 0 {
-        layoutImpl.update(mgr, (-node_id) as usize);
+        layout_impl.update(mgr, (-node_id) as usize);
     }
-    forget(mgr);
-    forget(layoutImpl);
 }
