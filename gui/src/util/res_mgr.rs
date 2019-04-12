@@ -13,8 +13,6 @@ pub trait Res {
 	//fn is_alive(&self) -> bool;
 	// 创建资源, 如果异步，可以返回Result<Promise>
 	//fn create(&mut self) -> bool;
-	// 释放
-	fn release(&self);
 }
 
 //资源表
@@ -66,52 +64,14 @@ impl<T:Res> ResMap<T> {
 
 }
 
-pub struct ResMgr {
-    pub img: ResMap<ImgRes>,
-}
+// pub struct ResMgr {
+//     pub img: ResMap<ImgRes>,
+// }
 
-impl ResMgr {
-    pub fn new() -> ResMgr{
-        ResMgr{
-            img: ResMap::new(),
-        }
-    }
-}
-
-
-pub struct ImgRes {
-    pub name: Atom,
-    pub width: usize,
-    pub height: usize,
-    pub opacity: usize,
-    pub compress: usize,
-    pub handler: usize,
-}
-
-impl ImgRes {
-    // 创建资源
-	pub fn new(key: Atom, width: usize,
-    height: usize,
-    opacity: usize,
-    compress: usize) -> Self{
-        ImgRes {
-            name: key,
-            width: width,
-            height: height,
-            opacity: opacity,
-            compress: compress,
-            handler: 0,
-        }
-    }
-}
-impl Res for ImgRes {
-	// 创建资源
-	fn name(&self) -> &Atom{
-        &self.name
-    }
-	// 释放
-	fn release(&self){
-
-    }
-
-}
+// impl ResMgr {
+//     pub fn new() -> ResMgr{
+//         ResMgr{
+//             img: ResMap::new(),
+//         }
+//     }
+// }

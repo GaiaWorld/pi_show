@@ -18,25 +18,26 @@ use world_doc::system::zindex::ZIndexSys;
 use world_doc::system::overflow::OverflowSys;
 use world_2d::World2dMgr;
 use world_2d;
+use render::engine::Engine;
 
 pub const Z_MAX: f32 = 8388608.0;
 
-pub fn create_world(gl: WebGLRenderingContext) -> World<WorldDocMgr, ()>{
-    let mut mgr = WorldDocMgr::new(gl);
+pub fn create_world(engine: Engine) -> World<WorldDocMgr, ()>{
+    let mut mgr = WorldDocMgr::new(engine);
 
-    let node_count_sys = NodeCountSys::init(&mut mgr);
+    // let node_count_sys = NodeCountSys::init(&mut mgr);
     let layout_sys = LayoutSys::init(&mut mgr);
     let world_matrix_sys = WorldMatrixSys::init(&mut mgr);
     let oct_sys = OctSys::init(&mut mgr);
     let opacity_sys = OpacitySys::init(&mut mgr);
     let bb_sys = BBSys::init(&mut mgr);
     let run_world_2d_sys = RunWorld2dSys::init(&mut mgr);
-    let z_index_sys = ZIndexSys::init(&mut mgr);
-    let overflow_sys = OverflowSys::init(&mut mgr);
+    // let z_index_sys = ZIndexSys::init(&mut mgr);
+    // let overflow_sys = OverflowSys::init(&mut mgr);
     
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![node_count_sys, z_index_sys, overflow_sys, layout_sys, world_matrix_sys, oct_sys, opacity_sys, bb_sys, run_world_2d_sys];
+    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![layout_sys, world_matrix_sys, oct_sys, opacity_sys, bb_sys, run_world_2d_sys];
     world.set_systems(systems);
 
     world
@@ -57,14 +58,14 @@ world!(
 );
 
 impl WorldDocMgr {
-    pub fn new(gl: WebGLRenderingContext) -> Self{
+    pub fn new(engine: Engine) -> Self{
         let mut mgr = WorldDocMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
             root_id: 0,
             font: FontSheet::default(),
             octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-8388608f32), Point3::new(3072f32,3072f32,8388608f32)), 0, 0, 0, 0),
-            world_2d: world_2d::create_world(gl),
+            world_2d: world_2d::create_world(engine),
         };
 
         let root = NodeBuilder::new()

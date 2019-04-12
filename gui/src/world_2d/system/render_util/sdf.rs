@@ -38,7 +38,6 @@ lazy_static! {
 pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64) {
     let gl = engine.gl.clone();
     
-    println!("program_id-----------------------{}", program_id);
     let program = engine.lookup_program_mut(program_id).unwrap();
     let uniform_locations = &mut program.uniform_locations;
     let attr_locations = &mut program.attr_locations;
@@ -91,12 +90,10 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         );
     }
     if defines.stroke {
-        println!("defines.stroke-------------------start");
         uniform_locations.insert(
             STROKE_SIZE.clone(),
             get_uniform_location(&gl,program, &STROKE_SIZE),
         );
-        println!("defines.stroke-------------------end");
         uniform_locations.insert(
             STROKE_COLOR.clone(),
             get_uniform_location(&gl,program, &STROKE_COLOR),
@@ -217,8 +214,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     //设置worldViewProjection
     let world_view = mgr.projection.0 * sdf.world_matrix.0;
     // let world_view = sdf.world_matrix.0 * mgr.projection.0;
+    #[cfg(feature = "log")]
     println!("p_matrix----------------{:?}", mgr.projection.0);
     let arr: &[f32; 16] = world_view.as_ref();
+    #[cfg(feature = "log")]
     println!("world_matrix----------------{:?}", sdf.world_matrix.0);
     // let arr = [0.002 , 0.0 , 0.0 , 0.0 , -0.00285714 , 0.0 , 0.0 , 0.0 , -0.0001 , 0.0,499.0 , 351.0 , 0.0 , 1.0];
     // let arr = &arr;

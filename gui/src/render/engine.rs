@@ -9,9 +9,11 @@ use stdweb::unstable::TryInto;
 use atom::Atom;
 
 use render::extension::*;
+use render::res::ResMgr;
 
 pub struct Engine {
     pub gl: WebGLRenderingContext,
+    pub res_mgr: ResMgr,
     compiled_programs: FnvHashMap<u64, Program>,
 }
 
@@ -30,6 +32,7 @@ impl Engine {
         init_gl(&gl);
         Engine{
             gl,
+            res_mgr: ResMgr::new(),
             compiled_programs: FnvHashMap::default(),
         }
     }
@@ -118,19 +121,10 @@ impl Engine {
         gl.attach_shader(&shader_program, vertex_shader);
         gl.attach_shader(&shader_program, fragment_shader);
 
-        js!{
-            console.log("link_program");
-        }
         gl.link_program(&shader_program);
-        js!{
-            console.log("end");
-        }
 
         let parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
         if parameter{
-            js!{
-            console.log("link_program ok");
-        }
             Ok(shader_program)
         } else {
             Err(gl
@@ -178,6 +172,6 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
 
-    gl.enable(WebGLRenderingContext::DEPTH_TEST);
-    gl.enable(WebGLRenderingContext::DEPTH_WRITEMASK);
+    // gl.enable(WebGLRenderingContext::DEPTH_TEST);
+    // gl.enable(WebGLRenderingContext::DEPTH_WRITEMASK);
 }

@@ -12,7 +12,7 @@ use component::math::{Color as MathColor, Aabb3, Vector2, Matrix4};
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default, Clone)]
 pub struct Sdf{
-    //alpha
+    //world_matrix
     #[listen]
     pub world_matrix: Matrix4,
 

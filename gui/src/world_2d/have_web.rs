@@ -1,5 +1,6 @@
 use std::default::Default;
 use std::rc::Rc;
+use std::cell::RefCell;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
 use cg::{Matrix4, Point2 as CgPoint2, Ortho};
@@ -16,9 +17,10 @@ use world_2d::system::render::Render;
 use world_2d::system::clip::ClipSys;
 use component::math::{Point2};
 use render::engine::Engine;
+use render::res::ResMgr;
 
-pub fn create_world(gl: WebGLRenderingContext) -> World<World2dMgr, ()> {
-    let mut mgr = World2dMgr::new(gl);
+pub fn create_world(engine: Engine) -> World<World2dMgr, ()> {
+    let mut mgr = World2dMgr::new(engine);
 
     let create_effect = CreateEffect::init(&mut mgr);
     let create_sdf_program = CreateSdfProgram::init(&mut mgr);
@@ -70,11 +72,13 @@ world!(
         engine: Engine,
 
         shader_store: ShaderStore,
+
+        res_mgr: ResMgr,
     } 
 );
 
 impl World2dMgr {
-    pub fn new(gl: WebGLRenderingContext) -> World2dMgr{
+    pub fn new(engine: Engine) -> World2dMgr{
         let sdf_shader = Shader::new(Atom::from("sdf_sharder"), Atom::from("sdf_fs_sharder"), Atom::from("sdf_vs_sharder"));
         let image_shader = Shader::new(Atom::from("image_sharder"), Atom::from("image_fs_sharder"), Atom::from("image_vs_sharder"));
         let word_shader = Shader::new(Atom::from("word_sharder"), Atom::from("word_fs_sharder"), Atom::from("word_vs_sharder"));
@@ -104,10 +108,12 @@ impl World2dMgr {
             word_shader: word_shader,
             clip_shader: clip_shader,
 
-            overflow_texture: RenderTarget::create(&gl),
+            overflow_texture: RenderTarget::create(&engine.gl),
 
-            engine: Engine::new(gl),
+            engine: engine,
             shader_store: shader_store,
+
+            res_mgr: ResMgr::new(),
         }
     }
 
@@ -126,22 +132,22 @@ pub struct GuiWorldViewProjection(pub Matrix4<f32>);
 
 impl GuiWorldViewProjection {
     pub fn new(width: f32, height: f32) -> GuiWorldViewProjection{
-        // let ortho = Ortho {
-        //     left: 0.0,
-        //     right: width,
-        //     bottom: height, 
-        //     top: 0.0,
-        //     near: -10000.0,
-        //     far: 10000.0,
-        // };
-        // GuiWorldViewProjection(Matrix4::from(ortho))
-        let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
-        GuiWorldViewProjection(Matrix4::new(
-                2.0 / (right - left),                  0.0,                               0.0,                        0.0,
-                    0.0,                     2.0 / (top - bottom),                       0.0,                        0.0,
-                    0.0,                              0.0,                       -2.0 / (far - near),   -(far + near) / (far - near),
-            -(right + left) / (right - left), -(top + bottom) / (top - bottom),           0.0,                        1.0
-        ))
+        let ortho = Ortho {
+            left: 0.0,
+            right: width,
+            bottom: height, 
+            top: 0.0,
+            near: -8388607.0,
+            far: 8388608.0,
+        };
+        GuiWorldViewProjection(Matrix4::from(ortho))
+        // let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
+        // GuiWorldViewProjection(Matrix4::new(
+        //         2.0 / (right - left),                  0.0,                               0.0,                        0.0,
+        //             0.0,                     2.0 / (top - bottom),                       0.0,                        0.0,
+        //             0.0,                              0.0,                       -2.0 / (far - near),   -(far + near) / (far - near),
+        //     -(right + left) / (right - left), -(top + bottom) / (top - bottom),           0.0,                        1.0
+        // ))
     }
 }
 

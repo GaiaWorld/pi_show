@@ -443,7 +443,6 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.center = Vector2::new(0.0, 0.0);
 
     let layout = &node.layout;
-    println!("layout.border------------------{}", layout.border);
     sdf.extend = Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border);
 
     // if node.world_matrix == 0 {

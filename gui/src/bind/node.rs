@@ -9,6 +9,7 @@ use world_doc::{Z_MAX, WorldDocMgr};
 use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use world_doc::component::node::{InsertType, NodeWriteRef};
 use cg::{Aabb3, Point3, Point2};
+use render::res::TextureRes;
 
 // use bind::{Pointer};
 
@@ -108,8 +109,14 @@ pub fn set_text_content(world: u32, node_id: u32, value: &str){
     }
 }
 
+enum ImageFormat {
+    RGB,
+    RGBA,
+}
+
+// 设置图片的src， texture为TextureRes
 #[no_mangle]
-pub fn set_src(world: u32, node_id: u32, value: &str){
+pub fn set_image(world: u32, node_id: u32, texture: u32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let element_id = world.component_mgr.node._group.get(node_id).element.clone();
@@ -118,12 +125,12 @@ pub fn set_src(world: u32, node_id: u32, value: &str){
             if image_id == 0 {
                 let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
                 let mut image = Image::default();
-                image.url = Atom::from(value);
+                image.src = texture as usize;
                 node_ref.set_element(Element::Image(image));
             } else {
                 let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
                 image_ref.modify(|image: &mut Image| {
-                    image.url = Atom::from(value);
+                    image.src = texture as usize;
                     true
                 });
             }
@@ -133,13 +140,42 @@ pub fn set_src(world: u32, node_id: u32, value: &str){
     js!{console.log("set_src");} 
 }
 
+// #[no_mangle]
+// pub fn set_src(world: u32, node_id: u32, value: &str){
+//     let node_id = node_id as usize;
+//     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+//     let element_id = world.component_mgr.node._group.get(node_id).element.clone();
+//     match element_id {
+//         ElementId::Image(image_id) => {
+//             if image_id == 0 {
+//                 let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+//                 let mut image = Image::default();
+//                 image.url = Atom::from(value);
+//                 node_ref.set_element(Element::Image(image));
+//             } else {
+//                 let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+//                 image_ref.modify(|image: &mut Image| {
+//                     image.url = Atom::from(value);
+//                     true
+//                 });
+//             }
+//         },
+//         _ => (),
+//     }
+//     js!{console.log("set_src");} 
+// }
+
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{
+    js!{console.log("query-------------------1");} 
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    js!{console.log("query-------------------2");} 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+    js!{console.log("query-------------------3");} 
     let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), ty);
+    js!{console.log("query-------------------4");} 
     world.component_mgr.octree.query(&aabb, intersects, &mut args, ab_query_func);
-    js!{console.log("result");} 
+    js!{console.log("result", @{args.result as u32});} 
     args.result as u32
 }
 /// aabb的查询函数的参数
