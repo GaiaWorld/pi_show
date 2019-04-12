@@ -44,6 +44,7 @@ impl RenderImpl {
         for v in self.opaque_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
+                    #[cfg(feature = "log")]
                     println!("sdf opaque_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
                 },
@@ -54,6 +55,7 @@ impl RenderImpl {
         for v in self.transparent_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
+                    #[cfg(feature = "log")]
                     println!("sdf transparent_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
                 },

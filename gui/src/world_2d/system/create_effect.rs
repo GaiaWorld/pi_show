@@ -46,7 +46,6 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
             SdfType::Rect => defines.sdf_rect = true,
             _ => (),
         };
-        println!("border_size-------------------{}", sdf.border_size);
         if sdf.border_size > 0.0 {
             defines.stroke = true;
         }
@@ -99,7 +98,6 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
         );
         js! {
             @{&component_mgr.engine.gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{&buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-            console.log("indeices", @{&buffer});
         }
         let effect_id = component_mgr.add_sdf_effect(sdf_effect).id;
         self.0.borrow_mut().sdf_effect_map.insert(*id, effect_id);

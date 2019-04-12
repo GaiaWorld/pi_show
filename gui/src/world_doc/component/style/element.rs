@@ -65,7 +65,7 @@ pub enum Element {
 
 #[derive(Component, Default, Debug, Clone)]
 pub struct Image{
-    pub url: Atom,
+    pub src: usize, // textureres 的指针
 }
 
 #[allow(unused_attributes)]
