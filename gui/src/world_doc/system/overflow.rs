@@ -78,7 +78,7 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
-            mgr.world_2d.component_mgr.overflow.1[i] = calc_point((node.layout.width, node.layout.height), world_matrix);
+            mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point((node.layout.width, node.layout.height), world_matrix);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
@@ -137,7 +137,7 @@ fn get_index(overflow: &Overflow, cur: usize) -> usize {
 fn set_index(overflow: &mut Overflow, cur: usize, value: usize) -> usize {
   let i = get_index(overflow, cur);
   if i > 0 {
-    overflow.0[i] = value;
+    overflow.0[i-1] = value;
   }
   i
 }

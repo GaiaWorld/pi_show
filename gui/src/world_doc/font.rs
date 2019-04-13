@@ -9,6 +9,13 @@ use component::color::Color;
 
 pub const FONT_SIZE: f32 = 32.0;
 
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum FontSize {
+    None,	// 默认尺寸。
+    Length(f32),	//把 font-size 设置为一个固定的值。
+    Percent(f32), //把 font-size 设置为基于父元素的一个百分比值。
+}
+
 /// 字体表 使用SDF(signed distance field 有向距离场)渲染字体， 支持预定义字体纹理及配置， 也支持动态计算字符的SDF
 pub struct FontSheet {
     font_size: f32,
@@ -44,7 +51,7 @@ impl FontSheet {
     pub fn set_font_face(&mut self, family: Atom, oblique: f32, font_size: f32, font_weight: f32, src: String) {
         let mut v = Vec::new();
         for s in src.split(',') {
-            v.push(Atom::from(s))
+            v.push(Atom::from(s.trim_start().trim_end()))
         }
         let face = FontFace {
             oblique: oblique,
@@ -54,16 +61,25 @@ impl FontSheet {
         };
         self.font_face.insert(family, face);
     }
+    //  获得字体大小, 0表示没找到该font_face
+    pub fn get_font_size(&self, font_face: &Atom, font_size: FontSize) -> f32 {
+        match self.font_face.get(font_face) {
+            Some(face) => face.size(font_size),
+            _ => 0.0
+        }
+    }
+
     // 测量指定字体下，指定字符的宽度。 0表示没有该字符
-    pub fn measure(&self, font_face: &Atom, font_size: f32, c: char) -> f32 {
+    pub fn measure(&self, font_face: &Atom, font_size: FontSize, c: char) -> f32 {
         match self.font_face.get(font_face) {
             Some(face) => {
+                let size = face.size(font_size);
                 for name in &face.src {
                     match self.font_src.get(name) {
                         Some(font) => {
                             let r = font.measure(name, c);
                             if r > 0.0 {
-                                return r * font.size / font_size
+                                return r * font.size / size
                             }
                         },
                         _ => ()
@@ -118,19 +134,17 @@ impl FontHelper for StaticFont {
 
 pub struct SdfFont {
     pub size: f32, //SDF大小, 一般32像素
-    pub baseline: f32, //字符基线的向下延伸的长度
     pub fixed_width: f32, //字符的固定宽度, 0为非定宽
     pub char_uv_map: FnvHashMap<char, UV>, // 每字符的UV，可以通过UV计算宽度， 如果字高为0，表示字符正在创建
     pub helper: Box<dyn FontHelper>,
 }
 impl SdfFont {
-    pub fn new(mut size: f32, baseline: f32, fixed_width: f32, helper: Box<dyn FontHelper>) -> SdfFont {
+    pub fn new(mut size: f32, fixed_width: f32, helper: Box<dyn FontHelper>) -> SdfFont {
         if size == 0.0 {
             size = FONT_SIZE;
         }
         SdfFont {
             size: size,
-            baseline: baseline,
             fixed_width: fixed_width,
             char_uv_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
             helper: helper,
@@ -155,7 +169,15 @@ pub struct FontFace {
     font_weight: f32,
     src: Vec<Atom>,
 }
-
+impl FontFace {
+    pub fn size(&self, s:FontSize) -> f32 {
+        match s {
+            FontSize::None => self.font_size,
+            FontSize::Length(r) => r,
+            FontSize::Percent(r) => r * self.font_size
+        }
+    }
+}
 // 倾斜度造成的间距
 pub fn oblique_spacing(oblique: f32, font_size: f32, char_width: f32) -> f32 {
     oblique * font_size * char_width // TODO FIX!!!

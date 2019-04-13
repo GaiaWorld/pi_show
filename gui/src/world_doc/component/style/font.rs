@@ -4,6 +4,8 @@ use std::default::{Default};
 use wcs::world::{ComponentMgr};
 use atom::{Atom};
 
+use world_doc::font::{FontSize};
+
 #[allow(unused_attributes)]
 #[derive(Component, Debug, Clone, Default, Builder)]
 pub struct Font{
@@ -20,7 +22,6 @@ pub struct Font{
     // status-bar
 }
 
-
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
@@ -28,9 +29,3 @@ pub enum FontStyle{
     Oblique, //	倾斜的字体样式。
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum FontSize {
-    None,	// 默认尺寸。
-    Length(f32),	//把 font-size 设置为一个固定的值。
-    Percent(f32), //把 font-size 设置为基于父元素的一个百分比值。
-}

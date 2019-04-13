@@ -20,7 +20,7 @@ use world_2d::World2dMgr;
 use world_2d;
 use render::engine::Engine;
 
-pub const Z_MAX: f32 = 8388608.0;
+pub const Z_MAX: f32 = 4194304.0;
 
 pub fn create_world(engine: Engine) -> World<WorldDocMgr, ()>{
     let mut mgr = WorldDocMgr::new(engine);
@@ -64,7 +64,7 @@ impl WorldDocMgr {
             node_container: Slab::default(),
             root_id: 0,
             font: FontSheet::default(),
-            octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-8388608f32), Point3::new(3072f32,3072f32,8388608f32)), 0, 0, 0, 0),
+            octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), 0, 0, 0, 0),
             world_2d: world_2d::create_world(engine),
         };
 

@@ -19,7 +19,7 @@ use world_doc::component::style::border::Border;
 use world_doc::component::style::element::{Element, Text};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
-use component::math::{ Vector3 };
+use component::math::{ Vector3, Matrix4 };
 use layout::{YGEdge, YGDirection, YgNode};
 
 pub struct Layout(RefCell<LayoutImpl>);
@@ -31,8 +31,8 @@ impl Layout {
         mgr.node.element.text._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, CreateEvent, WorldDocMgr>>)));
         mgr.node.element.text._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, DeleteEvent, WorldDocMgr>>)));
         mgr.node.element.text._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr>>)));
-        // 世界矩阵的监听
-        //mgr.node.element.text._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr>>)));
+        // 世界矩阵的修改监听
+        mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -56,6 +56,13 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
         let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
         self.0.borrow_mut().modify_text(mgr, *id, *parent);
+    }
+}
+//监听世界矩阵修改事件
+impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
+    fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
+        let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
+        // self.0.borrow_mut().modify_text(mgr, *id, *parent);
     }
 }
 
@@ -100,7 +107,7 @@ impl LayoutImpl {
         let text = mgr.node.element.text._group.get(text_id);
         let font = mgr.node.element.text.font._group.get(text.font);
         let text_style = mgr.node.element.text.text_style._group.get(text.text_style);
-        //let font_size = 
+        //let font_size = mgr.get
         // self.node_map.insert(node_id, TextImpl {
         //     action: action,
         //     chars: Vec::new(),
