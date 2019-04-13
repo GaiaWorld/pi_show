@@ -10,7 +10,7 @@ use wcs::world::{ComponentMgr, World, System};
 use cg::octree::*;
 use cg::{Aabb3, Point3};
 
-use text_layout::font::{FontMgr};
+use world_doc::font::{FontSheet};
 use world_doc::component::node::*;
 use world_doc::system::{layout::Layout as LayoutSys, world_matrix::WorldMatrix as WorldMatrixSys, oct::Oct as OctSys, opacity::OpacitySys, decorate::BBSys , run_world_2d::RunWorld2d as RunWorld2dSys};
 use world_doc::system::node_count::NodeCountSys;
@@ -50,7 +50,7 @@ world!(
         node_container: Slab<DeNode<usize>>,
 
         root_id: usize,
-        font_mgr: FontMgr,
+        font: FontSheet,
         octree: Tree<f32, usize>,
 
         world_2d: World<World2dMgr, ()>,
@@ -63,7 +63,7 @@ impl WorldDocMgr {
             node: NodeGroup::default(),
             node_container: Slab::default(),
             root_id: 0,
-            font_mgr: FontMgr::new(),
+            font: FontSheet::default(),
             octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), 0, 0, 0, 0),
             world_2d: world_2d::create_world(engine, -Z_MAX - 1.0, Z_MAX + 1.0, width, heigth),
         };

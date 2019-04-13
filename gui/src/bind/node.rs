@@ -1,14 +1,14 @@
 use atom::Atom;
+use cg::query::{include_quad2, InnOuter};
 use cg::octree::intersects;
 
 use wcs::world::World;
-use webgl_rendering_context::WebGLTexture;
 
 use world_doc::{Z_MAX, WorldDocMgr};
 // use world_doc::{ WorldDocMgr};
 use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use world_doc::component::node::{InsertType, NodeWriteRef};
-use cg::{Aabb3, Point3};
+use cg::{Aabb3, Point3, Point2};
 use render::res::TextureRes;
 
 // use bind::{Pointer};
@@ -205,8 +205,26 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &us
     if (node.event_type as u32) & arg.ev_type != 0 {
         // 取最大z的node
         if node.z_depth > arg.max_z {
-           arg.result = *bind;
+          // 检查是否有裁剪，及是否在裁剪范围内
+          if node.by_overflow > 0 && in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+            arg.result = *bind;
+           }
         }
     }
   }
+}
+
+/// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
+fn in_overflow(mgr: &WorldDocMgr, by_overflow: usize, x: f32, y: f32) -> bool{
+  let xy = Point2::new(x, y);
+  for i in 0..mgr.world_2d.component_mgr.overflow.0.len() {
+    if by_overflow & (i + 1) != 0 && mgr.world_2d.component_mgr.overflow.0[i] > 0 {
+      let p = &mgr.world_2d.component_mgr.overflow.1[i];
+      match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
+        InnOuter::Inner => (),
+        _ => return false
+      }
+    }
+  }
+  return true
 }

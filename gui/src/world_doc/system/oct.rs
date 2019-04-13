@@ -66,8 +66,9 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Oct{
 }
 
 impl System<(), WorldDocMgr> for Oct{
-    fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        self.0.borrow_mut().cal_bound_box(component_mgr);
+    fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
+        self.0.borrow_mut().cal_bound_box(mgr);
+        mgr.octree.collect();
     }
 }
 

@@ -1,0 +1,70 @@
+
+1.执行rustup install nightly-x86_64-pc-windows-gnu，安装1.30及以上的nightly版本
+	2.执行rustup default xxx-pc-windows-gnu切换当前默认版本，例：
+		rustup default nightly-x86_64-pc-windows-gnu
+	3.执行rustup target add asmjs-unknown-emscripten
+	4.安装emscripten
+		git clone https://github.com/emscripten-core/emsdk.git
+		git pull
+		emsdk install latest 或 ./emsdk install latest
+		emsdk activate latest 或 ./emsdk activate latest
+		emsdk_env 或 source ./emsdk_env.sh
+	5.安装stdweb环境
+		cargo install -f cargo-web
+	6.创建项目，并引用stdweb库
+		cargo new --bin 项目名
+	7.构建
+		执行cmd的shell，在shell中进入emsdk的安装目录，并执行emsdk_env
+		debug
+			cargo web build --target=asmjs-unknown-emscripten
+		release
+			cargo web build --release --target=asmjs-unknown-emscripten
+	8.运行，替换xxx.js为构建的asm.js
+		<!DOCTYPE html>
+		<html>
+		<head>
+		    <meta charset="utf-8" />
+		    <script>
+			var Module = {};
+			var __cargo_web = {};
+			Object.defineProperty( Module, 'canvas', {
+			    get: function() {
+				if( __cargo_web.canvas ) {
+				    return __cargo_web.canvas;
+				}
+
+				var canvas = document.createElement( 'canvas' );
+				document.querySelector( 'body' ).appendChild( canvas );
+				__cargo_web.canvas = canvas;
+
+				return canvas;
+			    }
+			});
+		    </script>
+		</head>
+		<body>
+		    <script src="xxx.js"></script>
+		</body>
+		</html>
+
+/////////////////////////////////////// wasm编译运行
+
+cargo test Mod -- --nocapture
+/////////////////////////////////////// wasm编译运行
+python -m http.server 8080
+
+
+wasm-pack test --chrome
+wasm-pack build
+npm init wasm-app www
+npm run start
+wasm-pack build --debug -d pkg_debug
+cargo generate --git https://github.com/rustwasm/wasm-pack-template
+
+/***************************************************cargo******************************************************/
+cargo rustc -- -Z unstable-options --pretty=expanded
+
+
+wasm-pack build & npm run start
+
+
