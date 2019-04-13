@@ -61,6 +61,8 @@ pub struct Layout{
     pub border: f32,
     pub padding_left: f32,
     pub padding_top: f32,
+    pub padding_right: f32,
+    pub padding_bottom: f32,
 }
 // pub type YgNodeP = YgNode;
 
@@ -358,6 +360,8 @@ impl YgNode {
             border: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft),
             padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft),
             padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop),
+            padding_right: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeRight),
+            padding_bottom: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeBottom),
         }
     }
 

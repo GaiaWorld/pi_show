@@ -1,3 +1,5 @@
+// 设置image的uniform，atrribute, index
+
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::UnsafeTypedArray;
 
@@ -12,23 +14,9 @@ use render::engine::{Engine, get_uniform_location};
 lazy_static! {
     static ref POSITION: Atom = Atom::from("position");
     static ref WORLD_VIEW_PROJECTION: Atom = Atom::from("worldViewProjection");
-    // static ref CENTER: Atom = Atom::from("center");
-    static ref BLUR: Atom = Atom::from("blur");
     static ref EXTEND: Atom = Atom::from("extend");
     static ref ALPHA: Atom = Atom::from("alpha");
-    static ref SCREEN_SIZE: Atom = Atom::from("screenSize");
-    // static ref ANGLE: Atom = Atom::from("angle");
-    static ref RADIUS: Atom = Atom::from("radius");
-    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
-    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
     static ref COLOR: Atom = Atom::from("color");
-    static ref COLOR_ANGLE: Atom = Atom::from("colorAngle");
-    static ref DISTANCE: Atom = Atom::from("distance");
-    static ref COLOR1: Atom = Atom::from("color1");
-    static ref COLOR2: Atom = Atom::from("color2");
-    static ref COLOR3: Atom = Atom::from("color3");
-    static ref COLOR4: Atom = Atom::from("color4");
-    static ref SIZE_TYPE: Atom = Atom::from("sizeType");
     static ref CLIP_INDEICES: Atom = Atom::from("clipIndices");
     static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
     static ref CLIP_INDEICES_SIZE: Atom = Atom::from("clipTextureSize");
@@ -281,8 +269,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         println!("by_overflow:{:?}", sdf.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), sdf.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
-
-        gl.active_texture(WebGLRenderingContext::TEXTURE0);
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&mgr.overflow_texture.texture));
         gl.uniform1i(uniform_locations.get(&CLIP_TEXTURE), 0);
     }

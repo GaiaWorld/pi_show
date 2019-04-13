@@ -2,7 +2,6 @@
 
 use std::rc::{Rc};
 use std::cell::RefCell;
-use std::f32::consts::PI;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::UnsafeTypedArray;
@@ -34,11 +33,32 @@ impl System<(), World2dMgr> for ClipSys{
         }
         borrow_mut.dirty = false;
 
+        // for i in 0..8 {
+        //     let p = &component_mgr.overflow.1[i];
+        //     let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
+        //     borrow_mut.angles.push(0.0 * PI / 180.0); //旋转暂时为0， TODO
+        //     borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0, p[0].y + extend.1, extend.0, extend.1]);
+        // }
+
+        let mut positions = [0.0; 96];
         for i in 0..8 {
             let p = &component_mgr.overflow.1[i];
-            let extend = ((p[1].x - p[0].x) /2.0, (p[3].y - p[0].y) /2.0);
-            borrow_mut.angles.push(0.0 * PI / 180.0); //旋转暂时为0， TODO
-            borrow_mut.translate_scale.extend_from_slice(&[p[0].x + extend.0, p[0].y + extend.1, extend.0, extend.1]);
+
+            positions[i * 12 + 0] = p[0].x;
+            positions[i * 12 + 1] = p[0].y;
+            positions[i * 12 + 2] = 0.0;
+
+            positions[i * 12 + 3] = p[2].x;
+            positions[i * 12 + 4] = p[2].y;
+            positions[i * 12 + 5] = 0.0;
+
+            positions[i * 12 + 6] = p[3].x;
+            positions[i * 12 + 7] = p[3].y;
+            positions[i * 12 + 8] = 0.0;
+
+            positions[i * 12 + 9] = p[1].x;
+            positions[i * 12 + 10] = p[1].y;
+            positions[i * 12 + 11] = 0.0;
         }
 
         let program = component_mgr.engine.lookup_program(borrow_mut.program).unwrap();
@@ -53,7 +73,7 @@ impl System<(), World2dMgr> for ClipSys{
         gl.blend_func(WebGLRenderingContext::ONE, WebGLRenderingContext::ONE);
         gl.enable(WebGLRenderingContext::BLEND);
 
-        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
 
         //view
         let arr: &[f32; 16] = component_mgr.view.as_ref();
@@ -68,14 +88,15 @@ impl System<(), World2dMgr> for ClipSys{
         println!("clip mesh_num: {:?}", 8.0);
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
 
-        println!("clip angles: {:?}", borrow_mut.angles.as_slice());
-        gl.uniform1fv(uniform_locations.get(&ANGLES), borrow_mut.angles.as_slice());
-        println!("clip translate_scale: {:?}", borrow_mut.translate_scale.as_slice());
-        gl.uniform4fv(uniform_locations.get(&TRANSLATE_SCALE), borrow_mut.translate_scale.as_slice());
-
         //position
+        #[cfg(feature = "log")]
+        println!("clip positions---------------------------{:?}", &positions[0..96]);
+        let buffer = unsafe { UnsafeTypedArray::new(&positions) };
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&borrow_mut.positions_buffer));
         let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
+        js! {
+            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{&buffer}, @{WebGLRenderingContext::STATIC_DRAW});
+        }
         gl.vertex_attrib_pointer(position_location,3,WebGLRenderingContext::FLOAT,false,0,0,);
         gl.enable_vertex_attrib_array(position_location);
 
@@ -90,9 +111,11 @@ impl System<(), World2dMgr> for ClipSys{
 
         //draw
         gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
+        #[cfg(feature = "log")]
+        println!("clip draw_elements end---------------------------");
 
         gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
-        // gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
     }
 }
  
@@ -104,8 +127,6 @@ impl ComponentHandler<Overflow, SingleModifyEvent, World2dMgr> for ClipSys{
 }
 
 pub struct ClipSysImpl {
-    angles: Vec<f32>,
-    translate_scale: Vec<f32>,
     positions_buffer: WebGLBuffer,
     index_buffer: WebGLBuffer,
     indeices_buffer: WebGLBuffer,
@@ -122,38 +143,40 @@ impl ClipSysImpl {
         
         let mut indexs: Vec<f32> = Vec::new();
         let mut indeices: Vec<u16> = Vec::new();
-        let mut ps: Vec<f32> = Vec::new();
+        // let mut ps: Vec<f32> = Vec::new();
         for i in 0..8 {
             indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
 
             indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
 
-            ps.extend_from_slice(&[
-                -1.0, -1.0, 0.0,
-                -1.0,  1.0, 0.0,
-                1.0,  1.0, 0.0,
-                1.0, -1.0, 0.0
-            ]);
+            // ps.extend_from_slice(&[
+            //     -1.0, -1.0, 0.0,
+            //     -1.0,  1.0, 0.0,
+            //     1.0,  1.0, 0.0,
+            //     1.0, -1.0, 0.0
+            // ]);
         }
 
-        let buffer = unsafe { UnsafeTypedArray::new(&ps) };
-        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&positions_buffer));
-        js! {
-            console.log("position", @{&buffer});
-            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-        }
+        // let buffer = unsafe { UnsafeTypedArray::new(&ps) };
+        // gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&positions_buffer));
+        // js! {
+        //     console.log("position", @{&buffer});
+        //     @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
+        // }
 
+        #[cfg(feature = "log")]
+        println!("clip indexs---------------------------{:?}", indexs);
         let buffer = unsafe { UnsafeTypedArray::new(&indexs) };
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&index_buffer));
         js! {
-            console.log("indexs", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
 
+        #[cfg(feature = "log")]
+        println!("clip indeices---------------------------{:?}", indeices);
         let buffer = unsafe { UnsafeTypedArray::new(&indeices) };
         gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,Some(&indeices_buffer));
         js! {
-            console.log("indeices", @{&buffer});
             @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
 
@@ -163,8 +186,6 @@ impl ClipSysImpl {
 
         ClipSysImpl {
             dirty: true,
-            angles: Vec::new(),
-            translate_scale: Vec::new(),
             program: program,
             positions_buffer: positions_buffer,
             index_buffer: index_buffer,
@@ -211,10 +232,6 @@ pub fn create_program(component_mgr: &mut World2dMgr) -> u64 {
 
     uniform_locations.insert( MESH_NUM.clone(), get_uniform_location(&gl,program, &MESH_NUM));
 
-    uniform_locations.insert( ANGLES.clone(), get_uniform_location(&gl,program, &ANGLES));
-
-    uniform_locations.insert( TRANSLATE_SCALE.clone(), get_uniform_location(&gl,program, &TRANSLATE_SCALE));
-
     uniform_locations.insert( PROJECTION.clone(), get_uniform_location(&gl,program, &PROJECTION));
 
     uniform_locations.insert( VIEW.clone(), get_uniform_location(&gl,program, &VIEW));
@@ -224,8 +241,6 @@ pub fn create_program(component_mgr: &mut World2dMgr) -> u64 {
 
 lazy_static! {
     static ref MESH_NUM: Atom = Atom::from("meshNum");
-    static ref ANGLES: Atom = Atom::from("angles");
-    static ref TRANSLATE_SCALE: Atom = Atom::from("translateScale");
     static ref POSITION: Atom = Atom::from("position");
     static ref MESH_INDEX: Atom = Atom::from("meshIndex");
     static ref VIEW: Atom = Atom::from("view");

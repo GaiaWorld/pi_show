@@ -90,7 +90,7 @@ pub struct Decorate {
 
     #[listen]
     #[builder(export)]
-    pub backgroud_image: u32,
+    pub backgroud_image: usize,
 
     #[component(BoxShadow)]
     #[builder(export)]

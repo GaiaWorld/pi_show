@@ -12,9 +12,6 @@ pub fn clip_vertex_shader() -> String{
     uniform mat4 view;
     uniform mat4 projection;
 
-    uniform float angles[8];
-    uniform vec4 translateScale[8];
-
     // Varyings
     varying float vPlaneIndex;
 
@@ -24,23 +21,7 @@ pub fn clip_vertex_shader() -> String{
         
         vec4 pos;
         if (meshIndex < meshNum) {
-            vec2 p;
-
-            // 缩放
-            vec4 ts = translateScale[int(meshIndex)];
-            p = position.xy * ts.zw;
-            
-            // 旋转
-            float angle = angles[int(meshIndex)];
-            float c = cos(angle), s = sin(angle);
-            
-            float x = c * p.x - s * p.y;
-            float y = s * p.x + c * p.y;
-
-            // 平移
-            p = vec2(x, y) + ts.xy;
-
-            pos = projection * view * vec4(p, 0.0, 1.0);
+            pos = projection * view * vec4(position, 1.0);
         } else {
             pos = vec4(2.0, 2.0, 2.0, 1.0);
         }
@@ -52,7 +33,7 @@ pub fn clip_vertex_shader() -> String{
 
 pub fn clip_fragment_shader() -> String{
     r#"
-    precision highp float;
+   precision highp float;
 
     // Varyings
     varying float vPlaneIndex;

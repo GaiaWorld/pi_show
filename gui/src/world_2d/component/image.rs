@@ -1,4 +1,8 @@
 use std::ops::{Deref};
+use std::rc::Rc;
+
+#[cfg(feature = "web")]
+use webgl_rendering_context::{WebGLBuffer};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
@@ -23,7 +27,7 @@ use render::res::TextureRes;
     // uniform sampler2D texture;
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component)]
 pub struct Image{
     //world_matrix
     #[listen]
@@ -45,37 +49,64 @@ pub struct Image{
     pub by_overflow: usize,
 
     // extend
+    #[listen]
     pub extend: Vector2,
 
-    // pub src: Rc<TextureRes>,
-    pub src: u32
+    #[listen]
+    pub src: Rc<TextureRes>,
+}
+
+impl Image {
+    pub fn new(src: Rc<TextureRes>) -> Image{
+        Image {
+            world_matrix: Matrix4::default(),
+            alpha: 1.0,
+            is_opaque: true,
+            z_depth: 0.0,
+            by_overflow: 0,
+            extend: Vector2::default(),
+            src: src,
+        }
+    }
 }
 
 
+#[cfg(feature = "web")]
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component)]
 pub struct ImageEffect {
     pub program: u64,
 
     #[component(ImageDefines)]
     pub defines: usize,
 
+    pub positions_buffer: WebGLBuffer,
+    pub indeices_buffer: WebGLBuffer,
+
+    pub positions_dirty: bool,
+
     pub image_id: usize,
 }
 
+#[cfg(feature = "web")]
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
 pub struct ImageDefines {
-
+    pub clip_plane: bool,//裁剪
 }
 
+#[cfg(feature = "web")]
 impl ImageDefines {
     pub fn list(&self) -> Vec<Atom> {
-        Vec::new()
+        let mut arr = Vec::new();
+        if self.clip_plane {
+            arr.push(SDF_CLIP_PLANE.clone());
+        }
+        arr
     }
 }
 
-// // defines
-// lazy_static! {
-// 	static ref SDF_RECT: Atom = Atom::from("SDF_RECT");
-// }
+// defines
+lazy_static! {
+    static ref SDF_CLIP_PLANE: Atom = Atom::from("CLIP_PLANE");
+}
