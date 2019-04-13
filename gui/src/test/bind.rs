@@ -29,14 +29,14 @@ pub fn test(){
 
     let node2 = create_node(world);
     append_child(world, 1, node2);
-    set_width(world, node2, 1000.0);
-    set_height(world, node2, 700.0);
+    set_width_percent(world, node2, 100.0);
+    set_height_percent(world, node2, 100.0);
     set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 0.5);
 
     let node3 = create_node(world);
     append_child(world, node2, node3);
-    set_width(world, node3, 500.0);
-    set_height(world, node3, 500.0);
+    set_width_percent(world, node3, 50.0);
+    set_height_percent(world, node3, 70.0);
     set_position(world, node3, unsafe{transmute(YGEdge::YGEdgeLeft)}, 50.0);
     set_backgroud_rgba_color(world, node3, 0.0, 0.0, 1.0, 1.0);
     set_border_color(world, node3, 0.0, 1.0, 0.0, 1.0);

@@ -385,6 +385,10 @@ impl YgNode {
     pub fn free(&self){ 
         yoga::yg_node_free(self.0)
     }
+
+    pub fn free_recursive(&self) {
+        yoga::yg_node_free_recursive(self.0)
+    }
 }
 
 // #[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]

@@ -162,6 +162,11 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
             },
             _ => panic!(format!("insert_child error, this is a leaf node")),
         };
+
+        //如果节点不是根节点， 并且还没有父节点(不在节点树中)， 不需要发出修改事件和子节点创建事件
+        if self.id != 1 && parent == 0 {
+            return NodeWriteRef::new(child_id, self.groups, self.mgr);
+        } 
         //根結點的修改事件不通知
         if self.id > 1 {
             handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr);  //通知childs字段改变
@@ -178,11 +183,11 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         }
         let group = NodeGroup::<M>::from_usize_mut(self.groups);
         let child_id = group._group.get_mut(self.id).childs.remove(qid, &mut self.mgr.get_qid_container()); //从childs移除child
-        let parent = {
+        let (parent, child_yoga) = {
             let child_yoga = group._group.get(child_id).yoga;
             let node = group._group.get_mut(self.id);
             node.yoga.remove_child(child_yoga);
-            node.parent
+            (node.parent, child_yoga)
             // let child_yoga = match group._group.get(child_id).yoga.as_ref() {
             //     Some(child_yoga) => Some((*child_yoga).clone()),
             //     None => None,
@@ -202,6 +207,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         let handler = group._group.get_handlers();
         handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr); //通知childs字段改变
         NodeWriteRef::new(child_id, self.groups, self.mgr).destroy(); //从容器中删除child的数据， 并抛出Node及Node子组件销毁的事件
+        child_yoga.free_recursive();
     }
 }
 
