@@ -15,6 +15,7 @@ use world_doc::{WorldDocMgr};
 use world_doc::component::node::{Node};
 use component::math::{Matrix4, Point2};
 use world_2d::{Overflow};
+use layout::Layout;
 
 pub struct OverflowSys();
 
@@ -78,7 +79,7 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
-            mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point((node.layout.width, node.layout.height), world_matrix);
+            mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
@@ -186,14 +187,14 @@ fn adjust(mgr: &mut WorldDocMgr, mut child: usize, index: usize, ops: fn(a:usize
 //   [lt, rt, lb, rb]
 // }
 
-fn calc_point(size: (f32, f32), matrix: &Matrix4) -> [Point2;4]{
-    let half_width = size.0/2.0;
-    let half_height = size.1/2.0;
+fn calc_point(layout: &Layout, matrix: &Matrix4) -> [Point2;4]{
+    let half_width = layout.width/2.0;
+    let half_height = layout.height/2.0;
     let m = matrix.deref();
-    let left_top = m * Vector4::new(-half_width, -half_height, 0.0, 1.0);
-    let right_top = m * Vector4::new(half_width, -half_height, 0.0, 1.0);
-    let left_bottom = m * Vector4::new(-half_width, half_height, 0.0, 1.0);
-    let right_bottom = m * Vector4::new(half_width, half_height, 0.0, 1.0);
+    let left_top = m * Vector4::new(-half_width + layout.border + layout.padding_left, -half_height + layout.border + layout.padding_top, 0.0, 1.0);
+    let right_top = m * Vector4::new(half_width - layout.border - layout.padding_right, -half_height + layout.border + layout.padding_top , 0.0, 1.0);
+    let left_bottom = m * Vector4::new(-half_width + layout.border + layout.padding_left, half_height - layout.border - layout.padding_bottom, 0.0, 1.0);
+    let right_bottom = m * Vector4::new(half_width - layout.border - layout.padding_right, half_height - layout.border - layout.padding_bottom, 0.0, 1.0);
 
     let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
     let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});

@@ -15,6 +15,7 @@ use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf };
 use util::dirty_mark::DirtyMark;
+use render::res::TextureRes;
 // use util::math::decompose;
 
 //背景边框系统
@@ -56,14 +57,14 @@ impl BBSys {
 //监听backgroud_image的修改事件， 修改image2d上对应的值
 impl ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
-        let ModifyFieldEvent { id, parent, field: _ } = event;
+        let ModifyFieldEvent { id, parent: _, field: _ } = event;
         let mut borrow_mut = self.0.borrow_mut();
         match borrow_mut.image_image2d_map.get(*id) {
             Some(image_id) => { //如果image2d已经存在
                 let src = component_mgr.node.decorate._group.get(*id).backgroud_image.clone();
                 match src { 
                     0 => (),//component_mgr.world_2d.component_mgr.remove_image_mut(*image_id), //并且 src==0, 应该删除image2d
-                    _ => component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_src(src), //并且 src>0, 应该修改image2d
+                    _ => component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_src(usize_to_textrue(src)), //并且 src>0, 应该修改image2d
                 }
                 return;
             },
@@ -74,7 +75,7 @@ impl ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr> for BBSys {
         match src {
             0 => (), //并且src == 0， 不需要进行任何操作
             _ => { // 并且src>0， 应该创建image2d
-                let image = create_image2d(src, *parent);
+                let image = Image::new(usize_to_textrue(src));
                 let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
                 borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
             },
@@ -419,10 +420,8 @@ impl BBSysImpl {
     }
 }
 
-fn create_image2d(src: u32, _node_id: usize) -> Image {
-    let mut image = Image::default();
-    image.src = src;
-    image
+fn usize_to_textrue(src: usize) -> Rc<TextureRes> {
+    unsafe{& *(src as *const Rc<TextureRes>)} .clone()
 }
 
 //创建了一个sdf

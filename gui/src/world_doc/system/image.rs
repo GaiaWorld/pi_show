@@ -1,68 +1,150 @@
-// use std::rc::Rc;
-// use std::cell::RefCell;
+use std::rc::Rc;
+use std::cell::RefCell;
 
-// use cg::{Vector3 as CgVector3};
-// use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
-// use wcs::world::System;
-// use vecmap::VecMap;
+use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
+use vecmap::VecMap;
 
-// use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
-// use component::color::Color;
-// use world_doc::component::node::{Node};
-// use world_doc::component::style::generic::{ Decorate, BoxShadow };
-// use world_doc::component::style::transform::Transform;
-// use world_doc::component::style::element::Image;
-// use world_doc::WorldDocMgr;
-// use world_2d::component::sdf::{ Sdf };
-// use util::dirty_mark::DirtyMark;
-// // use util::math::decompose;
+use component::math::{Vector2, Matrix4 as MathMatrix4};
+use world_doc::component::node::{Node};
+use world_doc::component::style::element::{ Image, ElementId};
+use world_doc::WorldDocMgr;
+use world_2d::component::image::{ Image as Image2d };
+use render::res::TextureRes;
+// use util::math::decompose;
 
-// //背景边框系统
-// pub struct ImageSys(Rc<RefCell<ImageSysImpl>>);
+//背景边框系统
+pub struct ImageSys(Rc<RefCell<ImageSysImpl>>);
 
-// impl ImageSys {
-//     pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<ImageSys> {
-//         let r = Rc::new(ImageSys(Rc::new(RefCell::new(ImageSysImpl::new()))));
-//         //监听backgroud_image的修改事件， 修改image2d上对应的值
-//         component_mgr.node.decorate.backgroud_image.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr>>)));
-//         //监听background_color修改事件， 修改sdf2d上对应的值
-//         component_mgr.node.decorate.background_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.background_color._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, CreateEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.background_color._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, DeleteEvent, WorldDocMgr>>)));
-//         //监听border_color修改事件， 修改sdf2d上对应的值
-//         component_mgr.node.decorate.border_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.border_color._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, CreateEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.border_color._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathColor, DeleteEvent, WorldDocMgr>>)));
-//         //监听box_shadow修改事件， 修改sdf2d上对应的值
-//         component_mgr.node.decorate.box_shadow._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.box_shadow._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr>>)));
-//         component_mgr.node.decorate.box_shadow._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr>>)));
-    
-//         // 监听node的改变， 修改sdf2d， image2d组件
-//         component_mgr.node.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-//         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+impl ImageSys {
+    pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<ImageSys> {
+        let r = Rc::new(ImageSys(Rc::new(RefCell::new(ImageSysImpl::new()))));
+        //监听image的创建， 修改， 删除 事件
+        component_mgr.node.element.image._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, CreateEvent, WorldDocMgr>>)));
+        component_mgr.node.element.image._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, DeleteEvent, WorldDocMgr>>)));
+        component_mgr.node.element.image._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, WorldDocMgr>>)));
+        r
+    }
+}
 
-//         //监听boundbox的变化
-//         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
+//监听image的创建事件， 创建对应Image渲染对象
+impl ComponentHandler<Image, CreateEvent, WorldDocMgr> for ImageSys {
+    fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr) {
+        let CreateEvent { id, parent} = event;
+        let mut borrow_mut = self.0.borrow_mut();
+        let src = component_mgr.node.element.image._group.get(*id).src;
+        let texture = usize_to_textrue(src);
+        let opacity = texture.opacity;
+        let mut image = Image2d::new(texture);
 
-//         //监听world_matrix的变化
-//         component_mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr>>)));
-//         r
-//     }
-// }
+        let node = component_mgr.node._group.get(*parent);
+        let layout = &node.layout;
+        let matrix =  component_mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
+        image.alpha = node.real_opacity;
+        image.is_opaque = if node.real_opacity == 1.0 || opacity == 1.0 {
+            true
+        } else {
+            false
+        };
+        image.by_overflow = node.by_overflow;
+        image.z_depth = node.z_depth;
+        image.extend = Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border);
+        image.world_matrix = matrix;
 
-// //监听backgroud_image的修改事件， 修改image2d上对应的值
-// impl ComponentHandler<Image, CreateEvent, WorldDocMgr> for ImageSys {
-//     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr) {
-//         let CreateEvent { id, parent} = event;
-//         let src = component_mgr.node.element.image._group.get(*id).src;
-//         let image = create_image2d(src as u32, *parent);
-//         let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
-//         borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
-//     }
-// }
+        let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
+        borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
+    }
+}
+
+//监听image的修改， 删除对应Image渲染对象
+impl ComponentHandler<Image, DeleteEvent, WorldDocMgr> for ImageSys {
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr) {
+        let DeleteEvent { id, parent: _} = event;
+        let mut borrow_mut = self.0.borrow_mut();
+        let image2d_id = unsafe { borrow_mut.image_image2d_map.remove(*id) };
+        component_mgr.world_2d.component_mgr.del_image(image2d_id);
+    }
+}
+
+//监听image的修改， 删除对应Image渲染对象
+impl ComponentHandler<Image, ModifyFieldEvent, WorldDocMgr> for ImageSys {
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
+        let ModifyFieldEvent { id, parent: _, field: _} = event;
+        let borrow = self.0.borrow();
+        let image2d_id = *unsafe { borrow.image_image2d_map.get_unchecked(*id)};
+        let src = component_mgr.node.element.image._group.get(*id).src;
+        let texture = usize_to_textrue(src);
+
+        component_mgr.world_2d.component_mgr.get_image_mut(image2d_id).set_src(texture);
+    }
+}
+
+impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for ImageSys {
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
+        let ModifyFieldEvent { id, parent: _, field} = event;
+
+        let node = component_mgr.node._group.get(*id);
+        let image_id = match node.element {
+            ElementId::Image(image_id) => {
+                if image_id == 0 {
+                    return
+                }
+                image_id
+            },
+            _ => return ,
+        };
+
+        let borrow = self.0.borrow();
+        let image_2d_id = unsafe { borrow.image_image2d_map.get_unchecked(image_id)};
+        if *field == "z_depth" {
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_z_depth(node.z_depth);
+        }else if *field == "by_overflow" {
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_by_overflow(node.by_overflow);
+        }else if *field == "real_opacity" {
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_alpha(node.real_opacity);
+            // modify_is_opacity(*id, *sdf_id, decorate_id, component_mgr); TODO
+        } else if *field == "layout" {
+            let layout = &node.layout;
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
+        }
+    }
+}
+
+//监听世界矩阵的改变， 修改image_2d中的世界矩阵
+impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for ImageSys {
+    fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
+        let ModifyFieldEvent { id, parent, field: _ } = event; 
+        let node = component_mgr.node._group.get(*parent);
+        let image_id = match node.element {
+            ElementId::Image(image_id) => {
+                if image_id == 0 {
+                    return
+                }
+                image_id
+            },
+            _ => return ,
+        };
+
+        let borrow = self.0.borrow_mut();
+        let image_2d_id = unsafe { borrow.image_image2d_map.get_unchecked(image_id)};
+
+        let world_matrix = component_mgr.node.world_matrix._group.get(*id);
+        component_mgr.world_2d.component_mgr.get_sdf_mut(*image_2d_id).set_world_matrix(world_matrix.owner.clone());
+    }
+}
+
+
+pub struct ImageSysImpl {
+    image_image2d_map: VecMap<usize>, // id: image_id, value: image2d_id
+}
+
+impl ImageSysImpl {
+    fn new() -> ImageSysImpl {
+        ImageSysImpl{
+            image_image2d_map: VecMap::new(),
+        }
+    }
+}
+
 
 // //image create delete TODO
 
@@ -585,3 +667,8 @@
 
 //     MathMatrix4(world_matrix)
 // }
+
+
+fn usize_to_textrue(src: usize) -> Rc<TextureRes> {
+    unsafe{& *(src as *const Rc<TextureRes>)} .clone()
+}

@@ -19,8 +19,8 @@ use component::math::{Point2};
 use render::engine::Engine;
 use render::res::ResMgr;
 
-pub fn create_world(engine: Engine) -> World<World2dMgr, ()> {
-    let mut mgr = World2dMgr::new(engine);
+pub fn create_world(engine: Engine, near: f32, far: f32, width: f32, height: f32) -> World<World2dMgr, ()> {
+    let mut mgr = World2dMgr::new(engine, near, far, width, height);
 
     let create_effect = CreateEffect::init(&mut mgr);
     let create_sdf_program = CreateSdfProgram::init(&mut mgr);
@@ -28,7 +28,7 @@ pub fn create_world(engine: Engine) -> World<World2dMgr, ()> {
     let render = Render::init(&mut mgr);
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, render];
+    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, render];
     world.set_systems(systems);
 
     world
@@ -57,6 +57,8 @@ world!(
         //全局数据
         width: f32,
         height: f32,
+        near: f32,
+        far: f32,
         view: Matrix4<f32>, //v
         projection: GuiWorldViewProjection, //p
 
@@ -78,7 +80,7 @@ world!(
 );
 
 impl World2dMgr {
-    pub fn new(engine: Engine) -> World2dMgr{
+    pub fn new(engine: Engine, near: f32, far: f32, width: f32, height: f32) -> World2dMgr{
         let sdf_shader = Shader::new(Atom::from("sdf_sharder"), Atom::from("sdf_fs_sharder"), Atom::from("sdf_vs_sharder"));
         let image_shader = Shader::new(Atom::from("image_sharder"), Atom::from("image_fs_sharder"), Atom::from("image_vs_sharder"));
         let word_shader = Shader::new(Atom::from("word_sharder"), Atom::from("word_fs_sharder"), Atom::from("word_vs_sharder"));
@@ -97,18 +99,20 @@ impl World2dMgr {
 
             sdf_effect: SdfEffectGroup::default(),
 
-            width: 0.0,
-            height: 0.0,
+            width: width,
+            height: height,
+            near: near,
+            far: far,
             overflow: SingleCase::new(Overflow([0;8],[[Point2::default();4];8])),
             // overflow: SingleCase::new(create_overflow()),
-            projection: GuiWorldViewProjection::new(0.0, 0.0),
+            projection: GuiWorldViewProjection::new(width, height, near, far),
             view: Matrix4::new(1.0, 0.0, 0.0, 0.0,  0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0),
             sdf_shader: sdf_shader,
             image_shader: image_shader,
             word_shader: word_shader,
             clip_shader: clip_shader,
 
-            overflow_texture: RenderTarget::create(&engine.gl),
+            overflow_texture: RenderTarget::create(&engine.gl, width, height),
 
             engine: engine,
             shader_store: shader_store,
@@ -117,10 +121,11 @@ impl World2dMgr {
         }
     }
 
+    //设置大小
     pub fn set_size(&mut self, width: f32, height: f32) {
         self.width = width;
         self.height = height;
-        self.projection = GuiWorldViewProjection::new(width, height);
+        self.projection = GuiWorldViewProjection::new(self.width, self.height, self.near, self.far);
     }
 }
 
@@ -131,15 +136,16 @@ pub struct Overflow(pub [usize;8], pub [[Point2;4];8]);
 pub struct GuiWorldViewProjection(pub Matrix4<f32>);
 
 impl GuiWorldViewProjection {
-    pub fn new(width: f32, height: f32) -> GuiWorldViewProjection{
+    pub fn new(width: f32, height: f32, near: f32, far: f32) -> GuiWorldViewProjection{
         let ortho = Ortho {
             left: 0.0,
             right: width,
             bottom: height, 
             top: 0.0,
-            near: -8388607.0,
-            far: 8388608.0,
+            near: near,
+            far: far,
         };
+        println!("ortho----------------------{:?}", ortho);
         GuiWorldViewProjection(Matrix4::from(ortho))
         // let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
         // GuiWorldViewProjection(Matrix4::new(
@@ -242,12 +248,17 @@ pub struct RenderTarget {
 }
 
 impl RenderTarget {
-    pub fn create(gl: &WebGLRenderingContext) -> RenderTarget{
+    pub fn create(gl: &WebGLRenderingContext, width: f32, height: f32) -> RenderTarget{
+        let width = next_power_of_two(width as u32);
+        let height = next_power_of_two(height as u32);
         let frambuffer = gl.create_framebuffer().unwrap();
         let texture = gl.create_texture().unwrap();
         gl.active_texture(WebGLRenderingContext::TEXTURE0);
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
-        gl.tex_image2_d::<&[u8]>(WebGLRenderingContext::TEXTURE_2D, 0, WebGLRenderingContext::RGB as i32, 1024, 1024, 0, WebGLRenderingContext::RGB, WebGLRenderingContext::UNSIGNED_BYTE, None);
+        gl.tex_image2_d::<&[u8]>(WebGLRenderingContext::TEXTURE_2D, 0, WebGLRenderingContext::RGB as i32, width as i32, height as i32, 0, WebGLRenderingContext::RGB, WebGLRenderingContext::UNSIGNED_BYTE, None);
+
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D, WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D, WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
 
         gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&frambuffer));
         gl.framebuffer_texture2_d(WebGLRenderingContext::FRAMEBUFFER,WebGLRenderingContext::COLOR_ATTACHMENT0, WebGLRenderingContext::TEXTURE_2D, Some(&texture), 0);
@@ -258,4 +269,16 @@ impl RenderTarget {
             texture
         }
     }
+}
+
+
+fn next_power_of_two(value: u32) -> u32 {
+    let mut value = value - 1;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value += 1;
+    value
 }

@@ -47,10 +47,10 @@ pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opa
 
 /**创建一个gui的实例 */
 #[no_mangle]
-pub fn create_gui(engine: u32) -> u32{
+pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     js!{console.log("create_gui");}
     let engine: Engine = *unsafe { Box::from_raw(engine as usize as *mut Engine)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
-    let world = create_world(engine);
+    let world = create_world(engine, width, height);
     Box::into_raw(Box::new(world)) as u32
 }
 

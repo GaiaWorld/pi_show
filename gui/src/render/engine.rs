@@ -172,6 +172,6 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
 
-    // gl.enable(WebGLRenderingContext::DEPTH_TEST);
-    // gl.enable(WebGLRenderingContext::DEPTH_WRITEMASK);
+    gl.enable(WebGLRenderingContext::DEPTH_TEST);
+    gl.enable(WebGLRenderingContext::DEPTH_WRITEMASK);
 }

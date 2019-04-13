@@ -5,6 +5,7 @@ use atom::Atom;
 use util::res_mgr::{ Res, ResMap };
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
+#[derive(Debug)]
 pub struct TextureRes {
     pub name: Atom,
     pub width: usize,

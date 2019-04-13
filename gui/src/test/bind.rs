@@ -22,16 +22,16 @@ pub fn test(){
     js!{
         window.__gl = @{&gl};
     }
-    let mut engine = create_engine();
+    let engine = create_engine();
 
-    let mut world = create_gui(engine);
-    set_gui_size(world: u32, 1000.0, 700.0);
+    let world = create_gui(engine, 1000.0,  700.0);
+    // set_gui_size(world: u32, 1000.0, 700.0);
 
     let node2 = create_node(world);
     append_child(world, 1, node2);
     set_width(world, node2, 1000.0);
     set_height(world, node2, 700.0);
-    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 1.0);
+    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 0.5);
 
     let node3 = create_node(world);
     append_child(world, node2, node3);
@@ -44,10 +44,10 @@ pub fn test(){
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeRight)}, 10.0);
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeBottom)}, 10.0);
-    // set_overflow(world, node3, true);
-    // set_box_shadow_color(world, node3, 0.0, 0.0, 0.0, 0.5);
-    // set_box_shadow_h(world, node3, 50.0);
-    // set_box_shadow_v(world, node3, 50.0);
+    set_overflow(world, node3, true);
+    set_box_shadow_color(world, node3, 0.0, 0.0, 0.0, 0.8);
+    set_box_shadow_h(world, node3, 50.0);
+    set_box_shadow_v(world, node3, 50.0);
 
     let node4 = create_node(world);
     append_child(world, node3, node4);
@@ -88,8 +88,8 @@ pub fn test_query(){
     }
     let mut engine = create_engine();
 
-    let mut world = create_gui(engine);
-    set_gui_size(world: u32, 1000.0, 700.0);
+    let mut world = create_gui(engine, 1000.0, 700.0);
+    // set_gui_size(world: u32, 1000.0, 700.0);
 
     let node2 = create_node(world);
     append_child(world, 1, node2);
