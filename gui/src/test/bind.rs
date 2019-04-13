@@ -36,7 +36,7 @@ pub fn test(){
     let node3 = create_node(world);
     append_child(world, node2, node3);
     set_width_percent(world, node3, 50.0);
-    set_height_percent(world, node3, 70.0);
+    set_height_percent(world, node3, 80.0);
     set_position(world, node3, unsafe{transmute(YGEdge::YGEdgeLeft)}, 50.0);
     set_backgroud_rgba_color(world, node3, 0.0, 0.0, 1.0, 1.0);
     set_border_color(world, node3, 0.0, 1.0, 0.0, 1.0);
@@ -75,6 +75,58 @@ pub fn test(){
     // set_width(world, node4, 400.0);
     // set_height(world, node4, 400.0);
     // set_backgroud_rgba_color(world, node4, 0.0, 1.0, 0.0, 1.0);
+
+    run(world);
+}
+
+pub fn test11(){
+    let canvas: CanvasElement = document().query_selector( "#canvas" ).unwrap().unwrap().try_into().unwrap();
+    let gl: WebGLRenderingContext = canvas.get_context().unwrap();
+
+    js!{
+        window.__gl = @{&gl};
+    }
+    let engine = create_engine();
+
+    let world = create_gui(engine, 1000.0,  700.0);
+    // set_gui_size(world: u32, 1000.0, 700.0);
+
+    let node2 = create_node(world);
+    append_child(world, 1, node2);
+    set_width_percent(world, node2, 100.0);
+    set_height_percent(world, node2, 100.0);
+    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 0.5);
+
+    let node3 = create_node(world);
+    let node4 = create_node(world);
+    append_child(world, node3, node4);
+    let node5 = create_node(world);
+    append_child(world, node3, node5);
+    let node6 = create_node(world);
+    append_child(world, node3, node6);
+    let node7 = create_node(world);
+    append_child(world, node3, node7);
+    append_child(world, node2, node3);
+
+    set_width_percent(world, node3, 100.0);
+    set_height_percent(world, node3, 100.0);
+    set_backgroud_rgba_color(world, node3, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node4, 100.0);
+    set_height_percent(world, node4, 100.0);
+    set_backgroud_rgba_color(world, node4, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node5, 100.0);
+    set_height_percent(world, node5, 100.0);
+    set_backgroud_rgba_color(world, node5, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node6, 100.0);
+    set_height_percent(world, node6, 100.0);
+    set_backgroud_rgba_color(world, node6, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node7, 100.0);
+    set_height_percent(world, node7, 100.0);
+    set_backgroud_rgba_color(world, node7, 0.0, 0.0, 1.0, 1.0);
 
     run(world);
 }

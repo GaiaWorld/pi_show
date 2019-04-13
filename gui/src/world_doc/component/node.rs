@@ -172,8 +172,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
             handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr);  //通知childs字段改变
         }
         let mut child_ref = NodeWriteRef::new(child_id, self.groups, self.mgr);
-        child_ref.set_parent(self.id);
-        child_ref.create_notify(); //通知Node及Node子组件的创建
+        child_ref._create(self.id);//通知Node及Node子组件的创建
         child_ref
     }
 
@@ -206,8 +205,45 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         };
         let handler = group._group.get_handlers();
         handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr); //通知childs字段改变
-        NodeWriteRef::new(child_id, self.groups, self.mgr).destroy(); //从容器中删除child的数据， 并抛出Node及Node子组件销毁的事件
+        NodeWriteRef::new(child_id, self.groups, self.mgr)._destroy(); //从容器中删除child的数据， 并抛出Node, 及Node子组件销毁的事件,
         child_yoga.free_recursive();
+    }
+
+    fn _create(&mut self, parent: usize) {
+        self.set_parent(parent);
+        self.create_notify(); //通知Node及Node子组件的创建
+
+        let mut child = self.get_childs().get_first();
+        loop {
+            if child == 0 {
+                return;
+            }
+            let node_id = {
+                let v = unsafe{ self.mgr.get_qid_container().get_unchecked(child) };
+                child = v.next;
+                v.elem.clone()
+            };
+            let mut child_ref = NodeWriteRef::new(node_id, self.groups, self.mgr);
+            child_ref.set_parent(self.id);
+            child_ref.create_notify();
+        }
+    }
+
+    fn _destroy(&mut self) {
+        self.destroy(); 
+
+        let mut child = self.get_childs().get_first();
+        loop {
+            if child == 0 {
+                return;
+            }
+            let node_id = {
+                let v = unsafe{ self.mgr.get_qid_container().get_unchecked(child) };
+                child = v.next;
+                v.elem.clone()
+            };
+            NodeWriteRef::new(node_id, self.groups, self.mgr).destroy();
+        }
     }
 }
 
