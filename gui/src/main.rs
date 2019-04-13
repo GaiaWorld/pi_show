@@ -49,13 +49,13 @@ pub mod component;
 
 
 //测试
-// #[cfg(feature = "web")]
-// mod test;
+#[cfg(feature = "web")]
+mod test;
 fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();
     // test::render::test();
     // test::bind::test();
     // test::bind::test_query();
-    // test::bind::test11()
+    test::bind::test11()
 }

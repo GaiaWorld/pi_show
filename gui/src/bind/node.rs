@@ -199,15 +199,20 @@ impl<'a> AbQueryArgs<'a> {
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &usize) {
+  println!("ab_query_func---------{}, aabb: {:?}", bind, aabb);
   if intersects(&arg.aabb, aabb) {
+    println!("bind---------{}", bind);
     let node = arg.mgr.node._group.get(*bind);
     // 判断类型是否有相交
     if (node.event_type as u32) & arg.ev_type != 0 {
+        println!("bind111---------{}, {}", bind, node.z_depth);
         // 取最大z的node
         if node.z_depth > arg.max_z {
+          println!("bind111222---------{}, aabb:{:?}, by_overflow:{:?} , overflow: {:?}", bind, aabb, node.by_overflow, arg.mgr.world_2d.component_mgr.overflow.value);
           // 检查是否有裁剪，及是否在裁剪范围内
-          if node.by_overflow > 0 && in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+          if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
             arg.result = *bind;
+            arg.max_z = node.z_depth;
            }
         }
     }

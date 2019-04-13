@@ -10,7 +10,6 @@ use stdweb::web::{
 };
 use stdweb::unstable::TryInto;
 
-
 use wcs::world::{World, System};
 use wcs::component::Builder;
 
