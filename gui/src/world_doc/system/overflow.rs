@@ -61,7 +61,6 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OverflowSys {
         (i, node.by_overflow & !i, node.get_childs_mut().get_first())
       }
     };
-    mgr.get_node_mut(*id).set_by_overflow(by);
     if by & index != 0 {
       adjust(mgr, child, index, add_index);
     }else{
@@ -85,26 +84,26 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
         }
     }
 }
-//监听Node的创建， 设置脏标志
+//监听Node的创建
 impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for OverflowSys {
   fn handle(&self, event: &CreateEvent, mgr: &mut WorldDocMgr) {
     let CreateEvent{id, parent} = event;
-    let by = {
-      // 检查该节点的父容器是否有by_overflow
-      let b = mgr.node._group.get_mut(*parent).by_overflow;
-      // 检查该节点是否有overflow, 如果有,则其自身的by_overflow受overflow影响
-      let node = mgr.node._group.get_mut(*id);
-      if node.overflow { // 其裁剪矩形需要等Matrix被设置时设置
-        let i = set_index(&mut mgr.world_2d.component_mgr.overflow, 0, *id);
-        node.by_overflow | i | b
-      }else if b > 0 {
-        node.by_overflow | b
-      }else{
-        return
-      }
+    // 检查该节点是否有overflow, 如果有,则其自身的by_overflow受overflow影响
+    let node = mgr.node._group.get_mut(*id);
+    if node.overflow { // 其裁剪矩形需要等Matrix被设置时设置
+      set_index(&mut mgr.world_2d.component_mgr.overflow, 0, *id);
+      mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
+    }
+    // 根据该节点的父容器是否有by_overflow及overflow, 设置自身的by_overflow
+    let pnode = mgr.node._group.get_mut(*parent);
+    let b = if pnode.overflow {
+      pnode.by_overflow | get_index(&mgr.world_2d.component_mgr.overflow, *parent)
+    }else{
+      pnode.by_overflow
     };
-    mgr.get_node_mut(*id).set_by_overflow(by);
-    mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
+    if b > 0 {
+      mgr.get_node_mut(*id).set_by_overflow(b);
+    }
   }
 }
 //监听Node的删除创建， 删除脏标志
@@ -173,20 +172,6 @@ fn adjust(mgr: &mut WorldDocMgr, mut child: usize, index: usize, ops: fn(a:usize
   }
 }
 // 计算指定矩形的4个点
-// fn calc_point(position: &Vector3, size: &RectSize, matrix: &Matrix4) -> [Point2;4] {
-//   let p = position.deref();
-//   let m = matrix.deref();
-//   let left_top = m * Vector4::new(p.x, p.y, 0.0, 1.0);
-//   let right_top = m * Vector4::new(p.x + size.width, p.y, 0.0, 1.0);
-//   let left_bottom = m * Vector4::new(p.x, p.y + size.height, 0.0, 1.0);
-//   let right_bottom = m * Vector4::new(p.x + size.width, p.y + size.height, 0.0, 1.0);
-//   let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
-//   let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
-//   let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
-//   let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
-//   [lt, rt, lb, rb]
-// }
-
 fn calc_point(layout: &Layout, matrix: &Matrix4) -> [Point2;4]{
     let half_width = layout.width/2.0;
     let half_height = layout.height/2.0;
