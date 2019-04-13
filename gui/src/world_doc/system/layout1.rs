@@ -12,6 +12,7 @@ use std::ops::Deref;
 use fnv::FnvHashMap;
 
 use slab::{Slab};
+use ucd::{Codepoint};
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, ModifyFieldEvent, DeleteEvent};
 
@@ -20,7 +21,7 @@ use world_doc::component::style::element::{Element, Text};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use component::math::{ Vector3, Matrix4 };
-use layout::{YGEdge, YGDirection, YgNode};
+use layout::{YGEdge, YGDirection, YgNode, Layout as LV};
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -78,7 +79,7 @@ impl System<(), WorldDocMgr> for Layout{
 
 
 pub struct TextImpl {
-  pub height: usize, // 字体高度
+  pub font_size: f32, // 字体高度
   pub chars: Vec<usize>, // 字符集合
 }
 pub struct CharImpl {
@@ -101,17 +102,35 @@ impl LayoutImpl {
             mgr: mgr as *mut WorldDocMgr,
         }
     }
-    // 立即生成yoga节点并加入
+    // 文本立即生成yoga节点并加入
     pub fn create_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
         // 获得字体高度
         let text = mgr.node.element.text._group.get(text_id);
         let font = mgr.node.element.text.font._group.get(text.font);
+        let font_size = mgr.font.get_size(&font.family, &font.size);
+        if font_size == 0.0 {
+            return;
+        }
         let text_style = mgr.node.element.text.text_style._group.get(text.text_style);
-        //let font_size = mgr.get
-        // self.node_map.insert(node_id, TextImpl {
-        //     action: action,
-        //     chars: Vec::new(),
-        // });
+        let mut vec = Vec::new();
+        let parent = &mgr.node._group.get(node_id).yoga;
+        let mut word: Option<YgNode> = None;
+        // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
+        for c in text.value.chars() {
+            if c.is_cased() {
+                 // 单字
+                if let Some(yg) = word {
+                    // 单词
+                }
+            }else if let Some(yg) = word {
+                
+            }
+            //YgNode::default()
+        }
+        self.node_map.insert(text_id, TextImpl {
+            font_size: font_size,
+            chars: vec,
+        });
     }
     // 立即删除自己增加的yoga节点
     pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, _node_id: usize) {

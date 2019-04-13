@@ -9,11 +9,11 @@ use world_doc::font::{FontSize};
 #[allow(unused_attributes)]
 #[derive(Component, Debug, Clone, Default, Builder)]
 pub struct Font{
-    style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     // font-variant	规定字体异体。参阅：font-variant 中可能的值。
-    weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
-    size: FontSize, //
-    family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
+    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub size: FontSize, //
+    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
     // caption	定义被标题控件（比如按钮、下拉列表等）使用的字体。
     // icon	定义被图标标记使用的字体。
     // menu	定义被下拉列表使用的字体。
