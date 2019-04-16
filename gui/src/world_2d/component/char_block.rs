@@ -2,7 +2,7 @@ use std::ops::{Deref};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
-use component::math::{Vector2};
+use component::math::{Vector2, Point2};
 use component::color::{Color};
 
 #[allow(unused_attributes)]
@@ -41,7 +41,7 @@ pub struct CharBlock{
 #[derive(Debug)]
 pub struct Char {
     value: char,
-    pos: (f32, f32)
+    pub pos: Point2,
 }
 
 // pub struct WordBlockEffect {

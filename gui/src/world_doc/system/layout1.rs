@@ -80,13 +80,16 @@ impl System<(), WorldDocMgr> for Layout{
 
 pub struct TextImpl {
   pub font_size: f32, // 字体高度
-  pub chars: Vec<usize>, // 字符集合
+  pub chars: Vec<usize>, // 字符集合, CharImpl的id
+  pub rid: usize, // 渲染节点的id
 }
 pub struct CharImpl {
   pub ch: char, // 字符, 0为容器节点
   pub width: usize, // 字符宽度
   pub parent: isize, // 对应的父节点，如果为正数表示Dom文本节点，负数为yoga节点（如果字节点是字符容器会出现这种情况）
   pub node: YgNode, // 对应的yoga节点
+  pub rid: usize, // 渲染节点的id
+  pub rindex: usize, // 渲染节点的偏移量
 }
 pub struct LayoutImpl{
     node_map: FnvHashMap<usize,TextImpl>,
@@ -142,6 +145,8 @@ impl LayoutImpl {
                         width: 0,
                         parent: node_id as isize,
                         node: yg,
+                        rid: 0,
+                        rindex: 0,
                     }));
                     parent_yaga.insert_child(yg.clone(), index as u32);
                 },
@@ -171,6 +176,7 @@ impl LayoutImpl {
         self.node_map.insert(text_id, TextImpl {
             font_size: font_size,
             chars: vec,
+            rid: 0,
         });
     }
     // 立即删除自己增加的yoga节点
@@ -205,18 +211,13 @@ impl LayoutImpl {
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
-        // let mut char_map = self.char_map;
-        // for (key, val) in self.node_map.iter_mut() {
-        //     match val.dirty {
-        //         ActionType::Delete => {
-
-        //         },
-        //         ActionType::Update => {
-
-        //         },
-        //         _ => ()
-        //     }
-        // }
+        let char_node = unsafe {self.char_slab.get_unchecked_mut(char_id)};
+        let rnode = unsafe {mgr.world_2d.component_mgr.word._group.get_mut(char_node.rid)};
+        let ch = unsafe {rnode.value.get_unchecked_mut(char_node.rindex)};
+        let layout = char_node.node.get_layout();
+        ch.pos.x = layout.left;
+        ch.pos.y = layout.top;
+        // TODO 发监听
     }
 }
 
@@ -235,7 +236,7 @@ fn update(mgr: &mut WorldDocMgr, node_id: usize) {
 //回调函数
 extern "C" fn callback(callback_context: *const c_void, context: *const c_void) {
     //更新布局
-    let node_id = unsafe { context as isize};
+    let node_id = context as isize;
     let layout_impl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
     let mgr = unsafe{ &mut *(layout_impl.mgr) };
     if node_id > 0 {
