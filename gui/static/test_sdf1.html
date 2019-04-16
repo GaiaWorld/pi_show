@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script>
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+    </script>
+    
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script>
+        var gl = document.getElementById("canvas").getContext('webgl');
+        window.__gl = gl;
+
+        var _engine;
+        var _gui;
+        var _body;
+        var _root, _root_top;
+        var page0, page1;
+
+        createdocument();
+        Module._run(_gui);
+
+        createbody();
+        Module._run(_gui);
+
+        createroot();
+        Module._run(_gui);
+
+        page0 = createpage();
+        Module._run(_gui);
+        setTimeout(() => {
+            page1 = createpage1();
+            Module._run(_gui);
+        }, 2000);
+
+        function createdocument() {
+            _engine = Module._create_engine();
+            _gui = Module._create_gui(_engine, 1000, 700);
+        }
+
+        function createbody() {
+            _body = Module._create_node(_gui);
+            Module._append_child(_gui, 1, _body);
+            Module._set_width_percent(_gui, _body, 100.0);
+            Module._set_height_percent(_gui, _body, 100.0);
+            Module._set_backgroud_rgba_color(_gui, _body, 1.0, 0.0, 0.0, 1);
+        }
+        
+        function createroot() {
+            // 根组件 第 0 层节点
+            _root = Module._create_node(_gui);
+
+            // 根组件 子节点
+            var temp0 = Module._create_node(_gui);
+            Module._append_child(_gui, _root, temp0);
+            
+            // 根组件 子节点
+            _root_top = Module._create_node(_gui);
+            Module._append_child(_gui, _root, _root_top);
+            
+            Module._set_width_percent(_gui, _root, 100.0);
+            Module._set_height_percent(_gui, _root, 100.0);
+            Module._set_backgroud_rgba_color(_gui, _root, 1.0, 1.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, temp0, 100.0);
+            Module._set_height_percent(_gui, temp0, 100.0);
+            Module._set_position_type(_gui, temp0, 1);
+            Module._set_backgroud_rgba_color(_gui, temp0, 1.0, 1.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, _root_top, 100.0);
+            Module._set_height_percent(_gui, _root_top, 100.0);
+            Module._set_backgroud_rgba_color(_gui, _root_top, 1.0, 1.0, 0.0, 1);
+            
+            Module._append_child(_gui, _body, _root);
+        }
+        
+        // 页面打开 添加到 root 子节点
+        function createpage() {
+            // 第 0 层
+            var node_0 = Module._create_node(_gui);
+
+            // 第 1 层 第 0 个节点
+            var node_1_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_0, node_1_0);
+            
+            // 第 1 层 第 1 个节点
+            var node_1_1 = Module._create_node(_gui);
+            Module._append_child(_gui, node_0, node_1_1);
+            
+            // 第 2 层 第 0 个节点
+            var node_2_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_1_1, node_2_0);
+            
+            // 第 3 层 第 0 个节点
+            var node_3_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_2_0, node_3_0);
+
+            Module._append_child(_gui, _root_top, node_0);
+
+
+            Module._set_width_percent(_gui, node_0, 50.0);
+            Module._set_height_percent(_gui, node_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_0, 0.0, 1.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_1_0, 50.0);
+            Module._set_height_percent(_gui, node_1_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_1_0, 0.0, 0.9, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_1_1, 50.0);
+            Module._set_height_percent(_gui, node_1_1, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_1_1, 0.0, 0.8, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_2_0, 50.0);
+            Module._set_height_percent(_gui, node_2_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_2_0, 0.0, 0.7, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_3_0, 50.0);
+            Module._set_height_percent(_gui, node_3_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_3_0, 0.0, 0.6, 0.0, 1);
+    
+            return node_0;
+        }
+
+        // 页面打开 添加到 root 子节点
+        function createpage1() {
+            // 第 0 层
+            var node_0 = Module._create_node(_gui);
+
+            // 第 1 层 第 0 个节点
+            var node_1_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_0, node_1_0);
+            
+            // 第 1 层 第 1 个节点
+            var node_1_1 = Module._create_node(_gui);
+            Module._append_child(_gui, node_0, node_1_1);
+            
+            // 第 2 层 第 0 个节点
+            var node_2_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_1_1, node_2_0);
+            
+            // 第 3 层 第 0 个节点
+            var node_3_0 = Module._create_node(_gui);
+            Module._append_child(_gui, node_2_0, node_3_0);
+
+            Module._append_child(_gui, _root_top, node_0);
+
+
+            Module._set_width_percent(_gui, node_0, 50.0);
+            Module._set_height_percent(_gui, node_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_0, 1.0, 0.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_1_0, 50.0);
+            Module._set_height_percent(_gui, node_1_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_1_0, 0.9, 0.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_1_1, 50.0);
+            Module._set_height_percent(_gui, node_1_1, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_1_1, 0.8, 0.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_2_0, 50.0);
+            Module._set_height_percent(_gui, node_2_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_2_0, 0.7, 0.0, 0.0, 1);
+            
+            Module._set_width_percent(_gui, node_3_0, 50.0);
+            Module._set_height_percent(_gui, node_3_0, 50.0);
+            Module._set_backgroud_rgba_color(_gui, node_3_0, 0.6, 0.0, 0.0, 1);
+    
+            return node_0;
+        }
+    </script>
+</body>
+</html>

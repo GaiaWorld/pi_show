@@ -81,6 +81,8 @@ fn cal_visibility(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDoc
 
 //递归计算visibility， 将节点最终的visibility设置在real_visibility属性上
 fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility: bool, node_id: usize, component_mgr: &mut WorldDocMgr) {
+    unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false};
+
     let (node_visibility, old_node_real_visibility) = {
         let node = component_mgr.node._group.get(node_id);
         (node.visibility, node.real_visibility)
@@ -98,7 +100,6 @@ fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility:
         node_ref.get_childs_mut().get_first()
     };
 
-    unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false}
     //递归设置子节点的real_visibility
     loop {
         if child == 0 {

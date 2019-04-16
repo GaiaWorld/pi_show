@@ -1,15 +1,12 @@
-use std::os::raw::{c_void};
-
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
 use wcs::component::{Builder};
-use wcs::world::{ComponentMgr, World};
+use wcs::world::{ComponentMgr};
 use cg::octree::*;
 use cg::{Aabb3, Point3};
 
 use world_doc::font::{FontSheet};
 use world_doc::component::node::*;
-use world_2d::World2dMgr;
 
 pub const Z_MAX: f32 = 4194304.0;
 
@@ -22,8 +19,6 @@ world!(
         root_id: usize,
         font: FontSheet,
         octree: Tree<f32, usize>,
-
-        world_2d: World<World2dMgr, ()>,
     } 
 );
 
@@ -35,7 +30,6 @@ impl WorldDocMgr {
             root_id: 0,
             font: FontSheet::default(),
             octree: Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), 0, 0, 0, 0),
-            world_2d: World::new(World2dMgr::new()),
         };
 
         let root = NodeBuilder::new()
@@ -56,9 +50,9 @@ impl QidContainer for WorldDocMgr {
 }
 
 impl WorldDocMgr {
-    pub fn set_size(&mut self, width: f32, height: f32) {
-        self.world_2d.component_mgr.set_size(width, height);
-    }
+    // pub fn set_size(&mut self, width: f32, height: f32) {
+    //     // self.world_2d.component_mgr.set_size(width, height);
+    // }
     pub fn get_root_id(&self) -> usize {
         1
     }

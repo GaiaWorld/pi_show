@@ -135,7 +135,6 @@ mod test {
         let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
         let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
 
-        world.component_mgr.set_size(500.0, 500.0);
         let (root, node_ids) = {
             let root = NodeBuilder::new().build(&mut world.component_mgr.node);
             let root_id = world.component_mgr.add_node(root).id;

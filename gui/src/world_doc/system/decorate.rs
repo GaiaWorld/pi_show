@@ -108,7 +108,6 @@ impl ComponentHandler<Color, ModifyFieldEvent, WorldDocMgr> for BBSys {
 //监听background_color的创建事件， 修改创建或修改对应sdf2d上对应的值
 impl ComponentHandler<Color, CreateEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr) {
-        println!("监听background_color的创建事件，");
         let CreateEvent { id, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
         //background_color创建时，其对应的sdf2d能已经被创建（border_color对应的sdf2d与background_color对应的sdf2d是同一个）

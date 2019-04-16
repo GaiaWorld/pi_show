@@ -42,7 +42,7 @@ mod util;
 pub mod render;
 #[cfg(feature = "web")]
 pub mod bind;
-
+#[cfg(feature = "web")]
 pub mod world_2d;
 
 pub mod component;
