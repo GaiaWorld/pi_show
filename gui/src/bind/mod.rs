@@ -1,4 +1,5 @@
 use stdweb::unstable::TryInto;
+use std::mem::transmute;
 
 use wcs::world::World;
 use wcs::component::{Builder};
@@ -6,7 +7,7 @@ use atom::Atom;
 
 use world_doc::component::node::{NodeBuilder};
 use world_doc::component::style::element::{ElementBuilder};
-use world_doc::component::style::element::{Text as TextElement, Image as ImageElement};
+use world_doc::component::style::element::{Text as TextElement, ElementId};
 use world_doc::{WorldDocMgr, create_world};
 use render::engine::Engine;
 use render::res::TextureRes;
@@ -38,11 +39,16 @@ pub fn get_texture_res(engine: u32, key: String) -> u32{
 }
 
 #[no_mangle]
-pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opacity: f32, compress: u32, bind: u32) -> u32{
+pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opacity: u8, compress: u32) -> u32{
     let engine = unsafe {&mut *(engine as usize as *mut Engine)};
-    let bind = js!(return __rsObjMap.get(@{bind});).try_into().unwrap();
+    let bind = js!(return __jsObj;).try_into().unwrap();
     let key = Atom::from(key);
-    Box::into_raw(Box::new( engine.res_mgr.textures.create(TextureRes::new(key, width as usize, height as usize, opacity, compress as usize, bind, engine.gl.clone()) ))) as u32
+    let r = Box::into_raw(Box::new( engine.res_mgr.textures.create(TextureRes::new(key, width as usize, height as usize, unsafe{transmute(opacity)}, compress as usize, bind, engine.gl.clone()) ))) as u32;
+    println!("create_texture_res src: {}", r);
+    // js!{
+    //     console.log("create_texture_res src:", @{r});
+    // };
+    r
 }
 
 /**创建一个gui的实例 */
@@ -82,13 +88,8 @@ pub fn create_text_node(world: u32) -> u32{
 pub fn create_image_node(world: u32) -> u32{
     js!{console.log("create_image_node");}
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-
-    let node = NodeBuilder::new()
-    .element(
-        ElementBuilder::new()
-        .image(ImageElement::default())
-        .build(&mut world.component_mgr.node.element))
-    .build(&mut world.component_mgr.node);
+    let mut node = NodeBuilder::new().build(&mut world.component_mgr.node);
+    node.element = ElementId::Image(0);
     world.component_mgr.node._group.insert(node, 0) as u32
 }
 

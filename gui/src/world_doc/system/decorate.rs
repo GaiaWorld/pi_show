@@ -13,7 +13,7 @@ use world_doc::component::style::generic::{ Decorate, BoxShadow };
 use world_doc::component::style::transform::Transform;
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
-use world_2d::component::sdf::{ Sdf };
+use world_2d::component::sdf::{ Sdf, SdfWriteRef };
 use util::dirty_mark::DirtyMark;
 use render::res::TextureRes;
 // use util::math::decompose;
@@ -44,6 +44,7 @@ impl BBSys {
         component_mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
 
         //监听boundbox的变化
         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
@@ -107,6 +108,7 @@ impl ComponentHandler<Color, ModifyFieldEvent, WorldDocMgr> for BBSys {
 //监听background_color的创建事件， 修改创建或修改对应sdf2d上对应的值
 impl ComponentHandler<Color, CreateEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr) {
+        println!("监听background_color的创建事件，");
         let CreateEvent { id, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
         //background_color创建时，其对应的sdf2d能已经被创建（border_color对应的sdf2d与background_color对应的sdf2d是同一个）
@@ -135,8 +137,8 @@ impl ComponentHandler<Color, DeleteEvent, WorldDocMgr> for BBSys {
         let DeleteEvent { id: _, parent } = event; 
         let border_color_id = component_mgr.node.decorate._group.get(*parent).border_color;
         if border_color_id == 0 {
-            let _sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent) };
-            //删除sdf2d组件 TODO
+            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove(*parent) };
+            SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
         }
     }
 }
@@ -172,10 +174,10 @@ impl ComponentHandler<MathColor, CreateEvent, WorldDocMgr> for BBSys {
 impl ComponentHandler<MathColor, DeleteEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr) {
         let DeleteEvent { id: _, parent } = event; 
-        let border_color_id = component_mgr.node.decorate._group.get(*parent).border_color;
-        if border_color_id == 0 {
-            let _sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.get_unchecked(*parent) };
-            //删除sdf2d组件 TODO
+        let background_color_id = component_mgr.node.decorate._group.get(*parent).background_color;
+        if background_color_id == 0 {
+            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove(*parent) };
+            SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
         }
     }
 }
@@ -214,12 +216,12 @@ impl ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr> for BBSys {
 
 
 impl ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr> for BBSys {
-    fn handle(&self, event: &DeleteEvent, _component_mgr: &mut WorldDocMgr) {
+    fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr) {
         let DeleteEvent { id: _, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
-        let _sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.get_unchecked(*parent).clone() };
+        let sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.remove(*parent)};
         borrow_mut.shadow_matrix_dirty.delete_dirty(*parent);
-        //删除sdf2d TODO
+        SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
     }
 }
 
@@ -292,6 +294,17 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
             if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(layout.border);
+            }
+        } else if *field == "real_visibility" {
+            let visibility = node.real_visibility;
+            if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_visibility(visibility);
+            }
+            if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
+            }
+            if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
             }
         }
     }
@@ -435,6 +448,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
     sdf.blur = 1.0;
     sdf.z_depth = node.z_depth;
+    sdf.visibility = node.real_visibility;
     sdf.by_overflow = node.by_overflow;
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
@@ -463,12 +477,10 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
 
     if decorate.border_color > 0 {
-        println!("bordercolor====================");
         let color = mgr.node.decorate.border_color._group.get(decorate.border_color).owner.clone();
         if color.a < 1.0 {
             sdf.is_opaque = false;
         }
-        println!("bordercolor===================={:?}", color);
         sdf.border_color = color;
         sdf.border_size = layout.border;
     }
@@ -482,7 +494,7 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.alpha = node.real_opacity;
     sdf.z_depth = node.z_depth - 0.00001;
     sdf.by_overflow = node.by_overflow;
-
+    sdf.visibility = node.real_visibility;
     // let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
     // let offset_matrix = cg::Matrix4::from_translation(Ve);
 

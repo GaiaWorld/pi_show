@@ -63,7 +63,6 @@ pub enum ShowType {
 pub enum Display {
     Flex,
     Inline,
-    Display,
     None,
 }
 

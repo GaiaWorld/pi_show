@@ -106,7 +106,7 @@ pub trait FontHelper {
 }
 
 // 静态字体实现 TODO 应该是渲染模块实现
-struct StaticFont {
+pub struct StaticFont {
     pub texture: usize, // 字体纹理的句柄
     pub texture_size: cg::Vector2<usize>, // 字体纹理的大小
     pub index: usize, // 纹理当前索引

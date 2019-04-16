@@ -1,6 +1,5 @@
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use std::ops::{Deref};
-use std::default::{Default};
 use wcs::world::{ComponentMgr};
 use atom::{Atom};
 

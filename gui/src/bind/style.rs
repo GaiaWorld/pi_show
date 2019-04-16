@@ -308,6 +308,7 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, color_and_p
 //     }
 // }
 
+//设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node_id: u32, value: bool){
     js!{console.log("set_overflow")} 
@@ -323,6 +324,32 @@ pub fn set_opacity(world: u32, node_id: u32, value: f32) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_opacity(value);
+}
+
+//设置display
+#[no_mangle]
+pub fn set_display(world: u32, node_id: u32, value: u8) {
+    js!{console.log("set_display")} 
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    world.component_mgr.get_node_mut(node_id).set_display(unsafe{ transmute(value) });
+}
+
+//设置visibility, true: visible, false: hidden,	默认true
+#[no_mangle]
+pub fn set_visibility(world: u32, node_id: u32, value: bool) {
+    js!{console.log("set_visibility")} 
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    world.component_mgr.get_node_mut(node_id).set_visibility(value);
+}
+
+#[no_mangle]
+pub fn set_zindex(world: u32, node_id: u32, value: i32) {
+    js!{console.log("set_z_index")} 
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    world.component_mgr.get_node_mut(node_id).set_zindex(value as isize);
 }
 
 #[no_mangle]

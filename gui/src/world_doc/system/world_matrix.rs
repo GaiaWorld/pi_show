@@ -13,13 +13,14 @@ use world_doc::component::node::Node;
 use world_doc::WorldDocMgr;
 use component::math::{Matrix4};
 use vecmap::VecMap;
+use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
 // use alert;
 
-pub struct WorldMatrix(RefCell<WorldMatrixImpl>);
+pub struct WorldMatrix(RefCell<LayerDirtyMark>);
 
 impl WorldMatrix {
     pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<WorldMatrix>{
-        let system = Rc::new(WorldMatrix(RefCell::new(WorldMatrixImpl::new())));
+        let system = Rc::new(WorldMatrix(RefCell::new(LayerDirtyMark::new())));
         component_mgr.node.transform._group.register_modify_field_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.transform._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, DeleteEvent, WorldDocMgr>>)));
         component_mgr.node.transform._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Transform, CreateEvent, WorldDocMgr>>)));
@@ -77,76 +78,24 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for WorldMatrix{
 
 impl System<(), WorldDocMgr> for WorldMatrix{
     fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        self.0.borrow_mut().cal_matrix(component_mgr);
+        cal_matrix(&mut self.0.borrow_mut(), component_mgr);
     }
 }
 
-pub struct WorldMatrixImpl {
-    dirtys: Vec<Vec<usize>>, //Vec<Vec<node_id>>
-    dirty_mark_list: VecMap<bool>,
-}
+//计算世界矩阵
+pub fn cal_matrix(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDocMgr){
+    for d1 in dirty_marks.dirtys.iter() {
+        for node_id in d1.iter() {
+            let dirty_mark = unsafe{*dirty_marks.dirty_mark_list.get_unchecked(*node_id)};
+            if dirty_mark == false {
+                continue;
+            }
 
-impl WorldMatrixImpl {
-    pub fn new() -> WorldMatrixImpl{
-        // 默认id为1的node为根， 根的创建没有事件， 因此默认插入根的脏
-        let mut dirty_mark_list = VecMap::new();
-        let mut dirtys = Vec::new();
-        dirtys.push(Vec::new());
-        dirtys[0].push(1);
-        dirty_mark_list.insert(1, true);
-
-        WorldMatrixImpl{
-            dirtys,
-            dirty_mark_list,
+            //修改节点世界矩阵及子节点的世界矩阵
+            modify_matrix(&mut dirty_marks.dirty_mark_list, *node_id, component_mgr);
         }
     }
-
-    //计算世界矩阵
-    pub fn cal_matrix(&mut self, component_mgr: &mut WorldDocMgr){
-        for d1 in self.dirtys.iter() {
-            for node_id in d1.iter() {
-                let dirty_mark = unsafe{*self.dirty_mark_list.get_unchecked(*node_id)};
-                if dirty_mark == false {
-                    continue;
-                }
-
-                //修改节点世界矩阵及子节点的世界矩阵
-                modify_matrix(&mut self.dirty_mark_list, *node_id, component_mgr);
-            }
-        }
-        self.dirtys.clear();
-    }
-
-    pub fn marked_dirty(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
-        {
-            let dirty_mark = unsafe { self.dirty_mark_list.get_unchecked_mut(node_id) };
-            if *dirty_mark == true {
-                return;
-            }
-            *dirty_mark = true;
-        }
-        let layer = mgr.node._group.get_mut(node_id).layer;
-
-        if self.dirtys.len() <= layer{
-            for _i in 0..(layer + 1 - self.dirtys.len()){
-                self.dirtys.push(Vec::new());
-            }
-        }
-        self.dirtys[layer].push(node_id);
-    }
-
-    pub fn delete_dirty(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
-        let dirty_mark = *unsafe{self.dirty_mark_list.get_unchecked_mut(node_id)};
-        if dirty_mark == true {
-            let layer = mgr.node._group.get_mut(node_id).layer;
-            for i in 0..self.dirtys[layer].len() {
-                if self.dirtys[layer][i] == node_id {
-                    self.dirtys[layer].swap_remove(i);
-                    return;
-                }
-            }
-        }
-    }
+    dirty_marks.dirtys.clear();
 }
 
 //计算世界矩阵

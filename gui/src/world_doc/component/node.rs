@@ -22,8 +22,13 @@ pub struct Node{
     // #[component(Style)]
     // pub style: usize,
 
+    #[listen]
     #[builder(export)]
-    pub display: Option<Display>,
+    pub display: Display,
+
+    #[listen]
+    #[builder(export, build(value=true))]
+    pub visibility: bool,
 
     #[builder(export)]
     pub class_name: Vec<Atom>,
@@ -85,9 +90,13 @@ pub struct Node{
     #[listen]
     pub size: Vector2, //size
 
-    #[builder(build(Default))]
+    #[builder(build(value=1.0))]
     #[listen]
     pub real_opacity: f32, //不透明度
+
+    #[listen]
+    #[builder(build(value=true))]
+    pub real_visibility: bool, //是否可见（参与布局， 但不响应事件）
 
     #[component(Matrix4)]
     #[builder(build(Default))]
@@ -176,11 +185,12 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         child_ref
     }
 
-    pub fn remove_child(&mut self, qid: usize) {
+    pub fn remove_child(&mut self, child_id: usize) {
+        let group = NodeGroup::<M>::from_usize_mut(self.groups);
+        let qid = group._group.get_mut(child_id).qid;
         if !self.mgr.get_qid_container().contains(qid){
             panic!("remove_child fail!, node is not exist, qid:{}", qid);
         }
-        let group = NodeGroup::<M>::from_usize_mut(self.groups);
         let child_id = group._group.get_mut(self.id).childs.remove(qid, &mut self.mgr.get_qid_container()); //从childs移除child
         let (parent, child_yoga) = {
             let child_yoga = group._group.get(child_id).yoga;
@@ -206,7 +216,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         let handler = group._group.get_handlers();
         handler.notify_modify_field(ModifyFieldEvent{id: self.id, parent: parent, field: "childs"}, &mut self.mgr); //通知childs字段改变
         NodeWriteRef::new(child_id, self.groups, self.mgr)._destroy(); //从容器中删除child的数据， 并抛出Node, 及Node子组件销毁的事件,
-        child_yoga.free_recursive();
+        child_yoga.free_recursive(); //递归释放子节点的yoga
     }
 
     fn _create(&mut self, parent: usize) {
@@ -216,7 +226,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         let mut child = self.get_childs().get_first();
         loop {
             if child == 0 {
-                return;
+                break;
             }
             let node_id = {
                 let v = unsafe{ self.mgr.get_qid_container().get_unchecked(child) };
@@ -224,26 +234,24 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
                 v.elem.clone()
             };
             let mut child_ref = NodeWriteRef::new(node_id, self.groups, self.mgr);
-            child_ref.set_parent(self.id);
-            child_ref.create_notify();
+            child_ref._create(self.id);
         }
     }
 
     fn _destroy(&mut self) {
-        self.destroy(); 
-
         let mut child = self.get_childs().get_first();
         loop {
             if child == 0 {
-                return;
+                break;
             }
             let node_id = {
                 let v = unsafe{ self.mgr.get_qid_container().get_unchecked(child) };
                 child = v.next;
                 v.elem.clone()
-            };
-            NodeWriteRef::new(node_id, self.groups, self.mgr).destroy();
+            };;
+            NodeWriteRef::new(node_id, self.groups, self.mgr)._destroy();
         }
+        self.destroy(); 
     }
 }
 

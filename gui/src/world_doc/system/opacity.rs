@@ -11,12 +11,13 @@ use vecmap::VecMap;
 
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
+use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
 
-pub struct OpacitySys(RefCell<OpacitySysImpl>);
+pub struct OpacitySys(RefCell<LayerDirtyMark>);
 
 impl OpacitySys {
     pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<OpacitySys>{
-        let system = Rc::new(OpacitySys(RefCell::new(OpacitySysImpl::new())));
+        let system = Rc::new(OpacitySys(RefCell::new(LayerDirtyMark::new())));
         component_mgr.node.opacity.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, CreateEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, WorldDocMgr>>)));
@@ -54,97 +55,44 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for OpacitySys{
 
 impl System<(), WorldDocMgr> for OpacitySys{
     fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        self.0.borrow_mut().cal_opacity(component_mgr);
+        cal_opacity(&mut self.0.borrow_mut(), component_mgr);
     }
 }
 
-pub struct OpacitySysImpl {
-    dirtys: Vec<Vec<usize>>, //Vec<Vec<node_id>>
-    dirty_mark_list: VecMap<bool>,
+
+
+//计算不透明度
+pub fn cal_opacity(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDocMgr){
+    for d1 in dirty_marks.dirtys.iter() {
+        for node_id in d1.iter() {
+            if  *unsafe{dirty_marks.dirty_mark_list.get_unchecked(*node_id)} == false {
+                continue;
+            }
+
+            let parent_id = component_mgr.node._group.get(*node_id).parent;
+            if parent_id > 0 {
+                modify_opacity(&mut dirty_marks.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
+            }else {
+                modify_opacity(&mut dirty_marks.dirty_mark_list, 1.0, *node_id, component_mgr);
+            }
+        }
+    }
+
+    dirty_marks.dirtys.clear();
 }
-
-impl OpacitySysImpl {
-    pub fn new() -> OpacitySysImpl{
-        // 默认id为1的node为根， 根的创建没有事件， 因此默认插入根的脏
-        let mut dirty_mark_list = VecMap::new();
-        let mut dirtys = Vec::new();
-        dirtys.push(Vec::new());
-        dirtys[0].push(1);
-        dirty_mark_list.insert(1, true);
-
-        OpacitySysImpl{
-            dirtys,
-            dirty_mark_list,
-        }
-    }
-
-    //计算不透明度
-    pub fn cal_opacity(&mut self, component_mgr: &mut WorldDocMgr){
-        for d1 in self.dirtys.iter() {
-            for node_id in d1.iter() {
-                if  *unsafe{self.dirty_mark_list.get_unchecked(*node_id)} == false {
-                    continue;
-                }
-
-                let parent_id = component_mgr.node._group.get(*node_id).parent;
-                if parent_id > 0 {
-                    modify_opacity(&mut self.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
-                }else {
-                    modify_opacity(&mut self.dirty_mark_list, 1.0, *node_id, component_mgr);
-                }
-            }
-        }
-
-        self.dirtys.clear();
-    }
-
-    pub fn marked_dirty(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
-        let layer = {
-            let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(node_id)};
-            if *dirty_mark == true {
-                return;
-            }
-            *dirty_mark = true;
-
-            mgr.node._group.get(node_id).layer
-        };
-
-        if self.dirtys.len() <= layer{
-            for _i in 0..(layer + 1 - self.dirtys.len()){
-                self.dirtys.push(Vec::new());
-            }
-        }
-        self.dirtys[layer].push(node_id);
-    }
-
-    pub fn delete_dirty(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
-        let node = mgr.node._group.get_mut(node_id);
-        let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(node_id)};
-        if *dirty_mark == true {
-            let layer = node.layer;
-            for i in 0..self.dirtys[layer].len() {
-                if self.dirtys[layer][i] == node_id {
-                    self.dirtys[layer].swap_remove(i);
-                    return;
-                }
-            }
-        }
-    }
-}
+ 
 
 //递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
 fn modify_opacity(dirty_mark_list: &mut VecMap<bool>, parent_real_opacity: f32, node_id: usize, component_mgr: &mut WorldDocMgr) {
-    let (node_opacity, node_old_real_opacity) = {
+    let node_opacity = {
         let node = component_mgr.node._group.get(node_id);
-        (node.opacity, node.real_opacity)
+        node.opacity
     };
     let node_real_opacity = node_opacity * parent_real_opacity;
 
     let mut child = {
         let mut node_ref = component_mgr.get_node_mut(node_id);
-        if node_real_opacity != node_old_real_opacity {
-            node_ref.set_real_opacity(node_real_opacity);
-        }
+        node_ref.set_real_opacity(node_real_opacity);
         node_ref.get_childs_mut().get_first()
     };
 

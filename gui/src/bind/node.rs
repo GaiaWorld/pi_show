@@ -1,15 +1,12 @@
-use atom::Atom;
 use cg::query::{include_quad2, InnOuter};
 use cg::octree::intersects;
 
 use wcs::world::World;
 
 use world_doc::{Z_MAX, WorldDocMgr};
-// use world_doc::{ WorldDocMgr};
 use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use world_doc::component::node::{InsertType, NodeWriteRef};
 use cg::{Aabb3, Point3, Point2};
-use render::res::TextureRes;
 
 // use bind::{Pointer};
 
@@ -109,14 +106,9 @@ pub fn set_text_content(world: u32, node_id: u32, value: &str){
     }
 }
 
-enum ImageFormat {
-    RGB,
-    RGBA,
-}
-
-// 设置图片的src， texture为TextureRes
+// 设置图片的src， texture为Rc<TextureRes>
 #[no_mangle]
-pub fn set_image(world: u32, node_id: u32, texture: u32){
+pub fn set_src(world: u32, node_id: u32, texture: u32){;
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let element_id = world.component_mgr.node._group.get(node_id).element.clone();

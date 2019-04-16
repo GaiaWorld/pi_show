@@ -13,3 +13,5 @@ pub mod opacity;
 pub mod decorate;
 pub mod run_world_2d;
 pub mod image;
+pub mod visibility;
+pub mod util;

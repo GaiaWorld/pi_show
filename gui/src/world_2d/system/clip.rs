@@ -157,13 +157,6 @@ impl ClipSysImpl {
             // ]);
         }
 
-        // let buffer = unsafe { UnsafeTypedArray::new(&ps) };
-        // gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&positions_buffer));
-        // js! {
-        //     console.log("position", @{&buffer});
-        //     @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-        // }
-
         #[cfg(feature = "log")]
         println!("clip indexs---------------------------{:?}", indexs);
         let buffer = unsafe { UnsafeTypedArray::new(&indexs) };

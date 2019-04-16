@@ -263,6 +263,7 @@ pub enum LengthUnitType{
     Percent
 }
 
+
 // #[wasm_bindgen]
 // #[derive(Debug, Clone)]
 // pub struct Color{
@@ -290,6 +291,12 @@ pub enum LengthUnitType{
 //     BorderBox,
 //     PaddingBox,
 //     ContentBox,
+// }
+
+// pub enum Display {
+//     Flex,
+//     Inline,
+//     None,
 // }
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
