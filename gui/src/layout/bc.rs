@@ -66,7 +66,7 @@ pub struct Layout{
 }
 // pub type YgNodeP = YgNode;
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct YgNode( yoga::YGNodeRef);
 
 impl Default for YgNode{
