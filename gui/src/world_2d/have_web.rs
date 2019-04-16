@@ -1,9 +1,8 @@
 use std::default::Default;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
-use cg::{Matrix4, Point2 as CgPoint2, Ortho};
+use cg::{Matrix4, Ortho};
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -15,6 +14,7 @@ use world_2d::system::create_effect::CreateEffect;
 use world_2d::system::create_sdf_program::CreateSdfProgram;
 use world_2d::system::render::Render;
 use world_2d::system::clip::ClipSys;
+use world_2d::system::image::ImageSys;
 use component::math::{Point2};
 use render::engine::Engine;
 use render::res::ResMgr;
@@ -26,17 +26,13 @@ pub fn create_world(engine: Engine, near: f32, far: f32, width: f32, height: f32
     let create_sdf_program = CreateSdfProgram::init(&mut mgr);
     let clip = ClipSys::init(&mut mgr);
     let render = Render::init(&mut mgr);
+    let image = ImageSys::init(&mut mgr);
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, render];
+    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, image, render];
     world.set_systems(systems);
 
     world
-}
-//创建world_2d的system
-
-fn create_overflow() -> Overflow{
-    Overflow([0;8],[[Point2(CgPoint2::new(100.0, 100.0)), Point2(CgPoint2::new(200.0, 100.0)), Point2(CgPoint2::new(200.0, 200.0)), Point2(CgPoint2::new(100.0, 200.0))];8])
 }
 
 world!(
@@ -52,6 +48,9 @@ world!(
 
         #[component]
         sdf_effect: SdfEffect,
+
+        #[component]
+        image_effect: ImageEffect,
 
 
         //全局数据
@@ -92,12 +91,16 @@ impl World2dMgr {
         shader_store.store(&clip_shader.fs, clip_fragment_shader());
         shader_store.store(&clip_shader.vs, clip_vertex_shader());
 
+        shader_store.store(&image_shader.fs, image_fragment_shader());
+        shader_store.store(&image_shader.vs, image_vertex_shader());
+
         World2dMgr{
             sdf: SdfGroup::default(),
             word: CharBlockGroup::default(),
             image: ImageGroup::default(),
 
             sdf_effect: SdfEffectGroup::default(),
+            image_effect: ImageEffectGroup::default(),
 
             width: width,
             height: height,

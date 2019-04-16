@@ -4,11 +4,13 @@
 use std::cell::RefCell;
 use std::rc::{Rc};
 use std::cmp::{Ord, Ordering, Eq, PartialEq};
+use webgl_rendering_context::{WebGLRenderingContext};
 
 use wcs::world::{System};
 
 use world_2d::World2dMgr;
 use world_2d::system::render_util::sdf;
+use world_2d::system::render_util::image;
 
 pub struct Render(RefCell<RenderImpl>);
 
@@ -40,6 +42,7 @@ impl RenderImpl {
 
     pub fn render(&mut self, mgr: &mut World2dMgr) {
         // println!("render---------------------------------", );
+        mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         self.list_obj(mgr);
         for v in self.opaque_objs.iter() {
             match v.ty {
@@ -47,6 +50,11 @@ impl RenderImpl {
                     #[cfg(feature = "log")]
                     println!("sdf opaque_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
+                },
+                RenderType::Image => {
+                    #[cfg(feature = "log")]
+                    println!("image opaque_objs render---------------------------------", );
+                    image::render(mgr, v.id);
                 },
                 _ => (),
             }
@@ -58,6 +66,11 @@ impl RenderImpl {
                     #[cfg(feature = "log")]
                     println!("sdf transparent_objs render---------------------------------", );
                     sdf::render(mgr, v.id);
+                },
+                RenderType::Image => {
+                    #[cfg(feature = "log")]
+                    println!("image transparent_objs render---------------------------------", );
+                    image::render(mgr, v.id);
                 },
                 _ => (),
             }
@@ -88,6 +101,7 @@ impl RenderImpl {
         for v in mgr.sdf._group.iter() {
             // println!("sdf render---------------------------------", );
             if v.1.is_opaque {
+                println!("sdf render---------------------------------{}", v.0);
                 self.opaque_objs.push(SortObject {
                     z: v.1.z_depth,
                     id: v.0,

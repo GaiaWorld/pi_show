@@ -8,7 +8,7 @@ use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, Creat
 use wcs::world::{ComponentMgr};
 use atom::Atom;
 
-use component::math::{Vector2, Matrix4};
+use component::math::{Vector2, Matrix4, Color};
 use render::res::TextureRes;
 
 //  // Attributes
@@ -54,6 +54,10 @@ pub struct Image{
 
     #[listen]
     pub src: Rc<TextureRes>,
+
+     // z深度
+    #[listen]
+    pub color: Color,
 }
 
 impl Image {
@@ -66,6 +70,7 @@ impl Image {
             by_overflow: 0,
             extend: Vector2::default(),
             src: src,
+            color: Color(cg::color::Color::new(1.0, 1.0, 1.0, 1.0)),
         }
     }
 }
@@ -81,6 +86,7 @@ pub struct ImageEffect {
     pub defines: usize,
 
     pub positions_buffer: WebGLBuffer,
+    pub uvs_buffer: WebGLBuffer,
     pub indeices_buffer: WebGLBuffer,
 
     pub positions_dirty: bool,

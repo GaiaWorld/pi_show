@@ -108,10 +108,16 @@ impl ComponentHandler<Sdf, DeleteEvent, World2dMgr> for CreateEffect{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut World2dMgr){
         let DeleteEvent{id, parent:_} = event;
         let effect_id = unsafe { self.0.borrow_mut().sdf_effect_map.remove(*id) };
-        let sdf_effect = component_mgr.sdf_effect._group.remove(effect_id);
-        component_mgr.engine.gl.delete_buffer(Some(&sdf_effect.positions_buffer));
-        component_mgr.engine.gl.delete_buffer(Some(&sdf_effect.indeices_buffer));
-        SdfEffectWriteRef::new(*id, component_mgr.sdf_effect.to_usize(), component_mgr).destroy(); //通知组件销毁
+        {
+            let (positions_buffer, indeices_buffer) = {
+                let sdf_effect = component_mgr.sdf_effect._group.get(effect_id);
+                (sdf_effect.positions_buffer.clone(), sdf_effect.indeices_buffer.clone())
+            };
+            component_mgr.engine.gl.delete_buffer(Some(&positions_buffer));
+            component_mgr.engine.gl.delete_buffer(Some(&indeices_buffer));
+        }
+        
+        SdfEffectWriteRef::new(effect_id, component_mgr.sdf_effect.to_usize(), component_mgr).destroy(); //通知组件销毁
     }
 }
 
@@ -139,7 +145,7 @@ impl ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr> for CreateEffect {
                 component_mgr.get_sdf_effect_mut(effect_id).get_defines_mut().set_stroke(true);
             }
         } else if *field == "bound_box" {
-            component_mgr.get_sdf_effect_mut(effect_id).set_positions_dirty(true);
+            component_mgr.get_sdf_effect_mut(effect_id).set_positions_dirty(true); //TODO
         }
     }
 }

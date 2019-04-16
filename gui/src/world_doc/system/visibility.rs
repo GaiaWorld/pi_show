@@ -1,5 +1,5 @@
 /**
- * 监听opacity组件（该组件由外部设置本节点的不透明度， 会影响子节点的不透明度）， 递归计算最终的不透明度值， 将其记录在real_opacity组件中
+ * 监听visibility组件， 递归设置子节点的real_visibility
  */
 
 use std::cell::RefCell;
@@ -13,20 +13,20 @@ use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
 
-pub struct OpacitySys(RefCell<LayerDirtyMark>);
+pub struct VisibilitySys(RefCell<LayerDirtyMark>);
 
-impl OpacitySys {
-    pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<OpacitySys>{
-        let system = Rc::new(OpacitySys(RefCell::new(LayerDirtyMark::new())));
-        component_mgr.node.opacity.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+impl VisibilitySys {
+    pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<VisibilitySys>{
+        let system = Rc::new(VisibilitySys(RefCell::new(LayerDirtyMark::new())));
+        component_mgr.node.visibility.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, CreateEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, WorldDocMgr>>)));
         system
     }
 }
 
-//监听opacity属性的改变
-impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OpacitySys{
+//监听visibility属性的改变
+impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for VisibilitySys{
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr){
         let ModifyFieldEvent{id, parent: _, field: _} = event;
         self.0.borrow_mut().marked_dirty(*id, component_mgr);
@@ -34,7 +34,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OpacitySys{
 }
 
 //监听Node的创建， 设置脏标志
-impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for OpacitySys{
+impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for VisibilitySys{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr){
         let CreateEvent{id, parent: _} = event;
         let mut borrow = self.0.borrow_mut();
@@ -44,7 +44,7 @@ impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for OpacitySys{
 }
 
 //监听Node的删除创建， 删除脏标志
-impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for OpacitySys{
+impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for VisibilitySys{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr){
         let DeleteEvent{id, parent: _} = event;
         let mut borrow = self.0.borrow_mut();
@@ -53,16 +53,14 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for OpacitySys{
     }
 }
 
-impl System<(), WorldDocMgr> for OpacitySys{
+impl System<(), WorldDocMgr> for VisibilitySys{
     fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        cal_opacity(&mut self.0.borrow_mut(), component_mgr);
+        cal_visibility(&mut self.0.borrow_mut(), component_mgr);
     }
 }
 
-
-
-//计算不透明度
-pub fn cal_opacity(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDocMgr){
+//循环脏标记， 递归设置real_visibility
+fn cal_visibility(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDocMgr){
     for d1 in dirty_marks.dirtys.iter() {
         for node_id in d1.iter() {
             if  *unsafe{dirty_marks.dirty_mark_list.get_unchecked(*node_id)} == false {
@@ -71,33 +69,38 @@ pub fn cal_opacity(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDo
 
             let parent_id = component_mgr.node._group.get(*node_id).parent;
             if parent_id > 0 {
-                modify_opacity(&mut dirty_marks.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
+                modify_visibility(&mut dirty_marks.dirty_mark_list, component_mgr.node._group.get(parent_id).real_visibility, *node_id, component_mgr);
             }else {
-                modify_opacity(&mut dirty_marks.dirty_mark_list, 1.0, *node_id, component_mgr);
+                modify_visibility(&mut dirty_marks.dirty_mark_list, true, *node_id, component_mgr);
             }
         }
     }
 
     dirty_marks.dirtys.clear();
 }
- 
 
-//递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
-fn modify_opacity(dirty_mark_list: &mut VecMap<bool>, parent_real_opacity: f32, node_id: usize, component_mgr: &mut WorldDocMgr) {
-    let node_opacity = {
+//递归计算visibility， 将节点最终的visibility设置在real_visibility属性上
+fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility: bool, node_id: usize, component_mgr: &mut WorldDocMgr) {
+    let (node_visibility, old_node_real_visibility) = {
         let node = component_mgr.node._group.get(node_id);
-        node.opacity
+        (node.visibility, node.real_visibility)
     };
-    let node_real_opacity = node_opacity * parent_real_opacity;
+    let node_real_visibility = node_visibility && parent_real_visibility;
+
+    //如果real_visibility值没有改变， 不需要递归设置子节点的real_visibility值
+    if old_node_real_visibility == node_real_visibility {
+        return;
+    }
 
     let mut child = {
         let mut node_ref = component_mgr.get_node_mut(node_id);
-        node_ref.set_real_opacity(node_real_opacity);
+        //设置real_visibility
+        node_ref.set_real_visibility(node_real_visibility);
         node_ref.get_childs_mut().get_first()
     };
 
     unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false}
-    //递归计算子节点的世界矩阵
+    //递归设置子节点的real_visibility
     loop {
         if child == 0 {
             return;
@@ -105,9 +108,9 @@ fn modify_opacity(dirty_mark_list: &mut VecMap<bool>, parent_real_opacity: f32, 
         let node_id = {
             let v = unsafe{ component_mgr.node_container.get_unchecked(child) };
             child = v.next;
-            v.elem.clone()
+            v.elem
         };
-        modify_opacity(dirty_mark_list, node_real_opacity, node_id, component_mgr);
+        modify_visibility(dirty_mark_list, node_real_visibility, node_id, component_mgr);
     }
 }
 
@@ -121,7 +124,7 @@ mod test {
     use world_doc::WorldDocMgr;
 
     use world_doc::component::node::{NodeBuilder, InsertType};
-    use world_doc::system::opacity::OpacitySys;
+    use world_doc::system::visibility::VisibilitySys;
 
     #[test]
     fn test(){
@@ -168,32 +171,32 @@ mod test {
         for i in node_ids.iter(){
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity1, node{} , real_opacity:{}", i, real_opacity);
+                let real_visibility = node_ref.get_real_visibility();
+                println!("test_visibility1, node{} , real_visibility:{}", i, real_visibility);
             }
         }
 
-        world.component_mgr.get_node_mut(root).set_opacity(0.5);
+        world.component_mgr.get_node_mut(root).set_visibility(0.5);
         world.run(());
         println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity2, node{} , real_opacity:{}", i, real_opacity);
+                let real_visibility = node_ref.get_real_visibility();
+                println!("test_visibility2, node{} , real_visibility:{}", i, real_visibility);
             }
         }
 
-        //修改node2的opacity
-        world.component_mgr.get_node_mut(node_ids[0]).set_opacity(0.5);
-        world.component_mgr.get_node_mut(node_ids[2]).set_opacity(0.5);
+        //修改node2的visibility
+        world.component_mgr.get_node_mut(node_ids[0]).set_visibility(0.5);
+        world.component_mgr.get_node_mut(node_ids[2]).set_visibility(0.5);
         world.run(());
         println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity3, node{} , real_opacity:{}, opacity{}", i, real_opacity, node_ref.get_opacity());
+                let real_visibility = node_ref.get_real_visibility();
+                println!("test_visibility3, node{} , real_visibility:{}, visibility{}", i, real_visibility, node_ref.get_visibility());
             }
         }
 
@@ -202,7 +205,7 @@ mod test {
 
     fn new_world() -> World<WorldDocMgr, ()>{
         let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
-        let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![OpacitySys::init(&mut world.component_mgr)];
+        let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![VisibilitySys::init(&mut world.component_mgr)];
         world.set_systems(systems);
         world
     }

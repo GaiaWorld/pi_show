@@ -6,7 +6,7 @@ use atom::Atom;
 use world_2d::World2dMgr;
 use world_2d::component::sdf::{SdfDefines};
 use component::color::Color;
-use component::math::{Color as MathColor, Vector2};
+use component::math::{Color as MathColor};
 use render::engine::{Engine, get_uniform_location};
 
 lazy_static! {

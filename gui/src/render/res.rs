@@ -5,12 +5,20 @@ use atom::Atom;
 use util::res_mgr::{ Res, ResMap };
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
+#[derive(Debug, Clone, Copy)]
+pub enum Opacity {
+    Opaque,
+    Translucent,
+    Transparent,
+
+}
+
 #[derive(Debug)]
 pub struct TextureRes {
     pub name: Atom,
     pub width: usize,
     pub height: usize,
-    pub opacity: f32,
+    pub opacity: Opacity,
     pub compress: usize,
     pub bind: WebGLTexture,
     pub gl: WebGLRenderingContext,
@@ -18,7 +26,7 @@ pub struct TextureRes {
 
 impl TextureRes {
     // 创建资源
-	pub fn new(key: Atom, width: usize,height: usize, opacity: f32, compress: usize, bind: WebGLTexture, gl: WebGLRenderingContext) -> Self{
+	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: usize, bind: WebGLTexture, gl: WebGLRenderingContext) -> Self{
         TextureRes {
             name: key,
             width: width,

@@ -44,7 +44,7 @@ pub fn test(){
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeRight)}, 10.0);
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
     set_border(world, node3, unsafe{transmute(YGEdge::YGEdgeBottom)}, 10.0);
-    set_overflow(world, node3, true);
+    // set_overflow(world, node3, true);
     set_box_shadow_color(world, node3, 0.0, 0.0, 0.0, 0.8);
     set_box_shadow_h(world, node3, 50.0);
     set_box_shadow_v(world, node3, 50.0);
@@ -77,6 +77,19 @@ pub fn test(){
     // set_backgroud_rgba_color(world, node4, 0.0, 1.0, 0.0, 1.0);
 
     run(world);
+
+    remove_child(world, 3,  6);
+
+    run(world);
+
+    let node6 = create_node(world);
+    append_child(world, node3, node6);
+    set_width(world, node6, 480.0);
+    set_height(world, node6, 200.0);
+    set_margin(world, node6, unsafe{transmute(YGEdge::YGEdgeTop)}, 10.0);
+    set_backgroud_rgba_color(world, node6, 0.5, 0.0, 0.5, 1.0);
+
+    run(world);
 }
 
 pub fn test11(){
@@ -95,7 +108,7 @@ pub fn test11(){
     append_child(world, 1, node2);
     set_width_percent(world, node2, 100.0);
     set_height_percent(world, node2, 100.0);
-    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 0.5);
+    set_backgroud_rgba_color(world, node2, 1.0, 0.0, 0.0, 1.0);
 
     run(world);
 
@@ -133,7 +146,47 @@ pub fn test11(){
 
     run(world);
 
-    query(world, 500.0, 500.0, 1);
+    let node8 = create_node(world);
+    let node9 = create_node(world);
+    append_child(world, node8, node9);
+    let node10 = create_node(world);
+    append_child(world, node8, node10);
+    let node11 = create_node(world);
+    append_child(world, node8, node11);
+    let node12 = create_node(world);
+    append_child(world, node8, node12);
+    let node13 = create_node(world);
+    append_child(world, node12, node13);
+    append_child(world, node7, node8);
+
+    set_width_percent(world, node8, 100.0);
+    set_height_percent(world, node8, 100.0);
+    set_backgroud_rgba_color(world, node8, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node9, 100.0);
+    set_height_percent(world, node9, 100.0);
+    set_backgroud_rgba_color(world, node9, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node10, 100.0);
+    set_height_percent(world, node10, 100.0);
+    set_backgroud_rgba_color(world, node10, 0.0, 1.0, 1.0, 1.0);
+
+    set_width_percent(world, node11, 10.0);
+    set_height_percent(world, node11, 10.0);
+    set_backgroud_rgba_color(world, node11, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node12, 10.0);
+    set_height_percent(world, node12, 10.0);
+    set_backgroud_rgba_color(world, node12, 0.0, 0.0, 1.0, 1.0);
+
+    set_width_percent(world, node13, 10.0);
+    set_height_percent(world, node13, 10.0);
+    set_backgroud_rgba_color(world, node13, 0.0, 1.0, 1.0, 1.0);
+
+    run(world);
+
+    remove_child(world,  12,  13);
+    // query(world, 500.0, 500.0, 1);
 }
 
 pub fn test_query(){

@@ -2,8 +2,6 @@ use std::ops::{Deref};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, Builder, ModifyFieldEvent, CreateEvent, DeleteEvent};
 use wcs::world::{ComponentMgr};
-use atom::Atom;
-
 use component::color::{ColorReadRef, ColorWriteRef, Color, ColorGroup};
 // use world_doc::component::style::sdf::*;
 // use world_doc::component::style::shape::*;

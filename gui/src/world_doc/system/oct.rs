@@ -102,6 +102,7 @@ impl OctImpl {
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
                 let (aabb, size) = cal_bound_box((layout.width, layout.height), world_matrix);
                 //更新八叉树
+                println!("update_octree------bound_box_id: {:?}, aabb: {:?}", node.bound_box_id, aabb);
                 mgr.octree.update(node.bound_box_id, aabb.clone());
                 (aabb, size)
             };
@@ -144,7 +145,9 @@ impl OctImpl {
     pub fn add_aabb(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
         let node = mgr.node._group.get_mut(node_id);
         let aabb = mgr.node.bound_box._group.get_mut(node.bound_box).owner.clone();
+        println!("add_octree------{:?}, node_id: {}", aabb.0, node_id);
         node.bound_box_id = mgr.octree.add(aabb.0, node_id);
+        
     }
 
     pub fn remove_aabb(&mut self, node_id: usize, mgr: &mut WorldDocMgr){

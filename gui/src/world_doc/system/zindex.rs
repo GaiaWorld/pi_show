@@ -64,6 +64,7 @@ impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for ZIndexSys {
     zi.old = mgr.node._group.get(*id).zindex;
     let mut zimpl = self.0.borrow_mut();
     zimpl.links.insert(*id, zi);
+    println!("z_index------------------node_id: {}", id);
     zimpl.set_dirty(*parent, mgr);
   }
 }
