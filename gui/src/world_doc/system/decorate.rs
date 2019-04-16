@@ -44,6 +44,7 @@ impl BBSys {
         component_mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
 
         //监听boundbox的变化
         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
@@ -294,6 +295,17 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(layout.border);
             }
+        } else if *field == "real_visibility" {
+            let visibility = node.real_visibility;
+            if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_visibility(visibility);
+            }
+            if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
+            }
+            if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
+            }
         }
     }
 }
@@ -436,6 +448,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
     sdf.blur = 1.0;
     sdf.z_depth = node.z_depth;
+    sdf.visibility = node.real_visibility;
     sdf.by_overflow = node.by_overflow;
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
@@ -481,7 +494,7 @@ fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     sdf.alpha = node.real_opacity;
     sdf.z_depth = node.z_depth - 0.00001;
     sdf.by_overflow = node.by_overflow;
-
+    sdf.visibility = node.real_visibility;
     // let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
     // let offset_matrix = cg::Matrix4::from_translation(Ve);
 

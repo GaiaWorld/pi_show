@@ -37,6 +37,10 @@ pub struct Image{
     #[listen]
     pub alpha: f32,
 
+    //visibility
+    #[listen]
+    pub visibility: bool,
+
     #[listen]
     pub is_opaque: bool,
 
@@ -69,6 +73,7 @@ impl Image {
             z_depth: 0.0,
             by_overflow: 0,
             extend: Vector2::default(),
+            visibility: true,
             src: src,
             color: Color(cg::color::Color::new(1.0, 1.0, 1.0, 1.0)),
         }

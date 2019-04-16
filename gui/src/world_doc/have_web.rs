@@ -15,6 +15,7 @@ use world_doc::system::node_count::NodeCountSys;
 use world_doc::system::zindex::ZIndexSys;
 use world_doc::system::overflow::OverflowSys;
 use world_doc::system::image::ImageSys;
+use world_doc::system::visibility::VisibilitySys;
 use world_2d::World2dMgr;
 use world_2d;
 use render::engine::Engine;
@@ -34,6 +35,7 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
     let z_index_sys = ZIndexSys::init(&mut mgr);
     let overflow_sys = OverflowSys::init(&mut mgr);
     let image_sys = ImageSys::init(&mut mgr);
+    let visibility_sys = VisibilitySys::init(&mut mgr);
     
 
     let mut world = World::new(mgr);
@@ -43,7 +45,9 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
         overflow_sys,
         layout_sys,
         world_matrix_sys,
-        oct_sys, opacity_sys,
+        oct_sys,
+        opacity_sys,
+        visibility_sys,
         bb_sys,
         image_sys,
         run_world_2d_sys

@@ -345,6 +345,14 @@ pub fn set_visibility(world: u32, node_id: u32, value: bool) {
 }
 
 #[no_mangle]
+pub fn set_zindex(world: u32, node_id: u32, value: i32) {
+    js!{console.log("set_z_index")} 
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    world.component_mgr.get_node_mut(node_id).set_zindex(value as isize);
+}
+
+#[no_mangle]
 pub fn set_undefined(world: u32, node_id: u32, value: u8) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};

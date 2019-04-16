@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script>
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+    </script>
+    
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script>
+        var gl = document.getElementById("canvas").getContext('webgl');
+        window.__gl = gl;
+
+        var engine = Module._create_engine();
+        var gui = Module._create_gui(engine, 1000, 700);
+
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, 1, node2);
+        Module._set_width_percent(gui, node2, 100.0);
+        Module._set_height_percent(gui, node2, 100.0);
+        Module._set_backgroud_rgba_color(gui, node2, 1.0, 0.0, 0.0, 0.5);
+
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node2, node3);
+        Module._set_width_percent(gui, node3, 50.0);
+        Module._set_height_percent(gui, node3, 70.0);
+        Module._set_position(gui, node3, YGEdgeLeft, 50.0);
+        Module._set_backgroud_rgba_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
+        Module._set_border_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
+        Module._set_border(gui, node3, YGEdgeAll, 10.0);
+        Module._set_overflow(gui, node3, true);
+        Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 0.0, 0.8);
+        Module._set_box_shadow_h(gui, node3, 50.0);
+        Module._set_box_shadow_v(gui, node3, 50.0);
+
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node3, node4);
+        Module._set_width(gui, node4, 480.0);
+        Module._set_height(gui, node4, 200.0);
+        Module._set_margin(gui, node4, YGEdgeTop, 10.0);
+        Module._set_backgroud_rgba_color(gui, node4, 0.5, 0.0, 0.5, 1.0);
+
+        var node5 = Module._create_node(gui);
+        Module._append_child(gui, node3, node5);
+        Module._set_width(gui, node5, 480.0);
+        Module._set_height(gui, node5, 200.0);
+        Module._set_margin(gui, node5, YGEdgeTop, 10.0);
+        Module._set_backgroud_rgba_color(gui, node5, 0.5, 0.0, 0.5, 1.0);
+        Module._set_visibility(gui, node5, false);
+
+        var node6 = Module._create_node(gui);
+        Module._append_child(gui, node3, node6);
+        Module._set_width(gui, node6, 480.0);
+        Module._set_height(gui, node6, 200.0);
+        Module._set_margin(gui, node6, YGEdgeTop, 10.0);
+        Module._set_backgroud_rgba_color(gui, node6, 0.5, 0.0, 0.5, 1.0);
+
+        // var node4 = create_node(gui);
+        // append_child(gui, node2, node4);
+        // set_width(gui, node4, 400.0);
+        // set_height(gui, node4, 400.0);
+        // set_backgroud_rgba_color(gui, node4, 0.0, 1.0, 0.0, 1.0);
+
+        Module._run(gui);
+
+        // Module._remove_child(gui, 3,  6);
+
+        // Module._run(gui);
+
+        // var node6 = Module._create_node(gui);
+        // Module._append_child(gui, node3, node6);
+        // Module._set_width(gui, node6, 480.0);
+        // Module._set_height(gui, node6, 200.0);
+        // Module._set_margin(gui, node6, YGEdgeTop, 10.0);
+        // Module._set_backgroud_rgba_color(gui, node6, 0.5, 0.0, 0.5, 1.0);
+
+        Module._run(gui);
+    </script>
+</body>
+</html>

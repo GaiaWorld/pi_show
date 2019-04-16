@@ -20,6 +20,10 @@ pub struct Sdf{
     #[listen]
     pub alpha: f32,
 
+    //visibility
+    #[listen]
+    pub visibility: bool,
+
     #[listen]
     pub is_opaque: bool,
 

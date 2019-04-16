@@ -86,7 +86,6 @@ fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility:
         (node.visibility, node.real_visibility)
     };
     let node_real_visibility = node_visibility && parent_real_visibility;
-
     //如果real_visibility值没有改变， 不需要递归设置子节点的real_visibility值
     if old_node_real_visibility == node_real_visibility {
         return;
@@ -111,102 +110,5 @@ fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility:
             v.elem
         };
         modify_visibility(dirty_mark_list, node_real_visibility, node_id, component_mgr);
-    }
-}
-
-#[cfg(test)]
-#[cfg(not(feature = "web"))]
-mod test {
-    use std::rc::Rc;
-
-    use wcs::component::Builder;
-    use wcs::world::{World, System};
-    use world_doc::WorldDocMgr;
-
-    use world_doc::component::node::{NodeBuilder, InsertType};
-    use world_doc::system::visibility::VisibilitySys;
-
-    #[test]
-    fn test(){
-        let mut world = new_world();
-        let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
-        let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
-
-        world.component_mgr.set_size(500.0, 500.0);
-        let (root, node_ids) = {
-            let root = NodeBuilder::new().build(&mut world.component_mgr.node);
-            let root_id = world.component_mgr.add_node(root).id;
-            let mgr = &mut world.component_mgr;
-            
-            //root的直接子节点
-            let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-            let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
-
-            //node2的直接子节点
-            let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
-            let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
-
-            //node3的直接子节点
-            let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
-            let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
-
-            //node4的直接子节点
-            let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
-            let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
-
-            (
-                root_id,
-                vec![node2, node3, node4, node5, node6, node7, node8, node9]
-            )
-        };
-
-        //  mgr.get_node_mut(root).
-        world.run(());
-        for i in node_ids.iter(){
-            {
-                let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_visibility = node_ref.get_real_visibility();
-                println!("test_visibility1, node{} , real_visibility:{}", i, real_visibility);
-            }
-        }
-
-        world.component_mgr.get_node_mut(root).set_visibility(0.5);
-        world.run(());
-        println!("-----------------------------------------------------------------");
-        for i in node_ids.iter(){
-            {
-                let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_visibility = node_ref.get_real_visibility();
-                println!("test_visibility2, node{} , real_visibility:{}", i, real_visibility);
-            }
-        }
-
-        //修改node2的visibility
-        world.component_mgr.get_node_mut(node_ids[0]).set_visibility(0.5);
-        world.component_mgr.get_node_mut(node_ids[2]).set_visibility(0.5);
-        world.run(());
-        println!("-----------------------------------------------------------------");
-        for i in node_ids.iter(){
-            {
-                let node_ref = world.component_mgr.get_node_mut(*i);
-                let real_visibility = node_ref.get_real_visibility();
-                println!("test_visibility3, node{} , real_visibility:{}, visibility{}", i, real_visibility, node_ref.get_visibility());
-            }
-        }
-
-        // forget(world);
-    }
-
-    fn new_world() -> World<WorldDocMgr, ()>{
-        let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
-        let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![VisibilitySys::init(&mut world.component_mgr)];
-        world.set_systems(systems);
-        world
     }
 }
