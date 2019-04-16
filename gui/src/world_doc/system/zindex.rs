@@ -64,7 +64,6 @@ impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for ZIndexSys {
     zi.old = mgr.node._group.get(*id).zindex;
     let mut zimpl = self.0.borrow_mut();
     zimpl.links.insert(*id, zi);
-    println!("z_index------------------node_id: {}", id);
     zimpl.set_dirty(*parent, mgr);
   }
 }
@@ -79,6 +78,12 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for ZIndexSys {
 impl System<(), WorldDocMgr> for ZIndexSys {
   fn run(&self, _e: &(), mgr: &mut WorldDocMgr) {
     self.0.borrow_mut().calc(mgr);
+    
+    let mut arr = Vec::new();
+    for (id, node) in mgr.node._group.iter() {
+      arr.push((id, node.z_depth));
+    }
+    println!("arr----z_depth-------------------------{:?}", arr);
   }
 }
 

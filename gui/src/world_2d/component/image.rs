@@ -11,21 +11,6 @@ use atom::Atom;
 use component::math::{Vector2, Matrix4, Color};
 use render::res::TextureRes;
 
-//  // Attributes
-//     attribute vec2 uv;
-//     attribute vec3 position;
-    
-//     // Uniforms
-//     uniform vec4 uvOffsetScale;
-//     uniform mat4 worldViewProjection;
-   
-//     // Varyings
-//     varying vec2 vuv;
-
- // Uniforms
-    // uniform vec4 color;
-    // uniform sampler2D texture;
-
 #[allow(unused_attributes)]
 #[derive(Debug, Component)]
 pub struct Image{

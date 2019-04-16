@@ -462,14 +462,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
     gl.enable_vertex_attrib_array(position_location);
 
-    // #[cfg(feature = "log")]
-    // println!("center: {:?}", ((sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0, (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0));
-    // gl.uniform2f(
-    //     uniform_locations.get(&CENTER),
-    //     (sdf.bound_box.max.x - sdf.bound_box.min.x)/2.0,
-    //     (sdf.bound_box.max.y - sdf.bound_box.min.y)/2.0,
-    // );
-
     //index
     gl.bind_buffer(
         WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,
@@ -479,10 +471,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     #[cfg(feature = "log")]
     println!("is_opaque: {}", sdf.is_opaque);
     
-
-    // js! {
-    //     console.log("draw_elements-------------------");
-    // }
     //draw
     gl.draw_elements(
         WebGLRenderingContext::TRIANGLES,

@@ -1,17 +1,31 @@
 use std::ops::{Deref};
 
+#[cfg(feature = "web")]
+use webgl_rendering_context::{WebGLBuffer};
+
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
-use component::math::{Vector2};
+use atom::Atom;
+
 use component::color::{Color};
+use component::math::{Matrix4, Vector2};
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
 pub struct CharBlock{
+    //world_matrix
+    #[listen]
+    pub world_matrix: Matrix4,
+
     //alpha
     #[listen]
     pub alpha: f32,
 
+    //visibility
+    #[listen]
+    pub visibility: bool,
+
+    #[listen]
     pub is_opaque: bool,
 
     // z深度
@@ -22,18 +36,12 @@ pub struct CharBlock{
     #[listen]
     pub by_overflow: usize,
 
-    // 中心點
-    pub center: Vector2,
-
     // extend
     pub extend: Vector2,
 
-    // 旋轉角度
-    pub rotate: f32,
-
     //顏色
     pub color: Color,
-
+    
     pub value: Vec<Char>,
 }
 
@@ -41,29 +49,66 @@ pub struct CharBlock{
 #[derive(Debug)]
 pub struct Char {
     value: char,
-    pos: (f32, f32)
+    pos: Vector2,
 }
 
-// pub struct WordBlockEffect {
-//     program: u64,
+#[cfg(feature = "web")]
+#[allow(unused_attributes)]
+#[derive(Debug, Component)]
+pub struct CharBlockEffect {
+    pub program: u64,
 
-//     #[component(ImageDefines)]
-//     defines: usize,
-// }
+    #[component(CharBlockDefines)]
+    pub defines: usize,
 
-// #[allow(unused_attributes)]
-// #[derive(Debug, Component, Default)]
-// pub struct WordBlockDefines {
+    pub positions_buffer: WebGLBuffer,
+    pub uvs_buffer: WebGLBuffer,
+    pub indeices_buffer: WebGLBuffer,
 
-// }
+    pub positions_dirty: bool,
 
-// impl WordBlockDefines {
-//     pub fn list(&self) -> Vec<Atom> {
-//         Vec::new()
-//     }
-// }
+    pub image_id: usize,
+}
 
-// // // defines
-// // lazy_static! {
-// // 	static ref SDF_RECT: Atom = Atom::from("SDF_RECT");
-// // }
+#[cfg(feature = "web")]
+#[allow(unused_attributes)]
+#[derive(Debug, Component, Default)]
+pub struct CharBlockDefines {
+    pub sdf_rect: bool, //圆角
+    pub stroke: bool, //描边
+    pub clip_plane: bool,//裁剪
+    pub linear_color_gradient_2: bool, //线性渐变（两种颜色）
+    pub linear_color_gradient_4: bool, // 线性渐变（四种颜色）
+    pub color: bool, //单色
+}
+
+#[cfg(feature = "web")]
+impl CharBlockDefines {
+    pub fn list(&self) -> Vec<Atom> {
+        let mut arr = Vec::new();
+        if self.stroke {
+            arr.push(CHAR_STROKE.clone());
+        }
+        if self.clip_plane {
+            arr.push(CHAR_CLIP_PLANE.clone());
+        }
+        if self.color {
+            arr.push(CHAR_COLOR.clone());
+        }else if self.linear_color_gradient_2 {
+            arr.push(CHAR_LINEAR_COLOR_GRADIENT_2.clone());
+        }else if self.linear_color_gradient_4 {
+            arr.push(CHAR_LINEAR_COLOR_GRADIENT_4.clone());
+        }
+        arr
+    }
+}
+
+// defines
+lazy_static! {
+    static ref CHAR_STROKE: Atom = Atom::from("STROKE");
+    static ref CHAR_CLIP_PLANE: Atom = Atom::from("CLIP_PLANE");
+    static ref CHAR_LINEAR_COLOR_GRADIENT_2: Atom = Atom::from("LINEAR_COLOR_GRADIENT_2");
+    static ref CHAR_LINEAR_COLOR_GRADIENT_4: Atom = Atom::from("LINEAR_COLOR_GRADIENT_4");
+    static ref CHAR_ELLIPSE_COLOR_GRADIENT: Atom = Atom::from("ELLIPSE_COLOR_GRADIENT");
+    static ref CHAR_COLOR: Atom = Atom::from("COLOR");
+}

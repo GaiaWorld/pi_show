@@ -77,14 +77,17 @@ impl System<(), World2dMgr> for ClipSys{
 
         //view
         let arr: &[f32; 16] = component_mgr.view.as_ref();
+        #[cfg(feature = "log")]
         println!("clip view: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
 
         //projection
         let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
+        #[cfg(feature = "log")]
         println!("clip projection: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
+        #[cfg(feature = "log")]
         println!("clip mesh_num: {:?}", 8.0);
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
 

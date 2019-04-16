@@ -10,6 +10,8 @@ pub struct Layout{
     pub border: f32,
     pub padding_left: f32,
     pub padding_top: f32,
+    pub padding_right: f32,
+    pub padding_bottom: f32,
 }
 // pub type YgNodeP = YgNode;
 
@@ -185,7 +187,7 @@ impl YgNode {
         unimplemented!()
     }
 
-    pub fn calculate_layout_by_callback(&self, _width: f32, _height:f32, _direction: YGDirection, _callback: YGCalcCallbackFunc, callbackArgs: *const c_void) {
+    pub fn calculate_layout_by_callback(&self, _width: f32, _height:f32, _direction: YGDirection, _callback: YGCalcCallbackFunc, _callback_args: *const c_void) {
         unimplemented!()
     }
 
@@ -205,6 +207,10 @@ impl YgNode {
     }
 
     pub fn free(&self){ 
+        unimplemented!()
+    }
+
+    pub fn free_recursive(&self) {
         unimplemented!()
     }
 }

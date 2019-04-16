@@ -148,7 +148,6 @@ impl GuiWorldViewProjection {
             near: near,
             far: far,
         };
-        println!("ortho----------------------{:?}", ortho);
         GuiWorldViewProjection(Matrix4::from(ortho))
         // let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
         // GuiWorldViewProjection(Matrix4::new(

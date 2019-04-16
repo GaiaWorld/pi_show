@@ -164,7 +164,6 @@ impl LayoutImpl {
 fn update(mgr: &mut WorldDocMgr, node_id: usize) {
     let layout = {
         let yoga = &mgr.node._group.get(node_id).yoga;
-        println!("update_layout, layout: {:?}, node_id:{}",  yoga.get_layout(), node_id);
         yoga.get_layout()
     };
     let mut node_ref = mgr.get_node_mut(node_id);

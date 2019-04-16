@@ -88,11 +88,9 @@ impl RenderImpl {
     }
 
     pub fn render(&mut self, mgr: &mut World2dMgr) {
-        println!("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         if self.dirty == false {
             return;
         }
-        println!("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy");
         mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         self.list_obj(mgr);
         for v in self.opaque_objs.iter() {
@@ -124,7 +122,6 @@ impl RenderImpl {
 
     //对不透明物体和透明物体排序
     fn list_obj(&mut self, mgr: &mut World2dMgr){
-        // println!("list_obj---------------------------------", );
         for v in mgr.image._group.iter() {
             if v.1.visibility == false {
                 continue;
@@ -145,14 +142,10 @@ impl RenderImpl {
         }
 
         for v in mgr.sdf._group.iter() {
-            println!("sdf-------------------------");
             if v.1.visibility == false {
                 continue;
             }
-            println!("sdf2-------------------------");
-            // println!("sdf render---------------------------------", );
             if v.1.is_opaque {
-                println!("sdf render---------------------------------{}", v.0);
                 self.opaque_objs.push(SortObject {
                     z: v.1.z_depth,
                     id: v.0,

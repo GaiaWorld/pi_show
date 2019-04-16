@@ -1,4 +1,5 @@
 pub mod component;
+pub mod constant;
 #[cfg(feature = "web")]
 pub mod system;
 #[cfg(feature = "web")]
