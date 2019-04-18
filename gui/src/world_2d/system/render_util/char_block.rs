@@ -1,0 +1,320 @@
+use webgl_rendering_context::{WebGLRenderingContext};
+use stdweb::UnsafeTypedArray;
+
+use atom::Atom;
+
+use world_2d::World2dMgr;
+use world_2d::component::char_block::{CharBlockDefines};
+use world_2d::constant::*;
+use component::color::Color;
+use component::math::{Color as MathColor};
+use render::engine::{Engine, get_uniform_location};
+
+lazy_static! {
+    static ref EXTEND: Atom = Atom::from("extend");
+    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
+    static ref COLOR: Atom = Atom::from("color");
+    static ref COLOR_ANGLE: Atom = Atom::from("colorAngle");
+    static ref DISTANCE: Atom = Atom::from("distance");
+    static ref COLOR1: Atom = Atom::from("color1");
+    static ref COLOR2: Atom = Atom::from("color2");
+    static ref COLOR3: Atom = Atom::from("color3");
+    static ref COLOR4: Atom = Atom::from("color4");
+    static ref FONT_CLAMP: Atom = Atom::from("fontClamp");  // 0-1的小数，超过这个值即认为有字体，默认传0.75
+    static ref SMOOT_HRANFE: Atom = Atom::from("smoothRange");
+}
+
+// 初始化location
+pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id: u64) {
+    let gl = engine.gl.clone();
+    
+    let program = engine.lookup_program_mut(program_id).unwrap();
+    let uniform_locations = &mut program.uniform_locations;
+    let attr_locations = &mut program.attr_locations;
+    let program = &program.program;
+
+    if uniform_locations.len() > 0 {
+        return;
+    }
+    
+    // position
+    let position_location = gl.get_attrib_location(program, &POSITION) as u32;
+    attr_locations.insert(POSITION.clone(), position_location);
+    gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0);
+
+    //uv
+    let uv_location = gl.get_attrib_location(program, &UV) as u32;
+    attr_locations.insert(UV.clone(), uv_location);
+    gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
+    
+    //矩阵
+    uniform_locations.insert(VIEW.clone(), get_uniform_location(&gl,program, &VIEW));
+    uniform_locations.insert(PROJECTION.clone(), get_uniform_location(&gl,program, &PROJECTION));
+    uniform_locations.insert(WORLD.clone(), get_uniform_location(&gl,program, &WORLD));
+
+    // 与宏无关的uniform
+    uniform_locations.insert(ALPHA.clone(), get_uniform_location(&gl,program, &ALPHA));
+    uniform_locations.insert(EXTEND.clone(), get_uniform_location(&gl,program, &EXTEND));
+    uniform_locations.insert(FONT_CLAMP.clone(), get_uniform_location(&gl,program, &FONT_CLAMP));
+    uniform_locations.insert(SMOOT_HRANFE.clone(), get_uniform_location(&gl,program, &SMOOT_HRANFE));
+
+    if defines.color {
+        uniform_locations.insert(COLOR.clone(), get_uniform_location(&gl,program, &COLOR));
+    } else if defines.linear_color_gradient_2 {
+        uniform_locations.insert(COLOR_ANGLE.clone(), get_uniform_location(&gl,program, &COLOR_ANGLE));
+        uniform_locations.insert(DISTANCE.clone(), get_uniform_location(&gl,program, &DISTANCE));
+        uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program, &COLOR1));
+        uniform_locations.insert(COLOR2.clone(), get_uniform_location(&gl,program, &COLOR2));
+    } else if defines.linear_color_gradient_4 {
+        uniform_locations.insert(COLOR_ANGLE.clone(), get_uniform_location(&gl,program, &COLOR_ANGLE));
+        uniform_locations.insert(DISTANCE.clone(),get_uniform_location(&gl,program, &DISTANCE));
+        uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program, &COLOR1));
+        uniform_locations.insert(COLOR2.clone(), get_uniform_location(&gl,program, &COLOR2));
+        uniform_locations.insert(COLOR3.clone(), get_uniform_location(&gl,program, &COLOR3));
+        uniform_locations.insert(COLOR4.clone(), get_uniform_location(&gl,program, &COLOR4));
+    }
+
+    if defines.stroke {
+        uniform_locations.insert( STROKE_SIZE.clone(), get_uniform_location(&gl,program, &STROKE_SIZE));
+        uniform_locations.insert(STROKE_COLOR.clone(), get_uniform_location(&gl,program, &STROKE_COLOR));
+    }
+    if defines.clip_plane {
+        uniform_locations.insert(CLIP_INDEICES.clone(), get_uniform_location(&gl,program, &CLIP_INDEICES));
+        uniform_locations.insert(CLIP_TEXTURE.clone(), get_uniform_location(&gl,program, &CLIP_TEXTURE));
+        uniform_locations.insert(CLIP_INDEICES_SIZE.clone(), get_uniform_location(&gl,program, &CLIP_INDEICES_SIZE));
+    }
+}
+
+//更新uniform和buffer， 并渲染
+pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
+    let char_block_effect = mgr.char_block_effect._group.get(effect_id);
+    let char_block = mgr.char_block._group.get(char_block_effect.char_block_id);
+
+    let defines = mgr.char_block_effect.defines._group.get(char_block_effect.defines);
+    #[cfg(feature = "log")]
+    println!("text defines---------------------------{:?}", defines);
+
+    let gl = &mgr.engine.gl;
+
+    let program = mgr.engine.lookup_program(char_block_effect.program).unwrap();
+    let uniform_locations = &program.uniform_locations;
+    let attr_locations = &program.attr_locations;
+    let program = &program.program;
+
+    // use_program
+    gl.use_program(Some(program));
+
+    // view
+    #[cfg(feature = "log")]
+    println!("view----------------{:?}", &mgr.view);
+    let arr: &[f32; 16] = mgr.view.as_ref();
+    gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
+
+    // projection
+    #[cfg(feature = "log")]
+    println!("view----------------{:?}", &mgr.projection.0);
+    let arr: &[f32; 16] = mgr.projection.0.as_ref();
+    gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
+
+    // world_matrix
+    #[cfg(feature = "log")]
+    println!("view----------------{:?}", &char_block.world_matrix.0);
+    let arr: &[f32; 16] = char_block.world_matrix.0.as_ref();
+    gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
+
+    //extend
+    #[cfg(feature = "log")]
+    println!("extend: {:?}", char_block_effect.extend);
+    gl.uniform2f(uniform_locations.get(&EXTEND), char_block_effect.extend.x, char_block_effect.extend.y);
+
+    // alpha
+    #[cfg(feature = "log")]
+    println!("alpha: {:?}", char_block.alpha);
+    gl.uniform1f(uniform_locations.get(&ALPHA), char_block.alpha);
+
+    if defines.stroke {
+        //设置strokeSize
+        #[cfg(feature = "log")]
+        println!("stroke_size:{:?}", char_block.stroke_size);
+        gl.uniform1f(uniform_locations.get(&STROKE_SIZE), char_block.stroke_size);
+
+        //设置strokeColor
+        #[cfg(feature = "log")]
+        println!("stroke_color:{:?}", char_block.stroke_color);
+        gl.uniform4f(uniform_locations.get(&STROKE_COLOR), char_block.stroke_color.r, char_block.stroke_color.g, char_block.stroke_color.b, char_block.stroke_color.a);
+    }
+    if defines.clip_plane {
+        #[cfg(feature = "log")]
+        println!("by_overflow:{:?}", char_block.by_overflow);
+        gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), char_block.by_overflow as f32);
+        gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
+
+        gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&mgr.overflow_texture.texture));
+        gl.uniform1i(uniform_locations.get(&CLIP_TEXTURE), 0);
+    }
+
+    match &char_block.color {
+        Color::RGB(color) | Color::RGBA(color) => {
+            // color
+            #[cfg(feature = "log")]
+            println!("color: {:?}", color);
+            gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
+        },
+        Color::LinearGradient(color) => {
+            //colorAngle
+            gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction);
+
+            if defines.linear_color_gradient_2 {
+                //distance
+                gl.uniform2f(
+                    uniform_locations.get(&DISTANCE),
+                    color.list[0].position,
+                    color.list[1].position,
+                );
+
+                //color1
+                let color1 = &color.list[0].rgba;
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR1),
+                    color1.r,
+                    color1.g,
+                    color1.b,
+                    color1.a,
+                );
+
+                //color2
+                let color2 = &color.list[1].rgba;
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR2),
+                    color2.r,
+                    color2.g,
+                    color2.b,
+                    color2.a,
+                );
+            } else {
+                let mut distances = [0.0, 100.0, 100.0, 100.0];
+                let default_color = MathColor(cg::color::Color::new(1.0, 1.0, 1.0, 1.0));
+                let mut colors = [
+                    &default_color,
+                    &default_color,
+                    &default_color,
+                    &default_color,
+                ];
+                let mut i = 0;
+                for k in color.list.iter() {
+                    if i > 3 {
+                        break;
+                    }
+                    distances[i] = k.position;
+                    colors[i] = &k.rgba;
+                    i += 1;
+                }
+                gl.uniform4f(
+                    uniform_locations.get(&DISTANCE),
+                    distances[0],
+                    distances[1],
+                    distances[2],
+                    distances[3],
+                );
+
+                //color1
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR1),
+                    colors[0].r,
+                    colors[0].g,
+                    colors[0].b,
+                    colors[0].a,
+                );
+
+                //color2
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR2),
+                    colors[1].r,
+                    colors[1].g,
+                    colors[1].b,
+                    colors[1].a,
+                );
+
+                //color3
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR3),
+                    colors[2].r,
+                    colors[2].g,
+                    colors[2].b,
+                    colors[2].a,
+                );
+
+                //color4
+                gl.uniform4f(
+                    uniform_locations.get(&COLOR4),
+                    colors[3].r,
+                    colors[3].g,
+                    colors[3].b,
+                    colors[3].a,
+                );
+            }
+        },
+        _ => panic!("color type error"),
+    };
+
+    //position
+    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.positions_buffer));
+    //如果shape_dirty， 更新定点顶点数据
+    if char_block_effect.buffer_dirty {
+        #[cfg(feature = "log")]
+        println!("position: {:?}", char_block_effect.positions);
+        let buffer = unsafe { UnsafeTypedArray::new(char_block_effect.positions.as_ref()) };
+        js! {
+            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
+        }
+    }
+    let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
+    gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
+    gl.enable_vertex_attrib_array(position_location);
+
+    //uv
+    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.positions_buffer));
+    //如果shape_dirty， 更新uv数据
+    if char_block_effect.buffer_dirty {
+        #[cfg(feature = "log")]
+        println!("uv: {:?}", char_block_effect.uvs);
+        let buffer = unsafe { UnsafeTypedArray::new(char_block_effect.uvs.as_ref()) };
+        js! {
+            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
+        }
+    }
+    let uv_location = *(attr_locations.get(&UV).unwrap());
+    gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
+    gl.enable_vertex_attrib_array(uv_location);
+
+    //index
+    gl.bind_buffer(
+        WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,
+        Some(&char_block_effect.indeices_buffer),
+    );
+
+    if char_block_effect.buffer_dirty {
+        #[cfg(feature = "log")]
+        println!("indeices: {:?}", char_block_effect.indeices);
+        let buffer = unsafe { UnsafeTypedArray::new(char_block_effect.indeices.as_ref()) };
+        js! {
+            @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
+        }
+    }
+  
+    //draw
+    gl.draw_elements(
+        WebGLRenderingContext::TRIANGLES,
+        6,
+        WebGLRenderingContext::UNSIGNED_SHORT,
+        0,
+    );
+
+    // js! {
+    //     console.log("draw_elements-------------------end");
+    // }
+
+    gl.disable_vertex_attrib_array(position_location);
+}

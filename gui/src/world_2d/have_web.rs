@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
 use cg::{Matrix4, Ortho};
+use fnv::FnvHashMap;
 
 use wcs::world::{ComponentMgr, World, System};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
@@ -41,7 +42,7 @@ world!(
         sdf: Sdf,
 
         #[component]
-        word: CharBlock,
+        char_block: CharBlock,
 
         #[component]
         image: Image,
@@ -51,6 +52,9 @@ world!(
 
         #[component]
         image_effect: ImageEffect,
+
+        #[component]
+        char_block_effect: CharBlockEffect,
 
 
         //全局数据
@@ -64,7 +68,7 @@ world!(
         #[single_component]
         overflow: Overflow,
         sdf_shader: Shader,
-        word_shader: Shader,
+        char_block_shader: Shader,
         image_shader: Shader,
         clip_shader: Shader,
 
@@ -82,25 +86,30 @@ impl World2dMgr {
     pub fn new(engine: Engine, near: f32, far: f32, width: f32, height: f32) -> World2dMgr{
         let sdf_shader = Shader::new(Atom::from("sdf_sharder"), Atom::from("sdf_fs_sharder"), Atom::from("sdf_vs_sharder"));
         let image_shader = Shader::new(Atom::from("image_sharder"), Atom::from("image_fs_sharder"), Atom::from("image_vs_sharder"));
-        let word_shader = Shader::new(Atom::from("word_sharder"), Atom::from("word_fs_sharder"), Atom::from("word_vs_sharder"));
+        let char_block_shader = Shader::new(Atom::from("char_block_sharder"), Atom::from("char_block_fs_sharder"), Atom::from("char_block_vs_sharder"));
         let clip_shader = Shader::new(Atom::from("clip_sharder"), Atom::from("clip_fs_sharder"), Atom::from("clip_vs_sharder"));
         let mut shader_store = ShaderStore::new();
-        shader_store.store(&sdf_shader.fs, sdf_fragment_shader());
-        shader_store.store(&sdf_shader.vs, sdf_vertex_shader());
 
         shader_store.store(&clip_shader.fs, clip_fragment_shader());
         shader_store.store(&clip_shader.vs, clip_vertex_shader());
 
+        shader_store.store(&sdf_shader.fs, sdf_fragment_shader());
+        shader_store.store(&sdf_shader.vs, sdf_vertex_shader());
+
         shader_store.store(&image_shader.fs, image_fragment_shader());
         shader_store.store(&image_shader.vs, image_vertex_shader());
 
+        shader_store.store(&char_block_shader.fs, char_block_fragment_shader());
+        shader_store.store(&char_block_shader.vs, char_block_vertex_shader());
+
         World2dMgr{
             sdf: SdfGroup::default(),
-            word: CharBlockGroup::default(),
+            char_block: CharBlockGroup::default(),
             image: ImageGroup::default(),
 
             sdf_effect: SdfEffectGroup::default(),
             image_effect: ImageEffectGroup::default(),
+            char_block_effect: CharBlockEffectGroup::default(),
 
             width: width,
             height: height,
@@ -112,7 +121,7 @@ impl World2dMgr {
             view: Matrix4::new(1.0, 0.0, 0.0, 0.0,  0.0, 1.0, 0.0, 0.0,  0.0, 0.0, 1.0, 0.0,  0.0, 0.0, 0.0, 1.0),
             sdf_shader: sdf_shader,
             image_shader: image_shader,
-            word_shader: word_shader,
+            char_block_shader: char_block_shader,
             clip_shader: clip_shader,
 
             overflow_texture: RenderTarget::create(&engine.gl, width, height),
@@ -175,7 +184,6 @@ impl GuiWorldViewProjection {
 use std::hash::{Hash, Hasher};
 use std::convert::AsRef;
 
-use fnv::FnvHashMap;
 use atom::Atom;
 
 pub struct Shader {

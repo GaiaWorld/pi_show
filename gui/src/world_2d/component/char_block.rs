@@ -5,9 +5,9 @@ use webgl_rendering_context::{WebGLBuffer};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
-use component::math::{Matrix4, Vector2, Point2};
 use atom::Atom;
 use component::color::{Color};
+use component::math::{Matrix4, Point2, Color as MathColor};
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
@@ -34,20 +34,31 @@ pub struct CharBlock{
     // 被裁剪
     #[listen]
     pub by_overflow: usize,
+    
+    #[listen]
+    pub stroke_size: f32,
 
-    // extend
-    pub extend: Vector2,
+    #[listen]
+    pub stroke_color: MathColor,
+
+    #[listen]
+    pub font_size: f32,
+
+    #[listen]
+    pub font_asset_name: usize,
 
     //顏色
+    #[listen]
     pub color: Color,
     
-    pub value: Vec<Char>,
+    #[listen]
+    pub chars: Vec<Char>,
 }
 
 
 #[derive(Debug)]
 pub struct Char {
-    value: char,
+    pub value: char,
     pub pos: Point2,
 }
 
@@ -64,9 +75,17 @@ pub struct CharBlockEffect {
     pub uvs_buffer: WebGLBuffer,
     pub indeices_buffer: WebGLBuffer,
 
-    pub positions_dirty: bool,
+    pub positions: Vec<f32>,
+    pub uvs: Vec<f32>,
+    pub indeices: Vec<u16>,
+    pub extend: Point2,
 
-    pub image_id: usize,
+    pub font_clamp: f32,
+    pub smooth_range: f32,
+
+    pub buffer_dirty: bool,
+
+    pub char_block_id: usize,
 }
 
 #[cfg(feature = "web")]

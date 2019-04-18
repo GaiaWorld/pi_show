@@ -212,8 +212,8 @@ impl LayoutImpl {
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
         let char_node = unsafe {self.char_slab.get_unchecked_mut(char_id)};
-        let rnode = mgr.world_2d.component_mgr.word._group.get_mut(char_node.rid);
-        let ch = unsafe {rnode.value.get_unchecked_mut(char_node.rindex)};
+        let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(char_node.rid);
+        let ch = unsafe {rnode.chars.get_unchecked_mut(char_node.rindex)};
         let layout = char_node.node.get_layout();
         ch.pos.x = layout.left;
         ch.pos.y = layout.top;

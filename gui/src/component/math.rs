@@ -405,9 +405,7 @@ impl Default for Point2{
 /// UV 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UV {
-    pub u1: f32,
-    pub v1: f32,
-    pub u2: f32,
-    pub v2: f32,
+    pub min: Point2,
+    pub max: Point2,
     pub tex_index: usize,
 }
