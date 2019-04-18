@@ -278,7 +278,7 @@ fn get_type_id(c: char, prev: char) -> usize {
         return c.get_type_id()
     }
     0
-} 
+}
 /// 劈分字符串, 返回字符迭代器
 pub fn split<'a>(s: &'a String, word_split: bool, merge_whitespace: bool) -> SplitChar<'a> {
     let mut i = s.chars();
