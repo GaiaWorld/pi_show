@@ -5,10 +5,9 @@ use webgl_rendering_context::{WebGLBuffer};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
-use component::math::{Vector2, Point2};
+use component::math::{Matrix4, Vector2, Point2};
 use atom::Atom;
 use component::color::{Color};
-use component::math::{Matrix4, Vector2};
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default)]
