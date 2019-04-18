@@ -188,37 +188,37 @@ pub enum WhiteSpace{
     PreLine, //	合并空白符序列，如果存在换行符，优先保留换行符。
 }
 
-// impl WhiteSpace {
-//     pub fn allow_wrap(&self) -> bool {
-//         match *self {
-//             WhiteSpace::Nowrap |
-//             WhiteSpace::Pre => false,
-//             WhiteSpace::Normal |
-//             WhiteSpace::PreWrap |
-//             WhiteSpace::PreLine => true,
-//         }
-//     }
+impl WhiteSpace {
+    pub fn allow_wrap(&self) -> bool {
+        match *self {
+            WhiteSpace::Nowrap |
+            WhiteSpace::Pre => false,
+            WhiteSpace::Normal |
+            WhiteSpace::PreWrap |
+            WhiteSpace::PreLine => true,
+        }
+    }
 
-//     pub fn preserve_newlines(&self) -> bool {
-//         match *self {
-//             WhiteSpace::Normal |
-//             WhiteSpace::Nowrap => false,
-//             WhiteSpace::Pre |
-//             WhiteSpace::PreWrap |
-//             WhiteSpace::PreLine => true,
-//         }
-//     }
+    pub fn preserve_newlines(&self) -> bool {
+        match *self {
+            WhiteSpace::Normal |
+            WhiteSpace::Nowrap => false,
+            WhiteSpace::Pre |
+            WhiteSpace::PreWrap |
+            WhiteSpace::PreLine => true,
+        }
+    }
 
-//     pub fn preserve_spaces(&self) -> bool {
-//         match *self {
-//             WhiteSpace::Normal |
-//             WhiteSpace::Nowrap |
-//             WhiteSpace::PreLine => false,
-//             WhiteSpace::Pre |
-//             WhiteSpace::PreWrap => true,
-//         }
-//     }
-// }
+    pub fn preserve_spaces(&self) -> bool {
+        match *self {
+            WhiteSpace::Normal |
+            WhiteSpace::Nowrap |
+            WhiteSpace::PreLine => false,
+            WhiteSpace::Pre |
+            WhiteSpace::PreWrap => true,
+        }
+    }
+}
 
 pub struct Layout{
     pub width: f32, // 文本整体的宽

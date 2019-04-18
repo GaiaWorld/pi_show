@@ -159,15 +159,10 @@ pub fn set_src(world: u32, node_id: u32, texture: u32){;
 
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{
-    js!{console.log("query-------------------1");} 
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    js!{console.log("query-------------------2");} 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-    js!{console.log("query-------------------3");} 
     let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), ty);
-    js!{console.log("query-------------------4");} 
     world.component_mgr.octree.query(&aabb, intersects, &mut args, ab_query_func);
-    js!{console.log("result", @{args.result as u32});} 
     args.result as u32
 }
 /// aabb的查询函数的参数
@@ -191,16 +186,12 @@ impl<'a> AbQueryArgs<'a> {
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &usize) {
-  println!("ab_query_func---------{}, aabb: {:?}", bind, aabb);
   if intersects(&arg.aabb, aabb) {
-    println!("bind---------{}", bind);
     let node = arg.mgr.node._group.get(*bind);
     // 判断类型是否有相交
     if (node.event_type as u32) & arg.ev_type != 0 {
-        println!("bind111---------{}, {}", bind, node.z_depth);
         // 取最大z的node
         if node.z_depth > arg.max_z {
-          println!("bind111222---------{}, aabb:{:?}, by_overflow:{:?} , overflow: {:?}", bind, aabb, node.by_overflow, arg.mgr.world_2d.component_mgr.overflow.value);
           // 检查是否有裁剪，及是否在裁剪范围内
           if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
             arg.result = *bind;

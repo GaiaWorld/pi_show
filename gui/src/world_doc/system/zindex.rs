@@ -5,6 +5,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::f32;
 use std::cmp::{Ordering};
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
@@ -263,23 +264,23 @@ impl Cache {
     min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(links, mgr, n_id, min_z, max_z, 0., 0.);
+      adjust(links, mgr, n_id, min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     for n_id in &self.z_auto {
-      adjust(links, mgr, *n_id, min_z, min_z, 0., 0.);
+      adjust(links, mgr, *n_id, min_z, min_z, f32::NAN, 0.);
       min_z += 1.;
     }
     self.z_auto.clear();
     for zs in &self.z_zero {
       max_z = min_z + split + split * zs.3 as f32;
-      adjust(links, mgr, zs.2, min_z, max_z, 0., 0.);
+      adjust(links, mgr, zs.2, min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     self.z_zero.clear();
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(links, mgr, n_id, min_z, max_z, 0., 0.);
+      adjust(links, mgr, n_id, min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
   }
@@ -307,11 +308,12 @@ fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut WorldDocMgr, node_id: usize, min
   let (mut child, min, r, old_min) = {
     let node = mgr.node._group.get_mut(node_id);
     let zi = unsafe{links.get_unchecked_mut(node_id)};
-    let (min, max) = if rate > 0. {
+    let (min, max) = if !rate.is_nan() {
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
       (min_z, max_z)
     };
+    // println!("adjust: id:{}, min_z:{}, max_z:{}, rate:{}, parent_min:{}, min:{}, max:{}", node_id, min_z, max_z, rate, parent_min, min, max);
     zi.pre_min_z = min;
     zi.pre_max_z = max;
     if zi.dirty {
@@ -332,8 +334,8 @@ fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut WorldDocMgr, node_id: usize, min
     mgr.get_node_mut(node_id).set_z_depth(min);
     // 判断是否为auto
     if min != max {
-      (child, min, (max_z - min_z - 1.) as f32 / (old_max_z - old_min_z), old_min_z)
-    }else if rate > 0.{
+      (child, min, (max_z - min_z - 1.)/ (old_max_z - old_min_z), old_min_z)
+    }else if !rate.is_nan() {
       // 如果是auto，则重用min_z, rate, parent_min
       (child, min_z, rate, parent_min)
     }else{
@@ -375,72 +377,133 @@ fn test(){
     let zz = ZIndexSys::init(&mut world.component_mgr);
     let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![zz.clone()];
     world.set_systems(systems);
-    test_world_z(&mut world, zz);
+    test_world_zz(&mut world, zz);
 }
 
+#[cfg(test)]
+#[cfg(not(feature = "web"))]
+fn new_node(component_mgr: &mut WorldDocMgr, parent_id: usize) -> usize {
+    let node = NodeBuilder::new().build(&mut component_mgr.node);
+    component_mgr.get_node_mut(parent_id).insert_child(node, InsertType::Back).id
+}
 #[cfg(not(feature = "web"))]
 #[cfg(test)]
-fn test_world_z(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
-    let (root, node1, node2, node3, node4, node5) = {
-        let component_mgr = &mut world.component_mgr;
-        {
-            
-            let (root, node1, node2, node3, node4, node5) = {
-                let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
-                println!("root element: {:?}", root.element);
-                let root_id = component_mgr.node._group.insert(root, 0);// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
-                let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
-                let node1 = NodeBuilder::new().build(&mut component_mgr.node);
-                let node2 = NodeBuilder::new().build(&mut component_mgr.node);
-                let node3 = NodeBuilder::new().build(&mut component_mgr.node);
-                let node4 = NodeBuilder::new().build(&mut component_mgr.node);
-                let node5 = NodeBuilder::new().build(&mut component_mgr.node);
-                // let mut root_ref = component_mgr.get_node_mut(root_id);
-                let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
-                let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-                let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
-                let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
-                let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
-                (
-                    root_id,
-                    n1_id,
-                    n2_id,
-                    n3_id,
-                    n4_id,
-                    n5_id,
-                )
-           };
-           component_mgr.get_node_mut(node1).set_zindex(-1);
-           component_mgr.get_node_mut(node3).set_zindex(2);
-            print_node(component_mgr, zz.clone(), node1);
-            print_node(component_mgr, zz.clone(), node2);
-            print_node(component_mgr, zz.clone(), node3);
-            print_node(component_mgr, zz.clone(), node4);
-            print_node(component_mgr, zz.clone(), node5);
-            (root, node1, node2, node3, node4, node5)
-        }
-    };
-
-    println!("modify run-----------------------------------------");
+fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
+    let mgr = &mut world.component_mgr;
+    let body_id = new_node(mgr, 1);
     world.run(());
-    print_node(&world.component_mgr, zz.clone(), root);
-    print_node(&world.component_mgr, zz.clone(), node1);
-    print_node(&world.component_mgr, zz.clone(), node2);
-    print_node(&world.component_mgr, zz.clone(), node3);
-    print_node(&world.component_mgr, zz.clone(), node4);
-    print_node(&world.component_mgr, zz.clone(), node5);
-    let n = NodeBuilder::new().build(&mut world.component_mgr.node);
-    let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
+    let mgr = &mut world.component_mgr;
+    let root_id = new_node(mgr, body_id);
+    let temp_id = new_node(mgr, root_id);
+    let root_top_id = new_node(mgr, root_id);
+    world.run(());
+    let mgr = &mut world.component_mgr;
+    let node_0 = new_node(mgr, root_top_id);
+    let node_0_0 = new_node(mgr, node_0);
+    let node_0_1 = new_node(mgr, node_0);
+    let node_0_1_0 = new_node(mgr, node_0_1);
+    let node_0_1_0_0 = new_node(mgr, node_0_1_0);
+ 
+    world.run(());
+    println!("modify run-----------------------------------------");
+    let mgr = &mut world.component_mgr;
+    print_node(mgr, zz.clone(), 1);
+    print_node(mgr, zz.clone(), body_id);
+    print_node(mgr, zz.clone(), root_id);
+    print_node(mgr, zz.clone(), temp_id);
+    print_node(mgr, zz.clone(), root_top_id);
+    print_node(mgr, zz.clone(), node_0);
+    print_node(mgr, zz.clone(), node_0_0);
+    print_node(mgr, zz.clone(), node_0_1);
+    print_node(mgr, zz.clone(), node_0_1_0);
+    print_node(mgr, zz.clone(), node_0_1_0_0);
+
+    let node_1 = new_node(mgr, root_top_id);
+    let node_1_0 = new_node(mgr, node_1);
+    let node_1_1 = new_node(mgr, node_1);
+    let node_1_1_0 = new_node(mgr, node_1_1);
+    let node_1_1_0_0 = new_node(mgr, node_1_1_0);
     println!("modify2 run-----------------------------------------");
     world.run(());
-    print_node(&world.component_mgr, zz.clone(), root);
-    print_node(&world.component_mgr, zz.clone(), node1);
-    print_node(&world.component_mgr, zz.clone(), node2);
-    print_node(&world.component_mgr, zz.clone(), node3);
-    print_node(&world.component_mgr, zz.clone(), node4);
-    print_node(&world.component_mgr, zz.clone(), node5);
-    print_node(&world.component_mgr, zz.clone(), node6);
+    print_node(&world.component_mgr, zz.clone(), 1);
+    print_node(&world.component_mgr, zz.clone(), body_id);
+    print_node(&world.component_mgr, zz.clone(), root_id);
+    print_node(&world.component_mgr, zz.clone(), temp_id);
+    print_node(&world.component_mgr, zz.clone(), root_top_id);
+    print_node(&world.component_mgr, zz.clone(), node_0);
+    print_node(&world.component_mgr, zz.clone(), node_0_0);
+    print_node(&world.component_mgr, zz.clone(), node_0_1);
+    print_node(&world.component_mgr, zz.clone(), node_0_1_0);
+    print_node(&world.component_mgr, zz.clone(), node_0_1_0_0);
+    print_node(&world.component_mgr, zz.clone(), node_1);
+    print_node(&world.component_mgr, zz.clone(), node_1_0);
+    print_node(&world.component_mgr, zz.clone(), node_1_1);
+    print_node(&world.component_mgr, zz.clone(), node_1_1_0);
+    print_node(&world.component_mgr, zz.clone(), node_1_1_0_0);
 }
+#[cfg(not(feature = "web"))]
+#[cfg(test)]
+// fn test_world_z(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
+//     let (root, node1, node2, node3, node4, node5) = {
+//         let component_mgr = &mut world.component_mgr;
+//         {
+            
+//             let (root, node1, node2, node3, node4, node5) = {
+//                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
+//                 println!("root element: {:?}", root.element);
+//                 let root_id = 1;// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
+//                 let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
+//                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
+//                 let node2 = NodeBuilder::new().build(&mut component_mgr.node);
+//                 let node3 = NodeBuilder::new().build(&mut component_mgr.node);
+//                 let node4 = NodeBuilder::new().build(&mut component_mgr.node);
+//                 let node5 = NodeBuilder::new().build(&mut component_mgr.node);
+//                 // let mut root_ref = component_mgr.get_node_mut(root_id);
+//                 let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
+//                 let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+//                 let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
+//                 let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
+//                 let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
+//                 (
+//                     root_id,
+//                     n1_id,
+//                     n2_id,
+//                     n3_id,
+//                     n4_id,
+//                     n5_id,
+//                 )
+//            };
+//            component_mgr.get_node_mut(node1).set_zindex(-1);
+//            component_mgr.get_node_mut(node3).set_zindex(2);
+//             print_node(component_mgr, zz.clone(), node1);
+//             print_node(component_mgr, zz.clone(), node2);
+//             print_node(component_mgr, zz.clone(), node3);
+//             print_node(component_mgr, zz.clone(), node4);
+//             print_node(component_mgr, zz.clone(), node5);
+//             (root, node1, node2, node3, node4, node5)
+//         }
+//     };
+
+//     println!("modify run-----------------------------------------");
+//     world.run(());
+//     print_node(&world.component_mgr, zz.clone(), root);
+//     print_node(&world.component_mgr, zz.clone(), node1);
+//     print_node(&world.component_mgr, zz.clone(), node2);
+//     print_node(&world.component_mgr, zz.clone(), node3);
+//     print_node(&world.component_mgr, zz.clone(), node4);
+//     print_node(&world.component_mgr, zz.clone(), node5);
+//     let n = NodeBuilder::new().build(&mut world.component_mgr.node);
+//     let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
+//     println!("modify2 run-----------------------------------------");
+//     world.run(());
+//     print_node(&world.component_mgr, zz.clone(), root);
+//     print_node(&world.component_mgr, zz.clone(), node1);
+//     print_node(&world.component_mgr, zz.clone(), node2);
+//     print_node(&world.component_mgr, zz.clone(), node3);
+//     print_node(&world.component_mgr, zz.clone(), node4);
+//     print_node(&world.component_mgr, zz.clone(), node5);
+//     print_node(&world.component_mgr, zz.clone(), node6);
+// }
 
 #[cfg(not(feature = "web"))]
 #[cfg(test)]

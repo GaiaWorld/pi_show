@@ -5,8 +5,8 @@ use webgl_rendering_context::{WebGLBuffer};
 
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Handlers};
 use wcs::world::{ComponentMgr};
+use component::math::{Vector2, Point2};
 use atom::Atom;
-
 use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
 
@@ -59,7 +59,7 @@ pub struct CharBlock{
 
 #[derive(Debug)]
 pub struct Char {
-    pub value: char,
+    value: char,
     pub pos: Point2,
 }
 

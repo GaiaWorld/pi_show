@@ -15,12 +15,13 @@ use slab::{Slab};
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, ModifyFieldEvent, DeleteEvent};
 
+use world_doc::font::{split, SplitResult};
 use world_doc::component::style::border::Border;
 use world_doc::component::style::element::{Element, Text};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use component::math::{ Vector3, Matrix4 };
-use layout::{YGEdge, YGDirection, YgNode};
+use layout::{YGEdge, YGDirection, YgNode, Layout as LV};
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -78,14 +79,17 @@ impl System<(), WorldDocMgr> for Layout{
 
 
 pub struct TextImpl {
-  pub height: usize, // 字体高度
-  pub chars: Vec<usize>, // 字符集合
+  pub font_size: f32, // 字体高度
+  pub chars: Vec<usize>, // 字符集合, CharImpl的id
+  pub rid: usize, // 渲染节点的id
 }
 pub struct CharImpl {
-  pub ch: char, // 字符
+  pub ch: char, // 字符, 0为容器节点
   pub width: usize, // 字符宽度
   pub parent: isize, // 对应的父节点，如果为正数表示Dom文本节点，负数为yoga节点（如果字节点是字符容器会出现这种情况）
   pub node: YgNode, // 对应的yoga节点
+  pub rid: usize, // 渲染节点的id
+  pub rindex: usize, // 渲染节点的偏移量
 }
 pub struct LayoutImpl{
     node_map: FnvHashMap<usize,TextImpl>,
@@ -101,17 +105,79 @@ impl LayoutImpl {
             mgr: mgr as *mut WorldDocMgr,
         }
     }
-    // 立即生成yoga节点并加入
+    // 文本立即生成yoga节点并加入
     pub fn create_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
         // 获得字体高度
         let text = mgr.node.element.text._group.get(text_id);
         let font = mgr.node.element.text.font._group.get(text.font);
+        let font_size = mgr.font.get_size(&font.family, &font.size);
+        if font_size == 0.0 {
+            return;
+        }
         let text_style = mgr.node.element.text.text_style._group.get(text.text_style);
-        //let font_size = mgr.get
-        // self.node_map.insert(node_id, TextImpl {
-        //     action: action,
-        //     chars: Vec::new(),
-        // });
+        let mut vec = Vec::new();
+        let node = mgr.node._group.get(node_id);
+        let yaga = node.yoga;
+        let parent_yaga = &mgr.node._group.get(node.parent).yoga;
+        let mut word: Option<YgNode> = None;
+        let merge_whitespace = match text_style.white_space {
+            Some(w) => w.preserve_spaces(),
+            _ => true
+        };
+        let letter_spacing = match text_style.white_space {
+            Some(w) => w.preserve_spaces(),
+            _ => true
+        };
+        // 计算节点的yaga节点在父节点的yaga节点的位置
+        let mut index = parent_yaga.get_child_count();
+        while index > 0 && parent_yaga.get_child(index) != yaga {
+            index-=1;
+        }
+        // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
+        for cr in split(&text.value, true, merge_whitespace) {
+            match cr {
+                SplitResult::Newline =>{
+                    let yg = YgNode::default();
+                    // 设置成宽度100%, 高度0
+                    // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
+                    vec.push(self.char_slab.insert(CharImpl{
+                        ch: '\n',
+                        width: 0,
+                        parent: node_id as isize,
+                        node: yg,
+                        rid: 0,
+                        rindex: 0,
+                    }));
+                    parent_yaga.insert_child(yg.clone(), index as u32);
+                },
+                SplitResult::Whitespace =>{
+                    let yg = YgNode::default();
+                    // 设置成宽度为半高, 高度0
+                },
+                SplitResult::Word(c) =>{
+                    let yg = YgNode::default();
+                    // 设置成宽高为字符大小, 
+                    
+                },
+                SplitResult::WordStart(c) =>{
+                    // 设置word节点成宽高为自适应内容, 字符为0
+                    word = Some(YgNode::default());
+                },
+                SplitResult::WordNext(c) =>{
+                    let yg = YgNode::default();
+                },
+                SplitResult::WordEnd(c) =>{
+                    if c != char::from(0) {
+                        let yg = YgNode::default();
+                    }
+                },
+            }
+        }
+        self.node_map.insert(text_id, TextImpl {
+            font_size: font_size,
+            chars: vec,
+            rid: 0,
+        });
     }
     // 立即删除自己增加的yoga节点
     pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, _node_id: usize) {
@@ -145,18 +211,13 @@ impl LayoutImpl {
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
-        // let mut char_map = self.char_map;
-        // for (key, val) in self.node_map.iter_mut() {
-        //     match val.dirty {
-        //         ActionType::Delete => {
-
-        //         },
-        //         ActionType::Update => {
-
-        //         },
-        //         _ => ()
-        //     }
-        // }
+        let char_node = unsafe {self.char_slab.get_unchecked_mut(char_id)};
+        let rnode = unsafe {mgr.world_2d.component_mgr.word._group.get_mut(char_node.rid)};
+        let ch = unsafe {rnode.value.get_unchecked_mut(char_node.rindex)};
+        let layout = char_node.node.get_layout();
+        ch.pos.x = layout.left;
+        ch.pos.y = layout.top;
+        // TODO 发监听
     }
 }
 
@@ -174,7 +235,7 @@ fn update(mgr: &mut WorldDocMgr, node_id: usize) {
 //回调函数
 extern "C" fn callback(callback_context: *const c_void, context: *const c_void) {
     //更新布局
-    let node_id = unsafe { context as isize};
+    let node_id = context as isize;
     let layout_impl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
     let mgr = unsafe{ &mut *(layout_impl.mgr) };
     if node_id > 0 {
