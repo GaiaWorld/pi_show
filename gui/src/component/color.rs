@@ -14,6 +14,36 @@ pub enum Color{
     RadialGradient(RadialGradientColor),
 }
 
+impl Color {
+    //是否不透明
+    pub fn is_opaque(&self) -> bool {
+        match self {
+            Color::RGB(c) | Color::RGBA(c) => {
+                if c.a < 1.0 {
+                    return false;
+                }
+                return true;
+            },
+            Color::LinearGradient(l) => {
+                for c in l.list.iter() {
+                    if c.rgba.a < 1.0 {
+                    return false;
+                    }
+                }
+                return true;
+            },
+            Color::RadialGradient(g) => {
+                for c in g.list.iter() {
+                    if c.rgba.a < 1.0 {
+                        return false
+                    }
+                }
+                return true;
+            }
+        }
+    }
+}
+
 
 //颜色，线性渐变
 #[derive(Debug, Clone, Component)]

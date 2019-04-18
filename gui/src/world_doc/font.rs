@@ -94,12 +94,6 @@ impl FontSheet {
 
 
 pub trait FontHelper {
-    // 获得纹理句柄
-    fn get_texture(&self) -> usize;
-    // 获得纹理大小
-    fn get_texture_size(&self) -> cg::Vector2<usize>;
-    // 异步计算字符的sdf数据的函数, 返回None表示异步设置该字符，否则返回该字符的的sdf数据
-    fn sdf(&self, font_name: &Atom, font: &mut SdfFont, c: char) -> Option<Result<(), usize>>;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_name: &Atom, font_size: f32, c: char) -> f32;
 }
@@ -114,18 +108,7 @@ pub struct StaticFont {
 
 
 impl FontHelper for StaticFont {
-    // 获得纹理句柄
-    fn get_texture(&self) -> usize {
-        self.texture
-    }
-    // 获得纹理大小
-    fn get_texture_size(&self) -> cg::Vector2<usize> {
-        self.texture_size
-    }
-    // 异步计算字符的sdf数据的函数, 返回None表示异步设置该字符，否则返回该字符的的sdf数据
-    fn sdf(&self, _font_name: &Atom, _font: &mut SdfFont, _c: char) -> Option<Result<(), usize>> {
-        Some(Err(0))
-    }
+
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, _font_name: &Atom, _font_size: f32, _c: char) -> f32 {
         0.0
@@ -135,7 +118,6 @@ impl FontHelper for StaticFont {
 pub struct SdfFont {
     pub size: f32, //SDF大小, 一般32像素
     pub fixed_width: f32, //字符的固定宽度, 0为非定宽
-    pub char_uv_map: FnvHashMap<char, UV>, // 每字符的UV，可以通过UV计算宽度， 如果字高为0，表示字符正在创建
     pub helper: Box<dyn FontHelper>,
 }
 impl SdfFont {
@@ -146,7 +128,6 @@ impl SdfFont {
         SdfFont {
             size: size,
             fixed_width: fixed_width,
-            char_uv_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
             helper: helper,
         }
     }
@@ -155,10 +136,7 @@ impl SdfFont {
         if self.fixed_width > 0.0 {
             return self.fixed_width
         }
-        match self.char_uv_map.get(&c) {
-            Some(uv) => (uv.u2 - uv.u1) * (self.helper.get_texture_size().x as f32),
-            _ => self.helper.measure(name, self.size, c)
-        }
+        self.helper.measure(name, self.size, c)
     }
 }
 // 字体表现

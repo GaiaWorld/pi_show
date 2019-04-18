@@ -55,29 +55,26 @@ pub fn set_flex_wrap(world: u32, node_id: u32, value: u32){
 }
 
 #[no_mangle]
-pub fn set_flex_grow(world: u32, node_id: u32, value: u32){
+pub fn set_flex_grow(world: u32, node_id: u32, value: f32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)}; 
     let node =  world.component_mgr.node._group.get(node_id);
-    let value = unsafe{transmute(value)};
     node.yoga.set_flex_grow(value);
     js!{console.log(@{format!("set_flex_grow, {:?}", value)} );}
 }
 
-#[no_mangle] pub fn set_flex_shrink(world: u32, node_id: u32, value: u32){
+#[no_mangle] pub fn set_flex_shrink(world: u32, node_id: u32, value: f32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)}; 
     let node =  world.component_mgr.node._group.get(node_id);
-    let value = unsafe{transmute(value)};
     node.yoga.set_flex_shrink(value);
     js!{console.log(@{format!("set_flex_shrink, {:?}", value)} );}
 }
 
-#[no_mangle] pub fn set_flex_basis(world: u32, node_id: u32, value: u32){
+#[no_mangle] pub fn set_flex_basis(world: u32, node_id: u32, value: f32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)}; 
     let node =  world.component_mgr.node._group.get(node_id);
-    let value = unsafe{transmute(value)};
     node.yoga.set_flex_basis(value);
     js!{console.log(@{format!("set_flex_basis, {:?}", value)} );} 
 }

@@ -103,40 +103,139 @@ use layout::{YgNode, YGDirection, YGFlexDirection, YGEdge};
 
 
 
+// pub fn test(){
+//     let gui = YgNode::new();
+//     gui.set_width(1000.0);
+//     gui.set_height(800.0);
+
+//     let body = YgNode::new();
+//     body.set_width_percent(100.0);
+//     body.set_height_percent(100.0);
+//     gui.insert_child(body.clone(), 0);
+
+//     let root = YgNode::new();
+//     root.set_width(500.0);
+//     root.set_height_percent(10.0);
+//     root.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
+//     body.insert_child(root.clone(), 0);
+//     // node1.set_border(YGEdge::YGEdgeLeft, 10.0);
+//     // node1.set_border(YGEdge::YGEdgeTop, 10.0);
+//     // node1.set_border(YGEdge::YGEdgeRight, 10.0);
+//     // node1.set_border(YGEdge::YGEdgeBottom, 10.0);
+//     // node1.set_padding(YGEdge::YGEdgeLeft, 10.0);
+//     // node1.set_padding(YGEdge::YGEdgeTop, 10.0);
+//     // node1.set_padding(YGEdge::YGEdgeRight, 10.0);
+//     // node1.set_padding(YGEdge::YGEdgeBottom, 10.0);
+
+//     let node1 = YgNode::new();
+//     node1.set_width(700.0);
+//     node1.set_height(30.0);
+//     node1.set_flex_shrink(1.0);
+//     // node2.set_width_auto();
+//     // node2.set_border(YGEdge::YGEdgeLeft, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeTop, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeRight, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeBottom, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeLeft, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeTop, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeRight, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeBottom, 10.0);
+//     root.insert_child(node1.clone(), 0);
+
+//     let node2 = YgNode::new();
+//     node2.set_width(700.0);
+//     node2.set_height(30.0);
+//     node2.set_flex_shrink(1.0);
+//     // node2.set_width_auto();
+//     // node2.set_border(YGEdge::YGEdgeLeft, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeTop, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeRight, 10.0);
+//     // node2.set_border(YGEdge::YGEdgeBottom, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeLeft, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeTop, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeRight, 10.0);
+//     // node2.set_padding(YGEdge::YGEdgeBottom, 10.0);
+//     root.insert_child(node2.clone(), 1);
+    
+
+//     // let node3 = YgNode::new();
+//     // node3.set_width(100.0);
+//     // node3.set_height(100.0);
+//     // node3.set_flex_shrink(1.0);
+//     // node1.insert_child(node3.clone(), 1);
+
+//     // root.calculate_layout_by_callback(500.0, 500.0, YGDirection::YGDirectionLTR, callback1, 0 as *const c_void);
+//     gui.calculate_layout(1000.0, 800.0, YGDirection::YGDirectionLTR);
+
+//     let layout = node1.get_layout();
+//     println!("node1_layout: {:?}", layout);
+
+//     let layout = node2.get_layout();
+//     println!("node2_layout: {:?}", layout);
+
+//     let layout = root.get_layout();
+//     println!("root_layout: {:?}", layout);
+// }
+
 pub fn test(){
     let root = YgNode::new();
+    root.set_width(500.0);
+    root.set_height(40.0);
+    root.set_flex_shrink(1.0);
+    root.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
+
+    // let root = YgNode::new();
+    // root.set_width(500.0);
+    // root.set_height(40.0);
+    // gui.insert_child(root.clone(), 0);
+    // node1.set_border(YGEdge::YGEdgeLeft, 10.0);
+    // node1.set_border(YGEdge::YGEdgeTop, 10.0);
+    // node1.set_border(YGEdge::YGEdgeRight, 10.0);
+    // node1.set_border(YGEdge::YGEdgeBottom, 10.0);
+    // node1.set_padding(YGEdge::YGEdgeLeft, 10.0);
+    // node1.set_padding(YGEdge::YGEdgeTop, 10.0);
+    // node1.set_padding(YGEdge::YGEdgeRight, 10.0);
+    // node1.set_padding(YGEdge::YGEdgeBottom, 10.0);
+
     let node1 = YgNode::new();
-    node1.set_width(100.0);
-    node1.set_height(100.0);
-    node1.set_border(YGEdge::YGEdgeLeft, 10.0);
-    node1.set_border(YGEdge::YGEdgeTop, 10.0);
-    node1.set_border(YGEdge::YGEdgeRight, 10.0);
-    node1.set_border(YGEdge::YGEdgeBottom, 10.0);
-    node1.set_padding(YGEdge::YGEdgeLeft, 10.0);
-    node1.set_padding(YGEdge::YGEdgeTop, 10.0);
-    node1.set_padding(YGEdge::YGEdgeRight, 10.0);
-    node1.set_padding(YGEdge::YGEdgeBottom, 10.0);
-
+    node1.set_width(700.0);
+    node1.set_height(30.0);
+    node1.set_flex_shrink(1.0);
+    // node2.set_width_auto();
+    // node2.set_border(YGEdge::YGEdgeLeft, 10.0);
+    // node2.set_border(YGEdge::YGEdgeTop, 10.0);
+    // node2.set_border(YGEdge::YGEdgeRight, 10.0);
+    // node2.set_border(YGEdge::YGEdgeBottom, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeLeft, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeTop, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeRight, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeBottom, 10.0);
     root.insert_child(node1.clone(), 0);
-    let node2 = YgNode::new();
-    // node2.set_width(100.0);
-    // node2.set_height(100.0);
-    node2.set_width_auto();
-    node2.set_border(YGEdge::YGEdgeLeft, 10.0);
-    node2.set_border(YGEdge::YGEdgeTop, 10.0);
-    node2.set_border(YGEdge::YGEdgeRight, 10.0);
-    node2.set_border(YGEdge::YGEdgeBottom, 10.0);
-    node2.set_padding(YGEdge::YGEdgeLeft, 10.0);
-    node2.set_padding(YGEdge::YGEdgeTop, 10.0);
-    node2.set_padding(YGEdge::YGEdgeRight, 10.0);
-    node2.set_padding(YGEdge::YGEdgeBottom, 10.0);
-    root.insert_child(node2.clone(), 1);
-    root.calculate_layout(500.0, 500.0, YGDirection::YGDirectionLTR);
 
-    let node3 = YgNode::new();
-    node3.set_width(100.0);
-    node3.set_height(100.0);
-    node2.insert_child(node3.clone(), 0);
+    let node2 = YgNode::new();
+    node2.set_width(700.0);
+    node2.set_height(30.0);
+    node2.set_flex_shrink(1.0);
+    // node2.set_width_auto();
+    // node2.set_border(YGEdge::YGEdgeLeft, 10.0);
+    // node2.set_border(YGEdge::YGEdgeTop, 10.0);
+    // node2.set_border(YGEdge::YGEdgeRight, 10.0);
+    // node2.set_border(YGEdge::YGEdgeBottom, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeLeft, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeTop, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeRight, 10.0);
+    // node2.set_padding(YGEdge::YGEdgeBottom, 10.0);
+    root.insert_child(node2.clone(), 1);
+    
+
+    // let node3 = YgNode::new();
+    // node3.set_width(100.0);
+    // node3.set_height(100.0);
+    // node3.set_flex_shrink(1.0);
+    // node1.insert_child(node3.clone(), 1);
+
+    // root.calculate_layout_by_callback(500.0, 500.0, YGDirection::YGDirectionLTR, callback1, 0 as *const c_void);
+    root.calculate_layout(500.0, 40.0, YGDirection::YGDirectionLTR);
 
     let layout = node1.get_layout();
     println!("node1_layout: {:?}", layout);
@@ -144,7 +243,9 @@ pub fn test(){
     let layout = node2.get_layout();
     println!("node2_layout: {:?}", layout);
 
-    let layout = node3.get_layout();
-    println!("node3_layout: {:?}", layout);
+    let layout = root.get_layout();
+    println!("root_layout: {:?}", layout);
 }
 
+extern "C" fn callback1(callback_context: *const c_void, context: *const c_void) {
+}

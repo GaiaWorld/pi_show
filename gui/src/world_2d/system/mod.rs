@@ -4,4 +4,4 @@ pub mod render_util;
 pub mod create_effect;
 pub mod create_sdf_program;
 pub mod image;
-// pub mod text;
+pub mod char_block;

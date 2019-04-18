@@ -23,7 +23,7 @@ stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
 
-# [features]
-# default = ["web", "log"]
-# web = []
-# log = []
+[features]
+default = ["web", "log"]
+web = []
+log = []
