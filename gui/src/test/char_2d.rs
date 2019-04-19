@@ -11,7 +11,7 @@ use world_2d::{create_world, World2dMgr };
 use world_2d::component::char_block::{CharBlock, Char};
 use render::res::{TextureRes};
 use render::engine::Engine;
-use text_layout::font::{ SdfFont, Glyph};
+use text_layout::font::{ SdfFont};
 
 #[no_mangle]
 pub fn create_world_2d(engine: u32, width: f32, height: f32) -> u32{
