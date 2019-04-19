@@ -31,6 +31,7 @@ extern crate heap;
 extern crate fnv;
 extern crate atom;
 extern crate ucd;
+extern crate data_view;
 
 pub mod world_doc;
 pub mod layout;
@@ -52,7 +53,7 @@ pub mod component;
 #[cfg(feature = "web")]
 mod test;
 fn main(){
-    test::yoga::test();
+    // test::yoga::test();
     // test::yoga::test_layout_system();
     // test::render::test();
     // test::bind::test();

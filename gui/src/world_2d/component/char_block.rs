@@ -1,4 +1,5 @@
 use std::ops::{Deref};
+use std::rc::Rc;
 
 #[cfg(feature = "web")]
 use webgl_rendering_context::{WebGLBuffer};
@@ -8,9 +9,10 @@ use wcs::world::{ComponentMgr};
 use atom::Atom;
 use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
+use text_layout::font::SdfFont;
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component)]
 pub struct CharBlock{
     //world_matrix
     #[listen]
@@ -45,7 +47,7 @@ pub struct CharBlock{
     pub font_size: f32,
 
     #[listen]
-    pub font_asset_name: usize,
+    pub sdf_font: Rc<SdfFont>,
 
     //顏色
     #[listen]
@@ -75,9 +77,6 @@ pub struct CharBlockEffect {
     pub uvs_buffer: WebGLBuffer,
     pub indeices_buffer: WebGLBuffer,
 
-    pub positions: Vec<f32>,
-    pub uvs: Vec<f32>,
-    pub indeices: Vec<u16>,
     pub extend: Point2,
 
     pub font_clamp: f32,
@@ -85,7 +84,7 @@ pub struct CharBlockEffect {
 
     pub buffer_dirty: bool,
 
-    pub char_block_id: usize,
+    pub indeices_len: u16,
 }
 
 #[cfg(feature = "web")]

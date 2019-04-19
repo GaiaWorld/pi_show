@@ -1,23 +1,17 @@
-// 监听Sdf, CharBlock, 和Word的创建和销毁事件， 创建或销毁对应的Effect
+// 监听CharBlock的创建和销毁事件， 创建或销毁对应的Effect
 
 use std::rc::{Rc};
 use std::cell::RefCell;
 
-use webgl_rendering_context::{WebGLRenderingContext};
-use stdweb::UnsafeTypedArray;
-
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use vecmap::VecMap;
-use atom::Atom;
 
 use util::dirty_mark::DirtyMark;
 use world_2d::World2dMgr;
 use world_2d::component::char_block::{CharBlock, CharBlockDefines, CharBlockEffect, CharBlockEffectWriteRef};
 use world_2d::system::render_util::char_block::*;
 use component::math::{Point2};
-use render::res::{Opacity, TextureRes};
-use text_layout::font::SdfFont;
 
 pub struct CharBlockSys(Rc<RefCell<CharBlockSysImpl>>);
 
@@ -43,20 +37,21 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
         let char_block_effect = CharBlockEffect {
             program: 0,
             defines: defines_id,
-            char_block_id: *id,
             positions_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
             indeices_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
             uvs_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
 
-            positions: Vec::new(),
-            uvs: Vec::new(),
-            indeices: Vec::new(),
             extend: Point2::default(),
             font_clamp: 7.5,
             smooth_range: 0.3,
             buffer_dirty: true,
+            indeices_len: 0,
         };
-        let effect_id = component_mgr.add_char_block_effect(char_block_effect).id;
+        let effect_id = {
+            let mut effect = component_mgr.add_char_block_effect(char_block_effect);
+            effect.set_parent(*id);
+            effect.id
+        };
         borrow_mut.char_block_effect_map.insert(*id, effect_id);
 
         // 标记着色器程序脏
@@ -114,35 +109,9 @@ impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for CharBlockSys 
 impl System<(), World2dMgr> for CharBlockSys{
     fn run(&self, _e: &(), component_mgr: &mut World2dMgr){
         let mut borrow_mut = self.0.borrow_mut();
-        for effect_id in borrow_mut.program_dirty.dirtys.iter() {
-            let (defines, defines_id) = {
-                let defines_id = component_mgr.char_block_effect._group.get(*effect_id).defines.clone();
-                let defines = component_mgr.char_block_effect.defines._group.get(defines_id);
-                (defines.list(), defines_id)
-            };
-
-            let program = component_mgr.engine.create_program(
-                component_mgr.shader_store.get(&component_mgr.char_block_shader.vs).unwrap(),
-                component_mgr.shader_store.get(&component_mgr.char_block_shader.fs).unwrap(),
-                &defines
-            );
-
-            match program {
-                Ok(v) => {
-                    {
-                        let effect = component_mgr.char_block_effect._group.get_mut(*effect_id);
-                        effect.program = v;
-                    }
-                    init_location(component_mgr.char_block_effect.defines._group.get(defines_id), &mut component_mgr.engine, v);
-                },
-                Err(s) => println!("{}", s),
-            };
-        }
-        borrow_mut.program_dirty.dirtys.clear();
-    }
-
-    // 顶点流
-    
+        borrow_mut.update_program(component_mgr);
+        borrow_mut.update_buffer(component_mgr);
+    }   
 }
 
 #[allow(dead_code)]
@@ -160,6 +129,46 @@ impl CharBlockSysImpl {
             buffer_dirty: DirtyMark::new(),
         }
     }
+
+    fn update_program(&mut self, component_mgr: &mut World2dMgr) {
+        for effect_id in self.program_dirty.dirtys.iter() {
+            unsafe{*self.program_dirty.dirty_mark_list.get_unchecked_mut(*effect_id) = false};
+            let (defines, defines_id) = {
+                let defines_id = component_mgr.char_block_effect._group.get(*effect_id).defines.clone();
+                let defines = component_mgr.char_block_effect.defines._group.get(defines_id);
+                (defines.list(), defines_id)
+            };
+
+            let program = component_mgr.engine.create_program(
+                component_mgr.shader_store.get(&component_mgr.char_block_shader.vs).unwrap(),
+                component_mgr.shader_store.get(&component_mgr.char_block_shader.fs).unwrap(),
+                &defines
+            );
+
+            match program {
+                Ok(v) => {
+                    {
+                        let effect = component_mgr.char_block_effect._group.get_mut(*effect_id);
+                        if v == effect.program {
+                            continue;
+                        }
+                        effect.program = v;
+                    }
+                    init_location(component_mgr.char_block_effect.defines._group.get(defines_id), &mut component_mgr.engine, v);
+                },
+                Err(s) => println!("{}", s),
+            };
+        }
+        self.program_dirty.dirtys.clear();
+    }
+
+    fn update_buffer(&mut self, component_mgr: &mut World2dMgr) {
+        for effect_id in self.buffer_dirty.dirtys.iter() {
+            unsafe{*self.buffer_dirty.dirty_mark_list.get_unchecked_mut(*effect_id) = false};
+            update(component_mgr, *effect_id);
+        }
+        self.buffer_dirty.dirtys.clear();
+    }
 }
 
 fn is_opaque(char_block_id: usize, mgr: &mut World2dMgr) -> bool {
@@ -173,79 +182,4 @@ fn is_opaque(char_block_id: usize, mgr: &mut World2dMgr) -> bool {
     }
 
     return char_block.color.is_opaque();
-}
-
-// 填充顶点 uv 索引
-fn fill_attribute_index(char_block_id: usize, effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
-    let char_block = &mgr.char_block._group.get(char_block_id).owner;
-    let char_block_effect_id = &mgr.char_block_effect._group.get(char_block_id).owner;
-    let sdf_font = create_test_sdf_font(&mgr.engine.gl); //TODO
-
-    let ratio = char_block.font_size/sdf_font.line_height;
-
-    let mut positions: Vec<f32> = Vec::new();
-    let mut uvs: Vec<f32> = Vec::new();
-    let mut indeices: Vec<u16> = Vec::new();
-    let mut i = 0;
-    let line_height = sdf_font.line_height;
-    for c in char_block.chars.iter() {
-        let glyph = match sdf_font.get_glyph(c.value) {
-            Some(r) => r,
-            None => continue,
-        };
-        let pos = &c.pos;
-
-        let width = ratio * glyph.width;
-        let height = ratio * glyph.height;
-        let half_width = width/2.0;
-        let half_height = height/2.0;
-        let offset_x = ratio * glyph.ox;
-        let offset_y = ratio * (line_height - glyph.oy);
-
-        positions.extend_from_slice(&[
-            -half_width + pos.x + offset_x, -half_height + pos.y + offset_y, char_block.z_depth,
-            -half_width + pos.x + offset_x, half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  -half_height + pos.y + offset_y, char_block.z_depth,
-        ]);
-
-        let (u, v) = (glyph.x + glyph.ox, glyph.y - (line_height - glyph.oy));
-        uvs.extend_from_slice(&[
-            u,               v,
-            u,               v + glyph.height,
-            u + glyph.width, v + glyph.height,
-            u + glyph.width, v,
-        ]);
-
-        indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-        i += 1;
-    }
-    
-    Attribute {
-        positions: positions,
-        uvs: uvs,
-        indeices: indeices
-    }
-}
-
-struct Attribute {
-    positions: Vec<f32>,
-    uvs: Vec<f32>,
-    indeices: Vec<u16>,
-}
-
-fn create_test_sdf_font(gl: &WebGLRenderingContext) -> Rc<SdfFont>{
-    let texture = TextureRes::new(Atom::from("xxx"), 128, 128, Opacity::Translucent, 0, gl.create_texture().unwrap(), gl.clone());
-    Rc::new(SdfFont::new(Rc::new(texture)))
-}
-
-pub struct Glyph {
-    id: u32,
-    x: f32,
-    y: f32,
-    ox: f32, 
-    oy: f32,
-    width: f32, 
-    height: f32,
-    advance: f32,
 }

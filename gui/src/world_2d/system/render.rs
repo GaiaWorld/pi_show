@@ -12,8 +12,10 @@ use wcs::component::{CreateEvent, DeleteEvent, ModifyFieldEvent, ComponentHandle
 use world_2d::World2dMgr;
 use world_2d::system::render_util::sdf;
 use world_2d::system::render_util::image;
+use world_2d::system::render_util::char_block;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::Sdf;
+use world_2d::component::char_block::CharBlock;
 
 pub struct Render(RefCell<RenderImpl>);
 
@@ -32,6 +34,9 @@ impl Render {
         component_mgr.image._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, CreateEvent, World2dMgr>>)));
         component_mgr.image._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, DeleteEvent, World2dMgr>>)));
         component_mgr.image._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, CreateEvent, World2dMgr>>)));
+        component_mgr.char_block._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, DeleteEvent, World2dMgr>>)));
+        component_mgr.char_block._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
         r
     }
 }
@@ -72,6 +77,24 @@ impl ComponentHandler<Image, ModifyFieldEvent, World2dMgr> for Render{
     }
 }
 
+impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for Render{
+    fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
+        self.0.borrow_mut().dirty = true;
+    }
+}
+
+impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for Render{
+    fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
+        self.0.borrow_mut().dirty = true;
+    }
+}
+
+impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for Render{
+    fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
+        self.0.borrow_mut().dirty = true;
+    }
+}
+
 pub struct RenderImpl {
     transparent_objs: Vec<SortObject>,
     opaque_objs: Vec<SortObject>,
@@ -101,7 +124,9 @@ impl RenderImpl {
                 RenderType::Image => {
                     image::render(mgr, v.id);
                 },
-                _ => (),
+                RenderType::CharBlock => {
+                    char_block::render(mgr, v.id);
+                },
             }
         }
 
@@ -113,7 +138,9 @@ impl RenderImpl {
                 RenderType::Image => {
                     image::render(mgr, v.id);
                 },
-                _ => (),
+                RenderType::CharBlock => {
+                    char_block::render(mgr, v.id);
+                }
             }
         }
         self.opaque_objs.clear();
@@ -159,6 +186,26 @@ impl RenderImpl {
                 });
             }
         }
+
+        for v in mgr.char_block._group.iter() {
+            println!("char_block---------------------------------");
+            if v.1.visibility == false {
+                continue;
+            }
+            if v.1.is_opaque {
+                self.opaque_objs.push(SortObject {
+                    z: v.1.z_depth,
+                    id: v.0,
+                    ty: RenderType::CharBlock,
+                });
+            }else {
+                self.transparent_objs.push(SortObject {
+                    z: v.1.z_depth,
+                    id: v.0,
+                    ty: RenderType::CharBlock,
+                });
+            }
+        }
         self.transparent_objs.sort();
     }
 }
@@ -173,7 +220,7 @@ struct SortObject {
 #[allow(dead_code)]
 enum RenderType {
     Image,
-    Word,
+    CharBlock,
     Sdf,
 }
 

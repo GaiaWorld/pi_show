@@ -16,6 +16,7 @@ use world_2d::system::create_sdf_program::CreateSdfProgram;
 use world_2d::system::render::Render;
 use world_2d::system::clip::ClipSys;
 use world_2d::system::image::ImageSys;
+use world_2d::system::char_block::CharBlockSys;
 use component::math::{Point2};
 use render::engine::Engine;
 use render::res::ResMgr;
@@ -28,9 +29,10 @@ pub fn create_world(engine: Engine, near: f32, far: f32, width: f32, height: f32
     let clip = ClipSys::init(&mut mgr);
     let render = Render::init(&mut mgr);
     let image = ImageSys::init(&mut mgr);
+    let char_block = CharBlockSys::init(&mut mgr);
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, image, render];
+    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, image, char_block, render];
     world.set_systems(systems);
 
     world

@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script>
+        var cfg;
+        var image;
+
+        function load_ok() {
+            var gl = document.getElementById("canvas").getContext('webgl');
+            window.__gl = gl;
+
+            var engine = Module._create_engine();
+
+            var texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, 128, 128, 0, gl.ALPHA, gl.UNSIGNED_BYTE, new Uint8Array(image));
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            window.__jsObj = texture;
+            var texture_res = Module._create_texture_res(engine, "test_image.jpg", 128, 128, 0, 0);
+
+            window.__jsObj = cfg;
+            var sdf_font = Module._create_sdf_font(texture_res);
+
+            var gui = Module._create_world_2d(engine, 1000, 700);
+
+            Module._test_char_block(gui, sdf_font);
+        }
+            
+
+        function newXMLHttpRequest() {
+            var xmlhttp;
+            if (window.XMLHttpRequest)
+            {
+                //  IE7+, Firefox, Chrome, Opera, Safari 浏览器执行代码
+                xmlhttp=new XMLHttpRequest();
+            }
+            else
+            {
+                // IE6, IE5 浏览器执行代码
+                xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            return xmlhttp;
+        }
+
+        var xmlhttp = newXMLHttpRequest();
+        xmlhttp.open("GET","http://localhost:8080/static/hanyi.dfc",true);
+        xmlhttp.onreadystatechange=function(){
+            if (xmlhttp.readyState==4 && xmlhttp.status==200){
+                cfg = new Uint8Array(xmlhttp.response);
+                console.log("cfg-----------------------------------",cfg);
+                if (image) {
+                    load_ok()
+                }
+            }
+        }
+        xmlhttp.responseType = 'arraybuffer';
+        xmlhttp.send();
+
+        var xmlhttp_image = newXMLHttpRequest();
+        xmlhttp_image.open("GET","http://localhost:8080/static/hanyi.dft",true);
+        xmlhttp_image.onreadystatechange=function(){
+            if (xmlhttp_image.readyState==4 && xmlhttp_image.status==200){
+                image = xmlhttp_image.response;
+                if (cfg) {
+                    load_ok()
+                }
+            }
+        }
+        xmlhttp_image.responseType = 'arraybuffer';
+        xmlhttp_image.send();
+            
+    </script> 
+</body>
+</html>

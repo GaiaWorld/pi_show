@@ -16,6 +16,7 @@ heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
 atom = {path="../../pi_lib/atom"}
 ucd = {path="../../pi_lib/ucd"}
+data_view = {path="../../pi_lib/data_view"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"

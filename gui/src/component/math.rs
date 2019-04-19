@@ -336,7 +336,7 @@ impl DerefMut for Color{
 
 impl Default for Color{
     fn default() -> Color{
-        Color(cg::color::Color::new(0.0, 0.0, 0.0, 0.0))
+        Color(cg::color::Color::new(1.0, 1.0, 1.0, 1.0))
     }
 }
 

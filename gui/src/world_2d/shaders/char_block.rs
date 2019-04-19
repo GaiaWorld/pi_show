@@ -183,7 +183,7 @@ pub fn char_block_fragment_shader() -> String{
             c = color;
     #endif
 
-            float dist = texture2D(texture, vuv).r;
+            float dist = texture2D(texture, vuv).a;
             float range = smoothRange * 1.4142 / extend[0];
             float a = smoothstep(fontClamp - range, fontClamp + range, dist);
             
