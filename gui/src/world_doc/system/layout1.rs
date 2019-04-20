@@ -34,6 +34,9 @@ impl Layout {
         mgr.node.element.text._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr>>)));
         // 世界矩阵的修改监听
         mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr>>)));
+        // 监听 各属性的变动
+        mgr.node.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        mgr.node.opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -62,11 +65,40 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
 //监听世界矩阵修改事件
 impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
-        let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
-        // self.0.borrow_mut().modify_text(mgr, *id, *parent);
+        let ModifyFieldEvent {id, parent, field: _} = event;
+        match self.0.borrow_mut().node_map.get(parent) {
+            Some(text) => {
+                let world_matrix = mgr.node.world_matrix._group.get(*id);
+                let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                char_block.set_world_matrix(world_matrix.owner.clone())
+            },
+            _ => ()
+        }
     }
 }
-
+//监听node各属性的修改事件
+impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
+    fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
+        let ModifyFieldEvent {id, parent:_, field} = event;
+        match self.0.borrow_mut().node_map.get(id) {
+            Some(text) => {
+                match *field {
+                    "z_depth" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_z_depth(mgr.node._group.get(*id).z_depth)
+                    },
+                    "opacity" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_alpha(mgr.node._group.get(*id).opacity)
+                    },
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
+    }
+}
 impl System<(), WorldDocMgr> for Layout{
     fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
         let width = mgr.world_2d.component_mgr.width;
@@ -128,6 +160,8 @@ impl LayoutImpl {
             Some(w) => w.preserve_spaces(),
             _ => true
         };
+        // 设置char_block
+        // let char_block = 
         // 计算节点的yaga节点在父节点的yaga节点的位置
         let mut index = parent_yaga.get_child_count();
         while index > 0 && parent_yaga.get_child(index) != yaga {
@@ -148,7 +182,7 @@ impl LayoutImpl {
                         rid: 0,
                         rindex: 0,
                     }));
-                    parent_yaga.insert_child(yg.clone(), index as u32);
+                    parent_yaga.insert_child(yg.clone(), index);
                 },
                 SplitResult::Whitespace =>{
                     let yg = YgNode::default();
@@ -173,37 +207,25 @@ impl LayoutImpl {
                 },
             }
         }
-        self.node_map.insert(text_id, TextImpl {
+        self.node_map.insert(node_id, TextImpl {
             font_size: font_size,
             chars: vec,
             rid: 0,
         });
     }
     // 立即删除自己增加的yoga节点
-    pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, _node_id: usize) {
-        let text = mgr.node.element.text._group.get(text_id);
-        match self.node_map.remove(&text_id) {
+    pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, _text_id: usize, node_id: usize) {
+        match self.node_map.remove(&node_id) {
             Some(t) => {
+                // 删除所有yaga节点
                 for id in t.chars {
                     self.char_slab.remove(id).node.free();
                 }
+                // 移除渲染节点
+                mgr.world_2d.component_mgr.get_char_block_mut(t.rid).destroy();
             },
             _ => ()
         }
-        // match self.node_map.entry(node_id) {
-        //     Entry::Occupied(mut e) => {
-        //         let v = e.get_mut();
-        //         if v.action != ActionType::Delete {
-        //             v.action = action;
-        //         }
-        //     },
-        //     Entry::Vacant(e) => {
-        //         e.insert(TextImpl{
-        //             action: action,
-        //             chars: Vec::new(),
-        //         });
-        //     }
-        // }
     }
     // 更新文字， 先删除yoga节点，再生成yoga节点并加入
     pub fn modify_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
@@ -211,10 +233,10 @@ impl LayoutImpl {
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
-        let char_node = unsafe {self.char_slab.get_unchecked_mut(char_id)};
-        let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(char_node.rid);
-        let ch = unsafe {rnode.chars.get_unchecked_mut(char_node.rindex)};
-        let layout = char_node.node.get_layout();
+        let text = unsafe {self.char_slab.get_unchecked_mut(char_id)};
+        let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(text.rid);
+        let ch = unsafe {rnode.chars.get_unchecked_mut(text.rindex)};
+        let layout = text.node.get_layout();
         ch.pos.x = layout.left;
         ch.pos.y = layout.top;
         // TODO 发监听
