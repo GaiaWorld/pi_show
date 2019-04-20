@@ -46,16 +46,25 @@ pub fn test_char_block(world: u32, sdf_font: u32){
         by_overflow: 0,
         stroke_size: 0.0,
         stroke_color: MathColor::default(),
-        font_size: 32.0,
+        font_size: 64.0,
         sdf_font: unsafe{ &*(sdf_font as usize as *mut Rc<SdfFont>)}.clone() ,
         color: Color::RGBA(MathColor::default()),
         chars: vec![
             Char{
                 value: '测',
-                pos: Point2::default(),
-            }, Char{
+                pos: Point2(cg::Point2::new(300.0, 350.0)),
+            }, 
+            Char {
                 value: '试',
-                pos: Point2(cg::Point2::new(60.0, 0.0)),
+                pos: Point2(cg::Point2::new(400.0, 350.0)),
+            },
+            Char {
+                value: '一',
+                pos: Point2(cg::Point2::new(500.0, 350.0)),
+            },
+            Char {
+                value: '下',
+                pos: Point2(cg::Point2::new(600.0, 350.0)),
             }
         ],
     };
