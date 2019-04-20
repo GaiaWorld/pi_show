@@ -31,16 +31,16 @@ pub fn create_world(engine: Engine, near: f32, far: f32, width: f32, height: f32
     let char_block = CharBlockSys::init(&mut mgr);
 
     let system_names = [
+        Atom::from("ClipSys"),
         Atom::from("CreateEffect"),
         Atom::from("CreateSdfProgram"),
-        Atom::from("ClipSys"),
-        Atom::from("Render"),
         Atom::from("ImageSys"),
         Atom::from("CharBlockSys"),
+        Atom::from("Render"),
     ];
 
     let mut world = World::new(mgr);
-    let [create_effect_name, create_sdf_program_name, clip_name, render_name, image_name, char_block_name] = &system_names;
+    let [create_effect_name, create_sdf_program_name, clip_name, image_name, char_block_name, render_name] = &system_names;
     world.register_system(create_effect_name.clone(), create_effect);
     world.register_system(create_sdf_program_name.clone(), create_sdf_program);
     world.register_system(clip_name.clone(), clip);

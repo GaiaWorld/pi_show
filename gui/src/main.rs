@@ -52,8 +52,8 @@ pub mod component;
 
 
 //测试
-// #[cfg(feature = "web")]
-// mod test;
+#[cfg(feature = "web")]
+mod test;
 fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();

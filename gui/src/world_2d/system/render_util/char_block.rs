@@ -149,6 +149,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     let gl = &mgr.engine.gl;
 
+    println!("program-------------------{}", char_block_effect.program);
     let program = mgr.engine.lookup_program(char_block_effect.program).unwrap();
     let uniform_locations = &program.uniform_locations;
     let attr_locations = &program.attr_locations;

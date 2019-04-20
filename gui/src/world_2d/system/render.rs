@@ -188,7 +188,6 @@ impl RenderImpl {
         }
 
         for v in mgr.char_block._group.iter() {
-            println!("char_block---------------------------------");
             if v.1.visibility == false {
                 continue;
             }
