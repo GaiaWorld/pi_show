@@ -1,12 +1,12 @@
 use std::os::raw::{c_void};
-use std::rc::Rc;
 
 use deque::deque::{Node as DeNode};
 use slab::{Slab};
 use wcs::component::{Builder};
-use wcs::world::{ComponentMgr, World, System};
+use wcs::world::{ComponentMgr, World};
 use cg::octree::*;
 use cg::{Aabb3, Point3};
+use atom::Atom;
 
 use world_doc::font::{FontSheet};
 use world_doc::component::node::*;
@@ -21,6 +21,10 @@ use world_2d;
 use render::engine::Engine;
 
 pub const Z_MAX: f32 = 4194304.0;
+lazy_static! {
+    pub static ref LAYOUT_SYS: Atom = Atom::from("Layout_sys");
+    pub static ref ALL: Atom = Atom::from("All");
+}
 
 pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMgr, ()>{
     let mut mgr = WorldDocMgr::new(engine, width, height);
@@ -37,22 +41,42 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
     let image_sys = ImageSys::init(&mut mgr);
     let visibility_sys = VisibilitySys::init(&mut mgr);
     
+    let system_names = [
+        Atom::from("NodeCountSys"),
+        Atom::from("ZIndexSys"),
+        Atom::from("OverflowSys"),
+        Atom::from("LayoutSys"),
+        Atom::from("WorldMatrixSys"),
+        Atom::from("OctSys"),
+        Atom::from("OpacitySys"),
+        Atom::from("VisibilitySys"),     
+        Atom::from("BBSys"),
+        Atom::from("ImageSys"),
+        Atom::from("RunWorld2dSys"),
+    ];
 
     let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![
-        node_count_sys,
-        z_index_sys,
-        overflow_sys,
-        layout_sys,
-        world_matrix_sys,
-        oct_sys,
-        opacity_sys,
-        visibility_sys,
-        bb_sys,
-        image_sys,
-        run_world_2d_sys
+    {
+        world.register_system(system_names[0].clone(), node_count_sys);
+        world.register_system(system_names[1].clone(), z_index_sys);
+        world.register_system(system_names[2].clone(), overflow_sys);
+        world.register_system(system_names[3].clone(), layout_sys);
+        world.register_system(system_names[4].clone(), world_matrix_sys);
+        world.register_system(system_names[5].clone(), oct_sys);
+        world.register_system(system_names[6].clone(), opacity_sys);
+        world.register_system(system_names[7].clone(), visibility_sys);
+        world.register_system(system_names[8].clone(), bb_sys);
+        world.register_system(system_names[9].clone(), image_sys);
+        world.register_system(system_names[10].clone(), run_world_2d_sys);
+    }
+    world.add_systems(ALL.clone(), &mut system_names.iter()).unwrap();
+
+    let layout_names = [
+        system_names[3].clone(),
+        system_names[4].clone(),
     ];
-    world.set_systems(systems);
+
+    world.add_systems(LAYOUT_SYS.clone(), &mut layout_names.iter()).unwrap();
 
     world
 }

@@ -314,40 +314,63 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         };
         let pos = &c.pos;
 
-        let width = ratio * glyph.width;
-        let height = ratio * glyph.height;
+        // let width = ratio * glyph.width;
+        // let height = ratio * glyph.height;
+        // let half_width = width/2.0;
+        // let half_height = height/2.0;
+        // let offset_x = ratio * glyph.ox;
+        // let offset_y = ratio * (line_height - glyph.oy);
+
+        // extend.x += half_width;
+        // extend.y += half_height;
+
+        // positions.extend_from_slice(&[
+        //     -half_width + pos.x + offset_x, -half_height + pos.y + offset_y, char_block.z_depth,
+        //     -half_width + pos.x + offset_x, half_height + pos.y + offset_y,  char_block.z_depth,
+        //     half_width + pos.x + offset_x,  half_height + pos.y + offset_y,  char_block.z_depth,
+        //     half_width + pos.x + offset_x,  -half_height + pos.y + offset_y, char_block.z_depth,
+        // ]);
+
+        let width = ratio * glyph.advance;
+        let height = ratio * line_height;
         let half_width = width/2.0;
         let half_height = height/2.0;
-        let offset_x = ratio * glyph.ox;
-        let offset_y = ratio * (line_height - glyph.oy);
+        // let offset_x = ratio * glyph.ox;
+        // let offset_y = ratio * (line_height - glyph.oy);
 
         extend.x += half_width;
         extend.y += half_height;
 
         positions.extend_from_slice(&[
-            -half_width + pos.x + offset_x, -half_height + pos.y + offset_y, char_block.z_depth,
-            -half_width + pos.x + offset_x, half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  -half_height + pos.y + offset_y, char_block.z_depth,
+            -half_width + pos.x , -half_height + pos.y , char_block.z_depth,
+            -half_width + pos.x , half_height + pos.y ,  char_block.z_depth,
+            half_width + pos.x ,  half_height + pos.y ,  char_block.z_depth,
+            half_width + pos.x ,  -half_height + pos.y,  char_block.z_depth,
         ]);
 
-        let (u, v) = (glyph.x + glyph.ox, glyph.y - (line_height - glyph.oy));
+        let (u, v) = (glyph.x - glyph.ox, glyph.y - glyph.oy);
         let u_min = u/atlas_width;
         let v_min = v/atlas_height;
-        let u_max = {
-            let mut u = (u + glyph.width)/atlas_width;
-            if u > 1.0 {
-                u = 1.0;
-            }
-            u
-        };
-        let v_max = {
-            let mut v = (v + glyph.height)/atlas_height;
-            if v > 1.0 {
-                v = 1.0;
-            }
-            v
-        };
+        let u_max = (u + width)/atlas_width;
+        let v_max = (v + height)/atlas_height;
+
+        // let (u, v) = (glyph.x + glyph.ox, glyph.y - (line_height - glyph.oy));
+        // let u_min = u/atlas_width;
+        // let v_min = v/atlas_height;
+        // let u_max = {
+        //     let mut u = (u + glyph.width)/atlas_width;
+        //     if u > 1.0 {
+        //         u = 1.0;
+        //     }
+        //     u
+        // };
+        // let v_max = {
+        //     let mut v = (v + glyph.height)/atlas_height;
+        //     if v > 1.0 {
+        //         v = 1.0;
+        //     }
+        //     v
+        // };
         uvs.extend_from_slice(&[
             u_min, v_min,
             u_min, v_max,

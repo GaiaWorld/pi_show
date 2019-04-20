@@ -108,7 +108,7 @@ pub fn set_text_content(world: u32, node_id: u32, value: &str){
 
 // 设置图片的src， texture为Rc<TextureRes>
 #[no_mangle]
-pub fn set_src(world: u32, node_id: u32, texture: u32){;
+pub fn set_src(world: u32, node_id: u32, texture: u32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let element_id = world.component_mgr.node._group.get(node_id).element.clone();
@@ -130,6 +130,34 @@ pub fn set_src(world: u32, node_id: u32, texture: u32){;
         _ => (),
     }
     js!{console.log("set_src");} 
+}
+
+#[no_mangle]
+pub fn offset_top(world: u32, node_id: u32) -> f32 {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  world.component_mgr.node._group.get(node_id).yoga.get_layout().top
+}
+
+#[no_mangle]
+pub fn offset_left(world: u32, node_id: u32) -> f32 {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  world.component_mgr.node._group.get(node_id).yoga.get_layout().left
+}
+
+#[no_mangle]
+pub fn offset_width(world: u32, node_id: u32) -> f32 {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  world.component_mgr.node._group.get(node_id).yoga.get_layout().width
+}
+
+#[no_mangle]
+pub fn offset_height(world: u32, node_id: u32) -> f32 {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  world.component_mgr.node._group.get(node_id).yoga.get_layout().height
 }
 
 // #[no_mangle]

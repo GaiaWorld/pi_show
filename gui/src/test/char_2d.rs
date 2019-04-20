@@ -4,6 +4,7 @@ use stdweb::unstable::TryInto;
 use stdweb::web::TypedArray;
 
 use wcs::world::World;
+use atom::Atom;
 
 use component::color::{Color};
 use component::math::{Matrix4, Color as MathColor, Point2};
@@ -60,5 +61,5 @@ pub fn test_char_block(world: u32, sdf_font: u32){
     };
 
     world.component_mgr.add_char_block(char_block);
-    world.run(());
+    world.run(&Atom::from("All"), ());
 }

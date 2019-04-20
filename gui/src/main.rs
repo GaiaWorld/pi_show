@@ -38,6 +38,8 @@ pub mod layout;
 pub mod text_layout;
 #[cfg(feature = "web")]
 mod util;
+#[cfg(feature = "web")]
+mod font;
 
 #[cfg(feature = "web")]
 pub mod render;
@@ -50,8 +52,8 @@ pub mod component;
 
 
 //测试
-#[cfg(feature = "web")]
-mod test;
+// #[cfg(feature = "web")]
+// mod test;
 fn main(){
     // test::yoga::test();
     // test::yoga::test_layout_system();

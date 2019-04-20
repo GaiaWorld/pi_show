@@ -8,7 +8,7 @@ use atom::Atom;
 use world_doc::component::node::{NodeBuilder};
 use world_doc::component::style::element::{ElementBuilder};
 use world_doc::component::style::element::{Text as TextElement, ElementId};
-use world_doc::{WorldDocMgr, create_world};
+use world_doc::{WorldDocMgr, create_world, LAYOUT_SYS, ALL};
 use render::engine::Engine;
 use render::res::TextureRes;
 
@@ -127,8 +127,17 @@ pub fn create_node(world: u32) -> u32{
 pub fn run(world: u32){
     js!{console.log("gui run");}
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    world.run(());
+    world.run(&ALL, ());
 }
+
+// 计算布局
+#[no_mangle]
+pub fn cal_layout(world: u32){
+    js!{console.log("cal_layout");}
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    world.run(&LAYOUT_SYS, ());
+}
+
 
 
 //相当于world_doc
