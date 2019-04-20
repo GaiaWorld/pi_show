@@ -23,6 +23,7 @@ lazy_static! {
     static ref COLOR4: Atom = Atom::from("color4");
     static ref FONT_CLAMP: Atom = Atom::from("fontClamp");  // 0-1的小数，超过这个值即认为有字体，默认传0.75
     static ref SMOOT_HRANFE: Atom = Atom::from("smoothRange");
+    static ref TEXTURE: Atom = Atom::from("texture");
 }
 
 // 初始化location
@@ -58,7 +59,8 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
     uniform_locations.insert(EXTEND.clone(), get_uniform_location(&gl,program, &EXTEND));
     uniform_locations.insert(FONT_CLAMP.clone(), get_uniform_location(&gl,program, &FONT_CLAMP));
     uniform_locations.insert(SMOOT_HRANFE.clone(), get_uniform_location(&gl,program, &SMOOT_HRANFE));
-
+    uniform_locations.insert(TEXTURE.clone(), get_uniform_location(&gl,program, &TEXTURE));
+    
     if defines.color {
         uniform_locations.insert(COLOR.clone(), get_uniform_location(&gl,program, &COLOR));
     } else if defines.linear_color_gradient_2 {
@@ -69,7 +71,7 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
     } else if defines.linear_color_gradient_4 {
         uniform_locations.insert(COLOR_ANGLE.clone(), get_uniform_location(&gl,program, &COLOR_ANGLE));
         uniform_locations.insert(DISTANCE.clone(),get_uniform_location(&gl,program, &DISTANCE));
-        uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program, &COLOR1));
+        uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program,  &COLOR1));
         uniform_locations.insert(COLOR2.clone(), get_uniform_location(&gl,program, &COLOR2));
         uniform_locations.insert(COLOR3.clone(), get_uniform_location(&gl,program, &COLOR3));
         uniform_locations.insert(COLOR4.clone(), get_uniform_location(&gl,program, &COLOR4));
@@ -100,8 +102,6 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
 
     //position
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.positions_buffer));
-    #[cfg(feature = "log")]
-    println!("position: {:?}", attribute.positions);
     let buffer = unsafe { UnsafeTypedArray::new(attribute.positions.as_ref()) };
     js! {
         @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
@@ -109,12 +109,13 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
+    
+    #[cfg(feature = "log")]
+    println!("update position location: {:?}, buffer = {:?}, data: {:?}", position_location, &char_block_effect.positions_buffer, attribute.positions);
 
     //uv
-    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.positions_buffer));
+    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
     //如果shape_dirty， 更新uv数据
-    #[cfg(feature = "log")]
-    println!("uv: {:?}", attribute.uvs);
     let buffer = unsafe { UnsafeTypedArray::new(attribute.uvs.as_ref()) };
     js! {
         @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
@@ -122,16 +123,19 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     let uv_location = *(attr_locations.get(&UV).unwrap());
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
-
-    //index
+    
     #[cfg(feature = "log")]
-    println!("indeices: {:?}", attribute.indeices);
+    println!("update uv location: {:?}, buffer = {:?}, data: {:?}", uv_location, &char_block_effect.uvs_buffer, attribute.uvs);
+    
+    //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
-    let buffer = unsafe { UnsafeTypedArray::new(attribute.uvs.as_ref()) };
+    let buffer = unsafe { UnsafeTypedArray::new(attribute.indeices.as_ref()) };
     js! {
         @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
     }
 
+    #[cfg(feature = "log")]
+    println!("update indeices buffer = {:?}, data: {:?}", &char_block_effect.indeices_buffer, attribute.indeices);
 }
 
 //更新uniform和buffer， 并渲染
@@ -163,13 +167,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     #[cfg(feature = "log")]
     println!("charblock projection----------------{:?}", &mgr.projection.0);
     let arr: &[f32; 16] = mgr.projection.0.as_ref();
-    gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
+    gl.uniform_matrix4fv(uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
     // world_matrix
     #[cfg(feature = "log")]
     println!("charblock world_matrix----------------{:?}", &char_block.world_matrix.0);
     let arr: &[f32; 16] = char_block.world_matrix.0.as_ref();
-    gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
+    gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
     //extend
     #[cfg(feature = "log")]
@@ -212,6 +216,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&mgr.overflow_texture.texture));
         gl.uniform1i(uniform_locations.get(&CLIP_TEXTURE), 0);
     }
+
+    gl.active_texture(WebGLRenderingContext::TEXTURE2);
+    gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&char_block.sdf_font.texture.bind));
+    gl.uniform1i(uniform_locations.get(&TEXTURE), 2);
 
     match &char_block.color {
         Color::RGB(color) | Color::RGBA(color) => {
@@ -271,19 +279,25 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
-
+    
+    #[cfg(feature = "log")]
+    println!("position: location = {:?}, buffer = {:?}", position_location, &char_block_effect.positions_buffer);
+    
     //uv
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
     let uv_location = *(attr_locations.get(&UV).unwrap());
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
+    
+    #[cfg(feature = "log")]
+    println!("uv: location = {:?}, buffer = {:?}", uv_location, &char_block_effect.uvs_buffer);
 
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
   
     //draw
     #[cfg(feature = "log")]
-    println!("draw, indeices_len: {:?}", char_block_effect.indeices_len);
+    println!("draw, indeices, buffer = {:?}, len = {:?}", &char_block_effect.indeices_buffer, char_block_effect.indeices_len);
     gl.draw_elements(WebGLRenderingContext::TRIANGLES, char_block_effect.indeices_len as i32, WebGLRenderingContext::UNSIGNED_SHORT, 0);
 
     gl.disable_vertex_attrib_array(position_location);
@@ -314,8 +328,8 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         };
         let pos = &c.pos;
 
-        let width = ratio * glyph.width;
-        let height = ratio * glyph.height;
+        let width = ratio * glyph.advance;
+        let height = ratio * line_height;
         let half_width = width/2.0;
         let half_height = height/2.0;
         let offset_x = ratio * glyph.ox;
@@ -325,29 +339,21 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         extend.y += half_height;
 
         positions.extend_from_slice(&[
-            -half_width + pos.x + offset_x, -half_height + pos.y + offset_y, char_block.z_depth,
-            -half_width + pos.x + offset_x, half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  half_height + pos.y + offset_y,  char_block.z_depth,
-            half_width + pos.x + offset_x,  -half_height + pos.y + offset_y, char_block.z_depth,
+            -half_width + pos.x , -half_height + pos.y , char_block.z_depth,
+            -half_width + pos.x , half_height + pos.y ,  char_block.z_depth,
+            half_width + pos.x ,  half_height + pos.y ,  char_block.z_depth,
+            half_width + pos.x ,  -half_height + pos.y,  char_block.z_depth,
         ]);
 
-        let (u, v) = (glyph.x + glyph.ox, glyph.y - (line_height - glyph.oy));
+        let (u, v) = (glyph.x, glyph.y - glyph.height);
         let u_min = u/atlas_width;
         let v_min = v/atlas_height;
-        let u_max = {
-            let mut u = (u + glyph.width)/atlas_width;
-            if u > 1.0 {
-                u = 1.0;
-            }
-            u
-        };
-        let v_max = {
-            let mut v = (v + glyph.height)/atlas_height;
-            if v > 1.0 {
-                v = 1.0;
-            }
-            v
-        };
+        let u_max = (u + glyph.width)/atlas_width;
+        let v_max = (v + glyph.height)/atlas_height;
+
+        println!("u: {}, v:{}, atlas_width: {}, atlas_height: {}, width: {}, height: {}", u, v, atlas_width, atlas_height, glyph.advance, line_height);
+
+        let (v_min, v_max) = (1.0 - v_max, 1.0 - v_min);
         uvs.extend_from_slice(&[
             u_min, v_min,
             u_min, v_max,

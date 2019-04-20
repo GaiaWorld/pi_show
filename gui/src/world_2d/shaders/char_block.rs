@@ -3,8 +3,8 @@ pub fn char_block_vertex_shader() -> String{
         precision highp float;
 
         // Attributes
-        attribute vec2 uv;
         attribute vec3 position;
+        attribute vec2 uv;
 
         // Uniforms
         uniform mat4 world;
@@ -169,7 +169,7 @@ pub fn char_block_fragment_shader() -> String{
 
             vec2 coord = vpos;
 
-            vec4 c;
+            vec4 c = vec4(1.0);
             float percent;
     #ifdef LINEAR_COLOR_GRADIENT_2
             percent = getLinearPercent(coord, extend, colorAngle);
@@ -191,9 +191,9 @@ pub fn char_block_fragment_shader() -> String{
             c = mix(strokeColor, c, a);
             a = smoothstep(strokeClamp - range, strokeClamp + range, dist);
     #endif
-
-            gl_FragColor = vec4(c.rgb, a * c.a * alpha);
-        }
+            a = a * c.a * alpha;
+            gl_FragColor = vec4(c.rgb, dist);
+       }
 
     "#.to_string()
 }

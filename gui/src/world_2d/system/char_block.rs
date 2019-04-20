@@ -42,8 +42,8 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
             uvs_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
 
             extend: Point2::default(),
-            font_clamp: 7.5,
-            smooth_range: 0.3,
+            font_clamp: 0.6,
+            smooth_range: 4.0,
             buffer_dirty: true,
             indeices_len: 0,
         };
