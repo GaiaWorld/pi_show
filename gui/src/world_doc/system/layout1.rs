@@ -5,6 +5,7 @@
 
 use std::cell::RefCell;
 use std::rc::{Rc};
+use std::sync::Arc;
 use std::os::raw::{c_void};
 use std::collections::hash_map::Entry;
 use std::ops::Deref;
@@ -20,8 +21,15 @@ use world_doc::component::style::border::Border;
 use world_doc::component::style::element::{Element, Text};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
-use component::math::{ Vector3, Matrix4 };
+use component::math::{ Vector3, Matrix4, Color as MathColor, Point2 };
+use component::color::{Color};
+use world_2d::component::char_block::CharBlock;
 use layout::{YGEdge, YGDirection, YgNode, Layout as LV};
+use font::sdf_font::{SdfFont, StaticSdfFont};
+use font::font_sheet::{get_size, get_line_height};
+use render::res::{TextureRes};
+use text_layout::layout::{TextAlign};
+use world_doc::component::style::text::TextStyle;
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -63,24 +71,34 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
         let ModifyFieldEvent {id, parent, field} = event;
         //self.0.borrow_mut().modify_text(mgr, *id, *parent);
         // 其他要判断样式是否影响布局
-        match self.0.borrow_mut().node_map.get(parent) {
+        let mut sys = self.0.borrow_mut();
+        match sys.node_map.get(parent) {
             Some(text) => {
                 match *field {
-                    "z_depth" => {
+                    "value" => sys.modify_text(mgr, *id, *parent),
+                    "text_style" => {
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        char_block.set_z_depth(mgr.node._group.get(*id).z_depth)
+                        let style= mgr.node.element.text.text_style._group.get(*id);
+                        let align = if let Some(r) = style.text_align {
+                            r
+                        }else{
+                            TextAlign::Left
+                        };
+                        let ls = if let Some(r) = style.letter_spacing {
+                            r
+                        }else{
+                            0.0
+                        };
+                        char_block.set_letter_spacing(ls);
+                        char_block.set_line_height(get_line_height(text.font_size, &style.line_height));
+                        //char_block.set_color(style.stroke_size);
+                        //char_block.set_stroke_color(style.stroke_size);
+                        //char_block.set_stroke_size(style.stroke_size);
+                        // TODO shadow
                     },
-                    "opacity" => {
+                    "font" => {
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        char_block.set_alpha(mgr.node._group.get(*id).opacity)
-                    },
-                    "visibility" => {
-                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        char_block.set_visibility(mgr.node._group.get(*id).visibility)
-                    },
-                    "by_overflow" => {
-                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        char_block.set_by_overflow(mgr.node._group.get(*id).by_overflow)
+                        //char_block.set_line_height(mgr.node.element.text._group.get(*id).line_height)
                     },
                     _ => ()
                 }
@@ -89,6 +107,7 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
         }
     }
 }
+
 //监听世界矩阵修改事件
 impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
@@ -195,10 +214,26 @@ impl LayoutImpl {
             _ => true
         };
         // 设置char_block
-        // let char_block = CharBlock {
-
-        // };
-        let rid = 1;//mgr.world_2d.component_mgr.add_char_block(char_block);
+        let mut char_block = CharBlock {
+        world_matrix: Matrix4::default(),
+            alpha: 1.0,
+            visibility: true,
+            is_opaque: true,
+            z_depth: 1.0,
+            by_overflow: 0,
+            stroke_size: 0.0,
+            stroke_color: MathColor::default(),
+            font_size: 16.0,
+            text_align: TextAlign::Left, //对齐方式
+            letter_spacing: 2.0, //字符间距， 单位：像素
+            line_height: 18.0, //设置行高
+            sdf_font: create_sdf_font(0),
+            color: Color::RGBA(MathColor::default()),
+            chars: Vec::new(),
+        };
+        let cb = mgr.world_2d.component_mgr.add_char_block(char_block);
+        let rid = cb.id;
+        let mut rindex = 0;
         // 计算节点的yaga节点在父节点的yaga节点的位置
         let mut index = parent_yaga.get_child_count();
         while index > 0 && parent_yaga.get_child(index) != yaga {
@@ -216,9 +251,11 @@ impl LayoutImpl {
                         width: 0,
                         parent: node_id as isize,
                         node: yg,
-                        rid: 0,
-                        rindex: 0,
+                        rid: rid,
+                        rindex: rindex,
                     }));
+                    // TODO 将Char加入vec中
+                    rindex +=1;
                     parent_yaga.insert_child(yg.clone(), index);
                 },
                 SplitResult::Whitespace =>{
@@ -302,4 +339,9 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
     }else if node_id < 0 {
         layout_impl.update(mgr, (-node_id) as usize);
     }
+}
+
+pub fn create_sdf_font(texture: u32) -> Arc<SdfFont>{
+    let mut sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
+    Arc::new(sdf_font)
 }

@@ -14,6 +14,7 @@ use world_2d::component::char_block::{CharBlock, Char};
 use render::res::{TextureRes};
 use render::engine::Engine;
 use font::sdf_font::{SdfFont, StaticSdfFont};
+use text_layout::layout::{TextAlign};
 
 #[no_mangle]
 pub fn create_world_2d(engine: u32, width: f32, height: f32) -> u32{
@@ -49,6 +50,9 @@ pub fn test_char_block(world: u32, sdf_font: u32){
         stroke_size: 0.0,
         stroke_color: MathColor::default(),
         font_size: 16.0,
+        text_align: TextAlign::Left, //对齐方式
+        letter_spacing: 2.0, //字符间距， 单位：像素
+        line_height: 18.0, //设置行高
         sdf_font: unsafe{ &*(sdf_font as usize as *mut Arc<SdfFont>)}.clone() ,
         color: Color::RGBA(MathColor::default()),
         chars: vec![
