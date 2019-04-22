@@ -37,6 +37,8 @@ impl Layout {
         // 监听 各属性的变动
         mgr.node.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         mgr.node.opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        mgr.node.visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
 }
@@ -58,8 +60,33 @@ impl ComponentHandler<Text, DeleteEvent, WorldDocMgr> for Layout{
 //监听文本修改事件
 impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
-        let ModifyFieldEvent {id, parent, field: _} = event; // TODO 其他要判断样式是否影响布局
-        self.0.borrow_mut().modify_text(mgr, *id, *parent);
+        let ModifyFieldEvent {id, parent, field} = event;
+        //self.0.borrow_mut().modify_text(mgr, *id, *parent);
+        // 其他要判断样式是否影响布局
+        match self.0.borrow_mut().node_map.get(parent) {
+            Some(text) => {
+                match *field {
+                    "z_depth" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_z_depth(mgr.node._group.get(*id).z_depth)
+                    },
+                    "opacity" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_alpha(mgr.node._group.get(*id).opacity)
+                    },
+                    "visibility" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_visibility(mgr.node._group.get(*id).visibility)
+                    },
+                    "by_overflow" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_by_overflow(mgr.node._group.get(*id).by_overflow)
+                    },
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
     }
 }
 //监听世界矩阵修改事件
@@ -89,8 +116,15 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
                     },
                     "opacity" => {
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
                         char_block.set_alpha(mgr.node._group.get(*id).opacity)
+                    },
+                    "visibility" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_visibility(mgr.node._group.get(*id).visibility)
+                    },
+                    "by_overflow" => {
+                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        char_block.set_by_overflow(mgr.node._group.get(*id).by_overflow)
                     },
                     _ => ()
                 }
@@ -161,7 +195,10 @@ impl LayoutImpl {
             _ => true
         };
         // 设置char_block
-        // let char_block = 
+        // let char_block = CharBlock {
+
+        // };
+        let rid = 1;//mgr.world_2d.component_mgr.add_char_block(char_block);
         // 计算节点的yaga节点在父节点的yaga节点的位置
         let mut index = parent_yaga.get_child_count();
         while index > 0 && parent_yaga.get_child(index) != yaga {
@@ -210,7 +247,7 @@ impl LayoutImpl {
         self.node_map.insert(node_id, TextImpl {
             font_size: font_size,
             chars: vec,
-            rid: 0,
+            rid: rid,
         });
     }
     // 立即删除自己增加的yoga节点
