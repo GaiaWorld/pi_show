@@ -7,7 +7,6 @@ use fnv::FnvHashMap;
 use atom::{Atom};
 use ucd::{Codepoint};
 
-use component::math::{UV};
 use component::color::Color;
 use font::sdf_font::SdfFont;
 

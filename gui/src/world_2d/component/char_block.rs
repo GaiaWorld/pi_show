@@ -1,5 +1,6 @@
 use std::ops::{Deref};
-use std::rc::Rc;
+use std::fmt::{Debug, Formatter, Result};
+use std::sync::Arc;
 
 #[cfg(feature = "web")]
 use webgl_rendering_context::{WebGLBuffer};
@@ -9,10 +10,10 @@ use wcs::world::{ComponentMgr};
 use atom::Atom;
 use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
-use text_layout::font::SdfFont;
+use font::sdf_font::SdfFont;
 
 #[allow(unused_attributes)]
-#[derive(Debug, Component)]
+#[derive(Component)]
 pub struct CharBlock{
     //world_matrix
     #[listen]
@@ -47,7 +48,7 @@ pub struct CharBlock{
     pub font_size: f32,
 
     #[listen]
-    pub sdf_font: Rc<SdfFont>,
+    pub sdf_font: Arc<SdfFont>,
 
     //顏色
     #[listen]
@@ -55,6 +56,25 @@ pub struct CharBlock{
     
     #[listen]
     pub chars: Vec<Char>,
+}
+
+impl Debug for CharBlock {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, 
+        r#"CharBlock {{ 
+            world_matrix: {:?}, 
+            alpha: {}, 
+            visibility: {}, 
+            is_opaque: {}, 
+            z_depth: {}, 
+            by_overflow: {}, 
+            stroke_size: {}, 
+            stroke_color: {:?},
+            font_size: {:?},
+            color: {:?},
+            chars: {:?}
+        }}"#, self.world_matrix, self.alpha, self.visibility, self.is_opaque, self.z_depth, self.by_overflow, self.stroke_size, self.stroke_color, self.font_size, self.color, self.chars)
+    }
 }
 
 

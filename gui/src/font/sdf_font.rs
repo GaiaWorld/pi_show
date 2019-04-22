@@ -30,10 +30,10 @@ pub struct GlyphInfo{
     pub height: f32,
     pub ox: f32, //文字可见区域左上角相对于文字外边框的左上角在水平轴上的距离
     pub oy: f32, //文字可见区域左上角相对于文字外边框的左上角在垂直轴上的距离
-    pub min_u: f32,
-    pub min_v: f32,
-    pub max_u: f32,
-    pub max_v: f32,
+    pub u_min: f32,
+    pub u_max: f32,
+    pub v_min: f32,
+    pub v_max: f32,
 }
 
 #[derive(Debug)]
@@ -42,14 +42,14 @@ pub struct StaticSdfFont {
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
-    glyph_table: FnvHashMap<u32, Glyph>,
+    glyph_table: FnvHashMap<char, Glyph>,
     texture: Rc<TextureRes>,
 }
 
 impl SdfFont for StaticSdfFont { 
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
-        match self.glyph_table.get(&unsafe{ transmute(c) }) {
+        match self.glyph_table.get(&c) {
             Some(glyph) => font_size/self.line_height*glyph.advance,
             None => 0.0,
         }
@@ -72,19 +72,19 @@ impl SdfFont for StaticSdfFont {
 
     fn glyph_info(&self, c: char, font_size: f32) -> Option<GlyphInfo> {
         let ratio = font_size/self.line_height;
-        match self.glyph_table.get(&unsafe{ transmute(c) }) {
+        match self.glyph_table.get(&c) {
             Some(glyph) => {
-                let (min_u, max_v) = (glyph.x + glyph.ox, glyph.y - (self.line_height - glyph.oy)); //左上角
+                let (min_u, max_v) = (glyph.x, glyph.y); //左上角
                 Some(
                     GlyphInfo {
                         height: ratio * glyph.height,
                         width: ratio * glyph.width,
                         ox: ratio * glyph.ox,
-                        oy: ratio * (self.line_height - glyph.oy),
-                        min_u: min_u/(self.atlas_width as f32),
-                        max_v: max_v/(self.atlas_height as f32),
-                        max_u: (min_u + glyph.width)/(self.atlas_width as f32),
-                        min_v: (max_v - glyph.height)/(self.atlas_height as f32),
+                        oy: ratio * glyph.oy,
+                        u_min: min_u/(self.atlas_width as f32),
+                        u_max: (min_u + glyph.width)/(self.atlas_width as f32),
+                        v_min: (max_v - glyph.height)/(self.atlas_height as f32),
+                        v_max: max_v/(self.atlas_height as f32),  
                     }
                 )
             },
@@ -164,9 +164,9 @@ impl StaticSdfFont {
             offset += 2; // 加2， 对齐
 
             self.glyph_table.insert(
-                id as u32,
+                unsafe{ transmute(id as u32) },
                 Glyph {
-                    id: id as u32,
+                    id: unsafe{ transmute(id as u32) },
                     x: x as f32,
                     y: y as f32,
                     ox: ox as f32,
@@ -183,7 +183,7 @@ impl StaticSdfFont {
 
 #[derive(Debug)]
 pub struct Glyph {
-    pub id: u32,
+    pub id: char,
     pub x: f32,
     pub y: f32,
     pub ox: f32, 
@@ -191,10 +191,4 @@ pub struct Glyph {
     pub width: f32, 
     pub height: f32,
     pub advance: f32,
-}
-
-impl Glyph {
-    pub fn new(id: u32, x: f32, y: f32, ox: f32, oy: f32, width: f32, height: f32, advance: f32) -> Glyph {
-        Glyph { id, x, y, ox, oy, width, height, advance }
-    }
 }
