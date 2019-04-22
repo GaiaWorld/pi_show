@@ -11,6 +11,7 @@ use atom::Atom;
 use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
 use font::sdf_font::SdfFont;
+use text_layout::layout::{TextAlign};
 
 #[allow(unused_attributes)]
 #[derive(Component)]
@@ -46,6 +47,10 @@ pub struct CharBlock{
 
     #[listen]
     pub font_size: f32,
+    #[listen]
+    pub text_align: TextAlign, //对齐方式
+    pub letter_spacing: f32, //字符间距， 单位：像素
+    pub line_height: f32, //设置行高
 
     #[listen]
     pub sdf_font: Arc<SdfFont>,

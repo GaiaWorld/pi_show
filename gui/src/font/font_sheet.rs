@@ -9,6 +9,7 @@ use ucd::{Codepoint};
 
 use component::color::Color;
 use font::sdf_font::SdfFont;
+use text_layout::layout::{LineHeight};
 
 pub const FONT_SIZE: f32 = 32.0;
 
@@ -69,7 +70,14 @@ impl FontSheet {
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_size(&self, font_face: &Atom, size: &FontSize) -> f32 {
         match self.face_map.get(font_face) {
-            Some(face) => face.get_size(size),
+            Some(face) => get_size(face.size, size),
+            _ => 0.0
+        }
+    }
+    // 行高
+    pub fn get_line_height(&self, font_face: &Atom, line_height: &Option<LineHeight>) -> f32 {
+        match self.face_map.get(font_face) {
+            Some(face) => get_line_height(face.size, line_height),
             _ => 0.0
         }
     }
@@ -99,13 +107,25 @@ pub struct FontFace {
     weight: f32,
     src: Vec<Atom>,
 }
-impl FontFace {
-    pub fn get_size(&self, s:&FontSize) -> f32 {
-        match s {
-            &FontSize::None => self.size,
-            &FontSize::Length(r) => r,
-            &FontSize::Percent(r) => r * self.size
+
+pub fn get_size(size:f32, s:&FontSize) -> f32 {
+    match s {
+        &FontSize::None => size,
+        &FontSize::Length(r) => r,
+        &FontSize::Percent(r) => r * size
+    }
+}
+// 行高
+pub fn get_line_height(size:f32, line_height: &Option<LineHeight>) -> f32 {
+    if let Some(lh) = line_height {
+        match lh {
+            LineHeight::Length(r) => *r, //固定像素
+            LineHeight::Number(r) => *r + size, //设置数字，此数字会与当前的字体尺寸相加来设置行间距。
+            LineHeight::Percent(r) => *r * size,   //	基于当前字体尺寸的百分比行间距.
+            LineHeight::Normal => size,
         }
+    }else{
+        size
     }
 }
 // 倾斜度造成的间距
