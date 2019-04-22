@@ -1,7 +1,7 @@
 /**
  * 按照层级关系记录node的脏标志
  */
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use world_doc::WorldDocMgr;
 

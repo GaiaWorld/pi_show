@@ -8,7 +8,7 @@ use stdweb::UnsafeTypedArray;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use component::color::Color;
 use world_2d::World2dMgr;
@@ -107,7 +107,7 @@ impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for CreateEffect{
 impl ComponentHandler<Sdf, DeleteEvent, World2dMgr> for CreateEffect{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut World2dMgr){
         let DeleteEvent{id, parent:_} = event;
-        let effect_id = unsafe { self.0.borrow_mut().sdf_effect_map.remove(*id) };
+        let effect_id = unsafe { self.0.borrow_mut().sdf_effect_map.remove_unchecked(*id) };
         {
             let (positions_buffer, indeices_buffer) = {
                 let sdf_effect = component_mgr.sdf_effect._group.get(effect_id);

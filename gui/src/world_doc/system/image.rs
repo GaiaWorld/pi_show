@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use component::math::{Vector2, Matrix4 as MathMatrix4};
 use world_doc::component::node::{Node};
@@ -70,7 +70,7 @@ impl ComponentHandler<Image, DeleteEvent, WorldDocMgr> for ImageSys {
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr) {
         let DeleteEvent { id, parent: _} = event;
         let mut borrow_mut = self.0.borrow_mut();
-        let image2d_id = unsafe { borrow_mut.image_image2d_map.remove(*id) };
+        let image2d_id = unsafe { borrow_mut.image_image2d_map.remove_unchecked(*id) };
         component_mgr.world_2d.component_mgr.del_image(image2d_id);
     }
 }

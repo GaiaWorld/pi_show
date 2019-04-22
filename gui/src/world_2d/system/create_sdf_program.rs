@@ -5,7 +5,6 @@ use std::cell::RefCell;
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
-use vecmap::IndexMap;
 
 use util::dirty_mark::DirtyMark;
 use world_2d::system::render_util::sdf::init_location;

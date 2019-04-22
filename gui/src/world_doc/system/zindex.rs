@@ -11,7 +11,7 @@ use std::cmp::{Ordering};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use heap::simple_heap::SimpleHeap;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use world_doc::{Z_MAX, WorldDocMgr};
 use world_doc::component::node::{Node};

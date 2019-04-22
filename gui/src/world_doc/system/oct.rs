@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use world_doc::WorldDocMgr;
 use world_doc::component::node::Node;

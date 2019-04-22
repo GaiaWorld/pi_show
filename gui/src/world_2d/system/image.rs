@@ -8,7 +8,7 @@ use stdweb::UnsafeTypedArray;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use util::dirty_mark::DirtyMark;
 use world_2d::World2dMgr;
@@ -90,7 +90,7 @@ impl ComponentHandler<Image, CreateEvent, World2dMgr> for ImageSys{
 impl ComponentHandler<Image, DeleteEvent, World2dMgr> for ImageSys{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut World2dMgr){
         let DeleteEvent{id, parent:_} = event;
-        let effect_id = unsafe { self.0.borrow_mut().image_effect_map.remove(*id) };
+        let effect_id = unsafe { self.0.borrow_mut().image_effect_map.remove_unchecked(*id) };
         let image_effect = component_mgr.image_effect._group.remove(effect_id);
         // 删除顶点buffer和索引buffer
         component_mgr.engine.gl.delete_buffer(Some(&image_effect.positions_buffer));
