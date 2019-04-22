@@ -192,12 +192,11 @@ pub fn char_block_fragment_shader() -> String{
             a = smoothstep(strokeClamp - smoothRange, strokeClamp + smoothRange, dist);
     #endif
             a = a * c.a * alpha;
-            // if (a < 0.02) {
-            //     discard;
-            // }
+            if (a < 0.02) {
+                discard;
+            }
 
             gl_FragColor = vec4(c.rgb, a);
-            gl_FragColor = vec4(dist, dist, dist, 1.0);
        }
 
     "#.to_string()
