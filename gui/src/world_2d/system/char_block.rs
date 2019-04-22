@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use util::dirty_mark::DirtyMark;
 use world_2d::World2dMgr;
@@ -67,7 +67,7 @@ impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for CharBlockSys{
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut World2dMgr){
         let DeleteEvent{id, parent:_} = event;
         let mut borrow_mut =  self.0.borrow_mut();
-        let effect_id = unsafe { borrow_mut.char_block_effect_map.remove(*id) };
+        let effect_id = unsafe { borrow_mut.char_block_effect_map.remove_unchecked(*id) };
         let char_block_effect = component_mgr.char_block_effect._group.remove(effect_id);
 
         // 删除顶点buffer. uvbuffer 和索引buffer

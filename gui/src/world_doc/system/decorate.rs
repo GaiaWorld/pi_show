@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use cg::{Vector3 as CgVector3};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
@@ -136,7 +136,7 @@ impl ComponentHandler<Color, DeleteEvent, WorldDocMgr> for BBSys {
         let DeleteEvent { id: _, parent } = event; 
         let border_color_id = component_mgr.node.decorate._group.get(*parent).border_color;
         if border_color_id == 0 {
-            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove(*parent) };
+            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove_unchecked(*parent) };
             SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
         }
     }
@@ -175,7 +175,7 @@ impl ComponentHandler<MathColor, DeleteEvent, WorldDocMgr> for BBSys {
         let DeleteEvent { id: _, parent } = event; 
         let background_color_id = component_mgr.node.decorate._group.get(*parent).background_color;
         if background_color_id == 0 {
-            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove(*parent) };
+            let sdf_id = unsafe { self.0.borrow_mut().color_sdf2d_map.remove_unchecked(*parent) };
             SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
         }
     }
@@ -218,7 +218,7 @@ impl ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr) {
         let DeleteEvent { id: _, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
-        let sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.remove(*parent)};
+        let sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.remove_unchecked(*parent)};
         borrow_mut.shadow_matrix_dirty.delete_dirty(*parent);
         SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
     }

@@ -7,7 +7,7 @@ use std::rc::{Rc};
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
-use vecmap::{ VecMap, IndexMap};
+use vecmap::{ VecMap};
 
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
@@ -49,7 +49,7 @@ impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for VisibilitySys{
         let DeleteEvent{id, parent: _} = event;
         let mut borrow = self.0.borrow_mut();
         borrow.delete_dirty(*id, component_mgr);
-        unsafe {borrow.dirty_mark_list.remove(*id)};
+        unsafe {borrow.dirty_mark_list.remove_unchecked(*id)};
     }
 }
 
