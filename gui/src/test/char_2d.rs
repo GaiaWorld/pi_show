@@ -48,7 +48,7 @@ pub fn test_char_block(world: u32, sdf_font: u32){
         by_overflow: 0,
         stroke_size: 0.0,
         stroke_color: MathColor::default(),
-        font_size: 32.0,
+        font_size: 16.0,
         sdf_font: unsafe{ &*(sdf_font as usize as *mut Arc<SdfFont>)}.clone() ,
         color: Color::RGBA(MathColor::default()),
         chars: vec![

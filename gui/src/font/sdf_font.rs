@@ -192,9 +192,3 @@ pub struct Glyph {
     pub height: f32,
     pub advance: f32,
 }
-
-impl Glyph {
-    pub fn new(id: char, x: f32, y: f32, ox: f32, oy: f32, width: f32, height: f32, advance: f32) -> Glyph {
-        Glyph { id, x, y, ox, oy, width, height, advance }
-    }
-}
