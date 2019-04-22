@@ -7,7 +7,7 @@ use std::rc::{Rc};
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
-use vecmap::VecMap;
+use vecmap::{ VecMap, IndexMap};
 
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;

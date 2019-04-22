@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::VecMap;
+use vecmap::{ VecMap, IndexMap};
 
 use component::math::{Vector2, Matrix4 as MathMatrix4};
 use world_doc::component::node::{Node};

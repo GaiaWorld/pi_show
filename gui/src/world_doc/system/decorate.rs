@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use cg::{Vector3 as CgVector3};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::VecMap;
+use vecmap::{ VecMap, IndexMap};
 
 use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
