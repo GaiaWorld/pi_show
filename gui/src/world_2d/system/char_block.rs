@@ -31,7 +31,6 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut World2dMgr){
         let CreateEvent{id, parent:_} = event;
         let mut borrow_mut = self.0.borrow_mut();
-
         //创建effect
         let defines_id = component_mgr.char_block_effect.defines._group.insert(CharBlockDefines::default(), 0);
         let char_block_effect = CharBlockEffect {
@@ -109,6 +108,7 @@ impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for CharBlockSys 
 impl System<(), World2dMgr> for CharBlockSys{
     fn run(&self, _e: &(), component_mgr: &mut World2dMgr){
         let mut borrow_mut = self.0.borrow_mut();
+        println!("run CharBlockSys------------------------");
         borrow_mut.update_program(component_mgr);
         borrow_mut.update_buffer(component_mgr);
     }   
@@ -131,7 +131,9 @@ impl CharBlockSysImpl {
     }
 
     fn update_program(&mut self, component_mgr: &mut World2dMgr) {
+        println!("update_program create------------------------");
         for effect_id in self.program_dirty.dirtys.iter() {
+            println!("update_program create1------------------------");
             unsafe{*self.program_dirty.dirty_mark_list.get_unchecked_mut(*effect_id) = false};
             let (defines, defines_id) = {
                 let defines_id = component_mgr.char_block_effect._group.get(*effect_id).defines.clone();

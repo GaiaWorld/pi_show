@@ -3,6 +3,7 @@
 use std::rc::{Rc};
 
 use wcs::world::System;
+use atom::Atom;
 
 use world_doc::WorldDocMgr;
 
@@ -17,6 +18,6 @@ impl RunWorld2d {
 
 impl System<(), WorldDocMgr> for RunWorld2d{
     fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        component_mgr.world_2d.run(());
+        component_mgr.world_2d.run(&Atom::from("All"), ()); //"All" 是一组system的名称， 应该为常量？ TODO
     }
 }

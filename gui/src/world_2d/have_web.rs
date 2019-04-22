@@ -1,11 +1,10 @@
 use std::default::Default;
-use std::rc::Rc;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture, WebGLFramebuffer};
 use cg::{Matrix4, Ortho};
 use fnv::FnvHashMap;
 
-use wcs::world::{ComponentMgr, World, System};
+use wcs::world::{ComponentMgr, World};
 use wcs::component::{SingleCase, SingleCaseWriteRef};
 use world_2d::component::image::*;
 use world_2d::component::sdf::*;
@@ -31,10 +30,27 @@ pub fn create_world(engine: Engine, near: f32, far: f32, width: f32, height: f32
     let image = ImageSys::init(&mut mgr);
     let char_block = CharBlockSys::init(&mut mgr);
 
-    let mut world = World::new(mgr);
-    let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, image, char_block, render];
-    world.set_systems(systems);
+    let system_names = [
+        Atom::from("ClipSys"),
+        Atom::from("CreateEffect"),
+        Atom::from("CreateSdfProgram"),
+        Atom::from("ImageSys"),
+        Atom::from("CharBlockSys"),
+        Atom::from("Render"),
+    ];
 
+    let mut world = World::new(mgr);
+    let [create_effect_name, create_sdf_program_name, clip_name, image_name, char_block_name, render_name] = &system_names;
+    world.register_system(create_effect_name.clone(), create_effect);
+    world.register_system(create_sdf_program_name.clone(), create_sdf_program);
+    world.register_system(clip_name.clone(), clip);
+    world.register_system(render_name.clone(), render);
+    world.register_system(image_name.clone(), image);
+    world.register_system(char_block_name.clone(), char_block);
+
+    world.add_systems(Atom::from("All"), &mut system_names.iter()).unwrap();
+    // let systems: Vec<Rc<System<(), World2dMgr>>> = vec![create_effect, create_sdf_program, clip, image, char_block, render];
+    // world.set_systems(systems);
     world
 }
 

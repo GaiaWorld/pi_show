@@ -1,5 +1,6 @@
 use std::default::Default;
 use std::str::Chars;
+use std::sync::Arc;
 
 use fnv::FnvHashMap;
 
@@ -8,6 +9,7 @@ use ucd::{Codepoint};
 
 use component::math::{UV};
 use component::color::Color;
+use font::sdf_font::SdfFont;
 
 pub const FONT_SIZE: f32 = 32.0;
 
@@ -22,7 +24,7 @@ pub enum FontSize {
 pub struct FontSheet {
     size: f32,
     color: Color,
-    src_map: FnvHashMap<Atom, SdfFont>,
+    src_map: FnvHashMap<Atom, Arc<SdfFont>>,
     face_map: FnvHashMap<Atom, FontFace>,
 }
 
@@ -47,9 +49,10 @@ impl FontSheet {
         self.color = color;
     }
     // 设置SDFFont
-    pub fn set_src(&mut self, name: Atom, sdf: SdfFont) {
-        self.src_map.insert(name, sdf);
+    pub fn set_src(&mut self, name: Atom, src: Arc<SdfFont>) {
+        self.src_map.insert(name, src);
     }
+    
     // 设置FontFace
     pub fn set_face(&mut self, family: Atom, oblique: f32, size: f32, weight: f32, src: String) {
         let mut v = Vec::new();
@@ -78,12 +81,7 @@ impl FontSheet {
             Some(face) => {
                 for name in &face.src {
                     match self.src_map.get(name) {
-                        Some(font) => {
-                            let r = font.measure(name, c);
-                            if r > 0.0 {
-                                return r * font.size / size
-                            }
-                        },
+                        Some(font) => return font.measure(size, c),
                         _ => ()
                     }
                 }
@@ -94,53 +92,6 @@ impl FontSheet {
     }
 }
 
-
-pub trait FontHelper {
-    // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
-    fn measure(&self, font_name: &Atom, font_size: f32, c: char) -> f32;
-}
-
-// // 静态字体实现 TODO 应该是渲染模块实现
-// pub struct StaticFont {
-//     pub texture: usize, // 字体纹理的句柄
-//     pub texture_size: cg::Vector2<usize>, // 字体纹理的大小
-//     pub index: usize, // 纹理当前索引
-//     pub cur_pos: usize, // 当前可写字符的位置
-// }
-
-
-// impl FontHelper for StaticFont {
-
-//     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
-//     fn measure(&self, _font_name: &Atom, _font_size: f32, _c: char) -> f32 {
-//         0.0
-//     }
-// }
-
-pub struct SdfFont {
-    pub size: f32, //SDF大小, 一般32像素
-    pub fixed_width: f32, //字符的固定宽度, 0为非定宽
-    pub helper: Box<dyn FontHelper>,
-}
-impl SdfFont {
-    pub fn new(mut size: f32, fixed_width: f32, helper: Box<dyn FontHelper>) -> SdfFont {
-        if size == 0.0 {
-            size = FONT_SIZE;
-        }
-        SdfFont {
-            size: size,
-            fixed_width: fixed_width,
-            helper: helper,
-        }
-    }
-    // 测量指定字体下，指定字符的宽度。 0表示没有该字符
-    pub fn measure(&self, name: &Atom, c: char) -> f32 {
-        if self.fixed_width > 0.0 {
-            return self.fixed_width
-        }
-        self.helper.measure(name, self.size, c)
-    }
-}
 // 字体表现
 #[derive(Default, Debug)]
 pub struct FontFace {

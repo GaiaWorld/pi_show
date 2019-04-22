@@ -1,8 +1,10 @@
 //裁剪矩形系统
 // 容器设置了overflow的，就会产生一个裁剪矩形及对应的编号（编号都是2的次方），其下的所有的物件的by_overflow将会被设置为受到该id的影响
 // 因为很少来回变动，所以直接根据变化进行设置，不采用dirty
-// TODO 可以在没有旋转的情况下，使用包围盒来描述（使用第一个点的x为NaN来标识），提升query和渲染的性能
+// TODO 可以在没有旋转的情况下，使用包围盒来描述（使用第一个点的x为NaN来标识），提升query和渲染的性能。以后支持clip_path
 // TODO node_count内置, world改成map记录所有的system,id设置run列表, engine对象封装GLContext,ResMgr, style要整理一下,现在有点乱, 移除text_layout
+// TODO 以后改成1颗树就可以不要layout上面的转发属性监听器
+// TODO 新ecs框架 节点tree 执行器 完美hash处理类型id问题， 监听器自动连接
 
 use std::rc::Rc;
 use std::ops::Deref;

@@ -38,6 +38,8 @@ pub mod layout;
 pub mod text_layout;
 #[cfg(feature = "web")]
 mod util;
+#[cfg(feature = "web")]
+mod font;
 
 #[cfg(feature = "web")]
 pub mod render;

@@ -80,11 +80,11 @@ impl System<(), WorldDocMgr> for ZIndexSys {
   fn run(&self, _e: &(), mgr: &mut WorldDocMgr) {
     self.0.borrow_mut().calc(mgr);
     
-    let mut arr = Vec::new();
-    for (id, node) in mgr.node._group.iter() {
-      arr.push((id, node.z_depth));
-    }
-    println!("arr----z_depth-------------------------{:?}", arr);
+    // let mut arr = Vec::new();
+    // for (id, node) in mgr.node._group.iter() {
+    //   arr.push((id, node.z_depth));
+    // }
+    // println!("arr----z_depth-------------------------{:?}", arr);
   }
 }
 

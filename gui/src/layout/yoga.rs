@@ -1,246 +1,231 @@
-#![allow(unused_attributes)]
-#![allow(non_camel_case_types)]
+#[allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_float, c_void};
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGAlign {
-    YGAlignAuto = 0,
-    YGAlignFlexStart = 1,
-    YGAlignCenter = 2,
-    YGAlignFlexEnd = 3,
-    YGAlignStretch = 4,
-    YGAlignBaseline = 5,
-    YGAlignSpaceBetween = 6,
+pub enum YGAlign { 
+    YGAlignAuto = 0, 
+    YGAlignFlexStart = 1, 
+    YGAlignCenter = 2, 
+    YGAlignFlexEnd = 3, 
+    YGAlignStretch = 4, 
+    YGAlignBaseline = 5, 
+    YGAlignSpaceBetween = 6, 
     YGAlignSpaceAround = 7,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGDimension {
-    YGDimensionWidth = 0,
+pub enum YGDimension { 
+    YGDimensionWidth = 0, 
     YGDimensionHeight = 1,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGDirection {
-    YGDirectionInherit = 0,
-    YGDirectionLTR = 1,
+pub enum YGDirection { 
+    YGDirectionInherit = 0, 
+    YGDirectionLTR = 1, 
     YGDirectionRTL = 2,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGDisplay {
-    YGDisplayFlex = 0,
+pub enum YGDisplay { 
+    YGDisplayFlex = 0, 
     YGDisplayNone = 1,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGEdge {
-    YGEdgeLeft = 0,
-    YGEdgeTop = 1,
-    YGEdgeRight = 2,
-    YGEdgeBottom = 3,
-    YGEdgeStart = 4,
-    YGEdgeEnd = 5,
-    YGEdgeHorizontal = 6,
-    YGEdgeVertical = 7,
+pub enum YGEdge { 
+    YGEdgeLeft = 0, 
+    YGEdgeTop = 1, 
+    YGEdgeRight = 2, 
+    YGEdgeBottom = 3, 
+    YGEdgeStart = 4, 
+    YGEdgeEnd = 5, 
+    YGEdgeHorizontal = 6, 
+    YGEdgeVertical = 7, 
     YGEdgeAll = 8,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGExperimentalFeature {
+pub enum YGExperimentalFeature { 
     YGExperimentalFeatureWebFlexBasis = 0,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGFlexDirection {
-    YGFlexDirectionColumn = 0,
-    YGFlexDirectionColumnReverse = 1,
-    YGFlexDirectionRow = 2,
+pub enum YGFlexDirection { 
+    YGFlexDirectionColumn = 0, 
+    YGFlexDirectionColumnReverse = 1, 
+    YGFlexDirectionRow = 2, 
     YGFlexDirectionRowReverse = 3,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum YGJustify {
-    YGJustifyFlexStart = 0,
-    YGJustifyCenter = 1,
-    YGJustifyFlexEnd = 2,
-    YGJustifySpaceBetween = 3,
-    YGJustifySpaceAround = 4,
+    YGJustifyFlexStart = 0, 
+    YGJustifyCenter = 1, 
+    YGJustifyFlexEnd = 2, 
+    YGJustifySpaceBetween = 3, 
+    YGJustifySpaceAround = 4, 
     YGJustifySpaceEvenly = 5,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGLogLevel {
-    YGLogLevelError = 0,
-    YGLogLevelWarn = 1,
-    YGLogLevelInfo = 2,
-    YGLogLevelDebug = 3,
-    YGLogLevelVerbose = 4,
+pub enum YGLogLevel { 
+    YGLogLevelError = 0, 
+    YGLogLevelWarn = 1, 
+    YGLogLevelInfo = 2, 
+    YGLogLevelDebug = 3, 
+    YGLogLevelVerbose = 4, 
     YGLogLevelFatal = 5,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGMeasureMode {
-    YGMeasureModeUndefined = 0,
-    YGMeasureModeExactly = 1,
+pub enum YGMeasureMode { 
+    YGMeasureModeUndefined = 0, 
+    YGMeasureModeExactly = 1, 
     YGMeasureModeAtMost = 2,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGNodeType {
-    YGNodeTypeDefault = 0,
+pub enum YGNodeType { 
+    YGNodeTypeDefault = 0, 
     YGNodeTypeText = 1,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGOverflow {
-    YGOverflowVisible = 0,
-    YGOverflowHidden = 1,
-    YGOverflowScroll = 2,
+pub enum YGOverflow { 
+    YGOverflowVisible = 0, 
+    YGOverflowHidden = 1, 
+    YGOverflowScroll = 2, 
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGPositionType {
-    YGPositionTypeRelative = 0,
+pub enum YGPositionType { 
+    YGPositionTypeRelative = 0, 
     YGPositionTypeAbsolute = 1,
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGPrintOptions {
-    YGPrintOptionsLayout = 1,
-    YGPrintOptionsStyle = 2,
-    YGPrintOptionsChildren = 4,
+pub enum YGPrintOptions { 
+    YGPrintOptionsLayout = 1, 
+    YGPrintOptionsStyle = 2, 
+    YGPrintOptionsChildren = 4, 
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGUnit {
-    YGUnitUndefined = 0,
-    YGUnitPoint = 1,
-    YGUnitPercent = 2,
-    YGUnitAuto = 3,
+pub enum YGUnit { 
+    YGUnitUndefined = 0, 
+    YGUnitPoint = 1, 
+    YGUnitPercent = 2, 
+    YGUnitAuto = 3, 
 }
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum YGWrap {
-    YGWrapNoWrap = 0,
-    YGWrapWrap = 1,
-    YGWrapWrapReverse = 2,
+pub enum YGWrap { 
+    YGWrapNoWrap = 0, 
+    YGWrapWrap = 1, 
+    YGWrapWrapReverse = 2, 
 }
 
+#[allow(non_camel_case_types)]
 pub type __builtin_va_list = *mut c_char;
+#[allow(non_camel_case_types)]
 pub type __gnuc_va_list = __builtin_va_list;
+#[allow(non_camel_case_types)]
 pub type va_list = __gnuc_va_list;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct YGSize {
-    pub width: c_float,
-    pub height: c_float,
+pub struct YGSize { 
+    pub width: c_float, 
+    pub height: c_float, 
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct YGValue {
-    pub value: c_float,
-    pub unit: YGUnit,
+pub struct YGValue { 
+    pub value: c_float, 
+    pub unit: YGUnit, 
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct YGConfig {
-    _unused: [u8; 0],
+pub struct YGConfig { 
+    _unused: [u8; 0], 
 }
+
 pub type YGConfigRef = *mut YGConfig;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct YGNode {
-    _unused: [u8; 0],
+pub struct YGNode { 
+    _unused: [u8; 0], 
 }
+
 pub type YGNodeRef = *mut YGNode;
-
 pub type YGPrintFunc = Option<unsafe extern "C" fn(node: YGNodeRef)>;
-
 pub type YGDirtiedFunc = Option<unsafe extern "C" fn(node: YGNodeRef)>;
-
-pub type YGBaselineFunc =
+pub type YGBaselineFunc = 
     Option<unsafe extern "C" fn(node: YGNodeRef, width: c_float, height: c_float) -> c_float>;
-
-pub type YGCloneNodeFunc = Option<
-    unsafe extern "C" fn(oldNode: YGNodeRef, owner: YGNodeRef, childIndex: c_int) -> YGNodeRef,
->;
-
+pub type YGCloneNodeFunc = 
+    Option<unsafe extern "C" fn(oldNode: YGNodeRef, owner: YGNodeRef, childIndex: c_int) -> YGNodeRef>;
 pub type YGCalcCallbackFunc = unsafe extern "C" fn(args: *const c_void, context: *const c_void);
+pub type YGNodeCleanupFunc = Option<unsafe extern "C" fn(node: YGNodeRef)>;
+pub type YGMeasureFunc = 
+    Option<unsafe extern "C" fn(node: YGNodeRef, width: c_float, widthMode: YGMeasureMode, height: c_float, heightMode: YGMeasureMode) -> YGSize>;
+pub type YGLogger = Option<unsafe extern "C" fn(config: YGConfigRef, node: YGNodeRef, level: YGLogLevel, format: *const c_char, args: va_list) -> c_int>;
 
-pub type YGMeasureFunc = Option<
-    unsafe extern "C" fn(
-        node: YGNodeRef,
-        width: c_float,
-        widthMode: YGMeasureMode,
-        height: c_float,
-        heightMode: YGMeasureMode,
-    ) -> YGSize,
->;
-
-pub type YGLogger = Option<
-    unsafe extern "C" fn(
-        config: YGConfigRef,
-        node: YGNodeRef,
-        level: YGLogLevel,
-        format: *const c_char,
-        args: va_list,
-    ) -> c_int,
->;
-
+#[allow(unused_attributes)]
 #[link_args = "yoga.bc"]
 extern "C" {
     #[link_name = "\u{1}YGValueUndefined"]
     pub static mut YGValueUndefined: YGValue;
     #[link_name = "\u{1}YGValueAuto"]
     pub static mut YGValueAuto: YGValue;
+    #[link_name = "\u{1}YGValueZero"]
+    pub static mut YGValueZero: YGValue;
 
-    fn YGAlignToString(value: YGAlign) -> *const c_char;
-    fn YGDimensionToString(value: YGDimension) -> *const c_char;
-    fn YGDirectionToString(value: YGDirection) -> *const c_char;
-    fn YGDisplayToString(value: YGDisplay) -> *const c_char;
-    fn YGEdgeToString(value: YGEdge) -> *const c_char;
-    fn YGExperimentalFeatureToString(value: YGExperimentalFeature) -> *const c_char;
-    fn YGFlexDirectionToString(value: YGFlexDirection) -> *const c_char;
-    fn YGJustifyToString(value: YGJustify) -> *const c_char;
-    fn YGLogLevelToString(value: YGLogLevel) -> *const c_char;
-    fn YGMeasureModeToString(value: YGMeasureMode) -> *const c_char;
-    fn YGNodeTypeToString(value: YGNodeType) -> *const c_char;
-    fn YGOverflowToString(value: YGOverflow) -> *const c_char;
-    fn YGPositionTypeToString(value: YGPositionType) -> *const c_char;
-    fn YGPrintOptionsToString(value: YGPrintOptions) -> *const c_char;
-    fn YGUnitToString(value: YGUnit) -> *const c_char;
-    fn YGWrapToString(value: YGWrap) -> *const c_char;
+    fn YGAlignToString(arg1: YGAlign) -> *const c_char;
+    fn YGDimensionToString(arg1: YGDimension) -> *const c_char;
+    fn YGDirectionToString(arg1: YGDirection) -> *const c_char;
+    fn YGDisplayToString(arg1: YGDisplay) -> *const c_char;
+    fn YGEdgeToString(arg1: YGEdge) -> *const c_char;
+    fn YGExperimentalFeatureToString(arg1: YGExperimentalFeature) -> *const c_char;
+    fn YGFlexDirectionToString(arg1: YGFlexDirection) -> *const c_char;
+    fn YGJustifyToString(arg1: YGJustify) -> *const c_char;
+    fn YGLogLevelToString(arg1: YGLogLevel) -> *const c_char;
+    fn YGMeasureModeToString(arg1: YGMeasureMode) -> *const c_char;
+    fn YGNodeTypeToString(arg1: YGNodeType) -> *const c_char;
+    fn YGOverflowToString(arg1: YGOverflow) -> *const c_char;
+    fn YGPositionTypeToString(arg1: YGPositionType) -> *const c_char;
+    fn YGPrintOptionsToString(arg1: YGPrintOptions) -> *const c_char;
+    fn YGUnitToString(arg1: YGUnit) -> *const c_char;
+    fn YGWrapToString(arg1: YGWrap) -> *const c_char;
     fn YGNodeNew() -> YGNodeRef;
     fn YGNodeNewWithConfig(config: YGConfigRef) -> YGNodeRef;
     fn YGNodeClone(node: YGNodeRef) -> YGNodeRef;
     fn YGNodeFree(node: YGNodeRef);
+    fn YGNodeFreeRecursiveWithCleanupFunc(node: YGNodeRef, cleanup: YGNodeCleanupFunc);
     fn YGNodeFreeRecursive(node: YGNodeRef);
     fn YGNodeReset(node: YGNodeRef);
     fn YGNodeGetInstanceCount() -> i32;
     fn YGNodeInsertChild(node: YGNodeRef, child: YGNodeRef, index: u32);
-    fn YGNodeInsertSharedChild(node: YGNodeRef, child: YGNodeRef, index: u32);
     fn YGNodeRemoveChild(node: YGNodeRef, child: YGNodeRef);
     fn YGNodeRemoveAllChildren(node: YGNodeRef);
     fn YGNodeGetChild(node: YGNodeRef, index: u32) -> YGNodeRef;
@@ -248,11 +233,13 @@ extern "C" {
     fn YGNodeGetParent(node: YGNodeRef) -> YGNodeRef;
     fn YGNodeGetChildCount(node: YGNodeRef) -> u32;
     fn YGNodeSetChildren(owner: YGNodeRef, children: *const YGNodeRef, count: u32);
+    fn YGNodeSetIsReferenceBaseline(node: YGNodeRef, isReferenceBaseline: bool);
+    fn YGNodeIsReferenceBaseline(node: YGNodeRef) -> bool;
     fn YGNodeCalculateLayout(
-        node: YGNodeRef,
-        availableWidth: c_float,
-        availableHeight: c_float,
-        ownerDirection: YGDirection,
+        node: YGNodeRef, 
+        availableWidth: c_float, 
+        availableHeight: c_float, 
+        ownerDirection: YGDirection
     );
     fn YGNodeCalculateLayoutByCallback(
         node: YGNodeRef,
@@ -267,31 +254,30 @@ extern "C" {
     fn YGNodePrint(node: YGNodeRef, options: YGPrintOptions);
     fn YGFloatIsUndefined(value: c_float) -> bool;
     fn YGNodeCanUseCachedMeasurement(
-        widthMode: YGMeasureMode,
-        width: c_float,
-        heightMode: YGMeasureMode,
-        height: c_float,
-        lastWidthMode: YGMeasureMode,
-        lastWidth: c_float,
-        lastHeightMode: YGMeasureMode,
-        lastHeight: c_float,
-        lastComputedWidth: c_float,
-        lastComputedHeight: c_float,
-        marginRow: c_float,
-        marginColumn: c_float,
-        config: YGConfigRef,
+        widthMode: YGMeasureMode, 
+        width: c_float, 
+        heightMode: YGMeasureMode, 
+        height: c_float, 
+        lastWidthMode: YGMeasureMode, 
+        lastWidth: c_float, 
+        lastHeightMode: YGMeasureMode, 
+        lastHeight: c_float, 
+        lastComputedWidth: c_float, 
+        lastComputedHeight: c_float, 
+        marginRow: c_float, 
+        marginColumn: c_float, 
+        config: YGConfigRef
     ) -> bool;
     fn YGNodeCopyStyle(dstNode: YGNodeRef, srcNode: YGNodeRef);
     fn YGNodeGetContext(node: YGNodeRef) -> *mut c_void;
     fn YGNodeSetContext(node: YGNodeRef, context: *mut c_void);
     fn YGConfigSetPrintTreeFlag(config: YGConfigRef, enabled: bool);
-    fn YGNodeGetMeasureFunc(node: YGNodeRef) -> YGMeasureFunc;
+    fn YGNodeHasMeasureFunc(node: YGNodeRef) -> bool;
     fn YGNodeSetMeasureFunc(node: YGNodeRef, measureFunc: YGMeasureFunc);
-    fn YGNodeGetBaselineFunc(node: YGNodeRef) -> YGBaselineFunc;
+    fn YGNodeHasBaselineFunc(node: YGNodeRef) -> bool;
     fn YGNodeSetBaselineFunc(node: YGNodeRef, baselineFunc: YGBaselineFunc);
     fn YGNodeGetDirtiedFunc(node: YGNodeRef) -> YGDirtiedFunc;
     fn YGNodeSetDirtiedFunc(node: YGNodeRef, dirtiedFunc: YGDirtiedFunc);
-    fn YGNodeGetPrintFunc(node: YGNodeRef) -> YGPrintFunc;
     fn YGNodeSetPrintFunc(node: YGNodeRef, printFunc: YGPrintFunc);
     fn YGNodeGetHasNewLayout(node: YGNodeRef) -> bool;
     fn YGNodeSetHasNewLayout(node: YGNodeRef, hasNewLayout: bool);
@@ -376,32 +362,30 @@ extern "C" {
     fn YGNodeLayoutGetBorder(node: YGNodeRef, edge: YGEdge) -> c_float;
     fn YGNodeLayoutGetPadding(node: YGNodeRef, edge: YGEdge) -> c_float;
     fn YGConfigSetLogger(config: YGConfigRef, logger: YGLogger);
-    fn YGLog(node: YGNodeRef, level: YGLogLevel, message: *const c_char, ...);
-    fn YGLogWithConfig(config: YGConfigRef, level: YGLogLevel, format: *const c_char, ...);
     fn YGAssert(condition: bool, message: *const c_char);
     fn YGAssertWithNode(node: YGNodeRef, condition: bool, message: *const c_char);
     fn YGAssertWithConfig(config: YGConfigRef, condition: bool, message: *const c_char);
     fn YGConfigSetPointScaleFactor(config: YGConfigRef, pixelsInPoint: c_float);
     fn YGConfigSetShouldDiffLayoutWithoutLegacyStretchBehaviour(
-        config: YGConfigRef,
-        shouldDiffLayout: bool,
+        config: YGConfigRef, 
+        shouldDiffLayout: bool
     );
     fn YGConfigSetUseLegacyStretchBehaviour(
-        config: YGConfigRef,
-        useLegacyStretchBehaviour: bool,
+        config: YGConfigRef, 
+        useLegacyStretchBehaviour: bool
     );
     fn YGConfigNew() -> YGConfigRef;
     fn YGConfigFree(config: YGConfigRef);
     fn YGConfigCopy(dest: YGConfigRef, src: YGConfigRef);
     fn YGConfigGetInstanceCount() -> i32;
     fn YGConfigSetExperimentalFeatureEnabled(
-        config: YGConfigRef,
-        feature: YGExperimentalFeature,
-        enabled: bool,
+        config: YGConfigRef, 
+        feature: YGExperimentalFeature, 
+        enabled: bool
     );
     fn YGConfigIsExperimentalFeatureEnabled(
-        config: YGConfigRef,
-        feature: YGExperimentalFeature,
+        config: YGConfigRef, 
+        feature: YGExperimentalFeature
     ) -> bool;
     fn YGConfigSetUseWebDefaults(config: YGConfigRef, enabled: bool);
     fn YGConfigGetUseWebDefaults(config: YGConfigRef) -> bool;
@@ -410,13 +394,13 @@ extern "C" {
     fn YGConfigSetContext(config: YGConfigRef, context: *mut c_void);
     fn YGConfigGetContext(config: YGConfigRef) -> *mut c_void;
     fn YGRoundValueToPixelGrid(
-        value: c_float,
-        pointScaleFactor: c_float,
-        forceCeil: bool,
-        forceFloor: bool,
-    ) -> c_float;
+        value: c_float, 
+        pointScaleFactor: c_float, 
+        forceCeil: bool, 
+        forceFloor: bool
+    ) -> c_float; 
 }
-        
+
 pub fn yg_align_to_string(value: YGAlign) -> String {
     unsafe {
         CStr::from_ptr(YGAlignToString(value)).to_string_lossy().into_owned()
@@ -537,6 +521,12 @@ pub fn yg_node_free(node: YGNodeRef) {
 	}
 }
 
+pub fn yg_node_free_recursive_with_cleanup_func(node: YGNodeRef, cleanup: YGNodeCleanupFunc) {
+	unsafe {
+        YGNodeFreeRecursiveWithCleanupFunc(node, cleanup);
+	}
+}
+
 pub fn yg_node_free_recursive(node: YGNodeRef) {
 	unsafe {
         YGNodeFreeRecursive(node);
@@ -558,12 +548,6 @@ pub fn yg_node_get_instance_count() -> i32 {
 pub fn yg_node_insert_child(node: YGNodeRef, child: YGNodeRef, index: u32) {
 	unsafe {
         YGNodeInsertChild(node, child, index);
-	}
-}
-
-pub fn yg_node_insert_shared_child(node: YGNodeRef, child: YGNodeRef, index: u32) {
-	unsafe {
-        YGNodeInsertSharedChild(node, child, index);
 	}
 }
 
@@ -607,6 +591,18 @@ pub fn yg_node_set_children(owner: YGNodeRef, children: *const YGNodeRef, count:
 	unsafe {
         YGNodeSetChildren(owner, children, count);
 	}
+}
+
+pub fn yg_node_set_is_reference_baseline(node: YGNodeRef, is_reference_baseline: bool) {
+    unsafe {
+        YGNodeSetIsReferenceBaseline(node, is_reference_baseline);
+    }
+}
+
+pub fn yg_node_is_reference_baseline(node: YGNodeRef) -> bool {
+    unsafe {
+        YGNodeIsReferenceBaseline(node)
+    }
 }
 
 pub fn yg_node_calculate_layout(
@@ -713,10 +709,10 @@ pub fn yg_config_set_print_tree_flag(config: YGConfigRef, enabled: bool) {
 	}
 }
 
-pub fn yg_node_get_measure_func(node: YGNodeRef) -> YGMeasureFunc {
-	unsafe {
-        YGNodeGetMeasureFunc(node)
-	}
+pub fn yg_node_has_measure_func(node: YGNodeRef) -> bool {
+    unsafe {
+        YGNodeHasMeasureFunc(node)
+    }
 }
 
 pub fn yg_node_set_measure_func(node: YGNodeRef, measure_func: YGMeasureFunc) {
@@ -725,10 +721,10 @@ pub fn yg_node_set_measure_func(node: YGNodeRef, measure_func: YGMeasureFunc) {
 	}
 }
 
-pub fn yg_node_get_baseline_func(node: YGNodeRef) -> YGBaselineFunc {
-	unsafe {
-        YGNodeGetBaselineFunc(node)
-	}
+pub fn yg_node_has_baseline_func(node: YGNodeRef) -> bool {
+    unsafe {
+        YGNodeHasBaselineFunc(node)
+    }
 }
 
 pub fn yg_node_set_baseline_func(node: YGNodeRef, baseline_func: YGBaselineFunc) {
@@ -746,12 +742,6 @@ pub fn yg_node_get_dirtied_func(node: YGNodeRef) -> YGDirtiedFunc {
 pub fn yg_node_set_dirtied_func(node: YGNodeRef, dirtied_func: YGDirtiedFunc) {
 	unsafe {
         YGNodeSetDirtiedFunc(node, dirtied_func);
-	}
-}
-
-pub fn yg_node_get_print_func(node: YGNodeRef) -> YGPrintFunc {
-	unsafe {
-        YGNodeGetPrintFunc(node)
 	}
 }
 
@@ -1259,18 +1249,6 @@ pub fn yg_config_set_logger(config: YGConfigRef, logger: YGLogger) {
 	}
 }
 
-pub fn yg_log(node: YGNodeRef, level: YGLogLevel, message: &str) {
-	unsafe {
-        YGLog(node, level, CString::new(message).unwrap().as_ptr());
-	}
-}
-
-pub fn yg_log_with_config(config: YGConfigRef, level: YGLogLevel, format: &str) {
-	unsafe {
-        YGLogWithConfig(config, level, CString::new(format).unwrap().as_ptr());
-	}
-}
-
 pub fn yg_assert(condition: bool, message: &str) {
 	unsafe {
         YGAssert(condition, CString::new(message).unwrap().as_ptr());
@@ -1402,3 +1380,4 @@ pub fn yg_round_value_to_pixel_grid(
         YGRoundValueToPixelGrid(value, point_scale_factor, force_ceil, force_floor)
 	}
 }
+
