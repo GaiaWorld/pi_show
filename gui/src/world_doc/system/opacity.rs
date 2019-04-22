@@ -168,18 +168,15 @@ mod test {
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
                 let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity1, node{} , real_opacity:{}", i, real_opacity);
             }
         }
 
         world.component_mgr.get_node_mut(root).set_opacity(0.5);
         world.run(());
-        println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
                 let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity2, node{} , real_opacity:{}", i, real_opacity);
             }
         }
 
@@ -187,12 +184,10 @@ mod test {
         world.component_mgr.get_node_mut(node_ids[0]).set_opacity(0.5);
         world.component_mgr.get_node_mut(node_ids[2]).set_opacity(0.5);
         world.run(());
-        println!("-----------------------------------------------------------------");
         for i in node_ids.iter(){
             {
                 let node_ref = world.component_mgr.get_node_mut(*i);
                 let real_opacity = node_ref.get_real_opacity();
-                println!("test_opacity3, node{} , real_opacity:{}, opacity{}", i, real_opacity, node_ref.get_opacity());
             }
         }
 

@@ -16,46 +16,56 @@
     </script>
     <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
     <script>
+        var gl = document.getElementById("canvas").getContext('webgl');
+        window.__gl = gl;
+
+        var engine = Module._create_engine();
+        var gui = Module._create_gui(engine, 1000, 700);
+
+
+        var body = Module._create_node(gui);
+        Module._append_child(gui, 1, body);
+        Module._set_width(gui, body, 700);
+        Module._set_height(gui, body, 400);
+
+        Module._run(gui);
+
+        var root = Module._create_node(gui);
+        var image_node = Module._create_image_node(gui);
+        Module._append_child(gui, root, image_node);
+        Module._append_child(gui, body, root);
+        Module._set_width(gui, root, 700);
+        Module._set_height(gui, root, 400);
+        Module._set_backgroud_rgba_color(gui, root, 0.5, 0.0, 0.5, 1.0);
+
+        // var root = Module._create_node(gui);
+        // Module._append_child(gui, body, root);
+        // Module._set_width(gui, root, 512);
+        // Module._set_height(gui, root, 512);
+        // Module._set_backgroud_rgba_color(gui, root, 0.5, 0.5, 0.5, 1.0);
+
+        Module._set_width(gui, image_node, 100);
+        Module._set_height(gui, image_node, 100);
+        Module._run(gui);
+        
         var image = new Image();
-        image.src = "./test_image.jpg";
 
         image.onload = () => {
-            var gl = document.getElementById("canvas").getContext('webgl');
-            window.__gl = gl;
-
-            var engine = Module._create_engine();
-            var gui = Module._create_gui(engine, 1000, 700);
-
             var texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            
-            
             window.__jsObj = texture;
-
-            var texture_res = Module._create_texture_res(engine, "test_image.jpg", 512, 512, 0, 0);
-
-            console.log("texture_res-----------------------", texture_res);
-
-
-            var node2 = Module._create_node(gui);
-            Module._append_child(gui, 1, node2);
-            Module._set_width(gui, node2, 700);
-            Module._set_height(gui, node2, 400);
-            Module._set_overflow(gui, node2, true);
-
-            var image_node = Module._create_image_node(gui);
-            Module._append_child(gui, node2, image_node);
-            Module._set_src(gui, image_node, texture_res);
-            Module._set_width(gui, image_node, 512);
-            Module._set_height(gui, image_node, 512);
+            var texture_res = Module._create_texture_res(engine, "20190422165842.jpg", 512, 512, 0, 0);
             
+            Module._set_src(gui, image_node, texture_res);
+            Module._set_width(gui, image_node, 100);
+            Module._set_height(gui, image_node, 100);
 
             Module._run(gui);
         };
-        
+        image.src = "./20190422165842.jpg";
 
     </script>
 </body>

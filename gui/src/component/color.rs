@@ -71,10 +71,10 @@ pub struct ColorAndPosition{
 //
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum RadialGradientSize{
-    Farthescorner,
-    ClosestCorner,
     ClosestSide,
     FarthesSide,
+    ClosestCorner,
+    Farthescorner,
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]

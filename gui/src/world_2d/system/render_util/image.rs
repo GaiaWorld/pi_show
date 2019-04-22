@@ -128,7 +128,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     let extend = &image.extend;
-    let pad = 5.0;
+    let pad = 0.0;
     //如果shape_dirty， 更新定点顶点数据
     if image_effect.positions_dirty {
         let buffer = [

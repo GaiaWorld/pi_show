@@ -125,8 +125,8 @@ pub fn sdf_fragment_shader() -> String{
                 color = c4;
             }
             return color;
-        }
-
+        }  
+    
         // 0代表最近边，1代表最远边，2代表最近角，3代表最远角
         float getEllipsePercent(vec2 coord, vec2 size, float sizeType) {
             if (sizeType > 1.5) {

@@ -1,9 +1,12 @@
-use stdweb::unstable::TryInto;
 use std::mem::transmute;
+use std::sync::Arc;
+use std::rc::Rc;
 
 use wcs::world::World;
 use wcs::component::{Builder};
 use atom::Atom;
+use stdweb::unstable::TryInto;
+use stdweb::web::TypedArray;
 
 use world_doc::component::node::{NodeBuilder};
 use world_doc::component::style::element::{ElementBuilder};
@@ -11,6 +14,7 @@ use world_doc::component::style::element::{Text as TextElement, ElementId};
 use world_doc::{WorldDocMgr, create_world, LAYOUT_SYS, ALL};
 use render::engine::Engine;
 use render::res::TextureRes;
+use font::sdf_font::{SdfFont, StaticSdfFont};
 
 pub mod data;
 pub mod layout;
@@ -51,6 +55,20 @@ pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opa
     r
 }
 
+#[no_mangle]
+pub fn create_sdf_font_res(texture: u32) -> u32 {
+    let bind: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    let bind = bind.to_vec();
+    let mut sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
+    match sdf_font.parse(bind.as_slice()) {
+        Ok(_) => (),
+        Err(s) => panic!("{}", s),
+    };
+    println!("sdf_font----------------------{:?}", sdf_font);
+    let sdf_font: Arc<SdfFont> = Arc::new(sdf_font);
+    Box::into_raw(Box::new(sdf_font)) as u32
+}
+
 /**创建一个gui的实例 */
 #[no_mangle]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
@@ -86,11 +104,12 @@ pub fn create_text_node(world: u32) -> u32{
 //创建图片节点
 #[no_mangle]
 pub fn create_image_node(world: u32) -> u32{
-    js!{console.log("create_image_node");}
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let mut node = NodeBuilder::new().build(&mut world.component_mgr.node);
     node.element = ElementId::Image(0);
-    world.component_mgr.node._group.insert(node, 0) as u32
+    let node_id = world.component_mgr.node._group.insert(node, 0) as u32;
+    js!{console.log("create_image_node, node_id:{}",@{node_id} );}
+    node_id
 }
 
 // #[no_mangle]
@@ -115,11 +134,11 @@ pub fn create_image_node(world: u32) -> u32{
 //创建容器节点， 容器节点可设置背景颜色
 #[no_mangle]
 pub fn create_node(world: u32) -> u32{
-    js!{console.log("create_container_node");}
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-
     let node = NodeBuilder::new().build(&mut world.component_mgr.node);
-    world.component_mgr.node._group.insert(node, 0) as u32
+    let node_id = world.component_mgr.node._group.insert(node, 0) as u32;
+    js!{console.log("create_node, node_id:{}",@{node_id} );}
+    node_id
 }
 
 // 运行gui
