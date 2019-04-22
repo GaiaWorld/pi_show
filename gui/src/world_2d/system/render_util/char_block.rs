@@ -219,7 +219,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     }
 
     gl.active_texture(WebGLRenderingContext::TEXTURE2);
-    gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&char_block.sdf_font.texture.bind));
+    gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&char_block.sdf_font.texture().bind));
     gl.uniform1i(uniform_locations.get(&TEXTURE), 2);
 
     match &char_block.color {
@@ -312,54 +312,37 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     let char_block= mgr.char_block._group.get(char_block_effect.parent);
     let sdf_font = &char_block.sdf_font; //TODO
 
-    let ratio = char_block.font_size/sdf_font.line_height;
-
     let mut positions: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut indeices: Vec<u16> = Vec::new();
     let mut i = 0;
-    let atlas_width = sdf_font.atlas_width as f32;
-    let atlas_height = sdf_font.atlas_height as f32;
-    let line_height = sdf_font.line_height;
+    // let line_height = sdf_font.line_height;
     let mut extend = Point2::default();
     for c in char_block.chars.iter() {
-        let glyph = match sdf_font.get_glyph(c.value) {
+        let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
             Some(r) => r,
             None => continue,
         };
         let pos = &c.pos;
 
-        let width = ratio * glyph.advance;
-        let height = ratio * line_height;
-        let half_width = width/2.0;
-        let half_height = height/2.0;
-        let offset_x = ratio * glyph.ox;
-        let offset_y = ratio * (line_height - glyph.oy);
+        extend.x += glyph.width/2.0;
+        extend.y += glyph.height/2.0;
 
-        extend.x += half_width;
-        extend.y += half_height;
-
+        let max_y = pos.y + char_block.font_size - glyph.oy;
+        println!("char_block.font_size: {}, glyph.oy: {}", char_block.font_size, glyph.oy);
         positions.extend_from_slice(&[
-            -half_width + pos.x , -half_height + pos.y , char_block.z_depth,
-            -half_width + pos.x , half_height + pos.y ,  char_block.z_depth,
-            half_width + pos.x ,  half_height + pos.y ,  char_block.z_depth,
-            half_width + pos.x ,  -half_height + pos.y,  char_block.z_depth,
+            pos.x + glyph.ox,                max_y,                 char_block.z_depth,
+            pos.x + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
+            glyph.width + pos.x + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
+            glyph.width + pos.x + glyph.ox,  max_y,                 char_block.z_depth,
         ]);
 
-        let (u, v) = (glyph.x, glyph.y - glyph.height);
-        let u_min = u/atlas_width;
-        let v_min = v/atlas_height;
-        let u_max = (u + glyph.width)/atlas_width;
-        let v_max = (v + glyph.height)/atlas_height;
-
-        println!("u: {}, v:{}, atlas_width: {}, atlas_height: {}, width: {}, height: {}", u, v, atlas_width, atlas_height, glyph.advance, line_height);
-
-        let (v_min, v_max) = (1.0 - v_max, 1.0 - v_min);
+        let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
         uvs.extend_from_slice(&[
-            u_min, v_min,
-            u_min, v_max,
-            u_max, v_max,
-            u_max, v_min,
+            glyph.u_min, v_min,
+            glyph.u_min, v_max,
+            glyph.u_max, v_max,
+            glyph.u_max, v_min,
         ]);
 
         indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
