@@ -1,4 +1,4 @@
-use vecmap::VecMap;
+use vecmap::{VecMap, IndexMap};
 
 pub struct DirtyMark {
     pub dirtys: Vec<usize>,
