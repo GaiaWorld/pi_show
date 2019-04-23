@@ -53,6 +53,7 @@ pub fn test_char_block(world: u32, sdf_font: u32){
         text_align: TextAlign::Left, //对齐方式
         letter_spacing: 2.0, //字符间距， 单位：像素
         line_height: 18.0, //设置行高
+        shadow: None,
         sdf_font: unsafe{ &*(sdf_font as usize as *mut Arc<SdfFont>)}.clone() ,
         color: Color::RGBA(MathColor::default()),
         chars: vec![
