@@ -19,17 +19,18 @@ use wcs::component::{ComponentHandler, CreateEvent, ModifyFieldEvent, DeleteEven
 use world_doc::font::{split, SplitResult};
 use world_doc::component::style::border::Border;
 use world_doc::component::style::element::{Element, Text};
+use world_doc::component::style::text::{TextStyle};
+use world_doc::component::style::font::{Font};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use component::math::{ Vector3, Matrix4, Color as MathColor, Point2 };
 use component::color::{Color};
-use world_2d::component::char_block::CharBlock;
+use world_2d::component::char_block::{CharBlock, Char};
 use layout::{YGEdge, YGDirection, YgNode, Layout as LV};
 use font::sdf_font::{SdfFont, StaticSdfFont};
 use font::font_sheet::{get_size, get_line_height};
 use render::res::{TextureRes};
 use text_layout::layout::{TextAlign};
-use world_doc::component::style::text::TextStyle;
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -170,8 +171,8 @@ pub struct TextImpl {
 }
 pub struct CharImpl {
   pub ch: char, // 字符, 0为容器节点
-  pub width: usize, // 字符宽度
-  pub parent: isize, // 对应的父节点，如果为正数表示Dom文本节点，负数为yoga节点（如果字节点是字符容器会出现这种情况）
+  pub width: f32, // 字符宽度
+  //pub parent: isize, // 对应的父节点，如果为正数表示Dom文本节点，负数为yoga节点（如果字节点是字符容器会出现这种情况）
   pub node: YgNode, // 对应的yoga节点
   pub rid: usize, // 渲染节点的id
   pub rindex: usize, // 渲染节点的偏移量
@@ -204,15 +205,6 @@ impl LayoutImpl {
         let node = mgr.node._group.get(node_id);
         let yaga = node.yoga;
         let parent_yaga = &mgr.node._group.get(node.parent).yoga;
-        let mut word: Option<YgNode> = None;
-        let merge_whitespace = match text_style.white_space {
-            Some(w) => w.preserve_spaces(),
-            _ => true
-        };
-        let letter_spacing = match text_style.white_space {
-            Some(w) => w.preserve_spaces(),
-            _ => true
-        };
         // 设置char_block
         let mut char_block = CharBlock {
         world_matrix: Matrix4::default(),
@@ -227,60 +219,16 @@ impl LayoutImpl {
             text_align: TextAlign::Left, //对齐方式
             letter_spacing: 2.0, //字符间距， 单位：像素
             line_height: 18.0, //设置行高
+            shadow: None,
             sdf_font: create_sdf_font(0),
             color: Color::RGBA(MathColor::default()),
             chars: Vec::new(),
         };
-        let cb = mgr.world_2d.component_mgr.add_char_block(char_block);
+        let mut cb = mgr.world_2d.component_mgr.add_char_block(char_block);
         let rid = cb.id;
-        let mut rindex = 0;
-        // 计算节点的yaga节点在父节点的yaga节点的位置
-        let mut index = parent_yaga.get_child_count();
-        while index > 0 && parent_yaga.get_child(index) != yaga {
-            index-=1;
-        }
-        // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-        for cr in split(&text.value, true, merge_whitespace) {
-            match cr {
-                SplitResult::Newline =>{
-                    let yg = YgNode::default();
-                    // 设置成宽度100%, 高度0
-                    // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
-                    vec.push(self.char_slab.insert(CharImpl{
-                        ch: '\n',
-                        width: 0,
-                        parent: node_id as isize,
-                        node: yg,
-                        rid: rid,
-                        rindex: rindex,
-                    }));
-                    // TODO 将Char加入vec中
-                    rindex +=1;
-                    parent_yaga.insert_child(yg.clone(), index);
-                },
-                SplitResult::Whitespace =>{
-                    let yg = YgNode::default();
-                    // 设置成宽度为半高, 高度0
-                },
-                SplitResult::Word(c) =>{
-                    let yg = YgNode::default();
-                    // 设置成宽高为字符大小, 
-                    
-                },
-                SplitResult::WordStart(c) =>{
-                    // 设置word节点成宽高为自适应内容, 字符为0
-                    word = Some(YgNode::default());
-                },
-                SplitResult::WordNext(c) =>{
-                    let yg = YgNode::default();
-                },
-                SplitResult::WordEnd(c) =>{
-                    if c != char::from(0) {
-                        let yg = YgNode::default();
-                    }
-                },
-            }
-        }
+        let mut chars = Vec::new();
+        add_text(&mut self.char_slab, mgr, &text.value, &text_style, &font, font_size, yaga.clone(), parent_yaga.clone(), rid, &mut vec, &mut chars);
+        // TODO cb.set_chars(chars);
         self.node_map.insert(node_id, TextImpl {
             font_size: font_size,
             chars: vec,
@@ -344,4 +292,133 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
 pub fn create_sdf_font(texture: u32) -> Arc<SdfFont>{
     let mut sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
     Arc::new(sdf_font)
+}
+
+fn add_text(char_slab: &mut Slab<CharImpl>, mgr: &WorldDocMgr, text: &String, text_style: &TextStyle, font: &Font, font_size: f32, yaga: YgNode, parent_yaga: YgNode, rid: usize, vec: &mut Vec<usize>, chars: &mut Vec<Char>) {
+    let mut word: Option<YgNode> = None;
+    let merge_whitespace = match text_style.white_space {
+        Some(w) => w.preserve_spaces(),
+        _ => true
+    };
+    let letter_spacing = match text_style.letter_spacing {
+        Some(w) => w,
+        _ => 0.0
+    };
+    let mut rindex = 0;
+    // 计算节点的yaga节点在父节点的yaga节点的位置
+    let mut index = parent_yaga.get_child_count();
+    while index > 0 && parent_yaga.get_child(index) != yaga {
+        index-=1;
+    }
+    // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
+    for cr in split(text, true, merge_whitespace) {
+        match cr {
+            SplitResult::Newline =>{
+                let yg = YgNode::default();
+                // 设置成宽度100%, 高度0
+                // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
+                vec.push(char_slab.insert(CharImpl{
+                    ch: '\n',
+                    width: 0.0,
+                    node: yg,
+                    rid: rid,
+                    rindex: rindex,
+                }));
+                //将Char加入vec中
+                chars.push(Char{
+                    value: '\n',
+                    pos: Point2(cg::Point2::new(0.0, 0.0)),
+                });
+                rindex +=1;
+                parent_yaga.insert_child(yg.clone(), index);
+                index+=1;
+            },
+            SplitResult::Whitespace =>{
+                let yg = YgNode::default();
+                // 设置成宽度为半高, 高度0
+            },
+            SplitResult::Word(c) =>{
+                let yg = YgNode::default();
+                // 设置成宽高为字符大小, 
+                vec.push(char_slab.insert(CharImpl{
+                    ch: c,
+                    width: mgr.font.measure(&font.family, font_size, c),
+                    node: yg,
+                    rid: rid,
+                    rindex: rindex,
+                }));
+                //将Char加入vec中
+                chars.push(Char{
+                    value: c,
+                    pos: Point2(cg::Point2::new(0.0, 0.0)),
+                });
+                rindex +=1;
+                parent_yaga.insert_child(yg.clone(), index);
+                index+=1;
+            },
+            SplitResult::WordStart(c) =>{
+                // 设置word节点成宽高为自适应内容, 字符为0
+                let w = YgNode::default();
+                let yg = YgNode::default();
+                // 设置成宽高为字符大小, 
+                vec.push(char_slab.insert(CharImpl{
+                    ch: c,
+                    width: mgr.font.measure(&font.family, font_size, c),
+                    node: yg,
+                    rid: rid,
+                    rindex: rindex,
+                }));
+                //将Char加入vec中
+                chars.push(Char{
+                    value: c,
+                    pos: Point2(cg::Point2::new(0.0, 0.0)),
+                });
+                rindex +=1;
+                w.insert_child(yg.clone(), index);
+                parent_yaga.insert_child(w.clone(), index);
+                index+=1;
+                word = Some(w);
+            },
+            SplitResult::WordNext(c) =>{
+                let yg = YgNode::default();
+                // 设置成宽高为字符大小, 
+                vec.push(char_slab.insert(CharImpl{
+                    ch: c,
+                    width: mgr.font.measure(&font.family, font_size, c),
+                    node: yg,
+                    rid: rid,
+                    rindex: rindex,
+                }));
+                //将Char加入vec中
+                chars.push(Char{
+                    value: c,
+                    pos: Point2(cg::Point2::new(0.0, 0.0)),
+                });
+                rindex +=1;
+                word.unwrap().insert_child(yg.clone(), index);
+            },
+            SplitResult::WordEnd(c) =>{
+                if c == char::from(0) {
+                    return;
+                }
+                let yg = YgNode::default();
+                // 设置成宽高为字符大小, 
+                vec.push(char_slab.insert(CharImpl{
+                    ch: c,
+                    width: mgr.font.measure(&font.family, font_size, c),
+                    node: yg,
+                    rid: rid,
+                    rindex: rindex,
+                }));
+                //将Char加入vec中
+                chars.push(Char{
+                    value: c,
+                    pos: Point2(cg::Point2::new(0.0, 0.0)),
+                });
+                rindex +=1;
+                word.unwrap().insert_child(yg.clone(), index);
+            },
+        }
+    }
+
 }

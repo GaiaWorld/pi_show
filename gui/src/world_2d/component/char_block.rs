@@ -12,6 +12,7 @@ use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
 use font::sdf_font::SdfFont;
 use text_layout::layout::{TextAlign};
+use world_doc::component::style::text::{Shadow};
 
 #[allow(unused_attributes)]
 #[derive(Component)]
@@ -51,6 +52,7 @@ pub struct CharBlock{
     pub text_align: TextAlign, //对齐方式
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub line_height: f32, //设置行高
+    pub shadow: Option<Shadow>, //设置阴影
 
     #[listen]
     pub sdf_font: Arc<SdfFont>,
