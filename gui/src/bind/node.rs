@@ -115,19 +115,19 @@ pub fn set_src(world: u32, node_id: u32, texture: u32){
     match element_id {
         ElementId::Image(image_id) => {
             if image_id == 0 {
-                let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-                let mut image = Image::default();
-                image.src = texture as usize;
-                node_ref.set_element(Element::Image(image));
+              let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+              let mut image = Image::default();
+              image.src = texture as usize;
+              node_ref.set_element(Element::Image(image));
             } else {
-                let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-                image_ref.modify(|image: &mut Image| {
-                    image.src = texture as usize;
-                    true
-                });
+              let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+              image_ref.modify(|image: &mut Image| {
+                  image.src = texture as usize;
+                  true
+              });
             }
         },
-        _ => (),
+        _ => println!("it's not image, node_id: {}", node_id),
     }
     js!{console.log("set_src");} 
 }

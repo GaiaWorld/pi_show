@@ -102,7 +102,6 @@ impl OctImpl {
                 let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
                 let (aabb, size) = cal_bound_box((layout.width, layout.height), world_matrix);
                 //更新八叉树
-                println!("update_octree------bound_box_id: {:?}, aabb: {:?}", node.bound_box_id, aabb);
                 mgr.octree.update(node.bound_box_id, aabb.clone());
                 (aabb, size)
             };

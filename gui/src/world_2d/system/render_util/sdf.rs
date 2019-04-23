@@ -389,15 +389,39 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                 );
             }
         }
-        Color::RadialGradient(_color) => {
+        Color::RadialGradient(color) => {
             //TODO
-            panic!("color type error");
-            // uniform float sizeType;
-            // uniform vec4 distance;
-            // uniform vec4 color1;
-            // uniform vec4 color2;
-            // uniform vec4 color3;
-            // uniform vec4 color4;
+            let mut distances = [0.0, 100.0, 100.0, 100.0];
+            let default_color = MathColor(cg::color::Color::new(1.0, 1.0, 1.0, 1.0));
+            let mut colors = [
+                &default_color,
+                &default_color,
+                &default_color,
+                &default_color,
+            ];
+            let mut i = 0;
+            for k in color.list.iter() {
+                if i > 3 {
+                    break;
+                }
+                distances[i] = k.position;
+                colors[i] = &k.rgba;
+                i += 1;
+            }
+            gl.uniform1f( uniform_locations.get(&SIZE_TYPE), color.size as u8 as f32);
+            gl.uniform4f(uniform_locations.get(&DISTANCE), distances[0], distances[1], distances[2], distances[3],);
+
+            //color1
+            gl.uniform4f(uniform_locations.get(&COLOR1),colors[0].r,colors[0].g,colors[0].b,colors[0].a,);
+
+            //color2
+            gl.uniform4f(uniform_locations.get(&COLOR2),colors[1].r, colors[1].g,colors[1].b,colors[1].a,);
+
+            //color3
+            gl.uniform4f(uniform_locations.get(&COLOR3),colors[2].r,colors[2].g,colors[2].b,colors[2].a,);
+
+            //color4
+            gl.uniform4f(uniform_locations.get(&COLOR4),colors[3].r,colors[3].g,colors[3].b,colors[3].a,);
         }
     }
 
@@ -409,7 +433,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     let extend = &sdf.extend;
     let border_size = sdf.border_size;
-    let pad = 5.0;
+    let pad = 0.0;
     // let extend = Vector2::new(extend.x * 2.0, extend.y *2.0);
     //如果shape_dirty， 更新定点顶点数据
     if sdf_effect.positions_dirty {

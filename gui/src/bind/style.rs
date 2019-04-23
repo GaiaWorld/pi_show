@@ -3,6 +3,7 @@
 use std::mem::transmute;
 
 use stdweb::web::TypedArray;
+use stdweb::unstable::TryInto;
 
 use wcs::component::{Builder};
 use wcs::world::{World};
@@ -207,7 +208,8 @@ pub fn set_backgroud_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32
 
 // 设置一个线性渐变的背景颜色
 #[no_mangle]
-pub fn set_backgroud_radial_gradient_color(world: u32, node_id: u32, color_and_positions: TypedArray<f32>, center_x: f32, center_y: f32, shape: u8, size: u8 ){
+pub fn set_backgroud_radial_gradient_color(world: u32, node_id: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
+    let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     js!{console.log("set_backgroud_radial_gradient_color");} 
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
@@ -227,8 +229,9 @@ pub fn set_backgroud_radial_gradient_color(world: u32, node_id: u32, color_and_p
 
 // 设置一个径向渐变的背景颜色
 #[no_mangle]
-pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, color_and_positions: TypedArray<f32>, direction: f32){
+pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: f32){
     js!{console.log("set_backgroud_linear_gradient_color");} 
+    let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
 
