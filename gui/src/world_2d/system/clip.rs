@@ -75,25 +75,23 @@ impl System<(), World2dMgr> for ClipSys{
 
         gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
 
+        gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
+
         //view
         let arr: &[f32; 16] = component_mgr.view.as_ref();
-        #[cfg(feature = "log")]
-        println!("clip view: {:?}", &arr[0..16]);
+        debug_println!("clip view: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
 
         //projection
         let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
-        #[cfg(feature = "log")]
-        println!("clip projection: {:?}", &arr[0..16]);
+        debug_println!("clip projection: {:?}", &arr[0..16]);
         gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
-        #[cfg(feature = "log")]
-        println!("clip mesh_num: {:?}", 8.0);
+        debug_println!("clip mesh_num: {:?}", 8.0);
         gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
 
         //position
-        #[cfg(feature = "log")]
-        println!("clip positions---------------------------{:?}", &positions[0..96]);
+        debug_println!("clip positions---------------------------{:?}", &positions[0..96]);
         let buffer = unsafe { UnsafeTypedArray::new(&positions) };
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&borrow_mut.positions_buffer));
         let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
@@ -114,8 +112,7 @@ impl System<(), World2dMgr> for ClipSys{
 
         //draw
         gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
-        #[cfg(feature = "log")]
-        println!("clip draw_elements end---------------------------");
+        debug_println!("clip draw_elements end---------------------------");
 
         gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
         gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
@@ -160,16 +157,14 @@ impl ClipSysImpl {
             // ]);
         }
 
-        #[cfg(feature = "log")]
-        println!("clip indexs---------------------------{:?}", indexs);
+        debug_println!("clip indexs---------------------------{:?}", indexs);
         let buffer = unsafe { UnsafeTypedArray::new(&indexs) };
         gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&index_buffer));
         js! {
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
         }
 
-        #[cfg(feature = "log")]
-        println!("clip indeices---------------------------{:?}", indeices);
+        debug_println!("clip indeices---------------------------{:?}", indeices);
         let buffer = unsafe { UnsafeTypedArray::new(&indeices) };
         gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,Some(&indeices_buffer));
         js! {
@@ -187,6 +182,10 @@ impl ClipSysImpl {
             index_buffer: index_buffer,
             indeices_buffer: indeices_buffer,
         }
+    }
+
+    pub fn update(mgr: &mut World2dMgr){
+        
     }
 }
 

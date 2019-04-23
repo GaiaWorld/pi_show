@@ -110,8 +110,7 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
     
-    #[cfg(feature = "log")]
-    println!("update position location: {:?}, buffer = {:?}, data: {:?}", position_location, &char_block_effect.positions_buffer, attribute.positions);
+    debug_println!("update position location: {:?}, buffer = {:?}, data: {:?}", position_location, &char_block_effect.positions_buffer, attribute.positions);
 
     //uv
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
@@ -124,8 +123,7 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
     
-    #[cfg(feature = "log")]
-    println!("update uv location: {:?}, buffer = {:?}, data: {:?}", uv_location, &char_block_effect.uvs_buffer, attribute.uvs);
+    debug_println!("update uv location: {:?}, buffer = {:?}, data: {:?}", uv_location, &char_block_effect.uvs_buffer, attribute.uvs);
     
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
@@ -134,8 +132,7 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
         @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
     }
 
-    #[cfg(feature = "log")]
-    println!("update indeices buffer = {:?}, data: {:?}", &char_block_effect.indeices_buffer, attribute.indeices);
+    debug_println!("update indeices buffer = {:?}, data: {:?}", &char_block_effect.indeices_buffer, attribute.indeices);
 }
 
 //更新uniform和buffer， 并渲染
@@ -144,12 +141,11 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let char_block = mgr.char_block._group.get(char_block_effect.parent);
 
     let defines = mgr.char_block_effect.defines._group.get(char_block_effect.defines);
-    #[cfg(feature = "log")]
-    println!("text defines---------------------------{:?}", defines);
+    debug_println!("text defines---------------------------{:?}", defines);
 
     let gl = &mgr.engine.gl;
 
-    println!("program-------------------{}", char_block_effect.program);
+    debug_println!("program-------------------{}", char_block_effect.program);
     let program = mgr.engine.lookup_program(char_block_effect.program).unwrap();
     let uniform_locations = &program.uniform_locations;
     let attr_locations = &program.attr_locations;
@@ -159,57 +155,47 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.use_program(Some(program));
 
     // view
-    #[cfg(feature = "log")]
-    println!("charblock view----------------{:?}", &mgr.view);
+    debug_println!("charblock view----------------{:?}", &mgr.view);
     let arr: &[f32; 16] = mgr.view.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&VIEW), false, &arr[0..16]);
 
     // projection
-    #[cfg(feature = "log")]
-    println!("charblock projection----------------{:?}", &mgr.projection.0);
+    debug_println!("charblock projection----------------{:?}", &mgr.projection.0);
     let arr: &[f32; 16] = mgr.projection.0.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&PROJECTION), false, &arr[0..16]);
 
     // world_matrix
-    #[cfg(feature = "log")]
-    println!("charblock world_matrix----------------{:?}", &char_block.world_matrix.0);
+    debug_println!("charblock world_matrix----------------{:?}", &char_block.world_matrix.0);
     let arr: &[f32; 16] = char_block.world_matrix.0.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
     //extend
-    #[cfg(feature = "log")]
-    println!("charblock extend: {:?}", char_block_effect.extend);
+    debug_println!("charblock extend: {:?}", char_block_effect.extend);
     gl.uniform2f(uniform_locations.get(&EXTEND), char_block_effect.extend.x, char_block_effect.extend.y);
 
     // alpha
-    #[cfg(feature = "log")]
-    println!("charblock alpha: {:?}", char_block.alpha);
+    debug_println!("charblock alpha: {:?}", char_block.alpha);
     gl.uniform1f(uniform_locations.get(&ALPHA), char_block.alpha);
 
     // smooth_range
-    #[cfg(feature = "log")]
-    println!("charblock smoothRange: {:?}", char_block_effect.smooth_range);
+    debug_println!("charblock smoothRange: {:?}", char_block_effect.smooth_range);
     gl.uniform1f(uniform_locations.get(&SMOOT_HRANFE), char_block_effect.smooth_range);
 
     // smooth_range
-    #[cfg(feature = "log")]
-    println!("charblock fontClamp: {:?}", char_block_effect.font_clamp);
+    debug_println!("charblock fontClamp: {:?}", char_block_effect.font_clamp);
     gl.uniform1f(uniform_locations.get(&FONT_CLAMP), char_block_effect.font_clamp);
 
     if defines.stroke {
         //设置strokeSize
-        #[cfg(feature = "log")]
-        println!("stroke_size:{:?}", char_block.stroke_size);
+        debug_println!("stroke_size:{:?}", char_block.stroke_size);
         gl.uniform1f(uniform_locations.get(&STROKE_SIZE), char_block.stroke_size);
 
         //设置strokeColor
-        #[cfg(feature = "log")]
-        println!("stroke_color:{:?}", char_block.stroke_color);
+        debug_println!("stroke_color:{:?}", char_block.stroke_color);
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), char_block.stroke_color.r, char_block.stroke_color.g, char_block.stroke_color.b, char_block.stroke_color.a);
     }
     if defines.clip_plane {
-        #[cfg(feature = "log")]
-        println!("by_overflow:{:?}", char_block.by_overflow);
+        debug_println!("by_overflow:{:?}", char_block.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), char_block.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
 
@@ -225,8 +211,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     match &char_block.color {
         Color::RGB(color) | Color::RGBA(color) => {
             // color
-            #[cfg(feature = "log")]
-            println!("color: {:?}", color);
+            debug_println!("color: {:?}", color);
             gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
         },
         Color::LinearGradient(color) => {
@@ -281,8 +266,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
     
-    #[cfg(feature = "log")]
-    println!("position: location = {:?}, buffer = {:?}", position_location, &char_block_effect.positions_buffer);
+    debug_println!("position: location = {:?}, buffer = {:?}", position_location, &char_block_effect.positions_buffer);
     
     //uv
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
@@ -290,15 +274,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
     
-    #[cfg(feature = "log")]
-    println!("uv: location = {:?}, buffer = {:?}", uv_location, &char_block_effect.uvs_buffer);
+    debug_println!("uv: location = {:?}, buffer = {:?}", uv_location, &char_block_effect.uvs_buffer);
 
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
   
     //draw
-    #[cfg(feature = "log")]
-    println!("draw, indeices, buffer = {:?}, len = {:?}", &char_block_effect.indeices_buffer, char_block_effect.indeices_len);
+    debug_println!("draw, indeices, buffer = {:?}, len = {:?}", &char_block_effect.indeices_buffer, char_block_effect.indeices_len);
     gl.draw_elements(WebGLRenderingContext::TRIANGLES, char_block_effect.indeices_len as i32, WebGLRenderingContext::UNSIGNED_SHORT, 0);
 
     gl.disable_vertex_attrib_array(position_location);

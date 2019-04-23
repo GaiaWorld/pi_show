@@ -10,7 +10,24 @@ pub enum Opacity {
     Opaque,
     Translucent,
     Transparent,
+}
 
+#[derive(Debug)]
+pub enum Compress {
+    None,
+    DXT1, // s3tc DXT1 适用于不具有透明度或者仅具有一位Alpha的贴图
+    DXT2,
+    DXT3,
+    DXT4,
+    DXT5,
+    ATCRGB,
+    ATCRGBA,
+    PVRTCRGB,
+    PVRTCRGBA,
+    ETC1,//(RGB)
+    ETC2RGB,
+    ETC2RGBA,
+    ASTC
 }
 
 #[derive(Debug)]
@@ -19,14 +36,14 @@ pub struct TextureRes {
     pub width: usize,
     pub height: usize,
     pub opacity: Opacity,
-    pub compress: usize,
+    pub compress: Compress,
     pub bind: WebGLTexture,
     pub gl: WebGLRenderingContext,
 }
 
 impl TextureRes {
     // 创建资源
-	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: usize, bind: WebGLTexture, gl: WebGLRenderingContext) -> Self{
+	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: Compress, bind: WebGLTexture, gl: WebGLRenderingContext) -> Self{
         TextureRes {
             name: key,
             width: width,

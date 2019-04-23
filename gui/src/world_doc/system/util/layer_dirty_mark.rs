@@ -7,8 +7,10 @@ use world_doc::WorldDocMgr;
 
 
 pub struct LayerDirtyMark {
-    pub dirtys: Vec<Vec<usize>>, //Vec<Vec<node_id>>
+    pub dirtys: Vec<Vec<usize>>, //Vec<Vec<node_id>>, 脏节点
     pub dirty_mark_list: VecMap<bool>,
+    pub count: usize, //脏节点数量
+    pub start_layer: usize, //脏节点的起始层 
 }
 
 impl LayerDirtyMark {
@@ -23,6 +25,8 @@ impl LayerDirtyMark {
         LayerDirtyMark{
             dirtys,
             dirty_mark_list,
+            count: 1,
+            start_layer: 0,
         }
     }
 

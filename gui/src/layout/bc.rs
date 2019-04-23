@@ -2,7 +2,7 @@ use std::default::Default;
 use std::os::raw::{c_void};
 
 use layout::yoga;
-pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
+pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType, YGUnit};
 
 // pub struct YgNode(YgNodeP);
 
@@ -307,12 +307,12 @@ impl YgNode {
         yoga::yg_node_get_child_count(self.0)
     }
 
-    pub fn get_width(&self) -> f32 {
-        yoga::yg_node_style_get_width(self.0).value
+    pub fn get_width(&self) -> yoga::YGValue {
+        yoga::yg_node_style_get_width(self.0)
     }
 
-    pub fn get_height(&self) -> f32 {
-        yoga::yg_node_style_get_height(self.0).value
+    pub fn get_height(&self) -> yoga::YGValue {
+        yoga::yg_node_style_get_height(self.0)
     }
 
     // pub fn is_reference_baseline(&self) -> bool { 

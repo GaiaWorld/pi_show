@@ -121,7 +121,11 @@ impl ComponentHandler<Color, CreateEvent, WorldDocMgr> for BBSys {
             }, 
             None => {
                 let sdf = create_box_sdf2d(component_mgr, node_id);
-                let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
+                let sdf_id = {
+                    let mut r = component_mgr.world_2d.component_mgr.add_sdf(sdf);
+                    r.set_parent(node_id);
+                    r.id
+                };
                 borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
                 sdf_id
             },
@@ -160,7 +164,11 @@ impl ComponentHandler<MathColor, CreateEvent, WorldDocMgr> for BBSys {
             //如果不存在sdf2d， 创建一个， 插入decorate_id与sdf_id的索引， 以便通过decorate_id插入、删除、和修改sdf
             None => {
                 let sdf = create_box_sdf2d(component_mgr, node_id);
-                let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
+                let sdf_id = {
+                    let mut r = component_mgr.world_2d.component_mgr.add_sdf(sdf);
+                    r.set_parent(node_id);
+                    r.id
+                };
                 borrow_mut.color_sdf2d_map.insert(*parent, sdf_id);
                 sdf_id
             },
@@ -205,7 +213,11 @@ impl ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr> for BBSys {
         //创建一个， 插入decorate_id与sdf_id的索引， 以便通过decorate_id插入、删除、和修改sdf
         let node_id =  component_mgr.node.decorate._group.get(*parent).parent;
         let sdf = create_shadow_sdf2d(component_mgr, node_id);
-        let sdf_id = component_mgr.world_2d.component_mgr.add_sdf(sdf).id;
+        let sdf_id = {
+            let mut r = component_mgr.world_2d.component_mgr.add_sdf(sdf);
+            r.set_parent(node_id);
+            r.id
+        };
         let mut borrow_mut = self.0.borrow_mut();
         borrow_mut.shadow_sdf2d_map.insert(*parent, sdf_id);
         borrow_mut.shadow_matrix_dirty.dirty_mark_list.insert(*parent, false);
@@ -339,7 +351,6 @@ impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
         if node.decorate == 0 {
             return;
         }
-
         let decorate_id = node.decorate;
         let mut borrow_mut = self.0.borrow_mut();
         if let Some(_sdf_id) = borrow_mut.shadow_sdf2d_map.get(decorate_id) {

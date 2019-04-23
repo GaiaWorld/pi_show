@@ -62,8 +62,7 @@ impl ComponentHandler<Image, CreateEvent, World2dMgr> for ImageSys{
 
             // TODO, uvs可以根据clip属性变化
             let uvs: [f32; 8] = [0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0];
-            #[cfg(feature = "log")]
-            println!("image uv: {:?}", &uvs[0..8]);
+            debug_println!("image uv: {:?}", &uvs[0..8]);
             let buffer = unsafe { UnsafeTypedArray::new(&uvs) };
             component_mgr.engine.gl.bind_buffer(
                 WebGLRenderingContext::ARRAY_BUFFER,

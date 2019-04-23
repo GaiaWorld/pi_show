@@ -7,7 +7,7 @@ use std::cmp::{Ord, Ordering, Eq, PartialEq};
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use wcs::world::{System};
-use wcs::component::{CreateEvent, DeleteEvent, ModifyFieldEvent, ComponentHandler};
+use wcs::component::{CreateEvent, DeleteEvent, ModifyFieldEvent, ComponentHandler, SingleModifyEvent};
 
 use world_2d::World2dMgr;
 use world_2d::system::render_util::sdf;
@@ -15,6 +15,7 @@ use world_2d::system::render_util::image;
 use world_2d::system::render_util::char_block;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::Sdf;
+use world_2d::Overflow;
 use world_2d::component::char_block::CharBlock;
 
 pub struct Render(RefCell<RenderImpl>);
@@ -30,67 +31,109 @@ impl Render {
         let r = Rc::new(Render(RefCell::new(RenderImpl::new())));
         component_mgr.sdf._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, CreateEvent, World2dMgr>>)));
         component_mgr.sdf._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, DeleteEvent, World2dMgr>>)));
+        component_mgr.sdf.world_matrix.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.alpha.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.radius.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.center.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.bound_box.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.color.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.border_size.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.sdf.border_color.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
         component_mgr.sdf._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr>>)));
+
         component_mgr.image._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, CreateEvent, World2dMgr>>)));
         component_mgr.image._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, DeleteEvent, World2dMgr>>)));
         component_mgr.image._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.image.world_matrix.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.image.alpha.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.image.visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.image.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.image.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Image, ModifyFieldEvent, World2dMgr>>)));
+
         component_mgr.char_block._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, CreateEvent, World2dMgr>>)));
         component_mgr.char_block._group.register_delete_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, DeleteEvent, World2dMgr>>)));
         component_mgr.char_block._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block.world_matrix.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block.alpha.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block.visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+
+        component_mgr.overflow.handlers.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Overflow, SingleModifyEvent, World2dMgr>>)));
         r
+    }
+}
+
+impl ComponentHandler<Overflow, SingleModifyEvent, World2dMgr> for Render{
+    fn handle(&self, event: &SingleModifyEvent, _component_mgr: &mut World2dMgr){
+        let SingleModifyEvent{field: _} = event;
+        println!("oveflow: {:?},", _component_mgr.overflow.value);
+        self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Sdf del----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Sdf create----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Sdf modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Image DeleteEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Image CreateEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("Image modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("CharBlock DeleteEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("CharBlock CreateEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
+        debug_println!("CharBlock modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
@@ -114,6 +157,7 @@ impl RenderImpl {
         if self.dirty == false {
             return;
         }
+        self.dirty = false;
         mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         self.list_obj(mgr);
         for v in self.opaque_objs.iter() {

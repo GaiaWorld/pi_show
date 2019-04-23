@@ -53,6 +53,9 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OverflowSys {
         if i == 0 {
           return;
         }
+        let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+        println!("world_matrix----------------------{:?}", world_matrix);
+        mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
         (i, node.by_overflow | i, node.get_childs_mut().get_first())
       }else{
         // 删除根上的overflow的裁剪矩形
@@ -80,10 +83,12 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
+            println!("world_matrix----------------------{:?}", world_matrix);
             mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
+        println!("o1----------------------{:?}", mgr.world_2d.component_mgr.overflow.value);
     }
 }
 //监听Node的创建
@@ -187,6 +192,7 @@ fn calc_point(layout: &Layout, matrix: &Matrix4) -> [Point2;4]{
     let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
     let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
     let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
+    println!("layout----------------------{:?}", layout);
     [lt, rt, lb, rb]
 }
 

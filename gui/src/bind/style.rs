@@ -18,6 +18,7 @@ use cg::color::{Color as CgColor1};
 
 pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use bind::data::*;
+use bind::transform::{transform_rotate, transform_scale, transform_scale_x, transform_scale_y, transform_translate, transform_translate_x, transform_translate_y};
 
 // #[no_mangle] pub fn get_display(_world: u32, node_id: u32) -> u32{ 
 //     1
@@ -51,7 +52,7 @@ use bind::data::*;
 // 设置边框颜色， 类型为rgba
 #[no_mangle]
 pub fn set_border_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
-    js!{console.log("set_border_color");}
+    debug_println!("set_border_color");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -71,7 +72,7 @@ pub fn set_border_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32
 // 设置边框圆角
 #[no_mangle]
 pub fn set_border_radius(world: u32, node_id: u32, value: f32){
-    js!{console.log("set_border_radius");}
+    debug_println!("set_border_radius");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -91,7 +92,7 @@ pub fn set_border_radius(world: u32, node_id: u32, value: f32){
 // 设置阴影颜色
 #[no_mangle]
 pub fn set_box_shadow_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
-    js!{console.log("set_box_shadow_color");}
+    debug_println!("set_box_shadow_color");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -120,39 +121,27 @@ pub fn set_box_shadow_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a:
 // 设置阴影h
 #[no_mangle]
 pub fn set_box_shadow_h(world: u32, node_id: u32, h: f32){
-    js!{console.log("set_box_shadow_h");}
+    debug_println!("set_box_shadow_h");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
     if decorate_id == 0 {
-        js!{console.log("set_box_shadow_h1");}
         let decorate = DecorateBuilder::new()
         .box_shadow(BoxShadowBuilder::new().h(h)
             .build(&mut world.component_mgr.node.decorate.box_shadow))
         .build(&mut world.component_mgr.node.decorate);
-        js!{console.log("set_box_shadow_h2");}
         let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-        js!{console.log("set_box_shadow_h3");}
         node_ref.set_decorate(decorate);
-        js!{console.log("set_box_shadow_4");}
     }else {
-        js!{console.log("set_box_shadow_h5");}
         let box_shadow_id = world.component_mgr.node.decorate._group.get(decorate_id).box_shadow;
-        js!{console.log("set_box_shadow_h6");}
         if box_shadow_id == 0 {
-            js!{console.log("set_box_shadow_h7");}
             let box_shadow = BoxShadowBuilder::new().h(h)
             .build(&mut world.component_mgr.node.decorate.box_shadow);
             let mut decorate_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
-            js!{console.log("set_box_shadow_h8");}
             decorate_ref.set_box_shadow(box_shadow);
-            js!{console.log("set_box_shadow_h9");}
         } else {
-            js!{console.log("set_box_shadow_h10");}
             let mut box_shadow_ref = BoxShadowWriteRef::new(box_shadow_id, world.component_mgr.node.decorate.box_shadow.to_usize(), &mut world.component_mgr);
-            js!{console.log("set_box_shadow_h11");}
             box_shadow_ref.set_h(h);
-            js!{console.log("set_box_shadow_h12");}
         }
     }
 }
@@ -160,7 +149,7 @@ pub fn set_box_shadow_h(world: u32, node_id: u32, h: f32){
 // 设置阴影v
 #[no_mangle]
 pub fn set_box_shadow_v(world: u32, node_id: u32, v: f32){
-    js!{console.log("set_box_shadow_v");}
+    debug_println!("set_box_shadow_v");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -189,7 +178,7 @@ pub fn set_box_shadow_v(world: u32, node_id: u32, v: f32){
 // 设置背景颜色， 类型为rgba
 #[no_mangle]
 pub fn set_backgroud_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
-    js!{console.log("set_background_color");}
+    debug_println!("set_background_color");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -210,7 +199,7 @@ pub fn set_backgroud_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32
 #[no_mangle]
 pub fn set_backgroud_radial_gradient_color(world: u32, node_id: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
-    js!{console.log("set_backgroud_radial_gradient_color");} 
+    debug_println!("set_backgroud_radial_gradient_color"); 
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
@@ -230,7 +219,7 @@ pub fn set_backgroud_radial_gradient_color(world: u32, node_id: u32, center_x: f
 // 设置一个径向渐变的背景颜色
 #[no_mangle]
 pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: f32){
-    js!{console.log("set_backgroud_linear_gradient_color");} 
+    debug_println!("set_backgroud_linear_gradient_color"); 
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
@@ -252,7 +241,8 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: 
 // // 设置裁剪属性，geometry_box, 可能的值为MarginBox， BorderBox， PaddingBox， ContentBox
 // #[no_mangle]
 // pub fn set_clip_path_geometry_box(world: u32, node_id: u32, value: u8){
-//     js!{console.log("set_clip_path")} 
+//     #[cfg(feature = "log")] 
+	// println!("set_clip_path");
 //     
 //     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
 //     let clip_id = world.component_mgr.node._group.get(node_id).clip;
@@ -283,7 +273,8 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: 
 // // 设置裁剪属性，basic-shape, 目前只支持basic-shape
 // #[no_mangle]
 // pub fn set_clip_path_basic_shape(world: u32, node_id: u32, ty: u8, data: TypedArray<f32>){
-//     js!{console.log("set_clip_path")} 
+//     #[cfg(feature = "log")] 
+	// println!("set_clip_path");
 //     
 //     // let ty: ClipPathBasicShapeType = unsafe{transmute(ty)};
 
@@ -314,7 +305,7 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: 
 //设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node_id: u32, value: bool){
-    js!{console.log("set_overflow")} 
+    debug_println!("set_overflow");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_overflow(value);
@@ -323,7 +314,7 @@ pub fn set_overflow(world: u32, node_id: u32, value: bool){
 //设置不透明度
 #[no_mangle]
 pub fn set_opacity(world: u32, node_id: u32, value: f32) {
-    js!{console.log("set_opacity")} 
+    debug_println!("set_opacity");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_opacity(value);
@@ -332,7 +323,7 @@ pub fn set_opacity(world: u32, node_id: u32, value: f32) {
 //设置display
 #[no_mangle]
 pub fn set_display(world: u32, node_id: u32, value: u8) {
-    js!{console.log("set_display")} 
+    debug_println!("set_display");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_display(unsafe{ transmute(value) });
@@ -341,7 +332,7 @@ pub fn set_display(world: u32, node_id: u32, value: u8) {
 //设置visibility, true: visible, false: hidden,	默认true
 #[no_mangle]
 pub fn set_visibility(world: u32, node_id: u32, value: bool) {
-    js!{console.log("set_visibility")} 
+    debug_println!("set_visibility");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_visibility(value);
@@ -349,16 +340,16 @@ pub fn set_visibility(world: u32, node_id: u32, value: bool) {
 
 #[no_mangle]
 pub fn set_zindex(world: u32, node_id: u32, value: i32) {
-    js!{console.log("set_z_index")} 
+    debug_println!("set_z_index");
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     world.component_mgr.get_node_mut(node_id).set_zindex(value as isize);
 }
 
 #[no_mangle]
-pub fn set_undefined(world: u32, node_id: u32, value: u8) {
+pub fn set_undefined(world_id: u32, node_id: u32, value: u8) {
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let world = unsafe {&mut *(world_id as usize as *mut World<WorldDocMgr, ()>)};
     let ty: UndefinedType = unsafe{ transmute(value) };
     match ty {
         UndefinedType::BorderColor => {
@@ -428,6 +419,15 @@ pub fn set_undefined(world: u32, node_id: u32, value: u8) {
         //
         UndefinedType::Opacity => world.component_mgr.get_node_mut(node_id).set_opacity(1.0),
         UndefinedType::Overflow => world.component_mgr.get_node_mut(node_id).set_overflow(false),
+        UndefinedType::Visibility => world.component_mgr.get_node_mut(node_id).set_visibility(true),
+
+        UndefinedType::TransformRotate => transform_rotate(world_id, node_id as u32, 0.0),
+        UndefinedType::TransformScale => transform_scale(world_id, node_id as u32, 0.0, 0.0),
+        UndefinedType::TransformScaleX => transform_scale_x(world_id, node_id as u32, 0.0),
+        UndefinedType::TransformScaleY => transform_scale_y(world_id, node_id as u32, 0.0),
+        UndefinedType::TransformTranslate => transform_translate(world_id, node_id as u32, 0.0, 0.0),
+        UndefinedType::TransformTranslateX => transform_translate_x(world_id, node_id as u32, 0.0),
+        UndefinedType::TransformTranslateY => transform_translate_y(world_id, node_id as u32, 0.0),
 
         //布局
         UndefinedType::AlignContent => world.component_mgr.node._group.get(node_id).yoga.set_align_content(YGAlign::YGAlignFlexStart),
@@ -479,6 +479,16 @@ pub enum UndefinedType {
     //
     Opacity,
     Overflow,
+    Visibility,
+
+    // 变换
+    TransformRotate,
+    TransformScale,
+    TransformScaleX,
+    TransformScaleY,
+    TransformTranslate,
+    TransformTranslateX,
+    TransformTranslateY,
 
     //布局
     AlignContent,

@@ -32,6 +32,8 @@ extern crate fnv;
 extern crate atom;
 extern crate ucd;
 extern crate data_view;
+#[macro_use]
+extern crate debug_info;
 
 pub mod world_doc;
 pub mod layout;

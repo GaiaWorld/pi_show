@@ -144,7 +144,6 @@ impl OctImpl {
     pub fn add_aabb(&mut self, node_id: usize, mgr: &mut WorldDocMgr){
         let node = mgr.node._group.get_mut(node_id);
         let aabb = mgr.node.bound_box._group.get_mut(node.bound_box).owner.clone();
-        println!("add_octree------{:?}, node_id: {}", aabb.0, node_id);
         node.bound_box_id = mgr.octree.add(aabb.0, node_id);
         
     }
@@ -198,7 +197,7 @@ fn cal_bound_box(size: (f32, f32), matrix: &Matrix4) -> (Aabb3<f32>, (f32, f32))
         left_top.y.max(right_top.y).max(left_bottom.y).max(right_bottom.y),
         1.0,
     );
-
+    
     (Aabb3::new(min, max), (size_x, size_y))
 }
 

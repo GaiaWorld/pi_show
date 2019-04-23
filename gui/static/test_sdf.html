@@ -45,7 +45,6 @@
         Module._set_backgroud_rgba_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
         Module._set_border_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
         Module._set_border(gui, node3, YGEdgeAll, 10.0);
-        Module._set_overflow(gui, node3, true);
         Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 0.0, 0.8);
         Module._set_box_shadow_h(gui, node3, 50.0);
         Module._set_box_shadow_v(gui, node3, 50.0);
@@ -56,6 +55,7 @@
         Module._set_height(gui, node4, 200.0);
         Module._set_margin(gui, node4, YGEdgeTop, 10.0);
         Module._set_backgroud_rgba_color(gui, node4, 0.5, 0.0, 0.5, 1.0);
+        Module._transform_translate_y(gui, node4, 100);
 
         var node5 = Module._create_node(gui);
         Module._append_child(gui, node3, node5);
@@ -79,6 +79,12 @@
         // set_backgroud_rgba_color(gui, node4, 0.0, 1.0, 0.0, 1.0);
 
         Module._run(gui);
+
+        setTimeout(() => {
+            Module._set_overflow(gui, node3, true);
+            Module._set_backgroud_rgba_color(gui, node3, 1.0, 0.0, 0.5, 1.0);
+            Module._run(gui);
+        }, 5000);
 
         Module._remove_child(gui, 3,  6);
 

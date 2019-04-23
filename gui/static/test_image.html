@@ -51,17 +51,16 @@
         var image = new Image();
 
         image.onload = () => {
-            var texture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            window.__jsObj = texture;
-            var texture_res = Module._create_texture_res(engine, "20190422165842.jpg", 512, 512, 0, 0);
+            // var texture = gl.createTexture();
+            // gl.bindTexture(gl.TEXTURE_2D, texture);
+            // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            window.__jsObj = image;
             
-            Module._set_src(gui, image_node, texture_res);
-            Module._set_width(gui, image_node, 100);
-            Module._set_height(gui, image_node, 100);
+            Module._set_src(gui, image_node, "./20190422165842.jpg", 0, 0);
+            // Module._set_width(gui, image_node, 100);
+            // Module._set_height(gui, image_node, 100);
 
             Module._run(gui);
         };

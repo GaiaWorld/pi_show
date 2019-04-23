@@ -20,27 +20,28 @@
         function load_ok() {
             var gl = document.getElementById("canvas").getContext('webgl');
             window.__gl = gl;
-
+            
+            console.log("gl---------------------------", gl);
             var engine = Module._create_engine();
 
-            var texture = gl.createTexture();
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            
-            var u8Arr = new Uint8Array(image);
-            console.log("image data = ", u8Arr);
+            // var texture = gl.createTexture();
+            // gl.bindTexture(gl.TEXTURE_2D, texture);
+            // console.log("image data = ", u8Arr);
 
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, 128, 128, 0, gl.ALPHA, gl.UNSIGNED_BYTE, u8Arr);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            window.__jsObj = texture;
-            var texture_res = Module._create_texture_res(engine, "test_image.jpg", 128, 128, 0, 0);
-
-            window.__jsObj = cfg;
-            var sdf_font = Module._create_sdf_font(texture_res);
+            // gl.texImage2D(gl.TEXTURE_2D, 0, gl.ALPHA, 128, 128, 0, gl.ALPHA, gl.UNSIGNED_BYTE, u8Arr);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            // window.__jsObj = texture;
+            // var texture_res = Module._create_texture_res(engine, "test_image.jpg", 128, 128, 0, 0);
 
             var gui = Module._create_world_2d(engine, 1000, 700);
+            
+            var u8Arr = new Uint8Array(image);
+            window.__jsObj = cfg;
+            window.__jsObj1 = u8Arr;
+            var sdf_font = Module._create_sdf_font(gui, "fontRes");
 
             Module._test_char_block(gui, sdf_font);
         }

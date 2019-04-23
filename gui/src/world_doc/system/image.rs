@@ -60,7 +60,8 @@ impl ComponentHandler<Image, CreateEvent, WorldDocMgr> for ImageSys {
         image.extend = Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border);
         image.world_matrix = matrix;
 
-        let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
+        let mut image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
+        image2d_ref.set_parent(*id);
         borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
     }
 }

@@ -1,39 +1,19 @@
+use std::mem::transmute;
+
 use cg::query::{include_quad2, InnOuter};
 use cg::octree::intersects;
+use cg::{Aabb3, Point3, Point2};
+use webgl_rendering_context::{WebGLRenderingContext};
+use stdweb::unstable::TryInto;
 
 use wcs::world::World;
+use atom::Atom;
 
 use world_doc::{Z_MAX, WorldDocMgr};
 use world_doc::component::style::element::{ElementId, Text, Element, TextWriteRef, Image, ImageWriteRef};
 use world_doc::component::node::{InsertType, NodeWriteRef};
-use cg::{Aabb3, Point3, Point2};
-
-// use bind::{Pointer};
-
-// // #[no_mangle] pub fn get_style(world: u32, node_id: u32) -> u32 {
-// //     
-// //     let world = node.world.borrow_mut();
-// //     to_raw(Pointer{
-// //         id: world.component_mgr.node._group.get(node_id).style,
-// //         world: node.world.clone(),
-// //     })
-// // }
-
-// // #[no_mangle] pub fn attributes(_world: u32, node_id: u32) -> u32{
-// //     1
-// // }
-
-// // #[no_mangle] pub fn class_name(_world: u32, node_id: u32) -> String{
-// //     "".to_string()
-// // }
-
-// // #[no_mangle] pub fn text_content(_world: u32, node_id: u32) -> String{
-// //     "".to_string()
-// // }
-
-// // #[no_mangle] pub fn src(_world: u32, node_id: u32) -> String{
-// //     "".to_string()
-// // }
+use render::res::TextureRes;
+use layout::YGUnit;
 
 #[no_mangle]
 pub fn append_child(world: u32, node_id: u32, child_id: u32){
@@ -42,7 +22,7 @@ pub fn append_child(world: u32, node_id: u32, child_id: u32){
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
     node_ref.insert_child_with_id(child_id, InsertType::Back);
-    js!{console.log("append_child");} 
+    debug_println!("append_child"); 
 }
 
 #[no_mangle]
@@ -54,7 +34,7 @@ pub fn insert_before(world: u32, node_id: u32, child_id: u32, brother_id: u32, b
     let brother_qid = world.component_mgr.node._group.get(brother_id).qid;
     let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
     node_ref.insert_child_with_id(child_id, InsertType::ToFront(brother_index as usize, brother_qid));
-    js!{console.log("insert_before");} 
+    debug_println!("insert_before"); 
 }
 
 #[no_mangle]
@@ -64,23 +44,24 @@ pub fn remove_child(world: u32, node_id: u32, child_id: u32){
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
     node_ref.remove_child(child_id);
-    js!{console.log("remove_child");}  
+    debug_println!("remove_child");  
 }
 
-#[no_mangle]
-pub fn set_class_name(_world: u32, _node_id: u32, _value: &str){
+// #[no_mangle]
+// pub fn set_class_name(_world: u32, _node_id: u32, _value: &str){
     
-    // let class = value.split(" ");
-    // let mut arr = Vec::new();
-    // for c in class {
-    //     arr.push(Atom::from(c.trim()));
-    // }
+//     // let class = value.split(" ");
+//     // let mut arr = Vec::new();
+//     // for c in class {
+//     //     arr.push(Atom::from(c.trim()));
+//     // }
 
-    // let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    // let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-    // node_ref.set_class_name(arr);
-    js!{console.log("set_class_name");} 
-}
+//     // let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+//     // let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+//     // node_ref.set_class_name(arr);
+//     #[cfg(feature = "log")] 
+// 		println!("set_class_name"); 
+// }
 
 #[no_mangle]
 pub fn set_text_content(world: u32, node_id: u32, value: &str){
@@ -106,12 +87,41 @@ pub fn set_text_content(world: u32, node_id: u32, value: &str){
     }
 }
 
-// 设置图片的src， texture为Rc<TextureRes>
+// __jsObj: image, __jsObj1: image_name(String)
+// 设置图片的src
 #[no_mangle]
-pub fn set_src(world: u32, node_id: u32, texture: u32){
+pub fn set_src(world: u32, node_id: u32, opacity: u8, compress: u8){
+    let name: String = js!{return __jsObj1}.try_into().unwrap();
+    let name = Atom::from(name);
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    let element_id = world.component_mgr.node._group.get(node_id).element.clone();
+    let (width, height, texture) = match world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.get(&name) {
+        Some(res) => {
+          (res.width as u32, res.height as u32, Box::into_raw(Box::new(res)) as u32)
+        },
+        None => {
+          let gl = world.component_mgr.world_2d.component_mgr.engine.gl.clone();
+          let texture = match gl.create_texture() {
+              Some(v) => v,
+              None => panic!("create_texture is None"),
+          };
+          gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
+          js!{
+            @{&gl}.texImage2D(@{&gl}.TEXTURE_2D, 0, @{&gl}.RGBA, @{&gl}.RGBA, @{&gl}.UNSIGNED_BYTE, __jsObj);
+          };
+          let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+          let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+          gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
+          gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+          let res = world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture, gl.clone()) );
+          (width, height, Box::into_raw(Box::new( res)) as u32)
+        },
+    };
+
+    let (yoga, element_id) = {
+      let node = world.component_mgr.node._group.get(node_id);
+      (node.yoga, node.element.clone())
+    };
     match element_id {
         ElementId::Image(image_id) => {
             if image_id == 0 {
@@ -129,7 +139,16 @@ pub fn set_src(world: u32, node_id: u32, texture: u32){
         },
         _ => println!("it's not image, node_id: {}", node_id),
     }
-    js!{console.log("set_src");} 
+
+    match yoga.get_width().unit {
+        YGUnit::YGUnitUndefined | YGUnit::YGUnitAuto => yoga.set_width(width as f32),
+        _ => (),
+    };
+    match yoga.get_height().unit {
+        YGUnit::YGUnitUndefined | YGUnit::YGUnitAuto => yoga.set_height(height as f32),
+        _ => (),
+    };
+    debug_println!("set_src"); 
 }
 
 #[no_mangle]
@@ -159,31 +178,6 @@ pub fn offset_height(world: u32, node_id: u32) -> f32 {
   let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
   world.component_mgr.node._group.get(node_id).yoga.get_layout().height
 }
-
-// #[no_mangle]
-// pub fn set_src(world: u32, node_id: u32, value: &str){
-//     let node_id = node_id as usize;
-//     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-//     let element_id = world.component_mgr.node._group.get(node_id).element.clone();
-//     match element_id {
-//         ElementId::Image(image_id) => {
-//             if image_id == 0 {
-//                 let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-//                 let mut image = Image::default();
-//                 image.url = Atom::from(value);
-//                 node_ref.set_element(Element::Image(image));
-//             } else {
-//                 let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-//                 image_ref.modify(|image: &mut Image| {
-//                     image.url = Atom::from(value);
-//                     true
-//                 });
-//             }
-//         },
-//         _ => (),
-//     }
-//     js!{console.log("set_src");} 
-// }
 
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{

@@ -83,7 +83,7 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
     }else {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
-            transform.scale.y = value;
+            transform.position.y = value;
             true
         });
         return;
@@ -160,13 +160,14 @@ pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
         node_ref.set_transform(transform);
     }else {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
-        transform_ref.modify(|transform: &mut Transform| {
+        transform_ref.modify(|transform: &mut Transform| {;
             if transform.scale.y == value {
                 false
             }else {
                 transform.scale.y = value;
                 true
             }
+            
         });
         return;
     }
