@@ -69,13 +69,15 @@ impl FontSheet {
     }
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_size(&self, font_face: &Atom, size: &FontSize) -> f32 {
+        println!("self.face_map -----------{:?}", self.face_map);
+        println!("font_face -----------{:?}", font_face);
         match self.face_map.get(font_face) {
             Some(face) => get_size(face.size, size),
             _ => 0.0
         }
     }
     // 行高
-    pub fn get_line_height(&self, font_face: &Atom, line_height: &Option<LineHeight>) -> f32 {
+    pub fn get_line_height(&self, font_face: &Atom, line_height: &LineHeight) -> f32 {
         match self.face_map.get(font_face) {
             Some(face) => get_line_height(face.size, line_height),
             _ => 0.0
@@ -97,6 +99,21 @@ impl FontSheet {
             _ => 0.0
         }
     }
+
+    pub fn get_first_font(&self, font_face: &Atom) -> Option<Arc<SdfFont>>{
+        match self.face_map.get(font_face) {
+            Some(face) => {
+                for name in &face.src {
+                    match self.src_map.get(name) {
+                        Some(font) => return Some(font.clone()),
+                        _ => ()
+                    }
+                }
+                None
+            },
+            _ => None
+        }
+    }
 }
 
 // 字体表现
@@ -109,6 +126,7 @@ pub struct FontFace {
 }
 
 pub fn get_size(size:f32, s:&FontSize) -> f32 {
+    println!("get_size--------------------{}", size);
     match s {
         &FontSize::None => size,
         &FontSize::Length(r) => r,
@@ -116,22 +134,18 @@ pub fn get_size(size:f32, s:&FontSize) -> f32 {
     }
 }
 // 行高
-pub fn get_line_height(size:f32, line_height: &Option<LineHeight>) -> f32 {
-    if let Some(lh) = line_height {
-        match lh {
-            LineHeight::Length(r) => *r, //固定像素
-            LineHeight::Number(r) => *r + size, //设置数字，此数字会与当前的字体尺寸相加来设置行间距。
-            LineHeight::Percent(r) => *r * size,   //	基于当前字体尺寸的百分比行间距.
-            LineHeight::Normal => size,
-        }
-    }else{
-        size
+pub fn get_line_height(size:f32, line_height: &LineHeight) -> f32 {
+    match line_height {
+        LineHeight::Length(r) => *r, //固定像素
+        LineHeight::Number(r) => *r + size, //设置数字，此数字会与当前的字体尺寸相加来设置行间距。
+        LineHeight::Percent(r) => *r * size,   //	基于当前字体尺寸的百分比行间距.
+        LineHeight::Normal => size,
     }
 }
-// 倾斜度造成的间距
-pub fn oblique_spacing(oblique: f32, font_size: f32, char_width: f32) -> f32 {
-    oblique * font_size * char_width // TODO FIX!!!
-}
+// // 倾斜度造成的间距
+// pub fn oblique_spacing(oblique: f32, font_size: f32, char_width: f32) -> f32 {
+//     oblique * font_size * char_width // TODO FIX!!!
+// }
 
 // 劈分结果
 pub enum SplitResult {

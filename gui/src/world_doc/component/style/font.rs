@@ -3,7 +3,7 @@ use std::ops::{Deref};
 use wcs::world::{ComponentMgr};
 use atom::{Atom};
 
-use world_doc::font::{FontSize};
+use font::font_sheet::{FontSize};
 
 #[allow(unused_attributes)]
 #[derive(Component, Debug, Clone, Default, Builder)]

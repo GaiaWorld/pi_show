@@ -1,22 +1,35 @@
 use std::ops::{Deref};
 use std::default::{Default};
 
-use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent};
+use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use wcs::world::{ComponentMgr};
 
 use text_layout::layout::{TextAlign, LineHeight, WhiteSpace};
 use component::color::Color;
+use component::math::Color as MathColor;
 
-#[derive(Component, Default, Debug, Clone)]
+#[allow(unused_attributes)]
+#[derive(Component, Default, Debug, Clone, Builder)]
 pub struct TextStyle{
-    pub text_align: Option<TextAlign>, //对齐方式
-    pub letter_spacing: Option<f32>, //字符间距， 单位：像素
-    pub line_height: Option<LineHeight>, //设置行高
-    pub text_indent: Option<f32>, // 缩进， 单位： 像素
-    pub white_space: Option<WhiteSpace>, //空白处理
-    pub color: Option<Color>, //颜色
-    pub shadow: Option<Shadow>,
-    pub out_line: Option<OutLine>,
+    #[builder(export)]
+    pub letter_spacing: f32, //字符间距， 单位：像素
+    #[builder(export)]
+    pub word_spacing: f32, //字符间距， 单位：像素
+    #[builder(export)]
+    pub line_height: LineHeight, //设置行高
+    #[builder(export)]
+    pub text_indent: f32, // 缩进， 单位： 像素
+    #[builder(export)]
+    pub white_space: WhiteSpace, //空白处理
+    #[builder(export)]
+    pub color: Color, //颜色
+    #[builder(export)]
+    #[component(Shadow)]
+    pub shadow: usize,
+    #[builder(export)]
+    pub out_line: OutLine,
+    #[builder(export)]
+    pub vertical_align: VerticalAlign,
 }
 
 rc!(#[derive(Debug)]RcText, TextStyle, TEXT_STYLE_SLAB);
@@ -46,24 +59,29 @@ impl Default for RcText {
 
 #[derive(Component, Default, Debug, Clone)]
 pub struct OutLine{
-    thickness: f32, //	必需。轮廓的粗细。
-    blur: f32, //	可选。轮廓的模糊半径。
-    color: cg::color::Color<f32>, //	必需。轮廓的颜色。参阅 CSS 颜色值。
+    pub thickness: f32, //	必需。轮廓的粗细。
+    pub blur: f32, //	可选。轮廓的模糊半径。
+    pub color: MathColor, //	必需。轮廓的颜色。参阅 CSS 颜色值。
 }
 
-#[derive(Component, Default, Debug, Clone)]
+#[allow(unused_attributes)]
+#[derive(Component, Default, Debug, Clone, Builder)]
 pub struct Shadow{
-    h: f32, //	必需。水平阴影的位置。允许负值。	测试
-    v: f32, //	必需。垂直阴影的位置。允许负值。	测试
-    blur: f32, //	可选。模糊的距离。	测试
-    color: cg::color::Color<f32>, //	可选。阴影的颜色。参阅 CSS 颜色值。
+    #[builder(export)]
+    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
+    #[builder(export)]
+    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
+    #[builder(export)]
+    pub blur: f32, //	可选。模糊的距离。	测试
+    #[builder(export)]
+    pub color: MathColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum VerticalAlign{
-    Center,
     Top,
-    Bootom
+    Middle,
+    Bottom
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]

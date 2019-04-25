@@ -1,21 +1,21 @@
-// use std::mem::transmute;
-// use std::sync::Arc;
-// use std::rc::Rc;
+use std::mem::{transmute, uninitialized};
+use std::sync::Arc;
+use std::rc::Rc;
 
 use wcs::world::World;
 use wcs::component::{Builder};
-// use atom::Atom;
+use atom::Atom;
 use stdweb::unstable::TryInto;
-// use stdweb::web::TypedArray;
-// use webgl_rendering_context::{WebGLRenderingContext};
+use stdweb::web::TypedArray;
+use webgl_rendering_context::{WebGLRenderingContext};
 
 use world_doc::component::node::{NodeBuilder};
 use world_doc::component::style::element::{ElementBuilder};
 use world_doc::component::style::element::{Text as TextElement, ElementId};
 use world_doc::{WorldDocMgr, create_world, LAYOUT_SYS, ALL};
 use render::engine::Engine;
-// use render::res::{ TextureRes, Opacity };
-// use font::sdf_font::{SdfFont, StaticSdfFont};
+use render::res::{ TextureRes, Opacity };
+use font::sdf_font::{SdfFont, StaticSdfFont};
 
 pub mod data;
 pub mod layout;
@@ -57,42 +57,63 @@ pub fn create_engine() -> u32{
 // }
 
 
-// // __jsObj1: image_buffer, __jsObj: uv cfg
-// #[no_mangle]
-// pub fn create_sdf_font(world: u32, name: String) -> u32 {
-//     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-//     let name = Atom::from(name);
+// __jsObj1: image_buffer, __jsObj: uv cfg, __jsObj2: name(String)
+#[no_mangle]
+pub fn create_sdf_font(world: u32) -> u32 {
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let name: String = js!(return __jsObj2;).try_into().unwrap();
+    let name = Atom::from(name);
 
-//     let texture = {
-//         let gl = world.component_mgr.world_2d.component_mgr.engine.gl.clone();
-//         let texture = match gl.create_texture() {
-//             Some(v) => v,
-//             None => panic!("create_texture is None"),
-//         };
-//         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
-//         js!{
-//             @{&gl}.texImage2D(@{&gl}.TEXTURE_2D, 0, @{&gl}.ALPHA, @{&gl}.ALPHA, @{&gl}.UNSIGNED_BYTE, __jsObj1);
-//         };
-//         let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-//         let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
-//         gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
-//         gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-//         gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_WRAP_S, WebGLRenderingContext::CLAMP_TO_EDGE as i32);
-//         gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_WRAP_T, WebGLRenderingContext::CLAMP_TO_EDGE as i32);
-//         let res = world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, 0, texture, gl.clone()) );
-//         Box::into_raw(Box::new( res)) as u32
-//     };
+    println!("name1:{:?}", name);
+    let mut sdf_font = StaticSdfFont::new(unsafe { uninitialized() } );
+    let bind: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    let bind = bind.to_vec();
+    match sdf_font.parse(bind.as_slice()) {
+        Ok(_) => (),
+        Err(s) => panic!("{}", s),
+    };
 
-//     let bind: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
-//     let bind = bind.to_vec();
-//     let mut sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
-//     match sdf_font.parse(bind.as_slice()) {
-//         Ok(_) => (),
-//         Err(s) => panic!("{}", s),
-//     };
-//     let sdf_font: Arc<SdfFont> = Arc::new(sdf_font);
-//     Box::into_raw(Box::new(sdf_font)) as u32
-// }
+    let texture = {
+        let gl = world.component_mgr.world_2d.component_mgr.engine.gl.clone();
+        let texture = match gl.create_texture() {
+            Some(v) => v,
+            None => panic!("create_texture is None"),
+        };
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
+        let width = sdf_font.atlas_width();
+        let height = sdf_font.atlas_height();
+        js!{
+            @{&gl}.texImage2D(@{&gl}.TEXTURE_2D, 0, @{&gl}.ALPHA, @{width as u32}, @{height as u32}, 0, @{&gl}.ALPHA, @{&gl}.UNSIGNED_BYTE, __jsObj1);
+        };
+        
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_WRAP_S, WebGLRenderingContext::CLAMP_TO_EDGE as i32);
+        gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_WRAP_T, WebGLRenderingContext::CLAMP_TO_EDGE as i32);
+        world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)} , texture, gl.clone()) )
+        
+    };
+    unsafe { (sdf_font.texture() as *const Rc<TextureRes> as usize as *mut Rc<TextureRes>).write(texture)};
+    println!("sdf: --------------------------{:?}", sdf_font);
+    let sdf_font: Arc<SdfFont> = Arc::new(sdf_font);
+    Box::into_raw(Box::new(sdf_font)) as u32
+}
+
+#[no_mangle]
+pub fn add_sdf_font_res(world: u32, value: u32){
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let res = *unsafe { Box::from_raw(value as usize as *mut Arc<SdfFont>) };
+    world.component_mgr.font.set_src(res.name(), res);
+}
+
+// __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔), 
+#[no_mangle]
+pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let family: String = js!(return __jsObj;).try_into().unwrap();
+    let src: String = js!(return __jsObj1;).try_into().unwrap();
+    world.component_mgr.font.set_face(Atom::from(family), oblique, size, weight, src);
+}
 
 /**创建一个gui的实例 */
 #[no_mangle]
@@ -113,7 +134,7 @@ pub fn set_gui_size(world: u32, width: f32, height: f32) {
 
 //创建文本节点
 #[no_mangle]
-pub fn create_text_node(world: u32) -> u32{
+pub fn create_text_node(world: u32) -> u32 {
     debug_println!("create_text_node");
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
 

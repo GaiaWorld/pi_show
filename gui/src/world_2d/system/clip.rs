@@ -183,10 +183,6 @@ impl ClipSysImpl {
             indeices_buffer: indeices_buffer,
         }
     }
-
-    pub fn update(mgr: &mut World2dMgr){
-        
-    }
 }
 
 // 初始化location

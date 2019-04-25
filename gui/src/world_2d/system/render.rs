@@ -231,19 +231,25 @@ impl RenderImpl {
             }
         }
 
-        for v in mgr.char_block._group.iter() {
-            if v.1.visibility == false {
+        for v in mgr.char_block_effect._group.iter() {
+            let char_block = mgr.char_block._group.get(v.1.parent);
+            if char_block.visibility == false {
                 continue;
             }
-            if v.1.is_opaque {
+            let z_depth = if v.1.is_shadow {
+                char_block.z_depth - 0.1
+            }else {
+                char_block.z_depth
+            };
+            if char_block.is_opaque {
                 self.opaque_objs.push(SortObject {
-                    z: v.1.z_depth,
+                    z: z_depth,
                     id: v.0,
                     ty: RenderType::CharBlock,
                 });
             }else {
                 self.transparent_objs.push(SortObject {
-                    z: v.1.z_depth,
+                    z: z_depth,
                     id: v.0,
                     ty: RenderType::CharBlock,
                 });

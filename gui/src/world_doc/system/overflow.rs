@@ -54,7 +54,6 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OverflowSys {
           return;
         }
         let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
-        println!("world_matrix----------------------{:?}", world_matrix);
         mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
         (i, node.by_overflow | i, node.get_childs_mut().get_first())
       }else{
@@ -83,12 +82,10 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
-            println!("world_matrix----------------------{:?}", world_matrix);
             mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
-        println!("o1----------------------{:?}", mgr.world_2d.component_mgr.overflow.value);
     }
 }
 //监听Node的创建

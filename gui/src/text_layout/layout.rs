@@ -1,4 +1,4 @@
-use ucd::{Codepoint};
+// use ucd::{Codepoint};
 
 // pub struct TextLayout1{
 //     // pub direction: Direction, //设置文本方向
@@ -316,7 +316,7 @@ fn test_filter_white_space() {
 
 #[test]
 fn test_ucd() {
-    use ucd::Codepoint;
+    // use ucd::Codepoint;
     let c = 'a';
     let c1 = '我';
     let c2 = '장';

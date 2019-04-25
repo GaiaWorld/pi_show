@@ -7,7 +7,7 @@ use world_2d::World2dMgr;
 use world_2d::component::char_block::{CharBlockDefines};
 use world_2d::constant::*;
 use component::color::Color;
-use component::math::{Color as MathColor, Point2};
+use component::math::{Color as MathColor};
 use render::engine::{Engine, get_uniform_location};
 
 lazy_static! {
@@ -170,8 +170,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
     //extend
-    debug_println!("charblock extend: {:?}", char_block_effect.extend);
-    gl.uniform2f(uniform_locations.get(&EXTEND), char_block_effect.extend.x, char_block_effect.extend.y);
+    debug_println!("charblock extend: {:?}", char_block.extend);
+    gl.uniform2f(uniform_locations.get(&EXTEND), char_block.extend.0, char_block.extend.1);
 
     // alpha
     debug_println!("charblock alpha: {:?}", char_block.alpha);
@@ -208,57 +208,67 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&char_block.sdf_font.texture().bind));
     gl.uniform1i(uniform_locations.get(&TEXTURE), 2);
 
-    match &char_block.color {
-        Color::RGB(color) | Color::RGBA(color) => {
-            // color
-            debug_println!("color: {:?}", color);
-            gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
-        },
-        Color::LinearGradient(color) => {
-            //colorAngle
-            gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction);
+    if char_block_effect.is_shadow {
+        match &char_block.shadow {
+            Some(shadow) => {
+                debug_println!("shadow_color: {:?}", shadow.color);
+                gl.uniform4f(uniform_locations.get(&COLOR), shadow.color.r, shadow.color.g, shadow.color.b, shadow.color.a);
+            },
+            None => debug_println!("it not have shadow"),
+        }
+    }else {
+        match &char_block.color {
+            Color::RGB(color) | Color::RGBA(color) => {
+                // color
+                debug_println!("color: {:?}", color);
+                gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
+            },
+            Color::LinearGradient(color) => {
+                //colorAngle
+                gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction);
 
-            if defines.linear_color_gradient_2 {
-                //distance
-                gl.uniform2f( uniform_locations.get(&DISTANCE), color.list[0].position, color.list[1].position);
+                if defines.linear_color_gradient_2 {
+                    //distance
+                    gl.uniform2f( uniform_locations.get(&DISTANCE), color.list[0].position, color.list[1].position);
 
-                //color1
-                let color1 = &color.list[0].rgba;
-                gl.uniform4f( uniform_locations.get(&COLOR1), color1.r, color1.g, color1.b, color1.a);
+                    //color1
+                    let color1 = &color.list[0].rgba;
+                    gl.uniform4f( uniform_locations.get(&COLOR1), color1.r, color1.g, color1.b, color1.a);
 
-                //color2
-                let color2 = &color.list[1].rgba;
-                gl.uniform4f(uniform_locations.get(&COLOR2), color2.r, color2.g, color2.b, color2.a);
-            } else {
-                let mut distances = [0.0, 100.0, 100.0, 100.0];
-                let default_color = MathColor(cg::color::Color::new(1.0, 1.0, 1.0, 1.0));
-                let mut colors = [&default_color, &default_color, &default_color, &default_color];
-                let mut i = 0;
-                for k in color.list.iter() {
-                    if i > 3 {
-                        break;
+                    //color2
+                    let color2 = &color.list[1].rgba;
+                    gl.uniform4f(uniform_locations.get(&COLOR2), color2.r, color2.g, color2.b, color2.a);
+                } else {
+                    let mut distances = [0.0, 100.0, 100.0, 100.0];
+                    let default_color = MathColor(cg::color::Color::new(1.0, 1.0, 1.0, 1.0));
+                    let mut colors = [&default_color, &default_color, &default_color, &default_color];
+                    let mut i = 0;
+                    for k in color.list.iter() {
+                        if i > 3 {
+                            break;
+                        }
+                        distances[i] = k.position;
+                        colors[i] = &k.rgba;
+                        i += 1;
                     }
-                    distances[i] = k.position;
-                    colors[i] = &k.rgba;
-                    i += 1;
+                    gl.uniform4f( uniform_locations.get(&DISTANCE), distances[0],distances[1],distances[2],distances[3]);
+
+                    //color1
+                    gl.uniform4f(uniform_locations.get(&COLOR1), colors[0].r, colors[0].g, colors[0].b, colors[0].a);
+
+                    //color2
+                    gl.uniform4f(uniform_locations.get(&COLOR2), colors[1].r, colors[1].g, colors[1].b, colors[1].a);
+
+                    //color3
+                    gl.uniform4f( uniform_locations.get(&COLOR3), colors[2].r, colors[2].g, colors[2].b, colors[2].a);
+
+                    //color4
+                    gl.uniform4f(uniform_locations.get(&COLOR4), colors[3].r, colors[3].g, colors[3].b, colors[3].a);
                 }
-                gl.uniform4f( uniform_locations.get(&DISTANCE), distances[0],distances[1],distances[2],distances[3]);
-
-                //color1
-                gl.uniform4f(uniform_locations.get(&COLOR1), colors[0].r, colors[0].g, colors[0].b, colors[0].a);
-
-                //color2
-                gl.uniform4f(uniform_locations.get(&COLOR2), colors[1].r, colors[1].g, colors[1].b, colors[1].a);
-
-                //color3
-                gl.uniform4f( uniform_locations.get(&COLOR3), colors[2].r, colors[2].g, colors[2].b, colors[2].a);
-
-                //color4
-                gl.uniform4f(uniform_locations.get(&COLOR4), colors[3].r, colors[3].g, colors[3].b, colors[3].a);
-            }
-        },
-        _ => panic!("color type error"),
-    };
+            },
+            _ => panic!("color type error"),
+        };
+    }
 
     //position
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.positions_buffer));
@@ -294,29 +304,46 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     let char_block= mgr.char_block._group.get(char_block_effect.parent);
     let sdf_font = &char_block.sdf_font; //TODO
 
+    println!("charblock---------------------{:?}", char_block);
+
     let mut positions: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut indeices: Vec<u16> = Vec::new();
     let mut i = 0;
     // let line_height = sdf_font.line_height;
-    let mut extend = Point2::default();
+    let mut offset = char_block.offset.clone();
+    offset.1 -= (char_block.line_height - char_block.font_size)/2.0;
+
+    // 如果是阴影， 会偏移
+    if char_block_effect.is_shadow {
+        match &char_block.shadow {
+            Some(shadow) => {
+                offset.1 -= shadow.v; 
+                offset.0 -= shadow.h;
+            },
+            None => debug_println!("it not have shadow"),
+        }
+    }
+
     for c in char_block.chars.iter() {
         let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
             Some(r) => r,
             None => continue,
         };
-        let pos = &c.pos;
+        // let pos = &c.pos;
+        let pos = (c.pos.x - offset.0, c.pos.y - offset.1);
+        // let pos = (c.pos.x - 450.0, c.pos.y - 0.0);
 
-        extend.x += glyph.width/2.0;
-        extend.y += glyph.height/2.0;
+        // extend.x += glyph.width/2.0;
+        // extend.y += glyph.height/2.0;
 
-        let max_y = pos.y + char_block.font_size - glyph.oy;
+        let max_y = pos.1 + char_block.font_size - glyph.oy;
         println!("char_block.font_size: {}, glyph.oy: {}", char_block.font_size, glyph.oy);
         positions.extend_from_slice(&[
-            pos.x + glyph.ox,                max_y,                 char_block.z_depth,
-            pos.x + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
-            glyph.width + pos.x + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
-            glyph.width + pos.x + glyph.ox,  max_y,                 char_block.z_depth,
+            pos.0 + glyph.ox,                max_y,                 char_block.z_depth,
+            pos.0 + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
+            glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
+            glyph.width + pos.0 + glyph.ox,  max_y,                 char_block.z_depth,
         ]);
 
         let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
@@ -331,7 +358,6 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         i += 1;
     }
 
-    char_block_effect.extend = extend;
     char_block_effect.indeices_len = indeices.len() as u16;
 
     Attribute {

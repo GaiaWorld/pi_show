@@ -5,7 +5,7 @@ use wcs::world::{ComponentMgr};
 use cg::octree::*;
 use cg::{Aabb3, Point3};
 
-use world_doc::font::{FontSheet};
+use font::font_sheet::{FontSheet};
 use world_doc::component::node::*;
 
 pub const Z_MAX: f32 = 4194304.0;

@@ -11,7 +11,6 @@ use atom::Atom;
 use component::color::{Color};
 use component::math::{Matrix4, Point2, Color as MathColor};
 use font::sdf_font::SdfFont;
-use text_layout::layout::{TextAlign};
 use world_doc::component::style::text::{Shadow};
 
 #[allow(unused_attributes)]
@@ -20,6 +19,9 @@ pub struct CharBlock{
     //world_matrix
     #[listen]
     pub world_matrix: Matrix4,
+
+    pub offset: (f32, f32),
+    pub extend: (f32, f32),
 
     //alpha
     #[listen]
@@ -48,10 +50,9 @@ pub struct CharBlock{
 
     #[listen]
     pub font_size: f32,
-    #[listen]
-    pub text_align: TextAlign, //对齐方式
-    pub letter_spacing: f32, //字符间距， 单位：像素
+
     pub line_height: f32, //设置行高
+
     pub shadow: Option<Shadow>, //设置阴影
 
     #[listen]
@@ -79,8 +80,10 @@ impl Debug for CharBlock {
             stroke_color: {:?},
             font_size: {:?},
             color: {:?},
-            chars: {:?}
-        }}"#, self.world_matrix, self.alpha, self.visibility, self.is_opaque, self.z_depth, self.by_overflow, self.stroke_size, self.stroke_color, self.font_size, self.color, self.chars)
+            chars: {:?},
+            offset: {:?},
+            extend: {:?}
+        }}"#, self.world_matrix, self.alpha, self.visibility, self.is_opaque, self.z_depth, self.by_overflow, self.stroke_size, self.stroke_color, self.font_size, self.color, self.chars, self.offset, self.extend)
     }
 }
 
@@ -104,26 +107,37 @@ pub struct CharBlockEffect {
     pub uvs_buffer: WebGLBuffer,
     pub indeices_buffer: WebGLBuffer,
 
-    pub extend: Point2,
-
     pub font_clamp: f32,
     pub smooth_range: f32,
 
     pub buffer_dirty: bool,
 
     pub indeices_len: u16,
+
+    pub is_shadow: bool,
 }
 
 #[cfg(feature = "web")]
 #[allow(unused_attributes)]
-#[derive(Debug, Component, Default)]
+#[derive(Debug, Component)]
 pub struct CharBlockDefines {
-    pub sdf_rect: bool, //圆角
     pub stroke: bool, //描边
     pub clip_plane: bool,//裁剪
     pub linear_color_gradient_2: bool, //线性渐变（两种颜色）
     pub linear_color_gradient_4: bool, // 线性渐变（四种颜色）
     pub color: bool, //单色
+}
+
+impl Default for CharBlockDefines {
+    fn default() -> CharBlockDefines {
+        CharBlockDefines {
+            stroke: false,
+            clip_plane: false,
+            linear_color_gradient_2: false,
+            linear_color_gradient_4: false,
+            color: true,
+        }
+    }
 }
 
 #[cfg(feature = "web")]

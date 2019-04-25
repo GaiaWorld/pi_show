@@ -1,8 +1,9 @@
 use std::mem::transmute;
+use std::f32::MAX as FMAX;
 
 use cg::query::{include_quad2, InnOuter};
 use cg::octree::intersects;
-use cg::{Aabb3, Point3, Point2};
+use cg::{Aabb3, Point3, Point2, Vector4};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::unstable::TryInto;
 
@@ -64,24 +65,23 @@ pub fn remove_child(world: u32, node_id: u32, child_id: u32){
 // }
 
 #[no_mangle]
-pub fn set_text_content(world: u32, node_id: u32, value: &str){
+pub fn set_text_content(world: u32, node_id: u32){
+    let value: String = js!(return __jsObj;).try_into().unwrap();
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let element_id = world.component_mgr.node._group.get(node_id).element.clone();
     match element_id {
         ElementId::Text(text_id) => {
             if text_id == 0 {
-                let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+                let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr);
                 let mut text = Text::default();
-                text.value = value.to_string();
+                text.value = value;
                 node_ref.set_element(Element::Text(text));
             } else {
-                let mut text_ref = TextWriteRef::new(text_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-                text_ref.modify(|text: &mut Text| {
-                    text.value = value.to_string();
-                    true
-                });
+                let mut text_ref = TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr);
+                text_ref.set_value(value);
             }
+            println!("set_text_content");
         },
         _ => (),
     }
@@ -178,6 +178,66 @@ pub fn offset_height(world: u32, node_id: u32) -> f32 {
   let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
   world.component_mgr.node._group.get(node_id).yoga.get_layout().height
 }
+
+#[no_mangle]
+pub fn offset_document(world: u32, node_id: u32) {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  let node = world.component_mgr.node._group.get(node_id);
+  let layout = node.get_layout();
+  let world_matrix = &world.component_mgr.node.world_matrix._group.get(node.world_matrix).owner;
+
+  let left_top = Vector4::new(-(layout.width - layout.border -layout.padding_left)/2.0, -(layout.height - layout.border -layout.padding_top)/2.0, 1.0, 1.0);
+  let left_top = (world_matrix.0)*left_top;
+
+  js!{
+    __jsObj.left = @{left_top.x};
+    __jsObj.top = @{left_top.y}
+  }
+}
+
+//content宽高的累加值
+#[no_mangle]
+pub fn content_box(world: u32, node_id: u32) {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  let node = world.component_mgr.node._group.get(node_id);
+  let mut child = node.childs.get_first();
+  let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
+
+  loop {
+    if child == 0 {
+        break;
+    }
+    let node_id = {
+        let v = unsafe{ world.component_mgr.node_container.get_unchecked(child) };
+        child = v.next;
+        v.elem.clone()
+    };
+    let node = world.component_mgr.node._group.get(node_id);
+    let layout = &node.layout;
+    let right_ = layout.left + layout.width;
+    let bottom_ = layout.top + layout.height;
+    if layout.left < left {
+      left = layout.left;
+    }
+    if right_ > right {
+      right = right_;
+    }
+    if bottom_ > bottom {
+      bottom = bottom_;
+    }
+    if layout.top < top {
+      top = layout.top;
+    }
+  }
+
+  js!{
+    __jsObj.width = @{right - left};
+    __jsObj.height = @{bottom - top}
+  }
+}
+
 
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{

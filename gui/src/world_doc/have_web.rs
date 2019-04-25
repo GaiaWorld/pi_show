@@ -8,7 +8,7 @@ use cg::octree::*;
 use cg::{Aabb3, Point3};
 use atom::Atom;
 
-use world_doc::font::{FontSheet};
+use font::font_sheet::{FontSheet};
 use world_doc::component::node::*;
 use world_doc::system::{layout::Layout as LayoutSys, world_matrix::WorldMatrix as WorldMatrixSys, oct::Oct as OctSys, opacity::OpacitySys, decorate::BBSys , run_world_2d::RunWorld2d as RunWorld2dSys};
 use world_doc::system::node_count::NodeCountSys;
@@ -110,6 +110,7 @@ impl WorldDocMgr {
         .build(&mut mgr.node);
 
         root.yoga.set_context(1 as *mut c_void);
+
         //插入根节点, 不抛出创建事件
         mgr.node._group.insert(root, 0); 
         mgr.root_id = 1;

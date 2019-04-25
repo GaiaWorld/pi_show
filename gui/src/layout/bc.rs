@@ -71,7 +71,9 @@ pub struct YgNode( yoga::YGNodeRef);
 
 impl Default for YgNode{
     fn default() -> YgNode{
-        YgNode::new()
+        let y = YgNode::new();
+        y.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
+        y
     }
 }
 
