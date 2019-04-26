@@ -1,6 +1,5 @@
-
-/target
 **/*.rs.bk
 **/Cargo.lock
-/render_old
-/bind
+**/target/*
+!release/gui.js
+!debug/gui.js
