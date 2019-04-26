@@ -4,7 +4,7 @@ use std::default::{Default};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use wcs::world::{ComponentMgr};
 
-use text_layout::layout::{TextAlign, LineHeight, WhiteSpace};
+use text_layout::layout::{LineHeight, WhiteSpace};
 use component::color::Color;
 use component::math::Color as MathColor;
 
@@ -27,7 +27,7 @@ pub struct TextStyle{
     #[component(Shadow)]
     pub shadow: usize,
     #[builder(export)]
-    pub out_line: OutLine,
+    pub stroke: Stroke,
     #[builder(export)]
     pub vertical_align: VerticalAlign,
 }
@@ -57,11 +57,17 @@ impl Default for RcText {
 //     }
 // }
 
+// #[derive(Component, Default, Debug, Clone)]
+// pub struct OutLine{
+//     pub thickness: f32, //	必需。轮廓的粗细。
+//     pub blur: f32, //	可选。轮廓的模糊半径。
+//     pub color: MathColor, //	必需。轮廓的颜色。参阅 CSS 颜色值。
+// }
+
 #[derive(Component, Default, Debug, Clone)]
-pub struct OutLine{
-    pub thickness: f32, //	必需。轮廓的粗细。
-    pub blur: f32, //	可选。轮廓的模糊半径。
-    pub color: MathColor, //	必需。轮廓的颜色。参阅 CSS 颜色值。
+pub struct Stroke{
+    pub width: f32, //	描边宽度
+    pub color: MathColor, //	描边颜色
 }
 
 #[allow(unused_attributes)]

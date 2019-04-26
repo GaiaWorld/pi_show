@@ -20,7 +20,7 @@ use atom::Atom;
 // use font::font_sheet::{split, SplitResult};
 use world_doc::component::style::border::Border;
 use world_doc::component::style::element::{Element, Text};
-use world_doc::component::style::text::{TextStyle, OutLine, Shadow, VerticalAlign};
+use world_doc::component::style::text::{TextStyle, Stroke, Shadow, VerticalAlign};
 use world_doc::component::style::font::{Font};
 use world_doc::component::style::transform::Transform;
 use world_doc::component::node::{Node};
@@ -28,7 +28,7 @@ use world_doc::WorldDocMgr;
 use component::math::{ Vector3, Matrix4, Color as MathColor, Point2, Vector2 };
 use component::color::{Color};
 use world_2d::component::char_block::{CharBlock, Char, CharBlockWriteRef};
-use layout::{YGEdge, YGDirection, YgNode, Layout as LV, YGAlign};
+use layout::{YGEdge, YGDirection, YgNode, Layout as LV, YGAlign, YGWrap};
 use font::sdf_font::{SdfFont, StaticSdfFont};
 use font::font_sheet::{get_size, get_line_height, SplitResult, split};
 use render::res::{TextureRes};
@@ -251,11 +251,9 @@ impl LayoutImpl {
             is_opaque: true,
             z_depth: node.z_depth,
             by_overflow: node.by_overflow,
-            stroke_size: text_style.out_line.thickness,
-            stroke_color:text_style.out_line.color.clone(),
+            stroke_size: text_style.stroke.width,
+            stroke_color:text_style.stroke.color.clone(),
             font_size: font_size,
-            // text_align: text_style.text_align.clone(), //对齐方式
-            // letter_spacing: text_style.letter_spacing, //字符间距， 单位：像素
             line_height: line_height, //设置行高
             shadow: shadow,
             sdf_font: font_family,
@@ -263,6 +261,7 @@ impl LayoutImpl {
             chars: Vec::new(),
             offset: matrix_info.1,
             extend: matrix_info.2,
+            font_weight: font.weight,
         };
         let rid = mgr.world_2d.component_mgr.add_char_block(char_block).id;
         let mut chars = Vec::new();
@@ -363,11 +362,14 @@ fn add_text(
     while index > 0 && parent_yoga.get_child(index-1) != yaga {
         index-=1;
     }
+    parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
     for cr in split(text, true, merge_whitespace) {
         match cr {
             SplitResult::Newline =>{
                 let yg = YgNode::default();
+                yg.set_width_percent(100.0);
+                // yg.set_width_percent(100.0);
                 // 设置成宽度100%, 高度0
                 // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
                 vec.push(char_slab.insert(CharImpl{
@@ -382,6 +384,9 @@ fn add_text(
             },
             SplitResult::Whitespace =>{
                 let yg = YgNode::default();
+                yg.set_width(font_size/2.0);
+                parent_yoga.insert_child(yg.clone(), index);
+                index+=1;
                 // 设置成宽度为半高, 高度0
             },
             SplitResult::Word(c) =>{

@@ -12,7 +12,7 @@ use render::engine::{Engine, get_uniform_location};
 
 lazy_static! {
     static ref EXTEND: Atom = Atom::from("extend");
-    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
+    static ref STROKE_CLAMP: Atom = Atom::from("strokeClamp");
     static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
     static ref COLOR: Atom = Atom::from("color");
     static ref COLOR_ANGLE: Atom = Atom::from("colorAngle");
@@ -78,7 +78,7 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
     }
 
     if defines.stroke {
-        uniform_locations.insert( STROKE_SIZE.clone(), get_uniform_location(&gl,program, &STROKE_SIZE));
+        uniform_locations.insert( STROKE_CLAMP.clone(), get_uniform_location(&gl,program, &STROKE_CLAMP));
         uniform_locations.insert(STROKE_COLOR.clone(), get_uniform_location(&gl,program, &STROKE_COLOR));
     }
     if defines.clip_plane {
@@ -170,8 +170,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
     //extend
-    debug_println!("charblock extend: {:?}", char_block.extend);
-    gl.uniform2f(uniform_locations.get(&EXTEND), char_block.extend.0, char_block.extend.1);
+    debug_println!("charblock extend: {:?}", char_block_effect.extend);
+    gl.uniform2f(uniform_locations.get(&EXTEND), char_block_effect.extend.0, char_block_effect.extend.1);
 
     // alpha
     debug_println!("charblock alpha: {:?}", char_block.alpha);
@@ -188,7 +188,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     if defines.stroke {
         //设置strokeSize
         debug_println!("stroke_size:{:?}", char_block.stroke_size);
-        gl.uniform1f(uniform_locations.get(&STROKE_SIZE), char_block.stroke_size);
+        let distance_for_pixel = char_block.sdf_font.distance_for_pixel(char_block.font_size);
+        debug_println!("stroke_clamp:{:?}, distance_for_pixel:{:?},char_block_effect.font_clamp： {}", char_block_effect.font_clamp- distance_for_pixel * char_block.stroke_size, distance_for_pixel, char_block_effect.font_clamp);
+        gl.uniform1f(uniform_locations.get(&STROKE_CLAMP), char_block_effect.font_clamp- distance_for_pixel * char_block.stroke_size);
 
         //设置strokeColor
         debug_println!("stroke_color:{:?}", char_block.stroke_color);
@@ -228,6 +230,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                 gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction);
 
                 if defines.linear_color_gradient_2 {
+                    debug_println!("linear_color_gradient_2, 0: {:?}", color.list[0]);
+                    debug_println!("linear_color_gradient_2, 1: {:?}", color.list[1]);
                     //distance
                     gl.uniform2f( uniform_locations.get(&DISTANCE), color.list[0].position, color.list[1].position);
 
@@ -251,6 +255,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                         colors[i] = &k.rgba;
                         i += 1;
                     }
+                    debug_println!("linear_color_gradient_4, 0: {:?}", color.list[0]);
+                    debug_println!("linear_color_gradient_4, 1: {:?}", color.list[1]);
+                    debug_println!("linear_color_gradient_4, 2: {:?}", color.list[2]);
+                    debug_println!("linear_color_gradient_4, 3: {:?}", color.list[3]);
                     gl.uniform4f( uniform_locations.get(&DISTANCE), distances[0],distances[1],distances[2],distances[3]);
 
                     //color1
@@ -325,40 +333,67 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         }
     }
 
-    for c in char_block.chars.iter() {
-        let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
+    if char_block.chars.len() > 0 {
+        let glyph = match sdf_font.glyph_info(char_block.chars[0].value, char_block.font_size) {
             Some(r) => r,
-            None => continue,
+            None => panic!("xxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
         };
-        // let pos = &c.pos;
-        let pos = (c.pos.x - offset.0, c.pos.y - offset.1);
-        // let pos = (c.pos.x - 450.0, c.pos.y - 0.0);
+        let mut left_top = (char_block.chars[0].pos.x, char_block.chars[0].pos.y);
+        let mut right_bottom = (char_block.chars[0].pos.x + glyph.adv, char_block.chars[0].pos.y + char_block.font_size);
+        println!("extend111-----------------------{:?}, {}, {}, {}", left_top.0,  left_top.1, right_bottom.0, right_bottom.1);
+        for c in char_block.chars.iter() {
+            let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
+                Some(r) => r,
+                None => continue,
+            };
 
-        // extend.x += glyph.width/2.0;
-        // extend.y += glyph.height/2.0;
+            if c.pos[0] < left_top.0 {
+                left_top.0 = c.pos[0];
+            }
+            if c.pos[1] < left_top.1 {
+                left_top.1 = c.pos[1];
+            }
 
-        let max_y = pos.1 + char_block.font_size - glyph.oy;
-        println!("char_block.font_size: {}, glyph.oy: {}", char_block.font_size, glyph.oy);
-        positions.extend_from_slice(&[
-            pos.0 + glyph.ox,                max_y,                 char_block.z_depth,
-            pos.0 + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
-            glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
-            glyph.width + pos.0 + glyph.ox,  max_y,                 char_block.z_depth,
-        ]);
+            if c.pos[0] + glyph.adv > right_bottom.0 {
+                right_bottom.0 = c.pos[0] + glyph.adv;
+            }
+            if c.pos[1] + char_block.font_size > right_bottom.1 {
+                right_bottom.1 = c.pos[1] + char_block.font_size;
+            }
+            println!("extend222-----------------------{:?}, {}, {}, {}", left_top.0,  left_top.1, right_bottom.0, right_bottom.1);
 
-        let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
-        uvs.extend_from_slice(&[
-            glyph.u_min, v_min,
-            glyph.u_min, v_max,
-            glyph.u_max, v_max,
-            glyph.u_max, v_min,
-        ]);
+            // let pos = &c.pos;
+            let pos = (c.pos.x - offset.0, c.pos.y - offset.1);
+            // let pos = (c.pos.x - 450.0, c.pos.y - 0.0);
 
-        indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-        i += 1;
+            
+
+            let max_y = pos.1 + char_block.font_size - glyph.oy;
+            println!("char_block.font_size: {}, glyph.oy: {}", char_block.font_size, glyph.oy);
+            positions.extend_from_slice(&[
+                pos.0 + glyph.ox,                max_y,                 char_block.z_depth,
+                pos.0 + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
+                glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
+                glyph.width + pos.0 + glyph.ox,  max_y,                 char_block.z_depth,
+            ]);
+
+            let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
+            uvs.extend_from_slice(&[
+                glyph.u_min, v_min,
+                glyph.u_min, v_max,
+                glyph.u_max, v_max,
+                glyph.u_max, v_min,
+            ]);
+
+            indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
+            i += 1;
+        }
+
+        char_block_effect.indeices_len = indeices.len() as u16;
+        char_block_effect.extend = ((right_bottom.0 - left_top.0)/2.0, (right_bottom.1 - left_top.1)/2.0);
+        println!("extend-----------------------{:?}, {}", right_bottom.0 - left_top.0, right_bottom.1 - left_top.1);
+        println!("extend1-----------------------{:?}, {}, {}, {}", right_bottom.0, left_top.0, right_bottom.1, left_top.1);
     }
-
-    char_block_effect.indeices_len = indeices.len() as u16;
 
     Attribute {
         positions: positions,

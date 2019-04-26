@@ -37,7 +37,12 @@
             Module._set_line_height(gui, ce, 100);
             window.__jsObj = "HYXingKaiJ";
             Module._set_font_family(gui, ce);
-            Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5);
+            // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5);
+            // Module._set_text_stroke(gui, ce, 1, 0.0, 0.0, 1.0, 1.0);
+            Module._set_font_weight(gui, ce, 500);
+            Module._set_text_rgba_color(gui, ce, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
+            window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]
+            Module._set_text_linear_gradient_color(gui, ce, 0.0, 1.0, 0.0, 0); //, direction: 0-360度
 
             // Module._set_font_size(gui, ce, );
             Module._append_child(gui, 1, ce);

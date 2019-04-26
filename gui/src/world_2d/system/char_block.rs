@@ -32,9 +32,19 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
         println!("create charblock");
         let CreateEvent{id, parent:_} = event;
         let mut borrow_mut = self.0.borrow_mut();
+
         //创建effect
-        let effect_id = create_effect(*id, component_mgr, 0.1, false);
+        let mut defines = CharBlockDefines::default();
+        if component_mgr.char_block._group.get(*id).stroke_size > 0.0 {
+            defines.stroke = true;
+        };
+        let effect_id = create_effect(*id, component_mgr, defines, 0.1, false);
         borrow_mut.char_block_effect_map.insert(*id, effect_id);
+        {
+            let mgr = unsafe {&mut *(component_mgr as *mut World2dMgr) };
+            let color = &component_mgr.char_block._group.get(*id).color;
+            modify_color_defines(effect_id, color, mgr);
+        }
 
         // 标记着色器程序脏
         borrow_mut.program_dirty.dirty_mark_list.insert(effect_id, false);
@@ -47,7 +57,9 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
         match component_mgr.char_block._group.get(*id).shadow.clone() {
             Some(shadow) => {
                 println!("shadow--------------------------------------");
-                let effect_id = create_effect(*id, component_mgr, shadow.blur * 0.1, true);
+                
+                let defines = CharBlockDefines::default();
+                let effect_id = create_effect(*id, component_mgr, defines, shadow.blur * 0.1, true);
                 borrow_mut.char_block_shadow_effect_map.insert(*id, effect_id);
 
                 // 标记着色器程序脏
@@ -253,20 +265,22 @@ fn is_opaque(char_block_id: usize, mgr: &mut World2dMgr) -> bool {
     return char_block.color.is_opaque();
 }
 
-fn create_effect(parent: usize, component_mgr: &mut World2dMgr, blur: f32, is_shadow: bool) -> usize{
-    let defines_id = component_mgr.char_block_effect.defines._group.insert(CharBlockDefines::default(), 0);
+fn create_effect(parent: usize, component_mgr: &mut World2dMgr, defines: CharBlockDefines, blur: f32, is_shadow: bool) -> usize{
+    let defines_id = component_mgr.char_block_effect.defines._group.insert(defines, 0);
+    let char_block = component_mgr.char_block._group.get(parent);
+    let font_clamp = 1.0 - (char_block.font_weight / 5000.0 + 0.4);
     let char_block_effect = CharBlockEffect {
         program: 0,
         defines: defines_id,
         positions_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
         indeices_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
         uvs_buffer: component_mgr.engine.gl.create_buffer().unwrap(),
-
-        font_clamp: 0.55,
+        font_clamp: font_clamp,
         smooth_range: blur,
         buffer_dirty: true,
         indeices_len: 0,
         is_shadow: is_shadow,
+        extend: (0.0, 0.0),
     };
     
     let mut effect = component_mgr.add_char_block_effect(char_block_effect);
@@ -276,7 +290,6 @@ fn create_effect(parent: usize, component_mgr: &mut World2dMgr, blur: f32, is_sh
 
 fn update_program(program_dirty: &mut DirtyMark, component_mgr: &mut World2dMgr) {
     for effect_id in program_dirty.dirtys.iter() {
-        println!("shadow update_program--------------------------------------");
         unsafe{*program_dirty.dirty_mark_list.get_unchecked_mut(*effect_id) = false};
         let (defines, defines_id) = {
             let defines_id = component_mgr.char_block_effect._group.get(*effect_id).defines.clone();
@@ -295,7 +308,6 @@ fn update_program(program_dirty: &mut DirtyMark, component_mgr: &mut World2dMgr)
                
                 {
                     let effect = component_mgr.char_block_effect._group.get_mut(*effect_id);
-                     println!("shadow update_program1-------------------------------------effect_id:{}, program: {}, effect.program: {}", effect_id, v, effect.program);
                     if v == effect.program {
                         continue;
                     }

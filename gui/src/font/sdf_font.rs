@@ -23,6 +23,8 @@ pub trait SdfFont {
     fn atlas_height(&self) -> usize;
     
     fn texture(&self) -> &Rc<TextureRes>;
+
+    fn distance_for_pixel(&self, font_size: f32) -> f32;
 }
 
 pub struct GlyphInfo{
@@ -34,6 +36,7 @@ pub struct GlyphInfo{
     pub u_max: f32,
     pub v_min: f32,
     pub v_max: f32,
+    pub adv: f32,
 }
 
 #[derive(Debug)]
@@ -42,6 +45,7 @@ pub struct StaticSdfFont {
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
+    padding: f32,
     glyph_table: FnvHashMap<char, Glyph>,
     texture: Rc<TextureRes>,
 }
@@ -74,22 +78,28 @@ impl SdfFont for StaticSdfFont {
         let ratio = font_size/self.line_height;
         match self.glyph_table.get(&c) {
             Some(glyph) => {
-                let (min_u, max_v) = (glyph.x, glyph.y); //左上角
+                let (min_u, max_v) = (glyph.x - self.padding, glyph.y + self.padding); //左上角
                 Some(
                     GlyphInfo {
-                        height: ratio * glyph.height,
-                        width: ratio * glyph.width,
-                        ox: ratio * glyph.ox,
-                        oy: ratio * glyph.oy,
+                        height: ratio * (glyph.height + self.padding * 2.0),
+                        width: ratio * (glyph.width + self.padding * 2.0),
+                        ox: ratio * (glyph.ox - self.padding),
+                        oy: ratio * (glyph.oy + self.padding),
                         u_min: min_u/(self.atlas_width as f32),
-                        u_max: (min_u + glyph.width)/(self.atlas_width as f32),
-                        v_min: (max_v - glyph.height)/(self.atlas_height as f32),
-                        v_max: max_v/(self.atlas_height as f32),  
+                        u_max: (min_u + glyph.width + self.padding)/(self.atlas_width as f32),
+                        v_min: (max_v - glyph.height - self.padding)/(self.atlas_height as f32),
+                        v_max: max_v/(self.atlas_height as f32),
+                        adv: ratio * glyph.advance,
                     }
                 )
             },
             None => None,
         }     
+    }
+
+    fn distance_for_pixel(&self, font_size: f32) -> f32{
+        let ratio = font_size/self.line_height;
+        0.5/(ratio * self.padding)
     }
 
     #[inline]
@@ -105,6 +115,7 @@ impl StaticSdfFont {
             line_height: 0.0,
             atlas_width: 0,
             atlas_height: 0,
+            padding: 0.0,
             glyph_table: FnvHashMap::default(),
             texture: texture,
         }
@@ -139,6 +150,9 @@ impl StaticSdfFont {
         self.atlas_width = value.get_lu16(offset) as usize;
         offset += 2;
         self.atlas_height = value.get_lu16(offset) as usize;
+        offset += 2;
+        self.padding = value.get_lu16(offset) as f32;
+        println!("self.padding------------------------------{}", self.padding);
         offset += 2;
 
         //字符uv表

@@ -1,6 +1,7 @@
 use std::mem::transmute;
 
 use stdweb::unstable::TryInto;
+use stdweb::web::TypedArray;
 
 use wcs::component::{Builder};
 use wcs::world::{World};
@@ -8,11 +9,13 @@ use atom::Atom;
 
 use world_doc::WorldDocMgr;
 use world_doc::component::style::element::{ElementId, TextWriteRef};
-use world_doc::component::style::text::{TextStyleWriteRef, Shadow, TextStyle, TextStyleBuilder, ShadowBuilder, OutLine};
+use world_doc::component::style::text::{TextStyleWriteRef, Shadow, TextStyle, TextStyleBuilder, ShadowBuilder, Stroke};
 use world_doc::component::style::font::{Font, FontWriteRef};
 use text_layout::layout::{LineHeight};
 use font::font_sheet::FontSize;
 use component::math::Color as MathColor;
+use component::color::Color;
+use bind::data::to_linear_gradient_color;
 
 pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
@@ -31,6 +34,40 @@ pub fn set_letter_spacing(world: u32, node_id: u32, value: f32){
     }
     debug_println!("set_letter_spacing"); 
 }
+
+#[no_mangle]
+pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
+    debug_println!("set_text_rgba_color");
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let text_id = get_text_id(node_id, world);
+    let style_id = world.component_mgr.node.element.text._group.get(text_id).text_style;
+    if style_id == 0 {
+        let mut style = TextStyle::default();
+        style.color = Color::RGBA(MathColor::new(r, g, b, a));
+        TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr).set_text_style(style);
+    } else {
+        TextStyleWriteRef::new(style_id, world.component_mgr.node.element.text.text_style.to_usize(), &mut world.component_mgr).set_color(Color::RGBA(MathColor::new(r, g, b, a)));
+    }
+}
+
+#[no_mangle]
+pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
+    debug_println!("set_text_linear_gradient_color");
+     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let text_id = get_text_id(node_id, world);
+    let style_id = world.component_mgr.node.element.text._group.get(text_id).text_style;
+    if style_id == 0 {
+        let mut style = TextStyle::default();
+        style.color = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
+        TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr).set_text_style(style);
+    } else {
+        TextStyleWriteRef::new(style_id, world.component_mgr.node.element.text.text_style.to_usize(), &mut world.component_mgr).set_color(Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction)));
+    }
+}
+
 
 #[no_mangle]
 pub fn set_line_height_normal(world: u32, node_id: u32){
@@ -96,21 +133,21 @@ pub fn set_text_indent(world: u32, node_id: u32, value: f32){
 }
 
 #[no_mangle]
-pub fn set_out_line(world: u32, node_id: u32, thickness: f32, blur: f32, r: f32, g: f32, b: f32, a: f32){
+pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: f32, a: f32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let text_id = get_text_id(node_id, world);
     let style_id = world.component_mgr.node.element.text._group.get(text_id).text_style;
-    let out_line = OutLine {
-        thickness, blur,
+    let stroke = Stroke {
+        width,
         color: MathColor::new(r, g, b, a),
     };
     if style_id == 0 {
         let mut style = TextStyle::default();
-        style.out_line = out_line;
+        style.stroke = stroke;
         TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr).set_text_style(style);
     } else {
-        TextStyleWriteRef::new(style_id, world.component_mgr.node.element.text.text_style.to_usize(), &mut world.component_mgr).set_out_line(out_line);
+        TextStyleWriteRef::new(style_id, world.component_mgr.node.element.text.text_style.to_usize(), &mut world.component_mgr).set_stroke(stroke);
     }
     debug_println!("set_white_space"); 
 }

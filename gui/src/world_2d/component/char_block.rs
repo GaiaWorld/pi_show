@@ -53,6 +53,8 @@ pub struct CharBlock{
 
     pub line_height: f32, //设置行高
 
+    pub font_weight: f32, // 粗细
+
     pub shadow: Option<Shadow>, //设置阴影
 
     #[listen]
@@ -115,6 +117,8 @@ pub struct CharBlockEffect {
     pub indeices_len: u16,
 
     pub is_shadow: bool,
+
+    pub extend: (f32, f32),
 }
 
 #[cfg(feature = "web")]
