@@ -1,5 +1,5 @@
 **/*.rs.bk
 **/Cargo.lock
 **/target/*
-!release/gui.js
-!debug/gui.js
+!asmjs-unknown-emscripten/release/gui.js
+!asmjs-unknown-emscripten/debug/gui.js
