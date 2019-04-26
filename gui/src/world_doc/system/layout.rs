@@ -288,7 +288,7 @@ impl LayoutImpl {
         }
     }
     // 更新文字， 先删除yoga节点，再生成yoga节点并加入
-    pub fn modify_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
+    pub fn modify_text(&mut self, _mgr: &mut WorldDocMgr, _text_id: usize, _node_id: usize) {
         
     }
     // 文本布局改变
@@ -334,10 +334,10 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
     
 }
 
-pub fn create_sdf_font(texture: u32) -> Arc<SdfFont>{
-    let mut sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
-    Arc::new(sdf_font)
-}
+// pub fn create_sdf_font(texture: u32) -> Arc<SdfFont>{
+//     let sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
+//     Arc::new(sdf_font)
+// }
 
 fn add_text(
     char_slab: &mut Slab<CharImpl>,
@@ -362,7 +362,12 @@ fn add_text(
     while index > 0 && parent_yoga.get_child(index-1) != yaga {
         index-=1;
     }
-    parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
+    if text_style.white_space.allow_wrap() {
+        parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
+    }else {
+        parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
+    }
+    
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
     for cr in split(text, true, merge_whitespace) {
         match cr {

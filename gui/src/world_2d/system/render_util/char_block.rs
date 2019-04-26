@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::UnsafeTypedArray;
 
@@ -227,7 +229,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             },
             Color::LinearGradient(color) => {
                 //colorAngle
-                gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction);
+                gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction * PI / 360.0);
 
                 if defines.linear_color_gradient_2 {
                     debug_println!("linear_color_gradient_2, 0: {:?}", color.list[0]);
