@@ -13,7 +13,7 @@ use component::math::{Color as MathColor};
 use render::engine::{Engine, get_uniform_location};
 
 lazy_static! {
-    static ref EXTEND: Atom = Atom::from("extend");
+    static ref SIZE_RANGE: Atom = Atom::from("sizeRange");
     static ref STROKE_CLAMP: Atom = Atom::from("strokeClamp");
     static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
     static ref COLOR: Atom = Atom::from("color");
@@ -58,7 +58,7 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
 
     // 与宏无关的uniform
     uniform_locations.insert(ALPHA.clone(), get_uniform_location(&gl,program, &ALPHA));
-    uniform_locations.insert(EXTEND.clone(), get_uniform_location(&gl,program, &EXTEND));
+    uniform_locations.insert(SIZE_RANGE.clone(), get_uniform_location(&gl,program, &SIZE_RANGE));
     uniform_locations.insert(FONT_CLAMP.clone(), get_uniform_location(&gl,program, &FONT_CLAMP));
     uniform_locations.insert(SMOOT_HRANFE.clone(), get_uniform_location(&gl,program, &SMOOT_HRANFE));
     uniform_locations.insert(TEXTURE.clone(), get_uniform_location(&gl,program, &TEXTURE));
@@ -171,9 +171,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let arr: &[f32; 16] = char_block.world_matrix.0.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
-    //extend
-    debug_println!("charblock extend: {:?}", char_block_effect.extend);
-    gl.uniform2f(uniform_locations.get(&EXTEND), char_block_effect.extend.0, char_block_effect.extend.1);
+    // sizeRange: [xmin, xmax, ymin, ymax]
+    let size_range: [f32; 4] = [-498.49927, -314.01465, -285.48608, -282.9995];
+    debug_println!("charblock size range: {:?}", size_range);
+    gl.uniform4f(uniform_locations.get(&SIZE_RANGE), size_range[0], size_range[1], size_range[2], size_range[3]);
 
     // alpha
     debug_println!("charblock alpha: {:?}", char_block.alpha);

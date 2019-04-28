@@ -16,7 +16,8 @@ pub fn char_block_vertex_shader() -> String{
         varying vec2 vuv;
 
         void main(void) {
-            gl_Position = projection * view * world * vec4(position, 1.0);
+            vec4 p = vec4(position, 1.0);
+            gl_Position = projection * view * world * p;
             vuv = uv;
             vpos = position.xy;
         }
@@ -30,8 +31,8 @@ pub fn char_block_fragment_shader() -> String{
         // Uniforms
         uniform float fontClamp;   // 0-1的小数，超过这个值即认为有字体，默认传0.75
         uniform float smoothRange; // 0-4，越大越模糊，越小锯齿越明显，默认传1
-
-        uniform vec2 extend; // 四边形大小
+        
+        uniform vec4 sizeRange; // 四边形大小范围，(xmin, ymin, xmax, ymax)
         uniform float alpha;
         
         uniform sampler2D texture;
@@ -123,22 +124,22 @@ pub fn char_block_fragment_shader() -> String{
             return color;
         }
 
-        float getLinearPercent(vec2 coord, vec2 size, float angle) {
+        float getLinearPercent(vec2 coord, vec4 range, float angle) {
             
             vec2 dir = vec2(sin(angle), cos(angle));
 
             float dmax, dmin;
-            dmax = dmin = dot(dir, size);
+            dmax = dmin = dot(dir, range.xy);
 
-            float temp = dot(dir, vec2(size.x, -size.y));
+            float temp = dot(dir, range.zw);
             if (temp > dmax) dmax = temp;
             if (temp < dmin) dmin = temp;
             
-            temp = dot(dir, vec2(-size.x, -size.y));
+            temp = dot(dir, range.xw);
             if (temp > dmax) dmax = temp;
             if (temp < dmin) dmin = temp;
 
-            temp = dot(dir, vec2(-size.x, +size.y));
+            temp = dot(dir, range.zy);
             if (temp > dmax) dmax = temp;
             if (temp < dmin) dmin = temp;
             
@@ -170,22 +171,21 @@ pub fn char_block_fragment_shader() -> String{
             vec2 coord = vpos;
 
             vec4 c = vec4(1.0);
-            float percent;
+            float percent = 0.0;
+            
     #ifdef LINEAR_COLOR_GRADIENT_2
-            percent = getLinearPercent(coord, extend, colorAngle);
+            percent = getLinearPercent(coord, sizeRange, colorAngle);
             c = getColorByPercent2(percent, distance, color1, color2);
     #endif
     #ifdef LINEAR_COLOR_GRADIENT_4
-            percent = getLinearPercent(coord, extend, colorAngle);
+            percent = getLinearPercent(coord, sizeRange, colorAngle);
             c = getColorByPercent4(percent, distance, color1, color2, color3, color4);
     #endif
     #ifdef COLOR
             c = color;
     #endif
-            float _u = extend[0];
-            float a = _u;
             float dist = texture2D(texture, vuv).a;
-            a = smoothstep(fontClamp - smoothRange, fontClamp + smoothRange, dist);
+            float a = smoothstep(fontClamp - smoothRange, fontClamp + smoothRange, dist);
             
     #ifdef STROKE
             c = mix(strokeColor, c, a);
