@@ -391,6 +391,10 @@ impl YgNode {
     pub fn free_recursive(&self) {
         yoga::yg_node_free_recursive(self.0)
     }
+
+    pub fn reset(&self) {
+        yoga::yg_node_reset(self.0)
+    }
 }
 
 

@@ -1,13 +1,11 @@
 // 布局系统， 同时负责布局文本。
-// 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yaga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
+// 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yoga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
-// 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yaga节点来模拟。
+// 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 
 use std::cell::RefCell;
 use std::rc::{Rc};
-use std::sync::Arc;
 use std::os::raw::{c_void};
-use std::collections::hash_map::Entry;
 use std::ops::Deref;
 
 use fnv::FnvHashMap;
@@ -17,22 +15,16 @@ use wcs::world::{System};
 use wcs::component::{ComponentHandler, CreateEvent, ModifyFieldEvent, DeleteEvent};
 use atom::Atom;
 
-// use font::font_sheet::{split, SplitResult};
-use world_doc::component::style::border::Border;
-use world_doc::component::style::element::{Element, Text};
-use world_doc::component::style::text::{TextStyle, Stroke, Shadow, VerticalAlign};
+use world_doc::component::style::element::{ Text};
+use world_doc::component::style::text::{ VerticalAlign, TextStyle};
 use world_doc::component::style::font::{Font};
 use world_doc::component::style::transform::Transform;
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
-use component::math::{ Vector3, Matrix4, Color as MathColor, Point2, Vector2 };
-use component::color::{Color};
+use component::math::{ Matrix4, Point2};
 use world_2d::component::char_block::{CharBlock, Char, CharBlockWriteRef};
-use layout::{YGEdge, YGDirection, YgNode, Layout as LV, YGAlign, YGWrap};
-use font::sdf_font::{SdfFont, StaticSdfFont};
-use font::font_sheet::{get_size, get_line_height, SplitResult, split};
-use render::res::{TextureRes};
-use text_layout::layout::{TextAlign};
+use layout::{YGDirection, YgNode,  YGAlign, YGWrap};
+use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
 pub struct Layout(RefCell<LayoutImpl>);
 
@@ -102,7 +94,7 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
                         // TODO shadow
                     },
                     "font" => {
-                        let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
+                        // let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
                         //char_block.set_line_height(mgr.node.element.text._group.get(*id).line_height)
                     },
                     _ => ()
@@ -163,6 +155,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
         }
     }
 }
+
 impl System<(), WorldDocMgr> for Layout{
     fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
         let width = mgr.world_2d.component_mgr.width;
@@ -180,6 +173,8 @@ pub struct TextImpl {
   pub chars: Vec<usize>, // 字符集合, CharImpl的id
   pub rid: usize, // 渲染节点的id
 }
+
+#[derive(Default)]
 pub struct CharImpl {
   pub ch: char, // 字符, 0为容器节点
   pub width: f32, // 字符宽度
@@ -188,6 +183,7 @@ pub struct CharImpl {
   pub rid: usize, // 渲染节点的id
   pub rindex: usize, // 渲染节点的偏移量
 }
+
 pub struct LayoutImpl{
     node_map: FnvHashMap<usize,TextImpl>,
     char_slab: Slab<CharImpl>,
@@ -230,7 +226,7 @@ impl LayoutImpl {
 
         let mut vec = Vec::new();
         let node = mgr.node._group.get(node_id);
-        let yaga = node.yoga;
+        let yoga = node.yoga;
         let parent_yoga = &mgr.node._group.get(node.parent).yoga;
         let font_family = match mgr.font.get_first_font(&font.family) {
             Some(r) => r,
@@ -259,7 +255,7 @@ impl LayoutImpl {
         };
         let rid = mgr.world_2d.component_mgr.add_char_block(char_block).id;
         let mut chars = Vec::new();
-        add_text(&mut self.char_slab, mgr, &text.value, &text_style, &font, font_size, yaga.clone(), parent_yoga.clone(), rid, &mut vec, &mut chars, line_height);
+        add_text(&mut self.char_slab, mgr, &text.value, &text_style, &font, font_size, yoga.clone(), parent_yoga.clone(), rid, &mut vec, &mut chars, line_height);
         CharBlockWriteRef::new(rid, mgr.world_2d.component_mgr.char_block.to_usize(), &mut mgr.world_2d.component_mgr).set_chars(chars);
         self.node_map.insert(node_id, TextImpl {
             font_size: font_size,
@@ -271,7 +267,7 @@ impl LayoutImpl {
     pub fn delete_text(&mut self, mgr: &mut WorldDocMgr, _text_id: usize, node_id: usize) {
         match self.node_map.remove(&node_id) {
             Some(t) => {
-                // 删除所有yaga节点
+                // 删除所有yoga节点
                 for id in t.chars {
                     self.char_slab.remove(id).node.free();
                 }
@@ -282,8 +278,34 @@ impl LayoutImpl {
         }
     }
     // 更新文字， 先删除yoga节点，再生成yoga节点并加入
-    pub fn modify_text(&mut self, _mgr: &mut WorldDocMgr, _text_id: usize, _node_id: usize) {
-        
+    pub fn modify_text(&mut self, mgr: &mut WorldDocMgr, text_id: usize, node_id: usize) {
+        let text = mgr.node.element.text._group.get(text_id);
+        let font = if text.font > 0 {
+            mgr.node.element.text.font._group.get(text.font).owner.clone()
+        }else {
+            Font::default()
+        };
+        let text_style = if text.text_style > 0 {
+            mgr.node.element.text.text_style._group.get(text.text_style).owner.clone()
+        }else {
+            TextStyle::default()
+        };
+        let font_size = mgr.font.get_size(&font.family, &font.size);
+        if font_size == 0.0 {
+            debug_println!("font_size is 0");
+            return;
+        }
+        let line_height = get_line_height(font_size, &text_style.line_height);
+
+        let (parent_id, yoga) = {
+            let node = mgr.node._group.get(node_id);
+            (node.parent, node.yoga)
+        };
+        let parent_yoga = mgr.node._group.get(parent_id).yoga;
+        let text_impl = self.node_map.get_mut(&node_id).unwrap();
+        let char_block = mgr.world_2d.component_mgr.char_block._group.get_mut(text_impl.rid);
+
+        update_text(&mgr.node.element.text._group.get(text_id).value, &mut self.char_slab, &mut text_impl.chars, &mut char_block.chars, yoga, parent_yoga, text_impl.rid, &text_style, line_height, font_size, &mgr.font, &font.family);
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
@@ -325,18 +347,14 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
     
 }
 
-// pub fn create_sdf_font(texture: u32) -> Arc<SdfFont>{
-//     let sdf_font = StaticSdfFont::new(unsafe { &*(texture as usize as *const Rc<TextureRes>)}.clone());
-//     Arc::new(sdf_font)
-// }
-
 fn add_text(
     char_slab: &mut Slab<CharImpl>,
-    mgr: &WorldDocMgr, text: &String,
+    mgr: &WorldDocMgr,
+    text: &str,
     text_style: &TextStyle,
     font: &Font,
     font_size: f32,
-    yaga: YgNode,
+    yoga: YgNode,
     parent_yoga: YgNode,
     rid: usize,
     vec: &mut Vec<usize>,
@@ -345,115 +363,282 @@ fn add_text(
 ) {
     let mut word: Option<YgNode> = None;
     let mut word_index: u32 = 0;
-    let merge_whitespace = text_style.white_space.preserve_spaces();
     let letter_spacing = text_style.letter_spacing;
     let mut rindex = 1;
-    // 计算节点的yaga节点在父节点的yaga节点的位置
+    // 计算节点的yoga节点在父节点的yoga节点的位置
     let mut index = parent_yoga.get_child_count();
-    while index > 0 && parent_yoga.get_child(index-1) != yaga {
+    while index > 0 && parent_yoga.get_child(index-1) != yoga {
         index-=1;
     }
-    
+
     if text_style.white_space.allow_wrap() {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     }else {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
     
+    let text_info = TextInfo {
+        font_size,
+        family: &font.family,
+        font_sheet: &mgr.font,
+        line_height,
+        letter_spacing,
+        vertical_align: text_style.vertical_align,
+    };
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-    for cr in split(text, true, merge_whitespace) {
+    for cr in split(text, true, text_style.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
                 let yg = YgNode::default();
-                yg.set_width_percent(100.0);
-                // yg.set_width_percent(100.0);
                 // 设置成宽度100%, 高度0
+                yg.set_width_percent(100.0);
                 // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
-                vec.push(char_slab.insert(CharImpl{
-                    ch: '\n',
-                    width: 0.0,
-                    node: yg,
-                    rid: rid,
-                    rindex: 0,
-                }));
-                parent_yoga.insert_child(yg.clone(), index);
-                index+=1;
+
+                add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
             },
             SplitResult::Whitespace =>{
                 let yg = YgNode::default();
-                yg.set_width(font_size/2.0);
-                parent_yoga.insert_child(yg.clone(), index);
-                index+=1;
                 // 设置成宽度为半高, 高度0
+                yg.set_width(font_size/2.0);
+                add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
             },
             SplitResult::Word(c) =>{
-                add_char(char_slab, mgr, &font.family, font_size, c, &parent_yoga, vec, chars, rid, &mut rindex, &mut index, line_height,letter_spacing,text_style.vertical_align);
+                add_char(char_slab, vec, chars, rid, &mut rindex, &mut index, c, &parent_yoga, &text_info);
             },
             SplitResult::WordStart(c) =>{
                 word_index = 0;
                 // 设置word节点成宽高为自适应内容, 字符为0
                 let wyg = YgNode::default();
-                add_char(char_slab, mgr, &font.family, font_size, c, &wyg, vec, chars, rid, &mut rindex, &mut word_index, line_height, letter_spacing,text_style.vertical_align);
-                parent_yoga.insert_child(wyg.clone(), index);
-                index += 1;
+                wyg.set_width_auto();
+                wyg.set_height_auto();
+                add_yoga(char_slab, vec, &parent_yoga, wyg, rid, &mut index);
+                add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &wyg, &text_info);
                 word = Some(wyg);
             },
-            SplitResult::WordNext(c) => add_char(char_slab, mgr, &font.family, font_size, c, &word.unwrap(), vec, chars, rid, &mut rindex, &mut word_index, line_height, letter_spacing,text_style.vertical_align),
+            SplitResult::WordNext(c) => add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info),
             SplitResult::WordEnd(c) =>{
                 if c == char::from(0) {
                     return;
                 }
-                add_char(char_slab, mgr, &font.family, font_size, c, &word.unwrap(), vec, chars, rid, &mut rindex, &mut word_index, line_height, letter_spacing,text_style.vertical_align);
+                add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info);
                 word = None;
             },
         }
     }
 }
 
+fn update_text(
+    text: &str,
+    char_slab: &mut Slab<CharImpl>,
+    vec: &mut Vec<usize>,
+    chars: &mut Vec<Char>,
+    yoga: YgNode,
+    parent_yoga: YgNode,
+    rid: usize,
+    text_style: &TextStyle,
+    line_height: f32,
+    font_size: f32,
+    font_sheet: &FontSheet,
+    font_family: &Atom,
+) {
+    let old_len = vec.len();
+
+    for i in vec.iter() {
+        let yoga = unsafe { char_slab.get_unchecked(*i) }.node;
+        parent_yoga.remove_child(yoga);
+    }
+
+    let mut word: Option<YgNode> = None;
+    let mut word_index: u32 = 0;
+    let mut rindex = 1;
+    // 计算节点的yoga节点在父节点的yoga节点的位置
+    let mut index = parent_yoga.get_child_count();
+    while index > 0 && parent_yoga.get_child(index-1) != yoga {
+        index-=1;
+    }
+    
+    let text_info = TextInfo {
+        font_size,
+        family: &font_family,
+        font_sheet: font_sheet,
+        line_height,
+        letter_spacing: text_style.letter_spacing,
+        vertical_align: text_style.vertical_align,
+    };
+
+    let mut vec_index = 0;
+
+    // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
+    for cr in split(text, true, text_style.white_space.preserve_spaces()) {
+        let yg = get_yoga(char_slab, vec, rid: usize, &mut vec_index);
+        match cr {
+            SplitResult::Newline =>{
+                yg.set_width_percent(100.0);
+                parent_yoga.insert_child(yg, index);
+                index += 1;
+            },
+            SplitResult::Whitespace =>{
+                // 设置成宽度为半高, 高度0
+                yg.set_width(font_size/2.0);
+                parent_yoga.insert_child(yg, index);
+                index += 1;
+            },
+            SplitResult::Word(c) => update_char(char_slab, chars, rid, &mut rindex, &mut index, vec[vec_index - 1], c, &parent_yoga, &text_info),
+            SplitResult::WordStart(c) =>{
+                word_index = 0;
+                // 设置word节点成宽高为自适应内容, 字符为0
+                let wyg = get_yoga(char_slab, vec, rid, &mut vec_index);
+                wyg.set_width_auto();
+                wyg.set_height_auto();
+                parent_yoga.insert_child(wyg, index);
+                index += 1;
+
+                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 2], c, &&word.unwrap(), &text_info);
+                word = Some(wyg);
+            },
+            SplitResult::WordNext(c) => update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info),
+            SplitResult::WordEnd(c) =>{
+                if c == char::from(0) {
+                    return;
+                }
+                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &&word.unwrap(), &text_info);
+                word = None;
+            },
+        }
+
+        vec_index += 1;
+    }
+
+    //清除多余的charimpl, chars, vec
+    if vec_index < old_len {
+        let mut rindex_start = 0;
+        for i in vec_index..old_len {
+            let char_impl = char_slab.remove(i);
+            if char_impl.rindex < rindex_start {
+                rindex_start = char_impl.rindex;
+            }
+        }
+        unsafe{vec.set_len(vec_index)};
+        unsafe{chars.set_len(rindex)};
+    }
+}
+
+// 添加一个yoga节点， 仅用于正确布局， 不与任何字符对应， 如： 缩进， 换行， 单词中字符yoga的容器
+fn add_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, parent_yoga: &YgNode, yg: YgNode, rid: usize, index: &mut u32) {
+    vec.push(char_slab.insert(CharImpl{
+        ch: '\n',
+        width: 0.0,
+        node: yg,
+        rid: rid,
+        rindex: 0,
+    }));
+    parent_yoga.insert_child(yg, *index);
+    *index += 1;
+}
+
+fn get_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, rid: usize, vec_index: &mut usize) -> YgNode {
+    if *vec_index == vec.len() {
+        let yg = YgNode::default();
+        vec.push(char_slab.insert(CharImpl{
+            ch: '\n',
+            width: 0.0,
+            node: yg,
+            rid: rid,
+            rindex: 0,
+        }));
+        *vec_index += 1;
+        yg
+    }else {
+        let yg = unsafe { char_slab.get_unchecked(vec[*vec_index]).node };
+        yg.reset();
+        yg
+    }
+}
+
 fn add_char(
     char_slab: &mut Slab<CharImpl>,
-    mgr: &WorldDocMgr,
-    family: &Atom,
-    font_size: f32,
-    c: char, parent:
-    &YgNode,
     vec: &mut Vec<usize>,
     chars: &mut Vec<Char>,
     rid: usize,
     rindex: &mut usize,
     index: &mut u32,
-    line_height: f32,
-    letter_spacing: f32,
-    vertical_align: VerticalAlign,
+
+    c: char, 
+    parent: &YgNode,
+    text_info: &TextInfo,
 ){
-    let w = mgr.font.measure(family, font_size, c);
-    let yg = YgNode::default();
-    yg.set_width(w + letter_spacing);
-    yg.set_height(line_height);
-
-    match vertical_align {
-        VerticalAlign::Middle => yg.set_align_self(YGAlign::YGAlignCenter),
-        VerticalAlign::Top => yg.set_align_self(YGAlign::YGAlignFlexStart),
-        VerticalAlign::Bottom => yg.set_align_self(YGAlign::YGAlignFlexEnd),
-    };
-
-    let char_id = char_slab.insert(CharImpl{
-        ch: c,
-        width: w,
-        node: yg,
-        rid: rid,
-        rindex: *rindex,
-    });
-    yg.set_context((-(char_id as isize)) as *mut c_void);
+    let char_impl = CharImpl::default();
+    let char_id = char_slab.insert(char_impl);
     
-    // auto | flex-start | flex-end | center | baseline | stretch
-    // 设置成宽高为字符大小, 
     vec.push(char_id);
     //将Char加入vec中
     chars.push(Char{
         value: c,
         pos: Point2(cg::Point2::new(0.0, 0.0)),
     });
+
+    let char_pos_index = chars.len() - 1;
+    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[char_pos_index], char_id, rid, rindex, index, c, parent, text_info);
+}
+
+fn update_char(
+    char_slab: &mut Slab<CharImpl>,
+    chars: &mut Vec<Char>,
+    rid: usize,
+    rindex: &mut usize,
+    index: &mut u32,
+    char_id: usize,
+
+    c: char, 
+    parent: &YgNode,
+    text_info: &TextInfo,
+){
+    let char_impl = unsafe { char_slab.get_unchecked_mut(char_id)};
+    
+    if char_impl.rindex == 0 {
+        chars.push(Char{
+            value: c,
+            pos: Point2(cg::Point2::new(0.0, 0.0)),
+        });
+        char_impl.rindex = chars.len();
+    }
+
+    let char_pos_index = char_impl.rindex;
+    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[char_pos_index], char_id, rid, rindex, index, c, parent, text_info);
+}
+
+fn update_char1(
+    char_impl: &mut CharImpl,
+    char_pos: &mut Char,
+    char_id: usize, //char_impl在slab中的位置
+
+    rid: usize,
+    rindex: &mut usize,
+    index: &mut u32,
+
+    c: char, 
+    parent: &YgNode,
+    text_info: &TextInfo,
+){  
+    let w = text_info.font_sheet.measure(text_info.family, text_info.font_size, c);
+    let yg = char_impl.node;
+    yg.set_width(w + text_info.letter_spacing);
+    yg.set_height(text_info.line_height);
+
+    match text_info.vertical_align {
+        VerticalAlign::Middle => yg.set_align_self(YGAlign::YGAlignCenter),
+        VerticalAlign::Top => yg.set_align_self(YGAlign::YGAlignFlexStart),
+        VerticalAlign::Bottom => yg.set_align_self(YGAlign::YGAlignFlexEnd),
+    };
+
+    yg.set_context((-(char_id as isize)) as *mut c_void);
+    
+    char_pos.value = c;
+
+    char_impl.width = w;
+    char_impl.rid = rid;
+    char_impl.rindex = *rindex;
+
     *rindex +=1;
     parent.insert_child(yg.clone(), (*index) as u32);
     *index += 1;
@@ -473,4 +658,13 @@ fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> (Matrix4, (f32, f32), (f32, 
     };
 
     (Matrix4(parent_matrix.owner.0 * transform_m), (parent_layout.width/2.0, parent_layout.height/2.0), (parent_layout.width/2.0, parent_layout.height/2.0))
+}
+
+struct TextInfo<'a> {
+    font_size: f32,
+    family: &'a Atom,
+    font_sheet: &'a FontSheet,
+    line_height: f32,
+    letter_spacing: f32,
+    vertical_align: VerticalAlign,
 }
