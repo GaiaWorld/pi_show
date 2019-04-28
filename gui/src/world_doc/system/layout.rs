@@ -174,7 +174,7 @@ pub struct TextImpl {
   pub rid: usize, // 渲染节点的id
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct CharImpl {
   pub ch: char, // 字符, 0为容器节点
   pub width: f32, // 字符宽度
@@ -303,9 +303,13 @@ impl LayoutImpl {
         };
         let parent_yoga = mgr.node._group.get(parent_id).yoga;
         let text_impl = self.node_map.get_mut(&node_id).unwrap();
-        let char_block = mgr.world_2d.component_mgr.char_block._group.get_mut(text_impl.rid);
+        
+        {
+            let char_block = mgr.world_2d.component_mgr.char_block._group.get_mut(text_impl.rid);
+            update_text(&mgr.node.element.text._group.get(text_id).value, &mut self.char_slab, &mut text_impl.chars, &mut char_block.chars, yoga, parent_yoga, text_impl.rid, &text_style, line_height, font_size, &mgr.font, &font.family);
+        }
 
-        update_text(&mgr.node.element.text._group.get(text_id).value, &mut self.char_slab, &mut text_impl.chars, &mut char_block.chars, yoga, parent_yoga, text_impl.rid, &text_style, line_height, font_size, &mgr.font, &font.family);
+        mgr.world_2d.component_mgr.char_block._group.get_handlers().notify_modify_field(ModifyFieldEvent{id: text_impl.rid, parent: text_id, field: "chars"}, &mut mgr.world_2d.component_mgr);
     }
     // 文本布局改变
     pub fn update(&mut self, mgr: &mut WorldDocMgr, char_id: usize){
@@ -411,16 +415,13 @@ fn add_text(
                 let wyg = YgNode::default();
                 wyg.set_width_auto();
                 wyg.set_height_auto();
-                add_yoga(char_slab, vec, &parent_yoga, wyg, rid, &mut index);
                 add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &wyg, &text_info);
                 word = Some(wyg);
             },
             SplitResult::WordNext(c) => add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info),
             SplitResult::WordEnd(c) =>{
-                if c == char::from(0) {
-                    return;
-                }
                 add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info);
+                add_yoga(char_slab, vec, &parent_yoga, word.unwrap(), rid, &mut index);
                 word = None;
             },
         }
@@ -445,7 +446,7 @@ fn update_text(
 
     for i in vec.iter() {
         let yoga = unsafe { char_slab.get_unchecked(*i) }.node;
-        parent_yoga.remove_child(yoga);
+        yoga.get_parent().remove_child(yoga);
     }
 
     let mut word: Option<YgNode> = None;
@@ -490,36 +491,27 @@ fn update_text(
                 let wyg = get_yoga(char_slab, vec, rid, &mut vec_index);
                 wyg.set_width_auto();
                 wyg.set_height_auto();
-                parent_yoga.insert_child(wyg, index);
                 index += 1;
 
-                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 2], c, &&word.unwrap(), &text_info);
+                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 2], c, &word.unwrap(), &text_info);
                 word = Some(wyg);
             },
             SplitResult::WordNext(c) => update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info),
             SplitResult::WordEnd(c) =>{
-                if c == char::from(0) {
-                    return;
-                }
-                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &&word.unwrap(), &text_info);
+                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info);
+                parent_yoga.insert_child(word.unwrap(), index);
                 word = None;
             },
         }
-
-        vec_index += 1;
     }
 
     //清除多余的charimpl, chars, vec
     if vec_index < old_len {
-        let mut rindex_start = 0;
         for i in vec_index..old_len {
-            let char_impl = char_slab.remove(i);
-            if char_impl.rindex < rindex_start {
-                rindex_start = char_impl.rindex;
-            }
+            char_slab.remove(vec[i]);
         }
         unsafe{vec.set_len(vec_index)};
-        unsafe{chars.set_len(rindex)};
+        unsafe{chars.set_len(rindex - 1)};
     }
 }
 
@@ -537,7 +529,7 @@ fn add_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, parent_yoga: &
 }
 
 fn get_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, rid: usize, vec_index: &mut usize) -> YgNode {
-    if *vec_index == vec.len() {
+    let yg = if *vec_index == vec.len() {
         let yg = YgNode::default();
         vec.push(char_slab.insert(CharImpl{
             ch: '\n',
@@ -546,13 +538,14 @@ fn get_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, rid: usize, ve
             rid: rid,
             rindex: 0,
         }));
-        *vec_index += 1;
         yg
     }else {
         let yg = unsafe { char_slab.get_unchecked(vec[*vec_index]).node };
         yg.reset();
         yg
-    }
+    };
+    *vec_index += 1;
+    yg
 }
 
 fn add_char(
@@ -577,8 +570,7 @@ fn add_char(
         pos: Point2(cg::Point2::new(0.0, 0.0)),
     });
 
-    let char_pos_index = chars.len() - 1;
-    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[char_pos_index], char_id, rid, rindex, index, c, parent, text_info);
+    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[*rindex - 1], char_id, rid, rindex, index, c, parent, text_info);
 }
 
 fn update_char(
@@ -600,11 +592,10 @@ fn update_char(
             value: c,
             pos: Point2(cg::Point2::new(0.0, 0.0)),
         });
-        char_impl.rindex = chars.len();
+        char_impl.rindex = *rindex;
     }
 
-    let char_pos_index = char_impl.rindex;
-    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[char_pos_index], char_id, rid, rindex, index, c, parent, text_info);
+    update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[*rindex - 1], char_id, rid, rindex, index, c, parent, text_info);
 }
 
 fn update_char1(

@@ -118,7 +118,7 @@ pub struct CharBlockEffect {
 
     pub is_shadow: bool,
 
-    pub extend: (f32, f32),
+    pub size_range: [f32; 4],
 }
 
 #[cfg(feature = "web")]

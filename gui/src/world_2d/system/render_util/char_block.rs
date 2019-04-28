@@ -1,4 +1,5 @@
 use std::f32::consts::PI;
+use std::f32::{MAX as FMAX, MIN as FMIN};
 
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::UnsafeTypedArray;
@@ -172,9 +173,9 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
     // sizeRange: [xmin, xmax, ymin, ymax]
-    let size_range: [f32; 4] = [-498.49927, -314.01465, -285.48608, -282.9995];
-    debug_println!("charblock size range: {:?}", size_range);
-    gl.uniform4f(uniform_locations.get(&SIZE_RANGE), size_range[0], size_range[1], size_range[2], size_range[3]);
+    // let size_range: [f32; 4] = [-498.49927, -314.01465, -285.48608, -282.9995];
+    debug_println!("charblock size range: {:?}", char_block_effect.size_range);
+    gl.uniform4f(uniform_locations.get(&SIZE_RANGE), char_block_effect.size_range[0], char_block_effect.size_range[1], char_block_effect.size_range[2], char_block_effect.size_range[3]);
 
     // alpha
     debug_println!("charblock alpha: {:?}", char_block.alpha);
@@ -230,6 +231,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             },
             Color::LinearGradient(color) => {
                 //colorAngle
+                debug_println!("linear_color_gradient, direction: {:?}, {}, {}",  color.direction, PI, color.direction * PI / 360.0);
                 gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction * PI / 360.0);
 
                 if defines.linear_color_gradient_2 {
@@ -341,9 +343,9 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
             Some(r) => r,
             None => panic!("xxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
         };
+        let mut size_range = [FMAX, FMAX, FMIN, FMIN];
         let mut left_top = (char_block.chars[0].pos.x, char_block.chars[0].pos.y);
         let mut right_bottom = (char_block.chars[0].pos.x + glyph.adv, char_block.chars[0].pos.y + char_block.font_size);
-        println!("extend111-----------------------{:?}, {}, {}, {}", left_top.0,  left_top.1, right_bottom.0, right_bottom.1);
         for c in char_block.chars.iter() {
             let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
                 Some(r) => r,
@@ -363,7 +365,6 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
             if c.pos[1] + char_block.font_size > right_bottom.1 {
                 right_bottom.1 = c.pos[1] + char_block.font_size;
             }
-            println!("extend222-----------------------{:?}, {}, {}, {}", left_top.0,  left_top.1, right_bottom.0, right_bottom.1);
 
             // let pos = &c.pos;
             let pos = (c.pos.x - offset.0, c.pos.y - offset.1);
@@ -372,13 +373,17 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
             
 
             let max_y = pos.1 + char_block.font_size - glyph.oy;
-            println!("char_block.font_size: {}, glyph.oy: {}", char_block.font_size, glyph.oy);
-            positions.extend_from_slice(&[
+            let ps = [
                 pos.0 + glyph.ox,                max_y,                 char_block.z_depth,
                 pos.0 + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
                 glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
                 glyph.width + pos.0 + glyph.ox,  max_y,                 char_block.z_depth,
-            ]);
+            ];
+            positions.extend_from_slice(&ps);
+            size_range[0] = ps[0].min(size_range[0]);
+            size_range[1] = ps[1].min(size_range[1]);
+            size_range[2] = ps[6].max(size_range[2]);
+            size_range[3] = ps[7].max(size_range[3]);
 
             let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
             uvs.extend_from_slice(&[
@@ -393,9 +398,7 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
         }
 
         char_block_effect.indeices_len = indeices.len() as u16;
-        char_block_effect.extend = ((right_bottom.0 - left_top.0)/2.0, (right_bottom.1 - left_top.1)/2.0);
-        println!("extend-----------------------{:?}, {}", right_bottom.0 - left_top.0, right_bottom.1 - left_top.1);
-        println!("extend1-----------------------{:?}, {}, {}, {}", right_bottom.0, left_top.0, right_bottom.1, left_top.1);
+        char_block_effect.size_range = size_range;
     }
 
     Attribute {

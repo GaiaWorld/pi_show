@@ -23,13 +23,13 @@ impl CharBlockSys {
         component_mgr.char_block.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
         component_mgr.char_block.alpha.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
         component_mgr.char_block.color.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
+        component_mgr.char_block._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr>>)));
         r
     }
 }
  
 impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
     fn handle(&self, event: &CreateEvent, component_mgr: &mut World2dMgr){
-        println!("create charblock");
         let CreateEvent{id, parent:_} = event;
         let mut borrow_mut = self.0.borrow_mut();
 
@@ -56,7 +56,6 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
         
         match component_mgr.char_block._group.get(*id).shadow.clone() {
             Some(shadow) => {
-                println!("shadow--------------------------------------");
                 
                 let defines = CharBlockDefines::default();
                 let effect_id = create_effect(*id, component_mgr, defines, shadow.blur * 0.1, true);
@@ -80,12 +79,14 @@ impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for CharBlockSys{
         let DeleteEvent{id, parent:_} = event;
         let mut borrow_mut =  self.0.borrow_mut();
         let effect_id = unsafe { borrow_mut.char_block_effect_map.remove_unchecked(*id) };
-        let char_block_effect = component_mgr.char_block_effect._group.remove(effect_id);
+        {
+            let char_block_effect = component_mgr.char_block_effect._group.get(effect_id);
 
-        // 删除顶点buffer. uvbuffer 和索引buffer
-        component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.positions_buffer));
-        component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.uvs_buffer));
-        component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.indeices_buffer));
+            // 删除顶点buffer. uvbuffer 和索引buffer
+            component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.positions_buffer));
+            component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.uvs_buffer));
+            component_mgr.engine.gl.delete_buffer(Some(&char_block_effect.indeices_buffer));
+        }
 
         //删除脏标记
         borrow_mut.program_dirty.delete_dirty(*id);
@@ -93,28 +94,30 @@ impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for CharBlockSys{
 
         match borrow_mut.char_block_shadow_effect_map.remove(*id) {
             Some(shadow_effect_id) => {
-                let char_block_shadow_effect = component_mgr.char_block_effect._group.remove(shadow_effect_id);
-                // 删除顶点buffer. uvbuffer 和索引buffer
-                component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.positions_buffer));
-                component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.uvs_buffer));
-                component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.indeices_buffer));
+                {
+                    let char_block_shadow_effect = component_mgr.char_block_effect._group.get(shadow_effect_id);
+                    // 删除顶点buffer. uvbuffer 和索引buffer
+                    component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.positions_buffer));
+                    component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.uvs_buffer));
+                    component_mgr.engine.gl.delete_buffer(Some(&char_block_shadow_effect.indeices_buffer));
 
-                //删除shadow脏标记
-                borrow_mut.shadow_program_dirty.delete_dirty(*id);
-                borrow_mut.shadow_buffer_dirty.delete_dirty(*id);
+                    //删除shadow脏标记
+                    borrow_mut.shadow_program_dirty.delete_dirty(*id);
+                    borrow_mut.shadow_buffer_dirty.delete_dirty(*id);
+                    CharBlockEffectWriteRef::new(shadow_effect_id, component_mgr.char_block_effect.to_usize(), component_mgr).destroy();
+                }
             }, 
             None => (),
         }
 
         // 发出销毁事件
-        CharBlockEffectWriteRef::new(*id, component_mgr.char_block_effect.to_usize(), component_mgr).destroy();
+        CharBlockEffectWriteRef::new(effect_id, component_mgr.char_block_effect.to_usize(), component_mgr).destroy();
     }
 }
 
 impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for CharBlockSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut World2dMgr) {
         let ModifyFieldEvent { id, parent: _, field } = event;
-
         if *field == "by_overflow" {
             let effect_id = *unsafe { self.0.borrow_mut().char_block_effect_map.get_unchecked(*id) };
             self.0.borrow_mut().program_dirty.marked_dirty(effect_id);
@@ -204,6 +207,19 @@ impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for CharBlockSys 
                     }
                 },
             }
+        } else if *field == "chars" {
+            let mut borrow_mut = self.0.borrow_mut();
+            let effect_id = *unsafe { borrow_mut.char_block_effect_map.get_unchecked(*id) };
+            borrow_mut.buffer_dirty.marked_dirty(effect_id);
+
+            let char_block = component_mgr.char_block._group.get(*id);
+            match &char_block.shadow {
+                Some(_) => {
+                    let effect_id = *unsafe { borrow_mut.char_block_shadow_effect_map.get_unchecked(*id) };
+                    borrow_mut.shadow_buffer_dirty.marked_dirty(effect_id);
+                },
+                None => ()  
+            }
         }
     }
 }
@@ -211,7 +227,6 @@ impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for CharBlockSys 
 impl System<(), World2dMgr> for CharBlockSys{
     fn run(&self, _e: &(), component_mgr: &mut World2dMgr){
         let mut borrow_mut = self.0.borrow_mut();
-        println!("charblock run-----------------------------");
         borrow_mut.update_program(component_mgr);
         borrow_mut.update_buffer(component_mgr);
     }   
@@ -280,7 +295,7 @@ fn create_effect(parent: usize, component_mgr: &mut World2dMgr, defines: CharBlo
         buffer_dirty: true,
         indeices_len: 0,
         is_shadow: is_shadow,
-        extend: (0.0, 0.0),
+        size_range: [0.0, 0.0, 0.0, 0.0],
     };
     
     let mut effect = component_mgr.add_char_block_effect(char_block_effect);

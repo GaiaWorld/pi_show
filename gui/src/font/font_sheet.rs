@@ -193,19 +193,21 @@ impl<'a> Iterator for SplitChar<'a> {
                     Some(SplitResult::Word(c))
                 }else {
                     self.type_id = get_type_id(c, char::from(0));
+                    self.last = self.iter.next();
                     if self.type_id == 0 {
-                        self.last = self.iter.next();
+                        Some(SplitResult::Word(c))
+                    }else if self.last == None {
                         Some(SplitResult::Word(c))
                     }else{
                         Some(SplitResult::WordStart(c))
                     }
                 }
             },
-            Some(old_c) => {
+            Some(c) => {
                 self.last = self.iter.next();
                 match self.last {
-                    Some(c) => {
-                         let id = get_type_id(c, old_c);
+                    Some(next_c) => {
+                         let id = get_type_id(next_c, c);
                         if id == self.type_id {
                             Some(SplitResult::WordNext(c))
                         }else{
@@ -213,7 +215,7 @@ impl<'a> Iterator for SplitChar<'a> {
                             Some(SplitResult::WordEnd(c))
                         }
                     },
-                    _ => Some(SplitResult::WordEnd(char::from(0)))
+                    _ => Some(SplitResult::WordEnd(c))
                 }
                
             },
