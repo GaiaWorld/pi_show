@@ -58,7 +58,6 @@ impl Layout {
 impl ComponentHandler<Text, CreateEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &CreateEvent, mgr: &mut WorldDocMgr){
         let CreateEvent {id, parent} = event;
-        println!("create text-----------------------------");
         self.0.borrow_mut().create_text(mgr, *id, *parent);
     }
 }
@@ -73,7 +72,6 @@ impl ComponentHandler<Text, DeleteEvent, WorldDocMgr> for Layout{
 impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
         let ModifyFieldEvent {id, parent, field} = event;
-        println!("modify text-----------------------------");
         //self.0.borrow_mut().modify_text(mgr, *id, *parent);
         // 其他要判断样式是否影响布局
         let mut sys = self.0.borrow_mut();
@@ -119,7 +117,6 @@ impl ComponentHandler<Text, ModifyFieldEvent, WorldDocMgr> for Layout{
 impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
         let ModifyFieldEvent {id: _, parent, field: _} = event;
-        println!("modify Matrix4-----------------------------");
         match self.0.borrow_mut().node_map.get(parent) {
             Some(text) => {
                 let r = matrix_info(*parent, mgr);
@@ -140,7 +137,6 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
 impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
     fn handle(&self, event: &ModifyFieldEvent, mgr: &mut WorldDocMgr){
         let ModifyFieldEvent {id, parent:_, field} = event;
-        println!("modify Node-----------------------------");
         match self.0.borrow_mut().node_map.get(id) {
             Some(text) => {
                 match *field {
@@ -169,13 +165,11 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
 }
 impl System<(), WorldDocMgr> for Layout{
     fn run(&self, _e: &(), mgr: &mut WorldDocMgr){
-        println!(" Layout run------------------------------");
         let width = mgr.world_2d.component_mgr.width;
         let height = mgr.world_2d.component_mgr.height;
         let mut layout_impl = self.0.borrow_mut();
         layout_impl.mgr= mgr as *mut WorldDocMgr;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-        println!(" Layout run1------------------------------");
         mgr.node._group.get(mgr.get_root_id()).yoga.calculate_layout_by_callback(width, height, YGDirection::YGDirectionLTR, callback, layout_impl.deref() as *const LayoutImpl as *const c_void);
     }
 }
@@ -298,7 +292,6 @@ impl LayoutImpl {
             return;
         }
         let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(text.rid);
-        println!("text.rid-----------------------------------rid:{}, rindex:{}", text.rid, text.rindex);
         let ch = unsafe {rnode.chars.get_unchecked_mut(text.rindex-1)};
         let layout = text.node.get_layout();
         ch.pos.x = layout.left;
@@ -320,7 +313,6 @@ fn update(mgr: &mut WorldDocMgr, node_id: usize) {
 
 //回调函数
 extern "C" fn callback(callback_context: *const c_void, context: *const c_void) {
-    println!(" callback start------------------------------");
     //更新布局
     let node_id = context as isize;
     let layout_impl = unsafe{ &mut *(callback_context as usize as *mut LayoutImpl) };
@@ -328,7 +320,6 @@ extern "C" fn callback(callback_context: *const c_void, context: *const c_void) 
     if node_id > 0 {
         update(mgr, node_id as usize);
     }else if node_id < 0 {
-        println!(" callback end------------------------------:{}", node_id);
         layout_impl.update(mgr, (-node_id) as usize);
     }
     
@@ -362,6 +353,7 @@ fn add_text(
     while index > 0 && parent_yoga.get_child(index-1) != yaga {
         index-=1;
     }
+    
     if text_style.white_space.allow_wrap() {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     }else {
@@ -436,7 +428,6 @@ fn add_char(
 ){
     let w = mgr.font.measure(family, font_size, c);
     let yg = YgNode::default();
-    println!("letter_spacing------------------{}", letter_spacing);
     yg.set_width(w + letter_spacing);
     yg.set_height(line_height);
 
