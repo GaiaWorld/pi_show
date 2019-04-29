@@ -419,8 +419,7 @@ fn add_text(
                 word = Some(wyg);
             },
             SplitResult::WordNext(c) => add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info),
-            SplitResult::WordEnd(c) =>{
-                add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info);
+            SplitResult::WordEnd =>{
                 add_yoga(char_slab, vec, &parent_yoga, word.unwrap(), rid, &mut index);
                 word = None;
             },
@@ -497,8 +496,7 @@ fn update_text(
                 word = Some(wyg);
             },
             SplitResult::WordNext(c) => update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info),
-            SplitResult::WordEnd(c) =>{
-                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info);
+            SplitResult::WordEnd =>{
                 parent_yoga.insert_child(word.unwrap(), index);
                 word = None;
             },

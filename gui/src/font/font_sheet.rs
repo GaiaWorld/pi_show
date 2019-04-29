@@ -154,7 +154,7 @@ pub enum SplitResult {
     Word(char), // 单字词
     WordStart(char), // 单词开始, 连续的字母或数字(必须字符的type_id相同)组成的单词
     WordNext(char), // 单词字符继续
-    WordEnd(char), // 单词字符结束
+    WordEnd, // 单词字符结束
 }
 // 劈分字符迭代器
 pub struct SplitChar<'a> {
@@ -193,29 +193,28 @@ impl<'a> Iterator for SplitChar<'a> {
                     Some(SplitResult::Word(c))
                 }else {
                     self.type_id = get_type_id(c, char::from(0));
-                    self.last = self.iter.next();
                     if self.type_id == 0 {
-                        Some(SplitResult::Word(c))
-                    }else if self.last == None {
+                        self.last = self.iter.next();
                         Some(SplitResult::Word(c))
                     }else{
+                        // 如果是单词开始，不读取下个字符，因为需要保留当前字符做是否为单词的判断
                         Some(SplitResult::WordStart(c))
                     }
                 }
             },
-            Some(c) => {
+            Some(old_c) => {
                 self.last = self.iter.next();
                 match self.last {
-                    Some(next_c) => {
-                         let id = get_type_id(next_c, c);
+                    Some(c) => {
+                        let id = get_type_id(c, old_c);
                         if id == self.type_id {
                             Some(SplitResult::WordNext(c))
                         }else{
                             self.type_id = 0;
-                            Some(SplitResult::WordEnd(c))
+                            Some(SplitResult::WordEnd)
                         }
                     },
-                    _ => Some(SplitResult::WordEnd(c))
+                    _ => Some(SplitResult::WordEnd)
                 }
                
             },
