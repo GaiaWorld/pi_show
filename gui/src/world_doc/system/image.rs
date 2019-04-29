@@ -80,11 +80,13 @@ impl ComponentHandler<Image, DeleteEvent, WorldDocMgr> for ImageSys {
 impl ComponentHandler<Image, ModifyFieldEvent, WorldDocMgr> for ImageSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
         let ModifyFieldEvent { id, parent: _, field: _} = event;
+        println!("Image----------------------------------------");
         let borrow = self.0.borrow();
         let image2d_id = *unsafe { borrow.image_image2d_map.get_unchecked(*id)};
         let src = component_mgr.node.element.image._group.get(*id).src;
         let texture = usize_to_textrue(src);
 
+        println!("Image modify----------------------------------------");
         component_mgr.world_2d.component_mgr.get_image_mut(image2d_id).set_src(texture);
     }
 }

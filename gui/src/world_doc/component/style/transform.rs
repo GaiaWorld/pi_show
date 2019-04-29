@@ -1,130 +1,68 @@
 use std::ops::{Deref};
 
-use cg::{Euler, Deg, Quaternion};
 use wcs::component::{ComponentGroup, ComponentGroupTree, ModifyFieldEvent, CreateEvent, DeleteEvent, Builder};
 use wcs::world::{ComponentMgr};
 
-use component::math::{Scale, Vector3};
+use component::math::Point2;
 
+#[derive(Debug, Clone)]
+pub enum TransformFunc {
+    TranslateX(f32),
+    TranslateY(f32),
+    Translate(f32, f32),
 
-#[allow(unused_attributes)]
-#[derive(Debug, Clone, Copy, Component, Builder, Default)]
-pub struct Transform {
-    #[builder(export)]
-    pub scale: Scale,
-    #[builder(export)]
-    pub position: Vector3,
-    #[builder(export)]
-    pub rotation: f32,
+    //平移， 单位： %
+    TranslateXPercent(f32),
+    TranslateYPercent(f32),
+    TranslatePercent(f32, f32),
+
+    ScaleX(f32),
+    ScaleY(f32),
+    Scale(f32, f32),
+
+    RotateZ(f32),
 }
 
-/// `Transform` is used to store and manipulate the postiion, rotation and scale
-/// of the object. We use a left handed, y-up world coordinate system.
+// pub enum TransformOrigin{
 
-// impl ::std::ops::Mul for Transform {
-//     type Output = Self;
-
-//     fn mul(self, rhs: Self) -> Self {
-//         Transform {
-//             position: self.rotation * (rhs.position * self.scale) + self.position,
-//             rotation: self.rotation * rhs.rotation,
-//             scale: self.scale * rhs.scale,
-//         }
-//     }
 // }
+
+#[allow(unused_attributes)]
+#[derive(Debug, Clone, Component, Builder, Default)]
+pub struct Transform {
+    pub funcs: Vec<TransformFunc>,
+    pub origin: Point2,
+}
  
 impl Transform {
-    /// Returns a transform that "un-does" this one.
-    // #[inline]
-    // pub fn inverse(self) -> Option<Self> {
-    //     if self.scale <= ::std::f32::EPSILON {
-    //         None
-    //     } else {
-    //         let s = 1.0 / self.scale;
-    //         let r = self.rotation.invert();
-    //         let d = r.rotate_vector(self.position) * -s;
 
-    //         Some(Transform {
-    //             scale: s,
-    //             rotation: r,
-    //             position: d,
-    //         })
-    //     }
-    // }
-
-    /// Transforms direction from local space to transform's space.
-    ///
-    /// This operation is not affected by scale or position of the transform. The returned
-    /// vector has the same length as direction.
-    #[inline]
-    pub fn transform_direction<T>(&self, v: T) -> cg::Vector3<f32>
-    where
-        T: Into<cg::Vector3<f32>>,
-    {
-        let e = Euler {
-            x: Deg(0.0),
-            y: Deg(0.0),
-            z: Deg(self.rotation),
-        };
-        let q = Quaternion::from(e);
-        (q) * v.into()
-    }
-
-    /// Transforms vector from local space to transform's space.
-    ///
-    /// This operation is not affected by position of the transform, but is is affected by scale.
-    /// The returned vector may have a different length than vector.
-    // #[inline]
-    // pub fn transform_vector<T>(&self, v: T) -> cg::Vector3<f32>
-    // where
-    //     T: Into<cg::Vector3<f32>>,
-    // {
-    //     self.rotation * (v.into() * self.scale)
-    // }
-
-    // /// Transforms points from local space to transform's space.
-    // #[inline]
-    // pub fn transform_point<T>(&self, v: T) -> cg::Vector3<f32>
-    // where
-    //     T: Into<cg::Vector3<f32>>,
-    // {
-    //     self.rotation * (v.into() * self.scale) + self.position
-    // }
-
-    /// Returns the up direction in transform's space, which is looking down the positive y-axis.
-    #[inline]
-    pub fn up(&self) -> cg::Vector3<f32> {
-        self.transform_direction(cg::Vector3::new(0.0, 1.0, 0.0))
-    }
-
-    /// Returns the forward direction in transform's space, which is looking down the positive z-axis.
-    #[inline]
-    pub fn forward(&self) -> cg::Vector3<f32> {
-        self.transform_direction(cg::Vector3::new(0.0, 0.0, 1.0))
-    }
-
-    /// Returns the right direction in transform's space, which is looking down the positive x-axis.
-    #[inline]
-    pub fn right(&self) -> cg::Vector3<f32> {
-        self.transform_direction(cg::Vector3::new(1.0, 0.0, 0.0))
-    }
-
-    // // Returns the view matrix from world space to view space.
-    // #[inline]
-    // pub fn view_matrix(&self) -> cg::Matrix4<f32> {
-    //     // M = ( T * R ) ^ -1
-    //     let it = cg::Matrix4::from_translation(-*self.position);
-    //     let ir = cg::Matrix4::from(*self.quaternion).transpose();
-    //     ir * it
-    // }
-
-    /// Returns the matrix representation.
-    #[inline]
-    pub fn matrix(&self) -> cg::Matrix4<f32> {
+    pub fn matrix(&self, percent_base: cg::Vector4<f32>) -> cg::Matrix4<f32> {
         // M = T * R * S
-        let t: cg::Matrix4<f32> =  cg::Matrix4::from_translation(*self.position);
-        let r: cg::Matrix4<f32> = cg::Matrix4::from_angle_z(cg::Deg(self.rotation));
-        let s: cg::Matrix4<f32> = cg::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z);
-        t * r * s
+        let mut m = cg::Matrix4::new(
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        );
+        println!("percent_base: {:?}", percent_base);
+
+        for func in self.funcs.iter() {
+            match func {
+                TransformFunc::TranslateX(x) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x, 0.0, 0.0)),
+                TransformFunc::TranslateY(y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(0.0, *y, 0.0)),
+                TransformFunc::Translate(x, y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x, *y, 0.0)),
+
+                TransformFunc::TranslateXPercent(x) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x * percent_base.x / 100.0, 0.0, 0.0)),
+                TransformFunc::TranslateYPercent(y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(0.0, *y * percent_base.y / 100.0, 0.0)),
+                TransformFunc::TranslatePercent(x, y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x * percent_base.x / 100.0, *y * percent_base.y / 100.0, 0.0)),
+
+                TransformFunc::ScaleX(x) => m = m * cg::Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
+                TransformFunc::ScaleY(y) => m = m * cg::Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
+                TransformFunc::Scale(x, y) => m = m * cg::Matrix4::from_nonuniform_scale(*x, *y, 1.0),
+
+                TransformFunc::RotateZ(z) => m = m * cg::Matrix4::from_angle_z(cg::Deg(*z)),
+            }
+        }
+        m
     }
 }

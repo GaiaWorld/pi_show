@@ -130,11 +130,8 @@ pub fn set_src(world: u32, node_id: u32, opacity: u8, compress: u8){
               image.src = texture as usize;
               node_ref.set_element(Element::Image(image));
             } else {
-              let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-              image_ref.modify(|image: &mut Image| {
-                  image.src = texture as usize;
-                  true
-              });
+              let mut image_ref = ImageWriteRef::new(image_id, world.component_mgr.node.element.image.to_usize(), &mut world.component_mgr);
+              image_ref.set_src(texture as usize);
             }
         },
         _ => println!("it's not image, node_id: {}", node_id),

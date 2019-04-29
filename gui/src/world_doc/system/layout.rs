@@ -18,7 +18,6 @@ use atom::Atom;
 use world_doc::component::style::element::{ Text};
 use world_doc::component::style::text::{ VerticalAlign, TextStyle};
 use world_doc::component::style::font::{Font};
-use world_doc::component::style::transform::Transform;
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use component::math::{ Matrix4, Point2};
@@ -637,8 +636,8 @@ fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> (Matrix4, (f32, f32), (f32, 
     let (parent, transform_m) = {
         let node = mgr.node._group.get(parent);
         (node.parent, match node.transform == 0 {
-            true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
-            false => mgr.node.transform._group.get(node.transform).matrix(),
+            true => Matrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
+            false => mgr.node.transform._group.get(node.transform).matrix(cg::Vector4::new(node.layout.width, node.layout.height, 0.0, 0.0)),
         })
     };
     let (parent_layout, parent_matrix) = {

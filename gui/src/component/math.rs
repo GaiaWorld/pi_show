@@ -220,10 +220,18 @@ impl DerefMut for Matrix4{
 
 impl Default for Matrix4{
     fn default() -> Matrix4{
-        let t: cg::Matrix4<f32> =  cg::Matrix4::from_translation(cg::Vector3::new(0.0, 0.0, 0.0));
-        let r: cg::Matrix4<f32> = cg::Euler::new(cg::Rad::zero(), cg::Rad::zero(), cg::Rad::zero()).into();
-        let s: cg::Matrix4<f32> = cg::Matrix4::from_scale(1.0);
-        Matrix4(t * r * s)
+        Matrix4(
+            cg::Matrix4::new(
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0,
+            )
+        )
+        // let t: cg::Matrix4<f32> =  cg::Matrix4::from_translation(cg::Vector3::new(0.0, 0.0, 0.0));
+        // let r: cg::Matrix4<f32> = cg::Euler::new(cg::Rad::zero(), cg::Rad::zero(), cg::Rad::zero()).into();
+        // let s: cg::Matrix4<f32> = cg::Matrix4::from_scale(1.0);
+        // Matrix4(t * r * s)
     }
 }
 

@@ -118,14 +118,18 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
         };
         
+        let mut matrix = cg::Matrix4::from_translation(center.clone()); // center_matrix
+        if transform_id != 0 {
+            matrix = matrix * component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0));
+        }
+        (matrix, parent)
+        // let transform = match transform_id == 0 {
+        //     true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
+        //     false => component_mgr.node.transform._group.get(transform_id).matrix(),
+        // };
 
-        let transform = match transform_id == 0 {
-            true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
-            false => component_mgr.node.transform._group.get(transform_id).matrix(),
-        };
-
-        let center_matrix = cg::Matrix4::from_translation(center.clone());
-        (center_matrix * transform, parent)
+        
+        // (center_matrix * transform, parent)
     };
 
     if parent_id != 0 {

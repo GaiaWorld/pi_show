@@ -10,7 +10,6 @@ use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4
 use component::color::Color;
 use world_doc::component::node::{Node};
 use world_doc::component::style::generic::{ Decorate, BoxShadow };
-use world_doc::component::style::transform::Transform;
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf, SdfWriteRef };
@@ -608,8 +607,8 @@ fn cal_shadow_matrix(node_id: usize, shadow_id: usize, component_mgr: &mut World
         };
 
         let transform = match transform_id == 0 {
-            true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
-            false => component_mgr.node.transform._group.get(transform_id).matrix(),
+            true => MathMatrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
+            false => component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0)),
         };
 
         let shadow_offset = {

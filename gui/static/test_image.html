@@ -51,18 +51,26 @@
         var image = new Image();
 
         image.onload = () => {
-            // var texture = gl.createTexture();
-            // gl.bindTexture(gl.TEXTURE_2D, texture);
-            // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             window.__jsObj = image;
-            
-            Module._set_src(gui, image_node, "./20190422165842.jpg", 0, 0);
+            window.__jsObj1 = "./20190422165842.jpg";
+            Module._set_src(gui, image_node, 0, 0);
             // Module._set_width(gui, image_node, 100);
             // Module._set_height(gui, image_node, 100);
 
             Module._run(gui);
+            
+            //修改图片
+            setTimeout(() => {
+                var image = new Image();
+                window.__jsObj1 = "./test_image.jpg";
+                image.onload = () => {
+                    window.__jsObj = image;
+                    window.__jsObj = image;                
+                    Module._set_src(gui, image_node, 0, 0);
+                    Module._run(gui);
+                };
+                image.src = "./test_image.jpg";
+            }, 2000);
         };
         image.src = "./20190422165842.jpg";
 

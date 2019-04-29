@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script>
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+    </script>
+    
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script>
+        var gl = document.getElementById("canvas").getContext('webgl');
+        window.__gl = gl;
+
+        var engine = Module._create_engine();
+        var gui = Module._create_gui(engine, 1000, 700);
+
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, 1, node2);
+        Module._set_width(gui, node2, 200.0);
+        Module._set_height(gui, node2, 100.0);
+        Module._set_backgroud_rgba_color(gui, node2, 1.0, 0.0, 0.0, 0.5);
+        Module._run(gui);
+
+        setTimeout(() => {
+
+            Module._transform_rotate(gui, node2, 45);
+            Module._run(gui);
+
+            setTimeout(() => {
+                Module._transform_scale(gui, node2, 0.5, 0.5);
+                Module._run(gui);
+
+                setTimeout(() => {
+                    Module._transform_translate_x(gui, node2, 100);
+                    Module._run(gui);
+
+                    setTimeout(() => {
+                        Module._transform_translate_x_percent(gui, node2, 100);
+                        Module._run(gui);
+                    }, 2000);
+
+                }, 2000);
+
+            }, 2000);
+
+        }, 2000);
+
+
+        // var node3 = Module._create_node(gui);
+        // Module._append_child(gui, node2, node3);
+        // Module._set_width(gui, node3, 200.0);
+        // Module._set_height(gui, node3, 100.0);
+        // Module._set_backgroud_rgba_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
+        // Module._transform_translate_x(gui, node3, 100);
+
+        
+    </script>
+</body>
+</html>
