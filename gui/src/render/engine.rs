@@ -46,7 +46,6 @@ impl Engine {
     }
 
     pub fn create_program<C: Hash + AsRef<str>, D: Hash + AsRef<str>>(&mut self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<u64, String>{
-        println!("engine create_program----------------------------");
         let mut hasher = DefaultHasher::new();
         vertex_code.hash(&mut hasher);
         fragment_code.hash(&mut hasher);
@@ -57,7 +56,6 @@ impl Engine {
         match self.compiled_programs.get(&hash) {
             Some(_) => Ok(hash),
             None => {
-                // println!("defines12----------------------------{}", hash);
                 let shader_program = self.create_shader_program(vertex_code, fragment_code, defines)?;
                 let program = Program{
                     program: shader_program,
@@ -71,7 +69,6 @@ impl Engine {
     }
 
     pub fn create_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<WebGLProgram, String> {
-        println!("engine create_shader_program----------------------------");
         let vertex_shader = self.compile_shader(vertex_code, ShaderType::Vertex, defines)?;
         let fragment_shader = self.compile_shader(fragment_code, ShaderType::Fragment, defines)?;
 
@@ -92,33 +89,28 @@ impl Engine {
             s += v.as_ref();
             s += "\n";
         }
-        // println!("ssssss----------------------------{:?}", s.clone() + source.as_ref());
         self.compile_raw_shader(&(s + source.as_ref()), ty)
     }
 
     pub fn compile_raw_shader<C: AsRef<str>>(&self, source: &C, ty: ShaderType) -> Result<WebGLShader, String> {
-        println!("compile_raw_shader----------------------------");
         let gl = &self.gl;
-        js!{
-            console.log("gl-------------------", @{&gl});
-        }
-        js!{
-            console.log("WebGLRenderingContext::VERTEX_SHADER-------------------", @{WebGLRenderingContext::VERTEX_SHADER});
-        }
         let shader = gl.create_shader(match ty {
             ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
             ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
         }).ok_or_else(|| String::from("Unable to create shader object"))?;
-        println!("compile_raw_shader1----------------------------");
         gl.shader_source(&shader, source.as_ref());
         gl.compile_shader(&shader);
 
-        let parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
+        let mut parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
+        if !parameter {
+            let parameter_int: u8 = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(0);// 小游戏环境返回整数
+            if parameter_int == 1 {
+                parameter = true;
+            }
+        }
         if parameter{
-            println!("compile_raw_shader ok----------------------------");
             Ok(shader)
         } else {
-            println!("Unknown error creating shader----------------------------");
             Err(gl
                 .get_shader_info_log(&shader)
                 .unwrap_or_else(|| "Unknown error creating shader".into()))
@@ -126,23 +118,16 @@ impl Engine {
     }
 
     fn _create_shader_program(&self, vertex_shader: &WebGLShader, fragment_shader: &WebGLShader) -> Result<WebGLProgram, String> {
-        println!("engine _create_shader_program----------------------------");
         let gl = &self.gl;
         let shader_program = gl.create_program().ok_or_else(|| String::from("Unable to create shader object"))?;
-        println!("engine _create_shader_program1----------------------------");
         gl.attach_shader(&shader_program, vertex_shader);
         gl.attach_shader(&shader_program, fragment_shader);
 
         gl.link_program(&shader_program);
-        println!("engine _create_shader_program2----------------------------");
-        js!{
-            var parameter = @{gl}.getProgramParameter(@{&shader_program}, @{&gl}.LINK_STATUS);
-            console.log("parameter-------------------", parameter);
-        }
+        
+        
         let parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
-        println!("engine _create_shader_program3----------------------------");
         if parameter{
-            println!("engine _create_shader_program ok----------------------------");
             Ok(shader_program)
         } else {
             Err(gl
