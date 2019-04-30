@@ -97,7 +97,14 @@ impl Engine {
     }
 
     pub fn compile_raw_shader<C: AsRef<str>>(&self, source: &C, ty: ShaderType) -> Result<WebGLShader, String> {
+        println!("compile_raw_shader----------------------------");
         let gl = &self.gl;
+        js!{
+            console.log("gl-------------------", @{&gl});
+        }
+        js!{
+            console.log("WebGLRenderingContext::VERTEX_SHADER-------------------", @{WebGLRenderingContext::VERTEX_SHADER});
+        }
         let shader = gl.create_shader(match ty {
             ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
             ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
@@ -110,6 +117,7 @@ impl Engine {
         if parameter{
             Ok(shader)
         } else {
+            println!("Unknown error creating shader----------------------------");
             Err(gl
                 .get_shader_info_log(&shader)
                 .unwrap_or_else(|| "Unknown error creating shader".into()))
