@@ -32,7 +32,6 @@
 // //         Ok(_) => (),
 // //         Err(s) => panic!("{}", s),
 // //     };
-// //     println!("sdf_font----------------------{:?}", sdf_font);
 // //     let sdf_font: Arc<SdfFont> = Arc::new(sdf_font);
 // //     Box::into_raw(Box::new(sdf_font)) as u32
 // // }

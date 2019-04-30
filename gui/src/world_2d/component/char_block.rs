@@ -20,8 +20,8 @@ pub struct CharBlock{
     #[listen]
     pub world_matrix: Matrix4,
 
-    pub offset: (f32, f32),
-    pub extend: (f32, f32),
+    // pub offset: (f32, f32),
+    // pub extend: (f32, f32),
 
     //alpha
     #[listen]
@@ -83,9 +83,7 @@ impl Debug for CharBlock {
             font_size: {:?},
             color: {:?},
             chars: {:?},
-            offset: {:?},
-            extend: {:?}
-        }}"#, self.world_matrix, self.alpha, self.visibility, self.is_opaque, self.z_depth, self.by_overflow, self.stroke_size, self.stroke_color, self.font_size, self.color, self.chars, self.offset, self.extend)
+        }}"#, self.world_matrix, self.alpha, self.visibility, self.is_opaque, self.z_depth, self.by_overflow, self.stroke_size, self.stroke_color, self.font_size, self.color, self.chars)
     }
 }
 

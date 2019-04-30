@@ -100,8 +100,11 @@ pub fn cal_matrix(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDoc
 
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
-fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>) -> cg::Point2<f32>{
-    cg::Point2::new(layout.left - parent_origin.x, layout.top - parent_origin.y)  
+fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>, parent_layout: &Layout) -> cg::Point2<f32>{
+    cg::Point2::new(
+        layout.left - parent_origin.x + parent_layout.border + parent_layout.padding_left,
+        layout.top - parent_origin.y + parent_layout.border + parent_layout.padding_top
+    )  
 }
 
 //计算世界矩阵
@@ -115,7 +118,7 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
             if transform_id == 0 {
                 Matrix4::default().0
             }else {
-                component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &get_lefttop_offset(l, &cg::Point2::new(0.0, 0.0)))
+                component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &cg::Point2::new(l.left, l.top))
             }
         }else {
             let parent_node = component_mgr.node._group.get(parent);
@@ -127,7 +130,7 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
                     component_mgr.node.transform._group.get(parent_node.transform).origin.to_value(parent_node.layout.width, parent_node.layout.height)
                 }
             };
-            let offset = get_lefttop_offset(l, &parent_transform_origin);
+            let offset = get_lefttop_offset(l, &parent_transform_origin, &parent_node.layout);
             if transform_id == 0 {
                 parent_world_matrix * cg::Matrix4::from_translation(cg::Vector3::new(offset.x, offset.y, 0.0))
             }else {

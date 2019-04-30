@@ -349,7 +349,6 @@ impl YgNode {
 // extern "C" fn callback(context: *const c_void) {
 //     //更新布局
 //     let node = unsafe { Box::from_raw(context as *mut u8) };
-//     println!("callback ok, node: {:?}", *node);
 //     Box::into_raw(Box::new(node));
 // }
 

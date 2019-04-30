@@ -120,21 +120,23 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     let extend = &image.extend;
+    let width = extend.x * 2.0;
+    let height = extend.y * 2.0;
     let pad = 0.0;
     //如果shape_dirty， 更新定点顶点数据
     if image_effect.positions_dirty {
         let buffer = [
-            -extend.x  - pad,
-            -extend.y  - pad,
+            0.0  - pad,
+            0.0   - pad,
             image.z_depth, // left_top
-            -extend.x  - pad,
-            extend.y  + pad,
+            0.0  - pad,
+            height  + pad,
             image.z_depth, // left_bootom
-            extend.x  + pad,
-            extend.y  + pad,
+            width  + pad,
+            height  + pad,
             image.z_depth, // right_bootom
-            extend.x  + pad,
-            -extend.y  - pad,
+            width  + pad,
+            0.0  - pad,
             image.z_depth, // right_top
         ];
 

@@ -242,7 +242,6 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: 
 // #[no_mangle]
 // pub fn set_clip_path_geometry_box(world: u32, node_id: u32, value: u8){
 //     #[cfg(feature = "log")] 
-	// println!("set_clip_path");
 //     
 //     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
 //     let clip_id = world.component_mgr.node._group.get(node_id).clip;
@@ -274,7 +273,6 @@ pub fn set_backgroud_linear_gradient_color(world: u32, node_id: u32, direction: 
 // #[no_mangle]
 // pub fn set_clip_path_basic_shape(world: u32, node_id: u32, ty: u8, data: TypedArray<f32>){
 //     #[cfg(feature = "log")] 
-	// println!("set_clip_path");
 //     
 //     // let ty: ClipPathBasicShapeType = unsafe{transmute(ty)};
 

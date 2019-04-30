@@ -69,8 +69,6 @@ impl FontSheet {
     }
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_size(&self, font_face: &Atom, size: &FontSize) -> f32 {
-        println!("self.face_map -----------{:?}", self.face_map);
-        println!("font_face -----------{:?}", font_face);
         match self.face_map.get(font_face) {
             Some(face) => get_size(face.size, size),
             _ => 0.0
@@ -126,7 +124,6 @@ pub struct FontFace {
 }
 
 pub fn get_size(size:f32, s:&FontSize) -> f32 {
-    println!("get_size--------------------{}", size);
     match s {
         &FontSize::None => size,
         &FontSize::Length(r) => r,

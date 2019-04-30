@@ -242,7 +242,7 @@ impl ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 (shadow.h, shadow.v)
             };
             let node_id = component_mgr.node.decorate._group.get(*parent).parent;
-            let world_matrix = cal_sdf_matrix(node_id, component_mgr, shadow_offset);
+            let world_matrix = cal_matrix(node_id, component_mgr, shadow_offset);
             component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_world_matrix(MathMatrix4(world_matrix));
 
             // self.0.borrow_mut().shadow_matrix_dirty.marked_dirty(*parent);
@@ -360,18 +360,17 @@ impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 let shadow = component_mgr.node.decorate.box_shadow._group.get(shadow_id);
                 (shadow.h, shadow.v)
             };
-            let world_matrix = cal_sdf_matrix(*parent, component_mgr, shadow_offset);
+            let world_matrix = cal_matrix(*parent, component_mgr, shadow_offset);
             component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(MathMatrix4(world_matrix));
         }
         if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
-            let world_matrix = cal_sdf_matrix(*parent, component_mgr, (0.0, 0.0));
+            let world_matrix = cal_matrix(*parent, component_mgr, (0.0, 0.0));
             component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(MathMatrix4(world_matrix));
         }
     }
 }
 
-fn cal_sdf_matrix(node_id: usize, mgr: &mut WorldDocMgr, mut offset: (f32, f32)) -> cg::Matrix4<f32>{
-    println!("offset----------------------{:?}, {}", offset.0, offset.0);
+fn cal_matrix(node_id: usize, mgr: &mut WorldDocMgr, mut offset: (f32, f32)) -> cg::Matrix4<f32>{
     let node = mgr.node._group.get(node_id);
     let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
     if node.transform != 0 {
@@ -380,12 +379,9 @@ fn cal_sdf_matrix(node_id: usize, mgr: &mut WorldDocMgr, mut offset: (f32, f32))
         offset.0 -= origin.x;
         offset.1 -= origin.y;
     }
-    println!("offset1----------------------{:?}, {}", offset.0, offset.0);
     if offset.0 != 0.0 || offset.0 != 0.0 {
-        println!("offset3----------------------{:?}, {}", offset.0, offset.0);
         return world_matrix.0 * cg::Matrix4::from_translation(cg::Vector3::new(offset.0, offset.1, 0.0));
     }
-    println!("offset2----------------------{:?}, {}", offset.0, offset.0);
     world_matrix.0.clone()
 }
 

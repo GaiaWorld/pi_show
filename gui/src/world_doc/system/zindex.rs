@@ -84,7 +84,6 @@ impl System<(), WorldDocMgr> for ZIndexSys {
     // for (id, node) in mgr.node._group.iter() {
     //   arr.push((id, node.z_depth));
     // }
-    // println!("arr----z_depth-------------------------{:?}", arr);
   }
 }
 
@@ -313,7 +312,6 @@ fn adjust(links: &mut VecMap<ZIndex>, mgr: &mut WorldDocMgr, node_id: usize, min
     }else{
       (min_z, max_z)
     };
-    // println!("adjust: id:{}, min_z:{}, max_z:{}, rate:{}, parent_min:{}, min:{}, max:{}", node_id, min_z, max_z, rate, parent_min, min, max);
     zi.pre_min_z = min;
     zi.pre_max_z = max;
     if zi.dirty {
@@ -405,7 +403,7 @@ fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
     let node_0_1_0_0 = new_node(mgr, node_0_1_0);
  
     world.run(());
-    println!("modify run-----------------------------------------");
+
     let mgr = &mut world.component_mgr;
     print_node(mgr, zz.clone(), 1);
     print_node(mgr, zz.clone(), body_id);
@@ -423,7 +421,7 @@ fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
     let node_1_1 = new_node(mgr, node_1);
     let node_1_1_0 = new_node(mgr, node_1_1);
     let node_1_1_0_0 = new_node(mgr, node_1_1_0);
-    println!("modify2 run-----------------------------------------");
+
     world.run(());
     print_node(&world.component_mgr, zz.clone(), 1);
     print_node(&world.component_mgr, zz.clone(), body_id);
@@ -450,7 +448,7 @@ fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
             
 //             let (root, node1, node2, node3, node4, node5) = {
 //                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
-//                 println!("root element: {:?}", root.element);
+
 //                 let root_id = 1;// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
 //                 let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
 //                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
@@ -484,7 +482,7 @@ fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
 //         }
 //     };
 
-//     println!("modify run-----------------------------------------");
+
 //     world.run(());
 //     print_node(&world.component_mgr, zz.clone(), root);
 //     print_node(&world.component_mgr, zz.clone(), node1);
@@ -494,7 +492,7 @@ fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Rc<ZIndexSys>){
 //     print_node(&world.component_mgr, zz.clone(), node5);
 //     let n = NodeBuilder::new().build(&mut world.component_mgr.node);
 //     let node6 = world.component_mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
-//     println!("modify2 run-----------------------------------------");
+
 //     world.run(());
 //     print_node(&world.component_mgr, zz.clone(), root);
 //     print_node(&world.component_mgr, zz.clone(), node1);

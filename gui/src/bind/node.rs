@@ -60,8 +60,7 @@ pub fn remove_child(world: u32, node_id: u32, child_id: u32){
 //     // let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
 //     // let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
 //     // node_ref.set_class_name(arr);
-//     #[cfg(feature = "log")] 
-// 		println!("set_class_name"); 
+//     #[cfg(feature = "log")]  
 // }
 
 #[no_mangle]
@@ -81,7 +80,7 @@ pub fn set_text_content(world: u32, node_id: u32){
                 let mut text_ref = TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr);
                 text_ref.set_value(value);
             }
-            println!("set_text_content");
+            debug_println!("set_text_content");
         },
         _ => (),
     }

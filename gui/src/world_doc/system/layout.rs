@@ -114,11 +114,11 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for Layout{
                 let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
                 // let x  = parent_layout.width/2.0 - node_layout.left - node_layout.border - node_layout.padding_left;
                 // let y = parent_layout.height/2.0 - node_layout.top - node_layout.border - node_layout.padding_top;
-                char_block.set_offset(r.1);
+                // char_block.set_offset(r.1);
 
-                char_block.set_extend(r.2);
+                // char_block.set_extend(r.2);
 
-                char_block.set_world_matrix(r.0);
+                char_block.set_world_matrix(r);
             },
             _ => ()
         }
@@ -234,7 +234,7 @@ impl LayoutImpl {
         let matrix_info = matrix_info(node_id, mgr);
         // 设置char_block
         let char_block = CharBlock {
-            world_matrix: matrix_info.0,
+            world_matrix: matrix_info,
             alpha: node.real_opacity,
             visibility: node.real_visibility,
             is_opaque: true,
@@ -248,8 +248,6 @@ impl LayoutImpl {
             sdf_font: font_family,
             color: text_style.color.clone(),
             chars: Vec::new(),
-            offset: matrix_info.1,
-            extend: matrix_info.2,
             font_weight: font.weight,
         };
         let rid = mgr.world_2d.component_mgr.add_char_block(char_block).id;
@@ -632,7 +630,7 @@ fn update_char1(
     *index += 1;
 }
 
-fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> (Matrix4, (f32, f32), (f32, f32)){
+fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> Matrix4{
     // let (parent, transform_m) = {
     //     let node = mgr.node._group.get(parent);
     //     (node.parent, match node.transform == 0 {
@@ -649,11 +647,24 @@ fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> (Matrix4, (f32, f32), (f32, 
 
     //不支持文本节点设置transform
     let parent = mgr.node._group.get(parent).parent;
-    let (parent_layout, parent_matrix) = {
-        let node = mgr.node._group.get(parent);
-        (&node.layout, mgr.node.world_matrix._group.get(node.world_matrix))
-    };
-    (Matrix4(parent_matrix.owner.0), (parent_layout.width/2.0, parent_layout.height/2.0), (parent_layout.width/2.0, parent_layout.height/2.0))
+    let parent_matrix = cal_matrix(parent, mgr);
+    Matrix4(parent_matrix)
+}
+
+fn cal_matrix(node_id: usize, mgr: &WorldDocMgr) -> cg::Matrix4<f32>{
+    let node = mgr.node._group.get(node_id);
+    let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
+    if node.transform != 0 {
+        let transform = mgr.node.transform._group.get(node.transform);
+        let mut origin = transform.origin.to_value(node.layout.width, node.layout.height);
+        origin.x = -origin.x + node.layout.border + node.layout.padding_left;
+        origin.y = -origin.y + node.layout.border + node.layout.padding_top;
+
+        if origin.x != 0.0 || origin.y != 0.0 {
+            return world_matrix.0 * cg::Matrix4::from_translation(cg::Vector3::new(origin.x, origin.y, 0.0));
+        }
+    }
+    world_matrix.0.clone()
 }
 
 struct TextInfo<'a> {

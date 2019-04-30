@@ -15,7 +15,6 @@ macro_rules! buffer_data{
 
         impl<T: Clone> $name<T> {
             pub fn new () -> $name<T>{
-                // println!("new--------------------------");
                 $name {
                     data: Vec::new(),
                     dirty_block: (0, 0),
@@ -48,7 +47,6 @@ macro_rules! buffer_data{
                 unsafe{
                     self.data.set_len(new_len);
                     // console::log_3(&("ptr-----------".into()), &((self.data.as_mut_ptr() as usize).to_string().into()), &($unit.to_string().into()));
-                    // println!("ptr----------{}", self.data.as_mut_ptr() as usize);
                     ptr::copy_nonoverlapping(data.as_ptr(), self.data.as_mut_ptr().add(len), $unit);
                 }
             }
@@ -189,7 +187,6 @@ macro_rules! tex_data{
                     }else {
                         (line_start, column_start, column_end - column_start + 1 , 1)
                     };
-                    println!("{:?}", block);
                     // let dirty_block = self.dirty_block;
                     self.buffer.cancel_dirty();
                     let line_len = 4*self.size;
@@ -246,7 +243,6 @@ fn test_tex_data(){
     // unsafe{tex_data.update(1, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
     // unsafe{tex_data.update(2, 0, &[1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,])};
     // let data = tex_data.use_data().unwrap();
-    // println!("{:?}, {:?}, {}", data.1, data.0, data.1.len());
 }
 
 #[test]
@@ -255,10 +251,8 @@ fn test_buffer_data(){
     // let mut arr1: Vec<u16> = Vec::new();
     // arr1.push(1);
     // arr1.reserve(1);
-    // println!("ptr----------{}", arr1.as_mut_ptr() as usize);
     
     // let mut arr2: Vec<u16> = Vec::new();
-    // println!("ptr----------{}", arr2.as_mut_ptr() as usize);
     // let mut buffer_data4: BufferData4<u16> = BufferData4::new();
     // let mut buffer_data6: BufferData6<u16> = BufferData6::new();
     // buffer_data4.push([1, 1, 1, 1]);

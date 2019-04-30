@@ -80,13 +80,11 @@ impl ComponentHandler<Image, DeleteEvent, WorldDocMgr> for ImageSys {
 impl ComponentHandler<Image, ModifyFieldEvent, WorldDocMgr> for ImageSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
         let ModifyFieldEvent { id, parent: _, field: _} = event;
-        println!("Image----------------------------------------");
         let borrow = self.0.borrow();
         let image2d_id = *unsafe { borrow.image_image2d_map.get_unchecked(*id)};
         let src = component_mgr.node.element.image._group.get(*id).src;
         let texture = usize_to_textrue(src);
 
-        println!("Image modify----------------------------------------");
         component_mgr.world_2d.component_mgr.get_image_mut(image2d_id).set_src(texture);
     }
 }
@@ -127,7 +125,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for ImageSys {
 //监听世界矩阵的改变， 修改image_2d中的世界矩阵
 impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for ImageSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
-        let ModifyFieldEvent { id, parent, field: _ } = event; 
+        let ModifyFieldEvent { id: _, parent, field: _ } = event; 
         let node = component_mgr.node._group.get(*parent);
         let image_id = match node.element {
             ElementId::Image(image_id) => {
@@ -142,9 +140,22 @@ impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for ImageSys {
         let borrow = self.0.borrow_mut();
         let image_2d_id = unsafe { borrow.image_image2d_map.get_unchecked(image_id)};
 
-        let world_matrix = component_mgr.node.world_matrix._group.get(*id);
-        component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_world_matrix(world_matrix.owner.clone());
+        let world_matrix = cal_matrix(*parent, component_mgr);
+        component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_world_matrix(MathMatrix4(world_matrix));
     }
+}
+
+fn cal_matrix(node_id: usize, mgr: &mut WorldDocMgr) -> cg::Matrix4<f32>{
+    let node = mgr.node._group.get(node_id);
+    let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
+    if node.transform != 0 {
+        let transform = mgr.node.transform._group.get(node.transform);
+        let origin = transform.origin.to_value(node.layout.width, node.layout.height);
+        if origin.x != 0.0 || origin.y != 0.0 {
+            return world_matrix.0 * cg::Matrix4::from_translation(cg::Vector3::new(-origin.x, -origin.y, 0.0));
+        }
+    }
+    world_matrix.0.clone()
 }
 
 

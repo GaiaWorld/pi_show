@@ -59,7 +59,6 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
 
     // 与宏无关的uniform
     uniform_locations.insert(ALPHA.clone(), get_uniform_location(&gl,program, &ALPHA));
-    uniform_locations.insert(SIZE_RANGE.clone(), get_uniform_location(&gl,program, &SIZE_RANGE));
     uniform_locations.insert(FONT_CLAMP.clone(), get_uniform_location(&gl,program, &FONT_CLAMP));
     uniform_locations.insert(SMOOT_HRANFE.clone(), get_uniform_location(&gl,program, &SMOOT_HRANFE));
     uniform_locations.insert(TEXTURE.clone(), get_uniform_location(&gl,program, &TEXTURE));
@@ -67,11 +66,13 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
     if defines.color {
         uniform_locations.insert(COLOR.clone(), get_uniform_location(&gl,program, &COLOR));
     } else if defines.linear_color_gradient_2 {
+        uniform_locations.insert(SIZE_RANGE.clone(), get_uniform_location(&gl,program, &SIZE_RANGE));
         uniform_locations.insert(COLOR_ANGLE.clone(), get_uniform_location(&gl,program, &COLOR_ANGLE));
         uniform_locations.insert(DISTANCE.clone(), get_uniform_location(&gl,program, &DISTANCE));
         uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program, &COLOR1));
         uniform_locations.insert(COLOR2.clone(), get_uniform_location(&gl,program, &COLOR2));
     } else if defines.linear_color_gradient_4 {
+        uniform_locations.insert(SIZE_RANGE.clone(), get_uniform_location(&gl,program, &SIZE_RANGE));
         uniform_locations.insert(COLOR_ANGLE.clone(), get_uniform_location(&gl,program, &COLOR_ANGLE));
         uniform_locations.insert(DISTANCE.clone(),get_uniform_location(&gl,program, &DISTANCE));
         uniform_locations.insert(COLOR1.clone(), get_uniform_location(&gl,program,  &COLOR1));
@@ -172,11 +173,6 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let arr: &[f32; 16] = char_block.world_matrix.0.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD), false, &arr[0..16]);
 
-    // sizeRange: [xmin, xmax, ymin, ymax]
-    // let size_range: [f32; 4] = [-498.49927, -314.01465, -285.48608, -282.9995];
-    debug_println!("charblock size range: {:?}", char_block_effect.size_range);
-    gl.uniform4f(uniform_locations.get(&SIZE_RANGE), char_block_effect.size_range[0], char_block_effect.size_range[1], char_block_effect.size_range[2], char_block_effect.size_range[3]);
-
     // alpha
     debug_println!("charblock alpha: {:?}", char_block.alpha);
     gl.uniform1f(uniform_locations.get(&ALPHA), char_block.alpha);
@@ -230,6 +226,11 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                 gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
             },
             Color::LinearGradient(color) => {
+                // sizeRange: [xmin, xmax, ymin, ymax]
+                // let size_range: [f32; 4] = [-498.49927, -314.01465, -285.48608, -282.9995];
+                debug_println!("charblock size range: {:?}", char_block_effect.size_range);
+                gl.uniform4f(uniform_locations.get(&SIZE_RANGE), char_block_effect.size_range[0], char_block_effect.size_range[1], char_block_effect.size_range[2], char_block_effect.size_range[3]);
+
                 //colorAngle
                 debug_println!("linear_color_gradient, direction: {:?}, {}, {}",  color.direction, PI, color.direction * PI / 360.0);
                 gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction * PI / 360.0);
@@ -324,7 +325,7 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     let mut indeices: Vec<u16> = Vec::new();
     let mut i = 0;
     // let line_height = sdf_font.line_height;
-    let mut offset = char_block.offset.clone();
+    let mut offset = (0.0, 0.0);
     offset.1 -= (char_block.line_height - char_block.font_size)/2.0;
 
     // 如果是阴影， 会偏移
@@ -341,7 +342,7 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     if char_block.chars.len() > 0 {
         let glyph = match sdf_font.glyph_info(char_block.chars[0].value, char_block.font_size) {
             Some(r) => r,
-            None => panic!("xxxxxxxxxxxxxxxxxxxxxxxxxxxx"),
+            None => panic!("sdf_font_res is not exist!"),
         };
         let mut size_range = [FMAX, FMAX, FMIN, FMIN];
         let mut left_top = (char_block.chars[0].pos.x, char_block.chars[0].pos.y);

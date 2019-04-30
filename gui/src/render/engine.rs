@@ -101,8 +101,7 @@ impl Engine {
         gl.shader_source(&shader, source.as_ref());
         gl.compile_shader(&shader);
 
-        let mut parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
-
+        let parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
         if parameter{
             Ok(shader)
         } else {
@@ -124,7 +123,6 @@ impl Engine {
         let mut parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
         if !parameter {
             let parameter_int: u8 = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(0);// 小游戏环境返回整数
-            println!("parameter_int: {}", parameter_int);
             if parameter_int == 1 {
                 parameter = true;
             }

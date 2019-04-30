@@ -314,37 +314,31 @@ fn test_filter_white_space() {
     assert_eq!(vec_to_str(&filter_white_space(&white_space, "  \n\n \n  axxz    yx\t\t\n\t xxx\t\n   ")), "\n\n\naxxz yx\nxxx\n".to_string());
 }
 
-#[test]
-fn test_ucd() {
-    // use ucd::Codepoint;
-    let c = 'a';
-    let c1 = '我';
-    let c2 = '장';
-    let c3 = 'ρ';
-    let c4 = 'A';
-    let c5 = 'た';
+// #[test]
+// fn test_ucd() {
+//     // use ucd::Codepoint;
+//     let c = 'a';
+//     let c1 = '我';
+//     let c2 = '장';
+//     let c3 = 'ρ';
+//     let c4 = 'A';
+//     let c5 = 'た';
     
     
-    println!("xxxxxxxxxxx:{}", c.is_alphabetic()); 
-    println!("xxxxxxxxxxx:{}", c1.is_alphabetic());
-    println!("xxxxxxxxxxx:{}", c2.is_alphabetic()); 
-    println!("xxxxxxxxxxx:{}", c3.is_alphabetic());
-    println!("xxxxxxxxxxx:{}", c4.is_alphabetic());
-    println!("xxxxxxxxxxx:{}", c5.is_alphabetic());
 
-    let s = "Löwe 老虎 Léopard";
-    assert!(s.is_char_boundary(0));
-    // start of `老`
-    assert!(s.is_char_boundary(6));
-    assert!(s.is_char_boundary(s.len()));
+//     let s = "Löwe 老虎 Léopard";
+//     assert!(s.is_char_boundary(0));
+//     // start of `老`
+//     assert!(s.is_char_boundary(6));
+//     assert!(s.is_char_boundary(s.len()));
 
-    // second byte of `ö`
-    assert!(!s.is_char_boundary(2));
+//     // second byte of `ö`
+//     assert!(!s.is_char_boundary(2));
 
-    // third byte of `老`
-    assert!(!s.is_char_boundary(8));
+//     // third byte of `老`
+//     assert!(!s.is_char_boundary(8));
     
-}
+// }
 
 #[test]
 fn test_split_for_word_space() {

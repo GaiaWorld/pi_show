@@ -49,7 +49,6 @@ pub fn create_engine() -> u32{
 //     let bind = js!(return __jsObj;).try_into().unwrap();
 //     let key = Atom::from(key);
 //     let r = Box::into_raw(Box::new( engine.res_mgr.textures.create(TextureRes::new(key, width as usize, height as usize, unsafe{transmute(opacity)}, compress as usize, bind, engine.gl.clone()) ))) as u32;
-//     println!("create_texture_res src: {}", r);
 //     // js!{
 //     //     console.log("create_texture_res src:", @{r});
 //     // };
@@ -64,7 +63,7 @@ pub fn create_sdf_font(world: u32) -> u32 {
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
 
-    println!("name1:{:?}", name);
+    debug_println!("name1:{:?}", name);
     let mut sdf_font = StaticSdfFont::new(unsafe { uninitialized() } );
     let bind: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
     let bind = bind.to_vec();
@@ -94,7 +93,7 @@ pub fn create_sdf_font(world: u32) -> u32 {
         
     };
     unsafe { (sdf_font.texture() as *const Rc<TextureRes> as usize as *mut Rc<TextureRes>).write(texture)};
-    println!("sdf: --------------------------{:?}", sdf_font);
+    debug_println!("sdf: --------------------------{:?}", sdf_font);
     let sdf_font: Arc<SdfFont> = Arc::new(sdf_font);
     Box::into_raw(Box::new(sdf_font)) as u32
 }
@@ -161,7 +160,6 @@ pub fn create_image_node(world: u32) -> u32{
 // #[no_mangle]
 // pub fn create_background_node(world: u32, node_id: u32) -> u32{
 //     #[cfg(feature = "log")] 
-	// println!("create_background_node");
 //     let gui = unsafe {&*(own as *const Pointer)};
 //     let mut world = gui.world.borrow_mut();
 //     let node = NodeBuilder::new()

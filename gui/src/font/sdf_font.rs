@@ -152,7 +152,6 @@ impl StaticSdfFont {
         self.atlas_height = value.get_lu16(offset) as usize;
         offset += 2;
         self.padding = value.get_lu16(offset) as f32;
-        println!("self.padding------------------------------{}", self.padding);
         offset += 2;
 
         //字符uv表
