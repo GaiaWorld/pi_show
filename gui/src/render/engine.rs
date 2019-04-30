@@ -135,6 +135,10 @@ impl Engine {
 
         gl.link_program(&shader_program);
         println!("engine _create_shader_program2----------------------------");
+        js!{
+            var parameter = @{gl}.getProgramParameter(@{&shader_program}, @{&gl}.LINK_STATUS);
+            console.log("parameter-------------------", parameter);
+        }
         let parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
         println!("engine _create_shader_program3----------------------------");
         if parameter{
