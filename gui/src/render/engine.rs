@@ -109,12 +109,13 @@ impl Engine {
             ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
             ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
         }).ok_or_else(|| String::from("Unable to create shader object"))?;
-
+        println!("compile_raw_shader1----------------------------");
         gl.shader_source(&shader, source.as_ref());
         gl.compile_shader(&shader);
 
         let parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
         if parameter{
+            println!("compile_raw_shader ok----------------------------");
             Ok(shader)
         } else {
             println!("Unknown error creating shader----------------------------");
@@ -128,14 +129,16 @@ impl Engine {
         println!("engine _create_shader_program----------------------------");
         let gl = &self.gl;
         let shader_program = gl.create_program().ok_or_else(|| String::from("Unable to create shader object"))?;
-
+        println!("engine _create_shader_program1----------------------------");
         gl.attach_shader(&shader_program, vertex_shader);
         gl.attach_shader(&shader_program, fragment_shader);
 
         gl.link_program(&shader_program);
-
+        println!("engine _create_shader_program2----------------------------");
         let parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
+        println!("engine _create_shader_program3----------------------------");
         if parameter{
+            println!("engine _create_shader_program ok----------------------------");
             Ok(shader_program)
         } else {
             Err(gl
