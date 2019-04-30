@@ -14,7 +14,7 @@ use world_doc::WorldDocMgr;
 use component::math::{Matrix4};
 use vecmap::{ VecMap};
 use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
-// use alert;
+use layout::Layout;
 
 pub struct WorldMatrix(RefCell<LayerDirtyMark>);
 
@@ -98,31 +98,69 @@ pub fn cal_matrix(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDoc
     dirty_marks.dirtys.clear();
 }
 
+//取lefttop相对于父节点的变换原点的位置
+#[inline]
+fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>) -> cg::Point2<f32>{
+    cg::Point2::new(layout.left - parent_origin.x, layout.top - parent_origin.y)  
+}
+
 //计算世界矩阵
 fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_mgr: &mut WorldDocMgr) {
-    let (mut world_matrix, parent_id) = {
+    let world_matrix = {
         let (transform_id, l, parent) = {
             let node = component_mgr.node._group.get(node_id);
             (node.transform, &node.layout, node.parent)
         };
-        
-        let center = if parent > 0 {
-            //parent_layout
-            let pl = &component_mgr.node._group.get(parent).layout;
-            cg::Vector3::new(
-                l.width/2.0 + l.left - pl.width/2.0,
-                l.height/2.0 + l.top - pl.height/2.0,
-                0.0,
-            )
+        if parent == 0 {
+            if transform_id == 0 {
+                Matrix4::default().0
+            }else {
+                component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &get_lefttop_offset(l, &cg::Point2::new(0.0, 0.0)))
+            }
         }else {
-            cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
-        };
-        
-        let mut matrix = cg::Matrix4::from_translation(center.clone()); // center_matrix
-        if transform_id != 0 {
-            matrix = matrix * component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0));
+            let parent_node = component_mgr.node._group.get(parent);
+            let parent_world_matrix = &component_mgr.node.world_matrix._group.get(parent_node.world_matrix).owner.0;  
+            let parent_transform_origin = {
+                if parent_node.transform == 0 {
+                    cg::Point2::new(0.0, 0.0)
+                }else {
+                    component_mgr.node.transform._group.get(parent_node.transform).origin.to_value(parent_node.layout.width, parent_node.layout.height)
+                }
+            };
+            let offset = get_lefttop_offset(l, &parent_transform_origin);
+            if transform_id == 0 {
+                parent_world_matrix * cg::Matrix4::from_translation(cg::Vector3::new(offset.x, offset.y, 0.0))
+            }else {
+                let transform_matrix = component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &offset);
+                parent_world_matrix * transform_matrix
+            }
         }
-        (matrix, parent)
+
+        // if parent_id != 0 {
+        //     let parent_world_matrix = {
+        //         let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
+        //         ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
+        //     };
+        //     world_matrix = parent_world_matrix * world_matrix;
+        // }
+        
+        // let center = if parent > 0 {
+        //     //parent_layout
+        //     let pl = &component_mgr.node._group.get(parent).layout;
+        //     cg::Vector3::new(
+        //         l.width/2.0 + l.left - pl.width/2.0,
+        //         l.height/2.0 + l.top - pl.height/2.0,
+        //         0.0,
+        //     )
+        // }else {
+        //     cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
+        // };
+        
+        // // let mut matrix = cg::Matrix4::from_translation(center.clone()); // center_matrix
+        // if transform_id != 0 {
+        //     matrix = matrix * component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0));
+        // }
+        // (matrix, parent)
         // let transform = match transform_id == 0 {
         //     true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
         //     false => component_mgr.node.transform._group.get(transform_id).matrix(),
@@ -131,14 +169,6 @@ fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_m
         
         // (center_matrix * transform, parent)
     };
-
-    if parent_id != 0 {
-        let parent_world_matrix = {
-            let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
-            ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
-        };
-        world_matrix = parent_world_matrix * world_matrix;
-    }
 
     let mut child = {
         let mut node_ref = component_mgr.get_node_mut(node_id);

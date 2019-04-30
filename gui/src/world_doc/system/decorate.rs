@@ -1,7 +1,6 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use cg::{Vector3 as CgVector3};
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
 use vecmap::{ VecMap};
@@ -13,10 +12,7 @@ use world_doc::component::style::generic::{ Decorate, BoxShadow };
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf, SdfWriteRef };
-use util::dirty_mark::DirtyMark;
 use render::res::TextureRes;
-// use util::math::decompose;
-
 //背景边框系统
 pub struct BBSys(Rc<RefCell<BBSysImpl>>);
 
@@ -219,8 +215,6 @@ impl ComponentHandler<BoxShadow, CreateEvent, WorldDocMgr> for BBSys {
         };
         let mut borrow_mut = self.0.borrow_mut();
         borrow_mut.shadow_sdf2d_map.insert(*parent, sdf_id);
-        borrow_mut.shadow_matrix_dirty.dirty_mark_list.insert(*parent, false);
-        borrow_mut.shadow_matrix_dirty.marked_dirty(*parent);
     }
 }
 
@@ -230,7 +224,6 @@ impl ComponentHandler<BoxShadow, DeleteEvent, WorldDocMgr> for BBSys {
         let DeleteEvent { id: _, parent } = event; 
         let mut borrow_mut = self.0.borrow_mut();
         let sdf_id = unsafe { borrow_mut.shadow_sdf2d_map.remove_unchecked(*parent)};
-        borrow_mut.shadow_matrix_dirty.delete_dirty(*parent);
         SdfWriteRef::new(sdf_id, component_mgr.world_2d.component_mgr.sdf.to_usize(), &mut component_mgr.world_2d.component_mgr).destroy();
     }
 }
@@ -243,7 +236,16 @@ impl ComponentHandler<BoxShadow, ModifyFieldEvent, WorldDocMgr> for BBSys {
         if *field == "blur" {
             // component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_blur(shadow.blur);
         }else if *field == "h" || *field == "v"{
-            self.0.borrow_mut().shadow_matrix_dirty.marked_dirty(*parent);
+            //应该设脏， 在run的时候计算阴影的世界矩阵， TODO
+            let shadow_offset = {
+                let shadow = component_mgr.node.decorate.box_shadow._group.get(*id);
+                (shadow.h, shadow.v)
+            };
+            let node_id = component_mgr.node.decorate._group.get(*parent).parent;
+            let world_matrix = cal_sdf_matrix(node_id, component_mgr, shadow_offset);
+            component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_world_matrix(MathMatrix4(world_matrix));
+
+            // self.0.borrow_mut().shadow_matrix_dirty.marked_dirty(*parent);
         } else if *field == "color" {
             component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_color(Color::RGBA(shadow.color.clone()));
         }
@@ -345,38 +347,50 @@ impl ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr> for BBSys {
 
 impl ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
-        let ModifyFieldEvent { id, parent, field: _ } = event; 
+        let ModifyFieldEvent {id: _, parent, field: _ } = event; 
         let node = component_mgr.node._group.get(*parent);
         if node.decorate == 0 {
             return;
         }
         let decorate_id = node.decorate;
-        let mut borrow_mut = self.0.borrow_mut();
-        if let Some(_sdf_id) = borrow_mut.shadow_sdf2d_map.get(decorate_id) {
-            borrow_mut.shadow_matrix_dirty.marked_dirty(decorate_id);
+        let borrow = self.0.borrow();
+        if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+            let shadow_id = component_mgr.node.decorate._group.get(decorate_id).box_shadow;
+            let shadow_offset = {
+                let shadow = component_mgr.node.decorate.box_shadow._group.get(shadow_id);
+                (shadow.h, shadow.v)
+            };
+            let world_matrix = cal_sdf_matrix(*parent, component_mgr, shadow_offset);
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(MathMatrix4(world_matrix));
         }
-        if let Some(sdf_id) = borrow_mut.color_sdf2d_map.get(decorate_id) {
-            let world_matrix = component_mgr.node.world_matrix._group.get(*id);
-            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.owner.clone());
+        if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+            let world_matrix = cal_sdf_matrix(*parent, component_mgr, (0.0, 0.0));
+            component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(MathMatrix4(world_matrix));
         }
     }
 }
 
+fn cal_sdf_matrix(node_id: usize, mgr: &mut WorldDocMgr, mut offset: (f32, f32)) -> cg::Matrix4<f32>{
+    println!("offset----------------------{:?}, {}", offset.0, offset.0);
+    let node = mgr.node._group.get(node_id);
+    let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
+    if node.transform != 0 {
+        let transform = mgr.node.transform._group.get(node.transform);
+        let origin = transform.origin.to_value(node.layout.width, node.layout.height);
+        offset.0 -= origin.x;
+        offset.1 -= origin.y;
+    }
+    println!("offset1----------------------{:?}, {}", offset.0, offset.0);
+    if offset.0 != 0.0 || offset.0 != 0.0 {
+        println!("offset3----------------------{:?}, {}", offset.0, offset.0);
+        return world_matrix.0 * cg::Matrix4::from_translation(cg::Vector3::new(offset.0, offset.1, 0.0));
+    }
+    println!("offset2----------------------{:?}, {}", offset.0, offset.0);
+    world_matrix.0.clone()
+}
+
 impl System<(), WorldDocMgr> for BBSys{
-    fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-        let mut borrow_mut = self.0.borrow_mut();
-        for decorate_id in borrow_mut.shadow_matrix_dirty.dirtys.iter() {
-            let (node_id, box_shadow_id) = {
-                let decorate = component_mgr.node.decorate._group.get(*decorate_id);
-                (decorate.parent, decorate.box_shadow)
-            };
-            
-            let world_matrix = cal_shadow_matrix(node_id, box_shadow_id, component_mgr);
-            if let Some(sdf_id) = borrow_mut.shadow_sdf2d_map.get(*decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_world_matrix(world_matrix.clone());
-            }
-        }
-        borrow_mut.shadow_matrix_dirty.dirtys.clear();
+    fn run(&self, _e: &(), _component_mgr: &mut WorldDocMgr){
     }
 }
 
@@ -427,7 +441,6 @@ pub struct BBSysImpl {
     shadow_sdf2d_map: VecMap<usize>, // id: decorate_id, value: sdf_id
     color_sdf2d_map: VecMap<usize>, // id: decorate_id, value: sdf_id
     image_image2d_map: VecMap<usize>,
-    shadow_matrix_dirty: DirtyMark,
 
 }
 
@@ -437,7 +450,6 @@ impl BBSysImpl {
             shadow_sdf2d_map: VecMap::new(),
             color_sdf2d_map: VecMap::new(),
             image_image2d_map: VecMap::new(),
-            shadow_matrix_dirty: DirtyMark::new(),
         }
     }
 }
@@ -587,47 +599,36 @@ fn modify_is_opacity(node_id: usize, sdf_id: usize, decorate_id: usize, componen
 //     z.0
 // }
 
-fn cal_shadow_matrix(node_id: usize, shadow_id: usize, component_mgr: &mut WorldDocMgr) -> MathMatrix4{
-    let (mut world_matrix, parent_id) = {
-        let (transform_id, l, parent) = {
-            let node = component_mgr.node._group.get(node_id);
-            (node.transform, &node.layout, node.parent)
-        };
+// fn cal_shadow_matrix(node_id: usize, shadow_id: usize, component_mgr: &mut WorldDocMgr) -> MathMatrix4{
 
-        let center = if parent > 0 {
-            //parent_layout
-            let pl = &component_mgr.node._group.get(parent).layout;
-            cg::Vector3::new(
-                l.width/2.0 + l.left - pl.width/2.0,
-                l.height/2.0 + l.top - pl.height/2.0,
-                0.0,
-            )
-        }else {
-            cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
-        };
+//     let (mut world_matrix, parent_id) = {
+//         let (transform_id, l, parent) = {
+//             let node = component_mgr.node._group.get(node_id);
+//             (node.transform, &node.layout, node.parent)
+//         };
 
-        let transform = match transform_id == 0 {
-            true => MathMatrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
-            false => component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0)),
-        };
+//         let transform = match transform_id == 0 {
+//             true => MathMatrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
+//             false => component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0)),
+//         };
 
-        let shadow_offset = {
-            let shadow = component_mgr.node.decorate.box_shadow._group.get(shadow_id);
-            CgVector3::new(shadow.h, shadow.v, 0.0)
-        };
-        let offset_matrix = cg::Matrix4::from_translation(shadow_offset);
+//         let shadow_offset = {
+//             let shadow = component_mgr.node.decorate.box_shadow._group.get(shadow_id);
+//             CgVector3::new(shadow.h, shadow.v, 0.0)
+//         };
+//         let offset_matrix = cg::Matrix4::from_translation(shadow_offset);
 
-        let center_matrix = cg::Matrix4::from_translation(center.clone());
-        (center_matrix * offset_matrix * transform, parent)
-    };
+//         let center_matrix = cg::Matrix4::from_translation(center.clone());
+//         (center_matrix * offset_matrix * transform, parent)
+//     };
 
-    if parent_id != 0 {
-        let parent_world_matrix = {
-            let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
-            ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
-        };
-        world_matrix = parent_world_matrix * world_matrix;
-    }
+//     if parent_id != 0 {
+//         let parent_world_matrix = {
+//             let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
+//             ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
+//         };
+//         world_matrix = parent_world_matrix * world_matrix;
+//     }
 
-    MathMatrix4(world_matrix)
-}
+//     MathMatrix4(world_matrix)
+// }

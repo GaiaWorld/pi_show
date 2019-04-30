@@ -280,9 +280,9 @@ pub fn sdf_fragment_shader() -> String{
             float d;
     #ifdef SDF_RECT
             float rectRadius = radius / min(screenSize.x, screenSize.y);
-            d = sdfRect(coord, size, rectRadius);
+            d = sdfRect(coord, 2.0 * size, rectRadius);
     #else
-            d = sdfEllipse(coord, size);
+            d = sdfEllipse(coord, 2.0 * size);
     #endif
             float antiBody = 1.0 - smoothstep(-0.002 * blur, 0.002 * blur, d);
             c.a = c.a * antiBody;

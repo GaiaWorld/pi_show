@@ -212,6 +212,8 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //设置worldViewProjection
     let world_view = mgr.projection.0 * sdf.world_matrix.0;
+    // let w = cg::Matrix4::new(1.0, 0.0,0.0,0.0, 0.0, 1.0,0.0,0.0, 0.0, 0.0, 1.0,0.0, 350.0, 245.0, 0.0, 1.0,);
+    // let world_view = mgr.projection.0 * w;
     // let world_view = sdf.world_matrix.0 * mgr.projection.0;
     debug_println!("p_matrix----------------{:?}", mgr.projection.0);
     let arr: &[f32; 16] = world_view.as_ref();
@@ -220,9 +222,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     // let arr = &arr;
     // let arr: &[f32; 16] = mgr.projection.0.as_ref();
     #[cfg(feature = "log")]
-    js! {
-        console.log("world_view", @{&arr[0..16]});
-    }
+    debug_println!("world_view----------------{:?}",  @{&arr[0..16]});
     gl.uniform_matrix4fv(
         uniform_locations.get(&WORLD_VIEW_PROJECTION),
         false,
@@ -425,25 +425,55 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     let extend = &sdf.extend;
-    let border_size = sdf.border_size;
+    let border_size = sdf.border_size * 2.0;
     let pad = 0.0;
-    // let extend = Vector2::new(extend.x * 2.0, extend.y *2.0);
+    let extend = (extend.x * 2.0, extend.y *2.0);
     //如果shape_dirty， 更新定点顶点数据
     if sdf_effect.positions_dirty {
         let buffer = [
-            -extend.x - border_size - pad,
-            -extend.y - border_size - pad,
+            0.0 - pad,
+            0.0 - pad,
             sdf.z_depth, // left_top
-            -extend.x - border_size - pad,
-            extend.y + border_size + pad,
+            0.0 - pad,
+            extend.1 + border_size + pad,
             sdf.z_depth, // left_bootom
-            extend.x + border_size + pad,
-            extend.y + border_size + pad,
+            extend.0 + border_size + pad,
+            extend.1 + border_size + pad,
             sdf.z_depth, // right_bootom
-            extend.x + border_size + pad,
-            -extend.y - border_size - pad,
+            extend.0 + border_size + pad,
+            0.0 - pad,
             sdf.z_depth, // right_top
         ];
+
+        // let o = -300.0;
+        // let buffer = [
+        //     0.0 - pad + o,
+        //     0.0 - pad + o,
+        //     sdf.z_depth, // left_top
+        //     0.0 - pad + o,
+        //     extend.1 + border_size + pad + o ,
+        //     sdf.z_depth, // left_bootom
+        //     extend.0 + border_size + pad + o,
+        //     extend.1 + border_size + pad + o,
+        //     sdf.z_depth, // right_bootom
+        //     extend.0 + border_size + pad + o,
+        //     0.0 - pad + o,
+        //     sdf.z_depth, // right_top
+        // ];
+        // let buffer = [
+        //     -extend.x - border_size - pad,
+        //     -extend.y - border_size - pad,
+        //     sdf.z_depth, // left_top
+        //     -extend.x - border_size - pad,
+        //     extend.y + border_size + pad,
+        //     sdf.z_depth, // left_bootom
+        //     extend.x + border_size + pad,
+        //     extend.y + border_size + pad,
+        //     sdf.z_depth, // right_bootom
+        //     extend.x + border_size + pad,
+        //     -extend.y - border_size - pad,
+        //     sdf.z_depth, // right_top
+        // ];
         // let buffer = [
         //     -extend.x - border_size - pad,
         //     -extend.y - border_size - pad,

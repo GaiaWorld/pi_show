@@ -174,7 +174,6 @@ impl RenderImpl {
                 },
             }
         }
-
         for v in self.transparent_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {

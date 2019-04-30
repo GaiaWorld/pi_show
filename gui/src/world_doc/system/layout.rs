@@ -633,19 +633,27 @@ fn update_char1(
 }
 
 fn matrix_info(parent: usize, mgr: &WorldDocMgr) -> (Matrix4, (f32, f32), (f32, f32)){
-    let (parent, transform_m) = {
-        let node = mgr.node._group.get(parent);
-        (node.parent, match node.transform == 0 {
-            true => Matrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
-            false => mgr.node.transform._group.get(node.transform).matrix(cg::Vector4::new(node.layout.width, node.layout.height, 0.0, 0.0)),
-        })
-    };
+    // let (parent, transform_m) = {
+    //     let node = mgr.node._group.get(parent);
+    //     (node.parent, match node.transform == 0 {
+    //         true => Matrix4::default().0, // 优化？ 默认的matrix可以从全局取到 TODO
+    //         false => mgr.node.transform._group.get(node.transform).matrix(node.layout.width, node.layout.height, &get_lefttop_offset(l, &cg::Point2::new(0.0, 0.0))),
+    //     })
+    // };
+    // let (parent_layout, parent_matrix) = {
+    //     let node = mgr.node._group.get(parent);
+    //     (&node.layout, mgr.node.world_matrix._group.get(node.world_matrix))
+    // };
+
+    // (Matrix4(parent_matrix.owner.0 * transform_m), (parent_layout.width/2.0, parent_layout.height/2.0), (parent_layout.width/2.0, parent_layout.height/2.0))
+
+    //不支持文本节点设置transform
+    let parent = mgr.node._group.get(parent).parent;
     let (parent_layout, parent_matrix) = {
         let node = mgr.node._group.get(parent);
         (&node.layout, mgr.node.world_matrix._group.get(node.world_matrix))
     };
-
-    (Matrix4(parent_matrix.owner.0 * transform_m), (parent_layout.width/2.0, parent_layout.height/2.0), (parent_layout.width/2.0, parent_layout.height/2.0))
+    (Matrix4(parent_matrix.owner.0), (parent_layout.width/2.0, parent_layout.height/2.0), (parent_layout.width/2.0, parent_layout.height/2.0))
 }
 
 struct TextInfo<'a> {
