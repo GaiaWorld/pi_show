@@ -46,6 +46,7 @@ impl Engine {
     }
 
     pub fn create_program<C: Hash + AsRef<str>, D: Hash + AsRef<str>>(&mut self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<u64, String>{
+        println!("engine create_program----------------------------");
         let mut hasher = DefaultHasher::new();
         vertex_code.hash(&mut hasher);
         fragment_code.hash(&mut hasher);
@@ -70,6 +71,7 @@ impl Engine {
     }
 
     pub fn create_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<WebGLProgram, String> {
+        println!("engine create_shader_program----------------------------");
         let vertex_shader = self.compile_shader(vertex_code, ShaderType::Vertex, defines)?;
         let fragment_shader = self.compile_shader(fragment_code, ShaderType::Fragment, defines)?;
 
@@ -115,6 +117,7 @@ impl Engine {
     }
 
     fn _create_shader_program(&self, vertex_shader: &WebGLShader, fragment_shader: &WebGLShader) -> Result<WebGLProgram, String> {
+        println!("engine _create_shader_program----------------------------");
         let gl = &self.gl;
         let shader_program = gl.create_program().ok_or_else(|| String::from("Unable to create shader object"))?;
 

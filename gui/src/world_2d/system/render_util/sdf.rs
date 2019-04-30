@@ -36,9 +36,11 @@ lazy_static! {
 
 // 初始化location
 pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64) {
+    println!("init_location -----------------------------");
     let gl = engine.gl.clone();
     
     let program = engine.lookup_program_mut(program_id).unwrap();
+    println!("lookup_program_mut -----------------------------");
     let uniform_locations = &mut program.uniform_locations;
     let attr_locations = &mut program.attr_locations;
     let program = &program.program;
@@ -58,6 +60,7 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         WORLD_VIEW_PROJECTION.clone(),
         get_uniform_location(&gl,program, &WORLD_VIEW_PROJECTION),
     );
+    println!("uniform_locations -----------------------------");
     // uniform_locations.insert(
     //     CENTER.clone(),
     //     get_uniform_location(&gl,program, &CENTER),

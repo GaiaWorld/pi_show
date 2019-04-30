@@ -23,7 +23,7 @@
         var YGEdgeAll = 8;
     </script>
     
-    <script src="../target/asmjs-unknown-emscripten/release/gui.js"></script>
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
     <script>
         var gl = document.getElementById("canvas").getContext('webgl');
         window.__gl = gl;
@@ -38,18 +38,18 @@
         Module._set_backgroud_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
         Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
 
-        var node3 = Module._create_node(gui);
-        Module._append_child(gui, node2, node3);
-        Module._set_width(gui, node3, 100.0);
-        Module._set_height(gui, node3, 50.0);
-        Module._set_backgroud_rgba_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
+        // var node3 = Module._create_node(gui);
+        // Module._append_child(gui, node2, node3);
+        // Module._set_width(gui, node3, 100.0);
+        // Module._set_height(gui, node3, 50.0);
+        // Module._set_backgroud_rgba_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
 
-        var node4 = Module._create_node(gui);
-        Module._append_child(gui, node2, node4);
-        Module._set_width(gui, node4, 100.0);
-        Module._set_height(gui, node4, 50.0);
-        Module._set_backgroud_rgba_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
-        Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
+        // var node4 = Module._create_node(gui);
+        // Module._append_child(gui, node2, node4);
+        // Module._set_width(gui, node4, 100.0);
+        // Module._set_height(gui, node4, 50.0);
+        // Module._set_backgroud_rgba_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
+        // Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
         Module._run(gui);
 
         // setTimeout(() => {
