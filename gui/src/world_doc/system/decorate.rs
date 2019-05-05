@@ -373,7 +373,7 @@ fn cal_matrix(node_id: usize, mgr: &mut WorldDocMgr, mut offset: (f32, f32)) -> 
         offset.0 -= origin.x;
         offset.1 -= origin.y;
     }
-    if offset.0 != 0.0 || offset.0 != 0.0 {
+    if offset.0 != 0.0 || offset.1 != 0.0 {
         return world_matrix.0 * cg::Matrix4::from_translation(cg::Vector3::new(offset.0, offset.1, 0.0));
     }
     world_matrix.0.clone()

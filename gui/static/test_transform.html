@@ -36,7 +36,7 @@
         Module._set_width(gui, node2, 300.0);
         Module._set_height(gui, node2, 200.0);
         Module._set_backgroud_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
-        Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
+        Module._transform_origin(gui, node2, 1, 0, 1, 100); //x_ty, x, y_ty, y
 
         // var node3 = Module._create_node(gui);
         // Module._append_child(gui, node2, node3);
@@ -52,40 +52,40 @@
         // Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
         Module._run(gui);
 
-        // setTimeout(() => {
-        //     Module._transform_rotate(gui, node2, 45);
-        //     Module._run(gui);
+        setTimeout(() => {
+            Module._transform_rotate(gui, node2, 45);
+            Module._run(gui);
 
-        //     setTimeout(() => {
-        //         Module._transform_scale(gui, node2, 0.5, 0.5);
-        //         Module._run(gui);
+            setTimeout(() => {
+                Module._transform_scale(gui, node2, 0.5, 0.5);
+                Module._run(gui);
 
-        //         setTimeout(() => {
-        //             Module._transform_translate_x(gui, node2, 100);
-        //             Module._run(gui);
+                setTimeout(() => {
+                    Module._transform_translate_x(gui, node2, 100);
+                    Module._run(gui);
 
-        //             setTimeout(() => {
-        //                 Module._transform_translate_x_percent(gui, node2, 100);
-        //                 Module._run(gui);
+                    setTimeout(() => {
+                        Module._transform_translate_x_percent(gui, node2, 100);
+                        Module._run(gui);
 
-        //                 setTimeout(() => {
-        //                     Module._transform_translate_y_percent(gui, node4, 100);
-        //                     Module._run(gui);
+                        // setTimeout(() => {
+                        //     Module._transform_translate_y_percent(gui, node4, 100);
+                        //     Module._run(gui);
 
-        //                     setTimeout(() => {
-        //                         Module._transform_scale(gui, node4, 2, 2);
-        //                         Module._run(gui);
-        //                     }, 2000);
+                        //     setTimeout(() => {
+                        //         Module._transform_scale(gui, node4, 2, 2);
+                        //         Module._run(gui);
+                        //     }, 2000);
 
-        //                 }, 2000);
+                        // }, 2000);
 
-        //             }, 2000);
+                    }, 2000);
 
-        //         }, 2000);
+                }, 2000);
 
-        //     }, 2000);
+            }, 2000);
 
-        // }, 2000);
+        }, 2000);
         
     </script>
 </body>

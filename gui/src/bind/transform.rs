@@ -21,7 +21,7 @@ pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::Translate(x, y));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -48,7 +48,7 @@ pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::TranslateX(value));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -72,7 +72,7 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::TranslateY(value));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -97,7 +97,7 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::TranslatePercent(x/100.0, y/100.0));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -121,7 +121,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::TranslateXPercent(value/100.0));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -145,7 +145,7 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::TranslateYPercent(value/100.0));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -170,7 +170,7 @@ pub fn transform_scale(world: u32, node_id: u32, x: f32, y: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::Scale(x, y));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -194,7 +194,7 @@ pub fn transform_scale_x(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {
             transform.funcs.push(TransformFunc::ScaleX(value));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -218,7 +218,7 @@ pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {;
             transform.funcs.push(TransformFunc::ScaleY(value));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -242,7 +242,7 @@ pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {;
             transform.funcs.push(TransformFunc::RotateZ(value));
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -261,7 +261,7 @@ pub fn transform_none(world: u32, node_id: u32) {
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {;
             transform.funcs.clear();
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
@@ -297,7 +297,7 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
         let mut transform_ref = TransformWriteRef::new(transform_id, world.component_mgr.node.transform.to_usize(), &mut world.component_mgr);
         transform_ref.modify(|transform: &mut Transform| {;
             transform.origin = TransformOrigin::XY(x_value, y_value);
-            if parent > 1 {
+            if parent > 0 {
                 true
             } else {
                 false
