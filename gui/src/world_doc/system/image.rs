@@ -53,6 +53,10 @@ impl ComponentHandler<Image, CreateEvent, WorldDocMgr> for ImageSys {
         let mut image = Image2d::new(texture);
 
         let node = component_mgr.node._group.get(*parent);
+        let display = match node.display {
+            Display::Flex => true,
+            Display::None => false,
+        };
         let layout = &node.layout;
         let matrix =  component_mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
         image.alpha = node.real_opacity;
@@ -61,6 +65,7 @@ impl ComponentHandler<Image, CreateEvent, WorldDocMgr> for ImageSys {
         image.z_depth = node.z_depth;
         image.extend = Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border);
         image.world_matrix = matrix;
+        image.visibility = display && node.real_visibility;
 
         let mut image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
         image2d_ref.set_parent(*id);

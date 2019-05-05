@@ -452,6 +452,10 @@ fn usize_to_textrue(src: usize) -> Rc<TextureRes> {
 fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let mut sdf = Sdf::default();
     let node = mgr.node._group.get(node_id);
+    let display = match node.display {
+        Display::Flex => true,
+        Display::None => false,
+    };
     sdf.is_opaque = true;
     sdf.alpha = node.real_opacity;
     if sdf.alpha < 1.0 {
@@ -459,7 +463,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
     sdf.blur = 1.0;
     sdf.z_depth = node.z_depth;
-    sdf.visibility = node.real_visibility;
+    sdf.visibility = node.real_visibility && display;
     sdf.by_overflow = node.by_overflow;
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
@@ -502,10 +506,14 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
 fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let mut sdf = Sdf::default();
     let node = mgr.node._group.get(node_id);
+    let display = match node.display {
+        Display::Flex => true,
+        Display::None => false,
+    };
     sdf.alpha = node.real_opacity;
     sdf.z_depth = node.z_depth - 0.00001;
     sdf.by_overflow = node.by_overflow;
-    sdf.visibility = node.real_visibility;
+    sdf.visibility = node.real_visibility && display;
     // let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
     // let offset_matrix = cg::Matrix4::from_translation(Ve);
 

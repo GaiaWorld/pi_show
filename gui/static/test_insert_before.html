@@ -60,19 +60,23 @@
             Module._append_child(gui, root, node3);
 
             var node4 = Module._create_node(gui);
-            Module._append_child(gui, root, node4);
+            
             Module._set_width(gui, node4, 100.0);
             Module._set_height(gui, node4, 100.0);
             Module._set_backgroud_rgba_color(gui, node4, 0.5, 1.0, 1.0, 1.0);
-
+            Module._set_position_type(gui, node4, 1); //绝对定位
+            Module._set_display(gui, node4, 1);
+            Module._append_child(gui, root, node4);
             Module._run(gui);
 
             setTimeout(() => {
-                var node5 = Module._create_node(gui);
-                Module._insert_before(gui, root, node5, node3, 2); //child_id: u32, brother_id: u32, brother_index: u32
-                Module._set_width(gui, node5, 100.0);
-                Module._set_height(gui, node5, 100.0);
-                Module._set_backgroud_rgba_color(gui, node5, 1.0, 1.0, 1.0, 1.0);
+                // var node5 = Module._create_node(gui);
+                // Module._insert_before(gui, root, node5, node3, 2); //child_id: u32, brother_id: u32, brother_index: u32
+                // Module._set_width(gui, node5, 100.0);
+                // Module._set_height(gui, node5, 100.0);
+                // Module._set_backgroud_rgba_color(gui, node5, 1.0, 1.0, 1.0, 1.0);
+
+                // Module._set_display(gui, node4, 1);
 
                 Module._run(gui);
             }, 2000);
