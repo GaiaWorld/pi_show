@@ -394,6 +394,16 @@ impl YgNode {
     pub fn reset(&self) {
         yoga::yg_node_reset(self.0)
     }
+
+    pub fn get_index(&self) -> usize {
+        let parent_yoga = self.get_parent();
+        let mut index = parent_yoga.get_child_count();
+        while index > 0 && parent_yoga.get_child(index-1) != *self {
+            index-=1;
+        }
+        index -= 1;
+        index as usize
+    }
 }
 
 

@@ -117,6 +117,8 @@ pub struct Node{
 
     #[ignore]
     pub qid: usize, //在父节点中的id，即在父节点的子容器中的key， 如果没有父节点， 该值为0
+
+    text_child_count: usize,
 }
 
 pub trait QidContainer {
@@ -144,7 +146,7 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
                 let qid = match ty {
                     InsertType::Back => {
                         let node = group._group.get_mut(self.id);
-                        let index = node.childs.len();
+                        let index = node.yoga.get_child_count();
                         node.yoga.insert_child(yoga.clone(), index as u32);
                         node.childs.push_back(child_id, &mut self.mgr.get_qid_container())
                     },
@@ -153,16 +155,23 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
                         node.yoga.insert_child(yoga.clone(), 0);
                         node.childs.push_front(child_id, &mut self.mgr.get_qid_container())
                     },
-                    InsertType::ToBack(yoga_index, brother_pid) => {
+                    InsertType::ToBack(yoga_index, brother_qid) => {
                         let node = group._group.get_mut(self.id);
+                        //TODO, node中可能存在文字节点， 无法使用yoga_index插入yoga
                         node.yoga.insert_child(yoga.clone(), yoga_index as u32);
-                        unsafe{node.childs.push_to_back(child_id, brother_pid, &mut self.mgr.get_qid_container())}
+                        unsafe{node.childs.push_to_back(child_id, brother_qid, &mut self.mgr.get_qid_container())}
 
                     },
-                    InsertType::ToFront(yoga_index, brother_pid) => {
-                        let node = group._group.get_mut(self.id);
+                    InsertType::ToFront(mut yoga_index, brother_qid) => {
+                        let brother_id = unsafe { self.mgr.get_qid_container().get_unchecked(brother_qid) }.elem;
+                        let brother_yoga = group._group.get(brother_id).yoga;
+                        let node = group._group.get_mut(self.id);                      
+                        
+                        if node.text_child_count > 0 {
+                            yoga_index = brother_yoga.get_index();
+                        }
                         node.yoga.insert_child(yoga.clone(), yoga_index as u32);
-                        unsafe{node.childs.push_to_front(child_id, brother_pid, &mut self.mgr.get_qid_container())}
+                        unsafe{node.childs.push_to_front(child_id, brother_qid, &mut self.mgr.get_qid_container())}
                     },
                 };
                 let child = group._group.get_mut(child_id);
@@ -170,6 +179,11 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
                 child.qid = qid; //不会发出qid改变的监听， 应该通知？
             },
             _ => panic!(format!("insert_child error, this is a leaf node")),
+        };
+
+        match group._group.get(child_id).element.clone() {
+            ElementId::Text(_) => group._group.get_mut(self.id).text_child_count += 1,
+            _ => (),
         };
 
         //如果节点不是根节点， 并且还没有父节点(不在节点树中)， 不需要发出修改事件和子节点创建事件
@@ -193,9 +207,20 @@ impl<'a, M: ComponentMgr + QidContainer> NodeWriteRef<'a, M> {
         }
         let child_id = group._group.get_mut(self.id).childs.remove(qid, &mut self.mgr.get_qid_container()); //从childs移除child
         let (parent, child_yoga) = {
-            let child_yoga = group._group.get(child_id).yoga;
+            let (child_yoga, is_text) = {
+                let child = group._group.get(child_id);
+                (child.yoga, match child.element {
+                    ElementId::Text(_) => true,
+                    _ => false,
+                })
+            };
             let node = group._group.get_mut(self.id);
             node.yoga.remove_child(child_yoga);
+
+            if is_text {
+                node.text_child_count -= 1;
+            }
+
             (node.parent, child_yoga)
             // let child_yoga = match group._group.get(child_id).yoga.as_ref() {
             //     Some(child_yoga) => Some((*child_yoga).clone()),

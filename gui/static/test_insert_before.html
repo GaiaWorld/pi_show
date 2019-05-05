@@ -58,22 +58,22 @@
             Module._set_font_weight(gui, node3, 500); // 100 - 900, 500表示正常粗细， 小于500更细， 大于500更粗
             Module._set_text_rgba_color(gui, node3, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
             Module._append_child(gui, root, node3);
-            // var node3 = Module._create_node(gui);
-            // Module._append_child(gui, root, node3);
-            // Module._set_width(gui, node3, 100.0);
-            // Module._set_height(gui, node3, 100.0);
-            // Module._set_backgroud_rgba_color(gui, node3, 0.0, 1.0, 1.0, 1.0);
 
             var node4 = Module._create_node(gui);
-            Module._insert_before(gui, root, node4, node3, 1); //child_id: u32, brother_id: u32, brother_index: u32
+            Module._append_child(gui, root, node4);
             Module._set_width(gui, node4, 100.0);
             Module._set_height(gui, node4, 100.0);
-            Module._set_backgroud_rgba_color(gui, node4, 1.0, 1.0, 1.0, 1.0);
+            Module._set_backgroud_rgba_color(gui, node4, 0.5, 1.0, 1.0, 1.0);
 
             Module._run(gui);
 
             setTimeout(() => {
-                Module._set_display(gui, node4, 1);
+                var node5 = Module._create_node(gui);
+                Module._insert_before(gui, root, node5, node3, 2); //child_id: u32, brother_id: u32, brother_index: u32
+                Module._set_width(gui, node5, 100.0);
+                Module._set_height(gui, node5, 100.0);
+                Module._set_backgroud_rgba_color(gui, node5, 1.0, 1.0, 1.0, 1.0);
+
                 Module._run(gui);
             }, 2000);
         }
