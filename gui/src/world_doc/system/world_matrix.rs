@@ -12,7 +12,7 @@ use world_doc::component::style::transform::{Transform};
 use world_doc::component::node::Node;
 use world_doc::WorldDocMgr;
 use component::math::{Matrix4};
-use vecmap::{ VecMap};
+use map::vecmap::{VecMap};
 use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
 use layout::Layout;
 

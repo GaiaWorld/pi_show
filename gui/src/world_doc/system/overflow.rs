@@ -54,7 +54,12 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for OverflowSys {
           return;
         }
         let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
-        mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
+        let origin = if node.transform == 0 {
+            cg::Point2::new(0.0, 0.0)
+        }else {
+            mgr.node.transform._group.get(node.transform).origin.to_value(node.layout.width, node.layout.height)
+        };
+        mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix, &origin);
         (i, node.by_overflow | i, node.get_childs_mut().get_first())
       }else{
         // 删除根上的overflow的裁剪矩形
@@ -82,7 +87,12 @@ impl ComponentHandler<Matrix4, ModifyFieldEvent, WorldDocMgr> for OverflowSys{
           let i = get_index(&mgr.world_2d.component_mgr.overflow, *parent);
           if i > 0 {
             let world_matrix = mgr.node.world_matrix._group.get(*id);
-            mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix);
+            let origin = if node.transform == 0 {
+                cg::Point2::new(0.0, 0.0)
+            }else {
+                mgr.node.transform._group.get(node.transform).origin.to_value(node.layout.width, node.layout.height)
+            };
+            mgr.world_2d.component_mgr.overflow.1[i-1] = calc_point(&node.layout, world_matrix, &origin);
             mgr.world_2d.component_mgr.overflow.handlers.clone().notify(SingleModifyEvent{field:""}, &mut mgr.world_2d.component_mgr);
           }
         }
@@ -176,20 +186,20 @@ fn adjust(mgr: &mut WorldDocMgr, mut child: usize, index: usize, ops: fn(a:usize
   }
 }
 // 计算指定矩形的4个点
-fn calc_point(layout: &Layout, matrix: &Matrix4) -> [Point2;4]{
-    let half_width = layout.width/2.0;
-    let half_height = layout.height/2.0;
+fn calc_point(layout: &Layout, matrix: &Matrix4, origin: &cg::Point2<f32>) -> [Point2;4]{
     let m = matrix.deref();
-    let left_top = m * Vector4::new(-half_width + layout.border + layout.padding_left, -half_height + layout.border + layout.padding_top, 0.0, 1.0);
-    let right_top = m * Vector4::new(half_width - layout.border - layout.padding_right, -half_height + layout.border + layout.padding_top , 0.0, 1.0);
-    let left_bottom = m * Vector4::new(-half_width + layout.border + layout.padding_left, half_height - layout.border - layout.padding_bottom, 0.0, 1.0);
-    let right_bottom = m * Vector4::new(half_width - layout.border - layout.padding_right, half_height - layout.border - layout.padding_bottom, 0.0, 1.0);
+    let width = layout.width - layout.padding_left - layout.padding_right - layout.border - layout.border;
+    let height = layout.height - layout.padding_top - layout.padding_bottom - layout.border - layout.border;
+    let start = (layout.border + layout.padding_left - origin.x, layout.border + layout.padding_top - origin.y);
+    let left_top = m * Vector4::new(start.0,  start.1, 0.0, 1.0);
+    let right_top = m * Vector4::new(start.0 + width, start.1, 0.0, 1.0);
+    let left_bottom = m * Vector4::new(start.0, start.1 + height, 0.0, 1.0);
+    let right_bottom = m * Vector4::new(start.1 + width, start.1 + height, 0.0, 1.0);
 
     let lt = Point2(cg::Point2{x: left_top.x, y: left_top.y});
     let rt = Point2(cg::Point2{x: right_top.x, y: right_top.y});
     let lb = Point2(cg::Point2{x: left_bottom.x, y: left_bottom.y});
     let rb = Point2(cg::Point2{x: right_bottom.x, y: right_bottom.y});
-    println!("layout----------------------{:?}", layout);
     [lt, rt, lb, rb]
 }
 

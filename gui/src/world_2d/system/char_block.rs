@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap};
+use map::vecmap::{VecMap};
 
 use util::dirty_mark::DirtyMark;
 use world_2d::World2dMgr;

@@ -8,7 +8,7 @@ use stdweb::UnsafeTypedArray;
 
 use wcs::component::{ComponentHandler, CreateEvent, DeleteEvent, ModifyFieldEvent};
 use wcs::world::System;
-use vecmap::{ VecMap};
+use map::vecmap::{VecMap};
 
 use component::color::Color;
 use world_2d::World2dMgr;

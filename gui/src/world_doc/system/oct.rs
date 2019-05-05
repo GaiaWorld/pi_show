@@ -6,7 +6,7 @@ use std::ops::Deref;
 
 use wcs::world::{System};
 use wcs::component::{ComponentHandler, ModifyFieldEvent, CreateEvent, DeleteEvent};
-use vecmap::{ VecMap};
+use map::vecmap::{VecMap};
 
 use world_doc::WorldDocMgr;
 use world_doc::component::node::Node;
@@ -99,8 +99,13 @@ impl OctImpl {
                 //计算包围盒
                 let node = mgr.node._group.get(*node_id);
                 let layout = &node.layout;
-                let world_matrix = mgr.node.world_matrix._group.get(mgr.node._group.get(*node_id).world_matrix);
-                let (aabb, size) = cal_bound_box((layout.width, layout.height), world_matrix);
+                let world_matrix = mgr.node.world_matrix._group.get(node.world_matrix);
+                let origin = if node.transform == 0 {
+                    cg::Point2::new(0.0, 0.0)
+                }else {
+                    mgr.node.transform._group.get(node.transform).origin.to_value(node.layout.width, node.layout.height)
+                };
+                let (aabb, size) = cal_bound_box((layout.width, layout.height), world_matrix, &origin);
                 //更新八叉树
                 mgr.octree.update(node.bound_box_id, aabb.clone());
                 (aabb, size)
@@ -156,17 +161,16 @@ impl OctImpl {
     }
 }
 
-fn cal_bound_box(size: (f32, f32), matrix: &Matrix4) -> (Aabb3<f32>, (f32, f32)){
-    let half_width = size.0/2.0;
-    let half_height = size.1/2.0;
+fn cal_bound_box(size: (f32, f32), matrix: &Matrix4, origin: &cg::Point2<f32>) -> (Aabb3<f32>, (f32, f32)){
+    let start = (size.0 - origin.x, size.1 - origin.y);
     // let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
     // let right_top = matrix.deref() * Vector4::new(size.width-half_width, -half_height, 0.0, 1.0);
     // let left_bottom = matrix.deref() * Vector4::new(-half_width, size.height - half_height, 0.0, 1.0);
     // let right_bottom = matrix.deref() * Vector4::new(size.width - half_width, size.height - half_width, 0.0, 1.0);
-    let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
-    let right_top = matrix.deref() * Vector4::new(half_width, -half_height, 0.0, 1.0);
-    let left_bottom = matrix.deref() * Vector4::new(-half_width, half_height, 0.0, 1.0);
-    let right_bottom = matrix.deref() * Vector4::new(half_width, half_height, 0.0, 1.0);
+    let left_top = matrix.deref() * Vector4::new(start.0, start.1, 0.0, 1.0);
+    let right_top = matrix.deref() * Vector4::new(start.0 + size.0, start.1, 0.0, 1.0);
+    let left_bottom = matrix.deref() * Vector4::new(start.0, start.1 + size.1, 0.0, 1.0);
+    let right_bottom = matrix.deref() * Vector4::new(start.0 + size.0, start.1 + size.1, 0.0, 1.0);
 
     let size_x = right_top.x - left_top.x;
     let size_y = left_bottom.y - left_top.y;
