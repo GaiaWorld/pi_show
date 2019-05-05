@@ -71,6 +71,11 @@
             Module._set_backgroud_rgba_color(gui, node4, 1.0, 1.0, 1.0, 1.0);
 
             Module._run(gui);
+
+            setTimeout(() => {
+                Module._set_display(gui, node4, 1);
+                Module._run(gui);
+            }, 2000);
         }
         
         function newXMLHttpRequest() {

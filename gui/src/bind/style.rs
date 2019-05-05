@@ -320,11 +320,13 @@ pub fn set_opacity(world: u32, node_id: u32, value: f32) {
 
 //设置display
 #[no_mangle]
-pub fn set_display(world: u32, node_id: u32, value: u8) {
-    debug_println!("set_display");
+pub fn set_display(world: u32, node_id: u32, value: u8){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    world.component_mgr.get_node_mut(node_id).set_display(unsafe{ transmute(value) });
+    let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+    node_ref.get_yoga().set_display(unsafe{ transmute(value as u32)});
+    node_ref.set_display( unsafe{ transmute(value) });
+    debug_println!("set_display"); 
 }
 
 //设置visibility, true: visible, false: hidden,	默认true

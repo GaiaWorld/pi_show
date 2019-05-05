@@ -8,6 +8,7 @@ use vecmap::{ VecMap};
 use component::math::{Vector2, Matrix4 as MathMatrix4};
 use world_doc::component::node::{Node};
 use world_doc::component::style::element::{ Image, ElementId};
+use world_doc::component::style::generic::Display;
 use world_doc::WorldDocMgr;
 use world_2d::component::image::{ Image as Image2d };
 use render::res::TextureRes;
@@ -34,6 +35,7 @@ impl ImageSys {
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.display.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         
         // 监听worldmatrix的改变， 修改Image渲染对象上对应的值
         component_mgr.node.world_matrix._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<MathMatrix4, ModifyFieldEvent, WorldDocMgr>>)));
@@ -117,7 +119,18 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for ImageSys {
             let layout = &node.layout;
             component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_extend(Vector2::new(layout.width/2.0 - layout.border, layout.height/2.0 - layout.border));
         } else if *field == "real_visibility" {
-            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_visibility(node.real_visibility);
+            let display = match node.display {
+                Display::Flex => true,
+                Display::None => false,
+            };
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_visibility(node.real_visibility && display);
+        } else if *field == "display" {
+            let display = match node.display {
+                Display::Flex => true,
+                Display::None => false,
+            };
+            
+            component_mgr.world_2d.component_mgr.get_image_mut(*image_2d_id).set_visibility(node.real_visibility && display);
         }
     }
 }

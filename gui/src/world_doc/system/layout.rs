@@ -39,7 +39,7 @@ impl Layout {
         // 监听 各属性的变动
         mgr.node.z_depth.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         mgr.node.opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-        mgr.node.visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         mgr.node.by_overflow.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         r
     }
@@ -139,9 +139,9 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for Layout{
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
                         char_block.set_alpha(mgr.node._group.get(*id).opacity)
                     },
-                    "visibility" => {
+                    "real_visibility" => {
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
-                        char_block.set_visibility(mgr.node._group.get(*id).visibility)
+                        char_block.set_visibility(mgr.node._group.get(*id).real_visibility)
                     },
                     "by_overflow" => {
                         let mut char_block = mgr.world_2d.component_mgr.get_char_block_mut(text.rid);
@@ -314,11 +314,15 @@ impl LayoutImpl {
         if text.rindex == 0 {
             return;
         }
-        let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(text.rid);
-        let ch = unsafe {rnode.chars.get_unchecked_mut(text.rindex-1)};
-        let layout = text.node.get_layout();
-        ch.pos.x = layout.left;
-        ch.pos.y = layout.top;
+        let parent = {
+            let rnode = mgr.world_2d.component_mgr.char_block._group.get_mut(text.rid);
+            let ch = unsafe {rnode.chars.get_unchecked_mut(text.rindex-1)};
+            let layout = text.node.get_layout();
+            ch.pos.x = layout.left;
+            ch.pos.y = layout.top;
+            rnode.parent
+        };
+        mgr.world_2d.component_mgr.char_block._group.get_handlers().notify_modify_field(ModifyFieldEvent{id: text.rid, parent:parent, field: "chars"}, &mut mgr.world_2d.component_mgr);
         // TODO 发监听
     }
 }

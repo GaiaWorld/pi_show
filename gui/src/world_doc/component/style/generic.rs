@@ -62,7 +62,6 @@ pub enum ShowType {
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum Display {
     Flex,
-    Inline,
     None,
 }
 

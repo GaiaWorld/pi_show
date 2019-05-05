@@ -48,21 +48,6 @@ pub fn remove_child(world: u32, node_id: u32, child_id: u32){
     debug_println!("remove_child");  
 }
 
-// #[no_mangle]
-// pub fn set_class_name(_world: u32, _node_id: u32, _value: &str){
-    
-//     // let class = value.split(" ");
-//     // let mut arr = Vec::new();
-//     // for c in class {
-//     //     arr.push(Atom::from(c.trim()));
-//     // }
-
-//     // let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-//     // let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
-//     // node_ref.set_class_name(arr);
-//     #[cfg(feature = "log")]  
-// }
-
 #[no_mangle]
 pub fn set_text_content(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();

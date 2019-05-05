@@ -8,7 +8,7 @@ use vecmap::{ VecMap};
 use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
 use world_doc::component::node::{Node};
-use world_doc::component::style::generic::{ Decorate, BoxShadow };
+use world_doc::component::style::generic::{ Decorate, BoxShadow, Display };
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf, SdfWriteRef };
@@ -40,6 +40,7 @@ impl BBSys {
         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.display.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
 
         //监听boundbox的变化
         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
@@ -308,16 +309,9 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(layout.border);
             }
         } else if *field == "real_visibility" {
-            let visibility = node.real_visibility;
-            if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_visibility(visibility);
-            }
-            if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
-            }
-            if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
-                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
-            }
+            modify_visibility(node.display, node.real_visibility, decorate_id, component_mgr, &borrow);
+        } else if *field == "display" {
+            modify_visibility(node.display, node.real_visibility, decorate_id, component_mgr, &borrow);
         }
     }
 }
@@ -584,6 +578,23 @@ fn modify_is_opacity(node_id: usize, sdf_id: usize, decorate_id: usize, componen
             let color = component_mgr.node.decorate.background_color._group.get(decorate.background_color).owner.clone();
             component_mgr.world_2d.component_mgr.get_sdf_mut(sdf_id).set_is_opaque(color_is_opaque(&color));
         }
+    }
+}
+
+fn modify_visibility(display: Display, real_visibility: bool, decorate_id: usize, component_mgr: &mut WorldDocMgr, borrow: &BBSysImpl){
+    let display = match display {
+        Display::Flex => true,
+        Display::None => false,
+    };
+    let visibility = real_visibility && display;
+    if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
+        component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_visibility(visibility);
+    }
+    if let Some(sdf_id) = borrow.shadow_sdf2d_map.get(decorate_id) {
+        component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
+    }
+    if let Some(sdf_id) = borrow.color_sdf2d_map.get(decorate_id) {
+        component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_visibility(visibility);
     }
 }
 
