@@ -340,13 +340,25 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     }
 
     if char_block.chars.len() > 0 {
-        let glyph = match sdf_font.glyph_info(char_block.chars[0].value, char_block.font_size) {
+        let mut glyph = None;
+        for c in char_block.chars.iter() {
+            let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
+                Some(r) => glyph = Some(r),
+                None => continue,
+            };
+        }
+        let glyph = match glyph {
             Some(r) => r,
-            None => panic!("sdf_font_res is not exist!"),
+            None => return Attribute {
+                positions: positions,
+                uvs: uvs,
+                indeices: indeices
+            },
         };
         let mut size_range = [FMAX, FMAX, FMIN, FMIN];
         let mut left_top = (char_block.chars[0].pos.x, char_block.chars[0].pos.y);
         let mut right_bottom = (char_block.chars[0].pos.x + glyph.adv, char_block.chars[0].pos.y + char_block.font_size);
+
         for c in char_block.chars.iter() {
             let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
                 Some(r) => r,
