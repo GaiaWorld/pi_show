@@ -162,7 +162,7 @@ impl OctImpl {
 }
 
 fn cal_bound_box(size: (f32, f32), matrix: &Matrix4, origin: &cg::Point2<f32>) -> (Aabb3<f32>, (f32, f32)){
-    let start = (size.0 - origin.x, size.1 - origin.y);
+    let start = (- origin.x, - origin.y);
     // let left_top = matrix.deref() * Vector4::new(-half_width, -half_height, 0.0, 1.0);
     // let right_top = matrix.deref() * Vector4::new(size.width-half_width, -half_height, 0.0, 1.0);
     // let left_bottom = matrix.deref() * Vector4::new(-half_width, size.height - half_height, 0.0, 1.0);
