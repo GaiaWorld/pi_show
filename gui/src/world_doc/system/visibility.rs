@@ -12,6 +12,7 @@ use map::vecmap::{VecMap};
 use world_doc::component::node::{Node};
 use world_doc::WorldDocMgr;
 use world_doc::system::util::layer_dirty_mark::LayerDirtyMark;
+use world_doc::component::style::generic::Display;
 
 pub struct VisibilitySys(RefCell<LayerDirtyMark>);
 
@@ -19,6 +20,7 @@ impl VisibilitySys {
     pub fn init(component_mgr: &mut WorldDocMgr) -> Rc<VisibilitySys>{
         let system = Rc::new(VisibilitySys(RefCell::new(LayerDirtyMark::new())));
         component_mgr.node.visibility.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
+        component_mgr.node.display.register_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_create_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, CreateEvent, WorldDocMgr>>)));
         component_mgr.node._group.register_delete_handler(Rc::downgrade(&(system.clone() as Rc<ComponentHandler<Node, DeleteEvent, WorldDocMgr>>)));
         system
@@ -83,11 +85,14 @@ fn cal_visibility(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDoc
 fn modify_visibility(dirty_mark_list: &mut VecMap<bool>, parent_real_visibility: bool, node_id: usize, component_mgr: &mut WorldDocMgr) {
     unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false};
 
-    let (node_visibility, old_node_real_visibility) = {
+    let (node_visibility, node_display, old_node_real_visibility) = {
         let node = component_mgr.node._group.get(node_id);
-        (node.visibility, node.real_visibility)
+        (node.visibility, match node.display {
+            Display::Flex => true,
+            Display::None => false,
+        }, node.real_visibility)
     };
-    let node_real_visibility = node_visibility && parent_real_visibility;
+    let node_real_visibility = parent_real_visibility && node_visibility && node_display;
     //如果real_visibility值没有改变， 不需要递归设置子节点的real_visibility值
     if old_node_real_visibility == node_real_visibility {
         return;

@@ -102,8 +102,12 @@ pub struct Node{
     #[builder(build(Default))]
     pub world_matrix: usize, //世界矩阵组件
 
-    #[builder(export, build(value=1) )]
-    pub event_type: usize, // 设置的事件类型, 在八叉树中查询时根据参数进行过滤, 0表示事件穿透, 1表示点击，2表示滑动,
+    #[listen]
+    #[builder(export, build(value=true) )]
+    pub enable: bool, // 设置是否响应事件,
+
+    #[builder(export, build(value=true) )]
+    pub real_enable: bool, // 是否响应事件, 受enable， display, visibility的影响
 
     pub bound_box_id: usize, //包围盒组件在八叉树中的id
     

@@ -16,6 +16,7 @@ use world_doc::system::zindex::ZIndexSys;
 use world_doc::system::overflow::OverflowSys;
 use world_doc::system::image::ImageSys;
 use world_doc::system::visibility::VisibilitySys;
+use world_doc::system::enable::EnableSys;
 use world_2d::World2dMgr;
 use world_2d;
 use render::engine::Engine;
@@ -40,6 +41,7 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
     let overflow_sys = OverflowSys::init(&mut mgr);
     let image_sys = ImageSys::init(&mut mgr);
     let visibility_sys = VisibilitySys::init(&mut mgr);
+    let enable_sys = EnableSys::init(&mut mgr);
     
     let system_names = [
         Atom::from("NodeCountSys"),
@@ -49,7 +51,8 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
         Atom::from("WorldMatrixSys"),
         Atom::from("OctSys"),
         Atom::from("OpacitySys"),
-        Atom::from("VisibilitySys"),     
+        Atom::from("VisibilitySys"),   
+        Atom::from("EnableSys"),   
         Atom::from("BBSys"),
         Atom::from("ImageSys"),
         Atom::from("RunWorld2dSys"),
@@ -65,9 +68,10 @@ pub fn create_world(engine: Engine, width: f32, height: f32) -> World<WorldDocMg
         world.register_system(system_names[5].clone(), oct_sys);
         world.register_system(system_names[6].clone(), opacity_sys);
         world.register_system(system_names[7].clone(), visibility_sys);
-        world.register_system(system_names[8].clone(), bb_sys);
-        world.register_system(system_names[9].clone(), image_sys);
-        world.register_system(system_names[10].clone(), run_world_2d_sys);
+        world.register_system(system_names[8].clone(), enable_sys);
+        world.register_system(system_names[9].clone(), bb_sys);
+        world.register_system(system_names[10].clone(), image_sys);
+        world.register_system(system_names[11].clone(), run_world_2d_sys);
     }
     world.add_systems(ALL.clone(), &mut system_names.iter()).unwrap();
 

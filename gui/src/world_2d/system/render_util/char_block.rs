@@ -342,7 +342,7 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     if char_block.chars.len() > 0 {
         let mut glyph = None;
         for c in char_block.chars.iter() {
-            let glyph = match sdf_font.glyph_info(c.value, char_block.font_size) {
+            match sdf_font.glyph_info(c.value, char_block.font_size) {
                 Some(r) => glyph = Some(r),
                 None => continue,
             };

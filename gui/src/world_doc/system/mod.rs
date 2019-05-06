@@ -19,3 +19,4 @@ pub mod run_world_2d;
 pub mod image;
 pub mod visibility;
 pub mod util;
+pub mod enable;

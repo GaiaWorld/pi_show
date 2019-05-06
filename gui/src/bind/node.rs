@@ -177,6 +177,14 @@ pub fn offset_document(world: u32, node_id: u32) {
   }
 }
 
+// #[no_mangle]
+// pub fn set_event_type(world: u32, node_id: u32, ty: u8) {
+//   let node_id = node_id as usize;
+//   let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+//   let node_ref = world.component_mgr.get_node_mut(node_id);
+//   node_ref.set_event_type(ty);
+// }
+
 //content宽高的累加值
 #[no_mangle]
 pub fn content_box(world: u32, node_id: u32) {
@@ -221,12 +229,20 @@ pub fn content_box(world: u32, node_id: u32) {
 
 
 #[no_mangle]
-pub fn query(world: u32, x: f32, y: f32, ty: u32)-> u32{
+pub fn query(world: u32, x: f32, y: f32)-> u32{
     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-    let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), ty);
+    let mut args = AbQueryArgs::new(&world.component_mgr, aabb.clone(), 0);
     world.component_mgr.octree.query(&aabb, intersects, &mut args, ab_query_func);
     args.result as u32
+}
+
+#[no_mangle]
+pub fn set_enable(world: u32, node_id: u32, value: bool){
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+  let mut node_ref = world.component_mgr.get_node_mut(node_id);
+  node_ref.set_enable(value);
 }
 /// aabb的查询函数的参数
 struct AbQueryArgs<'a> {
@@ -251,17 +267,30 @@ impl<'a> AbQueryArgs<'a> {
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &usize) {
   if intersects(&arg.aabb, aabb) {
     let node = arg.mgr.node._group.get(*bind);
-    // 判断类型是否有相交
-    if (node.event_type as u32) & arg.ev_type != 0 {
-        // 取最大z的node
-        if node.z_depth > arg.max_z {
-          // 检查是否有裁剪，及是否在裁剪范围内
-          if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
-            arg.result = *bind;
-            arg.max_z = node.z_depth;
-           }
+    //如果display = Display::None 或, real_visibility = false， 返回
+    match node.real_enable {
+      true => (),
+      false => return,
+    };
+    // 取最大z的node
+    if node.z_depth > arg.max_z {
+      // 检查是否有裁剪，及是否在裁剪范围内
+      if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+        arg.result = *bind;
+        arg.max_z = node.z_depth;
         }
     }
+    // // 判断类型是否有相交
+    // if (node.event_type as u32) & arg.ev_type != 0 {
+    //     // 取最大z的node
+    //     if node.z_depth > arg.max_z {
+    //       // 检查是否有裁剪，及是否在裁剪范围内
+    //       if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+    //         arg.result = *bind;
+    //         arg.max_z = node.z_depth;
+    //        }
+    //     }
+    // }
   }
 }
 

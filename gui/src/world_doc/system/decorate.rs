@@ -8,7 +8,7 @@ use map::vecmap::{VecMap};
 use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
 use world_doc::component::node::{Node};
-use world_doc::component::style::generic::{ Decorate, BoxShadow, Display };
+use world_doc::component::style::generic::{ Decorate, BoxShadow };
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf, SdfWriteRef };
@@ -40,7 +40,6 @@ impl BBSys {
         component_mgr.node.layout.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_opacity.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.real_visibility.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
-        component_mgr.node.display.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr>>)));
 
         //监听boundbox的变化
         component_mgr.node.bound_box._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Aabb3, ModifyFieldEvent, WorldDocMgr>>)));
@@ -309,9 +308,7 @@ impl ComponentHandler<Node, ModifyFieldEvent, WorldDocMgr> for BBSys {
                 component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_border_size(layout.border);
             }
         } else if *field == "real_visibility" {
-            modify_visibility(node.display, node.real_visibility, decorate_id, component_mgr, &borrow);
-        } else if *field == "display" {
-            modify_visibility(node.display, node.real_visibility, decorate_id, component_mgr, &borrow);
+            modify_visibility(node.real_visibility, decorate_id, component_mgr, &borrow);
         }
     }
 }
@@ -452,10 +449,6 @@ fn usize_to_textrue(src: usize) -> Rc<TextureRes> {
 fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let mut sdf = Sdf::default();
     let node = mgr.node._group.get(node_id);
-    let display = match node.display {
-        Display::Flex => true,
-        Display::None => false,
-    };
     sdf.is_opaque = true;
     sdf.alpha = node.real_opacity;
     if sdf.alpha < 1.0 {
@@ -463,7 +456,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     }
     sdf.blur = 1.0;
     sdf.z_depth = node.z_depth;
-    sdf.visibility = node.real_visibility && display;
+    sdf.visibility = node.real_visibility;
     sdf.by_overflow = node.by_overflow;
     sdf.world_matrix =  mgr.node.world_matrix._group.get(node.world_matrix).owner.clone();
 
@@ -506,14 +499,10 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
 fn create_shadow_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
     let mut sdf = Sdf::default();
     let node = mgr.node._group.get(node_id);
-    let display = match node.display {
-        Display::Flex => true,
-        Display::None => false,
-    };
     sdf.alpha = node.real_opacity;
     sdf.z_depth = node.z_depth - 0.00001;
     sdf.by_overflow = node.by_overflow;
-    sdf.visibility = node.real_visibility && display;
+    sdf.visibility = node.real_visibility;
     // let world_matrix = &mgr.node.world_matrix._group.get(node.world_matrix).owner;
     // let offset_matrix = cg::Matrix4::from_translation(Ve);
 
@@ -589,12 +578,8 @@ fn modify_is_opacity(node_id: usize, sdf_id: usize, decorate_id: usize, componen
     }
 }
 
-fn modify_visibility(display: Display, real_visibility: bool, decorate_id: usize, component_mgr: &mut WorldDocMgr, borrow: &BBSysImpl){
-    let display = match display {
-        Display::Flex => true,
-        Display::None => false,
-    };
-    let visibility = real_visibility && display;
+fn modify_visibility(real_visibility: bool, decorate_id: usize, component_mgr: &mut WorldDocMgr, borrow: &BBSysImpl){
+    let visibility = real_visibility;
     if let Some(image_id) = borrow.image_image2d_map.get(decorate_id) {
         component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_visibility(visibility);
     }
