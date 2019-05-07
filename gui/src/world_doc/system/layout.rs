@@ -381,6 +381,13 @@ fn add_text(
     }else {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
+
+    //如果有缩进
+    if text_style.text_indent > 0.0 {
+        let yg = YgNode::default();
+        yg.set_width(text_style.text_indent);
+        add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
+    }
     
     let text_info = TextInfo {
         font_size,
@@ -458,6 +465,13 @@ fn update_text(
         index-=1;
     }
     
+    //如果有缩进
+    if text_style.text_indent > 0.0 {
+        let yg = YgNode::default();
+        yg.set_width(text_style.text_indent);
+        add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
+    }
+
     let text_info = TextInfo {
         font_size,
         family: &font_family,

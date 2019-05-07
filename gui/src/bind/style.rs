@@ -10,7 +10,7 @@ use wcs::world::{World};
 
 use world_doc::WorldDocMgr;
 use world_doc::component::node::{ NodeWriteRef};
-use world_doc::component::style::generic::{DecorateBuilder, DecorateWriteRef, BoxShadowBuilder, BoxShadowWriteRef};
+use world_doc::component::style::generic::{DecorateBuilder, DecorateWriteRef, BoxShadowBuilder, BoxShadowWriteRef, LengthUnit};
 use component::color::{Color};
 // use world_doc::component::style::generic::{ClipPath, Clip, Opacity, OpacityWriteRef};
 use component::math::{Color as CgColor};
@@ -78,13 +78,33 @@ pub fn set_border_radius(world: u32, node_id: u32, value: f32){
     let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
     if decorate_id == 0 {
         let decorate = DecorateBuilder::new()
-        .border_radius(value)
+        .border_radius(LengthUnit::Length(value))
         .build(&mut world.component_mgr.node.decorate);
         let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
         node_ref.set_decorate(decorate);
     }else {
         let mut rect_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
-        rect_ref.set_border_radius(value);
+        rect_ref.set_border_radius(LengthUnit::Length(value));
+        return;
+    }
+}
+
+// 设置边框圆角
+#[no_mangle]
+pub fn set_border_radius_percent(world: u32, node_id: u32, value: f32){
+    debug_println!("set_border_radius");
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
+    let decorate_id = world.component_mgr.node._group.get(node_id).decorate;
+    if decorate_id == 0 {
+        let decorate = DecorateBuilder::new()
+        .border_radius(LengthUnit::Percentage(value/100.0))
+        .build(&mut world.component_mgr.node.decorate);
+        let mut node_ref = NodeWriteRef::new(node_id, world.component_mgr.node.to_usize(), &mut world.component_mgr);
+        node_ref.set_decorate(decorate);
+    }else {
+        let mut rect_ref = DecorateWriteRef::new(decorate_id, world.component_mgr.node.decorate.to_usize(), &mut world.component_mgr);
+        rect_ref.set_border_radius(LengthUnit::Percentage(value/100.0));
         return;
     }
 }
@@ -366,7 +386,7 @@ pub fn set_undefined(world_id: u32, node_id: u32, value: u8) {
             if decorate_ref.id == 0 {
                 return;
             }
-            decorate_ref.set_border_radius(0.0)
+            decorate_ref.set_border_radius(LengthUnit::Length(0.0))
         },
 
         UndefinedType::BoxShadowColor => {

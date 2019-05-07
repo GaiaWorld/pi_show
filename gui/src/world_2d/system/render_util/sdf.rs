@@ -5,6 +5,7 @@ use atom::Atom;
 
 use world_2d::World2dMgr;
 use world_2d::component::sdf::{SdfDefines};
+use world_doc::component::style::generic::LengthUnit;
 use component::color::Color;
 use component::math::{Color as MathColor};
 use render::engine::{Engine, get_uniform_location};
@@ -261,8 +262,13 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     //set_uniforms
     if defines.sdf_rect {
+        let radius = match sdf.radius {
+            LengthUnit::Percentage(r) => sdf.extend.x * 2.0 * r,
+            LengthUnit::Length(r) => r,
+        };
+        debug_println!("border_radius:{:?}, {:?}, {:?}", radius, sdf.radius, sdf.extend.x);
         //设置radius
-        gl.uniform1f(uniform_locations.get(&RADIUS), sdf.radius);
+        gl.uniform1f(uniform_locations.get(&RADIUS), radius);
     }
     if defines.stroke {
         //设置strokeSize

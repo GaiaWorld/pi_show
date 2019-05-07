@@ -8,6 +8,7 @@ use atom::Atom;
 
 use component::color::{Color};
 use component::math::{Color as MathColor, Aabb3, Vector2, Matrix4};
+use world_doc::component::style::generic::LengthUnit;
 
 #[allow(unused_attributes)]
 #[derive(Debug, Component, Default, Clone)]
@@ -37,7 +38,7 @@ pub struct Sdf{
 
     //圓角
     #[listen]
-    pub radius: f32,
+    pub radius: LengthUnit,
 
     // blur
     pub blur: f32,

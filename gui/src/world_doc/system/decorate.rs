@@ -8,7 +8,7 @@ use map::vecmap::{VecMap};
 use component::math::{Color as MathColor, Vector2, Aabb3, Matrix4 as MathMatrix4};
 use component::color::Color;
 use world_doc::component::node::{Node};
-use world_doc::component::style::generic::{ Decorate, BoxShadow };
+use world_doc::component::style::generic::{ Decorate, BoxShadow};
 use world_doc::WorldDocMgr;
 use world_2d::component::image::Image;
 use world_2d::component::sdf::{ Sdf, SdfWriteRef };
@@ -21,6 +21,9 @@ impl BBSys {
         let r = Rc::new(BBSys(Rc::new(RefCell::new(BBSysImpl::new()))));
         //监听backgroud_image的修改事件， 修改image2d上对应的值
         component_mgr.node.decorate.backgroud_image.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr>>)));
+        //监听border_radius修改事件， 修改sdf2d上对应的值
+        component_mgr.node.decorate.border_radius.register_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr>>)));
+
         //监听background_color修改事件， 修改sdf2d上对应的值
         component_mgr.node.decorate.background_color._group.register_modify_field_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, ModifyFieldEvent, WorldDocMgr>>)));
         component_mgr.node.decorate.background_color._group.register_create_handler(Rc::downgrade(&(r.clone() as Rc<ComponentHandler<Color, CreateEvent, WorldDocMgr>>)));
@@ -53,29 +56,40 @@ impl BBSys {
 //监听backgroud_image的修改事件， 修改image2d上对应的值
 impl ComponentHandler<Decorate, ModifyFieldEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
-        let ModifyFieldEvent { id, parent: _, field: _ } = event;
+        let ModifyFieldEvent { id, parent: _, field } = event;
         let mut borrow_mut = self.0.borrow_mut();
-        match borrow_mut.image_image2d_map.get(*id) {
-            Some(image_id) => { //如果image2d已经存在
-                let src = component_mgr.node.decorate._group.get(*id).backgroud_image.clone();
-                match src { 
-                    0 => (),//component_mgr.world_2d.component_mgr.remove_image_mut(*image_id), //并且 src==0, 应该删除image2d
-                    _ => component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_src(usize_to_textrue(src)), //并且 src>0, 应该修改image2d
-                }
-                return;
-            },
-            None => (),
-        }
-        //如果image2d不存在
-        let src = component_mgr.node.decorate._group.get(*id).backgroud_image;
-        match src {
-            0 => (), //并且src == 0， 不需要进行任何操作
-            _ => { // 并且src>0， 应该创建image2d
-                let image = Image::new(usize_to_textrue(src));
-                let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
-                borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
-            },
-            
+        if *field == "backgroud_image" {
+            match borrow_mut.image_image2d_map.get(*id) {
+                Some(image_id) => { //如果image2d已经存在
+                    let src = component_mgr.node.decorate._group.get(*id).backgroud_image.clone();
+                    match src { 
+                        0 => (),//component_mgr.world_2d.component_mgr.remove_image_mut(*image_id), //并且 src==0, 应该删除image2d
+                        _ => component_mgr.world_2d.component_mgr.get_image_mut(*image_id).set_src(usize_to_textrue(src)), //并且 src>0, 应该修改image2d
+                    }
+                    
+                    return;
+                },
+                None => (),
+            }
+            //如果image2d不存在
+            let src = component_mgr.node.decorate._group.get(*id).backgroud_image;
+            match src {
+                0 => (), //并且src == 0， 不需要进行任何操作
+                _ => { // 并且src>0， 应该创建image2d
+                    let image = Image::new(usize_to_textrue(src));
+                    let image2d_ref = component_mgr.world_2d.component_mgr.add_image(image);
+                    borrow_mut.image_image2d_map.insert(*id, image2d_ref.id);
+                },
+                
+            }
+        } else if *field == "border_radius"{
+            let radius = component_mgr.node.decorate._group.get(*id).border_radius;
+            if let Some(sdf_id) = borrow_mut.shadow_sdf2d_map.get(*id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_radius(radius);
+            }
+            if let Some(sdf_id) = borrow_mut.color_sdf2d_map.get(*id) {
+                component_mgr.world_2d.component_mgr.get_sdf_mut(*sdf_id).set_radius(radius);
+            }
         }
     }
 }
@@ -184,7 +198,7 @@ impl ComponentHandler<MathColor, DeleteEvent, WorldDocMgr> for BBSys {
     }
 }
 
-//监听border_color的删除事件， 尝试删除对应的sdf2d组件
+//监听border_color的修改事件， 尝试删除对应的sdf2d组件
 impl ComponentHandler<MathColor, ModifyFieldEvent, WorldDocMgr> for BBSys {
     fn handle(&self, event: &ModifyFieldEvent, component_mgr: &mut WorldDocMgr) {
         let ModifyFieldEvent { id: _, parent, field: _ } = event; 
@@ -492,6 +506,7 @@ fn create_box_sdf2d(mgr: &mut WorldDocMgr, node_id: usize) -> Sdf {
         sdf.border_color = color;
         sdf.border_size = layout.border;
     }
+    sdf.radius = decorate.border_radius;
     sdf
 }
 

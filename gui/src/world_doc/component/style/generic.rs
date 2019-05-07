@@ -15,7 +15,7 @@ pub enum StyleUnit{
     Length(f32),
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, EnumDefault)]
 pub enum LengthUnit{
     Percentage(f32),
     Length(f32),
@@ -100,7 +100,7 @@ pub struct Decorate {
 
     #[listen]
     #[builder(export)]
-    pub border_radius: f32,
+    pub border_radius: LengthUnit,
 }
 
 #[allow(unused_attributes)]
