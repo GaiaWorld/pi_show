@@ -63,7 +63,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let image = mgr.image._group.get(image_effect.image_id);
 
     let defines = mgr.image_effect.defines._group.get(image_effect.defines);
-    debug_println!("defines---------------------------{:?}", defines);
+    debug_println!("image defines---------------------------{:?}", defines);
 
 
     let gl = &mgr.engine.gl;
@@ -79,21 +79,21 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     //设置worldViewProjection
     let world_view = mgr.projection.0 * image.world_matrix.0;
     // let world_view = image.world_matrix.0 * mgr.projection.0;
-    debug_println!("p_matrix----------------{:?}", mgr.projection.0);
-    debug_println!("world_matrix----------------{:?}", image.world_matrix.0);
-    debug_println!("world_view----------------{:?}", world_view);
+    debug_println!("image p_matrix----------------{:?}", mgr.projection.0);
+    debug_println!("image world_matrix----------------{:?}", image.world_matrix.0);
+    debug_println!("image world_view----------------{:?}", world_view);
 
     let arr: &[f32; 16] = world_view.as_ref();
     gl.uniform_matrix4fv(uniform_locations.get(&WORLD_VIEW_PROJECTION), false, &arr[0..16]);
 
     // color
-    debug_println!("color:{:?}", image.color);
+    debug_println!("image color:{:?}", image.color);
     gl.uniform4f(uniform_locations.get(&COLOR), image.color.r, image.color.g, image.color.b, image.color.a);
 
 
      // uvOffsetScale
     let uv_offset_scale = [0.0, 0.0, 1.0, 1.0];
-    debug_println!("uv_offset_scale:{:?}", &uv_offset_scale[0..4]);
+    debug_println!("image uv_offset_scale:{:?}", &uv_offset_scale[0..4]);
     gl.uniform4f(uniform_locations.get(&UV_OFFSET_SCALE),uv_offset_scale[0], uv_offset_scale[1], uv_offset_scale[2], uv_offset_scale[3]);
 
     gl.active_texture(WebGLRenderingContext::TEXTURE1);
@@ -101,11 +101,11 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.uniform1i(uniform_locations.get(&TEXTURE), 1);
 
     // alpha
-    debug_println!("alpha:{}", image.alpha);
+    debug_println!("image alpha:{}", image.alpha);
     gl.uniform1f(uniform_locations.get(&ALPHA), image.alpha);
 
     if defines.clip_plane {
-        debug_println!("by_overflow:{:?}", image.by_overflow);
+        debug_println!("image by_overflow:{:?}", image.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), image.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
         gl.active_texture(WebGLRenderingContext::TEXTURE0);
@@ -140,7 +140,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             image.z_depth, // right_top
         ];
 
-        debug_println!("position: {:?}", buffer);
+        debug_println!("image position: {:?}", buffer);
         let buffer = unsafe { UnsafeTypedArray::new(&buffer) };
         js! {
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
@@ -163,7 +163,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER ,Some(&image_effect.indeices_buffer),);
 
-    debug_println!("is_opaque: {}", image.is_opaque);
+    debug_println!("image is_opaque: {}", image.is_opaque);
 
     //draw
     gl.draw_elements(

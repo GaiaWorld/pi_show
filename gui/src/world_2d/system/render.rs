@@ -71,70 +71,60 @@ impl Render {
 impl ComponentHandler<Overflow, SingleModifyEvent, World2dMgr> for Render{
     fn handle(&self, event: &SingleModifyEvent, _component_mgr: &mut World2dMgr){
         let SingleModifyEvent{field: _} = event;
-        println!("oveflow: {:?},", _component_mgr.overflow.value);
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Sdf del----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Sdf create----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Sdf, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Sdf modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Image DeleteEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Image CreateEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<Image, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("Image modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, DeleteEvent, World2dMgr> for Render{
     fn handle(&self, _event: &DeleteEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("CharBlock DeleteEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for Render{
     fn handle(&self, _event: &CreateEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("CharBlock CreateEvent----------------------------------------");
         self.0.borrow_mut().dirty = true;
     }
 }
 
 impl ComponentHandler<CharBlock, ModifyFieldEvent, World2dMgr> for Render{
     fn handle(&self, _event: &ModifyFieldEvent, _component_mgr: &mut World2dMgr){
-        debug_println!("CharBlock modify----------------------------------------{}", _event.field);
         self.0.borrow_mut().dirty = true;
     }
 }
@@ -161,6 +151,8 @@ impl RenderImpl {
         self.dirty = false;
         mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         self.list_obj(mgr);
+        mgr.engine.gl.disable(WebGLRenderingContext::BLEND);
+        mgr.engine.gl.depth_mask(true);
         for v in self.opaque_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
@@ -174,6 +166,8 @@ impl RenderImpl {
                 },
             }
         }
+        mgr.engine.gl.enable(WebGLRenderingContext::BLEND);
+        mgr.engine.gl.depth_mask(false);
         for v in self.transparent_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {

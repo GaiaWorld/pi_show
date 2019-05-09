@@ -170,11 +170,10 @@ fn init_gl(gl: &WebGLRenderingContext){
     gl.get_extension::<WEBGLDrawBuffers>();
     gl.get_extension::<GLOESStandardDerivatives>();
     gl.enable(WebGLRenderingContext::BLEND);
+    gl.enable(WebGLRenderingContext::DEPTH_TEST);
+    // gl.depth_mask(true);
     gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
 
     gl.clear_color(0.0, 0.0, 0.0, 1.0);
     gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
-
-    gl.enable(WebGLRenderingContext::DEPTH_TEST);
-    gl.enable(WebGLRenderingContext::DEPTH_WRITEMASK);
 }

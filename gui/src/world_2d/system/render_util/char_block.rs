@@ -93,6 +93,7 @@ pub fn init_location(defines: &CharBlockDefines, engine: &mut Engine, program_id
 }
 
 pub fn update(mgr: &mut World2dMgr, effect_id: usize){
+    debug_println!("charblock update, effect_id:{}", effect_id);
     let attribute = fill_attribute_index(effect_id, mgr);
     let char_block_effect = mgr.char_block_effect._group.get(effect_id);
     let gl = &mgr.engine.gl;
@@ -114,7 +115,7 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
     
-    debug_println!("update position location: {:?}, buffer = {:?}, data: {:?}", position_location, &char_block_effect.positions_buffer, attribute.positions);
+    debug_println!("charblock update position location: {:?}, buffer = {:?}, data: {:?}", position_location, &char_block_effect.positions_buffer, attribute.positions);
 
     //uv
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
@@ -127,7 +128,7 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
     
-    debug_println!("update uv location: {:?}, buffer = {:?}, data: {:?}", uv_location, &char_block_effect.uvs_buffer, attribute.uvs);
+    debug_println!("charblock update uv location: {:?}, buffer = {:?}, data: {:?}", uv_location, &char_block_effect.uvs_buffer, attribute.uvs);
     
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
@@ -136,20 +137,21 @@ pub fn update(mgr: &mut World2dMgr, effect_id: usize){
         @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
     }
 
-    debug_println!("update indeices buffer = {:?}, data: {:?}", &char_block_effect.indeices_buffer, attribute.indeices);
+    debug_println!("charblock update indeices buffer = {:?}, data: {:?}", &char_block_effect.indeices_buffer, attribute.indeices);
 }
 
 //更新uniform和buffer， 并渲染
 pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
+    debug_println!("charblock render, effect_id:{}", effect_id);
     let char_block_effect = mgr.char_block_effect._group.get(effect_id);
     let char_block = mgr.char_block._group.get(char_block_effect.parent);
 
     let defines = mgr.char_block_effect.defines._group.get(char_block_effect.defines);
-    debug_println!("text defines---------------------------{:?}", defines);
+    debug_println!("charblock text defines---------------------------{:?}", defines);
 
     let gl = &mgr.engine.gl;
 
-    debug_println!("program-------------------{}", char_block_effect.program);
+    debug_println!("charblock program-------------------{}", char_block_effect.program);
     let program = mgr.engine.lookup_program(char_block_effect.program).unwrap();
     let uniform_locations = &program.uniform_locations;
     let attr_locations = &program.attr_locations;
@@ -187,17 +189,17 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
 
     if defines.stroke {
         //设置strokeSize
-        debug_println!("stroke_size:{:?}", char_block.stroke_size);
+        debug_println!("charblock stroke_size:{:?}", char_block.stroke_size);
         let distance_for_pixel = char_block.sdf_font.distance_for_pixel(char_block.font_size);
-        debug_println!("stroke_clamp:{:?}, distance_for_pixel:{:?},char_block_effect.font_clamp： {}", char_block_effect.font_clamp- distance_for_pixel * char_block.stroke_size, distance_for_pixel, char_block_effect.font_clamp);
+        debug_println!("charblock stroke_clamp:{:?}, distance_for_pixel:{:?},char_block_effect.font_clamp： {}", char_block_effect.font_clamp- distance_for_pixel * char_block.stroke_size, distance_for_pixel, char_block_effect.font_clamp);
         gl.uniform1f(uniform_locations.get(&STROKE_CLAMP), char_block_effect.font_clamp- distance_for_pixel * char_block.stroke_size);
 
         //设置strokeColor
-        debug_println!("stroke_color:{:?}", char_block.stroke_color);
+        debug_println!("charblock stroke_color:{:?}", char_block.stroke_color);
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), char_block.stroke_color.r, char_block.stroke_color.g, char_block.stroke_color.b, char_block.stroke_color.a);
     }
     if defines.clip_plane {
-        debug_println!("by_overflow:{:?}", char_block.by_overflow);
+        debug_println!("charblock by_overflow:{:?}", char_block.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), char_block.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
 
@@ -213,16 +215,16 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     if char_block_effect.is_shadow {
         match &char_block.shadow {
             Some(shadow) => {
-                debug_println!("shadow_color: {:?}", shadow.color);
+                debug_println!("charblock shadow_color: {:?}", shadow.color);
                 gl.uniform4f(uniform_locations.get(&COLOR), shadow.color.r, shadow.color.g, shadow.color.b, shadow.color.a);
             },
-            None => debug_println!("it not have shadow"),
+            None => debug_println!("charblock it not have shadow"),
         }
     }else {
         match &char_block.color {
             Color::RGB(color) | Color::RGBA(color) => {
                 // color
-                debug_println!("color: {:?}", color);
+                debug_println!("charblock color: {:?}", color);
                 gl.uniform4f(uniform_locations.get(&COLOR), color.r, color.g, color.b, color.a);
             },
             Color::LinearGradient(color) => {
@@ -232,12 +234,12 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                 gl.uniform4f(uniform_locations.get(&SIZE_RANGE), char_block_effect.size_range[0], char_block_effect.size_range[1], char_block_effect.size_range[2], char_block_effect.size_range[3]);
 
                 //colorAngle
-                debug_println!("linear_color_gradient, direction: {:?}, {}, {}",  color.direction, PI, color.direction * PI / 360.0);
+                debug_println!("charblock linear_color_gradient, direction: {:?}, {}, {}",  color.direction, PI, color.direction * PI / 360.0);
                 gl.uniform1f(uniform_locations.get(&COLOR_ANGLE), color.direction * PI / 360.0);
 
                 if defines.linear_color_gradient_2 {
-                    debug_println!("linear_color_gradient_2, 0: {:?}", color.list[0]);
-                    debug_println!("linear_color_gradient_2, 1: {:?}", color.list[1]);
+                    debug_println!("charblock linear_color_gradient_2, 0: {:?}", color.list[0]);
+                    debug_println!("charblock linear_color_gradient_2, 1: {:?}", color.list[1]);
                     //distance
                     gl.uniform2f( uniform_locations.get(&DISTANCE), color.list[0].position, color.list[1].position);
 
@@ -261,10 +263,10 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                         colors[i] = &k.rgba;
                         i += 1;
                     }
-                    debug_println!("linear_color_gradient_4, 0: {:?}", color.list[0]);
-                    debug_println!("linear_color_gradient_4, 1: {:?}", color.list[1]);
-                    debug_println!("linear_color_gradient_4, 2: {:?}", color.list[2]);
-                    debug_println!("linear_color_gradient_4, 3: {:?}", color.list[3]);
+                    debug_println!("charblock linear_color_gradient_4, 0: {:?}", color.list[0]);
+                    debug_println!("charblock linear_color_gradient_4, 1: {:?}", color.list[1]);
+                    debug_println!("charblock linear_color_gradient_4, 2: {:?}", color.list[2]);
+                    debug_println!("charblock linear_color_gradient_4, 3: {:?}", color.list[3]);
                     gl.uniform4f( uniform_locations.get(&DISTANCE), distances[0],distances[1],distances[2],distances[3]);
 
                     //color1
@@ -280,7 +282,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
                     gl.uniform4f(uniform_locations.get(&COLOR4), colors[3].r, colors[3].g, colors[3].b, colors[3].a);
                 }
             },
-            _ => panic!("color type error"),
+            _ => panic!("charblock color type error"),
         };
     }
 
@@ -290,7 +292,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0,);
     gl.enable_vertex_attrib_array(position_location);
     
-    debug_println!("position: location = {:?}, buffer = {:?}", position_location, &char_block_effect.positions_buffer);
+    debug_println!("charblock position: location = {:?}, buffer = {:?}", position_location, &char_block_effect.positions_buffer);
     
     //uv
     gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&char_block_effect.uvs_buffer));
@@ -298,14 +300,16 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     gl.vertex_attrib_pointer(uv_location, 2, WebGLRenderingContext::FLOAT, false, 0, 0);
     gl.enable_vertex_attrib_array(uv_location);
     
-    debug_println!("uv: location = {:?}, buffer = {:?}", uv_location, &char_block_effect.uvs_buffer);
+    debug_println!("charblock uv: location = {:?}, buffer = {:?}", uv_location, &char_block_effect.uvs_buffer);
 
     //index
     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&char_block_effect.indeices_buffer));
   
     //draw
-    debug_println!("draw, indeices, buffer = {:?}, len = {:?}", &char_block_effect.indeices_buffer, char_block_effect.indeices_len);
+    debug_println!("charblock draw, indeices, buffer = {:?}, len = {:?}", &char_block_effect.indeices_buffer, char_block_effect.indeices_len);
     gl.draw_elements(WebGLRenderingContext::TRIANGLES, char_block_effect.indeices_len as i32, WebGLRenderingContext::UNSIGNED_SHORT, 0);
+
+    debug_println!("charblock is_opaque: {}", char_block.is_opaque);
 
     gl.disable_vertex_attrib_array(position_location);
 }
@@ -318,14 +322,14 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
     let char_block= mgr.char_block._group.get(char_block_effect.parent);
     let sdf_font = &char_block.sdf_font; //TODO
 
-    println!("charblock---------------------{:?}", char_block);
-
     let mut positions: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut indeices: Vec<u16> = Vec::new();
     let mut i = 0;
     // let line_height = sdf_font.line_height;
     let mut offset = (0.0, 0.0);
+    let mut z_depth = char_block.z_depth;
+
     offset.1 -= (char_block.line_height - char_block.font_size)/2.0;
 
     // 如果是阴影， 会偏移
@@ -335,8 +339,9 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
                 offset.1 -= shadow.v; 
                 offset.0 -= shadow.h;
             },
-            None => debug_println!("it not have shadow"),
+            None => debug_println!("charblock it not have shadow"),
         }
+        z_depth -= 0.1;
     }
 
     if char_block.chars.len() > 0 {
@@ -387,10 +392,10 @@ fn fill_attribute_index(effect_id: usize, mgr: &mut World2dMgr) -> Attribute {
 
             let max_y = pos.1 + char_block.font_size - glyph.oy;
             let ps = [
-                pos.0 + glyph.ox,                max_y,                 char_block.z_depth,
-                pos.0 + glyph.ox,                max_y + glyph.height,  char_block.z_depth,
-                glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  char_block.z_depth,
-                glyph.width + pos.0 + glyph.ox,  max_y,                 char_block.z_depth,
+                pos.0 + glyph.ox,                max_y,                 z_depth,
+                pos.0 + glyph.ox,                max_y + glyph.height,  z_depth,
+                glyph.width + pos.0 + glyph.ox,  max_y + glyph.height,  z_depth,
+                glyph.width + pos.0 + glyph.ox,  max_y,                 z_depth,
             ];
             positions.extend_from_slice(&ps);
             size_range[0] = ps[0].min(size_range[0]);

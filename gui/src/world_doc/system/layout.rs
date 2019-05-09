@@ -177,6 +177,7 @@ pub struct TextImpl {
 pub struct CharImpl {
   pub ch: char, // 字符, 0为容器节点
   pub width: f32, // 字符宽度
+  pub parent: bool, //如果该字符的yoga节点的直接父节点不是node， 该值为true， 否则为fale
   //pub parent: isize, // 对应的父节点，如果为正数表示Dom文本节点，负数为yoga节点（如果字节点是字符容器会出现这种情况）
   pub node: YgNode, // 对应的yoga节点
   pub rid: usize, // 渲染节点的id
@@ -320,10 +321,14 @@ impl LayoutImpl {
             let layout = text.node.get_layout();
             ch.pos.x = layout.left;
             ch.pos.y = layout.top;
+            if text.parent {
+                let layout = text.node.get_parent().get_layout();
+                ch.pos.x += layout.left;
+                ch.pos.y += layout.top;
+            }
             rnode.parent
         };
         mgr.world_2d.component_mgr.char_block._group.get_handlers().notify_modify_field(ModifyFieldEvent{id: text.rid, parent:parent, field: "chars"}, &mut mgr.world_2d.component_mgr);
-        // TODO 发监听
     }
 }
 
@@ -382,7 +387,7 @@ fn add_text(
         parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
 
-    //如果有缩进
+    // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
     if text_style.text_indent > 0.0 {
         let yg = YgNode::default();
         yg.set_width(text_style.text_indent);
@@ -404,8 +409,6 @@ fn add_text(
                 let yg = YgNode::default();
                 // 设置成宽度100%, 高度0
                 yg.set_width_percent(100.0);
-                // 如果有缩进, 则添加制表符的空节点, 宽度为缩进值
-
                 add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
             },
             SplitResult::Whitespace =>{
@@ -415,7 +418,7 @@ fn add_text(
                 add_yoga(char_slab, vec, &parent_yoga, yg, rid, &mut index);
             },
             SplitResult::Word(c) =>{
-                add_char(char_slab, vec, chars, rid, &mut rindex, &mut index, c, &parent_yoga, &text_info);
+                add_char(char_slab, vec, chars, rid, &mut rindex, &mut index, c, &parent_yoga, &text_info, false);
             },
             SplitResult::WordStart(c) =>{
                 word_index = 0;
@@ -423,10 +426,10 @@ fn add_text(
                 let wyg = YgNode::default();
                 wyg.set_width_auto();
                 wyg.set_height_auto();
-                add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &wyg, &text_info);
+                add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &wyg, &text_info, true);
                 word = Some(wyg);
             },
-            SplitResult::WordNext(c) => add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info),
+            SplitResult::WordNext(c) => add_char(char_slab, vec, chars, rid, &mut rindex, &mut word_index, c, &word.unwrap(), &text_info, true),
             SplitResult::WordEnd =>{
                 add_yoga(char_slab, vec, &parent_yoga, word.unwrap(), rid, &mut index);
                 word = None;
@@ -498,7 +501,7 @@ fn update_text(
                 parent_yoga.insert_child(yg, index);
                 index += 1;
             },
-            SplitResult::Word(c) => update_char(char_slab, chars, rid, &mut rindex, &mut index, vec[vec_index - 1], c, &parent_yoga, &text_info),
+            SplitResult::Word(c) => update_char(char_slab, chars, rid, &mut rindex, &mut index, vec[vec_index - 1], c, &parent_yoga, &text_info, false),
             SplitResult::WordStart(c) =>{
                 word_index = 0;
                 // 设置word节点成宽高为自适应内容, 字符为0
@@ -507,10 +510,10 @@ fn update_text(
                 wyg.set_height_auto();
                 index += 1;
 
-                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 2], c, &word.unwrap(), &text_info);
+                update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 2], c, &word.unwrap(), &text_info, true);
                 word = Some(wyg);
             },
-            SplitResult::WordNext(c) => update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info),
+            SplitResult::WordNext(c) => update_char(char_slab, chars, rid, &mut rindex, &mut word_index, vec[vec_index - 1], c, &word.unwrap(), &text_info, true),
             SplitResult::WordEnd =>{
                 parent_yoga.insert_child(word.unwrap(), index);
                 word = None;
@@ -536,6 +539,7 @@ fn add_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, parent_yoga: &
         node: yg,
         rid: rid,
         rindex: 0,
+        parent: false,
     }));
     parent_yoga.insert_child(yg, *index);
     *index += 1;
@@ -550,6 +554,7 @@ fn get_yoga(char_slab: &mut Slab<CharImpl>, vec: &mut Vec<usize>, rid: usize, ve
             node: yg,
             rid: rid,
             rindex: 0,
+            parent: false,
         }));
         yg
     }else {
@@ -572,10 +577,12 @@ fn add_char(
     c: char, 
     parent: &YgNode,
     text_info: &TextInfo,
+    p: bool,
 ){
-    let char_impl = CharImpl::default();
+    let mut char_impl = CharImpl::default();
+    char_impl.parent = p;
     let char_id = char_slab.insert(char_impl);
-    
+
     vec.push(char_id);
     //将Char加入vec中
     chars.push(Char{
@@ -597,6 +604,7 @@ fn update_char(
     c: char, 
     parent: &YgNode,
     text_info: &TextInfo,
+    p: bool,
 ){
     let char_impl = unsafe { char_slab.get_unchecked_mut(char_id)};
     
@@ -607,6 +615,7 @@ fn update_char(
         });
         char_impl.rindex = *rindex;
     }
+    char_impl.parent = p;
 
     update_char1(unsafe { char_slab.get_unchecked_mut(char_id) }, &mut chars[*rindex - 1], char_id, rid, rindex, index, c, parent, text_info);
 }

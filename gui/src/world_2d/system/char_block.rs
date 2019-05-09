@@ -70,7 +70,10 @@ impl ComponentHandler<CharBlock, CreateEvent, World2dMgr> for CharBlockSys{
                 borrow_mut.shadow_buffer_dirty.marked_dirty(effect_id);
             },
             None => (),
-        }
+        };
+
+        let is_opaque = is_opaque(*id, component_mgr);
+        component_mgr.get_char_block_mut(*id).set_is_opaque(is_opaque);
     }
 }
 
@@ -267,17 +270,18 @@ impl CharBlockSysImpl {
     }
 }
 
-fn is_opaque(char_block_id: usize, mgr: &mut World2dMgr) -> bool {
-    let char_block = &mgr.char_block._group.get(char_block_id).owner;
-    if char_block.alpha < 1.0 {
-        return false;
-    }
+fn is_opaque(_char_block_id: usize, _mgr: &mut World2dMgr) -> bool {
+    return false; //暂时将文字同意按照透明处理
+    // let char_block = &mgr.char_block._group.get(char_block_id).owner;
+    // if char_block.alpha < 1.0 {
+    //     return false;
+    // }
 
-    if char_block.stroke_color.a < 1.0 {
-        return false;
-    }
+    // if char_block.stroke_color.a < 1.0 {
+    //     return false;
+    // }
 
-    return char_block.color.is_opaque();
+    // return char_block.color.is_opaque();
 }
 
 fn create_effect(parent: usize, component_mgr: &mut World2dMgr, defines: CharBlockDefines, blur: f32, is_shadow: bool) -> usize{

@@ -37,11 +37,9 @@ lazy_static! {
 
 // 初始化location
 pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64) {
-    println!("init_location -----------------------------");
     let gl = engine.gl.clone();
     
     let program = engine.lookup_program_mut(program_id).unwrap();
-    println!("lookup_program_mut -----------------------------");
     let uniform_locations = &mut program.uniform_locations;
     let attr_locations = &mut program.attr_locations;
     let program = &program.program;
@@ -61,7 +59,6 @@ pub fn init_location(defines: &SdfDefines, engine: &mut Engine, program_id: u64)
         WORLD_VIEW_PROJECTION.clone(),
         get_uniform_location(&gl,program, &WORLD_VIEW_PROJECTION),
     );
-    println!("uniform_locations -----------------------------");
     // uniform_locations.insert(
     //     CENTER.clone(),
     //     get_uniform_location(&gl,program, &CENTER),
@@ -201,7 +198,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     let sdf = mgr.sdf._group.get(sdf_effect.sdf_id);
 
     let defines = mgr.sdf_effect.defines._group.get(sdf_effect.defines);
-    debug_println!("defines---------------------------{:?}", defines);
+    debug_println!("sdf defines---------------------------{:?}", defines);
 
 
     let gl = &mgr.engine.gl;
@@ -219,14 +216,14 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     // let w = cg::Matrix4::new(1.0, 0.0,0.0,0.0, 0.0, 1.0,0.0,0.0, 0.0, 0.0, 1.0,0.0, 350.0, 245.0, 0.0, 1.0,);
     // let world_view = mgr.projection.0 * w;
     // let world_view = sdf.world_matrix.0 * mgr.projection.0;
-    debug_println!("p_matrix----------------{:?}", mgr.projection.0);
+    debug_println!("sdf p_matrix----------------{:?}", mgr.projection.0);
     let arr: &[f32; 16] = world_view.as_ref();
-    debug_println!("world_matrix----------------{:?}", sdf.world_matrix.0);
+    debug_println!("sdf world_matrix----------------{:?}", sdf.world_matrix.0);
     // let arr = [0.002 , 0.0 , 0.0 , 0.0 , -0.00285714 , 0.0 , 0.0 , 0.0 , -0.0001 , 0.0,499.0 , 351.0 , 0.0 , 1.0];
     // let arr = &arr;
     // let arr: &[f32; 16] = mgr.projection.0.as_ref();
     #[cfg(feature = "log")]
-    debug_println!("world_view----------------{:?}",  @{&arr[0..16]});
+    debug_println!("sdf world_view----------------{:?}",  @{&arr[0..16]});
     gl.uniform_matrix4fv(
         uniform_locations.get(&WORLD_VIEW_PROJECTION),
         false,
@@ -234,7 +231,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
     );
 
     //blur
-    debug_println!("blur: {}", sdf.blur);
+    debug_println!("sdf blur: {}", sdf.blur);
     gl.uniform1f(uniform_locations.get(&BLUR), sdf.blur);
 
     //extend
@@ -266,21 +263,21 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
             LengthUnit::Percentage(r) => sdf.extend.x * 2.0 * r,
             LengthUnit::Length(r) => r,
         };
-        debug_println!("border_radius:{:?}, {:?}, {:?}", radius, sdf.radius, sdf.extend.x);
+        debug_println!("sdf border_radius:{:?}, {:?}, {:?}", radius, sdf.radius, sdf.extend.x);
         //设置radius
         gl.uniform1f(uniform_locations.get(&RADIUS), radius);
     }
     if defines.stroke {
         //设置strokeSize
-        debug_println!("border_size:{:?}", sdf.border_size);
+        debug_println!("sdf border_size:{:?}", sdf.border_size);
         gl.uniform1f(uniform_locations.get(&STROKE_SIZE), sdf.border_size);
 
         //设置strokeColor
-        debug_println!("border_color:{:?}", sdf.border_color);
+        debug_println!("sdf border_color:{:?}", sdf.border_color);
         gl.uniform4f(uniform_locations.get(&STROKE_COLOR), sdf.border_color.r, sdf.border_color.g, sdf.border_color.b, sdf.border_color.a);
     }
     if defines.clip_plane {
-        debug_println!("by_overflow:{:?}", sdf.by_overflow);
+        debug_println!("sdf by_overflow:{:?}", sdf.by_overflow);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES), sdf.by_overflow as f32);
         gl.uniform1f(uniform_locations.get(&CLIP_INDEICES_SIZE), 1024.0);
 
@@ -498,7 +495,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         //     -0.0, // right_top
         // ];
         // let buffer = [0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0,0.0, 0.0, 0.0];
-        debug_println!("position: {:?}", buffer);
+        debug_println!("sdf position: {:?}", buffer);
         let buffer = unsafe { UnsafeTypedArray::new(&buffer) };
         js! {
             @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
@@ -523,7 +520,7 @@ pub fn render(mgr: &mut World2dMgr, effect_id: usize) {
         Some(&sdf_effect.indeices_buffer),
     );
 
-    debug_println!("is_opaque: {}", sdf.is_opaque);
+    debug_println!("sdf is_opaque: {}", sdf.is_opaque);
     
     //draw
     gl.draw_elements(

@@ -55,14 +55,12 @@ impl System<(), World2dMgr> for CreateSdfProgram{
                 (defines.list(), defines_id)
             };
 
-            println!("create_program start---");
             let program = component_mgr.engine.create_program(
                 component_mgr.shader_store.get(&component_mgr.sdf_shader.vs).unwrap(),
                 component_mgr.shader_store.get(&component_mgr.sdf_shader.fs).unwrap(),
                 &defines
             );
 
-            println!("create_program end---");
             match program {
                 Ok(v) => {
                     {
