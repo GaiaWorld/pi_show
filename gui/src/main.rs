@@ -29,6 +29,7 @@ extern crate fnv;
 extern crate atom;
 extern crate ucd;
 extern crate data_view;
+extern crate dirty;
 
 pub mod system;
 pub mod component;
