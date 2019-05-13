@@ -151,7 +151,7 @@ impl RenderImpl {
         self.dirty = false;
         mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         self.list_obj(mgr);
-        mgr.engine.gl.disable(WebGLRenderingContext::BLEND);
+        // mgr.engine.gl.disable(WebGLRenderingContext::BLEND);
         // mgr.engine.gl.depth_mask(true);
         for v in self.opaque_objs.iter() {
             match v.ty {
@@ -166,7 +166,7 @@ impl RenderImpl {
                 },
             }
         }
-        mgr.engine.gl.enable(WebGLRenderingContext::BLEND);
+        // mgr.engine.gl.enable(WebGLRenderingContext::BLEND);
         // mgr.engine.gl.depth_mask(false);
         for v in self.transparent_objs.iter() {
             match v.ty {
