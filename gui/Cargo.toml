@@ -5,9 +5,9 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
-wcs = { path = "../../pi_lib/wcs" }
-wcs_macro = { path = "../../pi_lib/wcs_macro" }
-enum_default_macro = { path = "../../pi_lib/enum_default_macro" }
+ecs = { path = "../../pi_lib/ecs" }
+ecs_derive = { path = "../../pi_lib/ecs_derive" }
+enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
 cg = { path = "../../pi_math/cg" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
@@ -18,12 +18,14 @@ atom = {path="../../pi_lib/atom"}
 ucd = {path="../../pi_lib/ucd"}
 data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
+dirty = {path="../../pi_lib/dirty"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
+derive_deref = "1.0.2"
 
 [features]
 default = ["web"]

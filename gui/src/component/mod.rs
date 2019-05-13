@@ -1,2 +1,2 @@
-pub mod color;
-pub mod math;
+pub mod calc;
+pub mod user;
