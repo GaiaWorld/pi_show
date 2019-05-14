@@ -149,9 +149,11 @@ impl RenderImpl {
             return;
         }
         self.dirty = false;
-        mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
+        
         self.list_obj(mgr);
-        // mgr.engine.gl.disable(WebGLRenderingContext::BLEND);
+        mgr.engine.gl.depth_mask(true);
+        mgr.engine.gl.disable(WebGLRenderingContext::BLEND);
+        mgr.engine.gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
         // mgr.engine.gl.depth_mask(true);
         for v in self.opaque_objs.iter() {
             match v.ty {
@@ -166,8 +168,8 @@ impl RenderImpl {
                 },
             }
         }
-        // mgr.engine.gl.enable(WebGLRenderingContext::BLEND);
-        // mgr.engine.gl.depth_mask(false);
+        mgr.engine.gl.depth_mask(false);
+        mgr.engine.gl.enable(WebGLRenderingContext::BLEND);
         for v in self.transparent_objs.iter() {
             match v.ty {
                 RenderType::Sdf => {
@@ -179,6 +181,7 @@ impl RenderImpl {
                 RenderType::CharBlock => {
                     char_block::render(mgr, v.id);
                 }
+
             }
         }
         self.opaque_objs.clear();

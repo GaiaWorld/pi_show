@@ -1,4 +1,4 @@
 E:
 cd E:/work/emsdk
 emsdk_env
-cd ../rust/pi_show/gui
+cd ../rust/pi_show_master/gui
