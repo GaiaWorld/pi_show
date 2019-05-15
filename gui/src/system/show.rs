@@ -185,17 +185,17 @@ fn test(){
 
     unsafe { shows.get_unchecked_write(e00)}.modify(|show: &mut Show|{
         show.set_visibility(false);
-        // true
+        true
     });
 
     unsafe { shows.get_unchecked_write(e01)}.modify(|show: &mut Show|{
         show.set_enable(false);
-        // true
+        true
     });
 
     unsafe { shows.get_unchecked_write(e02)}.modify(|show: &mut Show|{
         show.set_display(Display::None);
-        // true
+        true
     });
 
     world.run(&Atom::from("test_show_sys"));
