@@ -9,7 +9,10 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
-use component::user::{ Transform, WorldMatrix};
+use component::{
+    user::{ Transform},
+    calc::{ WorldMatrix},
+};
 use map::vecmap::{VecMap};
 use layout::Layout;
 use entity::{Node};
