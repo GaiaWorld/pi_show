@@ -1,202 +1,269 @@
 /**
- * 监听opacity组件（该组件由外部设置本节点的不透明度， 会影响子节点的不透明度）， 递归计算最终的不透明度值， 将其记录在real_opacity组件中
+ *  计算opacity
+ *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改和删除， 已经监听idtree上的创建和删除事件， 计算已经在idtree上存在的实体的Opacity
  */
-
-use std::cell::RefCell;
-use std::rc::{Rc};
 
 use map::vecmap::{VecMap};
 
 use dirty::layer_dirty::LayerDirtyMark;
-use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, SingleCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, Runner, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
-use component::user::Opacity;
-use component::calc::Opacity as COpacity;
+use component::user::{ Opacity};
+use component::calc::{Opacity as COpacity, OpacityWrite as COpacityWrite};
 use entity::{Node};
 use IdBind;
 
+#[derive(Default)]
 pub struct OpacitySys{
     dirty: LayerDirtyMark,
+    dirty_mark_list: VecMap<bool>,
 }
 
-//监听opacity属性的改变
-impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for OpacitySys{
+impl<'a> Runner<'a> for OpacitySys {
+    type ReadData = (&'a SingleCaseImpl<IdTree<IdBind>>, &'a MultiCaseImpl<Node, Opacity>);
+    type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        for id in self.dirty.iter() {
+            let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(id)};
+            if  *dirty_mark == false {
+                continue;
+            }
+            *dirty_mark = false;
+
+            let parent_id = unsafe { read.0.get_unchecked(id).parent };
+           
+            if parent_id > 0 {
+                let parent_c_opacity = unsafe { **write.get_unchecked(parent_id) };
+                modify_opacity(&mut self.dirty_mark_list, parent_c_opacity, id, read.0, read.1, write);
+            }else {
+                modify_opacity(&mut self.dirty_mark_list, 1.0, id, read.0, read.1, write);
+            }
+        }
+        self.dirty.clear();
+    }
+}
+
+impl<'a> EntityListener<'a, Node, CreateEvent> for OpacitySys{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, Opacity>, &'a mut MultiCaseImpl<Node, COpacity>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        write.0.insert(event.id, Opacity::default());
+        write.1.insert(event.id, COpacity::default());
+    }
+}
+
+impl<'a> EntityListener<'a, Node, DeleteEvent> for OpacitySys{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, Opacity>, &'a mut MultiCaseImpl<Node, COpacity>);
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
+        write.0.delete(event.id);
+        write.1.delete(event.id);
+    }
+}
+
+impl<'a> MultiCaseListener<'a, Node, Opacity, CreateEvent> for OpacitySys{
     type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: &'a SingleCaseImpl<IdTree<IdBind>>, _write: ()){
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.dirty_mark_list.insert(event.id, false);
         match read.get(event.id) {
-            Some(r) => self.dirty.marked_dirty(event.id, r.layer),
+            Some(r) => {
+                *unsafe {self.dirty_mark_list.get_unchecked_mut(event.id)} = true;
+                self.dirty.marked_dirty(event.id, r.layer)
+            },
             _ => ()
         };
     }
 }
 
-// //监听Node的创建， 设置脏标志
-// impl ComponentHandler<Node, CreateEvent, WorldDocMgr> for OpacitySys{
-//     fn handle(&self, event: &CreateEvent, component_mgr: &mut WorldDocMgr){
-//         let CreateEvent{id, parent: _} = event;
-//         let mut borrow = self.0.borrow_mut();
-//         borrow.dirty_mark_list.insert(*id, false);
-//         borrow.marked_dirty(*id, component_mgr);
-//     }
-// }
+impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for OpacitySys{
+    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+        match read.get(event.id) {
+            Some(r) => {
+                *unsafe { self.dirty_mark_list.get_unchecked_mut(event.id)} = true;
+                self.dirty.marked_dirty(event.id, r.layer)
+            },
+            _ => ()
+        };
+    }
+}
 
-// //监听Node的删除创建， 删除脏标志
-// impl ComponentHandler<Node, DeleteEvent, WorldDocMgr> for OpacitySys{
-//     fn handle(&self, event: &DeleteEvent, component_mgr: &mut WorldDocMgr){
-//         let DeleteEvent{id, parent: _} = event;
-//         let mut borrow = self.0.borrow_mut();
-//         borrow.delete_dirty(*id, component_mgr);
-//         unsafe {borrow.dirty_mark_list.remove_unchecked(*id)};
-//     }
-// }
+impl<'a> MultiCaseListener<'a, Node, Opacity, DeleteEvent> for OpacitySys{
+    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+        if unsafe {self.dirty_mark_list.remove_unchecked(event.id)} == true {
+            match read.get(event.id) {
+                Some(r) => self.dirty.delete_dirty(event.id, r.layer),
+                _ => ()
+            };
+        }
+    }
+}
 
-// impl System<(), WorldDocMgr> for OpacitySys{
-//     fn run(&self, _e: &(), component_mgr: &mut WorldDocMgr){
-//         cal_opacity(&mut self.0.borrow_mut(), component_mgr);
-//     }
-// }
+impl<'a> SingleCaseListener<'a, IdTree<IdBind>, CreateEvent> for OpacitySys{
+    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
+        let node = unsafe { read.get_unchecked(event.id) };
+        self.dirty.marked_dirty(event.id, node.layer);
+    }
+}
+
+impl<'a> SingleCaseListener<'a, IdTree<IdBind>, DeleteEvent> for OpacitySys{
+    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+        if unsafe {self.dirty_mark_list.remove_unchecked(event.id)} == true {
+            let node = unsafe { read.get_unchecked(event.id) };
+            self.dirty.delete_dirty(event.id, node.layer)
+        }
+    }
+}
+
+//递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
+fn modify_opacity(
+    dirty_mark_list: &mut VecMap<bool>,
+    parent_real_opacity: f32,
+    id: usize,
+    id_tree: &SingleCaseImpl<IdTree<IdBind>>,
+    opacity: &MultiCaseImpl<Node, Opacity>,
+    copacity: &mut MultiCaseImpl<Node,COpacity>
+) {
+    let opacity_value: f32 = unsafe { **opacity.get_unchecked(id) };
+    let node_real_opacity = opacity_value * parent_real_opacity;
+    unsafe { copacity.get_unchecked_write(id) }.set_0(node_real_opacity);
+
+    unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
+
+    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    for child_id in id_tree.iter(first) {
+        modify_opacity(dirty_mark_list, node_real_opacity, child_id.0, id_tree, opacity, copacity);
+    }
+}
+
+type IdTreeT = IdTree<IdBind>;
+
+impl_system!{
+    OpacitySys,
+    true,
+    {
+        EntityListener<Node, CreateEvent>
+        EntityListener<Node, DeleteEvent>
+        MultiCaseListener<Node, Opacity, CreateEvent>
+        MultiCaseListener<Node, Opacity, DeleteEvent>
+        MultiCaseListener<Node, Opacity, ModifyEvent>
+        SingleCaseListener<IdTreeT, DeleteEvent>
+        SingleCaseListener<IdTreeT, CreateEvent>
+    }
+}
 
 
+#[cfg(test)]
+use ecs::{World, BorrowMut, SeqDispatcher, Dispatcher};
+#[cfg(test)]
+use atom::Atom;
+#[cfg(test)]
+use component::user::OpacityWrite;
 
-// //计算不透明度
-// pub fn cal_opacity(dirty_marks: &mut LayerDirtyMark, component_mgr: &mut WorldDocMgr){
-//     for d1 in dirty_marks.dirtys.iter() {
-//         for node_id in d1.iter() {
-//             if  *unsafe{dirty_marks.dirty_mark_list.get_unchecked(*node_id)} == false {
-//                 continue;
-//             }
+#[test]
+fn test(){
+    let world = new_world();
 
-//             let parent_id = component_mgr.node._group.get(*node_id).parent;
-//             if parent_id > 0 {
-//                 modify_opacity(&mut dirty_marks.dirty_mark_list, component_mgr.node._group.get(parent_id).real_opacity, *node_id, component_mgr);
-//             }else {
-//                 modify_opacity(&mut dirty_marks.dirty_mark_list, 1.0, *node_id, component_mgr);
-//             }
-//         }
-//     }
+    let idtree = world.fetch_single::<IdTree<IdBind>>().unwrap();
+    let idtree = BorrowMut::borrow_mut(&idtree);
+    let notify = idtree.get_notify();
+    let opacitys = world.fetch_multi::<Node, Opacity>().unwrap();
+    let opacitys = BorrowMut::borrow_mut(&opacitys);
+    let copacitys = world.fetch_multi::<Node, COpacity>().unwrap();
+    let copacitys = BorrowMut::borrow_mut(&copacitys);
 
-//     dirty_marks.dirtys.clear();
-// }
- 
+    let e0 = world.create_entity::<Node>();
+    
+    idtree.create(e0, 0);
+    idtree.insert_child(e0, 0, 0, Some(&notify)); //根
+    opacitys.insert(e0, Opacity::default());
 
-// //递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
-// fn modify_opacity(dirty_mark_list: &mut VecMap<bool>, parent_real_opacity: f32, node_id: usize, component_mgr: &mut WorldDocMgr) {
-//     let node_opacity = {
-//         let node = component_mgr.node._group.get(node_id);
-//         node.opacity
-//     };
-//     let node_real_opacity = node_opacity * parent_real_opacity;
+    world.run(&Atom::from("test_opacity_sys"));
+    
+    let e00 = world.create_entity::<Node>();
+    let e01 = world.create_entity::<Node>();
+    let e02 = world.create_entity::<Node>();
+    idtree.create(e00, 0);
+    idtree.insert_child(e00, e0, 1, Some(&notify));
+    opacitys.insert(e00, Opacity::default());
+    idtree.create(e01, 0);
+    idtree.insert_child(e01, e0, 2, Some(&notify));
+    opacitys.insert(e01, Opacity::default());
+    idtree.create(e02, 0);
+    idtree.insert_child(e02, e0, 3, Some(&notify));
+    opacitys.insert(e02, Opacity::default());
 
-//     let mut child = {
-//         let mut node_ref = component_mgr.get_node_mut(node_id);
-//         node_ref.set_real_opacity(node_real_opacity);
-//         node_ref.get_childs_mut().get_first()
-//     };
+    let e000 = world.create_entity::<Node>();
+    let e001 = world.create_entity::<Node>();
+    let e002 = world.create_entity::<Node>();
+    idtree.create(e000, 0);
+    idtree.insert_child(e000, e00, 1, Some(&notify));
+    opacitys.insert(e000, Opacity::default());
+    idtree.create(e001, 0);
+    idtree.insert_child(e001, e00, 2, Some(&notify));
+    opacitys.insert(e001, Opacity::default());
+    idtree.create(e002, 0);
+    idtree.insert_child(e002, e00, 3, Some(&notify));
+    opacitys.insert(e002, Opacity::default());
 
-//     unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false}
-//     //递归计算子节点的世界矩阵
-//     loop {
-//         if child == 0 {
-//             return;
-//         }
-//         let node_id = {
-//             let v = unsafe{ component_mgr.node_container.get_unchecked(child) };
-//             child = v.next;
-//             v.elem.clone()
-//         };
-//         modify_opacity(dirty_mark_list, node_real_opacity, node_id, component_mgr);
-//     }
-// }
+    let e010 = world.create_entity::<Node>();
+    let e011 = world.create_entity::<Node>();
+    let e012 = world.create_entity::<Node>();
+    idtree.create(e010, 0);
+    idtree.insert_child(e010, e01, 1, Some(&notify));
+    opacitys.insert(e010, Opacity::default());
+    idtree.create(e011, 0);
+    idtree.insert_child(e011, e01, 2, Some(&notify));
+    opacitys.insert(e011, Opacity::default());
+    idtree.create(e012, 0);
+    idtree.insert_child(e012, e01, 3, Some(&notify));
+    opacitys.insert(e012, Opacity::default());
+    world.run(&Atom::from("test_opacity_sys"));
 
-// #[cfg(test)]
-// #[cfg(not(feature = "web"))]
-// mod test {
-//     use std::rc::Rc;
+    unsafe { opacitys.get_unchecked_write(e0)}.set_0(0.5);
+    unsafe { opacitys.get_unchecked_write(e00)}.set_0(0.5);
 
-//     use wcs::component::Builder;
-//     use wcs::world::{World, System};
-//     use world_doc::WorldDocMgr;
+    world.run(&Atom::from("test_opacity_sys"));
 
-//     use world_doc::component::node::{NodeBuilder, InsertType};
-//     use world_doc::system::opacity::OpacitySys;
+    println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+        unsafe{copacitys.get_unchecked(e0)},
+        unsafe{copacitys.get_unchecked(e00)},
+        unsafe{copacitys.get_unchecked(e01)},
+        unsafe{copacitys.get_unchecked(e02)},
+        unsafe{copacitys.get_unchecked(e000)},
+        unsafe{copacitys.get_unchecked(e001)},
+        unsafe{copacitys.get_unchecked(e002)},
+        unsafe{copacitys.get_unchecked(e010)},
+        unsafe{copacitys.get_unchecked(e011)},
+        unsafe{copacitys.get_unchecked(e012)},
+    );
+}
 
-//     #[test]
-//     fn test(){
-//         let mut world = new_world();
-//         let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
-//         let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
+#[cfg(test)]
+fn new_world() -> World {
+    let mut world = World::default();
 
-//         let (root, node_ids) = {
-//             let root = NodeBuilder::new().build(&mut world.component_mgr.node);
-//             let root_id = world.component_mgr.add_node(root).id;
-//             let mgr = &mut world.component_mgr;
-            
-//             //root的直接子节点
-//             let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-//             let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
+    world.register_entity::<Node>();
+    world.register_multi::<Node, Opacity>();
+    world.register_multi::<Node, COpacity>();
+    world.register_single::<IdTree<IdBind>>(IdTree::default());
+     
+    let system = CellOpacitySys::new(OpacitySys::default());
+    world.register_system(Atom::from("system"), system);
 
-//             //node2的直接子节点
-//             let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
-//             let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
+    let mut dispatch = SeqDispatcher::default();
+    dispatch.build("system".to_string(), &world);
 
-//             //node3的直接子节点
-//             let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
-//             let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
+    world.add_dispatcher( Atom::from("test_opacity_sys"), dispatch);
+    world
+}
 
-//             //node4的直接子节点
-//             let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
-//             let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
-
-//             (
-//                 root_id,
-//                 vec![node2, node3, node4, node5, node6, node7, node8, node9]
-//             )
-//         };
-
-//         //  mgr.get_node_mut(root).
-//         world.run(());
-//         for i in node_ids.iter(){
-//             {
-//                 let node_ref = world.component_mgr.get_node_mut(*i);
-//                 let real_opacity = node_ref.get_real_opacity();
-//             }
-//         }
-
-//         world.component_mgr.get_node_mut(root).set_opacity(0.5);
-//         world.run(());
-//         for i in node_ids.iter(){
-//             {
-//                 let node_ref = world.component_mgr.get_node_mut(*i);
-//                 let real_opacity = node_ref.get_real_opacity();
-//             }
-//         }
-
-//         //修改node2的opacity
-//         world.component_mgr.get_node_mut(node_ids[0]).set_opacity(0.5);
-//         world.component_mgr.get_node_mut(node_ids[2]).set_opacity(0.5);
-//         world.run(());
-//         for i in node_ids.iter(){
-//             {
-//                 let node_ref = world.component_mgr.get_node_mut(*i);
-//                 let real_opacity = node_ref.get_real_opacity();
-//             }
-//         }
-
-//         // forget(world);
-//     }
-
-//     fn new_world() -> World<WorldDocMgr, ()>{
-//         let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
-//         let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![OpacitySys::init(&mut world.component_mgr)];
-//         world.set_systems(systems);
-//         world
-//     }
-// }
