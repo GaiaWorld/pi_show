@@ -34,6 +34,7 @@ extern crate dirty;
 pub mod system;
 pub mod component;
 pub mod single;
+pub mod layout;
 
 pub mod entity{
     pub struct Node;

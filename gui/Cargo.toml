@@ -28,5 +28,5 @@ webgl-rendering-context = "0.1.0"
 derive_deref = "1.0.2"
 
 [features]
-default = ["web"]
-web = []
+# default = ["web"]
+# web = []
