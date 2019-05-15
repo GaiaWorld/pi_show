@@ -7,7 +7,7 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
-
+use cg::Matrix4;
 use ecs::component::Component;
 
 #[derive(Component, Default)]
@@ -41,3 +41,6 @@ impl Default for Enable {
     Enable(true)
   }
 }
+
+#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
+pub struct WorldMatrix(pub Matrix4<f32>);

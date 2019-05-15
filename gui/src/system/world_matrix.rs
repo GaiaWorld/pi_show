@@ -1,15 +1,13 @@
 /**
- * 监听transform和position组件， 利用transform和position递归计算节点的世界矩阵（worldmatrix组件）
+ * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
  */
-
-use std::cell::RefCell;
-use std::rc::{Rc};
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
-use component::user::{ Transform, WorldMatrix};
+use component::user::{ Transform };
+use component::calc::WorldMatrix;
 use map::vecmap::{VecMap};
 use layout::Layout;
 use entity::{Node};
@@ -41,6 +39,28 @@ impl WorldMatrixSys{
             self.recursive_delete_dirty(child.0, &child.1, id_tree);
         }
     }
+
+    fn cal_matrix(
+        &mut self,
+        idtree: &SingleCaseImpl<IdTree>,
+        transform: &MultiCaseImpl<Node, Transform>,
+        layout: &MultiCaseImpl<Node, Layout>,
+        world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>
+    ){
+        for id in self.dirty.iter() {
+            {
+                let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
+                if  *dirty_mark == false {
+                    continue;
+                }
+                *dirty_mark = false;
+            }
+
+            let parent_id = unsafe { idtree.get_unchecked(*id).parent };
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, idtree, transform, layout, world_matrix);
+        }
+        self.dirty.clear();
+    }
 }
 
 impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys{
@@ -56,10 +76,8 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys{
 impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, Layout>);
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.0.delete(event.id);
-        write.1.delete(event.id);
-        unsafe { self.dirty_mark_list.remove_unchecked(event.id) } ;
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData){
+        unsafe { self.dirty_mark_list.remove_unchecked(event.id) };
     }
 }
 
@@ -82,7 +100,7 @@ impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for WorldMatrixSys{
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
         self.marked_dirty(event.id, read);
     }
 }
@@ -90,249 +108,292 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
 impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
         let node = unsafe { read.get_unchecked(event.id) };
         self.recursive_delete_dirty(event.id, &node, read);
     }
 }
 
 impl<'a> Runner<'a> for WorldMatrixSys{
-    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        // cal_matrix(&mut self.0.borrow_mut(), component_mgr);
+        self.cal_matrix(read.0, read.1, read.2, write);
     }
 }
 
-// //计算世界矩阵
-// pub fn cal_matrix(dirty_marks: &mut LayerDirty, component_mgr: &mut WorldDocMgr){
-//     for d1 in dirty_marks.dirtys.iter() {
-//         for node_id in d1.iter() {
-//             let dirty_mark = unsafe{*dirty_marks.dirty_mark_list.get_unchecked(*node_id)};
-//             if dirty_mark == false {
-//                 continue;
-//             }
+//取lefttop相对于父节点的变换原点的位置
+#[inline]
+fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>, parent_layout: &Layout) -> cg::Point2<f32>{
+    cg::Point2::new(
+        layout.left - parent_origin.x + parent_layout.border + parent_layout.padding_left,
+        layout.top - parent_origin.y + parent_layout.border + parent_layout.padding_top
+    )  
+}
 
-//             //修改节点世界矩阵及子节点的世界矩阵
-//             modify_matrix(&mut dirty_marks.dirty_mark_list, *node_id, component_mgr);
-//         }
-//     }
-//     dirty_marks.dirtys.clear();
-// }
+fn recursive_cal_matrix(
+    dirty_mark_list: &mut VecMap<bool>,
+    parent: usize,
+    id: usize,
+    idtree: &SingleCaseImpl<IdTree>,
+    transform: &MultiCaseImpl<Node, Transform>,
+    layout: &MultiCaseImpl<Node, Layout>,
+    world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>
+){
+    unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
-// //取lefttop相对于父节点的变换原点的位置
-// #[inline]
-// fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>, parent_layout: &Layout) -> cg::Point2<f32>{
-//     cg::Point2::new(
-//         layout.left - parent_origin.x + parent_layout.border + parent_layout.padding_left,
-//         layout.top - parent_origin.y + parent_layout.border + parent_layout.padding_top
-//     )  
-// }
+    let layout_value = unsafe { layout.get_unchecked(id) };
+    let transform_value = unsafe { transform.get_unchecked(id) };
 
-// //计算世界矩阵
-// fn modify_matrix(dirty_mark_list: &mut VecMap<bool>, node_id: usize, component_mgr: &mut WorldDocMgr) {
-//     let world_matrix = {
-//         let (transform_id, l, parent) = {
-//             let node = component_mgr.node._group.get(node_id);
-//             (node.transform, &node.layout, node.parent)
-//         };
-//         if parent == 0 {
-//             if transform_id == 0 {
-//                 Matrix4::default().0
-//             }else {
-//                 component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &cg::Point2::new(l.left, l.top))
-//             }
-//         }else {
-//             let parent_node = component_mgr.node._group.get(parent);
-//             let parent_world_matrix = &component_mgr.node.world_matrix._group.get(parent_node.world_matrix).owner.0;  
-//             let parent_transform_origin = {
-//                 if parent_node.transform == 0 {
-//                     cg::Point2::new(0.0, 0.0)
-//                 }else {
-//                     component_mgr.node.transform._group.get(parent_node.transform).origin.to_value(parent_node.layout.width, parent_node.layout.height)
-//                 }
-//             };
-//             let offset = get_lefttop_offset(l, &parent_transform_origin, &parent_node.layout);
-//             if transform_id == 0 {
-//                 parent_world_matrix * cg::Matrix4::from_translation(cg::Vector3::new(offset.x, offset.y, 0.0))
-//             }else {
-//                 let transform_matrix = component_mgr.node.transform._group.get(transform_id).matrix(l.width, l.height, &offset);
-//                 parent_world_matrix * transform_matrix
-//             }
-//         }
+    let matrix = if parent == 0 {
+        transform_value.matrix(layout_value.width, layout_value.height, &cg::Point2::new(layout_value.left, layout_value.top))
+    }else {
+        let parent_layout = unsafe { layout.get_unchecked(parent) };
+        let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };
+        let parent_transform_origin = unsafe { transform.get_unchecked(parent) }.origin.to_value(parent_layout.width, parent_layout.height);
 
-//         // if parent_id != 0 {
-//         //     let parent_world_matrix = {
-//         //         let parent_world_matrix_id = component_mgr.node._group.get(parent_id).world_matrix;
-//         //         ***component_mgr.node.world_matrix._group.get(parent_world_matrix_id)
-//         //     };
-//         //     world_matrix = parent_world_matrix * world_matrix;
-//         // }
-        
-//         // let center = if parent > 0 {
-//         //     //parent_layout
-//         //     let pl = &component_mgr.node._group.get(parent).layout;
-//         //     cg::Vector3::new(
-//         //         l.width/2.0 + l.left - pl.width/2.0,
-//         //         l.height/2.0 + l.top - pl.height/2.0,
-//         //         0.0,
-//         //     )
-//         // }else {
-//         //     cg::Vector3::new(l.width/2.0, l.height/2.0, 0.0)
-//         // };
-        
-//         // // let mut matrix = cg::Matrix4::from_translation(center.clone()); // center_matrix
-//         // if transform_id != 0 {
-//         //     matrix = matrix * component_mgr.node.transform._group.get(transform_id).matrix(cg::Vector4::new(l.width, l.height, 0.0, 0.0));
-//         // }
-//         // (matrix, parent)
-//         // let transform = match transform_id == 0 {
-//         //     true => Transform::default().matrix(), // 优化？ 默认的matrix可以从全局取到 TODO
-//         //     false => component_mgr.node.transform._group.get(transform_id).matrix(),
-//         // };
+        let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
+        parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
+    };
 
-        
-//         // (center_matrix * transform, parent)
-//     };
+    world_matrix.insert(id, WorldMatrix(matrix));
 
-//     let mut child = {
-//         let mut node_ref = component_mgr.get_node_mut(node_id);
-//         node_ref.get_world_matrix_mut().modify(|matrix: &mut Matrix4|{
-//             matrix.x = world_matrix.x;
-//             matrix.y = world_matrix.y;
-//             matrix.z = world_matrix.z;
-//             matrix.w = world_matrix.w;
-//             true
-//         });
+    let first = unsafe { idtree.get_unchecked(id).children.head };
+    for child_id in idtree.iter(first) {
+        recursive_cal_matrix(dirty_mark_list, id, child_id.0, idtree, transform, layout, world_matrix);
+    }
+}
 
-//         node_ref.get_childs_mut().get_first()
-//     };
-//     unsafe{*dirty_mark_list.get_unchecked_mut(node_id) = false}
-//     //递归计算子节点的世界矩阵
-//     loop {
-//         if child == 0 {
-//             return;
-//         }
-//         let node_id = {
-//             let v = unsafe{ component_mgr.node_container.get_unchecked(child) };
-//             child = v.next;
-//             v.elem.clone()
-//         };
-//         modify_matrix(dirty_mark_list, node_id, component_mgr);
-//     }
-// }
-
-// // #[cfg(test)]
-// // #[cfg(not(feature = "web"))]
-// // mod test{
-// //     use std::rc::Rc;
-
-// //     use wcs::component::Builder;
-// //     use wcs::world::{World, System};
-
-// //     use world_doc::WorldDocMgr;
-// //     use world_doc::component::node::{NodeBuilder, InsertType};
-// //     use world_doc::component::style::transform::Transform;
-// //     use component::math::{Vector3};
-// //     use world_doc::system::world_matrix::WorldMatrix;
+impl_system!{
+    WorldMatrixSys,
+    true,
+    {
+        EntityListener<Node, CreateEvent>
+        EntityListener<Node, DeleteEvent>
+        MultiCaseListener<Node, Transform, ModifyEvent>
+        MultiCaseListener<Node, Layout, ModifyEvent>
+        SingleCaseListener<IdTree, CreateEvent>
+        SingleCaseListener<IdTree, DeleteEvent>
+    }
+}
 
 
-// //     #[test]
-// //     fn test(){
-// //         let mut world = new_world();
-// //         let node2 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node3 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node4 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node5 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node6 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node7 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node8 = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //         let node9 = NodeBuilder::new().build(&mut world.component_mgr.node);
+#[cfg(test)]
+use ecs::{World, BorrowMut, SeqDispatcher, Dispatcher};
+#[cfg(test)]
+use atom::Atom;
+#[cfg(test)]
+use component::user::{TransformWrite, TransformFunc};
 
-// //         world.component_mgr.set_size(500.0, 500.0);
-// //         let (root, node_ids) = {
-// //             let root = NodeBuilder::new().build(&mut world.component_mgr.node);
-// //             let root_id = world.component_mgr.add_node(root).id;
-// //             let mgr = &mut world.component_mgr;
-            
-// //             //root的直接子节点
-// //             let node2 = mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-// //             let node3 = mgr.get_node_mut(root_id).insert_child(node3, InsertType::Back).id;
+#[test]
+fn test(){
+    let world = new_world();
 
-// //             //node2的直接子节点
-// //             let node4 = mgr.get_node_mut(node2).insert_child(node4, InsertType::Back).id;
-// //             let node5 = mgr.get_node_mut(node2).insert_child(node5, InsertType::Back).id;
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = BorrowMut::borrow_mut(&idtree);
+    let notify = idtree.get_notify();
+    let transforms = world.fetch_multi::<Node, Transform>().unwrap();
+    let transforms = BorrowMut::borrow_mut(&transforms);
+    let layouts = world.fetch_multi::<Node, Layout>().unwrap();
+    let layouts = BorrowMut::borrow_mut(&layouts);
+    let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
+    let world_matrixs = BorrowMut::borrow_mut(&world_matrixs);
 
-// //             //node3的直接子节点
-// //             let node6 = mgr.get_node_mut(node3).insert_child(node6, InsertType::Back).id;
-// //             let node7 = mgr.get_node_mut(node3).insert_child(node7, InsertType::Back).id;
+    let e0 = world.create_entity::<Node>();
+    
+    idtree.create(e0);
+    idtree.insert_child(e0, 0, 0, Some(&notify)); //根
+    transforms.insert(e0, Transform::default());
+    layouts.insert(e0, Layout{
+        left: 0.0,
+        top: 0.0,
+        width: 900.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
 
-// //             //node4的直接子节点
-// //             let node8 = mgr.get_node_mut(node4).insert_child(node8, InsertType::Back).id;
-// //             let node9 = mgr.get_node_mut(node4).insert_child(node9, InsertType::Back).id;
+    world.run(&Atom::from("test_transform_sys"));
+    
+    let e00 = world.create_entity::<Node>();
+    let e01 = world.create_entity::<Node>();
+    let e02 = world.create_entity::<Node>();
+    idtree.create(e00);
+    idtree.insert_child(e00, e0, 1, Some(&notify));
+    transforms.insert(e00, Transform::default());
+    layouts.insert(e00, Layout{
+        left: 0.0,
+        top: 0.0,
+        width: 300.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    idtree.create(e01);
+    idtree.insert_child(e01, e0, 2, Some(&notify));
+    layouts.insert(e01, Layout{
+        left: 300.0,
+        top: 0.0,
+        width: 300.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    transforms.insert(e01, Transform::default());
+    idtree.create(e02);
+    idtree.insert_child(e02, e0, 3, Some(&notify));
+    transforms.insert(e02, Transform::default());
+    layouts.insert(e02, Layout{
+        left: 600.0,
+        top: 0.0,
+        width: 300.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
 
-// //             (
-// //                 root_id,
-// //                 vec![node2, node3, node4, node5, node6, node7, node8, node9]
-// //             )
-// //         };
+    let e000 = world.create_entity::<Node>();
+    let e001 = world.create_entity::<Node>();
+    let e002 = world.create_entity::<Node>();
+    idtree.create(e000);
+    idtree.insert_child(e000, e00, 1, Some(&notify));
+    layouts.insert(e000, Layout{
+        left: 0.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    transforms.insert(e000, Transform::default());
+    idtree.create(e001);
+    idtree.insert_child(e001, e00, 2, Some(&notify));
+    transforms.insert(e001, Transform::default());
+    layouts.insert(e001, Layout{
+        left: 100.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    idtree.create(e002);
+    idtree.insert_child(e002, e00, 3, Some(&notify));
+    transforms.insert(e002, Transform::default());
+    layouts.insert(e002, Layout{
+        left: 200.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
 
-// //         //  mgr.get_node_mut(root).
-// //         world.run(());
-// //         for i in node_ids.iter(){
-// //             {
-// //                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
-// //                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-// //                 // println!("test_world_matrix1, node{} , world_matrix:{:?}", i, world_matrix);
-// //             }
-// //         }
-// //         {
-// //             world.component_mgr.get_node(root);
-// //             let transform_id = *(world.component_mgr.get_node(root).get_transform());
-// //             if transform_id == 0 {
-// //                 let mut transform = Transform::default();
-// //                 transform.position = Vector3(cg::Vector3::new(1.0, 2.0, 3.0));
-// //                 world.component_mgr.get_node_mut(root).set_transform(transform);
-// //             }else {
-// //                 world.component_mgr.get_node_mut(root).get_transform_mut().modify(|t: &mut Transform| {
-// //                     t.position = Vector3(cg::Vector3::new(1.0, 2.0, 3.0));
-// //                     true
-// //                 });
-// //             }
-// //         }
-        
-// //         world.run(());
-// //         // println!("-----------------------------------------------------------------");
-// //         for i in node_ids.iter(){
-// //             {
-// //                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
-// //                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-// //                 // println!("test_world_matrix2, node{} , world_matrix:{:?}", i, world_matrix);
-// //             }
-// //         }
+    let e010 = world.create_entity::<Node>();
+    let e011 = world.create_entity::<Node>();
+    let e012 = world.create_entity::<Node>();
+    idtree.create(e010);
+    idtree.insert_child(e010, e01, 1, Some(&notify));
+    layouts.insert(e010, Layout{
+        left: 0.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    transforms.insert(e010, Transform::default());
+    idtree.create(e011);
+    idtree.insert_child(e011, e01, 2, Some(&notify));
+    transforms.insert(e011, Transform::default());
+    layouts.insert(e011, Layout{
+        left: 100.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    idtree.create(e012);
+    idtree.insert_child(e012, e01, 3, Some(&notify));
+    transforms.insert(e012, Transform::default());
+    layouts.insert(e012, Layout{
+        left: 200.0,
+        top: 0.0,
+        width: 100.0,
+        height: 900.0,
+        border: 0.0,
+        padding_left: 0.0,
+        padding_top: 0.0,
+        padding_right: 0.0,
+        padding_bottom: 0.0,
+    });
+    world.run(&Atom::from("test_world_matrix_sys"));
 
-// //         // //修改node2的position
-// //         // world.component_mgr.get_node_mut(node_ids[0]).get_position_mut().modify(|t: &mut Vector3| {
-// //         //     t.x = 1.0;
-// //         //     t.y = 2.0;
-// //         //     t.z = 3.0;
-// //         //     true
-// //         // });
-// //         world.run(());
-// //         // println!("-----------------------------------------------------------------");
-// //         for i in node_ids.iter(){
-// //             {
-// //                 let world_matrix_id = world.component_mgr.node._group.get(*i).world_matrix;
-// //                 let world_matrix = world.component_mgr.node.world_matrix._group.get(world_matrix_id);
-// //                 // println!("test_world_matrix3, node{} , world_matrix:{:?}", i, world_matrix);
-// //             }
-// //         }
-// //     }
+    unsafe { transforms.get_unchecked_write(e0)}.modify(|transform: &mut Transform|{
+        transform.funcs.push(TransformFunc::TranslateX(50.0));
+        true
+    });
 
-// //     fn new_world() -> World<WorldDocMgr, ()>{
-// //         let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
-// //         let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![WorldMatrix::init(&mut world.component_mgr)];
-// //         world.set_systems(systems);
-// //         world
-// //     }
-// // }
+    world.run(&Atom::from("test_transform_sys"));
+
+    println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+        unsafe{world_matrixs.get_unchecked(e0)},
+        unsafe{world_matrixs.get_unchecked(e00)},
+        unsafe{world_matrixs.get_unchecked(e01)},
+        unsafe{world_matrixs.get_unchecked(e02)},
+        unsafe{world_matrixs.get_unchecked(e000)},
+        unsafe{world_matrixs.get_unchecked(e001)},
+        unsafe{world_matrixs.get_unchecked(e002)},
+        unsafe{world_matrixs.get_unchecked(e010)},
+        unsafe{world_matrixs.get_unchecked(e011)},
+        unsafe{world_matrixs.get_unchecked(e012)},
+    );
+}
+
+#[cfg(test)]
+fn new_world() -> World {
+    let mut world = World::default();
+
+    world.register_entity::<Node>();
+    world.register_multi::<Node, Transform>();
+    world.register_multi::<Node, Layout>();
+    world.register_multi::<Node, WorldMatrix>();
+    world.register_single::<IdTree>(IdTree::default());
+     
+    let system = CellWorldMatrixSys::new(WorldMatrixSys::default());
+    world.register_system(Atom::from("system"), system);
+
+    let mut dispatch = SeqDispatcher::default();
+    dispatch.build("system".to_string(), &world);
+
+    world.add_dispatcher( Atom::from("test_world_matrix_sys"), dispatch);
+    world
+}

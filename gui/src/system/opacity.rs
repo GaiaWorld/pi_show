@@ -2,7 +2,7 @@
  *  计算opacity
  *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Opacity
  */
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
 use component::user::{ Opacity};
@@ -33,15 +33,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OpacitySys{
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         write.0.insert(event.id, Opacity::default());
         write.1.insert(event.id, COpacity::default());
-    }
-}
-
-impl<'a> EntityListener<'a, Node, DeleteEvent> for OpacitySys{
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Opacity>, &'a mut MultiCaseImpl<Node, COpacity>);
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.0.delete(event.id);
-        write.1.delete(event.id);
     }
 }
 
@@ -84,7 +75,6 @@ impl_system!{
     false,
     {
         EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
     }

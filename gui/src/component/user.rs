@@ -8,7 +8,6 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
-use cg::Matrix4;
 
 use ecs::component::Component;
 use component::{LengthUnit, Display};
@@ -18,19 +17,16 @@ pub struct ZIndex(pub isize);
 
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
-pub struct Opacity(f32);
+pub struct Opacity(pub f32);
 
 #[derive(Deref, DerefMut, Component, Debug)]
-pub struct Show(usize);
+pub struct Show(pub usize);
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
 }
-
-#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
-pub struct WorldMatrix(Matrix4<f32>);
 
 impl Default for Opacity {
   fn default() -> Opacity{

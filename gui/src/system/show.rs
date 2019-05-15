@@ -2,7 +2,7 @@
  *  计算show
  *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
  */
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
 use component::user::{Show};
@@ -36,16 +36,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ShowSys{
         write.0.insert(event.id, Show::default());
         write.1.insert(event.id, CVisibility::default());
         write.2.insert(event.id, CEnable::default());
-    }
-}
-
-impl<'a> EntityListener<'a, Node, DeleteEvent> for ShowSys{
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Show>, &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.0.delete(event.id);
-        write.1.delete(event.id);
-        write.2.delete(event.id);
     }
 }
 
@@ -105,7 +95,6 @@ impl_system!{
     false,
     {
         EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Show, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
     }
