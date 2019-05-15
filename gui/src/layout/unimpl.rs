@@ -18,7 +18,7 @@ pub struct Layout{
 }
 // pub type YgNodeP = YgNode;
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, PartialEq, Component)]
 pub struct YgNode;
 
 impl Default for YgNode{

@@ -63,12 +63,20 @@ impl WorldMatrixSys{
     }
 }
 
+impl<'a> Runner<'a> for WorldMatrixSys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
+    type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        self.cal_matrix(read.0, read.1, read.2, write);
+    }
+}
+
 impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys{
     type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, Layout>);
+    type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, WorldMatrix>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         write.0.insert(event.id, Transform::default());
-        write.1.insert(event.id, Layout::default());
+        write.1.insert(event.id, WorldMatrix::default());
         self.dirty_mark_list.insert(event.id, false);
     }
 }
@@ -111,14 +119,6 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
         let node = unsafe { read.get_unchecked(event.id) };
         self.recursive_delete_dirty(event.id, &node, read);
-    }
-}
-
-impl<'a> Runner<'a> for WorldMatrixSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
-    type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        self.cal_matrix(read.0, read.1, read.2, write);
     }
 }
 
