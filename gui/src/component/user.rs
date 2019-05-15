@@ -8,6 +8,7 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
+use cg::Matrix4;
 
 use ecs::component::Component;
 use component::{LengthUnit, Display};
@@ -22,12 +23,14 @@ pub struct Opacity(f32);
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Show(usize);
 
-#[allow(unused_attributes)]
 #[derive(Debug, Clone, Component, Default)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
 }
+
+#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
+pub struct WorldMatrix(Matrix4<f32>);
 
 impl Default for Opacity {
   fn default() -> Opacity{
@@ -38,7 +41,7 @@ impl Default for Opacity {
 impl Show {
   #[inline]
   pub fn get_display(&self) -> Display {
-    unsafe { transmute((self.0 & 1) as u8) }
+    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
   }
 
   #[inline]
@@ -51,7 +54,7 @@ impl Show {
 
   #[inline]
   pub fn get_visibility(&self) -> bool{
-    (self.0 & 2) == 2
+    (self.0 & (ShowType::Visibility as usize)) != 0
   }
 
   #[inline]
@@ -65,7 +68,7 @@ impl Show {
 
   #[inline]
   pub fn get_enable(&self) -> bool{
-    (self.0 & 4) == 4
+    (self.0 & (ShowType::Enable as usize)) != 0
   }
 
   #[inline]

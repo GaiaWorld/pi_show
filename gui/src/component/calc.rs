@@ -3,25 +3,12 @@
 
 use std::{
   f32,
-  cmp::{Ordering},
-  marker::PhantomData,
   default::Default,
 };
 
 use map::{vecmap::VecMap};
-use heap::simple_heap::SimpleHeap;
 
-use ecs::{
-  system::{SingleCaseListener, EntityListener},
-  monitor::{DeleteEvent},
-  single::SingleCaseImpl,
-  component::Component,
-  idtree::IdTree,
-  entity::EntityImpl,
-  Share,
-};
-
-use entity::Node;
+use ecs::component::Component;
 
 #[derive(Component, Default)]
 pub struct ZDepth(pub f32);
