@@ -20,10 +20,10 @@ pub struct Overflow(bool);
 
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
-pub struct Opacity(f32);
+pub struct Opacity(pub f32);
 
 #[derive(Deref, DerefMut, Component, Debug)]
-pub struct Show(usize);
+pub struct Show(pub usize);
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct Transform {

@@ -6,7 +6,6 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
-
 use ecs::component::Component;
 
 #[derive(Component, Default, Deref, DerefMut)]
@@ -15,8 +14,8 @@ pub struct ZDepth(f32);
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ByOverflow(usize);
 
-#[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct WorldMatrix(super::Matrix4);
+#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
+pub struct WorldMatrix(pub super::Matrix4);
 
 
 //是否可见， 不可见时， 也会占据布局位置

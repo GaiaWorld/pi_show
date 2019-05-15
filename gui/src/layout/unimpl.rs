@@ -18,8 +18,8 @@ pub struct Layout{
 }
 // pub type YgNodeP = YgNode;
 
-#[derive(Clone, Debug, Copy)]
-pub struct YgNode;
+#[derive(Clone, Debug, Copy, PartialEq, Component)]
+pub struct YgNode();
 
 impl Default for YgNode{
     fn default() -> YgNode{
@@ -29,7 +29,7 @@ impl Default for YgNode{
 
 impl YgNode {
     pub fn new() -> YgNode {
-        YgNode
+        YgNode()
     }
 
     pub fn set_position_type(&self, _value: YGPositionType) { 
