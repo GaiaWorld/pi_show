@@ -1,46 +1,29 @@
 /**
  *  计算opacity
- *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改和删除， 已经监听idtree上的创建和删除事件， 计算已经在idtree上存在的实体的Opacity
+ *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Opacity
  */
-
-use map::vecmap::{VecMap};
-
-use dirty::layer_dirty::LayerDirtyMark;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, Runner, MultiCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
 use component::user::{ Opacity};
 use component::calc::{Opacity as COpacity, OpacityWrite as COpacityWrite};
 use entity::{Node};
-use IdBind;
 
 #[derive(Default)]
-pub struct OpacitySys{
-    dirty: LayerDirtyMark,
-    dirty_mark_list: VecMap<bool>,
-}
+pub struct OpacitySys;
 
-impl<'a> Runner<'a> for OpacitySys {
-    type ReadData = (&'a SingleCaseImpl<IdTree<IdBind>>, &'a MultiCaseImpl<Node, Opacity>);
-    type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        for id in self.dirty.iter() {
-            let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(id)};
-            if  *dirty_mark == false {
-                continue;
-            }
-            *dirty_mark = false;
-
-            let parent_id = unsafe { read.0.get_unchecked(id).parent };
-           
-            if parent_id > 0 {
-                let parent_c_opacity = unsafe { **write.get_unchecked(parent_id) };
-                modify_opacity(&mut self.dirty_mark_list, parent_c_opacity, id, read.0, read.1, write);
-            }else {
-                modify_opacity(&mut self.dirty_mark_list, 1.0, id, read.0, read.1, write);
-            }
+impl OpacitySys {
+    fn modify_opacity(id: usize, idtree: &SingleCaseImpl<IdTree>, opacity: &MultiCaseImpl<Node, Opacity>, c_opacity: &mut MultiCaseImpl<Node, COpacity>){
+        let parent_id = match idtree.get(id) {
+            Some(node) => node.parent,
+            None => return,
+        };
+        if parent_id > 0 {
+            let parent_c_opacity = unsafe { **c_opacity.get_unchecked(parent_id) };
+            modify_opacity(parent_c_opacity, id, idtree, opacity, c_opacity);
+        }else {
+            modify_opacity(1.0, id, idtree, opacity, c_opacity);
         }
-        self.dirty.clear();
     }
 }
 
@@ -62,74 +45,27 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for OpacitySys{
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Opacity, CreateEvent> for OpacitySys{
-    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
-        self.dirty_mark_list.insert(event.id, false);
-        match read.get(event.id) {
-            Some(r) => {
-                *unsafe {self.dirty_mark_list.get_unchecked_mut(event.id)} = true;
-                self.dirty.marked_dirty(event.id, r.layer)
-            },
-            _ => ()
-        };
-    }
-}
-
 impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for OpacitySys{
-    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
-        match read.get(event.id) {
-            Some(r) => {
-                *unsafe { self.dirty_mark_list.get_unchecked_mut(event.id)} = true;
-                self.dirty.marked_dirty(event.id, r.layer)
-            },
-            _ => ()
-        };
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>);
+    type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        OpacitySys::modify_opacity(event.id, read.0, read.1, write);
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Opacity, DeleteEvent> for OpacitySys{
-    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
-        if unsafe {self.dirty_mark_list.remove_unchecked(event.id)} == true {
-            match read.get(event.id) {
-                Some(r) => self.dirty.delete_dirty(event.id, r.layer),
-                _ => ()
-            };
-        }
-    }
-}
-
-impl<'a> SingleCaseListener<'a, IdTree<IdBind>, CreateEvent> for OpacitySys{
-    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
-        let node = unsafe { read.get_unchecked(event.id) };
-        self.dirty.marked_dirty(event.id, node.layer);
-    }
-}
-
-impl<'a> SingleCaseListener<'a, IdTree<IdBind>, DeleteEvent> for OpacitySys{
-    type ReadData = &'a SingleCaseImpl<IdTree<IdBind>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
-        if unsafe {self.dirty_mark_list.remove_unchecked(event.id)} == true {
-            let node = unsafe { read.get_unchecked(event.id) };
-            self.dirty.delete_dirty(event.id, node.layer)
-        }
+impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OpacitySys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>);
+    type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        OpacitySys::modify_opacity(event.id, read.0, read.1, write);
     }
 }
 
 //递归计算不透明度， 将节点最终的不透明度设置在real_opacity组件上
 fn modify_opacity(
-    dirty_mark_list: &mut VecMap<bool>,
     parent_real_opacity: f32,
     id: usize,
-    id_tree: &SingleCaseImpl<IdTree<IdBind>>,
+    id_tree: &SingleCaseImpl<IdTree>,
     opacity: &MultiCaseImpl<Node, Opacity>,
     copacity: &mut MultiCaseImpl<Node,COpacity>
 ) {
@@ -137,27 +73,20 @@ fn modify_opacity(
     let node_real_opacity = opacity_value * parent_real_opacity;
     unsafe { copacity.get_unchecked_write(id) }.set_0(node_real_opacity);
 
-    unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
-
     let first = unsafe { id_tree.get_unchecked(id).children.head };
     for child_id in id_tree.iter(first) {
-        modify_opacity(dirty_mark_list, node_real_opacity, child_id.0, id_tree, opacity, copacity);
+        modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity);
     }
 }
 
-type IdTreeT = IdTree<IdBind>;
-
 impl_system!{
     OpacitySys,
-    true,
+    false,
     {
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
-        MultiCaseListener<Node, Opacity, CreateEvent>
-        MultiCaseListener<Node, Opacity, DeleteEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
-        SingleCaseListener<IdTreeT, DeleteEvent>
-        SingleCaseListener<IdTreeT, CreateEvent>
+        SingleCaseListener<IdTree, CreateEvent>
     }
 }
 
@@ -173,7 +102,7 @@ use component::user::OpacityWrite;
 fn test(){
     let world = new_world();
 
-    let idtree = world.fetch_single::<IdTree<IdBind>>().unwrap();
+    let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = BorrowMut::borrow_mut(&idtree);
     let notify = idtree.get_notify();
     let opacitys = world.fetch_multi::<Node, Opacity>().unwrap();
@@ -183,7 +112,7 @@ fn test(){
 
     let e0 = world.create_entity::<Node>();
     
-    idtree.create(e0, 0);
+    idtree.create(e0);
     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
     opacitys.insert(e0, Opacity::default());
 
@@ -192,39 +121,39 @@ fn test(){
     let e00 = world.create_entity::<Node>();
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
-    idtree.create(e00, 0);
+    idtree.create(e00);
     idtree.insert_child(e00, e0, 1, Some(&notify));
     opacitys.insert(e00, Opacity::default());
-    idtree.create(e01, 0);
+    idtree.create(e01);
     idtree.insert_child(e01, e0, 2, Some(&notify));
     opacitys.insert(e01, Opacity::default());
-    idtree.create(e02, 0);
+    idtree.create(e02);
     idtree.insert_child(e02, e0, 3, Some(&notify));
     opacitys.insert(e02, Opacity::default());
 
     let e000 = world.create_entity::<Node>();
     let e001 = world.create_entity::<Node>();
     let e002 = world.create_entity::<Node>();
-    idtree.create(e000, 0);
+    idtree.create(e000);
     idtree.insert_child(e000, e00, 1, Some(&notify));
     opacitys.insert(e000, Opacity::default());
-    idtree.create(e001, 0);
+    idtree.create(e001);
     idtree.insert_child(e001, e00, 2, Some(&notify));
     opacitys.insert(e001, Opacity::default());
-    idtree.create(e002, 0);
+    idtree.create(e002);
     idtree.insert_child(e002, e00, 3, Some(&notify));
     opacitys.insert(e002, Opacity::default());
 
     let e010 = world.create_entity::<Node>();
     let e011 = world.create_entity::<Node>();
     let e012 = world.create_entity::<Node>();
-    idtree.create(e010, 0);
+    idtree.create(e010);
     idtree.insert_child(e010, e01, 1, Some(&notify));
     opacitys.insert(e010, Opacity::default());
-    idtree.create(e011, 0);
+    idtree.create(e011);
     idtree.insert_child(e011, e01, 2, Some(&notify));
     opacitys.insert(e011, Opacity::default());
-    idtree.create(e012, 0);
+    idtree.create(e012);
     idtree.insert_child(e012, e01, 3, Some(&notify));
     opacitys.insert(e012, Opacity::default());
     world.run(&Atom::from("test_opacity_sys"));
@@ -255,7 +184,7 @@ fn new_world() -> World {
     world.register_entity::<Node>();
     world.register_multi::<Node, Opacity>();
     world.register_multi::<Node, COpacity>();
-    world.register_single::<IdTree<IdBind>>(IdTree::default());
+    world.register_single::<IdTree>(IdTree::default());
      
     let system = CellOpacitySys::new(OpacitySys::default());
     world.register_system(Atom::from("system"), system);

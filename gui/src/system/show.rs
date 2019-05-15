@@ -1,6 +1,6 @@
 /**
  *  计算show
- *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改和删除， 已经监听idtree上的创建和删除事件， 计算已经在idtree上存在的实体的Show
+ *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
  */
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
@@ -8,13 +8,12 @@ use ecs::idtree::{ IdTree};
 use component::user::{ Show, Display};
 use component::calc::{Visibility as CVisibility, VisibilityWrite as CVisibilityWrite, Enable as CEnable, EnableWrite as CEnableWrite};
 use entity::{Node};
-use IdBind;
 
 #[derive(Default)]
 pub struct ShowSys;
 
 impl ShowSys {
-    fn modify_show(id: usize, idtree: &SingleCaseImpl<IdTree<IdBind>>, show: &MultiCaseImpl<Node, Show>, visibility: &mut MultiCaseImpl<Node, CVisibility>, enable: &mut MultiCaseImpl<Node, CEnable>){
+    fn modify_show(id: usize, idtree: &SingleCaseImpl<IdTree>, show: &MultiCaseImpl<Node, Show>, visibility: &mut MultiCaseImpl<Node, CVisibility>, enable: &mut MultiCaseImpl<Node, CEnable>){
         let parent_id = match idtree.get(id) {
             Some(node) => node.parent,
             None => return,
@@ -50,15 +49,15 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for ShowSys{
 }
 
 impl<'a> MultiCaseListener<'a, Node, Show, ModifyEvent> for ShowSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree<IdBind>>, &'a MultiCaseImpl<Node, Show>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>);
     type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1);
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree<IdBind>, CreateEvent> for ShowSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree<IdBind>>, &'a MultiCaseImpl<Node, Show>);
+impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ShowSys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>);
     type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1);
@@ -70,7 +69,7 @@ fn modify_show(
     parent_c_visibility: bool,
     parent_c_enable: bool,
     id: usize,
-    id_tree: &SingleCaseImpl<IdTree<IdBind>>,
+    id_tree: &SingleCaseImpl<IdTree>,
     show: &MultiCaseImpl<Node, Show>,
     visibility: &mut MultiCaseImpl<Node,CVisibility>,
     enable: &mut MultiCaseImpl<Node,CEnable>,
@@ -100,8 +99,6 @@ fn modify_show(
     }
 }
 
-type IdTreeT = IdTree<IdBind>;
-
 impl_system!{
     ShowSys,
     false,
@@ -109,7 +106,7 @@ impl_system!{
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Show, ModifyEvent>
-        SingleCaseListener<IdTreeT, CreateEvent>
+        SingleCaseListener<IdTree, CreateEvent>
     }
 }
 
@@ -125,7 +122,7 @@ use component::user::ShowWrite;
 fn test(){
     let world = new_world();
 
-    let idtree = world.fetch_single::<IdTree<IdBind>>().unwrap();
+    let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = BorrowMut::borrow_mut(&idtree);
     let notify = idtree.get_notify();
     let shows = world.fetch_multi::<Node, Show>().unwrap();
@@ -137,7 +134,7 @@ fn test(){
 
     let e0 = world.create_entity::<Node>();
     
-    idtree.create(e0, 0);
+    idtree.create(e0);
     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
     shows.insert(e0, Show::default());
 
@@ -146,39 +143,39 @@ fn test(){
     let e00 = world.create_entity::<Node>();
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
-    idtree.create(e00, 0);
+    idtree.create(e00);
     idtree.insert_child(e00, e0, 1, Some(&notify));
     shows.insert(e00, Show::default());
-    idtree.create(e01, 0);
+    idtree.create(e01);
     idtree.insert_child(e01, e0, 2, Some(&notify));
     shows.insert(e01, Show::default());
-    idtree.create(e02, 0);
+    idtree.create(e02);
     idtree.insert_child(e02, e0, 3, Some(&notify));
     shows.insert(e02, Show::default());
 
     let e000 = world.create_entity::<Node>();
     let e001 = world.create_entity::<Node>();
     let e002 = world.create_entity::<Node>();
-    idtree.create(e000, 0);
+    idtree.create(e000);
     idtree.insert_child(e000, e00, 1, Some(&notify));
     shows.insert(e000, Show::default());
-    idtree.create(e001, 0);
+    idtree.create(e001);
     idtree.insert_child(e001, e00, 2, Some(&notify));
     shows.insert(e001, Show::default());
-    idtree.create(e002, 0);
+    idtree.create(e002);
     idtree.insert_child(e002, e00, 3, Some(&notify));
     shows.insert(e002, Show::default());
 
     let e010 = world.create_entity::<Node>();
     let e011 = world.create_entity::<Node>();
     let e012 = world.create_entity::<Node>();
-    idtree.create(e010, 0);
+    idtree.create(e010);
     idtree.insert_child(e010, e01, 1, Some(&notify));
     shows.insert(e010, Show::default());
-    idtree.create(e011, 0);
+    idtree.create(e011);
     idtree.insert_child(e011, e01, 2, Some(&notify));
     shows.insert(e011, Show::default());
-    idtree.create(e012, 0);
+    idtree.create(e012);
     idtree.insert_child(e012, e01, 3, Some(&notify));
     shows.insert(e012, Show::default());
     world.run(&Atom::from("test_show_sys"));
@@ -235,7 +232,7 @@ fn new_world() -> World {
     world.register_multi::<Node, Show>();
     world.register_multi::<Node, CVisibility>();
     world.register_multi::<Node, CEnable>();
-    world.register_single::<IdTree<IdBind>>(IdTree::default());
+    world.register_single::<IdTree>(IdTree::default());
      
     let system = CellShowSys::new(ShowSys::default());
     world.register_system(Atom::from("system"), system);
