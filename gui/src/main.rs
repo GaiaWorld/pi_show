@@ -44,7 +44,6 @@ pub mod entity{
     pub struct Node;
     pub struct Char;
 }
-pub type IdBind = usize;
 pub const Z_MAX: f32 = 4194304.0;
 pub const Root: usize = 1;
 

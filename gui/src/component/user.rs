@@ -36,7 +36,7 @@ pub struct Transform {
 pub struct BoxColor{
 	background: Color,
 	border: CgColor<f32>,
-};
+}
 
 #[derive(Debug, Clone, Component)]
 pub struct BackgroundImage(pub usize);
@@ -107,7 +107,7 @@ impl Show {
 
 impl Default for Show {
   fn default() -> Show {
-    Show(6)
+    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
   }
 }
 
