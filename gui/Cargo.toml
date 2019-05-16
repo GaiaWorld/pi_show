@@ -9,6 +9,7 @@ ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
 cg2d = { path = "../../pi_math/cg2d" }
+color = { path = "../../pi_math/color" }
 cgmath = { path = "../../pi_math/cgmath" }
 octree = { path = "../../pi_math/octree" }
 collision = { path = "../../pi_math/collision" }

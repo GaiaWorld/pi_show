@@ -8,7 +8,7 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
-use cg::color::Color as CgColor;
+use color::Color as CgColor;
 
 use ecs::component::Component;
 use component::{LengthUnit, Display, Color};
@@ -33,13 +33,13 @@ pub struct Transform {
 }
 
 #[derive(Debug, Clone, Component)]
-pub struct BackgroundColor(pub Color);
+pub struct BoxColor{
+	background: Color,
+	border: CgColor<f32>,
+};
 
 #[derive(Debug, Clone, Component)]
 pub struct BackgroundImage(pub usize);
-
-#[derive(Debug, Clone, Component)]
-pub struct BorderColor(CgColor<f32>);
 
 #[derive(Debug, Clone, Component)]
 pub struct BorderImage(pub usize);

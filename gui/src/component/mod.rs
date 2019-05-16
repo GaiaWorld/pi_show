@@ -1,7 +1,7 @@
 pub mod calc;
 pub mod user;
 
-use cg::color::Color as CgColor;
+use color::Color as CgColor;
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;
@@ -22,7 +22,6 @@ pub enum Display{
   None,
 }
 
-// 颜色， 支持rgb，rgba， 线性渐变， 劲向渐变
 #[derive(Debug, Clone)]
 pub enum Color{
     RGB(CgColor<f32>),
@@ -32,7 +31,7 @@ pub enum Color{
 }
 
 impl Color {
-    //是否不透明
+
     pub fn is_opaque(&self) -> bool {
         match self {
             Color::RGB(c) | Color::RGBA(c) => {
@@ -61,14 +60,12 @@ impl Color {
     }
 }
 
-//颜色，线性渐变
 #[derive(Debug, Clone)]
 pub struct LinearGradientColor{
     pub direction: f32,
     pub list: Vec<ColorAndPosition>,
 }
 
-//颜色， 径向渐变
 #[derive(Debug, Clone)]
 pub struct RadialGradientColor{
     pub center: (f32, f32),
@@ -77,14 +74,12 @@ pub struct RadialGradientColor{
     pub list: Vec<ColorAndPosition>,
 }
 
-//定义一个颜色和颜色所在的位置， position取值为0 ~ 1
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
     pub rgba: CgColor<f32>,
     pub position: f32,
 }
 
-//
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum RadialGradientSize{
     ClosestSide,
