@@ -17,7 +17,6 @@ pub struct ByOverflow(usize);
 #[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
 pub struct WorldMatrix(pub super::Matrix4);
 
-
 //是否可见， 不可见时， 也会占据布局位置
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Visibility(bool);

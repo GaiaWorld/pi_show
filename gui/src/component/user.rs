@@ -36,7 +36,7 @@ pub struct Transform {
 pub struct BoxColor{
 	background: Color,
 	border: CgColor<f32>,
-};
+}
 
 #[derive(Debug, Clone, Component)]
 pub struct BackgroundImage(pub usize);
