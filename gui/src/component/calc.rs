@@ -1,17 +1,22 @@
 /// 中间计算的组件
 
-
 use std::{
   f32,
   default::Default,
 };
 
 use map::{vecmap::VecMap};
-use cg::Matrix4;
 use ecs::component::Component;
 
-#[derive(Component, Default)]
-pub struct ZDepth(pub f32);
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ZDepth(f32);
+
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ByOverflow(usize);
+
+#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
+pub struct WorldMatrix(pub super::Matrix4);
+
 
 //是否可见， 不可见时， 也会占据布局位置
 #[derive(Deref, DerefMut, Component, Debug)]
@@ -41,6 +46,3 @@ impl Default for Enable {
     Enable(true)
   }
 }
-
-#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
-pub struct WorldMatrix(pub Matrix4<f32>);

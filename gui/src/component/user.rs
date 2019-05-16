@@ -13,8 +13,11 @@ use cg::color::Color as CgColor;
 use ecs::component::Component;
 use component::{LengthUnit, Display, Color};
 
-#[derive(Component, Default)]
-pub struct ZIndex(pub isize);
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct ZIndex(isize);
+
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct Overflow(bool);
 
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
@@ -133,11 +136,11 @@ pub enum TransformOrigin{
 }
 
 impl TransformOrigin {
-    pub fn to_value(&self, width: f32, height: f32) -> cg::Point2<f32> {
+    pub fn to_value(&self, width: f32, height: f32) -> super::Point2 {
         match self {
-            TransformOrigin::Center => cg::Point2::new(0.5 * width, 0.5 * height),
+            TransformOrigin::Center => super::Point2::new(0.5 * width, 0.5 * height),
             TransformOrigin::XY(x, y) => {
-                cg::Point2::new(
+                super::Point2::new(
                     match x {
                         LengthUnit::Pixel(v) => v.clone(),
                         LengthUnit::Percent(v) => v * width,
@@ -157,9 +160,8 @@ enum ShowType{
   Visibility = 2, // 0表示no Visible
   Enable = 4, // 0表示no Enable
 }
- 
 impl Transform {
-    pub fn matrix(&self, width: f32, height: f32, origin: &cg::Point2<f32>) -> cg::Matrix4<f32> {
+    pub fn matrix(&self, width: f32, height: f32, origin: &super::Point2) -> super::Matrix4 {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -169,25 +171,25 @@ impl Transform {
         // );
 
         let value = self.origin.to_value(width, height);
-        let mut m = cg::Matrix4::from_translation(cg::Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
+        let mut m = super::Matrix4::from_translation(super::Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
 
         for func in self.funcs.iter() {
             match func {
                 TransformFunc::TranslateX(x) => {
-                    m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x, 0.0, 0.0))
+                    m = m * super::Matrix4::from_translation(super::Vector3::new(*x, 0.0, 0.0))
                 },
-                TransformFunc::TranslateY(y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(0.0, *y, 0.0)),
-                TransformFunc::Translate(x, y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x, *y, 0.0)),
+                TransformFunc::TranslateY(y) => m = m * super::Matrix4::from_translation(super::Vector3::new(0.0, *y, 0.0)),
+                TransformFunc::Translate(x, y) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x, *y, 0.0)),
 
-                TransformFunc::TranslateXPercent(x) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x * width, 0.0, 0.0)),
-                TransformFunc::TranslateYPercent(y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(0.0, *y * height, 0.0)),
-                TransformFunc::TranslatePercent(x, y) => m = m * cg::Matrix4::from_translation(cg::Vector3::new(*x * width, *y * height, 0.0)),
+                TransformFunc::TranslateXPercent(x) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x * width, 0.0, 0.0)),
+                TransformFunc::TranslateYPercent(y) => m = m * super::Matrix4::from_translation(super::Vector3::new(0.0, *y * height, 0.0)),
+                TransformFunc::TranslatePercent(x, y) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x * width, *y * height, 0.0)),
 
-                TransformFunc::ScaleX(x) => m = m * cg::Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
-                TransformFunc::ScaleY(y) => m = m * cg::Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
-                TransformFunc::Scale(x, y) => m = m * cg::Matrix4::from_nonuniform_scale(*x, *y, 1.0),
-
-                TransformFunc::RotateZ(z) => m = m * cg::Matrix4::from_angle_z(cg::Deg(*z)),
+                TransformFunc::ScaleX(x) => m = m * super::Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
+                TransformFunc::ScaleY(y) => m = m * super::Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
+                TransformFunc::Scale(x, y) => m = m * super::Matrix4::from_nonuniform_scale(*x, *y, 1.0),
+                
+                TransformFunc::RotateZ(z) => m = m * super::Matrix4::from_angle_z(cgmath::Deg(*z)),
             }
         }
         m

@@ -8,7 +8,10 @@ authors = ["wzjsun <530739162@qq.com>"]
 ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
-cg = { path = "../../pi_math/cg" }
+cg2d = { path = "../../pi_math/cg2d" }
+cgmath = { path = "../../pi_math/cgmath" }
+octree = { path = "../../pi_math/octree" }
+collision = { path = "../../pi_math/collision" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
 map = {path="../../pi_lib/map"}

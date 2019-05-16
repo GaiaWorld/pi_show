@@ -9,6 +9,8 @@ use dirty::LayerDirty;
 use component::user::{ Transform };
 use component::calc::WorldMatrix;
 use map::vecmap::{VecMap};
+
+use component::Point2;
 use layout::Layout;
 use entity::{Node};
 
@@ -124,8 +126,8 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
 
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
-fn get_lefttop_offset(layout: &Layout, parent_origin: &cg::Point2<f32>, parent_layout: &Layout) -> cg::Point2<f32>{
-    cg::Point2::new(
+fn get_lefttop_offset(layout: &Layout, parent_origin: &Point2, parent_layout: &Layout) -> Point2{
+    Point2::new(
         layout.left - parent_origin.x + parent_layout.border + parent_layout.padding_left,
         layout.top - parent_origin.y + parent_layout.border + parent_layout.padding_top
     )  
@@ -146,7 +148,7 @@ fn recursive_cal_matrix(
     let transform_value = unsafe { transform.get_unchecked(id) };
 
     let matrix = if parent == 0 {
-        transform_value.matrix(layout_value.width, layout_value.height, &cg::Point2::new(layout_value.left, layout_value.top))
+        transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
     }else {
         let parent_layout = unsafe { layout.get_unchecked(parent) };
         let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };

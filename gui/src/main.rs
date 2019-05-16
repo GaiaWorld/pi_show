@@ -20,7 +20,10 @@ extern crate derive_deref;
 extern crate enum_default_macro;
 
 extern crate deque;
-extern crate cg;
+extern crate cg2d;
+extern crate cgmath;
+extern crate octree;
+extern crate collision;
 extern crate slab;
 extern crate map;
 extern crate num_traits;

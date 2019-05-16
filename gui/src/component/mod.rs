@@ -3,6 +3,13 @@ pub mod user;
 
 use cg::color::Color as CgColor;
 
+pub type Matrix4 = cgmath::Matrix4<f32>;
+pub type Point2 = cgmath::Point2<f32>;
+pub type Point3 = cgmath::Point3<f32>;
+pub type Vector2 = cgmath::Vector2<f32>;
+pub type Vector3 = cgmath::Vector3<f32>;
+pub type Aabb3 = collision::Aabb3<f32>;
+
 #[derive(Clone, Copy, Debug)]
 pub enum LengthUnit {
 	Pixel(f32),
@@ -15,7 +22,7 @@ pub enum Display{
   None,
 }
 
-// é¢œè‰²ï¼Œ æ”¯æŒrgbï¼Œrgbaï¼Œ çº¿æ€§æ¸å˜ï¼Œ åŠ²å‘æ¸å˜
+// ÑÕÉ«£¬ Ö§³Örgb£¬rgba£¬ ÏßĞÔ½¥±ä£¬ ¾¢Ïò½¥±ä
 #[derive(Debug, Clone)]
 pub enum Color{
     RGB(CgColor<f32>),
@@ -25,7 +32,7 @@ pub enum Color{
 }
 
 impl Color {
-    //æ˜¯å¦ä¸é€æ˜
+    //ÊÇ·ñ²»Í¸Ã÷
     pub fn is_opaque(&self) -> bool {
         match self {
             Color::RGB(c) | Color::RGBA(c) => {
@@ -54,14 +61,14 @@ impl Color {
     }
 }
 
-//é¢œè‰²ï¼Œçº¿æ€§æ¸å˜
+//ÑÕÉ«£¬ÏßĞÔ½¥±ä
 #[derive(Debug, Clone)]
 pub struct LinearGradientColor{
     pub direction: f32,
     pub list: Vec<ColorAndPosition>,
 }
 
-//é¢œè‰²ï¼Œ å¾„å‘æ¸å˜
+//ÑÕÉ«£¬ ¾¶Ïò½¥±ä
 #[derive(Debug, Clone)]
 pub struct RadialGradientColor{
     pub center: (f32, f32),
@@ -70,7 +77,7 @@ pub struct RadialGradientColor{
     pub list: Vec<ColorAndPosition>,
 }
 
-//å®šä¹‰ä¸€ä¸ªé¢œè‰²å’Œé¢œè‰²æ‰€åœ¨çš„ä½ç½®ï¼Œ positionå–å€¼ä¸º0 ~ 1
+//¶¨ÒåÒ»¸öÑÕÉ«ºÍÑÕÉ«ËùÔÚµÄÎ»ÖÃ£¬ positionÈ¡ÖµÎª0 ~ 1
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
     pub rgba: CgColor<f32>,
