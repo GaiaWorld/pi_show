@@ -8,9 +8,10 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
+use cg::color::Color as CgColor;
 
 use ecs::component::Component;
-use component::{LengthUnit, Display};
+use component::{LengthUnit, Display, Color};
 
 #[derive(Component, Default)]
 pub struct ZIndex(pub isize);
@@ -26,6 +27,30 @@ pub struct Show(pub usize);
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
+}
+
+#[derive(Debug, Clone, Component)]
+pub struct BackgroundColor(pub Color);
+
+#[derive(Debug, Clone, Component)]
+pub struct BackgroundImage(pub usize);
+
+#[derive(Debug, Clone, Component)]
+pub struct BorderColor(CgColor<f32>);
+
+#[derive(Debug, Clone, Component)]
+pub struct BorderImage(pub usize);
+
+#[derive(Debug, Clone, Component)]
+pub struct BorderRadius(pub f32);
+
+#[derive(Debug, Clone, Default, Component)]
+pub struct BoxShadow{
+    pub h: f32,
+    pub v: f32,
+    pub blur: f32,
+    pub spread: f32,
+    pub color: CgColor<f32>,
 }
 
 impl Default for Opacity {
