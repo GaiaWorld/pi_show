@@ -56,13 +56,13 @@ impl Context for WebGLContextImpl {
         }))
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pixel: PixelFormat, _data: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String> {
+    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String> {
         Ok(Rc::new(WebGLTextureImpl {
 
         }))
     }
 
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pixel: PixelFormat, _data: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String> {
+    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String> {
         Ok(Rc::new(WebGLTextureImpl {
 
         }))

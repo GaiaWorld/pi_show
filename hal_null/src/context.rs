@@ -1,7 +1,7 @@
 use std::rc::{Rc};
 use atom::{Atom};
 
-use hal_core::*
+use hal_core::*;
 
 use geometry::{NullGeometryImpl};
 use render_target::{NullRenderBufferImpl, NullRenderTargetImpl};
@@ -56,13 +56,13 @@ impl Context for NullContextImpl {
         }))
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pixel: PixelFormat, _data: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String> {
+    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String> {
         Ok(Rc::new(NullTextureImpl {
 
         }))
     }
 
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pixel: PixelFormat, _data: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String> {
+    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String> {
         Ok(Rc::new(NullTextureImpl {
 
         }))

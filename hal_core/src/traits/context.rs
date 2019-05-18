@@ -106,7 +106,7 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String>;
+    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String>;
 
     /** 
      * 用canvas创建2D纹理，尽用于webgl版本
