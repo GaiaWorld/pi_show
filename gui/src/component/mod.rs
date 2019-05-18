@@ -1,7 +1,6 @@
 pub mod calc;
 pub mod user;
 
-use color::Color as CgColor;
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;
@@ -10,6 +9,7 @@ pub type Vector2 = cgmath::Vector2<f32>;
 pub type Vector3 = cgmath::Vector3<f32>;
 pub type Vector4 = cgmath::Vector4<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
+pub type CgColor = color::Color<f32>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum LengthUnit {
@@ -25,8 +25,8 @@ pub enum Display{
 
 #[derive(Debug, Clone)]
 pub enum Color{
-    RGB(CgColor<f32>),
-    RGBA(CgColor<f32>),
+    RGB(CgColor),
+    RGBA(CgColor),
     LinearGradient(LinearGradientColor),
     RadialGradient(RadialGradientColor),
 }
@@ -77,7 +77,7 @@ pub struct RadialGradientColor{
 
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
-    pub rgba: CgColor<f32>,
+    pub rgba: CgColor,
     pub position: f32,
 }
 

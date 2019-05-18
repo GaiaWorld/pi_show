@@ -45,3 +45,20 @@ impl Default for Enable {
     Enable(true)
   }
 }
+
+#[derive(Component, Debug)]
+pub struct CharBlock{
+    pub stroke_size: f32,
+    pub stroke_color: super::CgColor,
+    pub font_size: f32,
+    pub line_height: f32, //设置行高
+    pub font_weight: f32, // 粗细
+    pub color: super::CgColor,
+    pub chars: Vec<CharPos>,
+}
+
+#[derive(Debug)]
+pub struct CharPos {
+    pub value: char,
+    pub pos: super::Point2,
+}
