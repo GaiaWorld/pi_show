@@ -1,5 +1,5 @@
 [package]
-name = "hal_WebGL"
+name = "hal_webgl"
 version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
