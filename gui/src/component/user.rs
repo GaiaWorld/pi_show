@@ -8,10 +8,11 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
-use color::Color as CgColor;
 
 use ecs::component::Component;
-use component::{LengthUnit, Display, Color};
+use atom::Atom;
+use component::{LengthUnit, Display, Color, CgColor};
+use font::font_sheet::{FontSize, LineHeight};
 
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ZIndex(isize);
@@ -35,7 +36,7 @@ pub struct Transform {
 #[derive(Debug, Clone, Component)]
 pub struct BoxColor{
 	background: Color,
-	border: CgColor<f32>,
+	border: CgColor,
 }
 
 #[derive(Debug, Clone, Component)]
@@ -45,7 +46,7 @@ pub struct BackgroundImage(pub usize);
 pub struct BorderImage(pub usize);
 
 #[derive(Debug, Clone, Component)]
-pub struct BorderRadius(pub f32);
+pub struct BorderRadius(pub LengthUnit);
 
 #[derive(Debug, Clone, Default, Component)]
 pub struct BoxShadow{
@@ -53,7 +54,38 @@ pub struct BoxShadow{
     pub v: f32,
     pub blur: f32,
     pub spread: f32,
-    pub color: CgColor<f32>,
+    pub color: CgColor,
+}
+
+#[derive(Debug, Clone, Component)]
+pub struct TextStyle{
+    pub letter_spacing: f32, //字符间距， 单位：像素
+    pub word_spacing: f32, //字符间距， 单位：像素
+    pub line_height: LineHeight, //设置行高
+    pub indent: f32, // 缩进， 单位： 像素
+    pub white_space: WhiteSpace, //空白处理
+    pub color: Color, //颜色
+    pub stroke: Stroke,
+    // pub vertical_align: VerticalAlign,
+}
+
+#[derive(Debug, Clone, Component)]
+pub struct Text(pub String);
+
+#[derive(Debug, Clone, Component)]
+pub struct TextShadow{
+    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
+    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
+    pub blur: f32, //	可选。模糊的距离。	测试
+    pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct Font{
+    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub size: FontSize, //
+    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
 
 impl Default for Opacity {
@@ -194,4 +226,36 @@ impl Transform {
         }
         m
     }
+}
+
+//对齐元素中的文本
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum TextAlign{
+    Left,	//把文本排列到左边。默认值：由浏览器决定。
+    Right,	//把文本排列到右边。
+    Center,	//把文本排列到中间。
+    Justify,	//实现两端对齐文本效果。
+}
+
+//设置元素中空白的处理方式
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum WhiteSpace{
+    Normal, //	默认。空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围会换行。
+    Nowrap, //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
+    PreWrap, //	保留所有空白符序列，超出范围会换行。
+    Pre, //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
+    PreLine, //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Stroke{
+    pub width: f32, //	描边宽度
+    pub color: CgColor, //	描边颜色
+}
+
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum FontStyle{
+    Normal, //	默认值。标准的字体样式。
+    Ttalic, //	斜体的字体样式。
+    Oblique, //	倾斜的字体样式。
 }
