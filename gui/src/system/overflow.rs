@@ -3,6 +3,7 @@
 // 因为很少来回变动，所以直接根据变化进行设置，不采用dirty
 // TODO 可以在没有旋转的情况下，使用包围盒来描述（使用第一个点的x为NaN来标识），提升query和渲染的性能。以后支持clip_path
 // TODO engine对象封装GLContext,ResMgr, style要整理一下,现在有点乱, 移除text_layout
+// TODO CowList, MapAPI统一， VecMap性能优化, remove() -> T 改成 Option<T>
 
 
 use ecs::{

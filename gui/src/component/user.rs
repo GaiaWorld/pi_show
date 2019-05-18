@@ -139,7 +139,7 @@ impl Show {
 
 impl Default for Show {
   fn default() -> Show {
-    Show(6)
+    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
   }
 }
 
