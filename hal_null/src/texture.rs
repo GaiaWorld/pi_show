@@ -22,3 +22,8 @@ impl Texture for NullTextureImpl {
 
     }
 }
+
+impl Drop for NullTextureImpl {
+    fn drop(&mut self) {
+    }
+}

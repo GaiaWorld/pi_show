@@ -22,3 +22,8 @@ impl Texture for WebGLTextureImpl {
 
     }
 }
+
+impl Drop for WebGLTextureImpl {
+    fn drop(&mut self) {
+    }
+}

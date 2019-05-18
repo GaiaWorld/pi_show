@@ -3,7 +3,7 @@ use atom::{Atom};
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry {
+pub trait Geometry: Drop {
 
     /**
      * 设置属性数据

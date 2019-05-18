@@ -28,3 +28,8 @@ impl Geometry for NullGeometryImpl {
         
     }
 }
+
+impl Drop for NullGeometryImpl {
+    fn drop(&mut self) {
+    }
+}

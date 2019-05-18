@@ -8,3 +8,6 @@ authors = ["moyy <moyy@yineng.com>"]
 [dependencies]
 atom={path="../../pi_lib/atom"}
 hal_core={path="../hal_core"}
+stdweb = "0.4.15"
+stdweb-derive = "0.5.1"
+webgl-rendering-context = "0.1.0"

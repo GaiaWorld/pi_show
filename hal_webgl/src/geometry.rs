@@ -28,3 +28,8 @@ impl Geometry for WebGLGeometryImpl {
         
     }
 }
+
+impl Drop for WebGLGeometryImpl {
+    fn drop(&mut self) {
+    }
+}

@@ -1,3 +1,8 @@
+/** 
+ * 抽象硬件层（HAL）的空实现
+ * 
+ */
+
 extern crate atom;
 extern crate hal_core;
 
