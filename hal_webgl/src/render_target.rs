@@ -17,6 +17,11 @@ impl RenderBuffer for WebGLRenderBufferImpl {
 
 }
 
+impl Drop for WebGLRenderBufferImpl {
+    fn drop(&mut self) {
+    }
+}
+
 impl RenderTarget for WebGLRenderTargetImpl {
     type ContextTexture = WebGLTextureImpl;
     type ContextRenderBuffer = WebGLRenderBufferImpl;
@@ -35,5 +40,10 @@ impl RenderTarget for WebGLRenderTargetImpl {
     
     fn get_texture(_attachment: RTAttachment) -> Option<Self::ContextTexture> {
         None
+    }
+}
+
+impl Drop for WebGLRenderTargetImpl {
+    fn drop(&mut self) {
     }
 }

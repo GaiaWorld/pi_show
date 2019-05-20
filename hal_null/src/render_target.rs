@@ -17,6 +17,11 @@ impl RenderBuffer for NullRenderBufferImpl {
 
 }
 
+impl Drop for NullRenderBufferImpl {
+    fn drop(&mut self) {
+    }
+}
+
 impl RenderTarget for NullRenderTargetImpl {
     type ContextTexture = NullTextureImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
@@ -35,5 +40,10 @@ impl RenderTarget for NullRenderTargetImpl {
     
     fn get_texture(_attachment: RTAttachment) -> Option<Self::ContextTexture> {
         None
+    }
+}
+
+impl Drop for NullRenderTargetImpl {
+    fn drop(&mut self) {
     }
 }

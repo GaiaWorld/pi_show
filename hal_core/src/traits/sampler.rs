@@ -11,7 +11,7 @@ pub struct SamplerDesc {
     pub v_wrap: TextureWrapMode,
 }
 
-pub trait Sampler {
+pub trait Sampler: Drop {
     type ContextTexture: Texture;
 }
 

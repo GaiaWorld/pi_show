@@ -5,6 +5,7 @@
 /** 
  * 着色器的类型
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum ShaderType {
     Vertex,
     Fragment,
@@ -13,6 +14,7 @@ pub enum ShaderType {
 /** 
  * 纹理的过滤模式
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum TextureFilterMode {
     Nearest,
     Linear,
@@ -22,6 +24,7 @@ pub enum TextureFilterMode {
  * 纹理环绕模式
  * 指：当纹理坐标不在[0, 1]范围时，如何处理
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum TextureWrapMode {
     Repeat,        // 重复
     ClampToEdge,   // 截取
@@ -31,6 +34,7 @@ pub enum TextureWrapMode {
 /** 
  * 像素格式
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum PixelFormat {
     RGB,
     RGBA,   
@@ -40,6 +44,7 @@ pub enum PixelFormat {
 /** 
  * 数据格式
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum DataFormat {
     Byte,
     UnsignedByte,
@@ -64,6 +69,7 @@ pub enum CullMode {
 /** 
  * 混合操作
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum BlendFunc {
     Add,
     Sub,
@@ -73,6 +79,7 @@ pub enum BlendFunc {
 /** 
  * 混合因子
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum BlendFactor {
     Zero,
     One,
@@ -99,6 +106,7 @@ pub enum BlendFactor {
 /** 
  * 深度和模板的比较函数
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum CompareFunc {
     Never,
     Always,
@@ -113,6 +121,7 @@ pub enum CompareFunc {
 /** 
  * 模板操作
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum StencilOp {
     Keep,
     Zero,
@@ -127,6 +136,7 @@ pub enum StencilOp {
 /**
  * 渲染目标的管道
  */
+#[derive(PartialEq, Clone, Copy)]
 pub enum RTAttachment {
     Color0, // 第一个颜色缓冲区
     Depth,  // 深度缓冲区

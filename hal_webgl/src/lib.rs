@@ -1,6 +1,15 @@
+
+/** 
+ * 抽象硬件层HAL的WebGL实现
+ */
+
+extern crate stdweb;
+extern crate webgl_rendering_context;
+
 extern crate atom;
 extern crate hal_core;
 
+mod extension;
 mod context;
 mod geometry;
 mod render_target;
