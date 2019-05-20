@@ -1,8 +1,8 @@
 mod context;
 mod geometry;
 mod render_target;
-mod sampler;
 mod texture;
+mod sampler;
 
 pub use self::context::{Context};
 pub use self::geometry::{Geometry};

@@ -1,5 +1,3 @@
-use std::rc::{Rc};
-
 /** 
  * 开始渲染必要的数据
  * 一次渲染需要知道：渲染目标，视口，清空颜色-深度-模板
@@ -8,7 +6,6 @@ use std::rc::{Rc};
  * 
  * let data = RenderBeginDesc::new();
  * data.set_***(...);
- * let data = data.to_rc();
  */
 pub struct RenderBeginDesc {
     pub viewport: (u32, u32, u32, u32),    // x, y, 宽, 高，左上角为原点
@@ -65,12 +62,5 @@ impl RenderBeginDesc {
      */
     pub fn set_clear_stencil(&mut self, is_clear: bool, stencil: u8) {
         self.clear_stencil = if is_clear { Some(stencil) } else { None };
-    }
-
-    /** 
-     * 变成Rc
-     */
-    pub fn to_rc(self) -> Rc<Self> {
-        Rc::new(self)
     }
 }

@@ -1,6 +1,8 @@
+use std::sync::{Arc, Weak};
 use std::collections::{HashMap};
+
 use atom::{Atom};
-use traits::{Sampler};
+use traits::{Texture, Sampler};
 
 /** 
  * Uniform集合
@@ -43,8 +45,9 @@ pub enum UniformValue {
     Float(u8, f32, f32, f32, f32), // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     Int(u8, i32, i32, i32, i32),   // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     FloatV(u8, Vec<f32>),          // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4
-    IntV(u8, Vec<i32>),                 // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
+    IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
+    Sampler(Weak<Sampler>, Weak<Texture>), // TODO：Trait Object，接口方便，会有性能损失
 }
 
 impl Uniforms {
@@ -373,6 +376,19 @@ impl Uniforms {
     /** 
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
-    pub fn set_sampler<T: Sampler>(&mut self, _name: &Atom, _sampler: T) {
+    pub fn set_sampler(&mut self, name: &Atom, sampler: &Arc<Sampler>, texture: &Arc<Texture>) {
+        self.values.entry(name.clone())
+            .and_modify(|rv| {
+                match rv {
+                    UniformValue::Sampler(s, t) => { 
+                        *s = Arc::downgrade(sampler);
+                        *t = Arc::downgrade(texture);
+                    }
+                    _ => { 
+                        assert!(false, "Uniforms::set_sampler failed, type not match");
+                    }
+                }
+            })
+            .or_insert(UniformValue::Sampler(Arc::downgrade(sampler), Arc::downgrade(texture)));
     }
 }

@@ -1,5 +1,4 @@
 
-use traits::texture::{Texture};
 use common::{TextureFilterMode, TextureWrapMode};
 
 pub struct SamplerDesc {
@@ -12,7 +11,6 @@ pub struct SamplerDesc {
 }
 
 pub trait Sampler: Drop {
-    type ContextTexture: Texture;
 }
 
 impl Default for SamplerDesc {

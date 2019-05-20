@@ -240,7 +240,7 @@ fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2;4]{
 // fn test(){
 //     let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
 //     let _zz = OverflowSys::init(&mut world.component_mgr);
-//     let systems: Vec<Rc<System<(), WorldDocMgr>>> = vec![];
+//     let systems: Vec<Arc<System<(), WorldDocMgr>>> = vec![];
 //     world.set_systems(systems);
 //     test_world_overflow(&mut world);
 // }
