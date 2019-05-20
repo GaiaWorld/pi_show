@@ -359,4 +359,4 @@ pub enum YGWrap {
     YGWrapWrapReverse = 2,
 }
 
-pub type YGCalcCallbackFunc = unsafe extern "C" fn(args: *const c_void, context: *const c_void);
+pub type YGCalcCallbackFunc = unsafe extern "C" fn(node: YgNode, args: *const c_void);

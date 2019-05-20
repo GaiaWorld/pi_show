@@ -22,7 +22,7 @@ pub trait SdfFont {
 
     fn atlas_height(&self) -> usize;
     
-    fn texture(&self) -> &Rc<TextureRes>;
+    fn texture(&self) -> &Atom;
 
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 }
@@ -47,7 +47,7 @@ pub struct StaticSdfFont {
     atlas_height: usize,
     padding: f32,
     glyph_table: FnvHashMap<char, Glyph>,
-    texture: Rc<TextureRes>,
+    texture: Atom,
 }
 
 impl SdfFont for StaticSdfFont { 
@@ -103,13 +103,13 @@ impl SdfFont for StaticSdfFont {
     }
 
     #[inline]
-    fn texture(&self) -> &Rc<TextureRes> {
+    fn texture(&self) -> &Atom {
         &self.texture
     }
 }
 
 impl StaticSdfFont {
-    pub fn new(texture: Rc<TextureRes>) -> StaticSdfFont{
+    pub fn new(texture: Atom) -> StaticSdfFont{
         StaticSdfFont {
             name: Atom::from(""),
             line_height: 0.0,

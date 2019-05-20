@@ -9,10 +9,10 @@ use map::{vecmap::VecMap};
 use ecs::component::Component;
 
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ZDepth(f32);
+pub struct ZDepth(pub f32);
 
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ByOverflow(usize);
+pub struct ByOverflow(pub usize);
 
 #[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
 pub struct WorldMatrix(pub super::Matrix4);
@@ -34,13 +34,3 @@ impl Default for Opacity {
 //是否响应事件
 #[derive(Deref, DerefMut, Component, Debug, Default)]
 pub struct Enable(pub bool);
-
-#[derive(Component, Debug, Default)]
-pub struct RenderObj{
-    pub pipeline: usize, //Rc<Pipeline>
-    pub depth: f32,
-    pub visibility: bool,
-    pub is_opacity: bool,
-    pub geometry: usize,
-    pub ubo: usize, //geometry 对象
-}

@@ -1,8 +1,15 @@
-use component::{Point2, Matrix4};
+pub mod oct;
+
+use std::sync::Arc;
+use std::fmt;
+
 use cgmath::Ortho;
 use slab::Slab;
+use hal_core::{Context, Pipeline, Uniforms};
+use ecs::{ Share, Write };
+use ecs::monitor::NotifyImpl;
 
-pub mod oct;
+use component::{Point2, Matrix4};
 
 #[derive(Debug)]
 pub struct OverflowClip{
@@ -36,3 +43,68 @@ impl ProjectionMatrix {
         // ))
     }
 }
+
+#[derive(Write)]
+pub struct RenderObj<C: Context>{
+    pub depth: f32,
+    pub visibility: bool,
+    pub is_opacity: bool,
+    pub ubos: Vec<Arc<Uniforms>>, 
+    pub shader_attr: Option<SharderAttr<C>>, 
+}
+
+pub struct SharderAttr<C: Context>{
+    pub geometry: <C as Context>::ContextGeometry, //geometry 对象
+    pub pipeline: Arc<Pipeline>,
+}
+
+// impl<C: Context + Debug> fmt::Debug for RenderObj<C> {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         // write!(f, "Point {{ x: {}, y: {} }}", self.depth, self.visibility)
+//         // write!(f, "RenderObj {{ depth: {}, visibility: {}, is_opacity: {} }}", self.depth, self.visibility, self.is_opacity)
+//         // write!(f, "RenderObj {{ depth: {}, visibility: {}, is_opacity: {}, geometry: {}, pipeline: {}, ubo: {} }}", self.depth, self.visibility, self.is_opacity, self.geometry, self.pipeline, self.ubo)
+//     }
+// }
+
+#[derive(Deref, DerefMut)]
+pub struct RenderObjs<C: Context>(pub Slab<RenderObj<C>>);
+
+unsafe impl<C: Context> Sync for RenderObj<C> {}
+unsafe impl<C: Context> Send for RenderObj<C> {}
+
+impl<C: Context> RenderObjs<C> {
+    pub fn insert(&mut self, value: RenderObj<C>, notify: Option<NotifyImpl>) -> usize {
+        let id = self.0.insert(value);
+        match notify {
+            Some(n) => n.modify_event(id, "", 0),
+            _ =>()
+        };
+        id
+    }
+
+    pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<NotifyImpl>){
+        self.0.remove(id);
+        match notify {
+            Some(n) => n.delete_event(id),
+            _ =>()
+        };
+    }
+
+    pub fn remove(&mut self, id: usize, notify: Option<NotifyImpl>){
+        if self.0.contains(id) {
+            self.0.remove(id);
+            match notify {
+                Some(n) => n.delete_event(id),
+                _ =>()
+            };
+        }
+    }
+
+    pub unsafe fn get_unchecked_write<'a>(&'a mut self, id: usize, notify: &'a NotifyImpl) -> Write<RenderObj<C>>{
+        Write::new(id, self.0.get_unchecked_mut(id), &notify)
+    }
+}
+
+pub struct ClipUbo(pub Arc<Uniforms>);
+pub struct ViewUbo(pub Arc<Uniforms>);
+pub struct ProjectionUbo(pub Arc<Uniforms>);

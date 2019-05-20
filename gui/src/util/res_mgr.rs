@@ -1,5 +1,5 @@
 // 显卡资源管理器
-use std::rc::{Rc, Weak};
+use std::sync::{Arc, Weak};
 use fnv::FnvHashMap;
 
 use atom::{Atom};
@@ -23,7 +23,7 @@ impl<T:Res> ResMap<T> {
         ResMap(FnvHashMap::with_capacity_and_hasher(0, Default::default()))
     }
 	// 获得指定键的资源
-	pub fn get(&self, name: &Atom) -> Option<Rc<T>> {
+	pub fn get(&self, name: &Atom) -> Option<Arc<T>> {
         if let Some(v) = self.0.get(name) {
             if let Some(r) = v.upgrade() {
                 return Some(r)
@@ -32,10 +32,10 @@ impl<T:Res> ResMap<T> {
         None
     }
 	// 创建资源
-	pub fn create(&mut self, res: T) -> Rc<T> {
+	pub fn create(&mut self, res: T) -> Arc<T> {
         let name = res.name().clone();
-        let r = Rc::new(res);
-        self.0.insert(name, Rc::downgrade(&r));
+        let r = Arc::new(res);
+        self.0.insert(name, Arc::downgrade(&r));
         r
         // match self.0.entry(res.name()) {
         //     Entry::Occupied(mut e) => {
@@ -44,16 +44,16 @@ impl<T:Res> ResMap<T> {
         //             Some(r) => r,
         //             None =>{
         //                 res.create();
-        //                 let r = Rc::new(res);
-        //                 swap(&mut Rc::downgrade(&r), v);
+        //                 let r = Arc::new(res);
+        //                 swap(&mut Arc::downgrade(&r), v);
         //                 r
         //             }
         //         }
         //     },
         //     Entry::Vacant(e) => {
         //         res.create();
-        //         let r = Rc::new(res);
-        //         e.insert(Rc::downgrade(&r));
+        //         let r = Arc::new(res);
+        //         e.insert(Arc::downgrade(&r));
         //         r
         //     }
         // }

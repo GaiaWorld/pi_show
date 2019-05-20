@@ -20,12 +20,12 @@ extern crate derive_deref;
 extern crate enum_default_macro;
 #[macro_use]
 extern crate debug_info;
-#[macro_use]
-extern crate stdweb_derive;
+// #[macro_use]
+// extern crate stdweb_derive;
 
-extern crate webgl_rendering_context;
-#[macro_use]
-extern crate stdweb;
+// extern crate webgl_rendering_context;
+// #[macro_use]
+// extern crate stdweb;
 
 extern crate deque;
 extern crate cg2d;
@@ -42,6 +42,7 @@ extern crate ucd;
 extern crate data_view;
 extern crate dirty;
 extern crate color;
+extern crate hal_core;
 
 pub mod system;
 pub mod component;

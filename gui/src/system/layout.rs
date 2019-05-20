@@ -76,6 +76,6 @@ impl_system!{
     {
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
-		SingleCaseListener<IdTree, ModifyEvent>
+				SingleCaseListener<IdTree, ModifyEvent>
     }
 }
