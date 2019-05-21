@@ -11,10 +11,9 @@ pub struct NullRenderTargetImpl {
 }
 
 impl RenderBuffer for NullRenderBufferImpl {
-    fn get_size() -> (u32, u32) {
+    fn get_size(&self) -> (u32, u32) {
         (0, 0)
     }
-
 }
 
 impl Drop for NullRenderBufferImpl {
@@ -26,19 +25,13 @@ impl RenderTarget for NullRenderTargetImpl {
     type ContextTexture = NullTextureImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
 
-    fn get_size() -> (u32, u32) {
-        (0, 0)
+    fn attach_texture(&mut self, _attachment: RTAttachment, _texture: &Arc<Self::ContextTexture>) {
     }
     
-    fn attach_texture(_attachment: RTAttachment, _texture: &Arc<Self::ContextTexture>) {
-
+    fn attach_render_buffer(&mut self, _attachment: RTAttachment, _buffer: &Arc<Self::ContextRenderBuffer>) {
     }
     
-    fn attach_render_buffer(_attachment: RTAttachment, _buffer: &Arc<Self::ContextRenderBuffer>) {
-
-    }
-    
-    fn get_texture(_attachment: RTAttachment) -> Option<Self::ContextTexture> {
+    fn get_texture(&self, _attachment: RTAttachment) -> Option<Arc<Self::ContextTexture>> {
         None
     }
 }
