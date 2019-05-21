@@ -58,19 +58,11 @@ use traits::render_target::{RenderTarget, RenderBuffer};
 
 pub trait Context {
     
-    type SystemContext;
-
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
     type ContextSampler: Sampler;
     type ContextRenderTarget: RenderTarget;
     type ContextRenderBuffer: RenderBuffer;
-
-    /** 
-     * 创建新的渲染环境
-     * rimpl: 渲染底层库对应的句柄，比如：WebGLRenderingContext, WebGL2RenderingContext, D3D11, D3D9, ...
-     */
-    fn new(rimpl: Option<Arc<Self::SystemContext>>, width: u32, height: u32) -> Self;
 
     /**
      * 取特性

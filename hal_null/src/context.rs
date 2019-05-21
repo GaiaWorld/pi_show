@@ -15,20 +15,8 @@ pub struct NullContextImpl {
     default_rt: Arc<NullRenderTargetImpl>,
 }
 
-pub struct NullSystemContext {
-
-}
-
-impl Context for NullContextImpl {
-    type SystemContext = NullSystemContext;
-
-    type ContextGeometry = NullGeometryImpl;
-    type ContextTexture = NullTextureImpl;
-    type ContextSampler = NullSamplerImpl;
-    type ContextRenderTarget = NullRenderTargetImpl;
-    type ContextRenderBuffer = NullRenderBufferImpl;
-
-    fn new(_rimpl: Option<Arc<Self::SystemContext>>, _width: u32, _height: u32) -> Self {
+impl NullContextImpl {
+    pub fn new() -> Self {
         NullContextImpl {
             caps: Arc::new(Capabilities::new()),
 
@@ -37,7 +25,15 @@ impl Context for NullContextImpl {
             })
         } 
     }
+}
 
+impl Context for NullContextImpl {
+    type ContextGeometry = NullGeometryImpl;
+    type ContextTexture = NullTextureImpl;
+    type ContextSampler = NullSamplerImpl;
+    type ContextRenderTarget = NullRenderTargetImpl;
+    type ContextRenderBuffer = NullRenderBufferImpl;
+    
     fn get_caps(&self) -> Arc<Capabilities> {
         self.caps.clone()
     }
