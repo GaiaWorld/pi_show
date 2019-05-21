@@ -24,6 +24,7 @@ ucd = {path="../../pi_lib/ucd"}
 data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
 dirty = {path="../../pi_lib/dirty"}
+hal_core = {path="../hal_core"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"

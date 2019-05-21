@@ -1,4 +1,4 @@
-#[allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
+#![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_float, c_void};
 
@@ -143,11 +143,8 @@ pub enum YGWrap {
     YGWrapWrapReverse = 2, 
 }
 
-#[allow(non_camel_case_types)]
 pub type __builtin_va_list = *mut c_char;
-#[allow(non_camel_case_types)]
 pub type __gnuc_va_list = __builtin_va_list;
-#[allow(non_camel_case_types)]
 pub type va_list = __gnuc_va_list;
 
 #[repr(C)]
@@ -185,13 +182,12 @@ pub type YGBaselineFunc =
     Option<unsafe extern "C" fn(node: YGNodeRef, width: c_float, height: c_float) -> c_float>;
 pub type YGCloneNodeFunc = 
     Option<unsafe extern "C" fn(oldNode: YGNodeRef, owner: YGNodeRef, childIndex: c_int) -> YGNodeRef>;
-pub type YGCalcCallbackFunc = unsafe extern "C" fn(node: YgNode, args: *const c_void);
+pub type YGCalcCallbackFunc = unsafe extern "C" fn(node: YGNodeRef, args: *const c_void);
 pub type YGNodeCleanupFunc = Option<unsafe extern "C" fn(node: YGNodeRef)>;
 pub type YGMeasureFunc = 
     Option<unsafe extern "C" fn(node: YGNodeRef, width: c_float, widthMode: YGMeasureMode, height: c_float, heightMode: YGMeasureMode) -> YGSize>;
 pub type YGLogger = Option<unsafe extern "C" fn(config: YGConfigRef, node: YGNodeRef, level: YGLogLevel, format: *const c_char, args: va_list) -> c_int>;
 
-#[allow(unused_attributes)]
 #[link_args = "yoga.bc"]
 extern "C" {
     #[link_name = "\u{1}YGValueUndefined"]

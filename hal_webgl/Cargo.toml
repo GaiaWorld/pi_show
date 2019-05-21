@@ -1,0 +1,13 @@
+[package]
+name = "hal_webgl"
+version = "0.1.0"
+authors = ["moyy <moyy@yineng.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+atom={path="../../pi_lib/atom"}
+hal_core={path="../hal_core"}
+stdweb = "0.4.15"
+stdweb-derive = "0.5.1"
+webgl-rendering-context = "0.1.0"

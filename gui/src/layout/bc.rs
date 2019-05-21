@@ -345,8 +345,8 @@ impl YgNode {
         yoga::yg_node_calculate_layout(self.0, width, height, direction);
     }
 
-    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: yoga::YGCalcCallbackFunc, arg: *const c_void) {
-        yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, callback, arg);
+    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: yoga::CallbackFunc, arg: *const c_void) {
+        yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, unsafe { std::mem::transmute(callback) }, arg);
     }
 
 //     为指定节点设置上下文
@@ -415,6 +415,8 @@ impl YgNode {
         index as usize
     }
 }
+
+pub type CallbackFunc = unsafe extern "C" fn(node: YgNode, args: *const c_void);
 
 
 // #[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]

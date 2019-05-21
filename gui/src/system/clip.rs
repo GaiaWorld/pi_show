@@ -1,6 +1,6 @@
 // 监听Sdf, Image, 和Word的创建和销毁事件， 创建或销毁对应的Effect
 
-// use std::rc::{Rc};
+// use std::sync::{Arc};
 // use std::cell::RefCell;
 
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};

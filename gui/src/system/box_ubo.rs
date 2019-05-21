@@ -2,89 +2,166 @@
  *  计算opacity
  *  该系统默认为所有已经创建的Entity创建BoxColor组件， 并监听BoxColor的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的BoxColor
  */
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
+use std::marker::PhantomData;
+use std::sync::Arc;
+
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use ecs::idtree::{ IdTree};
 use map::vecmap::VecMap;
+use hal_core::{Context, Uniforms};
+use atom::Atom;
 
-use component::user::{BoxColor};
-use component::calc::{BoxColor as CBoxColor, BoxColorWrite as CBoxColorWrite, RenderObj, Visibility, WorldMatrix, Transform, Opacity, ByOverflow};
+use component::user::{BoxColor, Transform};
+use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::{Color, CgColor};
+use layout::Layout;
 use entity::{Node};
+use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
+use render::engine::Engine;
+use system::util::{cal_matrix, color_is_opaque};
+
+
+lazy_static! {
+    static ref BOX_SHADER_NAME: Atom = Atom::from("box");
+    static ref BOX_FS_SHADER_NAME: Atom = Atom::from("box_fs");
+    static ref BOX_VS_SHADER_NAME: Atom = Atom::from("box_vas");
+
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
+    static ref COLOR: Atom = Atom::from("color");
+    static ref COLOR_ANGLE: Atom = Atom::from("colorAngle");
+    static ref DISTANCE: Atom = Atom::from("distance");
+    static ref COLOR1: Atom = Atom::from("color1");
+    static ref COLOR2: Atom = Atom::from("color2");
+    static ref COLOR3: Atom = Atom::from("color3");
+    static ref COLOR4: Atom = Atom::from("color4");
+    static ref FONT_CLAMP: Atom = Atom::from("fontClamp");  // 0-1的小数，超过这个值即认为有字体，默认传0.75
+    static ref SMOOT_HRANFE: Atom = Atom::from("smoothRange");
+    static ref TEXTURE: Atom = Atom::from("texture");
+}
 
 #[derive(Default)]
-pub struct BoxUboSys{
+pub struct BoxUboSys<C: Context +Share>{
     box_render_map: VecMap<usize>,
+    mark: PhantomData<C>,
 }
 
-// 插入渲染对象
-impl<'a> MultiCaseListener<'a, Node, BoxColor, CreateEvent> for BoxUboSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, BoxColor>);
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let render_obj = RenderObj::default();
-        // 设置ubo
-        let index = write.insert(RenderObj::default());
-        self.box_render_map.insert(event.id, index);
-    }
-}
+// // 插入渲染对象
+// impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> for BoxUboSys<C>{
+//     type ReadData = (
+//         &'a SingleCaseImpl<ViewUbo>,
+//         &'a SingleCaseImpl<ProjectionUbo>,
+//         &'a SingleCaseImpl<ClipUbo>,
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a MultiCaseImpl<Node, BoxColor>,
+//         &'a MultiCaseImpl<Node, ZDepth>,
+//         &'a MultiCaseImpl<Node, Visibility>,
+//         &'a MultiCaseImpl<Node, Opacity>,
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//     );
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+//         let (view_ubo, projection_ubo, clip_ubo, id_tree, box_color, z_depth, visibility, opacity, world_matrix, transform, layout) = read;
+//         let (render_objs, engine) = write;
+//         let mut ubos = vec![Arc::new(Uniforms::new()), view_ubo.0.clone(), projection_ubo.0.clone(), clip_ubo.0.clone(), Arc::new(Uniforms::new())]; // 世界矩阵，视图矩阵， 投影矩阵， 裁剪属性， 材质属性，
+
+//         let opacity = unsafe { opacity.get_unchecked(event.id) }.0;
+//         let box_color = unsafe { box_color.get_unchecked(event.id) };
+//         let world_matrix = cal_matrix(event.id, &world_matrix, &transform, &layout, (0.0, 0.0));
+
+//         let render_obj: RenderObj<C> = RenderObj{
+//             depth: unsafe { z_depth.get_unchecked(event.id) }.0,
+//             visibility: unsafe { visibility.get_unchecked(event.id) }.0,
+//             is_opacity: box_is_opacity(opacity, &box_color.background, &box_color.border),
+//             ubos: ubos,
+//             shader_attr: None,
+//         };
+
+//         // // 设置ubo
+//         // let index = write.insert(RenderObj::default());
+//         // self.box_render_map.insert(event.id, index);
+//     }
+// }
 
 // 删除渲染对象
-impl<'a> MultiCaseListener<'a, Node, BoxColor, DeleteEvent> for BoxUboSys{
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, DeleteEvent> for BoxUboSys<C>{
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
         let index = self.box_render_map.remove(event.id).unwrap();
-        write.remove(index);
+        let notify = write.get_notify();
+        write.remove(index, Some(notify));
     }
 }
 
 // BoxColor变化, 修改ubo
-impl<'a> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> for BoxUboSys{
-    type ReadData = (&'a MultiCaseImpl<Node, BoxColor>);
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> for BoxUboSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, BoxColor>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let box_color = unsafe { read.get_unchecked(event.id) };
+        match event.field {
+            "background" => {},
+            "border" => {},
+            _ => (),
+        }
         // 设置ubo TODO
     }
 }
 
 //世界矩阵变化， 设置ubo
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for BoxUboSys{
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for BoxUboSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>,);
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         // 设置ubo TODO
     }
 }
 
 //不透明度变化， 设置ubo
-impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BoxUboSys{
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BoxUboSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         // 设置ubo TODO
     }
 }
 
 //by_overfolw变化， 设置ubo
-impl<'a> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for BoxUboSys{
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for BoxUboSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         // 设置ubo TODO
     }
 }
 
 // 设置visibility
-impl<'a> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for BoxUboSys{
+impl<'a, C: Context +Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for BoxUboSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
-    type WriteData = &'a mut MultiCaseImpl<Node, RenderObj>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        match self.box_render_map.get(event.id); {
+        match self.box_render_map.get(event.id) {
             Some(index) => {
-                unsafe {write.get_unchecked_write(index)}.set_visibility(unsafe {read.get_unchecked(event.id).0});
+                let notify = write.get_notify();
+                unsafe {write.get_unchecked_write(*index, &notify)}.set_visibility(unsafe {read.get_unchecked(event.id).0});
             },
             None => (),
         }
     }
+}
+
+fn box_is_opacity(opacity: f32, backgroud_color: &Color, border_color: &CgColor) -> bool {
+    if opacity < 1.0 {
+        return false;
+    }
+    
+    if border_color.a < 1.0 {
+        return false;
+    }
+
+    return color_is_opaque(backgroud_color);
 }
 
 // impl_system!{

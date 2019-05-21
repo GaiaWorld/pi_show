@@ -35,8 +35,8 @@ pub struct Transform {
 
 #[derive(Debug, Clone, Component)]
 pub struct BoxColor{
-	background: Color,
-	border: CgColor,
+	pub background: Color,
+	pub border: CgColor,
 }
 
 #[derive(Debug, Clone, Component)]
