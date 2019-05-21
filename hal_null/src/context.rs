@@ -15,14 +15,20 @@ pub struct NullContextImpl {
     default_rt: Arc<NullRenderTargetImpl>,
 }
 
+pub struct NullSystemContext {
+
+}
+
 impl Context for NullContextImpl {
+    type SystemContext = NullSystemContext;
+
     type ContextGeometry = NullGeometryImpl;
     type ContextTexture = NullTextureImpl;
     type ContextSampler = NullSamplerImpl;
     type ContextRenderTarget = NullRenderTargetImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
 
-    fn new(_rimpl: *const isize, _width: u32, _height: u32) -> Self {
+    fn new(_rimpl: Option<Arc<Self::SystemContext>>, _width: u32, _height: u32) -> Self {
         NullContextImpl {
             caps: Arc::new(Capabilities::new()),
 
@@ -52,7 +58,7 @@ impl Context for NullContextImpl {
         Ok(Arc::new(Pipeline::new()))
     }
 
-    fn create_geometry(&self, _vertex_count: u32) -> Result<Arc<Self::ContextGeometry>, String> {
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String> {
         Ok(Arc::new(NullGeometryImpl {
 
         }))

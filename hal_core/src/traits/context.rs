@@ -57,6 +57,8 @@ use traits::render_target::{RenderTarget, RenderBuffer};
  */
 
 pub trait Context {
+    
+    type SystemContext;
 
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
@@ -68,7 +70,7 @@ pub trait Context {
      * 创建新的渲染环境
      * rimpl: 渲染底层库对应的句柄，比如：WebGLRenderingContext, WebGL2RenderingContext, D3D11, D3D9, ...
      */
-    fn new(rimpl: *const isize, width: u32, height: u32) -> Self;
+    fn new(rimpl: Option<Arc<Self::SystemContext>>, width: u32, height: u32) -> Self;
 
     /**
      * 取特性
@@ -98,7 +100,7 @@ pub trait Context {
     /** 
      * 创建几何数据
      */
-    fn create_geometry(&self, vertex_count: u32) -> Result<Arc<Self::ContextGeometry>, String>;
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String>;
 
     /** 
      * 创建2D纹理

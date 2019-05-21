@@ -2,6 +2,7 @@ use std::sync::{Arc};
 use std::collections::{HashMap};
 
 use atom::{Atom};
+use webgl_rendering_context::{WebGLRenderingContext};
 
 use hal_core::*;
 
@@ -11,25 +12,30 @@ use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 
 pub struct WebGLContextImpl {
+    gl: Arc<WebGLRenderingContext>,
     caps: Arc<Capabilities>,
     default_rt: Arc<WebGLRenderTargetImpl>,
 }
 
 impl Context for WebGLContextImpl {
+    type SystemContext = WebGLRenderingContext;
+
     type ContextGeometry = WebGLGeometryImpl;
     type ContextTexture = WebGLTextureImpl;
     type ContextSampler = WebGLSamplerImpl;
     type ContextRenderTarget = WebGLRenderTargetImpl;
     type ContextRenderBuffer = WebGLRenderBufferImpl;
 
-    fn new(_rimpl: *const isize, _width: u32, _height: u32) -> Self {
+    fn new(rimpl: Option<Arc<Self::SystemContext>>, _width: u32, _height: u32) -> Self {
+        
+        assert!(rimpl.is_some(), "new invalid");
+
         WebGLContextImpl {
+            gl: rimpl.unwrap(),
             caps: Arc::new(Capabilities::new()),
-
             default_rt: Arc::new(WebGLRenderTargetImpl {
-
             })
-        } 
+        }
     }
 
     fn get_caps(&self) -> Arc<Capabilities> {
@@ -52,10 +58,8 @@ impl Context for WebGLContextImpl {
         Ok(Arc::new(Pipeline::new()))
     }
 
-    fn create_geometry(&self, _vertex_count: u32) -> Result<Arc<Self::ContextGeometry>, String> {
-        Ok(Arc::new(WebGLGeometryImpl {
-
-        }))
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String> {
+        Ok(Arc::new(WebGLGeometryImpl::new(&self.gl)))
     }
 
     fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Arc<Self::ContextTexture>, String> {
