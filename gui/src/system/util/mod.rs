@@ -65,8 +65,8 @@ pub fn color_is_opaque(color: &Color) -> bool{
     }
 }
 
-pub fn create_geometry<C: Context>(gl: &mut C, vertex_count: u32) -> Arc<<C as Context>::ContextGeometry> {
-    match gl.create_geometry(vertex_count) {
+pub fn create_geometry<C: Context>(gl: &mut C) -> Arc<<C as Context>::ContextGeometry> {
+    match gl.create_geometry() {
         Ok(r) => r,
         Err(_) => panic!("create_geometry error"),
     }
@@ -80,7 +80,7 @@ pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32
         end_x,   end_y,   z_depth, // right_bootom
         end_x,   start_y, z_depth, // right_top
     ];
-    Arc::get_mut(geometry).unwrap().set_attribute(&POSITION.clone(), 3, &buffer[0..12], false);
+    Arc::get_mut(geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
 }
 
 pub fn set_world_matrix_ubo<C: Context + 'static>(

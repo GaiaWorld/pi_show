@@ -114,3 +114,12 @@ impl<C: Context> RenderObjs<C> {
 pub struct ClipUbo(pub Arc<Uniforms>);
 pub struct ViewUbo(pub Arc<Uniforms>);
 pub struct ProjectionUbo(pub Arc<Uniforms>);
+
+unsafe impl Sync for ClipUbo {}
+unsafe impl Send for ClipUbo {}
+
+unsafe impl Sync for ViewUbo {}
+unsafe impl Send for ViewUbo {}
+
+unsafe impl Sync for ProjectionUbo {}
+unsafe impl Send for ProjectionUbo {}

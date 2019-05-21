@@ -51,5 +51,5 @@ impl<C: Context> Engine<C> {
     }
 }
 
-unsafe impl<C: Context + Sync> Sync for Engine<C> {}
-unsafe impl<C: Context + Send> Send for Engine<C> {}
+unsafe impl<C: Context> Sync for Engine<C> {}
+unsafe impl<C: Context> Send for Engine<C> {}

@@ -139,7 +139,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
                 let mut color_ubo = Uniforms::new();
                 color_ubo.set_float_4(&U_COLOR, r.a, r.g, r.b, r.a);
                 ubos.insert(UCOLOR.clone(), Arc::new(color_ubo)); // COLOR 属性
-                geometry = create_geometry(&mut w.1.gl, 4);
+                geometry = create_geometry(&mut w.1.gl);
                 //如果layout > 0.0, 表示该节点曾经布局过, 设置position
                 if layout.width > 0.0 {
                     let buffer = [
@@ -148,16 +148,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
                         layout.width, layout.height, z_depth, // right_bootom
                         layout.width, 0.0,           z_depth, // right_top
                     ];
-                    Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, &buffer[0..12], false);
+                    Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
                 }
             },
             Color::LinearGradient(r) => {
-                geometry = create_geometry(&mut w.1.gl, 4);
+                geometry = create_geometry(&mut w.1.gl);
                 // defines.vertex_color = true;
                 // TODO
             }
             Color::RadialGradient(r) => {
-                geometry = create_geometry(&mut w.1.gl, 4);
+                geometry = create_geometry(&mut w.1.gl);
                 // defines.vertex_color = true;
                 // TODO
             }
@@ -199,7 +199,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
     );
     fn listen(&mut self, event: &CreateEvent, r: Self::ReadData, w: Self::WriteData){
         let mut defines = Defines::default();
-        let mut geometry = create_geometry(&mut w.1.gl, 4);
+        let mut geometry = create_geometry(&mut w.1.gl);
         let box_shadow = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.2;
@@ -220,7 +220,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
                 h_offset,     v_offset,     z_depth, // right_bootom
                 h_offset,     box_shadow.v, z_depth, // right_top
             ];
-            Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, &buffer[0..12], false);
+            Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
         }
 
         let index = self.create_sdf_renderobjs(event.id, box_shadow.blur, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
