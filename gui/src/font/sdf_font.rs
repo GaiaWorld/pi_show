@@ -1,16 +1,17 @@
 use std::mem::transmute;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use fnv::FnvHashMap;
 
+use hal_core::{Context};
 use data_view::GetView;
-
-use render::res::TextureRes; 
-
 use atom::Atom;
+
+use render::res::TextureRes;
 // use font::FontMeasure;
 
 pub trait SdfFont {
+    type Ctx: Context;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32;
 
@@ -22,7 +23,7 @@ pub trait SdfFont {
 
     fn atlas_height(&self) -> usize;
     
-    fn texture(&self) -> &Atom;
+    fn texture(&self) -> &Arc<TextureRes<Self::Ctx>>;
 
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 }
@@ -39,18 +40,18 @@ pub struct GlyphInfo{
     pub adv: f32,
 }
 
-#[derive(Debug)]
-pub struct StaticSdfFont {
+pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
     name: Atom,
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
     padding: f32,
     glyph_table: FnvHashMap<char, Glyph>,
-    texture: Atom,
+    texture: Arc<TextureRes<C>>,
 }
 
-impl SdfFont for StaticSdfFont { 
+impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> { 
+    type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
         match self.glyph_table.get(&c) {
@@ -103,13 +104,13 @@ impl SdfFont for StaticSdfFont {
     }
 
     #[inline]
-    fn texture(&self) -> &Atom {
+    fn texture(&self) -> &Arc<TextureRes<C>> {
         &self.texture
     }
 }
 
-impl StaticSdfFont {
-    pub fn new(texture: Atom) -> StaticSdfFont{
+impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
+    pub fn new(texture: Arc<TextureRes<C>>) -> Self{
         StaticSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -122,7 +123,7 @@ impl StaticSdfFont {
     }
 }
 
-impl StaticSdfFont {
+impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
     pub fn parse(&mut self, value: &[u8]) -> Result<(), String>{
         let mut offset = 12;
         match String::from_utf8(Vec::from(&value[0..11])) {

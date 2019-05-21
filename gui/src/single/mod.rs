@@ -3,8 +3,11 @@ pub mod oct;
 use std::sync::Arc;
 use std::fmt;
 
+use fnv::FnvHashMap;
+
 use cgmath::Ortho;
 use slab::Slab;
+use atom::Atom;
 use hal_core::{Context, Pipeline, Uniforms};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
@@ -49,14 +52,17 @@ pub struct RenderObj<C: Context>{
     pub depth: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: Vec<Arc<Uniforms>>, 
-    pub shader_attr: Option<SharderAttr<C>>, 
+    pub ubos: FnvHashMap<Atom, Arc<Uniforms>>,
+    pub geometry: Arc<<C as Context>::ContextGeometry>,
+    pub pipeline: Arc<Pipeline>,
+    
+    // pub shader_attr: Option<SharderAttr<C>>, 
 }
 
-pub struct SharderAttr<C: Context>{
-    pub geometry: <C as Context>::ContextGeometry, //geometry 对象
-    pub pipeline: Arc<Pipeline>,
-}
+// pub struct SharderAttr<C: Context>{
+//     pub geometry: <C as Context>::ContextGeometry, //geometry 对象
+//     pub pipeline: Arc<Pipeline>,
+// }
 
 // impl<C: Context + Debug> fmt::Debug for RenderObj<C> {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -108,3 +114,12 @@ impl<C: Context> RenderObjs<C> {
 pub struct ClipUbo(pub Arc<Uniforms>);
 pub struct ViewUbo(pub Arc<Uniforms>);
 pub struct ProjectionUbo(pub Arc<Uniforms>);
+
+unsafe impl Sync for ClipUbo {}
+unsafe impl Send for ClipUbo {}
+
+unsafe impl Sync for ViewUbo {}
+unsafe impl Send for ViewUbo {}
+
+unsafe impl Sync for ProjectionUbo {}
+unsafe impl Send for ProjectionUbo {}
