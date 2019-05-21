@@ -24,7 +24,7 @@ pub struct Overflow(pub bool);
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Opacity(pub f32);
 
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
 pub struct Show(pub usize);
 
 #[derive(Debug, Clone, Component, Default)]
@@ -33,7 +33,7 @@ pub struct Transform {
     pub origin: TransformOrigin,
 }
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct BoxColor{
 	pub background: Color,
 	pub border: CgColor,
@@ -72,7 +72,7 @@ pub struct TextStyle{
 #[derive(Debug, Clone, Component, Default)]
 pub struct Text(pub Arc<String>);
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct TextShadow{
     pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
     pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
@@ -296,3 +296,4 @@ pub enum VerticalAlign{
     Middle,
     Bottom
 }
+

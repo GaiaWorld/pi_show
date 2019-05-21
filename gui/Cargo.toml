@@ -32,6 +32,7 @@ stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
 derive_deref = "1.0.2"
+paste = "0.1"
 
 [features]
 # default = ["web"]

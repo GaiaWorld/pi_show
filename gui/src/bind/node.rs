@@ -1,25 +1,30 @@
-use usize::MAX as UMAX;
+use std::{
+  sync::Arc,
+  usize::MAX as UMAX,
+  f32::INFINITY as FMAX,
+};
+
 
 use ecs::World;
-use ecs::idtree::IdTree;
+use ecs::idtree::{IdTree, InsertType};
 
-use component::user::*;
+use component::user::{Text};
+use layout::{Layout};
 use Node;
 
-fn create_node1(world: &World) -> u32 {
+fn create(world: &World) -> usize {
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
-    let notify = idtree.get_notify();
+    let mut idtree = idtree.borrow_mut();
     let node = world.create_entity::<Node>();
     idtree.create(node);
-    idtree.insert_child(node, 0, 0, Some(&notify));
     node
 }
 
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
     let world = unsafe {&mut *(world as usize as *mut World)};
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let mut idtree = idtree.borrow_mut();
+    let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, index, Some(&notify));
 }
 
@@ -27,55 +32,59 @@ fn insert_child(world: u32, child: u32, parent: u32, index: usize){
 #[no_mangle]
 pub fn create_node(world: u32) -> u32{
     let world = unsafe {&mut *(world as usize as *mut World)};
-    let node = create_node1(world);
+    let node = create(world);
     debug_println!("create_node, node:{}", node);
-    node
+    node as u32
 }
 
-// #[no_mangle]
-// pub fn create_text_node(world: u32) -> u32 {
-//     let world = unsafe {&mut *(world as usize as *mut World)};
-//     let node = create_node1(world);
-//     debug_println!("create_text_node, node:{}", node);
-//     node
-// }
+#[no_mangle]
+pub fn create_text_node(world: u32) -> u32 {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let node = create(world);
+    let text = world.fetch_multi::<Node, Text>().unwrap();
+    let mut text = text.borrow_mut();
+    text.insert(node, Text(Arc::new("".to_string())));
 
-// //创建图片节点
-// #[no_mangle]
-// pub fn create_image_node(world: u32) -> u32{
-//     let world = unsafe {&mut *(world as usize as *mut World)};
-//     let node = create_node1(world);
-//     debug_println!("create_image_node, node:{}", node);
-//     node
-// }
+    debug_println!("create_text_node, node:{}", node);
+    node as u32
+}
+
+//创建图片节点
+#[no_mangle]
+pub fn create_image_node(world: u32) -> u32{
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let node = create(world);
+    debug_println!("create_image_node, node:{}", node);
+    node as u32
+}
 
 // 在尾部插入子节点
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
-    let notify = idtree.get_notify();
     let world = unsafe {&mut *(world as usize as *mut World)};
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let mut idtree = idtree.borrow_mut();
+    let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
     debug_println!("append_child"); 
 }
 
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
-    let notify = idtree.get_notify();
     let world = unsafe {&mut *(world as usize as *mut World)};
-    idtree.insert_brother(child as usize, brother as usize, Some(&notify));
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let mut idtree = idtree.borrow_mut();
+    let notify = idtree.get_notify();
+    idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
     debug_println!("insert_before"); 
 }
 
 #[no_mangle]
 pub fn remove_child(world: u32, node: u32){
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
-    let notify = idtree.get_notify();
     let world = unsafe {&mut *(world as usize as *mut World)};
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let mut idtree = idtree.borrow_mut();
+    let notify = idtree.get_notify();
     idtree.remove(node as usize, Some(&notify));
     debug_println!("remove_child");  
 }
@@ -220,41 +229,31 @@ pub fn remove_child(world: u32, node: u32){
 //content宽高的累加值
 #[no_mangle]
 pub fn content_box(world: u32, node: u32) {
-  let node = node as usize;
-  let world = unsafe {&mut *(world as usize as *mut World)};
-  let node = world.component_mgr.node._group.get(node);
-  let mut child = node.childs.get_first();
-  let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
-
-  loop {
-    if child == 0 {
-        break;
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let layout = world.fetch_multi::<Node, Layout>().unwrap();
+    let layout = layout.borrow();
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = idtree.borrow();
+    let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
+    for (id, _) in idtree.iter(unsafe {idtree.get_unchecked(node as usize)}.children.head) {
+      let l = unsafe {layout.get_unchecked(id)};
+      let r = l.left + l.width;
+      let b = l.top + l.height;
+      if l.left < left {
+        left = l.left;
+      }
+      if r > right {
+        right = r;
+      }
+      if b > bottom {
+        bottom = b;
+      }
+      if l.top < top {
+        top = l.top;
+      }
     }
-    let node = {
-        let v = unsafe{ world.component_mgr.node_container.get_unchecked(child) };
-        child = v.next;
-        v.elem.clone()
-    };
-    let node = world.component_mgr.node._group.get(node);
-    let layout = &node.layout;
-    let right_ = layout.left + layout.width;
-    let bottom_ = layout.top + layout.height;
-    if layout.left < left {
-      left = layout.left;
-    }
-    if right_ > right {
-      right = right_;
-    }
-    if bottom_ > bottom {
-      bottom = bottom_;
-    }
-    if layout.top < top {
-      top = layout.top;
-    }
-  }
-
-  js!{
-    __jsObj.width = @{right - left};
-    __jsObj.height = @{bottom - top}
-  }
+    // js!{
+    //   __jsObj.width = @{right - left};
+    //   __jsObj.height = @{bottom - top}
+    // }
 }

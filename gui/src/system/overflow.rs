@@ -58,7 +58,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
       if i == 0 {
         return;
       }
-      set_clip(event.id, i, read, write.0);
+      set_clip(event.id, i, &read, write.0);
       by |= i;
       i
     }else{
@@ -92,7 +92,7 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
     if overflow {
       let i = get_index(&mut *write, event.id);
       if i > 0 {
-        set_clip(event.id, i, read, write)
+        set_clip(event.id, i, &read, write)
       }
     }
   }
@@ -107,7 +107,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     // 获得父节点的ByOverflow
     let by = **unsafe{ write.1.get_unchecked(node.parent)};
     let mut modify = false;
-    set_overflow(event.id, by, read, &mut write, &mut modify);
+    set_overflow(event.id, by, &read, &mut write, &mut modify);
     if modify {
       write.0.get_notify().modify_event(0, "", 0)
     }
@@ -142,7 +142,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
 
 //================================ 内部静态方法
 // 设置裁剪区域，需要 world_matrix layout
-fn set_clip<'a>(id: usize, i: usize, read: Read<'a>, clip: &'a mut SingleCaseImpl<OverflowClip>) {
+fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>) {
   let world_matrix = unsafe{ read.2.get_unchecked(id)};
   let layout = unsafe{ read.4.get_unchecked(id)};
   let origin = match read.3.get(id) {
@@ -154,7 +154,7 @@ fn set_clip<'a>(id: usize, i: usize, read: Read<'a>, clip: &'a mut SingleCaseImp
   clip.clip[i-1] = calc_point(layout, world_matrix, &origin);
 }
 // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
-fn set_overflow<'a>(id: usize, mut by: usize, read: Read<'a>, write: &mut Write<'a>, modify: &mut bool) {
+fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify: &mut bool) {
   if by > 0 {
     unsafe {write.1.get_unchecked_write(by)};
   }
@@ -203,7 +203,7 @@ fn del_index(by: usize, index: usize) ->usize {
 }
 // 整理方法。设置或取消所有子节点的by_overflow上的index。
 #[inline]
-fn adjust<'a>(idtree: &'a SingleCaseImpl<IdTree>, by_overflow: &'a mut MultiCaseImpl<Node, ByOverflow>, child: usize, index: usize, ops: fn(a:usize, b:usize)->usize) {
+fn adjust(idtree: &SingleCaseImpl<IdTree>, by_overflow: &mut MultiCaseImpl<Node, ByOverflow>, child: usize, index: usize, ops: fn(a:usize, b:usize)->usize) {
   for (id, _n) in idtree.recursive_iter(child) {
     let by = **unsafe {by_overflow.get_unchecked(id)};
     unsafe {by_overflow.get_unchecked_write(ops(by, index))};

@@ -180,7 +180,7 @@ extern "C" fn callback(node: YgNode, callback_args: *const c_void) {
 }
 
 // 节点布局更新
-fn update<'a>(mut node: YgNode, char_index: usize, write: &mut Write) {
+fn update(mut node: YgNode, char_index: usize, write: &mut Write) {
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
@@ -201,7 +201,7 @@ fn update<'a>(mut node: YgNode, char_index: usize, write: &mut Write) {
   }
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
-fn calc<'a>(id: usize, read: &Read, write: &mut Write) -> bool {
+fn calc(id: usize, read: &Read, write: &mut Write) -> bool {
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();

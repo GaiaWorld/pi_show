@@ -1,4 +1,5 @@
 #![feature(nll)] 
+#![feature(proc_macro_hygiene)]
 #![feature(rustc_const_unstable)] 
 #![feature(core_intrinsics)]
 #![feature(custom_attribute)] 
@@ -20,12 +21,14 @@ extern crate derive_deref;
 extern crate enum_default_macro;
 #[macro_use]
 extern crate debug_info;
+pub extern crate paste;
 // #[macro_use]
 // extern crate stdweb_derive;
 
 // extern crate webgl_rendering_context;
 // #[macro_use]
 // extern crate stdweb;
+
 
 extern crate deque;
 extern crate cg2d;
@@ -51,7 +54,7 @@ pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
-// pub mod bind;
+pub mod bind;
 pub mod util;
 
 pub mod entity{
