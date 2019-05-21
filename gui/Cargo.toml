@@ -15,6 +15,7 @@ octree = { path = "../../pi_math/octree" }
 collision = { path = "../../pi_math/collision" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
+util = {path="../../pi_lib/util"}
 map = {path="../../pi_lib/map"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}

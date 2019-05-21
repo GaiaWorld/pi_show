@@ -35,6 +35,8 @@ pub struct FontSheet {
     src_map: FnvHashMap<Atom, Arc<SdfFont>>,
     face_map: FnvHashMap<Atom, FontFace>,
 }
+unsafe impl Sync for FontSheet{}
+unsafe impl Send for FontSheet{}
 
 impl Default for FontSheet {
     fn default() -> FontSheet {

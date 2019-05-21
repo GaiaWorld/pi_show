@@ -22,7 +22,7 @@ pub enum Display{
   None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumDefault)]
 pub enum Color{
     RGB(CgColor),
     RGBA(CgColor),

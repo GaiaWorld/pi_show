@@ -10,6 +10,7 @@ use std::{
 
 use map::{vecmap::VecMap};
 use heap::simple_heap::SimpleHeap;
+use dirty::LayerDirty;
 
 use ecs::{
   system::{Runner, MultiCaseListener, SingleCaseListener, EntityListener},
@@ -17,7 +18,6 @@ use ecs::{
   component::MultiCaseImpl,
   single::SingleCaseImpl,
   idtree::{IdTree, Node as IdNode},
-  dirty::LayerDirty,
 };
 
 use entity::{Node};

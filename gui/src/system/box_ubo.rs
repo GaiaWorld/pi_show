@@ -45,44 +45,44 @@ pub struct BoxUboSys<C: Context +Share>{
     mark: PhantomData<C>,
 }
 
-// 插入渲染对象
-impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> for BoxUboSys<C>{
-    type ReadData = (
-        &'a SingleCaseImpl<ViewUbo>,
-        &'a SingleCaseImpl<ProjectionUbo>,
-        &'a SingleCaseImpl<ClipUbo>,
-        &'a SingleCaseImpl<IdTree>,
-        &'a MultiCaseImpl<Node, BoxColor>,
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Visibility>,
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Layout>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (view_ubo, projection_ubo, clip_ubo, id_tree, box_color, z_depth, visibility, opacity, world_matrix, transform, layout) = read;
-        let (render_objs, engine) = write;
-        let mut ubos = vec![Arc::new(Uniforms::new()), view_ubo.0.clone(), projection_ubo.0.clone(), clip_ubo.0.clone(), Arc::new(Uniforms::new())]; // 世界矩阵，视图矩阵， 投影矩阵， 裁剪属性， 材质属性，
+// // 插入渲染对象
+// impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> for BoxUboSys<C>{
+//     type ReadData = (
+//         &'a SingleCaseImpl<ViewUbo>,
+//         &'a SingleCaseImpl<ProjectionUbo>,
+//         &'a SingleCaseImpl<ClipUbo>,
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a MultiCaseImpl<Node, BoxColor>,
+//         &'a MultiCaseImpl<Node, ZDepth>,
+//         &'a MultiCaseImpl<Node, Visibility>,
+//         &'a MultiCaseImpl<Node, Opacity>,
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//     );
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+//         let (view_ubo, projection_ubo, clip_ubo, id_tree, box_color, z_depth, visibility, opacity, world_matrix, transform, layout) = read;
+//         let (render_objs, engine) = write;
+//         let mut ubos = vec![Arc::new(Uniforms::new()), view_ubo.0.clone(), projection_ubo.0.clone(), clip_ubo.0.clone(), Arc::new(Uniforms::new())]; // 世界矩阵，视图矩阵， 投影矩阵， 裁剪属性， 材质属性，
 
-        let opacity = unsafe { opacity.get_unchecked(event.id) }.0;
-        let box_color = unsafe { box_color.get_unchecked(event.id) };
-        let world_matrix = cal_matrix(event.id, &world_matrix, &transform, &layout, (0.0, 0.0));
+//         let opacity = unsafe { opacity.get_unchecked(event.id) }.0;
+//         let box_color = unsafe { box_color.get_unchecked(event.id) };
+//         let world_matrix = cal_matrix(event.id, &world_matrix, &transform, &layout, (0.0, 0.0));
 
-        let render_obj: RenderObj<C> = RenderObj{
-            depth: unsafe { z_depth.get_unchecked(event.id) }.0,
-            visibility: unsafe { visibility.get_unchecked(event.id) }.0,
-            is_opacity: box_is_opacity(opacity, &box_color.background, &box_color.border),
-            ubos: ubos,
-            shader_attr: None,
-        };
+//         let render_obj: RenderObj<C> = RenderObj{
+//             depth: unsafe { z_depth.get_unchecked(event.id) }.0,
+//             visibility: unsafe { visibility.get_unchecked(event.id) }.0,
+//             is_opacity: box_is_opacity(opacity, &box_color.background, &box_color.border),
+//             ubos: ubos,
+//             shader_attr: None,
+//         };
 
-        // // 设置ubo
-        // let index = write.insert(RenderObj::default());
-        // self.box_render_map.insert(event.id, index);
-    }
-}
+//         // // 设置ubo
+//         // let index = write.insert(RenderObj::default());
+//         // self.box_render_map.insert(event.id, index);
+//     }
+// }
 
 // 删除渲染对象
 impl<'a, C: Context +Share> MultiCaseListener<'a, Node, BoxColor, DeleteEvent> for BoxUboSys<C>{
