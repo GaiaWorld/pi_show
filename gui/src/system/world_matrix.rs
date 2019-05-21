@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::WorldMatrix;
+use component::calc::{ WorldMatrix, ZDepth };
 use map::vecmap::{VecMap};
 
 use component::Point2;
@@ -107,6 +107,14 @@ impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for WorldMatrixSys{
     }
 }
 
+impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for WorldMatrixSys{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.marked_dirty(event.id, read);
+    }
+}
+
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
@@ -174,6 +182,7 @@ impl_system!{
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
+        MultiCaseListener<Node, ZDepth, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }
@@ -200,12 +209,15 @@ fn test(){
     let layouts = BorrowMut::borrow_mut(&layouts);
     let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
     let world_matrixs = BorrowMut::borrow_mut(&world_matrixs);
+    let zdepths = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let zdepths = BorrowMut::borrow_mut(&zdepths);
 
     let e0 = world.create_entity::<Node>();
     
     idtree.create(e0);
     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
     transforms.insert(e0, Transform::default());
+    zdepths.insert(e0, ZDepth::default());
     layouts.insert(e0, Layout{
         left: 0.0,
         top: 0.0,
@@ -226,6 +238,7 @@ fn test(){
     idtree.create(e00);
     idtree.insert_child(e00, e0, 1, Some(&notify));
     transforms.insert(e00, Transform::default());
+    zdepths.insert(e00, ZDepth::default());
     layouts.insert(e00, Layout{
         left: 0.0,
         top: 0.0,
@@ -251,9 +264,11 @@ fn test(){
         padding_bottom: 0.0,
     });
     transforms.insert(e01, Transform::default());
+    zdepths.insert(e01, ZDepth::default());
     idtree.create(e02);
     idtree.insert_child(e02, e0, 3, Some(&notify));
     transforms.insert(e02, Transform::default());
+    zdepths.insert(e02, ZDepth::default());
     layouts.insert(e02, Layout{
         left: 600.0,
         top: 0.0,
@@ -283,9 +298,11 @@ fn test(){
         padding_bottom: 0.0,
     });
     transforms.insert(e000, Transform::default());
+    zdepths.insert(e000, ZDepth::default());
     idtree.create(e001);
     idtree.insert_child(e001, e00, 2, Some(&notify));
     transforms.insert(e001, Transform::default());
+    zdepths.insert(e001, ZDepth::default());
     layouts.insert(e001, Layout{
         left: 100.0,
         top: 0.0,
@@ -300,6 +317,7 @@ fn test(){
     idtree.create(e002);
     idtree.insert_child(e002, e00, 3, Some(&notify));
     transforms.insert(e002, Transform::default());
+    zdepths.insert(e002, ZDepth::default());
     layouts.insert(e002, Layout{
         left: 200.0,
         top: 0.0,
@@ -329,9 +347,11 @@ fn test(){
         padding_bottom: 0.0,
     });
     transforms.insert(e010, Transform::default());
+    zdepths.insert(e010, ZDepth::default());
     idtree.create(e011);
     idtree.insert_child(e011, e01, 2, Some(&notify));
     transforms.insert(e011, Transform::default());
+    zdepths.insert(e011, ZDepth::default());
     layouts.insert(e011, Layout{
         left: 100.0,
         top: 0.0,
@@ -346,6 +366,7 @@ fn test(){
     idtree.create(e012);
     idtree.insert_child(e012, e01, 3, Some(&notify));
     transforms.insert(e012, Transform::default());
+    zdepths.insert(e012, ZDepth::default());
     layouts.insert(e012, Layout{
         left: 200.0,
         top: 0.0,
@@ -388,6 +409,7 @@ fn new_world() -> World {
     world.register_multi::<Node, Transform>();
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, WorldMatrix>();
+    world.register_multi::<Node, ZDepth>();
     world.register_single::<IdTree>(IdTree::default());
      
     let system = CellWorldMatrixSys::new(WorldMatrixSys::default());

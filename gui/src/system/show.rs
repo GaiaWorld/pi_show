@@ -2,7 +2,7 @@
  *  计算show
  *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
  */
-use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
 use component::user::{Show};
@@ -55,6 +55,46 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ShowSys{
     }
 }
 
+impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+        cancel_visibility(event.id, read, write.0);
+        cancel_enable(event.id, read, write.1);
+    }
+}
+
+fn cancel_visibility(
+    id: usize,
+    id_tree: &SingleCaseImpl<IdTree>,
+    visibility: &mut MultiCaseImpl<Node, CVisibility>,
+){
+    let mut write = unsafe { visibility.get_unchecked_write(id) };
+    if write.value.0 == false {
+        return;
+    }
+    write.set_0(false);
+    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    for child in id_tree.iter(first) {
+        cancel_visibility(child.0, id_tree, visibility);
+    }
+}
+
+fn cancel_enable(
+    id: usize,
+    id_tree: &SingleCaseImpl<IdTree>,
+    enable: &mut MultiCaseImpl<Node,CEnable>,
+){
+    let mut write = unsafe { enable.get_unchecked_write(id) };
+    if write.value.0 == false {
+        return;
+    }
+    write.set_0(false);
+    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    for child in id_tree.iter(first) {
+        cancel_enable(child.0, id_tree, enable);
+    }
+}
 //递归计算不透明度， 将节点最终的不透明度设置在real_show组件上
 fn modify_show(
     parent_c_visibility: bool,

@@ -84,7 +84,12 @@ impl YgNode {
     pub fn new() -> YgNode {
         YgNode(yoga::yg_node_new())
     }
-
+    pub fn new_null() -> YgNode {
+        YgNode( 0 as yoga::YGNodeRef);
+    }
+    pub fn is_null(&self) -> bool {
+        self.is_null()
+    }
     pub fn set_position_type(&self, value: YGPositionType) { 
         yoga::yg_node_style_set_position_type(self.0, value)
     }
@@ -319,7 +324,9 @@ impl YgNode {
     pub fn get_height(&self) -> yoga::YGValue {
         yoga::yg_node_style_get_height(self.0)
     }
-
+    pub fn get_context(&self) -> *mut c_void {
+         yoga::yg_node_set_context(self.0)
+    }
     // pub fn is_reference_baseline(&self) -> bool { 
     //     yoga::yg_node_style_get_position_type(self.0)
     // }

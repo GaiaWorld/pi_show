@@ -31,7 +31,12 @@ impl YgNode {
     pub fn new() -> YgNode {
         YgNode()
     }
-
+    pub fn new_null() -> YgNode {
+        YgNode()
+    }
+    pub fn is_null(&self) -> bool {
+        true
+    }
     pub fn set_position_type(&self, _value: YGPositionType) { 
         unimplemented!()
     }
@@ -176,6 +181,9 @@ impl YgNode {
     }
 
     pub fn get_child_count(&self) -> u32 {
+        unimplemented!()
+    }
+    pub fn get_context(&self) -> *mut c_void {
         unimplemented!()
     }
 
@@ -359,4 +367,4 @@ pub enum YGWrap {
     YGWrapWrapReverse = 2,
 }
 
-pub type YGCalcCallbackFunc = unsafe extern "C" fn(args: *const c_void, context: *const c_void);
+pub type YGCalcCallbackFunc = unsafe extern "C" fn(node: YgNode, args: *const c_void);

@@ -1,15 +1,14 @@
 pub mod calc;
 pub mod user;
 
-
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;
 pub type Point3 = cgmath::Point3<f32>;
 pub type Vector2 = cgmath::Vector2<f32>;
 pub type Vector3 = cgmath::Vector3<f32>;
 pub type Vector4 = cgmath::Vector4<f32>;
-pub type Aabb3 = collision::Aabb3<f32>;
 pub type CgColor = color::Color<f32>;
+pub type Aabb3 = collision::Aabb3<f32>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum LengthUnit {
@@ -23,7 +22,7 @@ pub enum Display{
   None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, EnumDefault)]
 pub enum Color{
     RGB(CgColor),
     RGBA(CgColor),
