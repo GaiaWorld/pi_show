@@ -57,18 +57,12 @@ use traits::render_target::{RenderTarget, RenderBuffer};
  */
 
 pub trait Context {
-
+    
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
     type ContextSampler: Sampler;
     type ContextRenderTarget: RenderTarget;
     type ContextRenderBuffer: RenderBuffer;
-
-    /** 
-     * 创建新的渲染环境
-     * rimpl: 渲染底层库对应的句柄，比如：WebGLRenderingContext, WebGL2RenderingContext, D3D11, D3D9, ...
-     */
-    fn new(rimpl: *const isize, width: u32, height: u32) -> Self;
 
     /**
      * 取特性
@@ -87,18 +81,21 @@ pub trait Context {
 
     /**
      * 编译shader，返回shader对应的hash
+     * Shader相关接口
+     * 策略：底层握住所有的Shader句柄，不会释放
+     * 注：Shader编译耗时，最好事先 编译 和 链接
      */
     fn compile_shader(&mut self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String>;
 
     /** 
      * 创建渲染管线
      */
-    fn create_pipeline(&mut self, vs_hash: u32, fs_hash: u32, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
 
     /** 
      * 创建几何数据
      */
-    fn create_geometry(&self, vertex_count: u32) -> Result<Arc<Self::ContextGeometry>, String>;
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String>;
 
     /** 
      * 创建2D纹理

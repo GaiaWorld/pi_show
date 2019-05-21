@@ -15,14 +15,8 @@ pub struct NullContextImpl {
     default_rt: Arc<NullRenderTargetImpl>,
 }
 
-impl Context for NullContextImpl {
-    type ContextGeometry = NullGeometryImpl;
-    type ContextTexture = NullTextureImpl;
-    type ContextSampler = NullSamplerImpl;
-    type ContextRenderTarget = NullRenderTargetImpl;
-    type ContextRenderBuffer = NullRenderBufferImpl;
-
-    fn new(_rimpl: *const isize, _width: u32, _height: u32) -> Self {
+impl NullContextImpl {
+    pub fn new() -> Self {
         NullContextImpl {
             caps: Arc::new(Capabilities::new()),
 
@@ -31,7 +25,15 @@ impl Context for NullContextImpl {
             })
         } 
     }
+}
 
+impl Context for NullContextImpl {
+    type ContextGeometry = NullGeometryImpl;
+    type ContextTexture = NullTextureImpl;
+    type ContextSampler = NullSamplerImpl;
+    type ContextRenderTarget = NullRenderTargetImpl;
+    type ContextRenderBuffer = NullRenderBufferImpl;
+    
     fn get_caps(&self) -> Arc<Capabilities> {
         self.caps.clone()
     }
@@ -48,11 +50,11 @@ impl Context for NullContextImpl {
         Ok(0)
     }
 
-    fn create_pipeline(&mut self, _vs_hash: u32, _fs_hash: u32, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
+    fn create_pipeline(&mut self, _vs_hash: u64, _fs_hash: u64, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
         Ok(Arc::new(Pipeline::new()))
     }
 
-    fn create_geometry(&self, _vertex_count: u32) -> Result<Arc<Self::ContextGeometry>, String> {
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String> {
         Ok(Arc::new(NullGeometryImpl {
 
         }))

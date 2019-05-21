@@ -12,8 +12,8 @@ mod render_target;
 mod sampler;
 mod texture;
 
-pub use self::context::{NullContextImpl};
-pub use self::geometry::{NullGeometryImpl};
-pub use self::render_target::{NullRenderTargetImpl, NullRenderBufferImpl};
-pub use self::sampler::{NullSamplerImpl};
-pub use self::texture::{NullTextureImpl};
+use self::context::{NullContextImpl};
+
+pub fn create_hal_null() -> NullContextImpl {
+    NullContextImpl::new()
+}

@@ -43,6 +43,11 @@ pub struct BoxColor{
 pub struct BackgroundImage(pub usize);
 
 #[derive(Debug, Clone, Component)]
+pub struct Image{
+  pub src: usize,
+}
+
+#[derive(Debug, Clone, Component)]
 pub struct BorderImage(pub usize);
 
 #[derive(Debug, Clone, Component)]

@@ -7,10 +7,12 @@ use std::{
   sync::Arc,
   os::raw::{c_void},
   mem::replace,
+  marker::PhantomData,
 };
 
 use atom::Atom;
 use lib_util::VecIndex;
+use hal_core::Context;
 use ecs::{
   system::{Runner, MultiCaseListener},
   monitor::{CreateEvent, DeleteEvent, ModifyEvent},
@@ -23,22 +25,23 @@ use entity::{Node};
 use component::{
   Point2,
   user::{Text, TextStyle, Font, VerticalAlign},
-  calc::{CharBlock, CharNode},
+  calc::{CharBlock, CharNode, CharBlockWrite},
 };
 use layout::{Layout, YGDirection, YGFlexDirection, YgNode,  YGAlign};
 use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
 
 
-type Read<'a> = (&'a SingleCaseImpl<FontSheet>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
+type Read<'a, C: Context + 'static + Send + Sync> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
 type Write<'a> = (&'a mut MultiCaseImpl<Node, CharBlock>, &'a mut MultiCaseImpl<Node, Layout>);
 
-pub struct LayoutImpl<'a> {
+pub struct LayoutImpl<'a, C: Context + 'static + Send + Sync> {
   dirty: Vec<usize>, 
   temp: Vec<usize>,
   write: *mut Write<'a>,
+  mark: PhantomData<C>,
 }
-impl<'a> LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> LayoutImpl<'a, C> {
   fn set_dirty(&mut self, id: usize, write: &'a mut MultiCaseImpl<Node, CharBlock>) {
     match write.get_mut(id) {
       Some(node) => {
@@ -63,8 +66,8 @@ impl<'a> LayoutImpl<'a> {
     }
   }
 }
-impl<'a> Runner<'a> for LayoutImpl<'a> {
-  type ReadData = Read<'a>;
+impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl<'a, C> {
+  type ReadData = Read<'a, C>;
   type WriteData = Write<'a>;
 
   fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
@@ -87,14 +90,14 @@ impl<'a> Runner<'a> for LayoutImpl<'a> {
     };
     self.write= &mut write as *mut Write<'a>;
     //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-    unsafe{ read.1.get_unchecked(Root)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback, self as *const LayoutImpl as *const c_void);
+    unsafe{ read.1.get_unchecked(Root)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C>, self as *const LayoutImpl<C> as *const c_void);
   }
   fn dispose(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
   }
 }
 
 // 监听text属性的改变
-impl<'a> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -103,7 +106,7 @@ impl<'a> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl<'a> {
   }
 }
 // 监听text属性的改变
-impl<'a> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -112,7 +115,7 @@ impl<'a> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl<'a> {
   }
 }
 // 监听TextStyle属性的改变
-impl<'a> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -121,7 +124,7 @@ impl<'a> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl<'a> 
   }
 }
 // 监听TextStyle属性的改变
-impl<'a> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -130,7 +133,7 @@ impl<'a> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl<'a> 
   }
 }
 // 监听Font属性的改变
-impl<'a> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -139,7 +142,7 @@ impl<'a> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl<'a> {
   }
 }
 // 监听Font属性的改变
-impl<'a> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -149,7 +152,7 @@ impl<'a> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl<'a> {
 }
 
 // 监听CharBlock的删除
-impl<'a> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl<'a> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl<'a, C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -166,10 +169,10 @@ impl<'a> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl<'a> 
 
 //================================ 内部静态方法
 //回调函数
-extern "C" fn callback(node: YgNode, callback_args: *const c_void) {
+extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callback_args: *const c_void) {
   //更新布局
   let c = node.get_context() as isize;
-  let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl) };
+  let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write) };
   if c > 0 {
     // 节点布局更新
@@ -180,7 +183,7 @@ extern "C" fn callback(node: YgNode, callback_args: *const c_void) {
 }
 
 // 节点布局更新
-fn update(mut node: YgNode, char_index: usize, write: &mut Write) {
+fn update<'a>(mut node: YgNode, char_index: usize, write: &mut Write) {
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
@@ -197,11 +200,13 @@ fn update(mut node: YgNode, char_index: usize, write: &mut Write) {
   cn.pos = pos;
   if !cb.layout_dirty {
     cb.layout_dirty = true;
-    // write.0.get_notify();
+    unsafe { write.0.get_unchecked_write(node_id as usize).modify(|_|{
+      return true;
+    }) };
   }
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
-fn calc(id: usize, read: &Read, write: &mut Write) -> bool {
+fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();
@@ -279,7 +284,7 @@ fn calc(id: usize, read: &Read, write: &mut Write) -> bool {
   false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char(cb: &mut CharBlock, c: char, w: f32, font: &FontSheet, index: &mut usize, parent: &YgNode, yg_index: &mut usize) -> YgNode {
+fn update_char<C: Context + 'static + Send + Sync>(cb: &mut CharBlock, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &YgNode, yg_index: &mut usize) -> YgNode {
   let i = *index;
   if i < cb.chars.len() {
     let cn = &cb.chars[i];
@@ -309,7 +314,7 @@ fn update_char(cb: &mut CharBlock, c: char, w: f32, font: &FontSheet, index: &mu
   node
 }
 // 设置节点的宽高
-fn set_node(cb: &CharBlock, c: char, mut w: f32, font: &FontSheet, node: YgNode) -> YgNode {
+fn set_node<C: Context + 'static + Send + Sync>(cb: &CharBlock, c: char, mut w: f32, font: &FontSheet<C>, node: YgNode) -> YgNode {
   if c > ' ' {
     w = font.measure(&cb.family, cb.font_size, c);
     node.set_width(w + cb.letter_spacing);

@@ -6,6 +6,7 @@ use fnv::FnvHashMap;
 
 use atom::{Atom};
 use ucd::{Codepoint};
+use hal_core::Context;
 
 use component::CgColor as Color;
 use font::sdf_font::SdfFont;
@@ -29,17 +30,17 @@ pub enum LineHeight{
 }
 
 /// 字体表 使用SDF(signed distance field 有向距离场)渲染字体， 支持预定义字体纹理及配置， 也支持动态计算字符的SDF
-pub struct FontSheet {
+pub struct FontSheet<C: Context + 'static + Send + Sync> {
     size: f32,
     color: Color,
-    src_map: FnvHashMap<Atom, Arc<SdfFont>>,
+    src_map: FnvHashMap<Atom, Arc<SdfFont<Ctx=C>>>,
     face_map: FnvHashMap<Atom, FontFace>,
 }
-unsafe impl Sync for FontSheet{}
-unsafe impl Send for FontSheet{}
+unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
+unsafe impl<C: Context + 'static + Send + Sync> Send for FontSheet<C>{}
 
-impl Default for FontSheet {
-    fn default() -> FontSheet {
+impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
+    fn default() -> Self {
         FontSheet {
             size: FONT_SIZE,
             color: Color::default(),
@@ -49,7 +50,7 @@ impl Default for FontSheet {
     }
 }
 
-impl FontSheet {
+impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
     // 设置默认字号
     pub fn set_size(&mut self, size: f32) {
         self.size = size;
@@ -59,7 +60,7 @@ impl FontSheet {
         self.color = color;
     }
     // 设置SDFFont
-    pub fn set_src(&mut self, name: Atom, src: Arc<SdfFont>) {
+    pub fn set_src(&mut self, name: Atom, src: Arc<SdfFont<Ctx=C>>) {
         self.src_map.insert(name, src);
     }
     
@@ -108,7 +109,7 @@ impl FontSheet {
         }
     }
 
-    pub fn get_first_font(&self, font_face: &Atom) -> Option<Arc<SdfFont>>{
+    pub fn get_first_font(&self, font_face: &Atom) -> Option<Arc<SdfFont<Ctx=C>>>{
         match self.face_map.get(font_face) {
             Some(face) => {
                 for name in &face.src {

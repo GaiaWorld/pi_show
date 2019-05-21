@@ -20,7 +20,7 @@ use traits::texture::{Texture};
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
 pub trait RenderBuffer: Drop {
-    fn get_size() -> (u32, u32);
+    fn get_size(&self) -> (u32, u32);
 }
 
 /** 
@@ -31,23 +31,18 @@ pub trait RenderTarget: Drop {
     type ContextTexture: Texture;
     type ContextRenderBuffer: RenderBuffer;
 
-    /** 
-     * 取渲染目标的宽高
-     */
-    fn get_size() -> (u32, u32);
-
     /**
      * 为渲染目标邦纹理
      */
-    fn attach_texture(attachment: RTAttachment, texture: &Arc<Self::ContextTexture>);
+    fn attach_texture(&mut self, attachment: RTAttachment, texture: &Arc<Self::ContextTexture>);
     
     /**
      * 为渲染目标邦纹理
      */
-    fn attach_render_buffer(attachment: RTAttachment, buffer: &Arc<Self::ContextRenderBuffer>);
+    fn attach_render_buffer(&mut self, attachment: RTAttachment, buffer: &Arc<Self::ContextRenderBuffer>);
     
     /**
      * 取渲染目标中特定通道的纹理
      */
-    fn get_texture(attachment: RTAttachment) -> Option<Self::ContextTexture>;
+    fn get_texture(&self, attachment: RTAttachment) -> Option<Arc<Self::ContextTexture>>;
 }

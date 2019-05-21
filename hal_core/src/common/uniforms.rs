@@ -34,6 +34,7 @@ use traits::{Texture, Sampler};
  *      mat3 or mat3[N]   set_mat_3v
  *      mat4 or mat4[N]   set_mat_4v
  */
+#[derive(Clone)]
 pub struct Uniforms {
     pub values: HashMap<Atom, UniformValue>,
 }
@@ -41,6 +42,7 @@ pub struct Uniforms {
 /** 
  * Uniform的值，包含各种Uniform枚举
  */
+#[derive(Clone)]
 pub enum UniformValue {
     Float(u8, f32, f32, f32, f32), // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     Int(u8, i32, i32, i32, i32),   // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
