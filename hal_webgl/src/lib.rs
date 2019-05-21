@@ -18,10 +18,11 @@ mod sampler;
 mod texture;
 
 mod extension;
-// mod shader;
+mod shader;
+mod convert;
 
 use self::context::{WebGLContextImpl};
-    
+
 use std::sync::{Arc};
 use webgl_rendering_context::{WebGLRenderingContext};
 
