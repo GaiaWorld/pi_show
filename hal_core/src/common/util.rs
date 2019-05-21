@@ -101,7 +101,6 @@ pub enum DataFormat {
     Int,
     UnsignedInt,
     Float,
-    Double,
 }
 
 /** 
@@ -109,7 +108,6 @@ pub enum DataFormat {
  */
 #[derive(PartialEq, Clone, Copy)]
 pub enum CullMode {
-    None,  // 不剔除
     Back,  // 背面剔除
     Front,  // 正面剔除
 }

@@ -2,189 +2,141 @@
  * 提供常用数据结构和WebGL的转换函数
  */
 use hal_core::*;
+use webgl_rendering_context::{WebGLRenderingContext};
 
-/** 
- * 着色器的类型
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum ShaderType {
-    Vertex,
-    Fragment,
-}
-
-/** 
- * Attribute的名字，类型可以更改，
- * 注：请尽量使用内置的Attribute名，以便于内部加速
- */
-#[derive(PartialEq, Hash, Eq, Clone)]
-pub enum AttributeName {
-    Position,   // shader attribute：position，一般是vec3
-    Normal,     // shader attribute：position，一般是vec3 
-    Color,      // shader attribute：position，一般是vec4
-    UV0,        // shader attribute：uv0，一般是vec2
-    UV1,        // shader attribute：uv1，一般是vec2
-    SkinIndex,  // shader attribute：skinIndex，一般是vec4
-    SkinWeight, // shader attribute：skinWeight，一般是vec4
-    Tangent,    // shader attribute：tangent，一般是vec3
-    BiNormal,   // shader attribute：binormal，一般是vec3
-    UV2,        // shader attribute：uv2，一般是vec2
-    UV3,        // shader attribute：uv3，一般是vec2
-    UV4,        // shader attribute：uv4，一般是vec2
-    UV5,        // shader attribute：uv5，一般是vec2
-    UV6,        // shader attribute：uv6，一般是vec2
-    UV7,        // shader attribute：uv7，一般是vec2
-    Custom(Atom), // 自定义名字，无非必要，最好不用
-}
-
-pub fn get_attribute_name(name: &AttributeName) -> Atom {
-    match name {
-        AttributeName::Position => Atom::from("position"),
-        AttributeName::Normal => Atom::from("normal"),
-        AttributeName::Color => Atom::from("color"),
-        AttributeName::UV0 => Atom::from("uv0"),
-        AttributeName::UV1 => Atom::from("uv1"),
-        AttributeName::SkinIndex => Atom::from("skinIndex"),
-        AttributeName::SkinWeight => Atom::from("skinWeight"),
-        AttributeName::Tangent => Atom::from("tangent"),
-        AttributeName::BiNormal => Atom::from("binormal"),
-        AttributeName::UV2 => Atom::from("uv2"),
-        AttributeName::UV3 => Atom::from("uv3"),
-        AttributeName::UV4 => Atom::from("uv4"),
-        AttributeName::UV5 => Atom::from("uv5"),
-        AttributeName::UV6 => Atom::from("uv6"),
-        AttributeName::UV7 => Atom::from("uv7"),
-        AttributeName::Custom(n) => n.clone(),
+pub fn get_shader_type(stype: &ShaderType) -> u32 {
+    match stype {
+        ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
+        ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
     }
 }
 
 /** 
- * 纹理的过滤模式
+ * 返回 (mag_mode, min_mode)
  */
-#[derive(PartialEq, Clone, Copy)]
-pub enum TextureFilterMode {
-    Nearest,
-    Linear,
+pub fn get_texture_filter_mode(mag: &TextureFilterMode, min: &TextureFilterMode, mip: Option<&TextureFilterMode>) -> (u32, u32) {
+    let mag_mode = match mag {
+        TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
+        TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
+    };
+
+    let mut min_mode = WebGLRenderingContext::NEAREST;
+    match mip {
+        None => {
+            min_mode = match min {
+                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
+                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
+            };
+        }
+        Some(TextureFilterMode::Nearest) => {
+            min_mode = match min {
+                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_NEAREST,
+                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_NEAREST,
+            };
+        }
+        Some(TextureFilterMode::Linear) => {
+            min_mode = match min {
+                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_LINEAR,
+                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_LINEAR,
+            };
+        }
+    }
+
+    (mag_mode, min_mode)
 }
 
-/** 
- * 纹理环绕模式
- * 指：当纹理坐标不在[0, 1]范围时，如何处理
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum TextureWrapMode {
-    Repeat,        // 重复
-    ClampToEdge,   // 截取
-    MirroredRepeat // 镜像重复
+pub fn get_texture_wrap_mode(mode: &TextureWrapMode) -> u32 { 
+    match mode {
+        TextureWrapMode::Repeat => WebGLRenderingContext::REPEAT,
+        TextureWrapMode::ClampToEdge => WebGLRenderingContext::CLAMP_TO_EDGE,
+        TextureWrapMode::MirroredRepeat => WebGLRenderingContext::MIRRORED_REPEAT,
+    }
 }
 
-/** 
- * 像素格式
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum PixelFormat {
-    RGB,
-    RGBA,   
-    ALPHA, 
+pub fn get_pixel_format(format: &PixelFormat) -> u32 {
+    match format {
+        PixelFormat::RGB => WebGLRenderingContext::RGB,
+        PixelFormat::RGBA => WebGLRenderingContext::RGBA,
+        PixelFormat::ALPHA => WebGLRenderingContext::ALPHA,
+    }
 }
 
-/** 
- * 数据格式
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum DataFormat {
-    Byte,
-    UnsignedByte,
-    Short,
-    UnsignedShort,
-    Int,
-    UnsignedInt,
-    Float,
-    Double,
+pub fn get_data_format(format: &DataFormat) -> u32 {
+    match format {
+        DataFormat::Byte => WebGLRenderingContext::BYTE,
+        DataFormat::UnsignedByte => WebGLRenderingContext::UNSIGNED_BYTE,
+        DataFormat::Short => WebGLRenderingContext::SHORT,
+        DataFormat::UnsignedShort => WebGLRenderingContext::UNSIGNED_SHORT,
+        DataFormat::Int => WebGLRenderingContext::INT,
+        DataFormat::UnsignedInt => WebGLRenderingContext::UNSIGNED_INT,
+        DataFormat::Float => WebGLRenderingContext::FLOAT,
+    }
 }
 
-/** 
- * 光栅化时的剔除状态
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum CullMode {
-    None,  // 不剔除
-    Back,  // 背面剔除
-    Front,  // 正面剔除
+pub fn get_cull_mode(mode: &CullMode) -> u32 {
+    match mode {
+        CullMode::Back => WebGLRenderingContext::BACK,
+        CullMode::Front => WebGLRenderingContext::FRONT,
+    }
 }
 
-/** 
- * 混合操作
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum BlendFunc {
-    Add,
-    Sub,
-    ReverseSub,
+pub fn get_blend_func(func: &BlendFunc) -> u32 {
+    match func {
+        BlendFunc::Add => WebGLRenderingContext::FUNC_ADD,
+        BlendFunc::Sub => WebGLRenderingContext::FUNC_SUBTRACT,
+        BlendFunc::ReverseSub => WebGLRenderingContext::FUNC_REVERSE_SUBTRACT,
+    }
 }
 
-/** 
- * 混合因子
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum BlendFactor {
-    Zero,
-    One,
-    
-    SrcColor,
-    OneMinusSrcColor,
-    
-    DstColor,
-    OneMinusDstColor,
-
-    SrcAlpha,
-    OneMinusSrcAlpha,
-
-    DstAlpha,
-    OneMinusDstAlpha,
-
-    ConstantColor,
-    OneMinusConstantColor,
-
-    ConstantAlpha,
-    OneMinusConstantAlpha,
+pub fn get_blend_factor(factor: BlendFactor) -> u32 {
+    match factor {
+        BlendFactor::Zero => WebGLRenderingContext::ZERO,
+        BlendFactor::One => WebGLRenderingContext::ONE,
+        BlendFactor::SrcColor => WebGLRenderingContext::SRC_COLOR,
+        BlendFactor::OneMinusSrcColor => WebGLRenderingContext::ONE_MINUS_SRC_COLOR,
+        BlendFactor::DstColor => WebGLRenderingContext::DST_COLOR,
+        BlendFactor::OneMinusDstColor => WebGLRenderingContext::ONE_MINUS_DST_COLOR,
+        BlendFactor::SrcAlpha => WebGLRenderingContext::SRC_ALPHA,
+        BlendFactor::OneMinusSrcAlpha => WebGLRenderingContext::ONE_MINUS_SRC_ALPHA,
+        BlendFactor::DstAlpha => WebGLRenderingContext::DST_ALPHA,
+        BlendFactor::OneMinusDstAlpha => WebGLRenderingContext::ONE_MINUS_DST_ALPHA,
+        BlendFactor::ConstantColor => WebGLRenderingContext::CONSTANT_COLOR,
+        BlendFactor::OneMinusConstantColor => WebGLRenderingContext::ONE_MINUS_CONSTANT_COLOR,
+        BlendFactor::ConstantAlpha => WebGLRenderingContext::CONSTANT_ALPHA,
+        BlendFactor::OneMinusConstantAlpha => WebGLRenderingContext::ONE_MINUS_CONSTANT_ALPHA,
+    }
 }
 
-/** 
- * 深度和模板的比较函数
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum CompareFunc {
-    Never,
-    Always,
-    Less,
-    Equal,
-    LEqual,
-    Greater,
-    GEqual,
-    NotEqual,
+pub fn get_compare_func(func: &CompareFunc) -> u32 {
+    match func {
+        CompareFunc::Never => WebGLRenderingContext::NEVER,
+        CompareFunc::Always => WebGLRenderingContext::ALWAYS,
+        CompareFunc::Less => WebGLRenderingContext::LESS,
+        CompareFunc::Equal => WebGLRenderingContext::EQUAL,
+        CompareFunc::LEqual => WebGLRenderingContext::LEQUAL,
+        CompareFunc::Greater => WebGLRenderingContext::GREATER,
+        CompareFunc::GEqual => WebGLRenderingContext::GEQUAL,
+        CompareFunc::NotEqual => WebGLRenderingContext::NOTEQUAL,
+    }
 }
 
-/** 
- * 模板操作
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum StencilOp {
-    Keep,
-    Zero,
-    Replace,
-    Incr,
-    Decr,
-    Invert,
-    IncrWrap,
-    DecrWrap, 
+pub fn get_stencil_op(op: &StencilOp) -> u32 {
+    match op {
+        StencilOp::Keep => WebGLRenderingContext::KEEP,
+        StencilOp::Zero => WebGLRenderingContext::ZERO,
+        StencilOp::Replace => WebGLRenderingContext::REPLACE,
+        StencilOp::Incr => WebGLRenderingContext::INCR,
+        StencilOp::Decr => WebGLRenderingContext::DECR,
+        StencilOp::Invert => WebGLRenderingContext::INVERT,
+        StencilOp::IncrWrap => WebGLRenderingContext::INCR_WRAP,
+        StencilOp::DecrWrap => WebGLRenderingContext::DECR_WRAP,
+    }   
 }
 
-/**
- * 渲染目标的管道
- */
-#[derive(PartialEq, Clone, Copy)]
-pub enum RTAttachment {
-    Color0, // 第一个颜色缓冲区
-    Depth,  // 深度缓冲区
-    Stencil, // 模板缓冲区
+pub fn get_render_target_attachment(attachment: &RTAttachment) -> u32 {
+    match attachment {
+        RTAttachment::Color0 => WebGLRenderingContext::COLOR_ATTACHMENT0,
+        RTAttachment::Depth => WebGLRenderingContext::DEPTH_ATTACHMENT,
+        RTAttachment::Stencil => WebGLRenderingContext::STENCIL_ATTACHMENT,
+    }
 }

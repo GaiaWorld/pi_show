@@ -17,9 +17,9 @@ mod render_target;
 mod sampler;
 mod texture;
 
-mod extension;
-mod shader;
 mod convert;
+mod extension;
+// mod shader;
 
 use self::context::{WebGLContextImpl};
 
