@@ -17,6 +17,7 @@ mod geometry;
 mod render_target;
 mod sampler;
 mod texture;
+// mod shader;
 
 pub use self::context::{WebGLContextImpl};
 pub use self::geometry::{WebGLGeometryImpl};

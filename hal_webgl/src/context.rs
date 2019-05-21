@@ -17,6 +17,12 @@ pub struct WebGLContextImpl {
     default_rt: Arc<WebGLRenderTargetImpl>,
 }
 
+impl WebGLContextImpl {
+    fn set_caps(caps: &mut Capabilities, gl: &Arc<WebGLRenderingContext>) {
+
+    }
+}
+
 impl Context for WebGLContextImpl {
     type SystemContext = WebGLRenderingContext;
 
@@ -29,10 +35,15 @@ impl Context for WebGLContextImpl {
     fn new(rimpl: Option<Arc<Self::SystemContext>>, _width: u32, _height: u32) -> Self {
         
         assert!(rimpl.is_some(), "new invalid");
+        
+        let gl = rimpl.unwrap();
+
+        let mut caps = Capabilities::new();
+        Self::set_caps(&mut caps, &gl);
 
         WebGLContextImpl {
-            gl: rimpl.unwrap(),
-            caps: Arc::new(Capabilities::new()),
+            gl: gl,
+            caps: Arc::new(caps),
             default_rt: Arc::new(WebGLRenderTargetImpl {
             })
         }
@@ -54,7 +65,7 @@ impl Context for WebGLContextImpl {
         Ok(0)
     }
 
-    fn create_pipeline(&mut self, _vs_hash: u32, _fs_hash: u32, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
+    fn create_pipeline(&mut self, _vs_hash: u64, _fs_hash: u64, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
         Ok(Arc::new(Pipeline::new()))
     }
 

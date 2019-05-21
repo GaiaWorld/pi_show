@@ -54,7 +54,7 @@ impl Context for NullContextImpl {
         Ok(0)
     }
 
-    fn create_pipeline(&mut self, _vs_hash: u32, _fs_hash: u32, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
+    fn create_pipeline(&mut self, _vs_hash: u64, _fs_hash: u64, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
         Ok(Arc::new(Pipeline::new()))
     }
 

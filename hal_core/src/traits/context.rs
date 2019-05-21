@@ -95,7 +95,7 @@ pub trait Context {
     /** 
      * 创建渲染管线
      */
-    fn create_pipeline(&mut self, vs_hash: u32, fs_hash: u32, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
 
     /** 
      * 创建几何数据
