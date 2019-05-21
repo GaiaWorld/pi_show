@@ -1,4 +1,4 @@
-use atom::{Atom};
+use common::{AttributeName};
 
 /** 
  * 几何数据：存放attribute，和index的地方
@@ -8,7 +8,7 @@ pub trait Geometry: Drop {
     /** 
      * 是否有属性
      */   
-    fn has_attribute(&self, name: &Atom) -> bool;
+    fn has_attribute(&self, name: &AttributeName) -> bool;
 
     /** 
      * 获取当前的顶点个数
@@ -28,12 +28,12 @@ pub trait Geometry: Drop {
      * 如果data为None，开辟一个长度是：vertex_count * item_count * 4大小的buffer
      * 如果用同name设置多次，会根据上次的is_updatable来决定是否需要用 buffer_sub_data 还是用 buffer_data
      */
-    fn set_attribute(&mut self, name: &Atom, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String>;
+    fn set_attribute(&mut self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String>;
      
     /**
      * 删除属性
      */
-    fn remove_attribute(&mut self, name: &Atom);
+    fn remove_attribute(&mut self, name: &AttributeName);
 
     /**
      * 设置索引
@@ -51,5 +51,5 @@ pub trait Geometry: Drop {
      * is_updatable为false，崩溃
      * item_offset + data.len() >= vertex_count * size，崩溃
      */
-    fn update_attribute(&self, name: &Atom, item_offset: u32, data: &[f32]);
+    fn update_attribute(&self, name: &AttributeName, item_offset: u32, data: &[f32]);
 }

@@ -81,6 +81,9 @@ pub trait Context {
 
     /**
      * 编译shader，返回shader对应的hash
+     * Shader相关接口
+     * 策略：底层握住所有的Shader句柄，不会释放
+     * 注：Shader编译耗时，最好事先 编译 和 链接
      */
     fn compile_shader(&mut self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String>;
 
