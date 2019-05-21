@@ -1,98 +1,73 @@
-// 监听Sdf, Image, 和Word的创建和销毁事件， 创建或销毁对应的Effect
+// 监听Overflow， 绘制裁剪纹理
 
-// use std::rc::{Rc};
-// use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::sync::Arc;
 
-use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
-use stdweb::UnsafeTypedArray;
+use fnv::FnvHashMap;
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::idtree::{ IdTree};
+use map::vecmap::VecMap;
+use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline};
+use atom::Atom;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use component::user::{BoxColor, Transform, BorderRadius};
+use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::{Color, CgColor, LengthUnit};
+use layout::Layout;
+use entity::{Node};
+use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
+use render::engine::Engine;
+use system::util::{cal_matrix, color_is_opaque, create_geometry};
+use system::constant::{POSITION, ViewMatrix, ProjectionMatrix};
 
-// use wcs::component::{ComponentHandler, SingleModifyEvent};
-// use wcs::world::System;
-// use atom::Atom;
-
-// use world_2d::World2dMgr;
-// use world_2d::Overflow;
-// use render::engine::{get_uniform_location};
-
-use single::{OverflowClip, ProjectionMatrix, ViewMatrix};
-use render::RenderTarget;
+lazy_static! {
+    static ref MESH_NUM: Atom = Atom::from("meshNum");
+    static ref MESH_INDEX: Atom = Atom::from("meshIndex");
+    static ref CLIP_RENDER: Atom = Atom::from("clip_render");
+}
 
 #[derive(Default)]
-pub struct ClipSys{
-    positions_buffer: WebGLBuffer,
-    index_buffer: WebGLBuffer,
-    indeices_buffer: WebGLBuffer,
-    program: u64,
+pub struct ClipSys<C: Context + Share>{
+    shader_attr: Option<ShaderAttr>,
+    mark: PhantomData<C>,
     dirty: bool,
 }
 
-impl ClipSys {
-    pub fn new(gl: &WebGLRenderingContext) -> ClipSys{
-        let positions_buffer = gl.create_buffer().unwrap();
-        let index_buffer = gl.create_buffer().unwrap();
-        let indeices_buffer = gl.create_buffer().unwrap();
-        
-        let mut indexs: Vec<f32> = Vec::new();
-        let mut indeices: Vec<u16> = Vec::new();
-        // let mut ps: Vec<f32> = Vec::new();
-        for i in 0..8 {
-            indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
-
-            indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-
-            // ps.extend_from_slice(&[
-            //     -1.0, -1.0, 0.0,
-            //     -1.0,  1.0, 0.0,
-            //     1.0,  1.0, 0.0,
-            //     1.0, -1.0, 0.0
-            // ]);
-        }
-
-        debug_println!("clip indexs---------------------------{:?}", indexs);
-        let buffer = unsafe { UnsafeTypedArray::new(&indexs) };
-        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&index_buffer));
-        js! {
-            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-        }
-
-        debug_println!("clip indeices---------------------------{:?}", indeices);
-        let buffer = unsafe { UnsafeTypedArray::new(&indeices) };
-        gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,Some(&indeices_buffer));
-        js! {
-            @{&gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-        }
-
-        gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, None);
-
-        let program = create_program(mgr);
-
-        ClipSys {
-            dirty: true,
-            program: program,
-            positions_buffer: positions_buffer,
-            index_buffer: index_buffer,
-            indeices_buffer: indeices_buffer,
-        }
-    }
+struct ShaderAttr {
+    geometry: Arc<(C as Context)::ContextGeometry>,
+    pipeline: Arc<Pipeline>,
+    ubos: FnvHashMap<Atom, Arc<Uniforms>>,
 }
 
-impl<'a> Runner<'a> for ClipSys{
+
+impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<RenderTarget>,
-        &'a SingleCaseImpl<OverflowClip>,
-        &'a SingleCaseImpl<ProjectionMatrix>,
-        &'a SingleCaseImpl<ViewMatrix>
+        &'a mut SingleCaseImpl<<C as Context>::ContextRenderTarget>,
+        &'a mut SingleCaseImpl<Overflow>,
+        &'a mut SingleCaseImpl<ProjectionMatrix>,
+        &'a mut SingleCaseImpl<ViewMatrix>,
+        &'a mut SingleCaseImpl<ClipUbo>
     );
-    type WriteData = ();
-    fn run(&mut self, read: Self::ReadData, _write: Self::WriteData){
+    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let gl = &mut write.gl;
         if self.dirty == false {
             return;
         }
         self.dirty = false;
 
-        let (target, overflow, projection, view) = read;
+        let shader_attr = match self.shader_attr {
+            Some(r) => r,
+            None => return,
+        };
+
+        // set_pipeline
+        gl.set_pipeline(shader_attr.pipeline.clone());
+
+        let geometry_ref = shader_attr.geometry.mark_mut();
+
+        let (target, overflow, projection, view, clip_ubo) = read;
+
         let mut positions = [0.0; 96];
         for i in 0..8 {
             let p = &overflow.clip[i];
@@ -113,122 +88,56 @@ impl<'a> Runner<'a> for ClipSys{
             positions[i * 12 + 10] = p[1].y;
             positions[i * 12 + 11] = 0.0;
         }
-
-        let program = component_mgr.engine.lookup_program(borrow_mut.program).unwrap();
-        let uniform_locations = &program.uniform_locations;
-        let attr_locations = &program.attr_locations;
-        let program = &program.program;
-        let gl = component_mgr.engine.gl.clone();
-
-        // use_program
-        gl.use_program(Some(program));
-
-        gl.blend_func(WebGLRenderingContext::ONE, WebGLRenderingContext::ONE);
-        gl.enable(WebGLRenderingContext::BLEND);
-
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&component_mgr.overflow_texture.frambuffer));
-
-        gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT | WebGLRenderingContext::DEPTH_BUFFER_BIT);
-
-        //view
-        let arr: &[f32; 16] = component_mgr.view.as_ref();
-        debug_println!("clip view: {:?}", &arr[0..16]);
-        gl.uniform_matrix4fv( uniform_locations.get(&VIEW), false, &arr[0..16] );
-
-        //projection
-        let arr: &[f32; 16] = component_mgr.projection.0.as_ref();
-        debug_println!("clip projection: {:?}", &arr[0..16]);
-        gl.uniform_matrix4fv( uniform_locations.get(&PROJECTION), false, &arr[0..16]);
-
-        debug_println!("clip mesh_num: {:?}", 8.0);
-        gl.uniform1f(uniform_locations.get(&MESH_NUM), 8.0);
-
-        //position
-        debug_println!("clip positions---------------------------{:?}", &positions[0..96]);
-        let buffer = unsafe { UnsafeTypedArray::new(&positions) };
-        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER,Some(&borrow_mut.positions_buffer));
-        let position_location = *(attr_locations.get(&POSITION).unwrap()) ;
-        js! {
-            @{&gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{&buffer}, @{WebGLRenderingContext::STATIC_DRAW});
-        }
-        gl.vertex_attrib_pointer(position_location,3,WebGLRenderingContext::FLOAT,false,0,0,);
-        gl.enable_vertex_attrib_array(position_location);
-
-        //meshIndex
-        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&borrow_mut.index_buffer));
-        let mesh_index_location = *(attr_locations.get(&MESH_INDEX).unwrap()) ;
-        gl.vertex_attrib_pointer(mesh_index_location,1,WebGLRenderingContext::FLOAT,false,0,0);
-        gl.enable_vertex_attrib_array(mesh_index_location);
-
-        //index
-        gl.bind_buffer( WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&borrow_mut.indeices_buffer));
+        geometry_ref.set_attribute(&POSITION.clone(), 3, positions.as_slice(), true);
 
         //draw
-        gl.draw_elements(WebGLRenderingContext::TRIANGLES, 48, WebGLRenderingContext::UNSIGNED_SHORT, 0);
-        debug_println!("clip draw_elements end---------------------------");
+        gl.draw(geometry.clone(), &shader_attr.ubos);
 
-        gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
-        gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, None);
+        //设置clip_ubo TODO
+        // clip_ubo
+    }
+    
+    fn setup(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let engine = write;
+        let pipeline = engine.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), item.defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let mut geometry = create_geometry(&mut engine.gl, 96);
+
+        let mut indexs: Vec<f32> = Vec::new();
+        let mut indeices: Vec<u16> = Vec::new();
+
+        for i in 0..8 {
+            indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
+            indeices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
+        }
+
+        let geometry_ref = Arc::mark_mut(&mut geometry);
+        geometry_ref.set_indices_short(indeices.as_slice());
+        geometry_ref.set_attribute(&POSITION.clone(), 1, indexs.as_slice(), true);
+
+        let (_, _, projection, view, _) = read;
+        let mut ubo = Uniforms::new();
+        let view: &[f32; 16] = view.0.as_ref();
+        ubo.set_mat_4v(ViewMatrix, &view[0..16]);
+        let projection: &[f32; 16] = projection.0.as_ref();
+        ubo.set_mat_4v(ProjectionMatrix, &projection[0..16]);
+        ubo.set_float_1(MESH_NUM, 8.0);
+
+        let mut ubos = FnvHashMap::default();
+        ubos.insert(CLIP_RENDER.clone(), Arc::new(ubo));
+
+        self.dirty = true;
+        write.shader_attr = Some(ShaderAttr{
+            geometry: geometry,
+            pipeline: pipeline,
+            ubos: ubos,
+        });
     }
 }
 
-impl<'a> SingleCaseListener<'a, OverflowClip, CreateEvent> for ClipSys{
+impl<'a, C: Context + Share> SingleCaseImpl<'a, Overflow, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, _event: &CreateEvent, _read: Self::ReadData, _write: Self::WriteData){
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         self.dirty = true;
     }
-}
-
-// 初始化location
-pub fn create_program(component_mgr: &mut World2dMgr) -> u64 {
-    let gl = component_mgr.engine.gl.clone();
-    let program = component_mgr.engine.create_program(
-        component_mgr.shader_store.get(&component_mgr.clip_shader.vs).unwrap(),
-        component_mgr.shader_store.get(&component_mgr.clip_shader.fs).unwrap(),
-        &Vec::<Atom>::new()
-    );
-
-    let program_id = match program {
-        Ok(v) => v,
-        Err(s) => {
-            println!("create_program error: {:?}", s);
-            return 0;
-        },
-    };
-
-    let program = component_mgr.engine.lookup_program_mut(program_id).unwrap();
-    let uniform_locations = &mut program.uniform_locations;
-    let attr_locations = &mut program.attr_locations;
-    let program = &program.program;
-    
-    let position_location = gl.get_attrib_location(program, &POSITION) as u32;
-    attr_locations.insert(
-        POSITION.clone(),
-        position_location,
-    );
-    gl.vertex_attrib_pointer(position_location, 3, WebGLRenderingContext::FLOAT, false, 0, 0);
-
-    let mesh_index_location = gl.get_attrib_location(program, &MESH_INDEX) as u32;
-    attr_locations.insert(
-        MESH_INDEX.clone(),
-        mesh_index_location,
-    );
-    gl.vertex_attrib_pointer(mesh_index_location, 1, WebGLRenderingContext::FLOAT, false, 0, 0);
-
-    uniform_locations.insert( MESH_NUM.clone(), get_uniform_location(&gl,program, &MESH_NUM));
-
-    uniform_locations.insert( PROJECTION.clone(), get_uniform_location(&gl,program, &PROJECTION));
-
-    uniform_locations.insert( VIEW.clone(), get_uniform_location(&gl,program, &VIEW));
-
-    program_id
-}
-
-lazy_static! {
-    static ref MESH_NUM: Atom = Atom::from("meshNum");
-    static ref POSITION: Atom = Atom::from("position");
-    static ref MESH_INDEX: Atom = Atom::from("meshIndex");
-    static ref VIEW: Atom = Atom::from("view");
-    static ref PROJECTION: Atom = Atom::from("projection");
 }
