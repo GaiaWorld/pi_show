@@ -2,7 +2,7 @@
 
 
 use std::{
-  f32,
+  sync::Arc,
   default::Default,
   mem::transmute,
 };
@@ -15,10 +15,10 @@ use component::{LengthUnit, Display, Color, CgColor};
 use font::font_sheet::{FontSize, LineHeight};
 
 #[derive(Deref, DerefMut, Component, Default)]
-pub struct ZIndex(isize);
+pub struct ZIndex(pub isize);
 
 #[derive(Deref, DerefMut, Component, Default)]
-pub struct Overflow(bool);
+pub struct Overflow(pub bool);
 
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
@@ -62,7 +62,7 @@ pub struct BoxShadow{
     pub color: CgColor,
 }
 
-#[derive(Debug, Clone, Component)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct TextStyle{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
@@ -71,11 +71,11 @@ pub struct TextStyle{
     pub white_space: WhiteSpace, //空白处理
     pub color: Color, //颜色
     pub stroke: Stroke,
-    // pub vertical_align: VerticalAlign,
+    pub vertical_align: VerticalAlign,
 }
 
-#[derive(Debug, Clone, Component)]
-pub struct Text(pub String);
+#[derive(Debug, Clone, Component, Default)]
+pub struct Text(pub Arc<String>);
 
 #[derive(Debug, Clone, Component)]
 pub struct TextShadow{
@@ -251,6 +251,37 @@ pub enum WhiteSpace{
     Pre, //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
     PreLine, //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
 }
+impl WhiteSpace {
+    pub fn allow_wrap(&self) -> bool {
+        match *self {
+            WhiteSpace::Nowrap |
+            WhiteSpace::Pre => false,
+            WhiteSpace::Normal |
+            WhiteSpace::PreWrap |
+            WhiteSpace::PreLine => true,
+        }
+    }
+
+    pub fn preserve_newlines(&self) -> bool {
+        match *self {
+            WhiteSpace::Normal |
+            WhiteSpace::Nowrap => false,
+            WhiteSpace::Pre |
+            WhiteSpace::PreWrap |
+            WhiteSpace::PreLine => true,
+        }
+    }
+
+    pub fn preserve_spaces(&self) -> bool {
+        match *self {
+            WhiteSpace::Normal |
+            WhiteSpace::Nowrap |
+            WhiteSpace::PreLine => false,
+            WhiteSpace::Pre |
+            WhiteSpace::PreWrap => true,
+        }
+    }
+}
 
 #[derive(Default, Debug, Clone)]
 pub struct Stroke{
@@ -263,4 +294,10 @@ pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
     Ttalic, //	斜体的字体样式。
     Oblique, //	倾斜的字体样式。
+}
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum VerticalAlign{
+    Top,
+    Middle,
+    Bottom
 }

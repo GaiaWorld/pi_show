@@ -1,5 +1,8 @@
-use std::rc::{Rc};
+use std::sync::{Arc};
+use std::collections::{HashMap};
+
 use atom::{Atom};
+use webgl_rendering_context::{WebGLRenderingContext};
 
 use hal_core::*;
 
@@ -9,32 +12,37 @@ use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 
 pub struct WebGLContextImpl {
-    caps: Rc<Capabilities>,
-    default_rt: Rc<WebGLRenderTargetImpl>,
+    gl: Arc<WebGLRenderingContext>,
+    caps: Arc<Capabilities>,
+    default_rt: Arc<WebGLRenderTargetImpl>,
 }
 
 impl Context for WebGLContextImpl {
+    type SystemContext = WebGLRenderingContext;
+
     type ContextGeometry = WebGLGeometryImpl;
     type ContextTexture = WebGLTextureImpl;
     type ContextSampler = WebGLSamplerImpl;
     type ContextRenderTarget = WebGLRenderTargetImpl;
     type ContextRenderBuffer = WebGLRenderBufferImpl;
 
-    fn new(_rimpl: *const isize, _width: u32, _height: u32) -> Self {
+    fn new(rimpl: Option<Arc<Self::SystemContext>>, _width: u32, _height: u32) -> Self {
+        
+        assert!(rimpl.is_some(), "new invalid");
+
         WebGLContextImpl {
-            caps: Rc::new(Capabilities::new()),
-
-            default_rt: Rc::new(WebGLRenderTargetImpl {
-
+            gl: rimpl.unwrap(),
+            caps: Arc::new(Capabilities::new()),
+            default_rt: Arc::new(WebGLRenderTargetImpl {
             })
-        } 
+        }
     }
 
-    fn get_caps(&self) -> Rc<Capabilities> {
+    fn get_caps(&self) -> Arc<Capabilities> {
         self.caps.clone()
     }
 
-    fn get_default_render_target(&self) -> Rc<Self::ContextRenderTarget> {
+    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget> {
         self.default_rt.clone()
     }
 
@@ -46,47 +54,45 @@ impl Context for WebGLContextImpl {
         Ok(0)
     }
 
-    fn create_pipeline(&mut self, _vs_hash: u32, _fs_hash: u32, _rs: Rc<RasterState>, _bs: Rc<BlendState>, _ss: Rc<StencilState>, _ds: Rc<DepthState>) -> Result<Rc<Pipeline>, String> {
-        Ok(Rc::new(Pipeline::new()))
+    fn create_pipeline(&mut self, _vs_hash: u32, _fs_hash: u32, _rs: Arc<RasterState>, _bs: Arc<BlendState>, _ss: Arc<StencilState>, _ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String> {
+        Ok(Arc::new(Pipeline::new()))
     }
 
-    fn create_geometry(&self, _vertex_count: u32) -> Result<Rc<Self::ContextGeometry>, String> {
-        Ok(Rc::new(WebGLGeometryImpl {
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String> {
+        Ok(Arc::new(WebGLGeometryImpl::new(&self.gl)))
+    }
+
+    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Arc<Self::ContextTexture>, String> {
+        Ok(Arc::new(WebGLTextureImpl {
 
         }))
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String> {
-        Ok(Rc::new(WebGLTextureImpl {
+    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Arc<Self::ContextTexture>, String> {
+        Ok(Arc::new(WebGLTextureImpl {
 
         }))
     }
 
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String> {
-        Ok(Rc::new(WebGLTextureImpl {
+    fn create_sampler(&mut self, _texture: Arc<Self::ContextTexture>, _desc: Arc<SamplerDesc>) -> Result<Arc<Self::ContextSampler>, String> {
+        Ok(Arc::new(WebGLSamplerImpl {
 
         }))
     }
 
-    fn create_sampler(&mut self, _texture: Rc<Self::ContextTexture>, _desc: Rc<SamplerDesc>) -> Result<Rc<Self::ContextSampler>, String> {
-        Ok(Rc::new(WebGLSamplerImpl {
+    fn create_render_target(&mut self) -> Result<Arc<Self::ContextRenderTarget>, String> {
+        Ok(Arc::new(WebGLRenderTargetImpl {
 
         }))
     }
 
-    fn create_render_target(&mut self) -> Result<Rc<Self::ContextRenderTarget>, String> {
-        Ok(Rc::new(WebGLRenderTargetImpl {
-
-        }))
-    }
-
-    fn create_render_buffer(&mut self, _w: u32, _h: u32, _format: PixelFormat) -> Result<Rc<Self::ContextRenderBuffer>, String> {
-        Ok(Rc::new(WebGLRenderBufferImpl {
+    fn create_render_buffer(&mut self, _w: u32, _h: u32, _format: PixelFormat) -> Result<Arc<Self::ContextRenderBuffer>, String> {
+        Ok(Arc::new(WebGLRenderBufferImpl {
             
         }))
     }
  
-    fn begin_render(&mut self, _render_target: Rc<Self::ContextRenderTarget>, _data: Rc<RenderBeginDesc>) {
+    fn begin_render(&mut self, _render_target: &Arc<Self::ContextRenderTarget>, _data: &Arc<RenderBeginDesc>) {
         
     }
 
@@ -94,11 +100,11 @@ impl Context for WebGLContextImpl {
 
     }
 
-    fn set_pipeline(&mut self, _pipeline: Rc<Pipeline>) {
+    fn set_pipeline(&mut self, _pipeline: &Arc<Pipeline>) {
 
     }
 
-    fn draw(&mut self, _geometry: Rc<Self::ContextGeometry>, _values: &[Rc<Uniforms>]) {
+    fn draw(&mut self, _geometry: &Arc<Self::ContextGeometry>, _values: &HashMap<Atom, Arc<Uniforms>>) {
 
     }
 }

@@ -1,4 +1,4 @@
-use std::rc::{Rc};
+use std::sync::{Arc};
 use hal_core::{RTAttachment, RenderTarget, RenderBuffer};
 use texture::{WebGLTextureImpl};
 
@@ -30,11 +30,11 @@ impl RenderTarget for WebGLRenderTargetImpl {
         (0, 0)
     }
 
-    fn attach_texture(_attachment: RTAttachment, _texture: Rc<Self::ContextTexture>) {
+    fn attach_texture(_attachment: RTAttachment, _texture: &Arc<Self::ContextTexture>) {
 
     }
     
-    fn attach_render_buffer(_attachment: RTAttachment, _buffer: Rc<Self::ContextRenderBuffer>) {
+    fn attach_render_buffer(_attachment: RTAttachment, _buffer: &Arc<Self::ContextRenderBuffer>) {
 
     }
     

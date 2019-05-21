@@ -11,7 +11,7 @@
  *         模板缓冲区一般是RenderBuffer，不需要取出来
  */
 
-use std::rc::{Rc};
+use std::sync::{Arc};
 
 use common::{RTAttachment};
 use traits::texture::{Texture};
@@ -39,12 +39,12 @@ pub trait RenderTarget: Drop {
     /**
      * 为渲染目标邦纹理
      */
-    fn attach_texture(attachment: RTAttachment, texture: Rc<Self::ContextTexture>);
+    fn attach_texture(attachment: RTAttachment, texture: &Arc<Self::ContextTexture>);
     
     /**
      * 为渲染目标邦纹理
      */
-    fn attach_render_buffer(attachment: RTAttachment, buffer: Rc<Self::ContextRenderBuffer>);
+    fn attach_render_buffer(attachment: RTAttachment, buffer: &Arc<Self::ContextRenderBuffer>);
     
     /**
      * 取渲染目标中特定通道的纹理

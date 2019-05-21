@@ -1,4 +1,4 @@
-use std::rc::{Rc};
+use std::sync::{Arc};
 use common::{CullMode, CompareFunc, BlendFunc, BlendFactor, StencilOp};
 
 /** 
@@ -8,10 +8,10 @@ pub struct Pipeline {
     pub vs_hash: u64,
     pub fs_hash: u64,
 
-    pub raster_state: Option<Rc<RasterState>>,
-    pub depth_state: Option<Rc<DepthState>>,
-    pub stencil_state: Option<Rc<StencilState>>,
-    pub blend_state: Option<Rc<BlendState>>,
+    pub raster_state: Option<Arc<RasterState>>,
+    pub depth_state: Option<Arc<DepthState>>,
+    pub stencil_state: Option<Arc<StencilState>>,
+    pub blend_state: Option<Arc<BlendState>>,
 }
 
 /** 
@@ -84,7 +84,6 @@ impl Pipeline {
  * let state = RasterState::new();
  * state.set_***();
  * state.set_***();
- * let state = state.to_rc();
  */
 impl RasterState {
     
@@ -119,13 +118,6 @@ impl RasterState {
     pub fn set_polygon_offset(&mut self, factor: f32, unit: f32) {
         self.polygon_offset = (factor, unit);
     }
-
-    /** 
-     * 变成Rc是因为不同的管线，其实会用到相同的状态
-     */
-    pub fn to_rc(self) -> Rc<Self> {
-        Rc::new(self)
-    }
 }
 
 /** 
@@ -134,7 +126,6 @@ impl RasterState {
  * let state = BlendState::new();
  * state.set_***();
  * state.set_***();
- * let state = state.to_rc();
  */
 impl BlendState {
     
@@ -196,13 +187,6 @@ impl BlendState {
     pub fn set_const_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
         self.const_rgba = (r, g, b, a);
     }
-
-    /** 
-     * 变成Rc是因为不同的管线，其实会用到相同的状态
-     */
-    pub fn to_rc(self) -> Rc<Self> {
-        Rc::new(self)
-    }
 }
 
 /** 
@@ -211,7 +195,6 @@ impl BlendState {
  * let state = DepthState::new();
  * state.set_***();
  * state.set_***();
- * let state = state.to_rc();
  */
 impl DepthState {
     pub fn new() -> Self {
@@ -246,14 +229,6 @@ impl DepthState {
     pub fn set_test_func(&mut self, func: CompareFunc) {
         self.depth_test_func = func;
     }
-
-
-    /** 
-     * 变成Rc是因为不同的管线，其实会用到相同的状态
-     */
-    pub fn to_rc(self) -> Rc<Self> {
-        Rc::new(self)
-    }
 }
 
 /** 
@@ -262,7 +237,6 @@ impl DepthState {
  * let state = StencilState::new();
  * state.set_***();
  * state.set_***();
- * let state = state.to_rc();
  */
 impl StencilState {
 
@@ -305,12 +279,5 @@ impl StencilState {
         self.stencil_fail_op = sfail;
         self.stencil_zfail_op = zfail;
         self.stencil_zpass_op = zpass;
-    }
-
-    /** 
-     * 变成Rc是因为不同的管线，其实会用到相同的状态
-     */
-    pub fn to_rc(self) -> Rc<Self> {
-        Rc::new(self)
     }
 }

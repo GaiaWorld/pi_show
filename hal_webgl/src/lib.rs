@@ -3,7 +3,9 @@
  * 抽象硬件层HAL的WebGL实现
  */
 
+#[macro_use]
 extern crate stdweb;
+
 extern crate webgl_rendering_context;
 
 extern crate atom;

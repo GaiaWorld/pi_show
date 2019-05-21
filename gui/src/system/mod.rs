@@ -9,3 +9,4 @@ pub mod sdf;
 pub mod image;
 // pub mod clip;
 pub mod util;
+pub mod text_layout;

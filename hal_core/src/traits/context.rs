@@ -1,4 +1,5 @@
-use std::rc::{Rc};
+use std::sync::{Arc};
+use std::collections::{HashMap};
 use atom::Atom;
 
 use common::{Uniforms, ShaderType, Capabilities, Pipeline, RenderBeginDesc, PixelFormat, DataFormat, RasterState, DepthState, StencilState, BlendState};
@@ -31,10 +32,10 @@ use traits::render_target::{RenderTarget, RenderBuffer};
  * let texture = context.create_texture_2d(...).unwrap();
  * let sampler = context.create_sampler(...).unwrap();
  * 
- * let ss = RasterState::new().set_**().to_rc();
- * let bs = BlendState::new().set_**().to_rc();
- * let ss = StencilState::new().set_**().to_rc();
- * let ds = DepthState::new().set_**().to_rc();
+ * let ss = RasterState::new().set_**();
+ * let bs = BlendState::new().set_**();
+ * let ss = StencilState::new().set_**();
+ * let ds = DepthState::new().set_**();
  * let pipeline = context.create_pipeline(vs, fs, rs, bs, ss, ds);
  *
  * let u1 = Uniforms::new().set("world", ....).set("view", ...);
@@ -56,6 +57,8 @@ use traits::render_target::{RenderTarget, RenderBuffer};
  */
 
 pub trait Context {
+    
+    type SystemContext;
 
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
@@ -67,17 +70,17 @@ pub trait Context {
      * 创建新的渲染环境
      * rimpl: 渲染底层库对应的句柄，比如：WebGLRenderingContext, WebGL2RenderingContext, D3D11, D3D9, ...
      */
-    fn new(rimpl: *const isize, width: u32, height: u32) -> Self;
+    fn new(rimpl: Option<Arc<Self::SystemContext>>, width: u32, height: u32) -> Self;
 
     /**
      * 取特性
      */
-    fn get_caps(&self) -> Rc<Capabilities>;
+    fn get_caps(&self) -> Arc<Capabilities>;
 
     /**
      * 取默认的渲染目标
      */
-    fn get_default_render_target(&self) -> Rc<Self::ContextRenderTarget>;
+    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget>;
 
     /** 
      * 设置shader代码
@@ -92,12 +95,12 @@ pub trait Context {
     /** 
      * 创建渲染管线
      */
-    fn create_pipeline(&mut self, vs_hash: u32, fs_hash: u32, rs: Rc<RasterState>, bs: Rc<BlendState>, ss: Rc<StencilState>, ds: Rc<DepthState>) -> Result<Rc<Pipeline>, String>;
+    fn create_pipeline(&mut self, vs_hash: u32, fs_hash: u32, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
 
     /** 
      * 创建几何数据
      */
-    fn create_geometry(&self, vertex_count: u32) -> Result<Rc<Self::ContextGeometry>, String>;
+    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String>;
 
     /** 
      * 创建2D纹理
@@ -106,7 +109,7 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Rc<Self::ContextTexture>, String>;
+    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Arc<Self::ContextTexture>, String>;
 
     /** 
      * 用canvas创建2D纹理，尽用于webgl版本
@@ -115,28 +118,28 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d_with_canvas(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, canvas: *const isize) -> Result<Rc<Self::ContextTexture>, String>;
+    fn create_texture_2d_with_canvas(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, canvas: *const isize) -> Result<Arc<Self::ContextTexture>, String>;
 
     /** 
      * 创建采样器
      */
-    fn create_sampler(&mut self, texture: Rc<Self::ContextTexture>, desc: Rc<SamplerDesc>) -> Result<Rc<Self::ContextSampler>, String>;
+    fn create_sampler(&mut self, texture: Arc<Self::ContextTexture>, desc: Arc<SamplerDesc>) -> Result<Arc<Self::ContextSampler>, String>;
 
     /** 
      * 创建渲染目标
      */
-    fn create_render_target(&mut self) -> Result<Rc<Self::ContextRenderTarget>, String>;
+    fn create_render_target(&mut self) -> Result<Arc<Self::ContextRenderTarget>, String>;
 
     /** 
      * 创建渲染缓冲区
      */
-    fn create_render_buffer(&mut self, w: u32, h: u32, format: PixelFormat) -> Result<Rc<Self::ContextRenderBuffer>, String>;
+    fn create_render_buffer(&mut self, w: u32, h: u32, format: PixelFormat) -> Result<Arc<Self::ContextRenderBuffer>, String>;
  
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn begin_render(&mut self, render_target: Rc<Self::ContextRenderTarget>, data: Rc<RenderBeginDesc>);
+    fn begin_render(&mut self, render_target: &Arc<Self::ContextRenderTarget>, data: &Arc<RenderBeginDesc>);
 
     /** 
      * 结束渲染
@@ -148,11 +151,11 @@ pub trait Context {
      * 设置渲染管线
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_pipeline(&mut self, pipeline: Rc<Pipeline>);
+    fn set_pipeline(&mut self, pipeline: &Arc<Pipeline>);
 
     /** 
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: Rc<Self::ContextGeometry>, values: &[Rc<Uniforms>]);
+    fn draw(&mut self, geometry: &Arc<Self::ContextGeometry>, values: &HashMap<Atom, Arc<Uniforms>>);
 }

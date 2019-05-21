@@ -42,6 +42,7 @@ extern crate ucd;
 extern crate data_view;
 extern crate dirty;
 extern crate color;
+extern crate util as lib_util;
 extern crate hal_core;
 
 pub mod system;
@@ -55,7 +56,6 @@ pub mod util;
 
 pub mod entity{
     pub struct Node;
-    pub struct Char;
 }
 
 use ecs::{World};
