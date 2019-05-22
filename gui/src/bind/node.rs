@@ -40,9 +40,9 @@ pub fn create_node(world: u32) -> u32{
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let node = create(world);
-    let text = world.fetch_multi::<Node, Text>().unwrap();
-    let text = text.lend_mut();
-    text.insert(node, Text(Arc::new("".to_string())));
+    // let text = world.fetch_multi::<Node, Text>().unwrap();
+    // let text = text.lend_mut();
+    // text.insert(node, Text(Arc::new("".to_string())));
     debug_println!("create_text_node, node:{}", node);
     node as u32
 }
