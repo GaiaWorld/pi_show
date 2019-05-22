@@ -31,6 +31,12 @@ impl Drop for WebGLRenderBufferImpl {
     }
 }
 
+impl AsRef<Self> for WebGLRenderBufferImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
 impl WebGLRenderTargetImpl {
     pub fn new_default(gl: &Arc<WebGLRenderingContext>) -> Self {
         WebGLRenderTargetImpl {
@@ -76,5 +82,11 @@ impl RenderTarget for WebGLRenderTargetImpl {
 
 impl Drop for WebGLRenderTargetImpl {
     fn drop(&mut self) {
+    }
+}
+
+impl AsRef<Self> for WebGLRenderTargetImpl {
+    fn as_ref(&self) -> &Self {
+        &self
     }
 }

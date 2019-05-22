@@ -44,7 +44,6 @@ pub fn create_text_node(world: u32) -> u32 {
     let text = world.fetch_multi::<Node, Text>().unwrap();
     let mut text = text.borrow_mut();
     text.insert(node, Text(Arc::new("".to_string())));
-
     debug_println!("create_text_node, node:{}", node);
     node as u32
 }
@@ -173,33 +172,33 @@ pub fn remove_child(world: u32, node: u32){
 //     debug_println!("set_src"); 
 // }
 
-// #[no_mangle]
-// pub fn offset_top(world: u32, node: u32) -> f32 {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
-//   world.component_mgr.node._group.get(node).yoga.get_layout().top
-// }
+#[no_mangle]
+pub fn offset_top(world: u32, node: u32) -> f32 {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let layout = world.fetch_multi::<Node, Layout>().unwrap();
+    unsafe {layout.borrow().get_unchecked(node as usize)}.top
+}
 
-// #[no_mangle]
-// pub fn offset_left(world: u32, node: u32) -> f32 {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
-//   world.component_mgr.node._group.get(node).yoga.get_layout().left
-// }
+#[no_mangle]
+pub fn offset_left(world: u32, node: u32) -> f32 {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let layout = world.fetch_multi::<Node, Layout>().unwrap();
+    unsafe {layout.borrow().get_unchecked(node as usize)}.left
+}
 
-// #[no_mangle]
-// pub fn offset_width(world: u32, node: u32) -> f32 {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
-//   world.component_mgr.node._group.get(node).yoga.get_layout().width
-// }
+#[no_mangle]
+pub fn offset_width(world: u32, node: u32) -> f32 {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let layout = world.fetch_multi::<Node, Layout>().unwrap();
+    unsafe {layout.borrow().get_unchecked(node as usize)}.width
+}
 
-// #[no_mangle]
-// pub fn offset_height(world: u32, node: u32) -> f32 {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
-//   world.component_mgr.node._group.get(node).yoga.get_layout().height
-// }
+#[no_mangle]
+pub fn offset_height(world: u32, node: u32) -> f32 {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let layout = world.fetch_multi::<Node, Layout>().unwrap();
+    unsafe {layout.borrow().get_unchecked(node as usize)}.height
+}
 
 // #[no_mangle]
 // pub fn offset_document(world: u32, node: u32) {

@@ -11,17 +11,18 @@ use Node;
 
 #[macro_use()]
 macro_rules! set_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:ident) => {
+    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
         let mut attr = attr.borrow_mut();
+        let value = $value;
         $crate::paste::item! {
             match attr.get_write(node_id) {
-                Some(mut r) => r.[<set_ $name>]($value),
+                Some(mut r) => r.[<set_ $name>](value),
                 _ =>{
                     let mut v = $tt::default();
-                    v.$name = $value;
+                    v.$name = value;
                     attr.insert(node_id, v);
                 }
             }
@@ -31,7 +32,7 @@ macro_rules! set_attr {
 }
 #[macro_use()]
 macro_rules! insert_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $value:ident) => {
+    ($world:ident, $node_id:ident, $tt:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
@@ -40,7 +41,7 @@ macro_rules! insert_attr {
 }
 #[macro_use()]
 macro_rules! set_show {
-    ($world:ident, $node_id:ident, $name:ident, $value:ident) => {
+    ($world:ident, $node_id:ident, $name:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, Show>().unwrap();
@@ -54,9 +55,8 @@ macro_rules! set_show {
 
 #[no_mangle]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let value = Color::RGBA(CgColor::new(r, g, b, a));
     let background = 0;
-    set_attr!(world, node, BoxColor, background, value);
+    set_attr!(world, node, BoxColor, background, Color::RGBA(CgColor::new(r, g, b, a)));
 }
 
 // 设置一个径向渐变的背景颜色
@@ -78,31 +78,27 @@ pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f3
 // 设置边框颜色， 类型为rgba
 #[no_mangle]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let value = CgColor::new(r, g, b, a);
     let border = 0;
-    set_attr!(world, node, BoxColor, border, value);
+    set_attr!(world, node, BoxColor, border, CgColor::new(r, g, b, a));
 }
 
 // 设置边框圆角
 #[no_mangle]
 pub fn set_border_radius(world: u32, node: u32, value: f32){
-    let value = LengthUnit::Pixel(value);
-    insert_attr!(world, node, BorderRadius, value);
+    insert_attr!(world, node, BorderRadius, LengthUnit::Pixel(value));
 }
 
 // 设置边框圆角
 #[no_mangle]
 pub fn set_border_radius_percent(world: u32, node: u32, value: f32){
-    let value = LengthUnit::Percent(value);
-    insert_attr!(world, node, BorderRadius, value);
+    insert_attr!(world, node, BorderRadius, LengthUnit::Percent(value));
 }
 
 // 设置阴影颜色
 #[no_mangle]
 pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let value = CgColor::new(r, g, b, a);
     let color = 0;
-    set_attr!(world, node, BoxShadow, color, value);
+    set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a));
 }
 
 #[no_mangle]

@@ -27,3 +27,9 @@ impl Drop for NullTextureImpl {
     fn drop(&mut self) {
     }
 }
+
+impl AsRef<Self> for NullTextureImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}

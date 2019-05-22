@@ -4,6 +4,12 @@ pub struct NullGeometryImpl {
     
 }
 
+impl AsRef<Self> for NullGeometryImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
 impl Geometry for NullGeometryImpl {
 
     fn has_attribute(&self, _name: &AttributeName) -> bool {
