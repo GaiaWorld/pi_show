@@ -152,7 +152,7 @@ impl ZIndexImpl {
   }
 
   // 设置节点对应堆叠上下文的节点脏
-  fn set_parent_dirty<'a>(&mut self, mut id: usize, idtree: &'a IdTree) {
+  fn set_parent_dirty(&mut self, mut id: usize, idtree: &IdTree) {
     while id > 0 {
       let zi = unsafe {self.map.get_unchecked_mut(id)};
       let node = unsafe {idtree.get_unchecked(id)};
@@ -179,7 +179,7 @@ impl ZIndexImpl {
     // 删除无需设脏，z值可以继续使用
   }
   // 整理方法
-  fn calc<'a>(&mut self, idtree: &'a IdTree, zdepth: &'a mut MultiCaseImpl<Node, ZDepth>) {
+  fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
     for id in self.dirty.iter() {
         let (min_z, max_z, recursive) = {
           let zi = unsafe {self.map.get_unchecked_mut(*id)};
@@ -236,7 +236,7 @@ impl Cache {
   }
 
   // 循环计算子节点， 分类排序
-  fn sort<'a>(&mut self, map: &VecMap<ZIndex>, idtree: &'a IdTree, child: usize, mut order: usize) -> usize {
+  fn sort(&mut self, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
     // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
     for (id, n) in idtree.iter(child) {
       let zi = unsafe {map.get_unchecked(id)}.old;
@@ -256,7 +256,7 @@ impl Cache {
     order
   }
   // 计算真正的z
-  fn calc<'a>(&mut self, map: &mut VecMap<ZIndex>, idtree: &'a IdTree, zdepth: &'a mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
+  fn calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
     let auto_len = self.z_auto.len();
     // 计算大致的劈分间距
     let split = if count > auto_len {
@@ -288,7 +288,7 @@ impl Cache {
     }
   }
 // 计算真正的z
-  fn recursive_calc<'a>(&mut self, map: &mut VecMap<ZIndex>, idtree: &'a IdTree, zdepth: &'a mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
+  fn recursive_calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
     let auto_len = self.z_auto.len();
     // 计算大致的劈分间距
     let split = if count > auto_len {
@@ -343,7 +343,7 @@ impl Cache {
 }
 //================================ 内部静态方法
 // 设置自己所有非AUTO的子节点为强制脏
-fn recursive_dirty<'a>(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &'a IdTree, child: usize) {
+fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
   for (id, n) in idtree.iter(child) {
     let zi = unsafe {map.get_unchecked_mut(id)};
     if zi.old == -1 {
@@ -358,7 +358,7 @@ fn recursive_dirty<'a>(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree:
 // 整理方法。z范围变小或相交，则重新扫描修改一次。两种情况。
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
-fn adjust<'a>(map: &mut VecMap<ZIndex>, idtree: &'a IdTree, zdepth: &'a mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
   let (min, r, old_min) = {
     let zi = unsafe{map.get_unchecked_mut(id)};
     let (min, max) = if !rate.is_nan() {
