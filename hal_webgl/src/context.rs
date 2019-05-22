@@ -70,7 +70,7 @@ impl Context for WebGLContextImpl {
         })
     }
 
-    fn create_sampler(&mut self, _texture: Arc<AsRef<Self::ContextTexture>>, _desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, _desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
         Ok(WebGLSamplerImpl {
 
         })

@@ -124,7 +124,7 @@ pub trait Context {
     /** 
      * 创建采样器
      */
-    fn create_sampler(&mut self, texture: Arc<AsRef<Self::ContextTexture>>, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String>;
+    fn create_sampler(&mut self, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String>;
 
     /** 
      * 创建渲染目标
