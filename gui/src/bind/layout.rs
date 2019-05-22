@@ -2,7 +2,7 @@ use std::mem::transmute;
 
 use ecs::{World, LendMut};
 
-use Node;
+use entity::Node;
 use layout::*;
 
 

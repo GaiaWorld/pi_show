@@ -16,7 +16,7 @@ use component::calc::WorldMatrix;
 use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_INDEICES, CLIP};
 use render::engine::Engine;
 use single::RenderObjs;
-use Node;
+use entity::Node;
 
 pub fn cal_matrix(
     id: usize,

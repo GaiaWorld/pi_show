@@ -9,7 +9,7 @@ use atom::Atom;
 use ecs::{World, LendMut};
 
 use component::user::*;
-use Node;
+use entity::Node;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
 #[macro_use()]

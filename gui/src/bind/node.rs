@@ -9,7 +9,7 @@ use ecs::{World, Lend, LendMut};
 use ecs::idtree::{IdTree, InsertType};
 
 use component::user::*;
-use Node;
+use entity::Node;
 
 fn create(world: &World) -> usize {
     let idtree = world.fetch_single::<IdTree>().unwrap();
