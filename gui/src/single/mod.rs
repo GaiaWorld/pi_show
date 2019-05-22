@@ -52,7 +52,7 @@ pub struct RenderObj<C: Context>{
     pub depth: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Arc<Uniforms>>,
+    pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
     pub geometry: Arc<<C as Context>::ContextGeometry>,
     pub pipeline: Arc<Pipeline>,
     
@@ -111,15 +111,15 @@ impl<C: Context> RenderObjs<C> {
     }
 }
 
-pub struct ClipUbo(pub Arc<Uniforms>);
-pub struct ViewUbo(pub Arc<Uniforms>);
-pub struct ProjectionUbo(pub Arc<Uniforms>);
+pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
+pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
+pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
 
-unsafe impl Sync for ClipUbo {}
-unsafe impl Send for ClipUbo {}
+unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
+unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
 
-unsafe impl Sync for ViewUbo {}
-unsafe impl Send for ViewUbo {}
+unsafe impl<C: Context + 'static + Sync + Send> Sync for ViewUbo<C> {}
+unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 
-unsafe impl Sync for ProjectionUbo {}
-unsafe impl Send for ProjectionUbo {}
+unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
+unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}

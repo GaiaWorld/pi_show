@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, Sampler, SamplerDesc};
@@ -66,7 +66,7 @@ pub struct ImageSys<C: Context + Share>{
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
     pipelines: FnvHashMap<u64, Arc<Pipeline>>,
-    default_sampler_hash: u64,
+    default_sampler: Option<Arc<SamplerRes<C>>>,
 }
 
 impl<C: Context + Share> ImageSys<C> {
@@ -80,18 +80,36 @@ impl<C: Context + Share> ImageSys<C> {
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
             pipelines: FnvHashMap::default(),
-            default_sampler_hash: 0,
+            default_sampler: None,
         }
     }
 }
 
+impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
+    type ReadData = ();
+    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+    fn run(&mut self, _: Self::ReadData, write: Self::WriteData){
+    }
+
+    fn setup(&mut self, _: Self::ReadData, write: Self::WriteData){
+        let s = SamplerDesc::default();
+        let hash = sampler_desc_hash(&s);
+        if write.res_mgr.samplers.get(&hash).is_none() {
+            let res = SamplerRes::new(hash, write.gl.create_sampler(Arc::new(s)).unwrap());
+            self.default_sampler = Some(write.res_mgr.samplers.create(res));
+        }
+    }
+}
+
+
+
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> for ImageSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<ViewUbo>,
-        &'a SingleCaseImpl<ProjectionUbo>,
-        &'a SingleCaseImpl<ClipUbo>,
-        &'a MultiCaseImpl<Node, Image>,
+        &'a SingleCaseImpl<ViewUbo<C>>,
+        &'a SingleCaseImpl<ProjectionUbo<C>>,
+        &'a SingleCaseImpl<ClipUbo<C>>,
+        &'a MultiCaseImpl<Node, Image<C>>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, Opacity>,
@@ -111,36 +129,25 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, CreateEvent> for
         let image = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
             set_atrribute::<C>(layout, z_depth, (0.0, 0.0), &mut geometry);
         }
 
-        let index = self.create_image_renderobjs(event.id, image.src, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
+        let index = self.create_image_renderobjs(event.id, &image.src, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
         self.image_render_map.insert(event.id, Item{index: index, defines: defines});
-    }
-
-    fn setup(&mut self, event: &CreateEvent, _: Self::ReadData, w: Self::WriteData){
-        let s = SamplerDesc::default();
-        let hash = sampler_desc_hash(&s);
-        if w.1.res_mgr.samplers.get(&hash).is_none() {
-            self.default_sampler_hash = hash;
-            let res = Arc::try_unwrap(w.1.gl.create_sampler(s).unwrap()).unwrap();
-            let res = SamplerRes::new(hash, res);
-            w.1.res_mgr.samplers.create(res);
-        }
     }
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage<C>, CreateEvent> for ImageSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<ViewUbo>,
-        &'a SingleCaseImpl<ProjectionUbo>,
-        &'a SingleCaseImpl<ClipUbo>,
-        &'a MultiCaseImpl<Node, BackgroundImage>,
+        &'a SingleCaseImpl<ViewUbo<C>>,
+        &'a SingleCaseImpl<ProjectionUbo<C>>,
+        &'a SingleCaseImpl<ClipUbo<C>>,
+        &'a MultiCaseImpl<Node, BackgroundImage<C>>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, Opacity>,
@@ -160,20 +167,20 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage, Create
         let bg_image = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
             set_atrribute::<C>(layout, z_depth, (0.0, 0.0), &mut geometry);
         }
 
-        let index = self.create_image_renderobjs(event.id, bg_image.0, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
+        let index = self.create_image_renderobjs(event.id, &bg_image.0, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
         self.bg_image_render_map.insert(event.id, Item{index: index, defines: defines});
     }
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, DeleteEvent> for ImageSys<C>{
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
@@ -184,7 +191,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, DeleteEvent> for
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage, DeleteEvent> for ImageSys<C>{
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage<C>, DeleteEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
@@ -195,8 +202,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage, Delete
 }
 
 // Image变化, 修改ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, ModifyEvent> for ImageSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, Image>;
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> for ImageSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, Image<C>>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let image = unsafe { read.get_unchecked(event.id) };
@@ -214,8 +221,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, ModifyEvent> for
 }
 
 // Image变化, 修改ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage, ModifyEvent> for ImageSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, Image>;
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage<C>, ModifyEvent> for ImageSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, Image<C>>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let bg_image = unsafe { read.get_unchecked(event.id) };
@@ -336,15 +343,15 @@ impl<C: Context + Share> ImageSys<C> {
     fn create_image_renderobjs(
         &mut self,
         id: usize,
-        src: usize,
+        src: &Arc<TextureRes<C>>,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: FnvHashMap<Atom, Arc<Uniforms>>,
+        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
-        view_ubo: & SingleCaseImpl<ViewUbo>,
-        projection_ubo: & SingleCaseImpl<ProjectionUbo>,
-        clip_ubo: & SingleCaseImpl<ClipUbo>,
+        view_ubo: & SingleCaseImpl<ViewUbo<C>>,
+        projection_ubo: & SingleCaseImpl<ProjectionUbo<C>>,
+        clip_ubo: & SingleCaseImpl<ClipUbo<C>>,
         visibility: & MultiCaseImpl<Node, Visibility>,
         opacity: & MultiCaseImpl<Node, Opacity>,
         world_matrix: & MultiCaseImpl<Node, WorldMatrix>,
@@ -358,20 +365,21 @@ impl<C: Context + Share> ImageSys<C> {
         let opacity = unsafe { opacity.get_unchecked(id) }.0; 
         let mut defines = Defines::default();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         ubos.insert(VIEW_MATRIX.clone(), view_ubo.0.clone());//  视图矩阵
         ubos.insert(PROJECT_MATRIX.clone(), projection_ubo.0.clone()); // 投影矩阵
 
         let world_matrix = cal_matrix(id, world_matrix, transform, layout);
         let world_matrix: &[f32; 16] = world_matrix.as_ref();
-        let mut world_matrix_ubo = Uniforms::new();
+        let mut world_matrix_ubo = engine.gl.create_uniforms();
         world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &world_matrix[0..16]);
         ubos.insert(WORLD_MATRIX.clone(), Arc::new(world_matrix_ubo)); //世界矩阵
 
-        let mut common_ubo = Uniforms::new();
-        if src != 0 {
-            let texture = unsafe{ &*(src as *const Arc<TextureRes<C>>) };
-        }
+        let mut common_ubo = engine.gl.create_uniforms();
+        // if src != 0 {
+        //     // let texture = unsafe{ &*(src as *const Arc<TextureRes<C>>) };
+        // }
+
         // common_ubo.set_sampler(&TEXTURE, src);
         common_ubo.set_float_1(&ALPHA, opacity);
         let layout = unsafe { layout.get_unchecked(id) };  
@@ -387,7 +395,7 @@ impl<C: Context + Share> ImageSys<C> {
         let by_overflow =  unsafe { by_overflow.get_unchecked(id) }.0;
         if by_overflow > 0 {
             defines.clip = true;
-            let mut by_overflow_ubo = Uniforms::new();
+            let mut by_overflow_ubo = engine.gl.create_uniforms();
             by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性，
         }
 
@@ -399,7 +407,7 @@ impl<C: Context + Share> ImageSys<C> {
             is_opacity: is_opacity,
             ubos: ubos,
             geometry: geometry,
-            pipeline: pipeline.clone(),
+            pipeline: pipeline,
         };
 
         let notify = render_objs.get_notify();

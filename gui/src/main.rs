@@ -54,7 +54,7 @@ pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
-pub mod bind;
+// pub mod bind;
 pub mod util;
 
 pub mod entity{
@@ -82,7 +82,7 @@ pub fn create_world() -> World{
     world.register_multi::<Node, ZIndex>();
     world.register_multi::<Node, BoxColor>();
     world.register_multi::<Node, BoxShadow>();
-    world.register_multi::<Node, BorderImage>();
+    // world.register_multi::<Node, BorderImage>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Overflow>();
     world.register_multi::<Node, Show>();

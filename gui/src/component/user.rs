@@ -8,7 +8,9 @@ use std::{
 };
 
 use map::{vecmap::VecMap};
+use hal_core::Context;
 
+use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
 use component::{LengthUnit, Display, Color, CgColor};
@@ -39,16 +41,16 @@ pub struct BoxColor{
 	pub border: CgColor,
 }
 
-#[derive(Debug, Clone, Component)]
-pub struct BackgroundImage(pub usize);
+#[derive(Clone, Component)]
+pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
 
-#[derive(Debug, Clone, Component)]
-pub struct Image{
-  pub src: usize,
+#[derive(Clone, Component)]
+pub struct Image<C: Context + 'static + Send + Sync>{
+  pub src: Arc<TextureRes<C>>,
 }
 
-#[derive(Debug, Clone, Component)]
-pub struct BorderImage(pub usize);
+#[derive(Clone, Component)]
+pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
 
 #[derive(Debug, Clone, Component)]
 pub struct BorderRadius(pub LengthUnit);
