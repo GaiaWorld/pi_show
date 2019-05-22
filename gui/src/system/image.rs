@@ -8,7 +8,7 @@ use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry};
+use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, Sampler, SamplerDesc};
 use atom::Atom;
 
 use component::user::{BackgroundImage, Transform, BorderRadius, Image};
@@ -18,7 +18,8 @@ use layout::Layout;
 use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
-use system::util::{cal_matrix, color_is_opaque, create_geometry, set_world_matrix_ubo, set_atrribute, by_overflow_change, DefinesList, DefinesClip};
+use render::res::{ TextureRes, SamplerRes };
+use system::util::{cal_matrix, color_is_opaque, create_geometry, set_world_matrix_ubo, set_atrribute, by_overflow_change, sampler_desc_hash, DefinesList, DefinesClip};
 use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_INDEICES, COMMON, ALPHA, CLIP};
 
 
@@ -65,6 +66,7 @@ pub struct ImageSys<C: Context + Share>{
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
     pipelines: FnvHashMap<u64, Arc<Pipeline>>,
+    default_sampler_hash: u64,
 }
 
 impl<C: Context + Share> ImageSys<C> {
@@ -78,6 +80,7 @@ impl<C: Context + Share> ImageSys<C> {
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
             pipelines: FnvHashMap::default(),
+            default_sampler_hash: 0,
         }
     }
 }
@@ -117,6 +120,17 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image, CreateEvent> for
 
         let index = self.create_image_renderobjs(event.id, image.src, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
         self.image_render_map.insert(event.id, Item{index: index, defines: defines});
+    }
+
+    fn setup(&mut self, event: &CreateEvent, _: Self::ReadData, w: Self::WriteData){
+        let s = SamplerDesc::default();
+        let hash = sampler_desc_hash(&s);
+        if w.1.res_mgr.samplers.get(&hash).is_none() {
+            self.default_sampler_hash = hash;
+            let res = Arc::try_unwrap(w.1.gl.create_sampler(s).unwrap()).unwrap();
+            let res = SamplerRes::new(hash, res);
+            w.1.res_mgr.samplers.create(res);
+        }
     }
 }
 
@@ -355,6 +369,9 @@ impl<C: Context + Share> ImageSys<C> {
         ubos.insert(WORLD_MATRIX.clone(), Arc::new(world_matrix_ubo)); //世界矩阵
 
         let mut common_ubo = Uniforms::new();
+        if src != 0 {
+            let texture = unsafe{ &*(src as *const Arc<TextureRes<C>>) };
+        }
         // common_ubo.set_sampler(&TEXTURE, src);
         common_ubo.set_float_1(&ALPHA, opacity);
         let layout = unsafe { layout.get_unchecked(id) };  

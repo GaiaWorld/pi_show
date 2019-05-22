@@ -3,9 +3,10 @@ pub mod constant;
 use std::sync::Arc;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
+use std::mem::transmute;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
-use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms};
+use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc};
 use atom::Atom;
 use fnv::FnvHashMap;
 
@@ -138,4 +139,16 @@ pub trait DefinesList{
 pub trait DefinesClip{
     fn set_clip(&mut self, value: bool);
     fn get_clip(&self) -> bool;
+}
+
+pub fn sampler_desc_hash(s: &SamplerDesc) -> u64{
+    let mut h = DefaultHasher::new();
+    unsafe { transmute::<hal_core::TextureFilterMode, u8>(s.mag_filter).hash(&mut h) };
+    unsafe {  transmute::<hal_core::TextureFilterMode, u8>(s.min_filter).hash(&mut h) };
+    if let Some(mip_filter) = &s.mip_filter {
+        unsafe { transmute::<hal_core::TextureFilterMode, u8>(mip_filter.clone()).hash(&mut h) };
+    }
+    unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.u_wrap).hash(&mut h) };
+    unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.v_wrap).hash(&mut h) };
+    h.finish()
 }

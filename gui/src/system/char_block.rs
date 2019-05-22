@@ -1,5 +1,5 @@
 /**
- *  image物体（背景图片， 图片节点）渲染管线的创建销毁， ubo的设置， attribute的设置
+ *  字符物体（背景图片， 图片节点）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
