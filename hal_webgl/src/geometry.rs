@@ -1,7 +1,6 @@
 use std::collections::{HashMap};
 use std::sync::{Arc, Weak};
-use atom::{Atom};
-use hal_core::{Geometry};
+use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::{UnsafeTypedArray};
 
@@ -23,7 +22,7 @@ pub struct WebGLGeometryImpl {
     gl: Weak<WebGLRenderingContext>,
     vertex_count: u32,
     indices: Option<Indices>,
-    attributes: HashMap<Atom, Attribute>,
+    attributes: HashMap<AttributeName, Attribute>,
 }
 
 impl WebGLGeometryImpl {
@@ -40,7 +39,7 @@ impl WebGLGeometryImpl {
 
 impl Geometry for WebGLGeometryImpl {
 
-    fn has_attribute(&self, name: &Atom) -> bool {
+    fn has_attribute(&self, name: &AttributeName) -> bool {
         self.attributes.contains_key(name)
     }
   
@@ -52,7 +51,7 @@ impl Geometry for WebGLGeometryImpl {
         self.vertex_count = count;
     }
 
-    fn set_attribute(&mut self, name: &Atom, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String> {
+    fn set_attribute(&mut self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String> {
 
         assert!(self.vertex_count > 0 && item_count > 0, "WebGLGeometryImpl set_attribute failed, vertex_count or item_count invalid");
     
@@ -124,7 +123,7 @@ impl Geometry for WebGLGeometryImpl {
         Ok(())
     }
     
-    fn remove_attribute(&mut self, name: &Atom) {
+    fn remove_attribute(&mut self, name: &AttributeName) {
         match (self.gl.upgrade(), self.attributes.remove(name)) {
             (Some(gl), Some(attribute)) => {
                 gl.delete_buffer(Some(&attribute.buffer));
@@ -194,7 +193,7 @@ impl Geometry for WebGLGeometryImpl {
         }
     }
 
-    fn update_attribute(&self, name: &Atom, item_offset: u32, data: &[f32]) {
+    fn update_attribute(&self, name: &AttributeName, item_offset: u32, data: &[f32]) {
         if let Some(gl) = &self.gl.upgrade() {
             let gl = gl.as_ref();
 

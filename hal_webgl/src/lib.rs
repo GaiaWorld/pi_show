@@ -17,6 +17,7 @@ mod render_target;
 mod sampler;
 mod texture;
 
+mod convert;
 mod extension;
 // mod shader;
 

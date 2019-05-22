@@ -18,9 +18,9 @@ pub struct Pipeline {
  * 光栅化状态
  */
 pub struct RasterState {
-    pub cull_mode: CullMode,     // 默认：None
-    pub is_front_face_ccw: bool, // 默认：true
-    pub polygon_offset: (f32, f32), // 成员分别是factor和units，默认：(0, 0)
+    pub cull_mode: Option<CullMode>,   // 默认：None
+    pub is_front_face_ccw: bool,       // 默认：true
+    pub polygon_offset: (f32, f32),    // 成员分别是factor和units，默认：(0, 0)
 }
 
 /** 
@@ -89,7 +89,7 @@ impl RasterState {
     
     pub fn new() -> Self {
         Self {
-            cull_mode: CullMode::None,
+            cull_mode: None,
             is_front_face_ccw: true,
             polygon_offset: (0.0, 0.0),
         }
@@ -99,7 +99,7 @@ impl RasterState {
      * 设置光栅化时剔除的面
      * 默认：不剔除
      */
-    pub fn set_cull_mode(&mut self, cull_mode: CullMode) {
+    pub fn set_cull_mode(&mut self, cull_mode: Option<CullMode>) {
         self.cull_mode = cull_mode;
     }
 

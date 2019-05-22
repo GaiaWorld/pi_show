@@ -76,7 +76,9 @@ impl YgNode {
     pub fn set_margin_auto(&self, _edge: YGEdge) { 
         unimplemented!()
     }
-
+    pub fn set_flex_basis_auto(&self) { 
+        unimplemented!()
+    }
     pub fn set_overflow(&self, _value: YGOverflow) { 
         unimplemented!()
     }

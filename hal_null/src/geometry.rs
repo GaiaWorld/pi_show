@@ -1,5 +1,4 @@
-use atom::{Atom};
-use hal_core::{Geometry};
+use hal_core::{Geometry, AttributeName};
 
 pub struct NullGeometryImpl {
     
@@ -7,7 +6,7 @@ pub struct NullGeometryImpl {
 
 impl Geometry for NullGeometryImpl {
 
-    fn has_attribute(&self, _name: &Atom) -> bool {
+    fn has_attribute(&self, _name: &AttributeName) -> bool {
         false
     }
 
@@ -19,11 +18,11 @@ impl Geometry for NullGeometryImpl {
 
     }
 
-    fn set_attribute(&mut self, _name: &Atom, _item_count: u32, _data: Option<&[f32]>, _is_updatable: bool) -> Result<(), String> {
+    fn set_attribute(&mut self, _name: &AttributeName, _item_count: u32, _data: Option<&[f32]>, _is_updatable: bool) -> Result<(), String> {
         Err("not impl".to_string())
     }
      
-    fn remove_attribute(&mut self, _name: &Atom) {
+    fn remove_attribute(&mut self, _name: &AttributeName) {
 
     }
 
@@ -35,7 +34,7 @@ impl Geometry for NullGeometryImpl {
         
     }
 
-    fn update_attribute(&self, _name: &Atom, _item_offset: u32, _data: &[f32]) {
+    fn update_attribute(&self, _name: &AttributeName, _item_offset: u32, _data: &[f32]) {
         
     }
 }
