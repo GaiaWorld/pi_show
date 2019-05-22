@@ -54,7 +54,7 @@ pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
-// pub mod bind;
+pub mod bind;
 pub mod util;
 
 pub mod entity{
