@@ -19,7 +19,7 @@ mod texture;
 
 mod convert;
 mod extension;
-// mod state;
+mod state;
 // mod shader;
 
 use self::context::{WebGLContextImpl};

@@ -88,7 +88,7 @@ pub fn get_blend_func(func: &BlendFunc) -> u32 {
     }
 }
 
-pub fn get_blend_factor(factor: BlendFactor) -> u32 {
+pub fn get_blend_factor(factor: &BlendFactor) -> u32 {
     match factor {
         BlendFactor::Zero => WebGLRenderingContext::ZERO,
         BlendFactor::One => WebGLRenderingContext::ONE,
