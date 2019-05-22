@@ -376,11 +376,7 @@ impl<C: Context + Share> ImageSys<C> {
         ubos.insert(WORLD_MATRIX.clone(), Arc::new(world_matrix_ubo)); //世界矩阵
 
         let mut common_ubo = engine.gl.create_uniforms();
-        // if src != 0 {
-        //     // let texture = unsafe{ &*(src as *const Arc<TextureRes<C>>) };
-        // }
-
-        // common_ubo.set_sampler(&TEXTURE, src);
+        common_ubo.set_sampler(&TEXTURE, &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>), &(src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>));
         common_ubo.set_float_1(&ALPHA, opacity);
         let layout = unsafe { layout.get_unchecked(id) };  
         // let border_radius = match unsafe { border_radius.get_unchecked(id) }.0 {
