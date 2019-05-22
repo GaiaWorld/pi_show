@@ -51,9 +51,18 @@ pub struct BoxColor{
 	pub border: CgColor,
 }
 
+//ObjectFit
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct ObjectFit(pub FitType);
+
+#[derive(Component, Default)]
+pub struct SrcClip{
+  pub uv: (Point2, Point2),
+  pub size: Vector2,
+}
+
 #[derive(Clone, Component)]
 pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-
 #[derive(Clone, Component)]
 pub struct Image<C: Context + 'static + Send + Sync>{
   pub src: Arc<TextureRes<C>>,
@@ -248,16 +257,6 @@ pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, 
 pub struct Stroke{
     pub width: f32, //	描边宽度
     pub color: CgColor, //	描边颜色
-}
-
-#[derive(Debug, Clone, EnumDefault)]
-pub enum OverflowType {
-    None,	// 默认不裁剪
-    X,
-    Y,
-    All,
-    Clip(Polygon),
-    ClipPercent(Polygon),
 }
 
 // 图像填充的方式

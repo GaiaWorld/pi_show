@@ -29,12 +29,21 @@ macro_rules! set_attr {
     };
 }
 #[macro_use()]
-macro_rules! insert_attr {
+macro_rules! insert_value {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
         attr.lend_mut().insert(node_id, $tt($value));
+    };
+}
+#[macro_use()]
+macro_rules! insert_attr {
+    ($world:ident, $node_id:ident, $tt:ident, $value:expr) => {
+        let node_id = $node_id as usize;
+        let world = unsafe {&mut *($world as usize as *mut World)};
+        let attr = world.fetch_multi::<Node, $tt>().unwrap();
+        attr.lend_mut().insert(node_id, $value);
     };
 }
 #[macro_use()]
@@ -83,13 +92,13 @@ pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
 // 设置边框圆角
 #[no_mangle]
 pub fn set_border_radius(world: u32, node: u32, value: f32){
-    insert_attr!(world, node, BorderRadius, LengthUnit::Pixel(value));
+    insert_value!(world, node, BorderRadius, LengthUnit::Pixel(value));
 }
 
 // 设置边框圆角
 #[no_mangle]
 pub fn set_border_radius_percent(world: u32, node: u32, value: f32){
-    insert_attr!(world, node, BorderRadius, LengthUnit::Percent(value));
+    insert_value!(world, node, BorderRadius, LengthUnit::Percent(value));
 }
 
 // 设置阴影颜色
@@ -118,17 +127,41 @@ pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
     let v = 0;
     set_attr!(world, node, BoxShadow, v, value);
 }
-
+//设置object_fit
+#[no_mangle]
+pub fn set_object_fit(world: u32, node: u32, value: u8){
+    insert_value!(world, node, ObjectFit, unsafe{ transmute(value)});
+}
+// 设置图像裁剪
+#[no_mangle]
+pub fn set_src_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32, w: f32, h: f32){
+    insert_attr!(world, node, SrcClip, SrcClip {
+        uv: (Point2::new(u1, v1), Point2::new(u2, v2)),
+        size: Vector2::new(w, h),
+    });
+}
+// 设置图像裁剪的uv
+#[no_mangle]
+pub fn set_src_clip_uv(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
+    let uv = 0;
+    set_attr!(world, node, SrcClip, uv, (Point2::new(u1, v1), Point2::new(u2, v2)));
+}
+// 设置图像裁剪的size
+#[no_mangle]
+pub fn set_src_clip_size(world: u32, node: u32, w: f32, h: f32){
+    let size = 0;
+    set_attr!(world, node, SrcClip, size, Vector2::new(w, h));
+}
 //设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node: u32, value: bool){
-    insert_attr!(world, node, Overflow, value);
+    insert_value!(world, node, Overflow, value);
 }
 
 //设置不透明度
 #[no_mangle]
 pub fn set_opacity(world: u32, node: u32, value: f32) {
-    insert_attr!(world, node, Opacity, value);
+    insert_value!(world, node, Opacity, value);
 }
 
 //设置display
@@ -153,5 +186,5 @@ pub fn set_enable(world: u32, node: u32, value: bool) {
 #[no_mangle]
 pub fn set_zindex(world: u32, node: u32, value: i32) {
     let value = value as isize;
-    insert_attr!(world, node, ZIndex, value);
+    insert_value!(world, node, ZIndex, value);
 }
