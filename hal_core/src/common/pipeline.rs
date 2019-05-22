@@ -281,3 +281,27 @@ impl StencilState {
         self.stencil_zpass_op = zpass;
     }
 }
+
+impl AsRef<Self> for RasterState {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
+impl AsRef<Self> for StencilState {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
+impl AsRef<Self> for BlendState {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
+impl AsRef<Self> for DepthState {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}

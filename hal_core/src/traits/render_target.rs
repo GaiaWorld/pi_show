@@ -19,14 +19,14 @@ use traits::texture::{Texture};
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
-pub trait RenderBuffer: Drop {
+pub trait RenderBuffer: Drop + AsRef<Self> {
     fn get_size(&self) -> (u32, u32);
 }
 
 /** 
  * 渲染目标
  */
-pub trait RenderTarget: Drop {
+pub trait RenderTarget: Drop + AsRef<Self> {
 
     type ContextTexture: Texture;
     type ContextRenderBuffer: RenderBuffer;
