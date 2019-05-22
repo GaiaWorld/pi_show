@@ -1,10 +1,9 @@
 use std::mem::transmute;
 
 
-use ecs::World;
+use ecs::{World, LendMut};
 
 use component::user::*;
-use component::*;
 use Node;
 
 
@@ -14,7 +13,7 @@ macro_rules! push_func {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, Transform>().unwrap();
-        unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+        unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
             transform.funcs.push($value);
             true
         });
@@ -81,7 +80,7 @@ pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
     let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         if transform.funcs.len() > 0 {
             transform.funcs.clear();
             true
@@ -106,7 +105,7 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
     let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         transform.origin = TransformOrigin::XY(x_value, y_value);
         true
     });

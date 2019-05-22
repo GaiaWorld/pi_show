@@ -12,7 +12,7 @@ use hal_core::{Context, Pipeline, Uniforms};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
 
-use component::{Point2, Matrix4};
+use component::user::{Point2, Matrix4};
 
 #[derive(Debug)]
 pub struct OverflowClip{

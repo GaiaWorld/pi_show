@@ -5,7 +5,7 @@ use octree::Tree;
 use ecs::monitor::NotifyImpl;
 
 
-use component::{Aabb3, Point3, Vector3};
+use component::user::{Aabb3, Point3, Vector3};
 
 use Z_MAX;
 

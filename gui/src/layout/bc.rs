@@ -4,6 +4,7 @@ use std::os::raw::{c_void};
 use ecs::component::Component;
 use map::vecmap::VecMap;
 
+use component::user::Layout;
 use layout::yoga;
 pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType, YGUnit};
 
@@ -55,18 +56,7 @@ pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWra
 //     }
 // }
 
-#[derive(Clone, Debug, Default, Component)]
-pub struct Layout{
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-    pub height: f32,
-    pub border: f32,
-    pub padding_left: f32,
-    pub padding_top: f32,
-    pub padding_right: f32,
-    pub padding_bottom: f32,
-}
+
 // pub type YgNodeP = YgNode;
 
 #[derive(Clone, Debug, Copy, PartialEq, Component)]

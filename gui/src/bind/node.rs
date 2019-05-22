@@ -5,16 +5,15 @@ use std::{
 };
 
 
-use ecs::World;
+use ecs::{World, Lend, LendMut};
 use ecs::idtree::{IdTree, InsertType};
 
-use component::user::{Text};
-use layout::{Layout};
+use component::user::*;
 use Node;
 
 fn create(world: &World) -> usize {
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let mut idtree = idtree.borrow_mut();
+    let idtree = idtree.lend_mut();
     let node = world.create_entity::<Node>();
     idtree.create(node);
     node
@@ -23,7 +22,7 @@ fn create(world: &World) -> usize {
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let mut idtree = idtree.borrow_mut();
+    let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, index, Some(&notify));
 }
@@ -42,7 +41,7 @@ pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let node = create(world);
     let text = world.fetch_multi::<Node, Text>().unwrap();
-    let mut text = text.borrow_mut();
+    let text = text.lend_mut();
     text.insert(node, Text(Arc::new("".to_string())));
     debug_println!("create_text_node, node:{}", node);
     node as u32
@@ -62,7 +61,7 @@ pub fn create_image_node(world: u32) -> u32{
 pub fn append_child(world: u32, child: u32, parent: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let mut idtree = idtree.borrow_mut();
+    let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
     debug_println!("append_child"); 
@@ -72,7 +71,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
 pub fn insert_before(world: u32, child: u32, brother: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let mut idtree = idtree.borrow_mut();
+    let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
     debug_println!("insert_before"); 
@@ -82,7 +81,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 pub fn remove_child(world: u32, node: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let mut idtree = idtree.borrow_mut();
+    let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.remove(node as usize, Some(&notify));
     debug_println!("remove_child");  
@@ -176,28 +175,28 @@ pub fn remove_child(world: u32, node: u32){
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.top
+    unsafe {layout.lend().get_unchecked(node as usize)}.top
 }
 
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.left
+    unsafe {layout.lend().get_unchecked(node as usize)}.left
 }
 
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.width
+    unsafe {layout.lend().get_unchecked(node as usize)}.width
 }
 
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.height
+    unsafe {layout.lend().get_unchecked(node as usize)}.height
 }
 
 // #[no_mangle]
@@ -230,7 +229,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 pub fn content_box(world: u32, node: u32) {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    let layout = layout.borrow();
+    let layout = layout.lend();
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = idtree.borrow();
     let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
