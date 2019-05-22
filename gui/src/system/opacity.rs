@@ -82,7 +82,7 @@ impl_system!{
 
 
 #[cfg(test)]
-use ecs::{World, BorrowMut, SeqDispatcher, Dispatcher};
+use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 #[cfg(test)]
 use atom::Atom;
 #[cfg(test)]
@@ -93,12 +93,12 @@ fn test(){
     let world = new_world();
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
+    let idtree = LendMut::lend_mut(&idtree);
     let notify = idtree.get_notify();
     let opacitys = world.fetch_multi::<Node, Opacity>().unwrap();
-    let opacitys = BorrowMut::borrow_mut(&opacitys);
+    let opacitys = LendMut::lend_mut(&opacitys);
     let copacitys = world.fetch_multi::<Node, COpacity>().unwrap();
-    let copacitys = BorrowMut::borrow_mut(&copacitys);
+    let copacitys = LendMut::lend_mut(&copacitys);
 
     let e0 = world.create_entity::<Node>();
     

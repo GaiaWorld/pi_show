@@ -6,8 +6,7 @@ use std::mem::transmute;
 
 use atom::Atom;
 
-use ecs::World;
-use ecs::idtree::IdTree;
+use ecs::{World, LendMut};
 
 use component::user::*;
 use Node;
@@ -20,7 +19,7 @@ macro_rules! set_attr {
         let world = unsafe {&mut *($world as usize as *mut World)};
         get_text(world, node_id);
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
-        let mut attr = attr.borrow_mut();
+        let mut attr = attr.lend_mut();
         let value = $value;
         $crate::paste::item! {
             match attr.get_write(node_id) {
@@ -143,7 +142,7 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
     let world = unsafe {&mut *(world as usize as *mut World)};
     get_text(world, node_id);
     let attr = world.fetch_multi::<Node, TextShadow>().unwrap();
-    attr.borrow_mut().insert(node_id, value);
+    attr.lend_mut().insert(node_id, value);
     debug_println!("set_text_shadow"); 
 }
 
@@ -196,7 +195,7 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
 
 fn get_text(world: &World, node_id: usize) -> &mut Text {
     let text = world.fetch_multi::<Node, Text>().unwrap();
-    let mut text = text.borrow_mut();
+    let mut text = text.lend_mut();
     match text.get_mut(node_id) {
         Some(r) => unsafe{&mut *(r as *mut Text)},
         _ => panic!("it's not a text"),

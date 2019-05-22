@@ -189,7 +189,7 @@ impl_system!{
 
 
 #[cfg(test)]
-use ecs::{World, BorrowMut, SeqDispatcher, Dispatcher};
+use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 #[cfg(test)]
 use atom::Atom;
 #[cfg(test)]
@@ -200,16 +200,16 @@ fn test(){
     let world = new_world();
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = BorrowMut::borrow_mut(&idtree);
+    let idtree = LendMut::lend_mut(&idtree);
     let notify = idtree.get_notify();
     let transforms = world.fetch_multi::<Node, Transform>().unwrap();
-    let transforms = BorrowMut::borrow_mut(&transforms);
+    let transforms = LendMut::lend_mut(&transforms);
     let layouts = world.fetch_multi::<Node, Layout>().unwrap();
-    let layouts = BorrowMut::borrow_mut(&layouts);
+    let layouts = LendMut::lend_mut(&layouts);
     let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
-    let world_matrixs = BorrowMut::borrow_mut(&world_matrixs);
+    let world_matrixs = LendMut::lend_mut(&world_matrixs);
     let zdepths = world.fetch_multi::<Node, ZDepth>().unwrap();
-    let zdepths = BorrowMut::borrow_mut(&zdepths);
+    let zdepths = LendMut::lend_mut(&zdepths);
 
     let e0 = world.create_entity::<Node>();
     
