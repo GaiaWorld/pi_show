@@ -32,31 +32,6 @@ lazy_static! {
     static ref TEXTURE: Atom = Atom::from("texture");
 }
 
-pub struct Item {
-    index: usize,
-    defines: Defines,
-}
-
-#[derive(Default)]
-pub struct Defines {
-    clip: bool,
-}
-
-impl DefinesClip for Defines {
-    fn set_clip(&mut self, value: bool){self.clip = value}
-    fn get_clip(&self) -> bool {self.clip}
-}
-
-impl DefinesList for Defines {
-    fn list(&self) -> Vec<Atom> {
-        let mut arr = Vec::new();
-        if self.clip {
-            arr.push(CLIP.clone());
-        }
-        arr
-    }
-}
-
 pub struct ImageSys<C: Context + Share>{
     image_render_map: VecMap<Item>,
     bg_image_render_map: VecMap<Item>,
@@ -209,11 +184,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
         let image = unsafe { read.get_unchecked(event.id) };
         match event.field {
             "src" => {
+                let image = unsafe { read.get_unchecked(event.id) };
                 let item = unsafe { self.image_render_map.get_unchecked(event.id) };
                 let mut ubos = &mut unsafe { write.get_unchecked_mut(item.index) }.ubos;
                 let common_ubo = ubos.get_mut(&COMMON).unwrap();
-                // set_sampler
-                // Arc::make_mut(common_ubo).set_sampler(&COMMON, ); TODO
+                Arc::make_mut(common_ubo).set_sampler(&TEXTURE, &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>), &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>));
             },
             _ => (),
         }
@@ -229,8 +204,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundImage<C>, Mod
         let item = unsafe { self.bg_image_render_map.get_unchecked(event.id) };
         let mut ubos = &mut unsafe { write.get_unchecked_mut(item.index) }.ubos;
         let common_ubo = ubos.get_mut(&COMMON).unwrap();
-        // set_sampler
-        // Arc::make_mut(common_ubo).set_sampler(&COMMON, ); TODO
+        Arc::make_mut(common_ubo).set_sampler(&TEXTURE, &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>), &(bg_image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>));
     }
 }
 
@@ -409,6 +383,31 @@ impl<C: Context + Share> ImageSys<C> {
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         index
+    }
+}
+
+pub struct Item {
+    index: usize,
+    defines: Defines,
+}
+
+#[derive(Default)]
+pub struct Defines {
+    clip: bool,
+}
+
+impl DefinesClip for Defines {
+    fn set_clip(&mut self, value: bool){self.clip = value}
+    fn get_clip(&self) -> bool {self.clip}
+}
+
+impl DefinesList for Defines {
+    fn list(&self) -> Vec<Atom> {
+        let mut arr = Vec::new();
+        if self.clip {
+            arr.push(CLIP.clone());
+        }
+        arr
     }
 }
 
