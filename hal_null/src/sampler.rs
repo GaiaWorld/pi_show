@@ -11,3 +11,9 @@ impl Drop for NullSamplerImpl {
     fn drop(&mut self) {
     }
 }
+
+impl AsRef<Self> for NullSamplerImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}

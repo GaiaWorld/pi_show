@@ -1,8 +1,9 @@
 use std::sync::{Arc, Weak};
+use std::convert::AsRef;
 use std::collections::{HashMap};
 
 use atom::{Atom};
-use traits::{Texture, Sampler};
+use traits::{Context};
 
 /** 
  * Uniform集合
@@ -33,32 +34,40 @@ use traits::{Texture, Sampler};
  *      mat2 or mat2[N]   set_mat_2v
  *      mat3 or mat3[N]   set_mat_3v
  *      mat4 or mat4[N]   set_mat_4v
+ * 
+ *      sampler           set_sampler
  */
 #[derive(Clone)]
-pub struct Uniforms {
-    pub values: HashMap<Atom, UniformValue>,
+pub struct Uniforms<C: Context> {
+    pub values: HashMap<Atom, UniformValue<C>>,
 }
 
 /** 
  * Uniform的值，包含各种Uniform枚举
  */
-#[derive(Clone)]
-pub enum UniformValue {
+pub enum UniformValue<C: Context> {
     Float(u8, f32, f32, f32, f32), // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     Int(u8, i32, i32, i32, i32),   // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     FloatV(u8, Vec<f32>),          // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4
     IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
-    Sampler(Weak<Sampler>, Weak<Texture>), // TODO：Trait Object，接口方便，会有性能损失
+    Sampler(Weak<AsRef<C::ContextSampler>>, Weak<AsRef<C::ContextTexture>>),
 }
 
-impl Uniforms {
-
-    pub fn new() -> Self {
-        Uniforms {
-            values: HashMap::new(),
+impl<C: Context> Clone for UniformValue<C> {
+    fn clone(&self) -> Self {
+        match self {
+            UniformValue::<C>::Float(c, v1, v2, v3, v4) => UniformValue::<C>::Float(*c, *v1, *v2, *v3, *v4),
+            UniformValue::<C>::Int(c, v1, v2, v3, v4) => UniformValue::<C>::Int(*c, *v1, *v2, *v3, *v4),
+            UniformValue::<C>::FloatV(c, v) => UniformValue::<C>::FloatV(*c, v.clone()),
+            UniformValue::<C>::IntV(c, v) => UniformValue::<C>::IntV(*c, v.clone()),
+            UniformValue::<C>::MatrixV(c, v) => UniformValue::<C>::MatrixV(*c, v.clone()),
+            UniformValue::<C>::Sampler(s, t) => UniformValue::<C>::Sampler(s.clone(), t.clone()),
         }
     }
+}
+
+impl<C: Context> Uniforms<C> {
 
     pub fn set_int_1(&mut self, name: &Atom, v: i32) {
         self.values.entry(name.clone())
@@ -378,7 +387,7 @@ impl Uniforms {
     /** 
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
-    pub fn set_sampler(&mut self, name: &Atom, sampler: &Arc<Sampler>, texture: &Arc<Texture>) {
+    pub fn set_sampler(&mut self, name: &Atom, sampler: &Arc<AsRef<C::ContextSampler>>, texture: &Arc<AsRef<C::ContextTexture>>) {
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -392,5 +401,11 @@ impl Uniforms {
                 }
             })
             .or_insert(UniformValue::Sampler(Arc::downgrade(sampler), Arc::downgrade(texture)));
+    }
+}
+
+impl<C: Context> AsRef<Self> for Uniforms<C> {
+    fn as_ref(&self) -> &Self {
+        &self
     }
 }

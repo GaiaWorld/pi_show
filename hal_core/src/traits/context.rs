@@ -1,6 +1,7 @@
 use std::sync::{Arc};
 use std::collections::{HashMap};
 use atom::Atom;
+use std::convert::{AsRef};
 
 use common::{Uniforms, ShaderType, Capabilities, Pipeline, RenderBeginDesc, PixelFormat, DataFormat, RasterState, DepthState, StencilState, BlendState};
 use traits::texture::{Texture};
@@ -57,7 +58,7 @@ use traits::render_target::{RenderTarget, RenderBuffer};
  */
 
 pub trait Context {
-    
+    type ContextSelf: Context;
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
     type ContextSampler: Sampler;
@@ -90,12 +91,17 @@ pub trait Context {
     /** 
      * 创建渲染管线
      */
-    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Result<Arc<Pipeline>, String>;
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<AsRef<RasterState>>, bs: Arc<AsRef<BlendState>>, ss: Arc<AsRef<StencilState>>, ds: Arc<AsRef<DepthState>>) -> Result<Pipeline, String>;
+
+    /** 
+     * 创建Uniforms
+     */
+    fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf>;
 
     /** 
      * 创建几何数据
      */
-    fn create_geometry(&self) -> Result<Arc<Self::ContextGeometry>, String>;
+    fn create_geometry(&self) -> Result<Self::ContextGeometry, String>;
 
     /** 
      * 创建2D纹理
@@ -104,7 +110,7 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Arc<Self::ContextTexture>, String>;
+    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Self::ContextTexture, String>;
 
     /** 
      * 用canvas创建2D纹理，尽用于webgl版本
@@ -113,28 +119,28 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d_with_canvas(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, canvas: *const isize) -> Result<Arc<Self::ContextTexture>, String>;
+    fn create_texture_2d_with_canvas(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, canvas: *const isize) -> Result<Self::ContextTexture, String>;
 
     /** 
      * 创建采样器
      */
-    fn create_sampler(&mut self, texture: Arc<Self::ContextTexture>, desc: Arc<SamplerDesc>) -> Result<Arc<Self::ContextSampler>, String>;
+    fn create_sampler(&mut self, texture: Arc<AsRef<Self::ContextTexture>>, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String>;
 
     /** 
      * 创建渲染目标
      */
-    fn create_render_target(&mut self) -> Result<Arc<Self::ContextRenderTarget>, String>;
+    fn create_render_target(&mut self) -> Result<Self::ContextRenderTarget, String>;
 
     /** 
      * 创建渲染缓冲区
      */
-    fn create_render_buffer(&mut self, w: u32, h: u32, format: PixelFormat) -> Result<Arc<Self::ContextRenderBuffer>, String>;
+    fn create_render_buffer(&mut self, w: u32, h: u32, format: PixelFormat) -> Result<Self::ContextRenderBuffer, String>;
  
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn begin_render(&mut self, render_target: &Arc<Self::ContextRenderTarget>, data: &Arc<RenderBeginDesc>);
+    fn begin_render(&mut self, render_target: &Arc<AsRef<Self::ContextRenderTarget>>, data: &Arc<AsRef<RenderBeginDesc>>);
 
     /** 
      * 结束渲染
@@ -146,11 +152,11 @@ pub trait Context {
      * 设置渲染管线
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_pipeline(&mut self, pipeline: &Arc<Pipeline>);
+    fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>);
 
     /** 
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: &Arc<Self::ContextGeometry>, values: &HashMap<Atom, Arc<Uniforms>>);
+    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>);
 }

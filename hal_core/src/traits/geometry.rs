@@ -3,7 +3,7 @@ use common::{AttributeName};
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry: Drop {
+pub trait Geometry: Drop + AsRef<Self> {
 
     /** 
      * 是否有属性

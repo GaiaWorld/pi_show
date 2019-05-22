@@ -10,7 +10,7 @@ pub struct SamplerDesc {
     pub v_wrap: TextureWrapMode,
 }
 
-pub trait Sampler: Drop {
+pub trait Sampler: Drop + AsRef<Self> {
 }
 
 impl Default for SamplerDesc {

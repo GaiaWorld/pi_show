@@ -37,6 +37,12 @@ impl WebGLGeometryImpl {
     }
 }
 
+impl AsRef<Self> for WebGLGeometryImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
 impl Geometry for WebGLGeometryImpl {
 
     fn has_attribute(&self, name: &AttributeName) -> bool {

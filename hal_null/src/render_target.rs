@@ -21,6 +21,12 @@ impl Drop for NullRenderBufferImpl {
     }
 }
 
+impl AsRef<Self> for NullRenderBufferImpl {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
 impl RenderTarget for NullRenderTargetImpl {
     type ContextTexture = NullTextureImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
@@ -38,5 +44,11 @@ impl RenderTarget for NullRenderTargetImpl {
 
 impl Drop for NullRenderTargetImpl {
     fn drop(&mut self) {
+    }
+}
+
+impl AsRef<Self> for NullRenderTargetImpl {
+    fn as_ref(&self) -> &Self {
+        &self
     }
 }
