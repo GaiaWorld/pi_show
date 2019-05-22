@@ -40,7 +40,7 @@ pub struct StencilState {
     
     pub stencil_test_func: CompareFunc,
     pub stencil_ref: i32,
-    pub stencil_mask: i32,
+    pub stencil_mask: u32,
     
     pub stencil_fail_op: StencilOp,
     pub stencil_zfail_op: StencilOp,
@@ -264,7 +264,7 @@ impl StencilState {
      * 设置模板测试函数
      * 默认：永远不通过，ref和mask都是0
      */
-    pub fn set_func(&mut self, func: CompareFunc, sref: i32, mask: i32) {
+    pub fn set_func(&mut self, func: CompareFunc, sref: i32, mask: u32) {
         self.stencil_test_func = func;
         self.stencil_ref = sref;
         self.stencil_mask = mask;
