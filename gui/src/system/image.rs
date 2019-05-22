@@ -11,10 +11,8 @@ use map::{ vecmap::VecMap, Map } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, Sampler, SamplerDesc};
 use atom::Atom;
 
-use component::user::{BackgroundImage, Transform, BorderRadius, Image};
+use component::user::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
-use component::{Color, CgColor, LengthUnit};
-use layout::Layout;
 use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;

@@ -10,8 +10,6 @@ use ecs::World;
 use ecs::idtree::IdTree;
 
 use component::user::*;
-use component::*;
-use font::font_sheet::{ get_line_height, LineHeight, FontSheet, FontSize};
 use Node;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 

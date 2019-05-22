@@ -5,10 +5,8 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use ecs::idtree::{ IdTree};
 
 use component::calc::{WorldMatrix};
-use component::user::{Transform};
-use component::{Aabb3, Vector4, Point3, Matrix4, Point2};
+use component::user::*;
 use single::oct::Oct;
-use layout::Layout;
 use entity::{Node};
 
 #[derive(Default)]

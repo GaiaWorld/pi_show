@@ -28,7 +28,7 @@ pub extern crate paste;
 // extern crate webgl_rendering_context;
 // #[macro_use]
 // extern crate stdweb;
-
+ 
 
 extern crate deque;
 extern crate cg2d;
@@ -65,7 +65,6 @@ use ecs::{World};
 use ecs::idtree::IdTree;
 use component::user::*;
 use component::calc::*;
-use layout::Layout;
 use entity::Node;
 
 pub type IdBind = usize;

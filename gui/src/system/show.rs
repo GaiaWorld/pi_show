@@ -5,8 +5,7 @@
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{ IdTree};
 
-use component::user::{Show};
-use component::Display;
+use component::user::*;
 use component::calc::{Visibility as CVisibility, VisibilityWrite as CVisibilityWrite, Enable as CEnable, EnableWrite as CEnableWrite};
 use entity::{Node};
 

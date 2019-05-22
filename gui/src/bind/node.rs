@@ -8,8 +8,7 @@ use std::{
 use ecs::World;
 use ecs::idtree::{IdTree, InsertType};
 
-use component::user::{Text};
-use layout::{Layout};
+use component::user::*;
 use Node;
 
 fn create(world: &World) -> usize {
@@ -176,28 +175,32 @@ pub fn remove_child(world: u32, node: u32){
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.top
+    let layout = layout.borrow();
+    unsafe {layout.get_unchecked(node as usize)}.top
 }
 
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.left
+    let layout = layout.borrow();
+    unsafe {layout.get_unchecked(node as usize)}.left
 }
 
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.width
+    let layout = layout.borrow();
+    unsafe {layout.get_unchecked(node as usize)}.width
 }
 
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.borrow().get_unchecked(node as usize)}.height
+    let layout = layout.borrow();
+    unsafe {layout.get_unchecked(node as usize)}.height
 }
 
 // #[no_mangle]

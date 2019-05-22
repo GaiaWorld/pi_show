@@ -1,7 +1,9 @@
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{IdTree};
 
-use layout::{YgNode, Layout};
+
+use component::user::*;
+use layout::{YgNode};
 use entity::{Node};
 
 pub struct LayoutSys;

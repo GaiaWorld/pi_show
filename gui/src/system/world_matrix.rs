@@ -10,8 +10,7 @@ use component::user::{ Transform };
 use component::calc::{ WorldMatrix, ZDepth };
 use map::vecmap::{VecMap};
 
-use component::Point2;
-use layout::Layout;
+use component::user::*;
 use entity::{Node};
 
 #[derive(Default)]

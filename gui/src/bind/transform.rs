@@ -4,7 +4,6 @@ use std::mem::transmute;
 use ecs::World;
 
 use component::user::*;
-use component::*;
 use Node;
 
 

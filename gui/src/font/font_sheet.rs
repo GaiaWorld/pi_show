@@ -8,31 +8,16 @@ use atom::{Atom};
 use ucd::{Codepoint};
 use hal_core::Context;
 
-use component::CgColor as Color;
+use component::user::*;
 use font::sdf_font::SdfFont;
 
 pub const FONT_SIZE: f32 = 32.0;
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum FontSize {
-    None,	// 默认尺寸。
-    Length(f32),	//把 font-size 设置为一个固定的值。
-    Percent(f32), //把 font-size 设置为基于父元素的一个百分比值。
-}
-
-//设置行高
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum LineHeight{
-    Normal, //设置合理的行间距（等于font-size）
-    Length(f32), //固定像素
-    Number(f32), //设置数字，此数字会与当前的字体尺寸相乘来设置行间距。
-    Percent(f32),   //	基于当前字体尺寸的百分比行间距.
-}
 
 /// 字体表 使用SDF(signed distance field 有向距离场)渲染字体， 支持预定义字体纹理及配置， 也支持动态计算字符的SDF
 pub struct FontSheet<C: Context + 'static + Send + Sync> {
     size: f32,
-    color: Color,
+    color: CgColor,
     src_map: FnvHashMap<Atom, Arc<SdfFont<Ctx=C>>>,
     face_map: FnvHashMap<Atom, FontFace>,
 }
@@ -43,7 +28,7 @@ impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
     fn default() -> Self {
         FontSheet {
             size: FONT_SIZE,
-            color: Color::default(),
+            color: CgColor::default(),
             src_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
             face_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
         }
@@ -56,7 +41,7 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         self.size = size;
     }
     // 设置默认字色
-    pub fn set_color(&mut self, color: Color) {
+    pub fn set_color(&mut self, color: CgColor) {
         self.color = color;
     }
     // 设置SDFFont

@@ -10,14 +10,12 @@ use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Con
 use atom::Atom;
 use fnv::FnvHashMap;
 
-use component::Matrix4;
-use component::user::Transform;
+
+use component::user::*;
 use component::calc::WorldMatrix;
-use component::{Vector3, Color};
 use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_INDEICES, CLIP};
 use render::engine::Engine;
 use single::RenderObjs;
-use layout::Layout;
 use Node;
 
 pub fn cal_matrix(
