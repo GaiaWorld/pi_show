@@ -13,9 +13,187 @@ use hal_core::Context;
 use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
-use component::{LengthUnit, Display, Color, CgColor};
-use font::font_sheet::{FontSize, LineHeight};
 
+
+pub type TypedArray = Vec<f32>;
+
+pub type Matrix4 = cgmath::Matrix4<f32>;
+pub type Point2 = cgmath::Point2<f32>;
+pub type Point3 = cgmath::Point3<f32>;
+pub type Vector2 = cgmath::Vector2<f32>;
+pub type Vector3 = cgmath::Vector3<f32>;
+pub type Vector4 = cgmath::Vector4<f32>;
+pub type CgColor = color::Color<f32>;
+pub type Aabb3 = collision::Aabb3<f32>;
+
+pub enum LengthUnitType{
+    Pixel,
+    Percent
+}
+#[derive(Clone, Copy, Debug)]
+pub enum LengthUnit {
+	Pixel(f32),
+	Percent(f32),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Display{
+  Flex,
+  None,
+}
+
+#[derive(Debug, Clone, EnumDefault)]
+pub enum Color{
+    RGB(CgColor),
+    RGBA(CgColor),
+    LinearGradient(LinearGradientColor),
+    RadialGradient(RadialGradientColor),
+}
+
+impl Color {
+
+    pub fn is_opaque(&self) -> bool {
+        match self {
+            Color::RGB(c) | Color::RGBA(c) => {
+                if c.a < 1.0 {
+                    return false;
+                }
+                return true;
+            },
+            Color::LinearGradient(l) => {
+                for c in l.list.iter() {
+                    if c.rgba.a < 1.0 {
+                    return false;
+                    }
+                }
+                return true;
+            },
+            Color::RadialGradient(g) => {
+                for c in g.list.iter() {
+                    if c.rgba.a < 1.0 {
+                        return false
+                    }
+                }
+                return true;
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LinearGradientColor{
+    pub direction: f32,
+    pub list: Vec<ColorAndPosition>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RadialGradientColor{
+    pub center: (f32, f32),
+    pub shape: RadialGradientShape,
+    pub size: RadialGradientSize,
+    pub list: Vec<ColorAndPosition>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ColorAndPosition{
+    pub rgba: CgColor,
+    pub position: f32,
+}
+
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum RadialGradientSize{
+    ClosestSide,
+    FarthesSide,
+    ClosestCorner,
+    Farthescorner,
+}
+
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum RadialGradientShape{
+    Ellipse,
+    Circle,
+}
+
+pub struct Polygon {
+    pub value: Vec<LengthUnit>,
+}
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
+pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32) -> LinearGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count{
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba: CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4]
+        };
+        list.push(color_pos);
+    }
+    LinearGradientColor {
+        direction: direction,
+        list : list,
+    }
+}
+
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
+pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count{
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba:CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4]
+        };
+        list.push(color_pos);
+    }
+    RadialGradientColor {
+        center: (center_x, center_y),
+        shape : unsafe{ transmute(shape) },
+        size: unsafe{ transmute(size) },
+        list: list,
+    }
+}
+
+// [[x_ty, x, y_ty, y], [x_ty, x, y_ty, y]...]
+pub fn to_polygon(position: TypedArray) -> Polygon {
+    let arr = position;
+    let len = arr.len();
+    let count = len / 4;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count{
+        let start = i * 4;
+        let x = match unsafe {transmute(arr[start] as u8)} {
+            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 1]),
+            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 1]),
+        };
+        let y = match unsafe {transmute(arr[start + 2] as u8)} {
+            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 3]),
+            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 3]),
+        };
+        list.push(x);
+        list.push(y);
+    }
+    Polygon{
+        value: list
+    }
+}
+#[derive(Clone, Debug, Default, Component)]
+pub struct Layout{
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
+    pub padding_right: f32,
+    pub padding_bottom: f32,
+}
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ZIndex(pub isize);
 
@@ -85,6 +263,21 @@ pub struct TextShadow{
     pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
     pub blur: f32, //	可选。模糊的距离。	测试
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
+}
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum FontSize {
+    None,	// 默认尺寸。
+    Length(f32),	//把 font-size 设置为一个固定的值。
+    Percent(f32), //把 font-size 设置为基于父元素的一个百分比值。
+}
+
+//设置行高
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum LineHeight{
+    Normal, //设置合理的行间距（等于font-size）
+    Length(f32), //固定像素
+    Number(f32), //设置数字，此数字会与当前的字体尺寸相乘来设置行间距。
+    Percent(f32),   //	基于当前字体尺寸的百分比行间距.
 }
 
 #[derive(Component, Debug, Clone, Default)]
@@ -175,11 +368,11 @@ pub enum TransformOrigin{
 }
 
 impl TransformOrigin {
-    pub fn to_value(&self, width: f32, height: f32) -> super::Point2 {
+    pub fn to_value(&self, width: f32, height: f32) -> Point2 {
         match self {
-            TransformOrigin::Center => super::Point2::new(0.5 * width, 0.5 * height),
+            TransformOrigin::Center => Point2::new(0.5 * width, 0.5 * height),
             TransformOrigin::XY(x, y) => {
-                super::Point2::new(
+                Point2::new(
                     match x {
                         LengthUnit::Pixel(v) => v.clone(),
                         LengthUnit::Percent(v) => v * width,
@@ -200,7 +393,7 @@ enum ShowType{
   Enable = 4, // 0表示no Enable
 }
 impl Transform {
-    pub fn matrix(&self, width: f32, height: f32, origin: &super::Point2) -> super::Matrix4 {
+    pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> Matrix4 {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -210,25 +403,25 @@ impl Transform {
         // );
 
         let value = self.origin.to_value(width, height);
-        let mut m = super::Matrix4::from_translation(super::Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
+        let mut m = Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
 
         for func in self.funcs.iter() {
             match func {
                 TransformFunc::TranslateX(x) => {
-                    m = m * super::Matrix4::from_translation(super::Vector3::new(*x, 0.0, 0.0))
+                    m = m * Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0))
                 },
-                TransformFunc::TranslateY(y) => m = m * super::Matrix4::from_translation(super::Vector3::new(0.0, *y, 0.0)),
-                TransformFunc::Translate(x, y) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x, *y, 0.0)),
+                TransformFunc::TranslateY(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)),
+                TransformFunc::Translate(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x, *y, 0.0)),
 
-                TransformFunc::TranslateXPercent(x) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x * width, 0.0, 0.0)),
-                TransformFunc::TranslateYPercent(y) => m = m * super::Matrix4::from_translation(super::Vector3::new(0.0, *y * height, 0.0)),
-                TransformFunc::TranslatePercent(x, y) => m = m * super::Matrix4::from_translation(super::Vector3::new(*x * width, *y * height, 0.0)),
+                TransformFunc::TranslateXPercent(x) => m = m * Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)),
+                TransformFunc::TranslateYPercent(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)),
+                TransformFunc::TranslatePercent(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)),
 
-                TransformFunc::ScaleX(x) => m = m * super::Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
-                TransformFunc::ScaleY(y) => m = m * super::Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
-                TransformFunc::Scale(x, y) => m = m * super::Matrix4::from_nonuniform_scale(*x, *y, 1.0),
+                TransformFunc::ScaleX(x) => m = m * Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
+                TransformFunc::ScaleY(y) => m = m * Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
+                TransformFunc::Scale(x, y) => m = m * Matrix4::from_nonuniform_scale(*x, *y, 1.0),
                 
-                TransformFunc::RotateZ(z) => m = m * super::Matrix4::from_angle_z(cgmath::Deg(*z)),
+                TransformFunc::RotateZ(z) => m = m * Matrix4::from_angle_z(cgmath::Deg(*z)),
             }
         }
         m

@@ -1,8 +1,8 @@
 use std::mem::transmute;
 
-use ecs::World;
+use ecs::{World, LendMut};
 
-use Node;
+use entity::Node;
 use layout::*;
 
 
@@ -15,7 +15,7 @@ macro_rules! func_enum {
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut World)};
             let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|s| {
+            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
             });
@@ -30,7 +30,7 @@ macro_rules! func_value {
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut World)};
             let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|s| {
+            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
             });
@@ -46,7 +46,7 @@ macro_rules! func_enum_value {
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut World)};
             let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|s| {
+            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(edge, value);
                 true
             });
@@ -61,7 +61,7 @@ macro_rules! func_auto {
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut World)};
             let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|s| {
+            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func();
                 true
             });

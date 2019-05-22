@@ -1,12 +1,10 @@
 use std::mem::transmute;
 
 
-use ecs::World;
+use ecs::{World, LendMut};
 
 use component::user::*;
-use component::*;
-use color::Color as CgColor;
-use Node;
+use entity::Node;
 
 
 #[macro_use()]
@@ -15,7 +13,7 @@ macro_rules! set_attr {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
-        let mut attr = attr.borrow_mut();
+        let attr = attr.lend_mut();
         let value = $value;
         $crate::paste::item! {
             match attr.get_write(node_id) {
@@ -36,7 +34,7 @@ macro_rules! insert_attr {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
-        attr.borrow_mut().insert(node_id, $tt($value));
+        attr.lend_mut().insert(node_id, $tt($value));
     };
 }
 #[macro_use()]
@@ -45,7 +43,7 @@ macro_rules! set_show {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, Show>().unwrap();
-        unsafe {attr.borrow_mut().get_unchecked_write(node_id)}.modify(|s| {
+        unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
             let old = s.clone();
             s.$name($value);
             old == *s

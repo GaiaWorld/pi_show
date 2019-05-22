@@ -9,6 +9,7 @@ use atom::Atom;
 use map::{vecmap::VecMap};
 use ecs::component::Component;
 
+use super::user::*;
 use layout::YgNode;
 
 #[derive(Component, Default, Deref, DerefMut)]
@@ -18,7 +19,7 @@ pub struct ZDepth(pub f32);
 pub struct ByOverflow(pub usize);
 
 #[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
-pub struct WorldMatrix(pub super::Matrix4);
+pub struct WorldMatrix(pub Matrix4);
 
 //是否可见， 不可见时， 也会占据布局位置
 #[derive(Deref, DerefMut, Component, Debug, Default)]
@@ -54,7 +55,7 @@ pub struct CharBlock {
   pub font_size: f32, // 字体高度
   pub line_height: f32,
   pub letter_spacing: f32,
-  pub vertical_align: super::user::VerticalAlign,
+  pub vertical_align: VerticalAlign,
   pub indent: f32,
   pub chars: Vec<CharNode>, // 字符集合
   pub dirty: bool,
@@ -64,6 +65,6 @@ pub struct CharBlock {
 pub struct CharNode {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
-  pub pos: super::Point2, // 位置
+  pub pos: Point2, // 位置
   pub node: YgNode, // 对应的yoga节点
 }
