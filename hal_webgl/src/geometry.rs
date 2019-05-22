@@ -20,9 +20,9 @@ pub struct Indices {
 
 pub struct WebGLGeometryImpl {
     gl: Weak<WebGLRenderingContext>,
-    vertex_count: u32,
-    indices: Option<Indices>,
-    attributes: HashMap<AttributeName, Attribute>,
+    pub vertex_count: u32,
+    pub indices: Option<Indices>,
+    pub attributes: HashMap<AttributeName, Attribute>,
 }
 
 impl WebGLGeometryImpl {
