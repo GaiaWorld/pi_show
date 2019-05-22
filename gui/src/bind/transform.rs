@@ -4,7 +4,7 @@ use std::mem::transmute;
 use ecs::{World, LendMut};
 
 use component::user::*;
-use Node;
+use entity::Node;
 
 
 #[macro_use()]
