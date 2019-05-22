@@ -8,7 +8,7 @@
  * data.set_***(...);
  */
 pub struct RenderBeginDesc {
-    pub viewport: (u32, u32, u32, u32),    // x, y, 宽, 高，左上角为原点
+    pub viewport: (i32, i32, i32, i32),    // x, y, 宽, 高，左上角为原点
     pub clear_color: Option<(f32, f32, f32, f32)>, // r, g, b, a，范围：0-1，为None代表不更新颜色
     pub clear_depth: Option<f32>,   // 0-1，1代表最远，为None代表不更新深度
     pub clear_stencil: Option<u8>, // 0-255，为None代表不更新模板
@@ -24,7 +24,7 @@ impl RenderBeginDesc {
      *    清空深度：最远值，1.0
      *    不清空模板
      */
-    pub fn new(x: u32, y: u32, width: u32, height: u32) -> Self {
+    pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
         RenderBeginDesc {
             viewport: (x, y, width, height),
             clear_color: Some((1.0, 1.0, 1.0, 1.0)),

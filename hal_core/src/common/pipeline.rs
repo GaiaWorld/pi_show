@@ -8,10 +8,10 @@ pub struct Pipeline {
     pub vs_hash: u64,
     pub fs_hash: u64,
 
-    pub raster_state: Option<Arc<RasterState>>,
-    pub depth_state: Option<Arc<DepthState>>,
-    pub stencil_state: Option<Arc<StencilState>>,
-    pub blend_state: Option<Arc<BlendState>>,
+    pub raster_state: Arc<AsRef<RasterState>>,
+    pub depth_state: Arc<AsRef<DepthState>>,
+    pub stencil_state: Arc<AsRef<StencilState>>,
+    pub blend_state: Arc<AsRef<BlendState>>,
 }
 
 /** 
@@ -62,20 +62,6 @@ pub struct BlendState {
     pub dst_alpha_factor: BlendFactor,
 
     pub const_rgba: (f32, f32, f32, f32),
-}
-
-impl Pipeline {
-    pub fn new() -> Self {
-        Pipeline {
-            vs_hash: 0,
-            fs_hash: 0,
-
-            raster_state: None,
-            depth_state: None,
-            stencil_state: None,
-            blend_state: None,
-        }
-    }
 }
 
 /** 

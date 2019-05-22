@@ -10,7 +10,10 @@ use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
 
 pub struct State {
-    
+    clear_color: (f32, f32, f32, f32), 
+    clear_depth: f32, 
+    clear_stencil: u8,
+
     gl: Arc<WebGLRenderingContext>, 
 
     raster: Arc<AsRef<RasterState>>,
@@ -34,6 +37,11 @@ impl State {
 
         let state = State {
             gl: gl.clone(),
+
+            clear_color: (1.0, 1.0, 1.0, 1.0), 
+            clear_depth: 1.0, 
+            clear_stencil: 0,
+    
             program: (0, 0),
             raster: Arc::new(RasterState::new()),
             stencil: Arc::new(StencilState::new()),
@@ -73,13 +81,50 @@ impl State {
         }
     }
 
-    pub fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32) {
-        if self.viewport_rect != (x, y, width, height) {
+    /** 
+     * rect: (x, y, width, height)
+     */
+    pub fn set_viewport(&mut self, rect: &(i32, i32, i32, i32)) {
+        if self.viewport_rect != *rect {
             
-            self.gl.viewport(x, y, width, height);
-            self.gl.scissor(x, y, width, height);
+            self.gl.viewport(rect.0, rect.1, rect.2, rect.3);
+            self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
 
-            self.viewport_rect = (x, y, width, height);
+            self.viewport_rect = *rect;
+        }
+    }
+
+    pub fn set_clear(&mut self, color: &Option<(f32, f32, f32, f32)>, depth: &Option<f32>, stencil: &Option<u8>) {
+        let mut flag = 0;
+        if let Some(color) = color {
+            flag |= WebGLRenderingContext::COLOR_BUFFER_BIT;
+
+            if *color != self.clear_color {
+                self.gl.clear_color(color.0, color.1, color.2, color.3);
+                self.clear_color = *color;
+            }
+        }
+
+        if let Some(depth) = depth {
+            flag |= WebGLRenderingContext::DEPTH_BUFFER_BIT;
+
+            if *depth != self.clear_depth {
+                self.gl.clear_depth(*depth);
+                self.clear_depth = *depth;
+            }
+        }
+
+        if let Some(stencil) = stencil {
+            flag |= WebGLRenderingContext::STENCIL_BUFFER_BIT;
+
+            if *stencil != self.clear_stencil {
+                self.gl.clear_stencil(*stencil as i32);
+                self.clear_stencil = *stencil;
+            }
+        }
+
+        if flag != 0 {
+            self.gl.clear(flag);
         }
     }
 
@@ -245,6 +290,11 @@ impl State {
      * 全状态设置，仅用于创建State时候
      */
     fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &State) {
+
+        gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
+        gl.clear_depth(state.clear_depth);
+        gl.clear_stencil(state.clear_stencil as i32);
+
         Self::set_raster_state(gl.as_ref(), None, state.raster.as_ref().as_ref());
         Self::set_depth_state(gl.as_ref(), None, state.depth.as_ref().as_ref());
         Self::set_blend_state(gl.as_ref(), None, state.blend.as_ref().as_ref());
