@@ -8,7 +8,7 @@ use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry};
+use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
 use atom::Atom;
 
 use component::user::{BoxColor, Transform, BorderRadius, BoxShadow};
@@ -108,9 +108,9 @@ impl<C: Context + Share> SdfSys<C> {
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> for SdfSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<ViewUbo>,
-        &'a SingleCaseImpl<ProjectionUbo>,
-        &'a SingleCaseImpl<ClipUbo>,
+        &'a SingleCaseImpl<ViewUbo<C>>,
+        &'a SingleCaseImpl<ProjectionUbo<C>>,
+        &'a SingleCaseImpl<ClipUbo<C>>,
         &'a MultiCaseImpl<Node, BoxColor>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Visibility>,
@@ -131,12 +131,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
         let box_color = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         match &box_color.background {
             Color::RGB(r) | Color::RGBA(r) => {
                 defines.u_color = true;
-                let mut color_ubo = Uniforms::new();
+                let mut color_ubo = w.1.gl.create_uniforms();
                 color_ubo.set_float_4(&U_COLOR, r.a, r.g, r.b, r.a);
                 ubos.insert(UCOLOR.clone(), Arc::new(color_ubo)); // COLOR 属性
                 geometry = create_geometry(&mut w.1.gl);
@@ -148,7 +148,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
                         layout.width, layout.height, z_depth, // right_bootom
                         layout.width, 0.0,           z_depth, // right_top
                     ];
-                    Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
+                    Arc::get_mut(&mut geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false);
                 }
             },
             Color::LinearGradient(r) => {
@@ -166,7 +166,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
         if layout.border > 0.0 {
             defines.stroke = true;
             let border_color = &box_color.border;
-            let mut stroke_ubo = Uniforms::new();
+            let mut stroke_ubo = w.1.gl.create_uniforms();
             stroke_ubo.set_float_1(&STROKE_SIZE, layout.border);
             stroke_ubo.set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a); // 描边属性
             ubos.insert(STROKE.clone(), Arc::new(stroke_ubo)); // COMMON
@@ -180,9 +180,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for SdfSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<ViewUbo>,
-        &'a SingleCaseImpl<ProjectionUbo>,
-        &'a SingleCaseImpl<ClipUbo>,
+        &'a SingleCaseImpl<ViewUbo<C>>,
+        &'a SingleCaseImpl<ProjectionUbo<C>>,
+        &'a SingleCaseImpl<ClipUbo<C>>,
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Visibility>,
@@ -203,10 +203,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         let box_shadow = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.2;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         let shadow_color = &box_shadow.color;
-        let mut color_ubo = Uniforms::new();
+        let mut color_ubo = w.1.gl.create_uniforms();
         defines.u_color = true;  
         color_ubo.set_float_4(&U_COLOR, shadow_color.a, shadow_color.g, shadow_color.b, shadow_color.a);
         ubos.insert(UCOLOR.clone(), Arc::new(color_ubo)); // COLOR 属性
@@ -220,7 +220,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
                 h_offset,     v_offset,     z_depth, // right_bootom
                 h_offset,     box_shadow.v, z_depth, // right_top
             ];
-            Arc::get_mut(&mut geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
+            Arc::get_mut(&mut geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false);
         }
 
         let index = self.create_sdf_renderobjs(event.id, box_shadow.blur, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
@@ -253,7 +253,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent>
 // BoxColor变化, 修改ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> for SdfSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, BoxColor>,  &'a MultiCaseImpl<Node, Layout>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let box_color = unsafe { read.0.get_unchecked(event.id) };
         match event.field {
@@ -266,13 +266,14 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> 
                     return;
                 }
                 let item = unsafe { self.box_color_render_map.get_unchecked(event.id) };
-                let mut ubos = &mut unsafe { write.get_unchecked_mut(item.index) }.ubos;
+                let mut ubos = &mut unsafe { write.0.get_unchecked_mut(item.index) }.ubos;
+                let gl = &mut write.1.gl;
                 ubos.entry(STROKE.clone()).and_modify(|stroke_ubo|{
                     let border_color = &box_color.border;
                     Arc::make_mut(stroke_ubo).set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a);
                 }).or_insert_with(|| {
                     let border_color = &box_color.border;
-                    let mut stroke_ubo = Uniforms::new();
+                    let mut stroke_ubo = gl.create_uniforms();
                     stroke_ubo.set_float_1(&STROKE_SIZE, layout.border);
                     stroke_ubo.set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a);
                     Arc::new(stroke_ubo)
@@ -399,12 +400,12 @@ impl<C: Context + Share> SdfSys<C> {
         blur: f32,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: FnvHashMap<Atom, Arc<Uniforms>>,
+        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
-        view_ubo: & SingleCaseImpl<ViewUbo>,
-        projection_ubo: & SingleCaseImpl<ProjectionUbo>,
-        clip_ubo: & SingleCaseImpl<ClipUbo>,
+        view_ubo: & SingleCaseImpl<ViewUbo<C>>,
+        projection_ubo: & SingleCaseImpl<ProjectionUbo<C>>,
+        clip_ubo: & SingleCaseImpl<ClipUbo<C>>,
         visibility: & MultiCaseImpl<Node, Visibility>,
         opacity: & MultiCaseImpl<Node, Opacity>,
         world_matrix: & MultiCaseImpl<Node, WorldMatrix>,
@@ -418,17 +419,17 @@ impl<C: Context + Share> SdfSys<C> {
         let opacity = unsafe { opacity.get_unchecked(id) }.0; 
         let mut defines = Defines::default();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         ubos.insert(VIEW_MATRIX.clone(), view_ubo.0.clone());//  视图矩阵
         ubos.insert(PROJECT_MATRIX.clone(), projection_ubo.0.clone()); // 投影矩阵
 
         let world_matrix = cal_matrix(id, world_matrix, transform, layout);
         let world_matrix: &[f32; 16] = world_matrix.as_ref();
-        let mut world_matrix_ubo = Uniforms::new();
+        let mut world_matrix_ubo = engine.gl.create_uniforms();
         world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &world_matrix[0..16]);
         ubos.insert(WORLD_MATRIX.clone(), Arc::new(world_matrix_ubo)); //世界矩阵
 
-        let mut common_ubo = Uniforms::new();
+        let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, blur);
         common_ubo.set_float_1(&ALPHA, opacity);
         let layout = unsafe { layout.get_unchecked(id) };  
@@ -444,7 +445,7 @@ impl<C: Context + Share> SdfSys<C> {
         let by_overflow =  unsafe { by_overflow.get_unchecked(id) }.0;
         if by_overflow > 0 {
             defines.clip = true;
-            let mut by_overflow_ubo = Uniforms::new();
+            let mut by_overflow_ubo = engine.gl.create_uniforms();
             by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性，
         }
 

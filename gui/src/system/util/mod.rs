@@ -3,9 +3,10 @@ pub mod constant;
 use std::sync::Arc;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
+use std::mem::transmute;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
-use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms};
+use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc, AttributeName};
 use atom::Atom;
 use fnv::FnvHashMap;
 
@@ -67,7 +68,7 @@ pub fn color_is_opaque(color: &Color) -> bool{
 
 pub fn create_geometry<C: Context>(gl: &mut C) -> Arc<<C as Context>::ContextGeometry> {
     match gl.create_geometry() {
-        Ok(r) => r,
+        Ok(r) => Arc::new(r),
         Err(_) => panic!("create_geometry error"),
     }
 }
@@ -80,7 +81,7 @@ pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32
         end_x,   end_y,   z_depth, // right_bootom
         end_x,   start_y, z_depth, // right_top
     ];
-    Arc::get_mut(geometry).unwrap().set_attribute(&POSITION.clone(), 3, Some(&buffer[0..12]), false);
+    Arc::get_mut(geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false);
 }
 
 pub fn set_world_matrix_ubo<C: Context + 'static>(
@@ -121,7 +122,7 @@ pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
     ubos.entry(CLIP.clone()).and_modify(|by_overflow_ubo|{
         Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_INDEICES, by_overflow as f32);//裁剪属性
     }).or_insert_with(||{
-        let mut by_overflow_ubo = Uniforms::new();
+        let mut by_overflow_ubo = engine.gl.create_uniforms();
         by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性
         Arc::new(by_overflow_ubo)
     });
@@ -138,4 +139,16 @@ pub trait DefinesList{
 pub trait DefinesClip{
     fn set_clip(&mut self, value: bool);
     fn get_clip(&self) -> bool;
+}
+
+pub fn sampler_desc_hash(s: &SamplerDesc) -> u64{
+    let mut h = DefaultHasher::new();
+    unsafe { transmute::<hal_core::TextureFilterMode, u8>(s.mag_filter).hash(&mut h) };
+    unsafe {  transmute::<hal_core::TextureFilterMode, u8>(s.min_filter).hash(&mut h) };
+    if let Some(mip_filter) = &s.mip_filter {
+        unsafe { transmute::<hal_core::TextureFilterMode, u8>(mip_filter.clone()).hash(&mut h) };
+    }
+    unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.u_wrap).hash(&mut h) };
+    unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.v_wrap).hash(&mut h) };
+    h.finish()
 }

@@ -37,9 +37,16 @@ use traits::{Context};
  * 
  *      sampler           set_sampler
  */
-#[derive(Clone)]
 pub struct Uniforms<C: Context> {
     pub values: HashMap<Atom, UniformValue<C>>,
+}
+
+impl<C: Context> Clone for Uniforms<C> {
+    fn clone(&self) -> Self {
+        Uniforms{
+            values: self.values.clone()
+        }
+    }
 }
 
 /** 

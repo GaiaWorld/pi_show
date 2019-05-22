@@ -96,7 +96,7 @@ pub trait Context {
     /** 
      * 创建Uniforms
      */
-    fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf>;
+    fn create_uniforms(&mut self) -> Uniforms<Self> where Self: std::marker::Sized;
 
     /** 
      * 创建几何数据
@@ -158,5 +158,5 @@ pub trait Context {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>);
+    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self>>>>) where Self: std::marker::Sized;
 }

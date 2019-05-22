@@ -32,7 +32,7 @@ use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
 
 
-type Read<'a, C: Context + 'static + Send + Sync> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
+type Read<'a, C> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
 type Write<'a> = (&'a mut MultiCaseImpl<Node, CharBlock>, &'a mut MultiCaseImpl<Node, Layout>);
 
 pub struct LayoutImpl<'a, C: Context + 'static + Send + Sync> {

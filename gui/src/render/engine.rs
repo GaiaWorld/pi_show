@@ -42,7 +42,7 @@ impl<C: Context> Engine<C> {
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
             match gl.create_pipeline(vs, fs, rs, bs, ss, ds){
-                Ok(r) => r,
+                Ok(r) => Arc::new(r),
                 Err(_) => panic!("create_pipeline error"), 
             }
         });
