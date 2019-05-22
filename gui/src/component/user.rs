@@ -3,7 +3,6 @@
 
 use std::{
   sync::Arc,
-  default::Default,
   mem::transmute,
 };
 
@@ -14,174 +13,7 @@ use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
 
-
-pub type TypedArray = Vec<f32>;
-
-pub type Matrix4 = cgmath::Matrix4<f32>;
-pub type Point2 = cgmath::Point2<f32>;
-pub type Point3 = cgmath::Point3<f32>;
-pub type Vector2 = cgmath::Vector2<f32>;
-pub type Vector3 = cgmath::Vector3<f32>;
-pub type Vector4 = cgmath::Vector4<f32>;
-pub type CgColor = color::Color<f32>;
-pub type Aabb3 = collision::Aabb3<f32>;
-
-pub enum LengthUnitType{
-    Pixel,
-    Percent
-}
-#[derive(Clone, Copy, Debug)]
-pub enum LengthUnit {
-	Pixel(f32),
-	Percent(f32),
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Display{
-  Flex,
-  None,
-}
-
-#[derive(Debug, Clone, EnumDefault)]
-pub enum Color{
-    RGB(CgColor),
-    RGBA(CgColor),
-    LinearGradient(LinearGradientColor),
-    RadialGradient(RadialGradientColor),
-}
-
-impl Color {
-
-    pub fn is_opaque(&self) -> bool {
-        match self {
-            Color::RGB(c) | Color::RGBA(c) => {
-                if c.a < 1.0 {
-                    return false;
-                }
-                return true;
-            },
-            Color::LinearGradient(l) => {
-                for c in l.list.iter() {
-                    if c.rgba.a < 1.0 {
-                    return false;
-                    }
-                }
-                return true;
-            },
-            Color::RadialGradient(g) => {
-                for c in g.list.iter() {
-                    if c.rgba.a < 1.0 {
-                        return false
-                    }
-                }
-                return true;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct LinearGradientColor{
-    pub direction: f32,
-    pub list: Vec<ColorAndPosition>,
-}
-
-#[derive(Debug, Clone)]
-pub struct RadialGradientColor{
-    pub center: (f32, f32),
-    pub shape: RadialGradientShape,
-    pub size: RadialGradientSize,
-    pub list: Vec<ColorAndPosition>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ColorAndPosition{
-    pub rgba: CgColor,
-    pub position: f32,
-}
-
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum RadialGradientSize{
-    ClosestSide,
-    FarthesSide,
-    ClosestCorner,
-    Farthescorner,
-}
-
-#[derive(Debug, Clone, Copy, EnumDefault)]
-pub enum RadialGradientShape{
-    Ellipse,
-    Circle,
-}
-
-pub struct Polygon {
-    pub value: Vec<LengthUnit>,
-}
-// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
-pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32) -> LinearGradientColor {
-    let arr = color_and_positions;
-    let len = arr.len();
-    let count = len / 5;
-    let mut list = Vec::with_capacity(count);
-    for i in 0..count{
-        let start = i * 5;
-        let color_pos = ColorAndPosition {
-            rgba: CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
-            position: arr[start + 4]
-        };
-        list.push(color_pos);
-    }
-    LinearGradientColor {
-        direction: direction,
-        list : list,
-    }
-}
-
-// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
-pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
-    let arr = color_and_positions;
-    let len = arr.len();
-    let count = len / 5;
-    let mut list = Vec::with_capacity(count);
-    for i in 0..count{
-        let start = i * 5;
-        let color_pos = ColorAndPosition {
-            rgba:CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
-            position: arr[start + 4]
-        };
-        list.push(color_pos);
-    }
-    RadialGradientColor {
-        center: (center_x, center_y),
-        shape : unsafe{ transmute(shape) },
-        size: unsafe{ transmute(size) },
-        list: list,
-    }
-}
-
-// [[x_ty, x, y_ty, y], [x_ty, x, y_ty, y]...]
-pub fn to_polygon(position: TypedArray) -> Polygon {
-    let arr = position;
-    let len = arr.len();
-    let count = len / 4;
-    let mut list = Vec::with_capacity(count);
-    for i in 0..count{
-        let start = i * 4;
-        let x = match unsafe {transmute(arr[start] as u8)} {
-            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 1]),
-            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 1]),
-        };
-        let y = match unsafe {transmute(arr[start + 2] as u8)} {
-            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 3]),
-            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 3]),
-        };
-        list.push(x);
-        list.push(y);
-    }
-    Polygon{
-        value: list
-    }
-}
+//================================== 组件
 #[derive(Clone, Debug, Default, Component)]
 pub struct Layout{
     pub left: f32,
@@ -197,9 +29,9 @@ pub struct Layout{
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ZIndex(pub isize);
 
+//超出部分的裁剪方式
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct Overflow(pub bool);
-
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Opacity(pub f32);
@@ -264,6 +96,180 @@ pub struct TextShadow{
     pub blur: f32, //	可选。模糊的距离。	测试
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
+#[derive(Component, Debug, Clone, Default)]
+pub struct Font{
+    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub size: FontSize, //
+    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+
+//================================== 枚举
+pub type TypedArray = Vec<f32>;
+
+pub type Matrix4 = cgmath::Matrix4<f32>;
+pub type Point2 = cgmath::Point2<f32>;
+pub type Point3 = cgmath::Point3<f32>;
+pub type Vector2 = cgmath::Vector2<f32>;
+pub type Vector3 = cgmath::Vector3<f32>;
+pub type Vector4 = cgmath::Vector4<f32>;
+pub type CgColor = color::Color<f32>;
+pub type Aabb3 = collision::Aabb3<f32>;
+
+pub enum LengthUnitType{
+    Pixel,
+    Percent
+}
+#[derive(Clone, Copy, Debug)]
+pub enum LengthUnit {
+	Pixel(f32),
+	Percent(f32),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Display{
+  Flex,
+  None,
+}
+
+#[derive(Debug, Clone, EnumDefault)]
+pub enum Color{
+    RGB(CgColor),
+    RGBA(CgColor),
+    LinearGradient(LinearGradientColor),
+    RadialGradient(RadialGradientColor),
+}
+
+impl Color {
+    pub fn is_opaque(&self) -> bool {
+        match self {
+            Color::RGB(c) | Color::RGBA(c) => {
+                return c.a >= 1.0
+            },
+            Color::LinearGradient(l) => {
+                for c in l.list.iter() {
+                    if c.rgba.a < 1.0 {
+                    return false;
+                    }
+                }
+                return true;
+            },
+            Color::RadialGradient(g) => {
+                for c in g.list.iter() {
+                    if c.rgba.a < 1.0 {
+                        return false
+                    }
+                }
+                return true;
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct LinearGradientColor{
+    pub direction: f32,
+    pub list: Vec<ColorAndPosition>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RadialGradientColor{
+    pub center: (f32, f32),
+    pub shape: RadialGradientShape,
+    pub size: RadialGradientSize,
+    pub list: Vec<ColorAndPosition>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ColorAndPosition{
+    pub rgba: CgColor,
+    pub position: f32,
+}
+
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum RadialGradientSize{
+    ClosestSide,
+    FarthesSide,
+    ClosestCorner,
+    Farthescorner,
+}
+
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum RadialGradientShape{
+    Ellipse,
+    Circle,
+}
+pub type Polygon = TypedArray;
+
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
+pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32) -> LinearGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count{
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba: CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4]
+        };
+        list.push(color_pos);
+    }
+    LinearGradientColor {
+        direction: direction,
+        list : list,
+    }
+}
+
+// color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
+pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
+    let arr = color_and_positions;
+    let len = arr.len();
+    let count = len / 5;
+    let mut list = Vec::with_capacity(count);
+    for i in 0..count{
+        let start = i * 5;
+        let color_pos = ColorAndPosition {
+            rgba:CgColor::new(arr[start], arr[start + 1], arr[start + 2], arr[start + 3]),
+            position: arr[start + 4]
+        };
+        list.push(color_pos);
+    }
+    RadialGradientColor {
+        center: (center_x, center_y),
+        shape : unsafe{ transmute(shape) },
+        size: unsafe{ transmute(size) },
+        list: list,
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Stroke{
+    pub width: f32, //	描边宽度
+    pub color: CgColor, //	描边颜色
+}
+
+#[derive(Debug, Clone, EnumDefault)]
+pub enum OverflowType {
+    None,	// 默认不裁剪
+    X,
+    Y,
+    All,
+    Clip(Polygon),
+    ClipPercent(Polygon),
+}
+
+// 图像填充的方式
+#[derive(Debug, Clone, EnumDefault)]
+pub enum FitType {
+  None,
+  Fill,
+  Contain,
+  Cover,
+  ScaleDown,
+}
+
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum FontSize {
     None,	// 默认尺寸。
@@ -280,68 +286,7 @@ pub enum LineHeight{
     Percent(f32),   //	基于当前字体尺寸的百分比行间距.
 }
 
-#[derive(Component, Debug, Clone, Default)]
-pub struct Font{
-    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
-    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
-    pub size: FontSize, //
-    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
-}
 
-impl Default for Opacity {
-  fn default() -> Opacity{
-    Opacity(1.0)
-  }
-}
-
-impl Show {
-  #[inline]
-  pub fn get_display(&self) -> Display {
-    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
-  }
-
-  #[inline]
-  pub fn set_display(&mut self, display: Display){
-    match display {
-      Display::Flex => self.0 &= !(ShowType::Display as usize),
-      Display::None => self.0 |= ShowType::Display as usize,
-    }
-  }
-
-  #[inline]
-  pub fn get_visibility(&self) -> bool{
-    (self.0 & (ShowType::Visibility as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_visibility(&mut self, visibility: bool){
-    if visibility {
-      self.0 |= ShowType::Visibility as usize;
-    }else{
-      self.0 &= !(ShowType::Visibility as usize);
-    }
-  }
-
-  #[inline]
-  pub fn get_enable(&self) -> bool{
-    (self.0 & (ShowType::Enable as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_enable(&mut self, enable: bool){
-    if enable {
-      self.0 |= ShowType::Enable as usize;
-    }else{
-      self.0 &= !(ShowType::Enable as usize);
-    }
-  }
-}
-
-impl Default for Show {
-  fn default() -> Show {
-    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
-  }
-}
 
 #[derive(Debug, Clone)]
 pub enum TransformFunc {
@@ -478,12 +423,6 @@ impl WhiteSpace {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct Stroke{
-    pub width: f32, //	描边宽度
-    pub color: CgColor, //	描边颜色
-}
-
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
@@ -497,3 +436,57 @@ pub enum VerticalAlign{
     Bottom
 }
 
+impl Default for Opacity {
+  fn default() -> Opacity{
+    Opacity(1.0)
+  }
+}
+
+impl Show {
+  #[inline]
+  pub fn get_display(&self) -> Display {
+    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
+  }
+
+  #[inline]
+  pub fn set_display(&mut self, display: Display){
+    match display {
+      Display::Flex => self.0 &= !(ShowType::Display as usize),
+      Display::None => self.0 |= ShowType::Display as usize,
+    }
+  }
+
+  #[inline]
+  pub fn get_visibility(&self) -> bool{
+    (self.0 & (ShowType::Visibility as usize)) != 0
+  }
+
+  #[inline]
+  pub fn set_visibility(&mut self, visibility: bool){
+    if visibility {
+      self.0 |= ShowType::Visibility as usize;
+    }else{
+      self.0 &= !(ShowType::Visibility as usize);
+    }
+  }
+
+  #[inline]
+  pub fn get_enable(&self) -> bool{
+    (self.0 & (ShowType::Enable as usize)) != 0
+  }
+
+  #[inline]
+  pub fn set_enable(&mut self, enable: bool){
+    if enable {
+      self.0 |= ShowType::Enable as usize;
+    }else{
+      self.0 &= !(ShowType::Enable as usize);
+    }
+  }
+}
+
+impl Default for Show {
+  fn default() -> Show {
+    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
+  }
+}
