@@ -4,6 +4,31 @@
 use hal_core::*;
 use webgl_rendering_context::{WebGLRenderingContext};
 
+pub fn get_attribute_location(name: &AttributeName) -> u32 {
+    match name {
+        AttributeName::Position => 0,
+        AttributeName::Normal => 1,
+        AttributeName::Color => 2,
+        AttributeName::UV0 => 3,
+        AttributeName::UV1 => 4,
+        AttributeName::SkinIndex => 5,
+        AttributeName::SkinWeight => 6,
+        AttributeName::Tangent => 7,
+        AttributeName::BiNormal => 8,
+        AttributeName::UV2 => 9,
+        AttributeName::UV3 => 10,
+        AttributeName::UV4 => 11,
+        AttributeName::UV5 => 12,
+        AttributeName::UV6 => 13,
+        AttributeName::UV7 => 14,
+        AttributeName::UV8 => 15,
+        _ => {
+            assert!(false, "get_attribute_location failed!");
+            10000
+        }   
+    }
+}
+
 pub fn get_shader_type(stype: &ShaderType) -> u32 {
     match stype {
         ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,

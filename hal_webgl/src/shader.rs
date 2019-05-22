@@ -1,5 +1,5 @@
 
-use std::rc::{Weak};
+use std::sync::{Weak, Arc};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
@@ -14,16 +14,7 @@ use webgl_rendering_context::{
 };
 
 use atom::Atom;
-use hal_core::{UniformValue};
-
-/**
- * Shader的类型
- */
-#[derive(PartialEq)]
-pub enum ShaderType {
-    Vertex,   // 顶点着色器
-    Fragment, // 片段着色器
-}
+use hal_core::*;
 
 /**
  * GPU Shader
@@ -40,8 +31,8 @@ pub struct Shader {
 pub struct Program {
     handle: WebGLProgram,
     gl: Weak<WebGLRenderingContext>,
-    attributes: FnvHashMap<Atom, u32>,
-    uniforms: FnvHashMap<Atom, WebGLUniformImpl>,
+    attributes: HashMap<Atom, u32>,
+    uniforms: HashMap<Atom, WebGLUniformImpl>,
 }
 
 pub struct WebGLUniformImpl {
@@ -60,13 +51,13 @@ pub struct ProgramManager {
     gl: Weak<WebGLRenderingContext>,
 
     // 代码缓存
-    code_caches: FnvHashMap<Atom, String>,
+    code_caches: HashMap<Atom, String>,
 
     // Shader缓存的键是：hash[shader名 + defines]
-    shader_caches: FnvHashMap<u64, Shader>,
+    shader_caches: HashMap<u64, Shader>,
     
     // Program缓存的键是：hash[vs名 + fs名 + defines]
-    program_caches: FnvHashMap<u64, Program>,
+    program_caches: HashMap<u64, Program>,
 
     max_vertex_attribs: u32,
 }
@@ -80,9 +71,9 @@ impl ProgramManager {
     pub fn new(gl: &Arc<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
         ProgramManager {
             gl: Arc::downgrade(gl),
-            code_caches: FnvHashMap::default(),
-            shader_caches: FnvHashMap::default(),
-            program_caches: FnvHashMap::default(),
+            code_caches: HashMap::default(),
+            shader_caches: HashMap::default(),
+            program_caches: HashMap::default(),
             max_vertex_attribs: max_vertex_attribs,
         }
     }
@@ -216,11 +207,11 @@ impl ProgramManager {
         Ok(())
     }
 
-    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram, max_vertex_attribs: u32) -> FnvHashMap<Atom, u32> {
+    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram, max_vertex_attribs: u32) -> HashMap<Atom, u32> {
         
         // 为了减少状态切换，限制attribute前16个location必须用下面的名字
 
-        let mut attributes: FnvHashMap<Atom, u32> = FnvHashMap::default();
+        let mut attributes: HashMap<Atom, u32> = HashMap::default();
         let attribute_names = ["position", "normal", "color", "uv0", "uv1", "skinIndex", "skinWeight", "tangent","binormal", "uv2", "uv3", "uv4", "uv5", "uv6", "uv7", "uv8"];
 
         let mut max_attribute_count = max_vertex_attribs;
@@ -237,9 +228,9 @@ impl ProgramManager {
         return attributes;
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> FnvHashMap<Atom, Uniform> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> HashMap<Atom, Uniform> {
         // uniform的信息得从program里面取出来，一旦确定，就不会变了。
-        let mut uniforms: FnvHashMap<Atom, Uniform> = FnvHashMap::default();
+        let mut uniforms: HashMap<Atom, Uniform> = HashMap::default();
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
@@ -404,6 +395,10 @@ impl ProgramManager {
 }
 
 impl Program {
+
+    pub fn use(&mut self) {
+        
+    }
 
     pub fn uniform_i(&mut self, name: &Atom, v1: i32, v2: i32, v3: i32, v4: i32) -> Result<(), ()> {
         

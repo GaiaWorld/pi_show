@@ -5,36 +5,53 @@
 use std::sync::{Arc};
 use hal_core::*;
 use convert::*;
+use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
 
 pub struct State {
-    
+    clear_color: (f32, f32, f32, f32), 
+    clear_depth: f32, 
+    clear_stencil: u8,
+
     gl: Arc<WebGLRenderingContext>, 
 
-    program: (u64, u64),
     raster: Arc<AsRef<RasterState>>,
     stencil: Arc<AsRef<StencilState>>,
     blend: Arc<AsRef<BlendState>>,
     depth: Arc<AsRef<DepthState>>,
     
+    geometry: Option<Arc<AsRef<WebGLGeometryImpl>>>,
+    program: (u64, u64),
     target: Arc<AsRef<WebGLRenderTargetImpl>>,
+    viewport_rect: (i32, i32, i32, i32), // x, y, w, h
+    enable_attrib_indices: Vec<bool>,
 }
 
 impl State {
 
-    pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<AsRef<WebGLRenderTargetImpl>>) -> State {
+    pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
         
         gl.enable(WebGLRenderingContext::BLEND);
+        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
 
         let state = State {
             gl: gl.clone(),
+
+            clear_color: (1.0, 1.0, 1.0, 1.0), 
+            clear_depth: 1.0, 
+            clear_stencil: 0,
+    
             program: (0, 0),
             raster: Arc::new(RasterState::new()),
             stencil: Arc::new(StencilState::new()),
             blend: Arc::new(BlendState::new()),
             depth: Arc::new(DepthState::new()),
+            
+            geometry: None,
             target: rt.clone(),
+            viewport_rect: (0, 0, 0, 0),
+            enable_attrib_indices: vec![false; max_attributes as usize],
         };
 
         Self::apply_all_state(gl, &state);
@@ -55,12 +72,60 @@ impl State {
         return false;
     }
 
-    pub fn set_render_target(&mut self) {
-
+    pub fn set_render_target(&mut self, rt: &Arc<AsRef<WebGLRenderTargetImpl>>) {
+        if !Arc::ptr_eq(&self.target, rt) {
+            let fbo = &rt.as_ref().as_ref().frame_buffer;
+            self.gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, fbo.as_ref());
+            
+            self.target = rt.clone();
+        }
     }
 
-    pub fn set_viewport(&mut self, x: u32, y: u32, width: u32, height: u32) {
-        // SCISSOR_TEST
+    /** 
+     * rect: (x, y, width, height)
+     */
+    pub fn set_viewport(&mut self, rect: &(i32, i32, i32, i32)) {
+        if self.viewport_rect != *rect {
+            
+            self.gl.viewport(rect.0, rect.1, rect.2, rect.3);
+            self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
+
+            self.viewport_rect = *rect;
+        }
+    }
+
+    pub fn set_clear(&mut self, color: &Option<(f32, f32, f32, f32)>, depth: &Option<f32>, stencil: &Option<u8>) {
+        let mut flag = 0;
+        if let Some(color) = color {
+            flag |= WebGLRenderingContext::COLOR_BUFFER_BIT;
+
+            if *color != self.clear_color {
+                self.gl.clear_color(color.0, color.1, color.2, color.3);
+                self.clear_color = *color;
+            }
+        }
+
+        if let Some(depth) = depth {
+            flag |= WebGLRenderingContext::DEPTH_BUFFER_BIT;
+
+            if *depth != self.clear_depth {
+                self.gl.clear_depth(*depth);
+                self.clear_depth = *depth;
+            }
+        }
+
+        if let Some(stencil) = stencil {
+            flag |= WebGLRenderingContext::STENCIL_BUFFER_BIT;
+
+            if *stencil != self.clear_stencil {
+                self.gl.clear_stencil(*stencil as i32);
+                self.clear_stencil = *stencil;
+            }
+        }
+
+        if flag != 0 {
+            self.gl.clear(flag);
+        }
     }
 
     pub fn set_pipeline_state(&mut self, r: &Arc<AsRef<RasterState>>, d: &Arc<AsRef<DepthState>>, s: &Arc<AsRef<StencilState>>, b: &Arc<AsRef<BlendState>>) {
@@ -79,6 +144,49 @@ impl State {
         if !Arc::ptr_eq(&self.blend, b) {
             Self::set_blend_state(&self.gl, Some(self.blend.as_ref().as_ref()), b.as_ref().as_ref());
             self.blend = b.clone();
+        }
+    }
+
+    pub fn draw(&mut self, geometry: &Arc<AsRef<WebGLGeometryImpl>>) {
+        let need_set_geometry = match &self.geometry {
+            None => true,
+            Some(g) => !Arc::ptr_eq(g, geometry),
+        };
+
+        if !need_set_geometry {
+
+            self.geometry = Some(geometry.clone());
+            
+            for (n, v) in geometry.as_ref().as_ref().attributes.iter() {
+                let index = get_attribute_location(n) as usize;
+                
+                if !self.enable_attrib_indices[index] {
+                    self.gl.enable_vertex_attrib_array(index as u32);
+                    self.enable_attrib_indices[index] = true;
+                }
+                
+                self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
+                self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
+            }
+        }
+        
+        let geometry = geometry.as_ref().as_ref();
+        match &geometry.indices {
+            None => {
+                self.gl.draw_arrays(WebGLRenderingContext::TRIANGLES, 0, geometry.vertex_count as i32);
+            }
+            Some(indices) => {
+                
+                self.gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&indices.buffer));
+                
+                let (data_type, count) = if indices.is_short_type {
+                    (WebGLRenderingContext::UNSIGNED_SHORT, indices.size / 2)
+                } else {
+                    (WebGLRenderingContext::UNSIGNED_INT, indices.size / 4)
+                };
+
+                self.gl.draw_elements(WebGLRenderingContext::TRIANGLES, count as i32, data_type, 0);
+            }
         }
     }
 
@@ -182,6 +290,11 @@ impl State {
      * 全状态设置，仅用于创建State时候
      */
     fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &State) {
+
+        gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
+        gl.clear_depth(state.clear_depth);
+        gl.clear_stencil(state.clear_stencil as i32);
+
         Self::set_raster_state(gl.as_ref(), None, state.raster.as_ref().as_ref());
         Self::set_depth_state(gl.as_ref(), None, state.depth.as_ref().as_ref());
         Self::set_blend_state(gl.as_ref(), None, state.blend.as_ref().as_ref());

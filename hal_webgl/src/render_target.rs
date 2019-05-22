@@ -15,7 +15,7 @@ pub struct WebGLRenderTargetImpl {
 
     gl: Weak<WebGLRenderingContext>,
 
-    frame_buffer: Option<WebGLFramebuffer>,
+    pub frame_buffer: Option<WebGLFramebuffer>,
     color: Option<RenderTargetAttach>,
     depth: Option<RenderTargetAttach>,
 }
