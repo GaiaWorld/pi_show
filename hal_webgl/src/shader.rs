@@ -399,5 +399,112 @@ impl Program {
 
     pub fn set_uniforms(&mut self, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
         
+        for (name, curr) in values.iter() {
+            let is_old_same = match self.last_uniforms.get_mut(name) {
+                None => {
+                    self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                    false
+                }
+                Some(old) => {
+                    if !Arc::ptr_eq(old, curr) {
+                        self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                        false
+                    } else {
+                        true
+                    }
+                }
+            };
+
+            if !is_old_same {
+                // 更新 last_uniforms
+                self.last_uniforms.insert(name.clone(), curr.clone());
+            }
+        }
+    }
+
+    fn set_uniforms_impl(&mut self, values: &HashMap<Atom, UniformValue<WebGLContextImpl>>) {
+
+        let gl = self.gl.upgrade();
+        if gl.is_none() {
+            return;
+        }
+        let gl = gl.as_ref().unwrap();
+
+        for (name, v) in values.iter() {
+            if let Some(u) = self.all_uniforms.get(name) {
+                // TODO: 比较两个的Uniform的值
+                if !Self::is_uniform_same(v, &u.value) {
+                    Self::set_uniform(gl, &u.location, v);
+                }
+            } else {
+                assert!(false, "set_uniforms failed, not exist in shader");
+            }
+        }
+    }
+
+    fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &UniformValue<WebGLContextImpl>) -> bool {
+        false
+    }
+
+    fn set_uniform(gl: &WebGLRenderingContext, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
+        match value {
+            UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => {
+                match count {
+                    1 => gl.uniform1f(Some(location), *v0),
+                    2 => gl.uniform2f(Some(location), *v0, *v1),
+                    3 => gl.uniform3f(Some(location), *v0, *v1, *v2),
+                    4 => gl.uniform4f(Some(location), *v0, *v1, *v2, *v3),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::<WebGLContextImpl>::Int(count, v0, v1, v2, v3) => {
+                match count {
+                    1 => gl.uniform1i(Some(location), *v0),
+                    2 => gl.uniform2i(Some(location), *v0, *v1),
+                    3 => gl.uniform3i(Some(location), *v0, *v1, *v2),
+                    4 => gl.uniform4i(Some(location), *v0, *v1, *v2, *v3),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::<WebGLContextImpl>::FloatV(count, v) => {
+                match count {
+                    1 => gl.uniform1fv(Some(location), v.as_slice()),
+                    2 => gl.uniform2fv(Some(location), v.as_slice()),
+                    3 => gl.uniform3fv(Some(location), v.as_slice()),
+                    4 => gl.uniform4fv(Some(location), v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::<WebGLContextImpl>::IntV(count, v) => {
+                match count {
+                    1 => gl.uniform1iv(Some(location), v.as_slice()),
+                    2 => gl.uniform2iv(Some(location), v.as_slice()),
+                    3 => gl.uniform3iv(Some(location), v.as_slice()),
+                    4 => gl.uniform4iv(Some(location), v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::<WebGLContextImpl>::MatrixV(count, v) => {
+                match count {
+                    2 => gl.uniform_matrix2fv(Some(location), false, v.as_slice()),
+                    3 => gl.uniform_matrix3fv(Some(location), false, v.as_slice()),
+                    4 => gl.uniform_matrix4fv(Some(location), false, v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
+                assert!(false, "TODO: sampler and texture uniform not support!");
+            }
+        }
     }
 }
