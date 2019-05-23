@@ -125,6 +125,7 @@ pub type Vector3 = cgmath::Vector3<f32>;
 pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
+pub struct Rect(Point2, Point2, Point2, Point2);
 
 pub enum LengthUnitType{
     Pixel,
@@ -488,4 +489,103 @@ impl Default for Show {
   fn default() -> Show {
     Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
   }
+}
+
+pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&SrcClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Rect, Rect){
+    let (size, mut uv1, mut uv2) = match clip {
+        Some(c) => if c.size.x == 0.0 {
+            let size = Vector2::new(img.src.width as f32 * (c.uv.1.x - c.uv.0.x).abs(), img.src.height as f32 * (c.uv.1.y - c.uv.0.y).abs());
+            (size, c.uv.0, c.uv.1)
+        }else{
+            (c.size, c.uv.0, c.uv.1)
+        },
+        _ => (Vector2::new(img.src.width as f32, img.src.height as f32), Point2::new(0.0,0.0), Point2::new(1.0,1.0))
+    };
+    let mut p1 = Point2::new(layout.left + layout.border + layout.padding_left, layout.top + layout.border + layout.padding_top);
+    let mut p2 = Point2::new(layout.left + layout.width - layout.border - layout.padding_right, layout.top + layout.width - layout.border - layout.padding_bottom);
+    // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
+    match fit {
+      Some(f) => match f.0 {
+        FitType::None => {
+          // 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          if size.x <= w {
+            let x = (w - size.x) / 2.0;
+            p1.x += x;
+            p2.x -= x;
+          }else{
+            let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
+            uv1.x += x; 
+            uv2.x -= x; 
+          }
+          if size.y <= h {
+            let y = (h - size.y) / 2.0;
+            p1.y += y;
+            p2.y -= y;
+          }else{
+            let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
+            uv1.y += y;
+            uv2.y -= y;
+          }
+        },
+        FitType::Contain => {
+          // 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          fill(&size, &mut p1, &mut p2, w, h);
+        },
+        FitType::Cover => {
+          // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          let rw = size.x/w;
+          let rh = size.y/h;
+          if rw > rh {
+            let x = (size.x - w*rh) * (uv2.x - uv1.x) * 0.5 / size.x;
+            uv1.x += x; 
+            uv2.x -= x; 
+          }else{
+            let y = (size.y - h*rw) * (uv2.y - uv1.y) * 0.5 / size.y;
+            uv1.y += y;
+            uv2.y -= y;
+          }
+        },
+        FitType::ScaleDown => {
+          // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          if size.x <= w && size.y <= h {
+            let x = (w - size.x) / 2.0;
+            let y = (h - size.y) / 2.0;
+            p1.x += x;
+            p1.y += y;
+            p2.x -= x;
+            p2.y -= y;
+          }else{
+            fill(&size, &mut p1, &mut p2, w, h);
+          }
+        },
+        _ => () // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
+      },
+      // 默认情况是填充
+      _ => ()
+    };
+    let pos = Rect(p1, Point2::new(p2.x, p1.y), p2, Point2::new(p1.x, p2.y));
+    let uv = Rect(uv1, Point2::new(uv2.x, uv1.y), uv2, Point2::new(uv1.x, uv2.y));
+    (pos, uv)
+}
+// 按比例缩放到容器大小，居中显示
+fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){ 
+    let rw = size.x/w;
+    let rh = size.y/h;
+    if rw > rh {
+      let y = (h - size.y/rw)/2.0;
+      p1.y += y;
+      p2.y -= y;
+    }else{
+      let x = (w - size.x/rh)/2.0;
+      p1.x += x;
+      p2.x -= x;
+    }
 }
