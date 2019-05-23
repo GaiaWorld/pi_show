@@ -3,7 +3,6 @@
 
 use std::{
   sync::Arc,
-  default::Default,
   mem::transmute,
 };
 
@@ -14,7 +13,58 @@ use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
 
+//================================== 组件
+#[derive(Clone, Debug, Default, Component)]
+pub struct Layout{
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
+    pub padding_right: f32,
+    pub padding_bottom: f32,
+}
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct ZIndex(pub isize);
 
+//超出部分的裁剪方式
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct Overflow(pub bool);
+//不透明度
+#[derive(Deref, DerefMut, Component, Debug)]
+pub struct Opacity(pub f32);
+
+#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
+pub struct Show(pub usize);
+
+#[derive(Debug, Clone, Component, Default)]
+pub struct Transform {
+    pub funcs: Vec<TransformFunc>,
+    pub origin: TransformOrigin,
+}
+
+//ObjectFit
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct ObjectFit(pub FitType);
+
+#[derive(Component, Default)]
+pub struct SrcClip{
+  pub uv: (Point2, Point2),
+  pub size: Vector2,
+}
+
+#[derive(Component, Debug, Clone, Default)]
+pub struct Font{
+    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
+    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub size: FontSize, //
+    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+
+//================================== 枚举
 pub type TypedArray = Vec<f32>;
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
@@ -25,6 +75,7 @@ pub type Vector3 = cgmath::Vector3<f32>;
 pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
+pub struct Rect(Point2, Point2, Point2, Point2);
 
 pub enum LengthUnitType{
     Pixel,
@@ -44,21 +95,17 @@ pub enum Display{
 
 #[derive(Debug, Clone, EnumDefault)]
 pub enum Color{
-    RGB(CgColor),
+    // RGB(CgColor),
     RGBA(CgColor),
     LinearGradient(LinearGradientColor),
     RadialGradient(RadialGradientColor),
 }
 
 impl Color {
-
     pub fn is_opaque(&self) -> bool {
         match self {
-            Color::RGB(c) | Color::RGBA(c) => {
-                if c.a < 1.0 {
-                    return false;
-                }
-                return true;
+            Color::RGBA(c) => {
+                return c.a >= 1.0
             },
             Color::LinearGradient(l) => {
                 for c in l.list.iter() {
@@ -96,8 +143,8 @@ pub struct RadialGradientColor{
 
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
-    pub rgba: CgColor,
     pub position: f32,
+    pub rgba: CgColor,
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]
@@ -113,10 +160,8 @@ pub enum RadialGradientShape{
     Ellipse,
     Circle,
 }
+pub type Polygon = TypedArray;
 
-pub struct Polygon {
-    pub value: Vec<LengthUnit>,
-}
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
 pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32) -> LinearGradientColor {
     let arr = color_and_positions;
@@ -159,58 +204,20 @@ pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, 
     }
 }
 
-// [[x_ty, x, y_ty, y], [x_ty, x, y_ty, y]...]
-pub fn to_polygon(position: TypedArray) -> Polygon {
-    let arr = position;
-    let len = arr.len();
-    let count = len / 4;
-    let mut list = Vec::with_capacity(count);
-    for i in 0..count{
-        let start = i * 4;
-        let x = match unsafe {transmute(arr[start] as u8)} {
-            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 1]),
-            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 1]),
-        };
-        let y = match unsafe {transmute(arr[start + 2] as u8)} {
-            LengthUnitType::Pixel => LengthUnit::Pixel(arr[start + 3]),
-            LengthUnitType::Percent => LengthUnit::Percent(arr[start + 3]),
-        };
-        list.push(x);
-        list.push(y);
-    }
-    Polygon{
-        value: list
-    }
+#[derive(Default, Debug, Clone)]
+pub struct Stroke{
+    pub width: f32, //	描边宽度
+    pub color: CgColor, //	描边颜色
 }
-#[derive(Clone, Debug, Default, Component)]
-pub struct Layout{
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-    pub height: f32,
-    pub border: f32,
-    pub padding_left: f32,
-    pub padding_top: f32,
-    pub padding_right: f32,
-    pub padding_bottom: f32,
-}
-#[derive(Deref, DerefMut, Component, Default)]
-pub struct ZIndex(pub isize);
 
-#[derive(Deref, DerefMut, Component, Default)]
-pub struct Overflow(pub bool);
-
-//不透明度
-#[derive(Deref, DerefMut, Component, Debug)]
-pub struct Opacity(pub f32);
-
-#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
-pub struct Show(pub usize);
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct Transform {
-    pub funcs: Vec<TransformFunc>,
-    pub origin: TransformOrigin,
+// 图像填充的方式
+#[derive(Debug, Clone, EnumDefault)]
+pub enum FitType {
+  None,
+  Fill,
+  Contain,
+  Cover,
+  ScaleDown,
 }
 
 #[derive(Debug, Clone, Component, Default)]
@@ -231,7 +238,10 @@ pub struct Image<C: Context + 'static + Send + Sync>{
 pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
 
 #[derive(Debug, Clone, Component)]
-pub struct BorderRadius(pub LengthUnit);
+pub struct BorderRadius{
+  pub x: LengthUnit,
+  pub y: LengthUnit,
+}
 
 #[derive(Debug, Clone, Default, Component)]
 pub struct BoxShadow{
@@ -280,68 +290,7 @@ pub enum LineHeight{
     Percent(f32),   //	基于当前字体尺寸的百分比行间距.
 }
 
-#[derive(Component, Debug, Clone, Default)]
-pub struct Font{
-    pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
-    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
-    pub size: FontSize, //
-    pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
-}
 
-impl Default for Opacity {
-  fn default() -> Opacity{
-    Opacity(1.0)
-  }
-}
-
-impl Show {
-  #[inline]
-  pub fn get_display(&self) -> Display {
-    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
-  }
-
-  #[inline]
-  pub fn set_display(&mut self, display: Display){
-    match display {
-      Display::Flex => self.0 &= !(ShowType::Display as usize),
-      Display::None => self.0 |= ShowType::Display as usize,
-    }
-  }
-
-  #[inline]
-  pub fn get_visibility(&self) -> bool{
-    (self.0 & (ShowType::Visibility as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_visibility(&mut self, visibility: bool){
-    if visibility {
-      self.0 |= ShowType::Visibility as usize;
-    }else{
-      self.0 &= !(ShowType::Visibility as usize);
-    }
-  }
-
-  #[inline]
-  pub fn get_enable(&self) -> bool{
-    (self.0 & (ShowType::Enable as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_enable(&mut self, enable: bool){
-    if enable {
-      self.0 |= ShowType::Enable as usize;
-    }else{
-      self.0 &= !(ShowType::Enable as usize);
-    }
-  }
-}
-
-impl Default for Show {
-  fn default() -> Show {
-    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
-  }
-}
 
 #[derive(Debug, Clone)]
 pub enum TransformFunc {
@@ -478,12 +427,6 @@ impl WhiteSpace {
     }
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct Stroke{
-    pub width: f32, //	描边宽度
-    pub color: CgColor, //	描边颜色
-}
-
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
@@ -497,3 +440,156 @@ pub enum VerticalAlign{
     Bottom
 }
 
+impl Default for Opacity {
+  fn default() -> Opacity{
+    Opacity(1.0)
+  }
+}
+
+impl Show {
+  #[inline]
+  pub fn get_display(&self) -> Display {
+    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
+  }
+
+  #[inline]
+  pub fn set_display(&mut self, display: Display){
+    match display {
+      Display::Flex => self.0 &= !(ShowType::Display as usize),
+      Display::None => self.0 |= ShowType::Display as usize,
+    }
+  }
+
+  #[inline]
+  pub fn get_visibility(&self) -> bool{
+    (self.0 & (ShowType::Visibility as usize)) != 0
+  }
+
+  #[inline]
+  pub fn set_visibility(&mut self, visibility: bool){
+    if visibility {
+      self.0 |= ShowType::Visibility as usize;
+    }else{
+      self.0 &= !(ShowType::Visibility as usize);
+    }
+  }
+
+  #[inline]
+  pub fn get_enable(&self) -> bool{
+    (self.0 & (ShowType::Enable as usize)) != 0
+  }
+
+  #[inline]
+  pub fn set_enable(&mut self, enable: bool){
+    if enable {
+      self.0 |= ShowType::Enable as usize;
+    }else{
+      self.0 &= !(ShowType::Enable as usize);
+    }
+  }
+}
+
+impl Default for Show {
+  fn default() -> Show {
+    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
+  }
+}
+
+pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&SrcClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Rect, Rect){
+    let (size, mut uv1, mut uv2) = match clip {
+        Some(c) => if c.size.x == 0.0 {
+            let size = Vector2::new(img.src.width as f32 * (c.uv.1.x - c.uv.0.x).abs(), img.src.height as f32 * (c.uv.1.y - c.uv.0.y).abs());
+            (size, c.uv.0, c.uv.1)
+        }else{
+            (c.size, c.uv.0, c.uv.1)
+        },
+        _ => (Vector2::new(img.src.width as f32, img.src.height as f32), Point2::new(0.0,0.0), Point2::new(1.0,1.0))
+    };
+    let mut p1 = Point2::new(layout.left + layout.border + layout.padding_left, layout.top + layout.border + layout.padding_top);
+    let mut p2 = Point2::new(layout.left + layout.width - layout.border - layout.padding_right, layout.top + layout.width - layout.border - layout.padding_bottom);
+    // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
+    match fit {
+      Some(f) => match f.0 {
+        FitType::None => {
+          // 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          if size.x <= w {
+            let x = (w - size.x) / 2.0;
+            p1.x += x;
+            p2.x -= x;
+          }else{
+            let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
+            uv1.x += x; 
+            uv2.x -= x; 
+          }
+          if size.y <= h {
+            let y = (h - size.y) / 2.0;
+            p1.y += y;
+            p2.y -= y;
+          }else{
+            let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
+            uv1.y += y;
+            uv2.y -= y;
+          }
+        },
+        FitType::Contain => {
+          // 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          fill(&size, &mut p1, &mut p2, w, h);
+        },
+        FitType::Cover => {
+          // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          let rw = size.x/w;
+          let rh = size.y/h;
+          if rw > rh {
+            let x = (size.x - w*rh) * (uv2.x - uv1.x) * 0.5 / size.x;
+            uv1.x += x; 
+            uv2.x -= x; 
+          }else{
+            let y = (size.y - h*rw) * (uv2.y - uv1.y) * 0.5 / size.y;
+            uv1.y += y;
+            uv2.y -= y;
+          }
+        },
+        FitType::ScaleDown => {
+          // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
+          let w = p2.x - p1.x;
+          let h = p2.y - p1.y;
+          if size.x <= w && size.y <= h {
+            let x = (w - size.x) / 2.0;
+            let y = (h - size.y) / 2.0;
+            p1.x += x;
+            p1.y += y;
+            p2.x -= x;
+            p2.y -= y;
+          }else{
+            fill(&size, &mut p1, &mut p2, w, h);
+          }
+        },
+        _ => () // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
+      },
+      // 默认情况是填充
+      _ => ()
+    };
+    let pos = Rect(p1, Point2::new(p2.x, p1.y), p2, Point2::new(p1.x, p2.y));
+    let uv = Rect(uv1, Point2::new(uv2.x, uv1.y), uv2, Point2::new(uv1.x, uv2.y));
+    (pos, uv)
+}
+// 按比例缩放到容器大小，居中显示
+fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){ 
+    let rw = size.x/w;
+    let rh = size.y/h;
+    if rw > rh {
+      let y = (h - size.y/rw)/2.0;
+      p1.y += y;
+      p2.y -= y;
+    }else{
+      let x = (w - size.x/rh)/2.0;
+      p1.x += x;
+      p2.x -= x;
+    }
+}

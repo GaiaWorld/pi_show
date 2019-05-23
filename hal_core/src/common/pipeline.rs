@@ -1,5 +1,5 @@
-use std::sync::{Arc};
 use common::{CullMode, CompareFunc, BlendFunc, BlendFactor, StencilOp};
+use ShareRef;
 
 /** 
  * 渲染管线
@@ -8,10 +8,10 @@ pub struct Pipeline {
     pub vs_hash: u64,
     pub fs_hash: u64,
 
-    pub raster_state: Arc<AsRef<RasterState>>,
-    pub depth_state: Arc<AsRef<DepthState>>,
-    pub stencil_state: Arc<AsRef<StencilState>>,
-    pub blend_state: Arc<AsRef<BlendState>>,
+    pub raster_state: ShareRef<RasterState>,
+    pub depth_state: ShareRef<DepthState>,
+    pub stencil_state: ShareRef<StencilState>,
+    pub blend_state: ShareRef<BlendState>,
 }
 
 /** 

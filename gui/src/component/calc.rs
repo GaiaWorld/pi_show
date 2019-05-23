@@ -1,10 +1,5 @@
 /// 中间计算的组件
 
-use std::{
-  sync::Arc,
-	default::Default,
-};
-
 use atom::Atom;
 use map::{vecmap::VecMap};
 use ecs::component::Component;

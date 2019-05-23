@@ -22,7 +22,7 @@ mod extension;
 mod state;
 mod shader;
 
-use self::context::{WebGLContextImpl};
+pub use self::context::*;
 
 use std::sync::{Arc};
 use webgl_rendering_context::{WebGLRenderingContext};
