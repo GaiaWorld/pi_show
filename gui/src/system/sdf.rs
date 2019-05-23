@@ -3,6 +3,7 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::mem::transmute;
 
 use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
@@ -10,13 +11,14 @@ use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
 use atom::Atom;
+use polygon_split::*;
 
 use component::user::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
 use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
-use system::util::{cal_matrix, color_is_opaque, create_geometry, by_overflow_change, set_world_matrix_ubo, DefinesClip, DefinesList};
+use system::util::*;
 use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 
 
@@ -39,42 +41,6 @@ lazy_static! {
 
     // static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
     // static ref CLIP_INDEICES_SIZE: Atom = Atom::from("clipTextureSize");
-}
-
-pub struct Item {
-    index: usize,
-    defines: Defines,
-}
-
-#[derive(Default)]
-pub struct Defines {
-    clip: bool,
-    stroke: bool,
-    u_color: bool,
-    vertex_color: bool,
-}
-
-impl DefinesClip for Defines {
-    fn set_clip(&mut self, value: bool){self.clip = value}
-    fn get_clip(&self) -> bool {self.clip}
-}
-
-impl DefinesList for Defines {
-    fn list(&self) -> Vec<Atom> {
-        let mut arr = Vec::new();
-        if self.clip {
-            arr.push(CLIP.clone());
-        }
-        if self.stroke {
-            arr.push(STROKE.clone());
-        }
-        if self.u_color {
-            arr.push(UCOLOR.clone());
-        }else if self.vertex_color {
-            arr.push(VERTEX_COLOR.clone());
-        }
-        arr
-    }
 }
 
 pub struct SdfSys<C: Context + Share>{
@@ -125,41 +91,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
     );
     fn listen(&mut self, event: &CreateEvent, r: Self::ReadData, w: Self::WriteData){
         let mut defines = Defines::default();
-        let mut geometry;
+        let mut geometry = create_geometry(&mut w.1.gl);
         let box_color = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
-        
-        match &box_color.background {
-            Color::RGB(r) | Color::RGBA(r) => {
-                defines.u_color = true;
-                let mut color_ubo = w.1.gl.create_uniforms();
-                color_ubo.set_float_4(&U_COLOR, r.a, r.g, r.b, r.a);
-                ubos.insert(UCOLOR.clone(), Arc::new(color_ubo)); // COLOR 属性
-                geometry = create_geometry(&mut w.1.gl);
-                //如果layout > 0.0, 表示该节点曾经布局过, 设置position
-                if layout.width > 0.0 {
-                    let buffer = [
-                        0.0,          0.0,           z_depth, // left_top
-                        0.0,          layout.height, z_depth, // left_bootom
-                        layout.width, layout.height, z_depth, // right_bootom
-                        layout.width, 0.0,           z_depth, // right_top
-                    ];
-                    Arc::get_mut(&mut geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false);
-                }
-            },
-            Color::LinearGradient(r) => {
-                geometry = create_geometry(&mut w.1.gl);
-                // defines.vertex_color = true;
-                // TODO
-            }
-            Color::RadialGradient(r) => {
-                geometry = create_geometry(&mut w.1.gl);
-                // defines.vertex_color = true;
-                // TODO
-            }
-        }
 
         if layout.border > 0.0 {
             defines.stroke = true;
@@ -170,8 +106,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
             ubos.insert(STROKE.clone(), Arc::new(stroke_ubo)); // COMMON
         }
 
+        // 设置u_color宏或vertex_color宏， 设置顶点流，索引流，颜色流
+        Self::change_color(event.id, &box_color.background, &mut defines, &mut ubos, r.11, r.4, r.9, &mut geometry, w.1);
+
         let index = self.create_sdf_renderobjs(event.id, 1.0, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
-        self.box_shadow_render_map.insert(event.id, Item{index: index, defines: defines});
+        self.box_color_render_map.insert(event.id, Item{index: index, defines: defines});
     }
 }
 
@@ -250,16 +189,31 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent>
 
 // BoxColor变化, 修改ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> for SdfSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, BoxColor>,  &'a MultiCaseImpl<Node, Layout>);
+    type ReadData = (
+        &'a MultiCaseImpl<Node, BoxColor>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Layout>,
+    );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let box_color = unsafe { read.0.get_unchecked(event.id) };
+        let (box_colors, border_radiuss, z_depths, layouts) = read;
+        let box_color = unsafe { box_colors.get_unchecked(event.id) };
         match event.field {
             "background" => {
-
+                let box_color = unsafe {box_colors.get_unchecked(event.id)};
+                let item = unsafe {self.box_color_render_map.get_unchecked_mut(event.id)};
+                let render_obj = unsafe {write.0.get_unchecked_mut(item.index)};
+                // 设置u_color宏或vertex_color宏， 设置顶点流，索引流，颜色流
+                let defines_change = Self::change_color(event.id, &box_color.background, &mut item.defines, &mut render_obj.ubos, read.1, read.2, read.3, &mut render_obj.geometry, write.1);
+                //如果宏改变，创建渲染管线
+                if defines_change {
+                    let pipeline = write.1.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), item.defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+                    render_obj.pipeline = pipeline;
+                }
             },
             "border" => {
-                let layout = unsafe { read.1.get_unchecked(event.id) };
+                let layout = unsafe { layouts.get_unchecked(event.id) };
                 if layout.border <= 0.0 {
                     return;
                 }
@@ -308,13 +262,19 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
 
 //世界矩阵变化， 设置ubo, 修改宏， 并重新创建渲染管线
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for SdfSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, Layout>;
+    type ReadData = (
+        &'a MultiCaseImpl<Node, BoxColor>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Layout>,
+    );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let (box_colors, border_radiuss, z_depths, layouts) = read;
         let (render_objs, engine) = write;
-        let layout = unsafe { read.get_unchecked(event.id) };
         match unsafe { self.box_color_render_map.get_mut(event.id) } {
             Some(item) => {
+                let layout = unsafe { layouts.get_unchecked(event.id) };
                 let mut obj = &mut unsafe { render_objs.get_unchecked_mut(item.index) };
                 let ubos = &mut obj.ubos;
                 if layout.border <= 0.0 {
@@ -330,6 +290,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
                     item.defines.stroke = true;
                     obj.pipeline = engine.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), item.defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
                 }
+                self.layout_change(event.id, box_colors, border_radiuss, z_depths, layouts, render_objs);
             },
             None => return,
         };
@@ -415,9 +376,7 @@ impl<C: Context + Share> SdfSys<C> {
         engine: & mut SingleCaseImpl<Engine<C>>,
     ) -> usize {
         let opacity = unsafe { opacity.get_unchecked(id) }.0; 
-        let mut defines = Defines::default();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         ubos.insert(VIEW_MATRIX.clone(), view_ubo.0.clone());//  视图矩阵
         ubos.insert(PROJECT_MATRIX.clone(), projection_ubo.0.clone()); // 投影矩阵
 
@@ -430,14 +389,6 @@ impl<C: Context + Share> SdfSys<C> {
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, blur);
         common_ubo.set_float_1(&ALPHA, opacity);
-        let layout = unsafe { layout.get_unchecked(id) };  
-        let border_radius = match unsafe { border_radius.get_unchecked(id) }.0 {
-            LengthUnit::Pixel(r) => r,
-            LengthUnit::Percent(r) => {
-                r * layout.width
-            }
-        };
-        common_ubo.set_float_1(&RADIUS, border_radius);
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
         let by_overflow =  unsafe { by_overflow.get_unchecked(id) }.0;
@@ -461,6 +412,167 @@ impl<C: Context + Share> SdfSys<C> {
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         index
+    }
+
+    fn layout_change(
+        &mut self,
+        id: usize,
+        box_colors: &MultiCaseImpl<Node, BoxColor>,
+        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
+        z_depths: &MultiCaseImpl<Node, ZDepth>,
+        layouts: &MultiCaseImpl<Node, Layout>,
+        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
+    ){
+        let box_color = unsafe { box_colors.get_unchecked(id) };
+        let z_depth = unsafe { z_depths.get_unchecked(id) };
+        let layout = unsafe { layouts.get_unchecked(id) };
+        let item = unsafe { self.box_color_render_map.get_unchecked_mut(id) };
+        let defines = &mut item.defines;
+        let geometry = &mut unsafe { render_objs.get_unchecked_mut(item.index) }.geometry;
+
+        match &box_color.background {
+            Color::RGBA(r) => {
+                if defines.vertex_color == true {
+                    Self::set_attr_for_cgcolor(id, border_radiuss, z_depths, layouts, geometry);
+                }
+            },
+            Color::LinearGradient(r) => {
+                if defines.u_color == true {
+                    Self::set_attr_for_linear_gradient(id, r, border_radiuss, z_depths, layouts, geometry);
+                }
+            },
+            Color::RadialGradient(r) => {
+                panic!("error, RadialGradient is not suported");
+            }
+        }
+    }
+
+    fn set_attr_for_cgcolor(
+        id: usize,
+        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
+        z_depths: &MultiCaseImpl<Node, ZDepth>,
+        layouts: &MultiCaseImpl<Node, Layout>,
+        geometry: &mut Arc<<C as Context>::ContextGeometry>,
+    ){
+        let border_radius = unsafe { border_radiuss.get_unchecked(id) };
+        let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
+        let layout = unsafe { layouts.get_unchecked(id) };
+        let geometry = Arc::get_mut(geometry).unwrap();
+
+        let radius = cal_border_radius(border_radius, layout);
+        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth - 0.1);
+
+        let vertex_count: u32 = (position.len()/3) as u32;
+        if vertex_count != geometry.get_vertex_count() {
+            geometry.set_vertex_count(vertex_count);
+        }
+        geometry.set_attribute(&AttributeName::Position, 3, Some(position.as_slice()), false);
+    }
+
+    fn set_attr_for_linear_gradient(
+        id: usize,
+        bg_colors: &LinearGradientColor,
+        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
+        z_depths: &MultiCaseImpl<Node, ZDepth>,
+        layouts: &MultiCaseImpl<Node, Layout>,
+        geometry: &mut Arc<<C as Context>::ContextGeometry>,
+    ){
+        let border_radius = unsafe { border_radiuss.get_unchecked(id) };
+        let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
+        let layout = unsafe { layouts.get_unchecked(id) };
+        let geometry = Arc::get_mut(geometry).unwrap();
+
+        let mut lg_pos = Vec::with_capacity(bg_colors.list.len());
+        let mut color = Vec::with_capacity(bg_colors.list.len() * 4);
+        for v in bg_colors.list.iter() {
+            lg_pos.push(v.position);
+            color.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
+        }
+
+        let radius = cal_border_radius(border_radius, layout);
+        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth - 0.1);
+        let (position, indeices) = split_by_lg(position, lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height)); // 计算end TODO
+        let colors = interp_by_lg(position.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height));// 计算end TODO
+
+        let vertex_count: u32 = (position.len()/3) as u32;
+        if vertex_count != geometry.get_vertex_count() {
+            geometry.set_vertex_count(vertex_count);
+        }
+        geometry.set_attribute(&AttributeName::Position, 3, Some(position.as_slice()), false);
+        geometry.set_attribute(&AttributeName::Color, 4, Some(colors[0].as_slice()), false);
+        geometry.set_indices_short(indeices.as_slice(), false);
+    }
+
+    fn change_color(
+        id: usize,
+        bg_color: &Color,
+        defines: &mut Defines,
+        ubos: &mut FnvHashMap<Atom, Arc<Uniforms<C>>>,
+        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
+        z_depths: &MultiCaseImpl<Node, ZDepth>,
+        layouts: &MultiCaseImpl<Node, Layout>,
+        geometry: &mut Arc<<C as Context>::ContextGeometry>,
+        engine: &mut Engine<C>,
+    ) -> bool{
+        match (bg_color, defines.vertex_color, defines.u_color) {
+            (Color::RGBA(r), _, false) => {
+                Self::set_attr_for_cgcolor(id, border_radiuss, z_depths, layouts, geometry);
+                defines.u_color = true;
+                defines.vertex_color = false;
+                let mut color_ubo = engine.gl.create_uniforms();
+                color_ubo.set_float_4(&U_COLOR, r.a, r.g, r.b, r.a);
+                ubos.insert(UCOLOR.clone(), Arc::new(color_ubo)); // COLOR 属性
+            },
+            (Color::LinearGradient(r), false, true) => {
+                defines.u_color = false;
+                defines.vertex_color = true;
+                ubos.remove(&UCOLOR);
+            },
+            (Color::LinearGradient(r), false, false) => {
+                defines.vertex_color = true;
+            },
+            (Color::RadialGradient(r), _, _) => {
+                panic!("error, RadialGradient is not suported");
+            },
+            _ => return false
+        }
+        return true;
+    }
+}
+
+pub struct Item {
+    index: usize,
+    defines: Defines,
+}
+
+#[derive(Default)]
+pub struct Defines {
+    clip: bool,
+    stroke: bool,
+    u_color: bool,
+    vertex_color: bool,
+}
+
+impl DefinesClip for Defines {
+    fn set_clip(&mut self, value: bool){self.clip = value}
+    fn get_clip(&self) -> bool {self.clip}
+}
+
+impl DefinesList for Defines {
+    fn list(&self) -> Vec<Atom> {
+        let mut arr = Vec::new();
+        if self.clip {
+            arr.push(CLIP.clone());
+        }
+        if self.stroke {
+            arr.push(STROKE.clone());
+        }
+        if self.u_color {
+            arr.push(UCOLOR.clone());
+        }else if self.vertex_color {
+            arr.push(VERTEX_COLOR.clone());
+        }
+        arr
     }
 }
 

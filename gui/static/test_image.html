@@ -15,11 +15,11 @@
         var RUST_BACKTRACE = 1;
     </script>
     <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="./shader/image.js"></script> <!--图片shader-->
+    <script src="./shader/sdf.js"></script>   <!--sdfshader-->
+    <script src="./shader/text.js"></script> <!--文字shader-->
+    <script src="./shader/init.js"></script> <!--创建engine  设置shadercode-->
     <script>
-        var gl = document.getElementById("canvas").getContext('webgl');
-        window.__gl = gl;
-
-        var engine = Module._create_engine();
         var gui = Module._create_gui(engine, 1000, 700);
 
 

@@ -44,7 +44,7 @@ pub enum Display{
 
 #[derive(Debug, Clone, EnumDefault)]
 pub enum Color{
-    RGB(CgColor),
+    // RGB(CgColor),
     RGBA(CgColor),
     LinearGradient(LinearGradientColor),
     RadialGradient(RadialGradientColor),
@@ -54,7 +54,7 @@ impl Color {
 
     pub fn is_opaque(&self) -> bool {
         match self {
-            Color::RGB(c) | Color::RGBA(c) => {
+            Color::RGBA(c) => {
                 if c.a < 1.0 {
                     return false;
                 }
@@ -96,8 +96,8 @@ pub struct RadialGradientColor{
 
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
-    pub rgba: CgColor,
     pub position: f32,
+    pub rgba: CgColor,
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]
@@ -231,7 +231,10 @@ pub struct Image<C: Context + 'static + Send + Sync>{
 pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
 
 #[derive(Debug, Clone, Component)]
-pub struct BorderRadius(pub LengthUnit);
+pub struct BorderRadius{
+  pub x: LengthUnit,
+  pub y: LengthUnit,
+}
 
 #[derive(Debug, Clone, Default, Component)]
 pub struct BoxShadow{
