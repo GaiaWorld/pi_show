@@ -14,12 +14,14 @@ use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
+use shader::{ProgramManager};
 
 pub struct WebGLContextImpl {
     gl: Arc<WebGLRenderingContext>,
     caps: Arc<Capabilities>,
     default_rt: Arc<WebGLRenderTargetImpl>,
     state: State,
+    program_mgr: ProgramManager,
 }
 
 impl Context for WebGLContextImpl {
@@ -38,12 +40,12 @@ impl Context for WebGLContextImpl {
         self.default_rt.clone()
     }
 
-    fn set_shader_code<C: AsRef<str>>(&mut self, _name: &Atom, _code: &C) {
-
+    fn set_shader_code<C: AsRef<str>>(&mut self, name: &Atom, code: &C) {
+        self.program_mgr.set_shader_code(name, code);
     }
 
-    fn compile_shader(&mut self, _shader_type: ShaderType, _name: &Atom, _defines: &[Atom]) -> Result<u64, String> {
-        Ok(0)
+    fn compile_shader(&mut self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String> {
+        self.program_mgr.compile_shader(shader_type, name, defines) 
     }
 
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
@@ -54,8 +56,11 @@ impl Context for WebGLContextImpl {
 
     fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<AsRef<RasterState>>, bs: Arc<AsRef<BlendState>>, ss: Arc<AsRef<StencilState>>, ds: Arc<AsRef<DepthState>>) -> Result<Pipeline, String> {
         
-        // TODO: 调用Shader模块，连接_shader
-
+        // 链接Shader成Program
+        if let Err(s) = self.program_mgr.get_program(vs_hash, fs_hash) {
+            return Err(s);
+        }
+        
         Ok(Pipeline {
             vs_hash: vs_hash, 
             fs_hash: fs_hash,
@@ -105,25 +110,28 @@ impl Context for WebGLContextImpl {
         self.state.set_clear(&data.clear_color, &data.clear_depth, &data.clear_stencil);
     }
 
+    /** 
+     * 对别的平台，如果RenderTarget是屏幕，就要调用swapBuffer，但是webgl不需要。
+     */
     fn end_render(&mut self) {
 
     }
 
     fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>) {
         
-        let pipeline = pipeline.as_ref().as_ref();
-
-        if !self.state.set_program(pipeline.vs_hash, pipeline.fs_hash) {
-            // TODO: 调用Shader模块，使用program
+        if !self.state.set_pipeline(pipeline) {
+            let p = pipeline.as_ref().as_ref();
+            if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
+                program.use_me();
+            }
         }
-
-        self.state.set_pipeline_state(&pipeline.raster_state, &pipeline.depth_state, &pipeline.stencil_state, &pipeline.blend_state);
     }
 
-    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, _values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
-        // TODO：根据当前的pipeline取program，设置uniforms
-
-        self.state.draw(geometry);
+    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
+        if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
+            program.set_uniforms(values);
+            self.state.draw(geometry);
+        }
     }
 }
 
@@ -136,11 +144,14 @@ impl WebGLContextImpl {
 
         let state = State::new(&gl, &(rt.clone() as Arc<AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
 
+        let mgr = ProgramManager::new(&gl, caps.max_vertex_attribs);
+
         WebGLContextImpl {
             gl: gl,
             caps: Arc::new(caps),
             default_rt: rt,
             state: state,
+            program_mgr: mgr,
         }
     }
 

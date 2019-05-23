@@ -1,6 +1,5 @@
 
 use std::sync::{Weak, Arc};
-use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap};
@@ -15,6 +14,9 @@ use webgl_rendering_context::{
 
 use atom::Atom;
 use hal_core::*;
+use context::{WebGLContextImpl};
+use texture::{WebGLTextureImpl};
+use sampler::{WebGLSamplerImpl};
 
 /**
  * GPU Shader
@@ -31,12 +33,15 @@ pub struct Shader {
 pub struct Program {
     handle: WebGLProgram,
     gl: Weak<WebGLRenderingContext>,
-    attributes: HashMap<Atom, u32>,
-    uniforms: HashMap<Atom, WebGLUniformImpl>,
+    
+    attributes: HashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
+
+    all_uniforms: HashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
+    last_uniforms: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>, // 上次设置的Uniforms，对应接口的概念
 }
 
 pub struct WebGLUniformImpl {
-    value: UniformValue,
+    value: UniformValue<WebGLContextImpl>,
     location: WebGLUniformLocation,
 }
 
@@ -192,14 +197,15 @@ impl ProgramManager {
         }
 
         let attributes = ProgramManager::init_attribute(&gl, &program_handle, self.max_vertex_attribs);
-        let uniforms = ProgramManager::init_uniform(&gl, &program_handle);
-
+        let all_uniforms = ProgramManager::init_uniform(&gl, &program_handle);
+        
         // 将program加入缓存
         let program = Program {
             gl: self.gl.clone(),
             handle: program_handle,
             attributes: attributes,
-            uniforms: uniforms
+            all_uniforms: all_uniforms,
+            last_uniforms: HashMap::new(),
         };
 
         self.program_caches.insert(program_hash, program);
@@ -207,30 +213,27 @@ impl ProgramManager {
         Ok(())
     }
 
-    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram, max_vertex_attribs: u32) -> HashMap<Atom, u32> {
+    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram, max_vertex_attribs: u32) -> HashMap<AttributeName, u32> {
         
         // 为了减少状态切换，限制attribute前16个location必须用下面的名字
 
-        let mut attributes: HashMap<Atom, u32> = HashMap::default();
-        let attribute_names = ["position", "normal", "color", "uv0", "uv1", "skinIndex", "skinWeight", "tangent","binormal", "uv2", "uv3", "uv4", "uv5", "uv6", "uv7", "uv8"];
-
-        let mut max_attribute_count = max_vertex_attribs;
-        if attribute_names.len() as u32 > max_attribute_count {
-            max_attribute_count = attribute_names.len() as u32;
-        }
+        let mut attributes = HashMap::new();
+        
+        let max_attribute_count = std::cmp::min(max_vertex_attribs, get_builtin_attribute_count());
         
         // 因为webgl有警告，所以这里就不记录类型和大小了。
         for i in 0..max_attribute_count {
-            gl.bind_attrib_location(program, i, &attribute_names[i as usize]);
-            attributes.insert(Atom::from(attribute_names[i as usize]), i);
+            let (attrib_name, name) = Self::get_attribute_by_location(i);
+            gl.bind_attrib_location(program, i, name);
+            attributes.insert(attrib_name, i);
         }
 
         return attributes;
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> HashMap<Atom, Uniform> {
-        // uniform的信息得从program里面取出来，一旦确定，就不会变了。
-        let mut uniforms: HashMap<Atom, Uniform> = HashMap::default();
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> HashMap<Atom, WebGLUniformImpl> {
+        
+        let mut uniforms = HashMap::default();
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
@@ -239,8 +242,6 @@ impl ProgramManager {
 
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i).unwrap();
-            let mut u_count = 0;
-            let mut item_count = 0;
             let mut value;
             let mut name = uniform.name();
             
@@ -257,111 +258,82 @@ impl ProgramManager {
             match uniform.type_() {
                 WebGLRenderingContext::FLOAT => {
                     if is_array {
-                        item_count = 1;
-                        u_count = 1 * uniform.size();
-                        value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
-                    } else { 
-                        u_count = 1;
-                        item_count = 1;
-                        value = UniformValue::Float(0.0, 0.0, 0.0, 0.0);
+                        let size = 1 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::FloatV(1, vec![0.0; size]);
+                    } else {
+                        value = UniformValue::<WebGLContextImpl>::Float(1, 0.0, 0.0, 0.0, 0.0);
                     }
                 }
                 WebGLRenderingContext::FLOAT_VEC2 => {
                     if is_array {
-                        item_count = 2;
-                        u_count = 2 * uniform.size();
-                        value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                        let size = 2 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::FloatV(2, vec![0.0; size]);
                     } else {
-                        u_count = 2;
-                        item_count = 2;
-                        value = UniformValue::Float(0.0, 0.0, 0.0, 0.0);
+                        value = UniformValue::<WebGLContextImpl>::Float(2, 0.0, 0.0, 0.0, 0.0);
                     }
                 }
                 WebGLRenderingContext::FLOAT_VEC3 => {
                     if is_array {
-                        item_count = 3;
-                        u_count = 3 * uniform.size();
-                        value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                        let size = 3 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::FloatV(3, vec![0.0; size]);
                     } else {
-                        u_count = 3;
-                        item_count = 3;
-                        value = UniformValue::Float(0.0, 0.0, 0.0, 0.0);
+                        value = UniformValue::<WebGLContextImpl>::Float(3, 0.0, 0.0, 0.0, 0.0);
                     }
                 }
                 WebGLRenderingContext::FLOAT_VEC4 => {
                     if is_array {
-                        item_count = 4;
-                        u_count = 4 * uniform.size();
-                        value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                        let size = 4 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::FloatV(4, vec![0.0; size]);
                     } else {
-                        u_count = 4;
-                        item_count = 4;
-                        value = UniformValue::Float(0.0, 0.0, 0.0, 0.0);
+                        value = UniformValue::<WebGLContextImpl>::Float(4, 0.0, 0.0, 0.0, 0.0);
                     }
-                }
-                WebGLRenderingContext::SAMPLER_2D => {
-                    u_count = 1;
-                    item_count = 1;
-                    value = UniformValue::Int(0, 0, 0, 0);
                 }
                 WebGLRenderingContext::INT => {
                     if is_array {
-                        item_count = 1;
-                        u_count = 1 * uniform.size();
-                        value = UniformValue::Ints(Vec::with_capacity(u_count as usize));
-                    } else { 
-                        u_count = 1;
-                        item_count = 1;
-                        value = UniformValue::Int(0, 0, 0, 0);
+                        let size = 1 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::IntV(1, vec![0; size]);
+                    } else {
+                        value = UniformValue::<WebGLContextImpl>::Int(1, 0, 0, 0, 0);
                     }
                 }
                 WebGLRenderingContext::INT_VEC2 => {
                     if is_array {
-                        item_count = 2;
-                        u_count = 2 * uniform.size();
-                        value = UniformValue::Ints(Vec::with_capacity(u_count as usize));
-                    } else { 
-                        u_count = 2;
-                        item_count = 2;
-                        value = UniformValue::Int(0, 0, 0, 0);
+                        let size = 2 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::IntV(2, vec![0; size]);
+                    } else {
+                        value = UniformValue::<WebGLContextImpl>::Int(2, 0, 0, 0, 0);
                     }
                 }
                 WebGLRenderingContext::INT_VEC3 => {
                     if is_array {
-                        item_count = 3;
-                        u_count = 3 * uniform.size();
-                        value = UniformValue::Ints(Vec::with_capacity(u_count as usize));
-                    } else { 
-                        u_count = 3;
-                        item_count = 3;
-                        value = UniformValue::Int(0, 0, 0, 0);
+                        let size = 3 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::IntV(3, vec![0; size]);
+                    } else {
+                        value = UniformValue::Int(3, 0, 0, 0, 0);
                     }
                 }
                 WebGLRenderingContext::INT_VEC4 => {
                     if is_array {
-                        item_count = 4;
-                        u_count = 4 * uniform.size();
-                        value = UniformValue::Ints(Vec::with_capacity(u_count as usize));
-                    } else { 
-                        u_count = 4;
-                        item_count = 4;
-                        value = UniformValue::Int(0, 0, 0, 0);
+                        let size = 4 * uniform.size() as usize;
+                        value = UniformValue::<WebGLContextImpl>::IntV(4, vec![0; size]);
+                    } else {
+                        value = UniformValue::Int(4, 0, 0, 0, 0);
                     }
                 }
                 WebGLRenderingContext::FLOAT_MAT2 => {
-                    item_count = 4;
-                    u_count = 4 * uniform.size();
-                    value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                    let size = 4 * uniform.size() as usize;
+                    value = UniformValue::<WebGLContextImpl>::MatrixV(2, vec![0.0; size]);
                 }
                 WebGLRenderingContext::FLOAT_MAT3 => {
-                    item_count = 9;
-                    u_count = 9 * uniform.size();
-                    value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                    let size = 9 * uniform.size() as usize;
+                    value = UniformValue::<WebGLContextImpl>::MatrixV(3, vec![0.0; size]);
                 }
                 WebGLRenderingContext::FLOAT_MAT4 => {
-                    item_count = 16;
-                    u_count = 16 * uniform.size();
-                    value = UniformValue::Floats(Vec::with_capacity(u_count as usize));
+                    let size = 16 * uniform.size() as usize;
+                    value = UniformValue::<WebGLContextImpl>::MatrixV(4, vec![0.0; size]);
+                }
+                WebGLRenderingContext::SAMPLER_2D => {
+                    value = UniformValue::<WebGLContextImpl>::Sampler(Weak::<WebGLSamplerImpl>::new(), Weak::<WebGLTextureImpl>::new());
                 }
                 _ => {
                     panic!("Invalid Uniform");
@@ -370,15 +342,38 @@ impl ProgramManager {
 
             let location = gl.get_uniform_location(program, &uniform.name()).unwrap();
             
-            uniforms.insert(Atom::from(uniform.name()), Uniform {
+            uniforms.insert(Atom::from(uniform.name()), WebGLUniformImpl {
                 value: value,
-                item_count: item_count,
-                count: u_count as u32,
                 location: location,
             });
         }
 
         return uniforms;
+    }
+
+    fn get_attribute_by_location(index: u32) -> (AttributeName, &'static str) {
+        match index {
+            0 => (AttributeName::Position, "position"),
+            1 => (AttributeName::Normal, "normal"),
+            2 => (AttributeName::Color, "color"),
+            3 => (AttributeName::UV0, "uv0"),
+            4 => (AttributeName::UV1, "uv0"),
+            5 => (AttributeName::SkinIndex, "skinIndex"),
+            6 => (AttributeName::SkinWeight, "skinWeight"),
+            7 => (AttributeName::Tangent, "tangent"),
+            8 => (AttributeName::BiNormal, "binormal"),
+            9 => (AttributeName::UV2, "uv2"),
+            10 => (AttributeName::UV3, "uv3"),
+            11 => (AttributeName::UV4, "uv4"),
+            12 => (AttributeName::UV5, "uv5"),
+            13 => (AttributeName::UV6, "uv6"),
+            14 => (AttributeName::UV7, "uv7"),
+            15 => (AttributeName::UV8, "uv8"),
+            _ => {
+                assert!(false, "no support");
+                (AttributeName::Custom(Atom::from("no support")), "no support")
+            }
+        }
     }
 
     fn get_hash<N: Hash, D: Hash>(name: &N, defines: &[D]) -> u64 {
@@ -396,171 +391,13 @@ impl ProgramManager {
 
 impl Program {
 
-    pub fn use(&mut self) {
-        
+    pub fn use_me(&mut self) {
+        if let Some(gl) = self.gl.upgrade() {
+            gl.use_program(Some(&self.handle));
+        }
     }
 
-    pub fn uniform_i(&mut self, name: &Atom, v1: i32, v2: i32, v3: i32, v4: i32) -> Result<(), ()> {
+    pub fn set_uniforms(&mut self, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
         
-        let u = self.uniforms.get_mut(name).ok_or(())?;
-        let count = u.count;
-
-        if let UniformValue::Int(a, b, c, d) = u.value {
-            if count == 1 && a == v1 {
-                return Ok( () );
-            } else if count == 2 && a == v1 && b == v2 {
-                return Ok( () );
-            } else if count == 3 && a == v1 && b == v2 && c == v3 {
-                return Ok( () );
-            } else if a == v1 && b == v2 && c == v3 && d == v4 {
-                return Ok( () );
-            }
-        } else {
-            debug_assert!(false);
-        }
-        
-        let gl = self.gl.upgrade().unwrap();
-        
-        if count == 1 {
-            gl.uniform1i(Some(&u.location), v1);
-            u.value = UniformValue::Int(v1, 0, 0, 0);
-        } else if count == 2 {
-            gl.uniform2i(Some(&u.location), v1, v2);
-            u.value = UniformValue::Int(v1, v2, 0, 0);
-        } else if count == 3 {
-            gl.uniform3i(Some(&u.location), v1, v2, v3);
-            u.value = UniformValue::Int(v1, v2, v3, 0);
-        } else {
-            gl.uniform4i(Some(&u.location), v1, v2, v3, v4);
-            u.value = UniformValue::Int(v1, v2, v3, v4);
-        }
-
-        Ok(())
-    }
-
-    pub fn uniform_f(&mut self, name: &Atom, v1: f32, v2: f32, v3: f32, v4: f32) -> Result<(), ()> {
-        let u = self.uniforms.get_mut(name).ok_or(())?;
-        let count = u.count;
-
-        if let UniformValue::Float(a, b, c, d) = u.value {
-            if count == 1 && a == v1 {
-                return Ok( () );
-            } else if count == 2 && a == v1 && b == v2 {
-                return Ok( () );
-            } else if count == 3 && a == v1 && b == v2 && c == v3 {
-                return Ok( () );
-            } else if a == v1 && b == v2 && c == v3 && d == v4 {
-                return Ok( () );
-            }
-        } else {
-            debug_assert!(false);
-        }
-        
-        let gl = self.gl.upgrade().unwrap();
-        if count == 1 {
-            gl.uniform1f(Some(&u.location), v1);
-            u.value = UniformValue::Float(v1, 0.0, 0.0, 0.0);
-        } else if count == 2 {
-            gl.uniform2f(Some(&u.location), v1, v2);
-            u.value = UniformValue::Float(v1, v2, 0.0, 0.0);
-        } else if count == 3 {
-            gl.uniform3f(Some(&u.location), v1, v2, v3);
-            u.value = UniformValue::Float(v1, v2, v3, 0.0);
-        } else {
-            gl.uniform4f(Some(&u.location), v1, v2, v3, v4);
-            u.value = UniformValue::Float(v1, v2, v3, v4);
-        }
-        Ok(())
-    }
-
-    pub fn uniform_iv(&mut self, name: &Atom, v: &[i32]) -> Result<(), ()> {
-        let u = self.uniforms.get_mut(name).ok_or(())?;
-        
-        debug_assert!(v.len() == u.count as usize);
-
-        if let UniformValue::Ints(ref old) = u.value {
-            if old.as_slice().cmp(v) == Ordering::Equal {
-                return Ok( () );
-            }
-        } else {
-            debug_assert!(false);
-        }
-        
-        let gl = self.gl.upgrade().unwrap();
-        if u.item_count == 1 {
-            gl.uniform1iv(Some(&u.location), v);
-        } else if u.item_count == 2 {
-            gl.uniform2iv(Some(&u.location), v);
-        } else if u.item_count == 3 {
-            gl.uniform3iv(Some(&u.location), v);
-        } else {
-            gl.uniform4iv(Some(&u.location), v);
-        }
-
-        if let UniformValue::Ints(ref mut target) = u.value {
-            target.clone_from_slice(v);
-        }
-
-        Ok(())
-    }
-
-    pub fn uniform_fv(&mut self, name: &Atom, v: &[f32]) -> Result<(), ()> {
-        let u = self.uniforms.get_mut(name).ok_or(())?;
-        
-        debug_assert!(v.len() == u.count as usize);
-
-        if let UniformValue::Floats(ref old) = u.value {
-            if old.as_slice().partial_cmp(v) == Some(Ordering::Equal) {
-                return Ok( () );
-            }
-        } else {
-            debug_assert!(false);
-        }
-        
-        let gl = self.gl.upgrade().unwrap();
-        if u.item_count == 1 {
-            gl.uniform1fv(Some(&u.location), v);
-        } else if u.item_count == 2 {
-            gl.uniform2fv(Some(&u.location), v);
-        } else if u.item_count == 3 {
-            gl.uniform3fv(Some(&u.location), v);
-        } else {
-            gl.uniform4fv(Some(&u.location), v);
-        }
-        
-        if let UniformValue::Floats(ref mut target) = u.value {
-            target.clone_from_slice(v);
-        }
-
-        Ok(())
-    }
-
-    pub fn uniform_mat_v(&mut self, name: &Atom, v: &[f32]) -> Result<(), ()> {
-        let u = self.uniforms.get_mut(name).ok_or(())?;
-        
-        debug_assert!(v.len() == u.count as usize);
-
-        if let UniformValue::Floats(ref old) = u.value {
-            if old.as_slice().partial_cmp(v) == Some(Ordering::Equal) {
-                return Ok( () );
-            }
-        } else {
-            debug_assert!(false);
-        }
-        
-        let gl = self.gl.upgrade().unwrap();
-        if u.item_count == 4 {
-            gl.uniform_matrix2fv(Some(&u.location), false, v);
-        } else if u.item_count == 9 {
-            gl.uniform_matrix3fv(Some(&u.location), false, v);
-        } else if u.item_count == 16 {
-            gl.uniform_matrix4fv(Some(&u.location), false, v);
-        }
-        
-        if let UniformValue::Floats(ref mut target) = u.value {
-            target.clone_from_slice(v);
-        }
-
-        Ok(())
     }
 }

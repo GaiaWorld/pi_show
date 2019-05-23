@@ -20,7 +20,7 @@ mod texture;
 mod convert;
 mod extension;
 mod state;
-// mod shader;
+mod shader;
 
 pub use self::context::*;
 

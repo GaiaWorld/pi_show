@@ -268,6 +268,12 @@ impl StencilState {
     }
 }
 
+impl AsRef<Self> for Pipeline {
+    fn as_ref(&self) -> &Self {
+        &self
+    }
+}
+
 impl AsRef<Self> for RasterState {
     fn as_ref(&self) -> &Self {
         &self
