@@ -235,8 +235,8 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   };
   cb.line_height = get_line_height(cb.font_size, &style.line_height);
   let text = match read.2.get(id) {
-      Some(t) => t.0.clone(),
-      _ => Arc::new("".to_string()),
+      Some(t) => t.0.as_ref(),
+      _ => "",
   };
   // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
   if cb.indent != style.indent {
@@ -247,7 +247,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   let mut word = YgNode::new_null();
   let mut word_index = 0;
   // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-  for cr in split(text.as_ref(), true, style.white_space.preserve_spaces()) {
+  for cr in split(text, true, style.white_space.preserve_spaces()) {
     match cr {
       SplitResult::Newline =>{
         update_char(cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);

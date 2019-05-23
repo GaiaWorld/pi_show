@@ -35,6 +35,7 @@ pub enum AttributeName {
     UV5,        // shader attribute：uv5，一般是vec2
     UV6,        // shader attribute：uv6，一般是vec2
     UV7,        // shader attribute：uv7，一般是vec2
+    UV8,        // shader attribute：uv8，一般是vec2
     Custom(Atom), // 自定义名字，无非必要，最好不用
 }
 
@@ -55,6 +56,7 @@ pub fn get_attribute_name(name: &AttributeName) -> Atom {
         AttributeName::UV5 => Atom::from("uv5"),
         AttributeName::UV6 => Atom::from("uv6"),
         AttributeName::UV7 => Atom::from("uv7"),
+        AttributeName::UV8 => Atom::from("uv8"),
         AttributeName::Custom(n) => n.clone(),
     }
 }

@@ -17,9 +17,8 @@ macro_rules! set_attr {
     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
-        get_text(world, node_id);
         let attr = world.fetch_multi::<Node, $tt>().unwrap();
-        let mut attr = attr.lend_mut();
+        let attr = attr.lend_mut();
         let value = $value;
         $crate::paste::item! {
             match attr.get_write(node_id) {
@@ -140,7 +139,6 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
     };
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
-    get_text(world, node_id);
     let attr = world.fetch_multi::<Node, TextShadow>().unwrap();
     attr.lend_mut().insert(node_id, value);
     debug_println!("set_text_shadow"); 
@@ -192,12 +190,3 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
 //     }
 //     debug_println!("set_font_family"); 
 // }
-
-fn get_text(world: &World, node_id: usize) -> &mut Text {
-    let text = world.fetch_multi::<Node, Text>().unwrap();
-    let mut text = text.lend_mut();
-    match text.get_mut(node_id) {
-        Some(r) => unsafe{&mut *(r as *mut Text)},
-        _ => panic!("it's not a text"),
-    }
-}
