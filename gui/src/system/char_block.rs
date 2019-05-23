@@ -118,6 +118,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+        self.delete_position_dirty(event.id);
         let item = self.char_block_render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));

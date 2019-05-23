@@ -1,10 +1,13 @@
+use hal_core::Context;
+
 use ecs::{World};
 use ecs::idtree::IdTree;
 use component::user::*;
 use component::calc::*;
 use entity::Node;
+use render::engine::Engine;
 
-pub fn create_world() -> World{
+pub fn create_world<C: Context + 'static + Send + Sync>(engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
     //user
@@ -14,7 +17,7 @@ pub fn create_world() -> World{
     world.register_multi::<Node, ZIndex>();
     world.register_multi::<Node, BoxColor>();
     world.register_multi::<Node, BoxShadow>();
-    // world.register_multi::<Node, BorderImage>();
+    world.register_multi::<Node, BorderImage<C>>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Overflow>();
     world.register_multi::<Node, Show>();

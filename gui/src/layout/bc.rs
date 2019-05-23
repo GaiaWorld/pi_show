@@ -62,6 +62,9 @@ pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWra
 #[derive(Clone, Debug, Copy, PartialEq, Component)]
 pub struct YgNode( yoga::YGNodeRef);
 
+unsafe impl Sync for YgNode{}
+unsafe impl Send for YgNode{}
+
 impl Default for YgNode{
     fn default() -> YgNode{
         let y = YgNode::new();
@@ -75,7 +78,7 @@ impl YgNode {
         YgNode(yoga::yg_node_new())
     }
     pub fn new_null() -> YgNode {
-        YgNode( 0 as yoga::YGNodeRef);
+        YgNode( 0 as yoga::YGNodeRef)
     }
     pub fn is_null(&self) -> bool {
         self.is_null()
@@ -315,7 +318,7 @@ impl YgNode {
         yoga::yg_node_style_get_height(self.0)
     }
     pub fn get_context(&self) -> *mut c_void {
-         yoga::yg_node_set_context(self.0)
+        yoga::yg_node_get_context(self.0)
     }
     // pub fn is_reference_baseline(&self) -> bool { 
     //     yoga::yg_node_style_get_position_type(self.0)
@@ -335,7 +338,7 @@ impl YgNode {
         yoga::yg_node_calculate_layout(self.0, width, height, direction);
     }
 
-    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: yoga::CallbackFunc, arg: *const c_void) {
+    pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: CallbackFunc, arg: *const c_void) {
         yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, unsafe { std::mem::transmute(callback) }, arg);
     }
 

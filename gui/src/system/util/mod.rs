@@ -39,7 +39,7 @@ pub fn cal_matrix(
 
 pub fn color_is_opaque(color: &Color) -> bool{
     match &color {
-        Color::RGB(c) | Color::RGBA(c) => {
+        Color::RGBA(c) => {
             if c.a < 1.0 {
                 return false;
             }
@@ -149,4 +149,17 @@ pub fn sampler_desc_hash(s: &SamplerDesc) -> u64{
     unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.u_wrap).hash(&mut h) };
     unsafe { transmute::<hal_core::TextureWrapMode, u8>(s.v_wrap).hash(&mut h) };
     h.finish()
+}
+
+pub fn cal_border_radius(border_radius: &BorderRadius,  layout: &Layout) -> Point2{
+    Point2{
+        x: match border_radius.x {
+            LengthUnit::Pixel(r) => r,
+            LengthUnit::Percent(r) => r * layout.width,
+        },
+        y: match border_radius.y {
+            LengthUnit::Pixel(r) => r,
+            LengthUnit::Percent(r) => r * layout.height,
+        },
+    } 
 }

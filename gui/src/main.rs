@@ -22,12 +22,15 @@ extern crate enum_default_macro;
 #[macro_use]
 extern crate debug_info;
 pub extern crate paste;
-// #[macro_use]
-// extern crate stdweb_derive;
+#[cfg(feature = "web")]
+#[macro_use]
+extern crate stdweb_derive;
 
-// extern crate webgl_rendering_context;
-// #[macro_use]
-// extern crate stdweb;
+#[cfg(feature = "web")]
+extern crate webgl_rendering_context;
+#[cfg(feature = "web")]
+#[macro_use]
+extern crate stdweb;
  
 
 extern crate deque;
@@ -47,6 +50,9 @@ extern crate dirty;
 extern crate color;
 extern crate util as lib_util;
 extern crate hal_core;
+extern crate polygon;
+#[cfg(feature = "web")]
+extern crate hal_webgl;
 
 pub mod system;
 pub mod component;
@@ -54,10 +60,10 @@ pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
+#[cfg(feature = "web")]
 pub mod bind;
 pub mod util;
-#[cfg(feature = "web")]
-pub mod web_world;
+pub mod world;
 
 pub mod entity{
     pub struct Node;

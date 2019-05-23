@@ -4,6 +4,7 @@ use std::collections::{HashMap};
 
 use atom::{Atom};
 use traits::{Context};
+use ShareRef;
 
 /** 
  * Uniform集合
@@ -394,7 +395,7 @@ impl<C: Context> Uniforms<C> {
     /** 
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
-    pub fn set_sampler(&mut self, name: &Atom, sampler: &Arc<AsRef<C::ContextSampler>>, texture: &Arc<AsRef<C::ContextTexture>>) {
+    pub fn set_sampler(&mut self, name: &Atom, sampler: &ShareRef<C::ContextSampler>, texture: &ShareRef<C::ContextTexture>) {
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {

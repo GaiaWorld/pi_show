@@ -89,11 +89,11 @@ pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
     set_attr!(world, node, BoxColor, border, CgColor::new(r, g, b, a));
 }
 
-// 设置边框圆角
-#[no_mangle]
-pub fn set_border_radius(world: u32, node: u32, value: f32){
-    insert_value!(world, node, BorderRadius, LengthUnit::Pixel(value));
-}
+// // 设置边框圆角
+// #[no_mangle]
+// pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32){
+//     insert_attr!(world, node, BorderRadius, LengthUnit::Pixel(value));
+// }
 
 // 设置边框圆角
 #[no_mangle]

@@ -78,8 +78,10 @@ pub struct BorderImageSlice{
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 #[derive(Debug, Clone, Component)]
-pub struct BorderRadius(pub LengthUnit);
-
+pub struct BorderRadius{
+  pub x: LengthUnit,
+  pub y: LengthUnit,
+}
 #[derive(Debug, Clone, Default, Component)]
 pub struct BoxShadow{
     pub h: f32,
@@ -111,6 +113,12 @@ pub struct TextShadow{
     pub blur: f32, //	可选。模糊的距离。	测试
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
+#[derive(Component, Default)]
+pub struct SrcClip{
+  pub uv: (Point2, Point2),
+  pub size: Vector2,
+}
+
 #[derive(Component, Debug, Clone, Default)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
@@ -151,7 +159,7 @@ pub enum Display{
 
 #[derive(Debug, Clone, EnumDefault)]
 pub enum Color{
-    RGB(CgColor),
+    // RGB(CgColor),
     RGBA(CgColor),
     LinearGradient(LinearGradientColor),
     RadialGradient(RadialGradientColor),
@@ -160,7 +168,7 @@ pub enum Color{
 impl Color {
     pub fn is_opaque(&self) -> bool {
         match self {
-            Color::RGB(c) | Color::RGBA(c) => {
+            Color::RGBA(c) => {
                 return c.a >= 1.0
             },
             Color::LinearGradient(l) => {
@@ -199,8 +207,8 @@ pub struct RadialGradientColor{
 
 #[derive(Debug, Clone)]
 pub struct ColorAndPosition{
-    pub rgba: CgColor,
     pub position: f32,
+    pub rgba: CgColor,
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]
