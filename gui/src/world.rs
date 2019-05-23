@@ -7,7 +7,7 @@ use component::calc::*;
 use entity::Node;
 use render::engine::Engine;
 
-pub fn create_world<C: Context + 'static + Send + Sync>(engine: Engine<C>, width: f32, height: f32) -> World{
+pub fn create_world<C: Context + Sync + Send + 'static>(engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
     //user
