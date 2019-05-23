@@ -201,7 +201,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> 
         let box_color = unsafe { box_colors.get_unchecked(event.id) };
         match event.field {
             "background" => {
-                let box_color = unsafe {box_colors.get_unchecked(event.id)};
                 let item = unsafe {self.box_color_render_map.get_unchecked_mut(event.id)};
                 let render_obj = unsafe {write.0.get_unchecked_mut(item.index)};
                 // 设置u_color宏或vertex_color宏， 设置顶点流，索引流，颜色流
@@ -230,6 +229,38 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, ModifyEvent> 
                     stroke_ubo.set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a);
                     Arc::new(stroke_ubo)
                 });
+            },
+            _ => (),
+        }
+    }
+}
+
+// BoxShadow变化, 修改ubo
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for SdfSys<C>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, BoxShadow>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Layout>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let (box_shadows, border_radiuss, z_depths, layouts) = read;
+        let box_shadow= unsafe { box_shadows.get_unchecked(event.id) };
+        let item = unsafe {self.box_shadow_render_map.get_unchecked_mut(event.id)};
+        let render_obj = unsafe {write.0.get_unchecked_mut(item.index)};
+        match event.field {
+            "color" => {
+                let color_ubo = render_obj.ubos.get_mut(&UCOLOR).unwrap(); //设置ubo
+                Arc::make_mut(color_ubo).set_float_4(&U_COLOR, box_shadow.color.a, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
+            },
+            "h" | "v" => {
+                let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
+                Self::set_attr_for_cgcolor(event.id, z_depth - 0.2, border_radiuss, layouts, &mut render_obj.geometry);
+            },
+            "blur" => {
+                let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap(); //设置ubo
+                Arc::make_mut(common_ubo).set_float_1(&BLUR, box_shadow.blur);
             },
             _ => (),
         }
@@ -272,6 +303,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (box_colors, border_radiuss, z_depths, layouts) = read;
         let (render_objs, engine) = write;
+        if let Some(item) = unsafe { self.box_shadow_render_map.get_mut(event.id) } {
+            let item = unsafe {self.box_shadow_render_map.get_unchecked_mut(event.id)};
+            let render_obj = unsafe {render_objs.get_unchecked_mut(item.index)};
+            let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
+            Self::set_attr_for_cgcolor(event.id, z_depth - 0.2, border_radiuss, layouts, &mut render_obj.geometry);
+        };
         match unsafe { self.box_color_render_map.get_mut(event.id) } {
             Some(item) => {
                 let layout = unsafe { layouts.get_unchecked(event.id) };
@@ -290,7 +327,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
                     item.defines.stroke = true;
                     obj.pipeline = engine.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), item.defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
                 }
-                self.layout_change(event.id, box_colors, border_radiuss, z_depths, layouts, render_objs);
+                let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
+                self.layout_change(event.id, z_depth - 0.1,  box_colors, border_radiuss, layouts, render_objs);
             },
             None => return,
         };
@@ -417,14 +455,13 @@ impl<C: Context + Share> SdfSys<C> {
     fn layout_change(
         &mut self,
         id: usize,
+        z_depth: f32,
         box_colors: &MultiCaseImpl<Node, BoxColor>,
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
-        z_depths: &MultiCaseImpl<Node, ZDepth>,
         layouts: &MultiCaseImpl<Node, Layout>,
         render_objs: &mut SingleCaseImpl<RenderObjs<C>>
     ){
         let box_color = unsafe { box_colors.get_unchecked(id) };
-        let z_depth = unsafe { z_depths.get_unchecked(id) };
         let layout = unsafe { layouts.get_unchecked(id) };
         let item = unsafe { self.box_color_render_map.get_unchecked_mut(id) };
         let defines = &mut item.defines;
@@ -433,12 +470,12 @@ impl<C: Context + Share> SdfSys<C> {
         match &box_color.background {
             Color::RGBA(r) => {
                 if defines.vertex_color == true {
-                    Self::set_attr_for_cgcolor(id, border_radiuss, z_depths, layouts, geometry);
+                    Self::set_attr_for_cgcolor(id, z_depth, border_radiuss, layouts, geometry);
                 }
             },
             Color::LinearGradient(r) => {
                 if defines.u_color == true {
-                    Self::set_attr_for_linear_gradient(id, r, border_radiuss, z_depths, layouts, geometry);
+                    Self::set_attr_for_linear_gradient(id, z_depth, r, border_radiuss, layouts, geometry);
                 }
             },
             Color::RadialGradient(r) => {
@@ -449,18 +486,17 @@ impl<C: Context + Share> SdfSys<C> {
 
     fn set_attr_for_cgcolor(
         id: usize,
+        z_depth: f32,
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
-        z_depths: &MultiCaseImpl<Node, ZDepth>,
         layouts: &MultiCaseImpl<Node, Layout>,
         geometry: &mut Arc<<C as Context>::ContextGeometry>,
     ){
         let border_radius = unsafe { border_radiuss.get_unchecked(id) };
-        let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
         let layout = unsafe { layouts.get_unchecked(id) };
         let geometry = Arc::get_mut(geometry).unwrap();
 
         let radius = cal_border_radius(border_radius, layout);
-        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth - 0.1);
+        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth);
 
         let vertex_count: u32 = (position.len()/3) as u32;
         if vertex_count != geometry.get_vertex_count() {
@@ -471,14 +507,13 @@ impl<C: Context + Share> SdfSys<C> {
 
     fn set_attr_for_linear_gradient(
         id: usize,
+        z_depth: f32,
         bg_colors: &LinearGradientColor,
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
-        z_depths: &MultiCaseImpl<Node, ZDepth>,
         layouts: &MultiCaseImpl<Node, Layout>,
         geometry: &mut Arc<<C as Context>::ContextGeometry>,
     ){
         let border_radius = unsafe { border_radiuss.get_unchecked(id) };
-        let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
         let layout = unsafe { layouts.get_unchecked(id) };
         let geometry = Arc::get_mut(geometry).unwrap();
 
@@ -490,7 +525,7 @@ impl<C: Context + Share> SdfSys<C> {
         }
 
         let radius = cal_border_radius(border_radius, layout);
-        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth - 0.1);
+        let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth);
         let (position, indeices) = split_by_lg(position, lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height)); // 计算end TODO
         let colors = interp_by_lg(position.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height));// 计算end TODO
 
@@ -516,7 +551,8 @@ impl<C: Context + Share> SdfSys<C> {
     ) -> bool{
         match (bg_color, defines.vertex_color, defines.u_color) {
             (Color::RGBA(r), _, false) => {
-                Self::set_attr_for_cgcolor(id, border_radiuss, z_depths, layouts, geometry);
+                let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
+                Self::set_attr_for_cgcolor(id, z_depth - 0.1, border_radiuss, layouts, geometry);
                 defines.u_color = true;
                 defines.vertex_color = false;
                 let mut color_ubo = engine.gl.create_uniforms();
@@ -588,119 +624,23 @@ fn box_is_opacity(opacity: f32, backgroud_color: &Color, border_color: &CgColor)
     return color_is_opaque(backgroud_color);
 }
 
-// impl_system!{
-//     SdfSys,
-//     false,
-//     {
-//         EntityListener<Node, CreateEvent>
-//         MultiCaseListener<Node, BoxColor, ModifyEvent>
-//         SingleCaseListener<IdTree, CreateEvent>
-//     }
-// }
+unsafe impl<C: Context + Share> Sync for SdfSys<C>{}
+unsafe impl<C: Context + Share> Send for SdfSys<C>{}
 
-
-// #[cfg(test)]
-// use ecs::{World, BorrowMut, SeqDispatcher, Dispatcher};
-// #[cfg(test)]
-// use atom::Atom;
-// #[cfg(test)]
-// use component::user::BoxColorWrite;
-
-// #[test]
-// fn test(){
-//     let world = new_world();
-
-//     let idtree = world.fetch_single::<IdTree>().unwrap();
-//     let idtree = BorrowMut::borrow_mut(&idtree);
-//     let notify = idtree.get_notify();
-//     let opacitys = world.fetch_multi::<Node, BoxColor>().unwrap();
-//     let opacitys = BorrowMut::borrow_mut(&opacitys);
-//     let copacitys = world.fetch_multi::<Node, CBoxColor>().unwrap();
-//     let copacitys = BorrowMut::borrow_mut(&copacitys);
-
-//     let e0 = world.create_entity::<Node>();
-    
-//     idtree.create(e0);
-//     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
-//     opacitys.insert(e0, BoxColor::default());
-
-//     world.run(&Atom::from("test_opacity_sys"));
-    
-//     let e00 = world.create_entity::<Node>();
-//     let e01 = world.create_entity::<Node>();
-//     let e02 = world.create_entity::<Node>();
-//     idtree.create(e00);
-//     idtree.insert_child(e00, e0, 1, Some(&notify));
-//     opacitys.insert(e00, BoxColor::default());
-//     idtree.create(e01);
-//     idtree.insert_child(e01, e0, 2, Some(&notify));
-//     opacitys.insert(e01, BoxColor::default());
-//     idtree.create(e02);
-//     idtree.insert_child(e02, e0, 3, Some(&notify));
-//     opacitys.insert(e02, BoxColor::default());
-
-//     let e000 = world.create_entity::<Node>();
-//     let e001 = world.create_entity::<Node>();
-//     let e002 = world.create_entity::<Node>();
-//     idtree.create(e000);
-//     idtree.insert_child(e000, e00, 1, Some(&notify));
-//     opacitys.insert(e000, BoxColor::default());
-//     idtree.create(e001);
-//     idtree.insert_child(e001, e00, 2, Some(&notify));
-//     opacitys.insert(e001, BoxColor::default());
-//     idtree.create(e002);
-//     idtree.insert_child(e002, e00, 3, Some(&notify));
-//     opacitys.insert(e002, BoxColor::default());
-
-//     let e010 = world.create_entity::<Node>();
-//     let e011 = world.create_entity::<Node>();
-//     let e012 = world.create_entity::<Node>();
-//     idtree.create(e010);
-//     idtree.insert_child(e010, e01, 1, Some(&notify));
-//     opacitys.insert(e010, BoxColor::default());
-//     idtree.create(e011);
-//     idtree.insert_child(e011, e01, 2, Some(&notify));
-//     opacitys.insert(e011, BoxColor::default());
-//     idtree.create(e012);
-//     idtree.insert_child(e012, e01, 3, Some(&notify));
-//     opacitys.insert(e012, BoxColor::default());
-//     world.run(&Atom::from("test_opacity_sys"));
-
-//     unsafe { opacitys.get_unchecked_write(e0)}.set_0(0.5);
-//     unsafe { opacitys.get_unchecked_write(e00)}.set_0(0.5);
-
-//     world.run(&Atom::from("test_opacity_sys"));
-
-//     println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-//         unsafe{copacitys.get_unchecked(e0)},
-//         unsafe{copacitys.get_unchecked(e00)},
-//         unsafe{copacitys.get_unchecked(e01)},
-//         unsafe{copacitys.get_unchecked(e02)},
-//         unsafe{copacitys.get_unchecked(e000)},
-//         unsafe{copacitys.get_unchecked(e001)},
-//         unsafe{copacitys.get_unchecked(e002)},
-//         unsafe{copacitys.get_unchecked(e010)},
-//         unsafe{copacitys.get_unchecked(e011)},
-//         unsafe{copacitys.get_unchecked(e012)},
-//     );
-// }
-
-// #[cfg(test)]
-// fn new_world() -> World {
-//     let mut world = World::default();
-
-//     world.register_entity::<Node>();
-//     world.register_multi::<Node, BoxColor>();
-//     world.register_multi::<Node, CBoxColor>();
-//     world.register_single::<IdTree>(IdTree::default());
-     
-//     let system = CellSdfSys::new(SdfSys::default());
-//     world.register_system(Atom::from("system"), system);
-
-//     let mut dispatch = SeqDispatcher::default();
-//     dispatch.build("system".to_string(), &world);
-
-//     world.add_dispatcher( Atom::from("test_opacity_sys"), dispatch);
-//     world
-// }
-
+impl_system!{
+    SdfSys<C> where [C: Context + Share],
+    false,
+    {
+        MultiCaseListener<Node, BoxColor, CreateEvent>
+        MultiCaseListener<Node, BoxShadow, CreateEvent>
+        MultiCaseListener<Node, BoxColor, DeleteEvent>
+        MultiCaseListener<Node, BoxShadow, DeleteEvent>
+        MultiCaseListener<Node, BoxColor, ModifyEvent>
+        MultiCaseListener<Node, BoxShadow, ModifyEvent>
+        MultiCaseListener<Node, Layout, ModifyEvent>
+        MultiCaseListener<Node, Opacity, ModifyEvent>
+        MultiCaseListener<Node, ByOverflow, ModifyEvent>
+        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+        MultiCaseListener<Node, Visibility, ModifyEvent>
+    }
+}
