@@ -134,24 +134,25 @@ pub fn set_object_fit(world: u32, node: u32, value: u8){
 }
 // 设置图像裁剪
 #[no_mangle]
-pub fn set_src_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32, w: f32, h: f32){
-    insert_attr!(world, node, SrcClip, SrcClip {
-        uv: (Point2::new(u1, v1), Point2::new(u2, v2)),
-        size: Vector2::new(w, h),
-    });
+pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
+    insert_value!(world, node, ImageClip, Aabb2{min: Point2::new(u1, v1), max: Point2::new(u2, v2)});
 }
-// 设置图像裁剪的uv
+// 设置图像裁剪
 #[no_mangle]
-pub fn set_src_clip_uv(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
-    let uv = 0;
-    set_attr!(world, node, SrcClip, uv, (Point2::new(u1, v1), Point2::new(u2, v2)));
+pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
+    insert_value!(world, node, BorderImageClip, Aabb2{min: Point2::new(u1, v1), max: Point2::new(u2, v2)});
 }
-// 设置图像裁剪的size
+//设置border_image_slice
 #[no_mangle]
-pub fn set_src_clip_size(world: u32, node: u32, w: f32, h: f32){
-    let size = 0;
-    set_attr!(world, node, SrcClip, size, Vector2::new(w, h));
+pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, bottom: f32, left: f32, fill: bool){
+    insert_attr!(world, node, BorderImageSlice, BorderImageSlice{top, right, bottom, left, fill});
 }
+//设置border_image_slice
+#[no_mangle]
+pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8){
+    insert_attr!(world, node, BorderImageRepeat, BorderImageRepeat(unsafe{ transmute(vertical)}, unsafe{ transmute(horizontal)}));
+}
+
 //设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node: u32, value: bool){

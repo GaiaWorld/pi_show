@@ -50,7 +50,7 @@ extern crate dirty;
 extern crate color;
 extern crate util as lib_util;
 extern crate hal_core;
-extern crate polygon_split;
+extern crate polygon;
 #[cfg(feature = "web")]
 extern crate hal_webgl;
 

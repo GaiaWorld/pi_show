@@ -45,10 +45,74 @@ pub struct Transform {
     pub origin: TransformOrigin,
 }
 
+#[derive(Debug, Clone, Component, Default)]
+pub struct BoxColor{
+	pub background: Color,
+	pub border: CgColor,
+}
+
+#[derive(Clone, Component)]
+pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
+#[derive(Clone, Component)]
+pub struct Image<C: Context + 'static + Send + Sync>{
+  pub src: Arc<TextureRes<C>>,
+}
 //ObjectFit
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ObjectFit(pub FitType);
 
+#[derive(Deref, DerefMut, Component)]
+pub struct ImageClip(pub Aabb2);
+
+#[derive(Clone, Component)]
+pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
+
+#[derive(Deref, DerefMut, Component)]
+pub struct BorderImageClip(pub Aabb2);
+
+#[derive(Clone, Component, Default)]
+pub struct BorderImageSlice{
+  pub top: f32, pub right: f32, pub bottom: f32, pub left: f32, pub fill: bool,
+}
+#[derive(Clone, Component, Default)]
+pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
+
+#[derive(Debug, Clone, Component)]
+pub struct BorderRadius{
+  pub x: LengthUnit,
+  pub y: LengthUnit,
+}
+#[derive(Debug, Clone, Default, Component)]
+pub struct BoxShadow{
+    pub h: f32,
+    pub v: f32,
+    pub blur: f32,
+    pub spread: f32,
+    pub color: CgColor,
+}
+
+#[derive(Debug, Clone, Component, Default)]
+pub struct TextStyle{
+    pub letter_spacing: f32, //字符间距， 单位：像素
+    pub word_spacing: f32, //字符间距， 单位：像素
+    pub line_height: LineHeight, //设置行高
+    pub indent: f32, // 缩进， 单位： 像素
+    pub white_space: WhiteSpace, //空白处理
+    pub color: Color, //颜色
+    pub stroke: Stroke,
+    pub vertical_align: VerticalAlign,
+}
+
+#[derive(Debug, Clone, Component, Default)]
+pub struct Text(pub Arc<String>);
+
+#[derive(Debug, Clone, Component, Default)]
+pub struct TextShadow{
+    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
+    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
+    pub blur: f32, //	可选。模糊的距离。	测试
+    pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
+}
 #[derive(Component, Default)]
 pub struct SrcClip{
   pub uv: (Point2, Point2),
@@ -65,7 +129,6 @@ pub struct Font{
 
 
 //================================== 枚举
-pub type TypedArray = Vec<f32>;
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;
@@ -75,7 +138,8 @@ pub type Vector3 = cgmath::Vector3<f32>;
 pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
-pub struct Rect(Point2, Point2, Point2, Point2);
+pub type Aabb2 = collision::Aabb2<f32>;
+pub struct Quad(Point2, Point2, Point2, Point2);
 
 pub enum LengthUnitType{
     Pixel,
@@ -160,10 +224,10 @@ pub enum RadialGradientShape{
     Ellipse,
     Circle,
 }
-pub type Polygon = TypedArray;
+pub type Polygon = Vec<f32>;
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
-pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32) -> LinearGradientColor {
+pub fn to_linear_gradient_color(color_and_positions: Vec<f32>, direction: f32) -> LinearGradientColor {
     let arr = color_and_positions;
     let len = arr.len();
     let count = len / 5;
@@ -183,7 +247,7 @@ pub fn to_linear_gradient_color(color_and_positions: TypedArray, direction: f32)
 }
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
-pub fn to_radial_gradient_color(color_and_positions: TypedArray, center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
+pub fn to_radial_gradient_color(color_and_positions: Vec<f32>, center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
     let arr = color_and_positions;
     let len = arr.len();
     let count = len / 5;
@@ -220,59 +284,12 @@ pub enum FitType {
   ScaleDown,
 }
 
-#[derive(Debug, Clone, Component, Default)]
-pub struct BoxColor{
-	pub background: Color,
-	pub border: CgColor,
-}
-
-#[derive(Clone, Component)]
-pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-
-#[derive(Clone, Component)]
-pub struct Image<C: Context + 'static + Send + Sync>{
-  pub src: Arc<TextureRes<C>>,
-}
-
-#[derive(Clone, Component)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-
-#[derive(Debug, Clone, Component)]
-pub struct BorderRadius{
-  pub x: LengthUnit,
-  pub y: LengthUnit,
-}
-
-#[derive(Debug, Clone, Default, Component)]
-pub struct BoxShadow{
-    pub h: f32,
-    pub v: f32,
-    pub blur: f32,
-    pub spread: f32,
-    pub color: CgColor,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct TextStyle{
-    pub letter_spacing: f32, //字符间距， 单位：像素
-    pub word_spacing: f32, //字符间距， 单位：像素
-    pub line_height: LineHeight, //设置行高
-    pub indent: f32, // 缩进， 单位： 像素
-    pub white_space: WhiteSpace, //空白处理
-    pub color: Color, //颜色
-    pub stroke: Stroke,
-    pub vertical_align: VerticalAlign,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct Text(pub Arc<String>);
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct TextShadow{
-    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
-    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
-    pub blur: f32, //	可选。模糊的距离。	测试
-    pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
+#[derive(Debug, Clone, Copy, EnumDefault)]
+pub enum BorderImageRepeatType {
+  Stretch, // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
+  Repeat, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
+  Round, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
+  Space, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
 }
 #[derive(Debug, Clone, Copy, EnumDefault)]
 pub enum FontSize {
@@ -494,26 +511,30 @@ impl Default for Show {
     Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
   }
 }
+impl Default for ImageClip {
+  fn default() -> ImageClip {
+    ImageClip(Aabb2{min:Point2::new(0.0,0.0), max:Point2::new(1.0,1.0)})
+  }
+}
 
-pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&SrcClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Rect, Rect){
+// 获得图片的4个点(逆时针)的坐标和uv的Aabb
+pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Quad, Quad){
     let (size, mut uv1, mut uv2) = match clip {
-        Some(c) => if c.size.x == 0.0 {
-            let size = Vector2::new(img.src.width as f32 * (c.uv.1.x - c.uv.0.x).abs(), img.src.height as f32 * (c.uv.1.y - c.uv.0.y).abs());
-            (size, c.uv.0, c.uv.1)
-        }else{
-            (c.size, c.uv.0, c.uv.1)
+        Some(c) => {
+            let size = Vector2::new(img.src.width as f32 * (c.max.x - c.min.x).abs(), img.src.height as f32 * (c.max.y - c.min.y).abs());
+            (size, c.min, c.max)
         },
         _ => (Vector2::new(img.src.width as f32, img.src.height as f32), Point2::new(0.0,0.0), Point2::new(1.0,1.0))
     };
     let mut p1 = Point2::new(layout.left + layout.border + layout.padding_left, layout.top + layout.border + layout.padding_top);
     let mut p2 = Point2::new(layout.left + layout.width - layout.border - layout.padding_right, layout.top + layout.width - layout.border - layout.padding_bottom);
+    let w = p2.x - p1.x;
+    let h = p2.y - p1.y;
     // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
     match fit {
       Some(f) => match f.0 {
         FitType::None => {
           // 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
-          let w = p2.x - p1.x;
-          let h = p2.y - p1.y;
           if size.x <= w {
             let x = (w - size.x) / 2.0;
             p1.x += x;
@@ -535,14 +556,10 @@ pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip:
         },
         FitType::Contain => {
           // 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
-          let w = p2.x - p1.x;
-          let h = p2.y - p1.y;
           fill(&size, &mut p1, &mut p2, w, h);
         },
         FitType::Cover => {
           // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
-          let w = p2.x - p1.x;
-          let h = p2.y - p1.y;
           let rw = size.x/w;
           let rh = size.y/h;
           if rw > rh {
@@ -557,8 +574,6 @@ pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip:
         },
         FitType::ScaleDown => {
           // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
-          let w = p2.x - p1.x;
-          let h = p2.y - p1.y;
           if size.x <= w && size.y <= h {
             let x = (w - size.x) / 2.0;
             let y = (h - size.y) / 2.0;
@@ -575,8 +590,8 @@ pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip:
       // 默认情况是填充
       _ => ()
     };
-    let pos = Rect(p1, Point2::new(p2.x, p1.y), p2, Point2::new(p1.x, p2.y));
-    let uv = Rect(uv1, Point2::new(uv2.x, uv1.y), uv2, Point2::new(uv1.x, uv2.y));
+    let pos = Quad(p1, Point2::new(p1.x, p2.y), p2, Point2::new(p2.x, p1.y));
+    let uv = Quad(uv1, Point2::new(uv1.x, uv2.y), uv2, Point2::new(uv2.x, uv1.y));
     (pos, uv)
 }
 // 按比例缩放到容器大小，居中显示
@@ -592,4 +607,141 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){
       p1.x += x;
       p2.x -= x;
     }
+}
+
+pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
+  img: &BorderImage<C>,
+  clip: Option<&BorderImageClip>,
+  slice: &BorderImageSlice,
+  repeat: Option<&BorderImageRepeat>,
+  layout: &Layout, z: f32, mut point_arr: Polygon, mut uv_arr: Polygon, mut index_arr: Vec<u16>) -> (Polygon, Polygon, Vec<u16>){
+    let (uv1, uv2) = match clip {
+        Some(c) => (c.min, c.max),
+        _ => (Point2::new(0.0,0.0), Point2::new(1.0,1.0))
+    };
+    let p1 = Point2::new(layout.left + layout.border, layout.top + layout.border);
+    let p2 = Point2::new(layout.left + layout.width - layout.border, layout.top + layout.width - layout.border);
+    let w = p2.x - p1.x;
+    let h = p2.y - p1.y;
+    let left = slice.left * w;
+    let right = slice.right * w;
+    let top = slice.top * h;
+    let bottom = slice.bottom * h;
+    let uvw = uv2.x - uv1.x;
+    let uvh = uv2.y - uv1.y;
+    let uv_left = slice.left * uvw;
+    let uv_right = slice.right * uvw;
+    let uv_top = slice.top * uvh;
+    let uv_bottom = slice.bottom * uvh;
+
+    // 对应的12个点
+    // 左上的4个点
+    let p_x1_top = Point2::new(p1.x, top);
+    let p_left_y1 = Point2::new(left, p1.y);
+    let p_left_top = Point2::new(left, top);
+    // 左下的4个点
+    let p_x1_bottom = Point2::new(p1.x, bottom);
+    let p_left_y2 = Point2::new(left, p2.y);
+    let p_left_bottom = Point2::new(left, bottom);
+    // 右下的4个点
+    let p_right_bottom = Point2::new(right, bottom);
+    let p_right_y2 = Point2::new(right, p2.y);
+    let p_x2_bottom = Point2::new(p2.x, bottom);
+    // 右上的4个点
+    let p_right_y1 = Point2::new(right, p1.y);
+    let p_right_top = Point2::new(right, top);
+    let p_x2_top = Point2::new(p2.x, top);
+
+    // 对应的12个uv
+    // 左上的4个点
+    let uv_x1_top = Point2::new(uv1.x, uv_top);
+    let uv_left_y1 = Point2::new(uv_left, uv1.y);
+    let uv_left_top = Point2::new(uv_left, uv_top);
+    // 左下的4个点
+    let uv_x1_bottom = Point2::new(uv1.x, uv_bottom);
+    let uv_left_y2 = Point2::new(uv_left, uv2.y);
+    let uv_left_bottom = Point2::new(uv_left, uv_bottom);
+    // 右下的4个点
+    let uv_right_bottom = Point2::new(uv_right, uv_bottom);
+    let uv_right_y2 = Point2::new(uv_right, uv2.y);
+    let uv_x2_bottom = Point2::new(uv2.x, uv_bottom);
+    // 右上的4个点
+    let uv_right_y1 = Point2::new(uv_right, uv1.y);
+    let uv_right_top = Point2::new(uv_right, uv_top);
+    let uv_x2_top = Point2::new(uv2.x, uv_top);
+
+    // 处理4个角
+    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p1, &p_left_top, &uv1, &uv_left_top, z); // 左上角
+    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_x1_bottom, &p_left_y2, &uv_x1_bottom, &uv_left_y2, z); // 左下角
+    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_bottom, &p2, &uv_right_bottom, &uv2, z); // 右下角
+    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_y1, &p_x2_top, &uv_right_y1, &uv_x2_top, z); // 右上角
+    let (ustep, vstep) = match repeat {
+      Some(&BorderImageRepeat(vtype, utype)) => {
+        // 根据图像大小和uv计算
+        let ustep = calc_step(right - left, img.0.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.0.height as f32 * (uv_bottom - uv_top), vtype);
+        (ustep, vstep)
+      },
+      _ => (w, h)
+    };
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_x1_top, &p_left_bottom, &uv_x1_top, &uv_left_bottom, z, ustep); // 左边
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_top, &p_x2_bottom, &uv_right_top, &uv_x2_bottom, z, ustep); // 右边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_y1, &p_right_top, &uv_left_y1, &uv_right_top, z, vstep); // 上边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_bottom, &p_right_y2, &uv_left_bottom, &uv_right_y2, z, vstep); // 下边
+    // 处理中间
+    if slice.fill {
+      push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_top, &p_right_bottom, &uv_left_top, &uv_right_bottom, z);
+    }
+    (point_arr, uv_arr, index_arr)
+}
+
+// 将四边形放进数组中
+fn push_quad(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32){
+  if p_max.x>p_min.x && p_max.y>p_min.y {
+    let i = point_arr.len() as u16;
+    point_arr.extend_from_slice(&[
+      p_min.x, p_min.y, z, p_min.x, p_max.y, z, p_max.x, p_max.y, z, p_max.x, p_min.y, z,
+    ]);
+    uv_arr.extend_from_slice(&[
+      uv_min.x, uv_min.y, uv_min.x, uv_max.y, uv_max.x, uv_max.y, uv_max.x, uv_min.y
+    ]);
+    index_arr.extend_from_slice(&[i, i+1, i+3, i+1, i+2, i+3]);
+  }
+}
+
+// 根据参数计算uv的step
+fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
+  let c = csize/img_size;
+  if c <= 0.0 {
+    return std::f32::INFINITY
+  }
+  match rtype {
+    BorderImageRepeatType::Repeat => csize / c.round(),
+    BorderImageRepeatType::Round => csize / c.ceil(),
+    BorderImageRepeatType::Space => csize / c.floor(),
+    _ => std::f32::INFINITY
+  }
+}
+
+// 将指定区域按u切开
+fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32, step: f32){
+  let mut min = p_min.clone();
+  let mut max = Point2::new(min.x + step, p_max.y);
+  while max.x < p_max.x {
+    push_quad(point_arr, uv_arr, index_arr, &min, &max, uv_min, uv_max, z);
+    min.x = max.x;
+    max.x += step;
+  }
+  push_quad(point_arr, uv_arr, index_arr, &min, p_max, uv_min, uv_max, z);
+}
+// 将指定区域按v切开
+fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32, step: f32){
+  let mut min = p_min.clone();
+  let mut max = Point2::new(p_max.x, min.y + step);
+  while max.y < p_max.y {
+    push_quad(point_arr, uv_arr, index_arr, &min, &max, uv_min, uv_max, z);
+    min.y = max.y;
+    max.y += step;
+  }
+  push_quad(point_arr, uv_arr, index_arr, &min, p_max, uv_min, uv_max, z);
 }
