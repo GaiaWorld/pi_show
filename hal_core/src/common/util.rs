@@ -36,7 +36,14 @@ pub enum AttributeName {
     UV6,        // shader attribute：uv6，一般是vec2
     UV7,        // shader attribute：uv7，一般是vec2
     UV8,        // shader attribute：uv8，一般是vec2
-    Custom(Atom), // 自定义名字，无非必要，最好不用
+    Custom(Atom), // 自定义名字，无非必要，最好不用,
+}
+
+/** 
+ * 内置Attribute名字的就是上面的16个
+ */
+pub fn get_builtin_attribute_count() -> u32 {
+    16
 }
 
 impl From<Atom> for AttributeName {

@@ -5,6 +5,7 @@
 use std::sync::{Arc};
 use hal_core::*;
 use convert::*;
+use shader::{Program, ProgramManager};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
@@ -16,13 +17,9 @@ pub struct State {
 
     gl: Arc<WebGLRenderingContext>, 
 
-    raster: Arc<AsRef<RasterState>>,
-    stencil: Arc<AsRef<StencilState>>,
-    blend: Arc<AsRef<BlendState>>,
-    depth: Arc<AsRef<DepthState>>,
-    
+    pipeline: Arc<AsRef<Pipeline>>,
+
     geometry: Option<Arc<AsRef<WebGLGeometryImpl>>>,
-    program: (u64, u64),
     target: Arc<AsRef<WebGLRenderTargetImpl>>,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     enable_attrib_indices: Vec<bool>,
@@ -35,18 +32,22 @@ impl State {
         gl.enable(WebGLRenderingContext::BLEND);
         gl.enable(WebGLRenderingContext::SCISSOR_TEST);
 
+        let pipeline = Pipeline {
+            vs_hash: 0,
+            fs_hash: 0,
+            raster_state: Arc::new(RasterState::new()),
+            stencil_state: Arc::new(StencilState::new()),
+            blend_state: Arc::new(BlendState::new()),
+            depth_state: Arc::new(DepthState::new()),
+        };
+
         let state = State {
             gl: gl.clone(),
 
             clear_color: (1.0, 1.0, 1.0, 1.0), 
             clear_depth: 1.0, 
             clear_stencil: 0,
-    
-            program: (0, 0),
-            raster: Arc::new(RasterState::new()),
-            stencil: Arc::new(StencilState::new()),
-            blend: Arc::new(BlendState::new()),
-            depth: Arc::new(DepthState::new()),
+            pipeline: Arc::new(pipeline),
             
             geometry: None,
             target: rt.clone(),
@@ -57,19 +58,6 @@ impl State {
         Self::apply_all_state(gl, &state);
 
         state
-    }
-
-    /** 
-     * 相同，返回true
-     * 不相同，更新
-     */
-    pub fn set_program(&mut self, vs_hash: u64, fs_hash: u64) -> bool {
-        if self.program == (vs_hash, fs_hash) {
-            return true;
-        }
-
-        self.program = (vs_hash, fs_hash);
-        return false;
     }
 
     pub fn set_render_target(&mut self, rt: &Arc<AsRef<WebGLRenderTargetImpl>>) {
@@ -128,26 +116,42 @@ impl State {
         }
     }
 
-    pub fn set_pipeline_state(&mut self, r: &Arc<AsRef<RasterState>>, d: &Arc<AsRef<DepthState>>, s: &Arc<AsRef<StencilState>>, b: &Arc<AsRef<BlendState>>) {
-        if !Arc::ptr_eq(&self.raster, r) {
-            Self::set_raster_state(&self.gl, Some(self.raster.as_ref().as_ref()), r.as_ref().as_ref());
-            self.raster = r.clone();
+    /** 
+     * 如果program相同，返回true
+     */
+    pub fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>) -> bool {
+        if Arc::ptr_eq(&self.pipeline, pipeline) {
+            return true;
         }
-        if !Arc::ptr_eq(&self.depth, d) {
-            Self::set_depth_state(&self.gl, Some(self.depth.as_ref().as_ref()), d.as_ref().as_ref());
-            self.depth = d.clone();
+        
+        let curr = pipeline.as_ref().as_ref();
+        let old = self.pipeline.as_ref().as_ref();
+        
+        if !Arc::ptr_eq(&old.raster_state, &curr.raster_state) {
+            Self::set_raster_state(&self.gl, Some(old.raster_state.as_ref().as_ref()), curr.raster_state.as_ref().as_ref());
         }
-        if !Arc::ptr_eq(&self.stencil, s) {
-            Self::set_stencil_state(&self.gl, Some(self.stencil.as_ref().as_ref()), s.as_ref().as_ref());
-            self.stencil = s.clone();
+        if !Arc::ptr_eq(&old.depth_state, &curr.depth_state) {
+            Self::set_depth_state(&self.gl, Some(old.depth_state.as_ref().as_ref()), curr.depth_state.as_ref().as_ref());
         }
-        if !Arc::ptr_eq(&self.blend, b) {
-            Self::set_blend_state(&self.gl, Some(self.blend.as_ref().as_ref()), b.as_ref().as_ref());
-            self.blend = b.clone();
+        if !Arc::ptr_eq(&old.stencil_state, &curr.stencil_state) {
+            Self::set_stencil_state(&self.gl, Some(old.stencil_state.as_ref().as_ref()), curr.stencil_state.as_ref().as_ref());
         }
+        if !Arc::ptr_eq(&old.blend_state, &curr.blend_state) {
+            Self::set_blend_state(&self.gl, Some(old.blend_state.as_ref().as_ref()), curr.blend_state.as_ref().as_ref());
+        }
+
+        let r = old.vs_hash != curr.vs_hash || old.fs_hash == curr.fs_hash;
+        self.pipeline = pipeline.clone();
+        return r;
+    }
+
+    pub fn get_current_program<'a>(&self, mgr: &'a mut ProgramManager) -> Result<&'a mut Program, String> {
+        let p = self.pipeline.as_ref().as_ref();
+        mgr.get_program(p.vs_hash, p.fs_hash)
     }
 
     pub fn draw(&mut self, geometry: &Arc<AsRef<WebGLGeometryImpl>>) {
+
         let need_set_geometry = match &self.geometry {
             None => true,
             Some(g) => !Arc::ptr_eq(g, geometry),
@@ -295,10 +299,11 @@ impl State {
         gl.clear_depth(state.clear_depth);
         gl.clear_stencil(state.clear_stencil as i32);
 
-        Self::set_raster_state(gl.as_ref(), None, state.raster.as_ref().as_ref());
-        Self::set_depth_state(gl.as_ref(), None, state.depth.as_ref().as_ref());
-        Self::set_blend_state(gl.as_ref(), None, state.blend.as_ref().as_ref());
-        Self::set_stencil_state(gl.as_ref(), None, state.stencil.as_ref().as_ref());
+        let p = state.pipeline.as_ref().as_ref();
+        Self::set_raster_state(gl.as_ref(), None, p.raster_state.as_ref().as_ref());
+        Self::set_depth_state(gl.as_ref(), None, p.depth_state.as_ref().as_ref());
+        Self::set_blend_state(gl.as_ref(), None, p.blend_state.as_ref().as_ref());
+        Self::set_stencil_state(gl.as_ref(), None, p.stencil_state.as_ref().as_ref());
     }
 
     fn set_cull_mode(gl: &WebGLRenderingContext, curr: &RasterState) {
