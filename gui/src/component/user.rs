@@ -45,12 +45,6 @@ pub struct Transform {
     pub origin: TransformOrigin,
 }
 
-#[derive(Debug, Clone, Component, Default)]
-pub struct BoxColor{
-	pub background: Color,
-	pub border: CgColor,
-}
-
 //ObjectFit
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ObjectFit(pub FitType);
@@ -61,50 +55,6 @@ pub struct SrcClip{
   pub size: Vector2,
 }
 
-#[derive(Clone, Component)]
-pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-#[derive(Clone, Component)]
-pub struct Image<C: Context + 'static + Send + Sync>{
-  pub src: Arc<TextureRes<C>>,
-}
-
-#[derive(Clone, Component)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-
-#[derive(Debug, Clone, Component)]
-pub struct BorderRadius(pub LengthUnit);
-
-#[derive(Debug, Clone, Default, Component)]
-pub struct BoxShadow{
-    pub h: f32,
-    pub v: f32,
-    pub blur: f32,
-    pub spread: f32,
-    pub color: CgColor,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct TextStyle{
-    pub letter_spacing: f32, //字符间距， 单位：像素
-    pub word_spacing: f32, //字符间距， 单位：像素
-    pub line_height: LineHeight, //设置行高
-    pub indent: f32, // 缩进， 单位： 像素
-    pub white_space: WhiteSpace, //空白处理
-    pub color: Color, //颜色
-    pub stroke: Stroke,
-    pub vertical_align: VerticalAlign,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct Text(pub Arc<String>);
-
-#[derive(Debug, Clone, Component, Default)]
-pub struct TextShadow{
-    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
-    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
-    pub blur: f32, //	可选。模糊的距离。	测试
-    pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
-}
 #[derive(Component, Debug, Clone, Default)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
