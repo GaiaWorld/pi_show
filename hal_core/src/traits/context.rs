@@ -8,6 +8,7 @@ use traits::texture::{Texture};
 use traits::geometry::{Geometry};
 use traits::sampler::{Sampler, SamplerDesc};
 use traits::render_target::{RenderTarget, RenderBuffer};
+use ShareRef;
 
 /**
  * 渲染上下文，负责如下功能
@@ -91,7 +92,7 @@ pub trait Context {
     /** 
      * 创建渲染管线
      */
-    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<AsRef<RasterState>>, bs: Arc<AsRef<BlendState>>, ss: Arc<AsRef<StencilState>>, ds: Arc<AsRef<DepthState>>) -> Result<Pipeline, String>;
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: ShareRef<RasterState>, bs: ShareRef<BlendState>, ss: ShareRef<StencilState>, ds: ShareRef<DepthState>) -> Result<Pipeline, String>;
 
     /** 
      * 创建Uniforms
@@ -124,7 +125,7 @@ pub trait Context {
     /** 
      * 创建采样器
      */
-    fn create_sampler(&mut self, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String>;
+    fn create_sampler(&mut self, desc: ShareRef<SamplerDesc>) -> Result<Self::ContextSampler, String>;
 
     /** 
      * 创建渲染目标
@@ -140,7 +141,7 @@ pub trait Context {
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn begin_render(&mut self, render_target: &Arc<AsRef<Self::ContextRenderTarget>>, data: &Arc<AsRef<RenderBeginDesc>>);
+    fn begin_render(&mut self, render_target: &ShareRef<Self::ContextRenderTarget>, data: &ShareRef<RenderBeginDesc>);
 
     /** 
      * 结束渲染
@@ -152,11 +153,11 @@ pub trait Context {
      * 设置渲染管线
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>);
+    fn set_pipeline(&mut self, pipeline: &ShareRef<Pipeline>);
 
     /** 
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self>>>>) where Self: std::marker::Sized;
+    fn draw(&mut self, geometry: &ShareRef<Self::ContextGeometry>, values: &HashMap<Atom, ShareRef<Uniforms<Self>>>) where Self: std::marker::Sized;
 }
