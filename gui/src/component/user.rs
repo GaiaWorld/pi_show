@@ -680,16 +680,14 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let (ustep, vstep) = match repeat {
       Some(&BorderImageRepeat(vtype, utype)) => {
         // 根据图像大小和uv计算
-        let p = Point2::new(img.src.width as f32 * (uv_right - uv_left), img.src.height as f32 * (uv_bottom - uv_top));
-        let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
-        let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
+        let ustep = calc_step(right - left, img.0.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.0.height as f32 * (uv_bottom - uv_top), vtype);
         (ustep, vstep)
       },
       _ => (w, h)
     };
     push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_x1_top, &p_left_bottom, &uv_x1_top, &uv_left_bottom, z, ustep); // 左边
     push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_top, &p_x2_bottom, &uv_right_top, &uv_x2_bottom, z, ustep); // 右边
-    // 处理上下边
     push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_y1, &p_right_top, &uv_left_y1, &uv_right_top, z, vstep); // 上边
     push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_bottom, &p_right_y2, &uv_left_bottom, &uv_right_y2, z, vstep); // 下边
     // 处理中间
