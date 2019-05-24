@@ -668,8 +668,8 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let (ustep, vstep) = match repeat {
       Some(&BorderImageRepeat(utype, vtype)) => {
         // 根据图像大小和uv计算
-        let ustep = calc_step(right - left, img.0.width as f32 * (uv_right - uv_left), utype);
-        let vstep = calc_step(bottom - top, img.0.height as f32 * (uv_bottom - uv_top), vtype);
+        let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
         (ustep, vstep)
       },
       _ => (w, h)
