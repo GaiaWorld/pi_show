@@ -24,6 +24,9 @@ pub struct WebGLContextImpl {
     program_mgr: ProgramManager,
 }
 
+unsafe impl Sync for WebGLContextImpl{}
+unsafe impl Send for WebGLContextImpl{}
+
 impl Context for WebGLContextImpl {
     type ContextSelf = WebGLContextImpl;
     type ContextGeometry = WebGLGeometryImpl;

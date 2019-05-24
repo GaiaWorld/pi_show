@@ -65,7 +65,9 @@ pub struct ObjectFit(pub FitType);
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
+pub struct BorderImage<C: Context + 'static + Send + Sync>{
+  pub src: Arc<TextureRes<C>>
+}
 
 #[derive(Deref, DerefMut, Component)]
 pub struct BorderImageClip(pub Aabb2);
@@ -140,7 +142,7 @@ pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
-pub struct Quad(Point2, Point2, Point2, Point2);
+pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
 
 pub enum LengthUnitType{
     Pixel,
