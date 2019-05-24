@@ -12,7 +12,7 @@ use hal_core::*;
 use state::{State};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
-use texture::{WebGLTextureImpl};
+use texture::{WebGLTextureImpl, WebGLTextureData};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
 
@@ -153,6 +153,10 @@ impl WebGLContextImpl {
             state: state,
             program_mgr: mgr,
         }
+    }
+
+    pub fn create_texture_2d_webgl(&self, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &WebGLTextureData) -> Result<WebGLTextureImpl, String> {
+        WebGLTextureImpl::new_2d_webgl(&self.gl, level, pformat, dformat, is_gen_mipmap, data)
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {

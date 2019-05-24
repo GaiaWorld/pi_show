@@ -1,9 +1,15 @@
 use std::sync::{Arc};
 use hal_core::{Texture, TextureData, PixelFormat, DataFormat};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
+use stdweb::web::html_element::{ImageElement, CanvasElement};
 
 use convert::*;
 use sampler::{WebGLSamplerImpl};
+
+pub enum WebGLTextureData {
+    Image(ImageElement),
+    Canvas(CanvasElement),
+}
 
 pub struct WebGLTextureImpl {
     pub gl: Arc<WebGLRenderingContext>,
@@ -46,7 +52,6 @@ impl Texture for WebGLTextureImpl {
                 self.gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, self.level as i32, x as i32, y as i32, width as i32, height as i32, p, d, Some(*v));
             }
         }
-        
     }
 }
 
@@ -104,6 +109,63 @@ impl WebGLTextureImpl {
                 Ok(t)
             }
             None => Err("new_2d_with_data failed".to_string())
+        }
+    }
+
+    pub fn new_2d_webgl(gl: &Arc<WebGLRenderingContext>, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &WebGLTextureData) -> Result<WebGLTextureImpl, String> {
+        match gl.create_texture()  {
+            Some(texture) => {
+                let p = get_pixel_format(pformat);
+                let d = get_data_format(dformat);
+                gl.active_texture(WebGLRenderingContext::TEXTURE0);
+                gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
+                
+                let (w, h) = match data {
+                    WebGLTextureData::Image(v) => {
+                        gl.tex_image2_d_1(WebGLRenderingContext::TEXTURE_2D, level as i32, p as i32, p, d, Some(v));
+                        (v.width(), v.height())
+                    }
+                    WebGLTextureData::Canvas(v) => {
+                        gl.tex_image2_d_1(WebGLRenderingContext::TEXTURE_2D, level as i32, p as i32, p, d, Some(v));
+                        (v.width(), v.height())
+                    }
+                };
+                
+                if is_gen_mipmap {
+                    gl.generate_mipmap(WebGLRenderingContext::TEXTURE_2D);
+                }
+                
+                let mut t = WebGLTextureImpl {
+                    gl: gl.clone(),
+                    width: w,
+                    height: h,
+                    level: level,
+                    pixel_format: *pformat,
+                    data_format: *dformat,
+                    is_gen_mipmap: is_gen_mipmap,
+                    handle: texture,
+                    sampler: WebGLSamplerImpl::new(),
+                };
+
+                t.apply_sampler(&WebGLSamplerImpl::new());
+
+                Ok(t)
+            }
+            None => Err("new_2d_with_data failed".to_string())
+        }
+    }
+
+    pub fn update_webgl(&self, x: u32, y: u32, data: &WebGLTextureData) {
+        let p = get_pixel_format(&self.pixel_format);
+        let d = get_data_format(&self.data_format);
+
+        match data {
+            WebGLTextureData::Canvas(v) => {
+                self.gl.tex_sub_image2_d_1(WebGLRenderingContext::TEXTURE_2D, self.level as i32, x as i32, y as i32, p, d, Some(v));
+            }
+            WebGLTextureData::Image(v) => {
+                self.gl.tex_sub_image2_d_1(WebGLRenderingContext::TEXTURE_2D, self.level as i32, x as i32, y as i32, p, d, Some(v));
+            }
         }
     }
 

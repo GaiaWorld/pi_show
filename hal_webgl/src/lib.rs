@@ -23,10 +23,12 @@ mod extension;
 mod state;
 mod shader;
 
-pub use self::context::*;
-
 use std::sync::{Arc};
 use webgl_rendering_context::{WebGLRenderingContext};
+
+
+pub use self::context::{WebGLContextImpl};
+pub use self::texture::{WebGLTextureImpl, WebGLTextureData};
 
 pub fn create_hal_webgl(context: Arc<WebGLRenderingContext>) -> WebGLContextImpl {
     WebGLContextImpl::new(context)
