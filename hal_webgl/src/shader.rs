@@ -432,7 +432,6 @@ impl Program {
 
         for (name, v) in values.iter() {
             if let Some(u) = self.all_uniforms.get(name) {
-                // TODO: 比较两个的Uniform的值
                 if !Self::is_uniform_same(v, &u.value) {
                     Self::set_uniform(gl, &u.location, v);
                 }
@@ -443,13 +442,81 @@ impl Program {
     }
 
     fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &UniformValue<WebGLContextImpl>) -> bool {
-        false
+        match curr {
+            UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => match old {
+                UniformValue::<WebGLContextImpl>::Float(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
+                    match *count {
+                        1 => *v0 == *old_v0,
+                        2 => *v0 == *old_v0 && *v1 == *old_v1,
+                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
+                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        _ => {
+                            assert!(false, "invalid uniform");
+                            false
+                        }
+                    }
+                }
+                _ => {
+                    assert!(false, "invalid uniform");
+                    false
+                }
+            }
+            UniformValue::<WebGLContextImpl>::Int(count, v0, v1, v2, v3) => match old {
+                UniformValue::<WebGLContextImpl>::Int(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
+                    match *count {
+                        1 => *v0 == *old_v0,
+                        2 => *v0 == *old_v0 && *v1 == *old_v1,
+                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
+                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        _ => {
+                            assert!(false, "invalid uniform");
+                            false
+                        }
+                    }
+                }
+                _ => {
+                    assert!(false, "invalid uniform");
+                    false
+                }
+            }
+            UniformValue::<WebGLContextImpl>::FloatV(count, v) => match old {
+                UniformValue::<WebGLContextImpl>::FloatV(old_count, old_v) if *old_count == *count && v.len() == old_v.len() => {
+                    false
+                }
+                _ => {
+                    assert!(false, "invalid uniform");
+                    false
+                }
+            }
+            UniformValue::<WebGLContextImpl>::IntV(count, v) => match old {
+                UniformValue::<WebGLContextImpl>::IntV(old_count, old_v) if *old_count == *count && v.len() == old_v.len() => {
+                    false
+                }
+                _ => {
+                    assert!(false, "invalid uniform");
+                    false
+                }
+            }
+            UniformValue::<WebGLContextImpl>::MatrixV(count, v) => match old {
+                UniformValue::<WebGLContextImpl>::MatrixV(old_count, old_v) if *old_count == *count && v.len() == old_v.len() => {
+                    false
+                }
+                _ => {
+                    assert!(false, "invalid uniform");
+                    false
+                }
+            }
+            UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
+                assert!(false, "TODO: sampler and texture uniform not support!");
+                false
+            }
+        }
     }
 
     fn set_uniform(gl: &WebGLRenderingContext, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
         match value {
             UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => {
-                match count {
+                match *count {
                     1 => gl.uniform1f(Some(location), *v0),
                     2 => gl.uniform2f(Some(location), *v0, *v1),
                     3 => gl.uniform3f(Some(location), *v0, *v1, *v2),
@@ -460,7 +527,7 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::Int(count, v0, v1, v2, v3) => {
-                match count {
+                match *count {
                     1 => gl.uniform1i(Some(location), *v0),
                     2 => gl.uniform2i(Some(location), *v0, *v1),
                     3 => gl.uniform3i(Some(location), *v0, *v1, *v2),
@@ -471,7 +538,7 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::FloatV(count, v) => {
-                match count {
+                match *count {
                     1 => gl.uniform1fv(Some(location), v.as_slice()),
                     2 => gl.uniform2fv(Some(location), v.as_slice()),
                     3 => gl.uniform3fv(Some(location), v.as_slice()),
@@ -482,7 +549,7 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::IntV(count, v) => {
-                match count {
+                match *count {
                     1 => gl.uniform1iv(Some(location), v.as_slice()),
                     2 => gl.uniform2iv(Some(location), v.as_slice()),
                     3 => gl.uniform3iv(Some(location), v.as_slice()),
@@ -493,7 +560,7 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::MatrixV(count, v) => {
-                match count {
+                match *count {
                     2 => gl.uniform_matrix2fv(Some(location), false, v.as_slice()),
                     3 => gl.uniform_matrix3fv(Some(location), false, v.as_slice()),
                     4 => gl.uniform_matrix4fv(Some(location), false, v.as_slice()),
@@ -507,4 +574,4 @@ impl Program {
             }
         }
     }
-}
+}   
