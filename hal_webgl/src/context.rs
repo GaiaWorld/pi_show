@@ -75,21 +75,18 @@ impl Context for WebGLContextImpl {
         Ok(WebGLGeometryImpl::new(&self.gl))
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Self::ContextTexture, String> {
-        Ok(WebGLTextureImpl {
-
-        })
+    fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String> {
+        WebGLTextureImpl::new_2d(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Self::ContextTexture, String> {
-        Ok(WebGLTextureImpl {
-
-        })
-    }
-
-    fn create_sampler(&mut self, _desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+        let desc = desc.as_ref().as_ref();
         Ok(WebGLSamplerImpl {
-
+            min_filter: desc.min_filter,
+            mag_filter: desc.mag_filter,
+            mip_filter: desc.mip_filter,
+            u_wrap: desc.u_wrap,
+            v_wrap: desc.v_wrap,
         })
     }
 
@@ -129,7 +126,7 @@ impl Context for WebGLContextImpl {
 
     fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
-            program.set_uniforms(values);
+            program.set_uniforms(&mut self.state, values);
             self.state.draw(geometry);
         }
     }

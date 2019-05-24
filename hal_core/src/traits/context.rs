@@ -4,7 +4,7 @@ use atom::Atom;
 use std::convert::{AsRef};
 
 use common::{Uniforms, ShaderType, Capabilities, Pipeline, RenderBeginDesc, PixelFormat, DataFormat, RasterState, DepthState, StencilState, BlendState};
-use traits::texture::{Texture};
+use traits::texture::{Texture, TextureData};
 use traits::geometry::{Geometry};
 use traits::sampler::{Sampler, SamplerDesc};
 use traits::render_target::{RenderTarget, RenderBuffer};
@@ -111,16 +111,7 @@ pub trait Context {
      * format: 格式
      * is_gen_mipmap: 是否生成mipmap
      */
-    fn create_texture_2d(&mut self, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&[u8]>) -> Result<Self::ContextTexture, String>;
-
-    /** 
-     * 用canvas创建2D纹理，尽用于webgl版本
-     * width: 宽
-     * height: 高
-     * format: 格式
-     * is_gen_mipmap: 是否生成mipmap
-     */
-    fn create_texture_2d_with_canvas(&mut self, width: u32, height: u32, pixel: PixelFormat, data: DataFormat, is_gen_mipmap: bool, canvas: *const isize) -> Result<Self::ContextTexture, String>;
+    fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String>;
 
     /** 
      * 创建采样器

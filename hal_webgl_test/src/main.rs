@@ -40,13 +40,13 @@ fn main() {
     let webgl = create_hal_webgl(gl);
 
     // 初始化 shader
-    // let pipeline = init_pipeline();
-    // let geometry = init_geometry();
-    // let uniforms = init_uniforms();
+    let pipeline = Arc::into_raw(init_pipeline());
+    let geometry = Arc::into_raw(init_geometry());
+    let uniforms = Arc::into_raw(init_uniforms());
     
     js! {
         requestAnimationFrame(function () {
-            Module._render();
+            Module._render(pipeline, geometry, uniforms);
         })
     }
 
@@ -54,18 +54,22 @@ fn main() {
 }
 
 #[no_mangle]
-fn render() {
+fn render(pipeline: *const T, geometry: *const T, uniforms: *const T) {
+    let pipeline = unsafe { Arc::into_raw(pipeline) };
+    let geometry = unsafe { Arc::into_raw(geometry) };
+    let uniforms = unsafe { Arc::into_raw(uniforms) };
+
     println!("render");
 }
 
-fn init_pipeline() {
+fn init_pipeline() -> Arc<Pipeline> {
 
 }
 
-fn init_geometry() {
+fn init_geometry() -> Arc<Geometry> {
 
 }
 
-fn init_uniforms() {
+fn init_uniforms() -> Arc<Uniforms> {
 
 }

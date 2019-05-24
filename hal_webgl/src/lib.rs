@@ -1,3 +1,4 @@
+#![feature(weak_ptr_eq)]
 
 /** 
  * 抽象硬件层HAL的WebGL实现

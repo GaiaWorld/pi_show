@@ -67,15 +67,9 @@ impl Context for NullContextImpl {
         })
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Self::ContextTexture, String> {
+    fn create_texture_2d(&mut self, _w: u32, _h: u32, _level: u32, _pformat: &PixelFormat, _dformat: &DataFormat, _is_gen_mipmap: bool, _data: &TextureData) -> Result<Self::ContextTexture, String> {
         Ok(NullTextureImpl {
-
-        })
-    }
-
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Self::ContextTexture, String> {
-        Ok(NullTextureImpl {
-
+            
         })
     }
 

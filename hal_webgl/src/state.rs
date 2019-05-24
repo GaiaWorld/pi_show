@@ -2,10 +2,12 @@
  * WebGL 状态设置
  */
 
-use std::sync::{Arc};
+use std::sync::{Arc, Weak};
 use hal_core::*;
 use convert::*;
 use shader::{Program, ProgramManager};
+use texture::{WebGLTextureImpl};
+use sampler::{WebGLSamplerImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
@@ -23,6 +25,97 @@ pub struct State {
     target: Arc<AsRef<WebGLRenderTargetImpl>>,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     enable_attrib_indices: Vec<bool>,
+
+    tex_caches: TextureCache,
+}
+
+struct TextureSlot {
+    unit: usize,
+    count: u32, // 等于0代表没用过
+    texture: Weak<AsRef<WebGLTextureImpl>>,
+    sampler: Weak<AsRef<WebGLSamplerImpl>>,
+}
+
+impl TextureSlot {
+    fn new(unit: usize) -> Self {
+        TextureSlot {
+            unit: unit,
+            count: 0,
+            texture: Weak::<WebGLTextureImpl>::new(),
+            sampler: Weak::<WebGLSamplerImpl>::new(),
+        }
+    }
+}
+
+struct TextureCache {
+    gl: Arc<WebGLRenderingContext>,
+    values: Vec<TextureSlot>,
+}
+
+impl TextureCache {
+    fn new(gl: &Arc<WebGLRenderingContext>, max_tex_unit_num: usize) -> Self {
+        // 第0个纹理通道内部使用
+        let mut cache = Vec::with_capacity(max_tex_unit_num - 1);
+        for i in 1..max_tex_unit_num {
+            cache.push(TextureSlot::new(i));
+        }
+        TextureCache {
+            gl: gl.clone(),
+            values: cache,
+        }
+    }
+
+    pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
+        let mut is_find = false;
+        let mut min_count = 99999;
+        let mut min_index = 0;
+        let mut r = 0;
+        
+        for (i, v) in self.values.iter_mut().enumerate() {
+            if Weak::ptr_eq(texture, &v.texture) {
+                v.count += 1;
+                if v.count < min_count {
+                    min_count = v.count;
+                    min_index = i;
+                }
+                if !Weak::ptr_eq(sampler, &v.sampler) {
+                    match (texture.upgrade(), sampler.upgrade()) {
+                        (Some(texture), Some(sampler)) => {
+                            texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
+                        }
+                        _ => {
+
+                        }
+                    }
+                    v.sampler = sampler.clone();
+                }
+                is_find = true;
+                r = v.unit;
+                break;
+            }
+        }
+        if !is_find {
+            // 改掉count最小的那个
+            if let Some(v)= self.values.get_mut(min_index) {
+                v.count = 1;
+                v.texture = texture.clone();
+                v.sampler = sampler.clone();
+
+                match (texture.upgrade(), sampler.upgrade()) {
+                    (Some(texture), Some(sampler)) => {
+                        self.gl.active_texture(WebGLRenderingContext::TEXTURE0 + (v.unit as u32));
+                        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture.as_ref().as_ref().handle));
+                        texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
+                        r = v.unit;
+                    }
+                    _ => {
+
+                    }
+                }
+            }
+        }
+        r as u32
+    }
 }
 
 impl State {
@@ -40,7 +133,8 @@ impl State {
             blend_state: Arc::new(BlendState::new()),
             depth_state: Arc::new(DepthState::new()),
         };
-
+        
+        let tex_caches = TextureCache::new(gl, max_tex_unit_num as usize);
         let state = State {
             gl: gl.clone(),
 
@@ -53,11 +147,16 @@ impl State {
             target: rt.clone(),
             viewport_rect: (0, 0, 0, 0),
             enable_attrib_indices: vec![false; max_attributes as usize],
-        };
+            tex_caches: tex_caches,
+        };  
 
         Self::apply_all_state(gl, &state);
 
         state
+    }
+
+    pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
+        self.tex_caches.use_texture(texture, sampler)
     }
 
     pub fn set_render_target(&mut self, rt: &Arc<AsRef<WebGLRenderTargetImpl>>) {
