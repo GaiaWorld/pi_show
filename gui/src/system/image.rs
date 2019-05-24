@@ -8,8 +8,9 @@ use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, Sampler, SamplerDesc};
+use hal_core::*;
 use atom::Atom;
+use polygon::*;
 
 use component::user::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
@@ -17,7 +18,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
 use render::res::{ TextureRes, SamplerRes };
-use system::util::{cal_matrix, color_is_opaque, create_geometry, set_world_matrix_ubo, set_atrribute, by_overflow_change, sampler_desc_hash, DefinesList, DefinesClip};
+use system::util::*;
 use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_INDEICES, COMMON, ALPHA, CLIP};
 
 
@@ -32,7 +33,7 @@ lazy_static! {
 
 pub struct ImageSys<C: Context + Share>{
     image_render_map: VecMap<Item>,
-    bg_image_render_map: VecMap<Item>,
+    br_image_render_map: VecMap<Item>,
     mark: PhantomData<C>,
     rs: Arc<RasterState>,
     bs: Arc<BlendState>,
@@ -46,7 +47,7 @@ impl<C: Context + Share> ImageSys<C> {
     fn new() -> Self{
         ImageSys {
             image_render_map: VecMap::default(),
-            bg_image_render_map: VecMap::default(),
+            br_image_render_map: VecMap::default(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
             bs: Arc::new(BlendState::new()),
@@ -74,8 +75,6 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
     }
 }
 
-
-
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> for ImageSys<C>{
     type ReadData = (
@@ -91,6 +90,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ImageClip>,
+        &'a MultiCaseImpl<Node, ObjectFit>, 
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
@@ -102,11 +103,15 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         let image = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0;
+        let border_radius = unsafe { r.11.get_unchecked(event.id) };
+        let image_clip = unsafe { r.12.get(event.id) };
+        let object_fit = unsafe { r.13.get(event.id) };
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
-            set_atrribute::<C>(layout, z_depth, (0.0, 0.0), &mut geometry);
+            // 如果存在border， 可能效果不对
+            set_image_geometry(event.id, image, z_depth, &mut geometry, layout, r.11, r.12, r.13);
         }
 
         let index = self.create_image_renderobjs(event.id, &image.src, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
@@ -144,6 +149,27 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
     }
 }
 
+//
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for ImageSys<C>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Image<C>>,
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ImageClip>,
+        &'a MultiCaseImpl<Node, ObjectFit>, 
+    );
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &ModifyEvent, r: Self::ReadData, write: Self::WriteData){
+        let z_depth = unsafe { r.0.get_unchecked(event.id) }.0;
+        let layout = unsafe { r.2.get_unchecked(event.id) };
+        let image = unsafe { r.1.get_unchecked(event.id) };
+        let item = self.image_render_map.remove(event.id).unwrap();
+        let render_obj = unsafe { write.get_unchecked_mut(event.id) };
+        set_image_geometry(event.id, image, z_depth, &mut render_obj.geometry, layout, r.3, r.4, r.5);
+    }
+}
+
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for ImageSys<C>{
     type ReadData = (
@@ -159,6 +185,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, BorderImageClip>,
+        &'a MultiCaseImpl<Node, BorderImageSlice>,
+        &'a MultiCaseImpl<Node, BorderImageRepeat>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
@@ -174,11 +203,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
-            set_atrribute::<C>(layout, z_depth, (0.0, 0.0), &mut geometry);
+            set_border_image_geometry::<C>(event.id, bg_image, z_depth, &mut geometry, layout, r.12, r.13, r.14);
         }
 
-        let index = self.create_image_renderobjs(event.id, &bg_image.0, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
-        self.bg_image_render_map.insert(event.id, Item{index: index, defines: defines});
+        let index = self.create_image_renderobjs(event.id, &bg_image.src, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, r.11, w.0, w.1);
+        self.br_image_render_map.insert(event.id, Item{index: index, defines: defines});
     }
 }
 
@@ -187,7 +216,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, DeleteE
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
-        let item = self.bg_image_render_map.remove(event.id).unwrap();
+        let item = self.br_image_render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));
     }
@@ -199,7 +228,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let bg_image = unsafe { read.get_unchecked(event.id) };
-        let item = unsafe { self.bg_image_render_map.get_unchecked(event.id) };
+        let item = unsafe { self.br_image_render_map.get_unchecked(event.id) };
         let mut ubos = &mut unsafe { write.get_unchecked_mut(item.index) }.ubos;
         let common_ubo = ubos.get_mut(&COMMON).unwrap();
         Arc::make_mut(common_ubo).set_sampler(&TEXTURE, &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>), &(bg_image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>));
@@ -211,7 +240,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
     type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        match (unsafe { self.image_render_map.get(event.id) }, unsafe { self.bg_image_render_map.get(event.id) }) {
+        match (unsafe { self.image_render_map.get(event.id) }, unsafe { self.br_image_render_map.get(event.id) }) {
             (Some(item), None) => {    
                 let world_matrix = cal_matrix(event.id, read.0, read.1, read.2);
                 set_world_matrix_ubo(event.id, item.index, &world_matrix, write);
@@ -232,31 +261,33 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
 
 //layout变化， 设置顶点流
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for ImageSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, ZDepth>);
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Image<C>>,
+        &'a MultiCaseImpl<Node, ImageClip>,
+        &'a MultiCaseImpl<Node, ObjectFit>,
+        &'a MultiCaseImpl<Node, BorderImage<C>>,
+        &'a MultiCaseImpl<Node, BorderImageClip>,
+        &'a MultiCaseImpl<Node, BorderImageSlice>,
+        &'a MultiCaseImpl<Node, BorderImageRepeat>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+    );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let layout = unsafe { read.0.get_unchecked(event.id) };
-        let z_depth = unsafe { read.1.get_unchecked(event.id) }.0;
-        match (unsafe { self.image_render_map.get(event.id) }, unsafe { self.bg_image_render_map.get(event.id) }) {
-            (Some(item), None) => {
-                let geometry = unsafe { &mut write.get_unchecked_mut(item.index).geometry };
-                set_atrribute::<C>(layout, z_depth, (0.0, 0.0), geometry);  
-            },
-            (None, Some(item)) => {    
-                let geometry =  unsafe { &mut write.get_unchecked_mut(item.index).geometry };
-                set_atrribute::<C>(layout, z_depth - 0.1, (0.0, 0.0), geometry); 
-            },
-            (Some(item), Some(item1)) => {  
-                {  
-                    let geometry =  unsafe { &mut write.get_unchecked_mut(item.index).geometry };
-                    set_atrribute::<C>(layout, z_depth, (0.0, 0.0), geometry); 
-                }
-
-                let geometry =  unsafe { &mut write.get_unchecked_mut(item1.index).geometry };
-                set_atrribute::<C>(layout, z_depth - 0.1, (0.0, 0.0), geometry); 
-            },
-            (None, None) => return,
-        };
+        let (layouts, depths, images, image_clips, fits, br_images, br_clips, bg_slices, br_repeats, border_radius) = read;
+        let layout = unsafe { layouts.get_unchecked(event.id) };
+        let z_depth = unsafe { depths.get_unchecked(event.id) }.0;
+        if let Some(item) = unsafe { self.image_render_map.get(event.id) } {
+            let geometry = unsafe { &mut write.get_unchecked_mut(item.index).geometry };
+            let image = unsafe { &mut images.get_unchecked(event.id)};
+            set_image_geometry::<C>(event.id, image, z_depth, geometry, layout, border_radius, image_clips, fits);
+        }
+        if let Some(item) = unsafe { self.image_render_map.get(event.id) } {
+            let geometry = unsafe { &mut write.get_unchecked_mut(item.index).geometry };
+            let br_image = unsafe { &mut br_images.get_unchecked(event.id)};
+            set_border_image_geometry::<C>(event.id, br_image, z_depth, geometry, layout, br_clips, bg_slices, br_repeats);
+        }
     }
 }
 
@@ -289,7 +320,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
             let by_overflow = unsafe { read.get_unchecked(event.id) }.0;
             by_overflow_change(by_overflow, item.index, &mut item.defines, self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone(), 0, &IMAGE_FS_SHADER_NAME, &IMAGE_VS_SHADER_NAME, write.0, write.1);
         }
-        if let Some(item) = unsafe { self.bg_image_render_map.get_mut(event.id) } {
+        if let Some(item) = unsafe { self.br_image_render_map.get_mut(event.id) } {
             let by_overflow = unsafe { read.get_unchecked(event.id) }.0;
             by_overflow_change(by_overflow, item.index, &mut item.defines, self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone(), 0, &IMAGE_FS_SHADER_NAME, &IMAGE_VS_SHADER_NAME, write.0, write.1);
         }
@@ -350,16 +381,8 @@ impl<C: Context + Share> ImageSys<C> {
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(&TEXTURE, &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>), &(src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>));
         common_ubo.set_float_1(&ALPHA, opacity);
-        let layout = unsafe { layout.get_unchecked(id) };  
-        // let border_radius = match unsafe { border_radius.get_unchecked(id) }.0 {
-        //     LengthUnit::Pixel(r) => r,
-        //     LengthUnit::Percent(r) => {
-        //         r * layout.width
-        //     }
-        // };
-        // common_ubo.set_float_1(&RADIUS, border_radius);
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
-
+        
         let by_overflow =  unsafe { by_overflow.get_unchecked(id) }.0;
         if by_overflow > 0 {
             defines.clip = true;
@@ -417,12 +440,79 @@ fn image_is_opacity(opacity: f32) -> bool {
     return true;
 }
 
+fn set_image_geometry<C: Context + Share>(
+    id: usize,
+    image: &Image<C>,
+    z_depth: f32,
+    geometry: &mut Arc<<C as Context>::ContextGeometry>,
+    layout: &Layout,
+    border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
+    image_clips: &MultiCaseImpl<Node, ImageClip>,
+    object_fits: &MultiCaseImpl<Node, ObjectFit>,
+){
+    let border_radius = unsafe { border_radiuss.get_unchecked(id) };
+    let image_clip = unsafe { image_clips.get(id) };
+    let object_fit = unsafe { object_fits.get(id) };
+    let radius = cal_border_radius(border_radius,  layout);
+    let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    let positions = positions_width_radius(border_radius, layout, z_depth, (0.0, 0.0));
+    
+    let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
+    let (positions, _) = split_by_lg(positions, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    let (positions, indices) = split_by_lg(positions, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    let indices = to_triangle(indices.as_slice());
+    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.0.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    let v = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    let geo = Arc::get_mut(geometry).unwrap();
+    let mut uvs = Vec::with_capacity(u[0].len());
+    for i in 0..u.len() {
+        uvs.push(u[0][i]);
+        uvs.push(v[0][i]);
+    }
+
+    let vertex_count: u32 = (positions.len()/3) as u32;
+    if vertex_count != geo.get_vertex_count() {
+        geo.set_vertex_count(vertex_count);
+    }
+    //设置索引
+    geo.set_indices_short(indices.as_slice(), false);
+    geo.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
+    geo.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false);
+}
+
+fn set_border_image_geometry<C: Context + Share>(
+    id: usize,
+    image: &BorderImage<C>,
+    z_depth: f32,
+    geometry: &mut Arc<<C as Context>::ContextGeometry>,
+    layout: &Layout,
+    clips: &MultiCaseImpl<Node, BorderImageClip>,
+    slices: &MultiCaseImpl<Node, BorderImageSlice>,
+    repeats: &MultiCaseImpl<Node, BorderImageRepeat>,
+){
+    let geo = Arc::get_mut(geometry).unwrap();
+    let clip = unsafe { clips.get(id) };
+    let slice = unsafe { slices.get_unchecked(id) };
+    let repeat = unsafe { repeats.get(id) };
+
+    let (positions, uvs, indices) = get_border_image_stream(image, clip, slice, repeat, layout, z_depth, Vec::new(), Vec::new(), Vec::new());
+    
+    let vertex_count: u32 = (positions.len()/3) as u32;
+    if vertex_count != geo.get_vertex_count() {
+        geo.set_vertex_count(vertex_count);
+    }
+
+    geo.set_indices_short(indices.as_slice(), false);
+    geo.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
+    geo.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false);
+}
+
 unsafe impl<C: Context + Share> Sync for ImageSys<C>{}
 unsafe impl<C: Context + Share> Send for ImageSys<C>{}
 
 impl_system!{
     ImageSys<C> where [C: Context + Share],
-    false,
+    true,
     {
         MultiCaseListener<Node, Image<C>, CreateEvent>
         MultiCaseListener<Node, Image<C>, DeleteEvent>

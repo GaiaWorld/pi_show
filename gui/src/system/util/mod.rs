@@ -7,6 +7,7 @@ use std::mem::transmute;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc, AttributeName};
+use polygon::*;
 use atom::Atom;
 use fnv::FnvHashMap;
 
@@ -162,4 +163,23 @@ pub fn cal_border_radius(border_radius: &BorderRadius,  layout: &Layout) -> Poin
             LengthUnit::Percent(r) => r * layout.height,
         },
     } 
+}
+
+pub fn positions_width_radius(border_radius: &BorderRadius, layout: &Layout, z_depth: f32, offset:(f32, f32)) -> Vec<f32>{
+    let r = cal_border_radius(border_radius, layout);
+    if r.x == 0.0 {
+        return positions_from_layout(layout, z_depth, offset);
+    }else {
+        return split_by_radius(0.0 + offset.0, 0.0 + offset.1, layout.width + offset.0, layout.height + offset.1, r.x, z_depth);
+    }
+}
+
+pub fn positions_from_layout(layout: &Layout, z_depth: f32, offset:(f32, f32)) -> Vec<f32>{
+    let (start_x, start_y, end_x, end_y) = (offset.0, offset.1, layout.width + offset.0, layout.height + offset.1);
+    vec!(
+        start_x, start_y, z_depth, // left_top
+        start_x, end_y,   z_depth, // left_bootom
+        end_x,   end_y,   z_depth, // right_bootom
+        end_x,   start_y, z_depth, // right_top
+    )
 }
