@@ -13,6 +13,9 @@ pub struct ZDepth(pub f32);
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ByOverflow(pub usize);
 
+#[derive(Component, Default, Deref, DerefMut)]
+pub struct ByWillChange(pub usize);
+
 #[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
 pub struct WorldMatrix(pub Matrix4);
 

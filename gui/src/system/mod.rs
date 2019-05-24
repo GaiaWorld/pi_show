@@ -9,5 +9,6 @@ pub mod sdf;
 pub mod image;
 pub mod char_block;
 // pub mod clip;
+pub mod willchange;
 pub mod util;
 pub mod text_layout;

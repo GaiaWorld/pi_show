@@ -29,6 +29,9 @@ pub struct Layout{
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct ZIndex(pub isize);
 
+#[derive(Deref, DerefMut, Component, Default)]
+pub struct WillChange(pub bool);
+
 //超出部分的裁剪方式
 #[derive(Deref, DerefMut, Component, Default)]
 pub struct Overflow(pub bool);
@@ -129,7 +132,6 @@ pub struct Font{
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
-
 
 //================================== 枚举
 
