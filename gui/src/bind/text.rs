@@ -135,6 +135,7 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
         h: h,
         v: v,
         blur: blur,
+        spread: 0.0,
         color: CgColor::new(r, g, b, a),
     };
     let node_id = node_id as usize;

@@ -65,7 +65,9 @@ pub struct ObjectFit(pub FitType);
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
+pub struct BorderImage<C: Context + 'static + Send + Sync>{
+  pub src: Arc<TextureRes<C>>
+}
 
 #[derive(Deref, DerefMut, Component)]
 pub struct BorderImageClip(pub Aabb2);
@@ -108,9 +110,10 @@ pub struct Text(pub Arc<String>);
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct TextShadow{
-    pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
-    pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
-    pub blur: f32, //	可选。模糊的距离。	测试
+    pub h: f32, //	必需。水平阴影的位置。允许负值。
+    pub v: f32, //	必需。垂直阴影的位置。允许负值。
+    pub blur: f32, //	可选。模糊的距离。
+    pub spread: f32, //	可选。扩散的距离。
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 #[derive(Component, Default)]
@@ -139,7 +142,7 @@ pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
-pub struct Quad(Point2, Point2, Point2, Point2);
+pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
 
 pub enum LengthUnitType{
     Pixel,
@@ -518,7 +521,7 @@ impl Default for ImageClip {
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Quad, Quad){
+pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Aabb2, Aabb2){
     let (size, mut uv1, mut uv2) = match clip {
         Some(c) => {
             let size = Vector2::new(img.src.width as f32 * (c.max.x - c.min.x).abs(), img.src.height as f32 * (c.max.y - c.min.y).abs());
@@ -590,9 +593,7 @@ pub fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip:
       // 默认情况是填充
       _ => ()
     };
-    let pos = Quad(p1, Point2::new(p1.x, p2.y), p2, Point2::new(p2.x, p1.y));
-    let uv = Quad(uv1, Point2::new(uv1.x, uv2.y), uv2, Point2::new(uv2.x, uv1.y));
-    (pos, uv)
+    (Aabb2{min:p1, max:p2}, Aabb2{min:uv1, max:uv2})
 }
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){ 
@@ -634,85 +635,80 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let uv_top = slice.top * uvh;
     let uv_bottom = slice.bottom * uvh;
 
-    // 对应的12个点
+    // 先将16个顶点和uv放入数组，记录偏移量
+    let mut pi = (point_arr.len() / 3)  as u16;
     // 左上的4个点
-    let p_x1_top = Point2::new(p1.x, top);
-    let p_left_y1 = Point2::new(left, p1.y);
-    let p_left_top = Point2::new(left, top);
-    // 左下的4个点
-    let p_x1_bottom = Point2::new(p1.x, bottom);
-    let p_left_y2 = Point2::new(left, p2.y);
-    let p_left_bottom = Point2::new(left, bottom);
-    // 右下的4个点
-    let p_right_bottom = Point2::new(right, bottom);
-    let p_right_y2 = Point2::new(right, p2.y);
-    let p_x2_bottom = Point2::new(p2.x, bottom);
-    // 右上的4个点
-    let p_right_y1 = Point2::new(right, p1.y);
-    let p_right_top = Point2::new(right, top);
-    let p_x2_top = Point2::new(p2.x, top);
+    let p_x1_y1 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p1.y, z, uv1.x, uv1.y, &mut pi);
+    let p_x1_top = push_vertex(&mut point_arr, &mut uv_arr, p1.x, top, z, uv1.x, uv_top, &mut pi);
+    let p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, z, uv_left, uv_top, &mut pi);
+    let p_left_y1 = push_vertex(&mut point_arr, &mut uv_arr, left, p1.y, z, uv_left, uv1.y, &mut pi);
+    push_quad(&mut index_arr, p_x1_y1, p_x1_top, p_left_top, p_left_y1);
 
-    // 对应的12个uv
-    // 左上的4个点
-    let uv_x1_top = Point2::new(uv1.x, uv_top);
-    let uv_left_y1 = Point2::new(uv_left, uv1.y);
-    let uv_left_top = Point2::new(uv_left, uv_top);
     // 左下的4个点
-    let uv_x1_bottom = Point2::new(uv1.x, uv_bottom);
-    let uv_left_y2 = Point2::new(uv_left, uv2.y);
-    let uv_left_bottom = Point2::new(uv_left, uv_bottom);
-    // 右下的4个点
-    let uv_right_bottom = Point2::new(uv_right, uv_bottom);
-    let uv_right_y2 = Point2::new(uv_right, uv2.y);
-    let uv_x2_bottom = Point2::new(uv2.x, uv_bottom);
-    // 右上的4个点
-    let uv_right_y1 = Point2::new(uv_right, uv1.y);
-    let uv_right_top = Point2::new(uv_right, uv_top);
-    let uv_x2_top = Point2::new(uv2.x, uv_top);
+    let p_x1_bottom = push_vertex(&mut point_arr, &mut uv_arr, p1.x, bottom, z, uv1.x, uv_bottom, &mut pi);
+    let p_x1_y2 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p2.y, z, uv1.x, uv2.y, &mut pi);
+    let p_left_y2 = push_vertex(&mut point_arr, &mut uv_arr, left, p2.y, z, uv_left, uv2.y, &mut pi);
+    let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, z, uv_left, uv_bottom, &mut pi);
+    push_quad(&mut index_arr, p_x1_bottom, p_x1_y2, p_left_y2, p_left_bottom);
 
-    // 处理4个角
-    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p1, &p_left_top, &uv1, &uv_left_top, z); // 左上角
-    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_x1_bottom, &p_left_y2, &uv_x1_bottom, &uv_left_y2, z); // 左下角
-    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_bottom, &p2, &uv_right_bottom, &uv2, z); // 右下角
-    push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_y1, &p_x2_top, &uv_right_y1, &uv_x2_top, z); // 右上角
+    // 右下的4个点
+    let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, z, uv_right, uv_bottom, &mut pi);
+    let p_right_y2 = push_vertex(&mut point_arr, &mut uv_arr, right, p2.y, z, uv_right, uv2.y, &mut pi);
+    let p_x2_y2 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p2.y, z, uv2.x, uv2.y, &mut pi);
+    let p_x2_bottom = push_vertex(&mut point_arr, &mut uv_arr, p2.x, bottom, z, uv2.x, uv_bottom, &mut pi);
+    push_quad(&mut index_arr, p_right_bottom, p_right_y2, p_x2_y2, p_x2_bottom);
+
+    // 右上的4个点
+    let p_right_y1 = push_vertex(&mut point_arr, &mut uv_arr, right, p1.y, z, uv_right, uv1.y, &mut pi);
+    let p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, z, uv_right, uv_top, &mut pi);
+    let p_x2_top = push_vertex(&mut point_arr, &mut uv_arr, p2.x, top, z, uv2.x, uv_top, &mut pi);
+    let p_x2_y1 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p1.y, z, uv2.x, uv1.y, &mut pi);
+    push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
+
     let (ustep, vstep) = match repeat {
-      Some(&BorderImageRepeat(vtype, utype)) => {
+      Some(&BorderImageRepeat(utype, vtype)) => {
         // 根据图像大小和uv计算
-        let ustep = calc_step(right - left, img.0.width as f32 * (uv_right - uv_left), utype);
-        let vstep = calc_step(bottom - top, img.0.height as f32 * (uv_bottom - uv_top), vtype);
+        let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
         (ustep, vstep)
       },
       _ => (w, h)
     };
-    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_x1_top, &p_left_bottom, &uv_x1_top, &uv_left_bottom, z, ustep); // 左边
-    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_top, &p_x2_bottom, &uv_right_top, &uv_x2_bottom, z, ustep); // 右边
-    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_y1, &p_right_top, &uv_left_y1, &uv_right_top, z, vstep); // 上边
-    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_bottom, &p_right_y2, &uv_left_bottom, &uv_right_y2, z, vstep); // 下边
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_left_y1, p_left_top, p_right_top, p_right_y1, z,
+    uv_left, uv1.y, uv_right, uv_top, ustep, &mut pi); // 上边
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_left_bottom, p_left_y2, p_right_y2, p_right_bottom, z,
+    uv_left, uv_bottom, uv_right, uv2.y, ustep, &mut pi); // 下边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_x1_top, p_x1_bottom, p_left_bottom, p_left_top, z,
+    uv1.x, uv_top, uv_left, uv_bottom, vstep, &mut pi); // 左边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_right_top, p_right_bottom, p_x2_bottom, p_x2_top, z,
+    uv_right, uv_top, uv2.x, uv_bottom, vstep, &mut pi); // 右边
     // 处理中间
     if slice.fill {
-      push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_left_top, &p_right_bottom, &uv_left_top, &uv_right_bottom, z);
+      push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
     }
     (point_arr, uv_arr, index_arr)
 }
-
 // 将四边形放进数组中
-fn push_quad(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32){
-  if p_max.x>p_min.x && p_max.y>p_min.y {
-    let i = point_arr.len() as u16;
-    point_arr.extend_from_slice(&[
-      p_min.x, p_min.y, z, p_min.x, p_max.y, z, p_max.x, p_max.y, z, p_max.x, p_min.y, z,
-    ]);
-    uv_arr.extend_from_slice(&[
-      uv_min.x, uv_min.y, uv_min.x, uv_max.y, uv_max.x, uv_max.y, uv_max.x, uv_min.y
-    ]);
-    index_arr.extend_from_slice(&[i, i+1, i+3, i+1, i+2, i+3]);
-  }
+fn push_vertex(point_arr: &mut Polygon, uv_arr: &mut Polygon, x: f32, y: f32, z: f32, u: f32, v: f32, i: &mut u16) -> u16 {
+    point_arr.extend_from_slice(&[x, y, z]);
+    uv_arr.extend_from_slice(&[u, v]);
+    let r = *i;
+    *i += 1;
+    r
+}
+// 将四边形放进数组中
+fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16){
+    index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]);
 }
 
 // 根据参数计算uv的step
 fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
   let c = csize/img_size;
-  if c <= 0.0 {
+  if c <= 1.0 {
     return std::f32::INFINITY
   }
   match rtype {
@@ -724,24 +720,44 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
 }
 
 // 将指定区域按u切开
-fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32, step: f32){
-  let mut min = p_min.clone();
-  let mut max = Point2::new(min.x + step, p_max.y);
-  while max.x < p_max.x {
-    push_quad(point_arr, uv_arr, index_arr, &min, &max, uv_min, uv_max, z);
-    min.x = max.x;
-    max.x += step;
+fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
+  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  let y1 = point_arr[p1 as usize *3 + 1];
+  let y2 = point_arr[p1 as usize *3 + 4];
+  let mut cur = point_arr[p1 as usize *3] + step;
+  let mut max = point_arr[p3 as usize *3];
+  let mut pt1 = p1;
+  let mut pt2 = p2;
+  while cur < max {
+    let i3 = push_vertex(point_arr, uv_arr, cur, y2, z, u2, v2, i);
+    let i4 = push_vertex(point_arr, uv_arr, cur, y1, z, u2, v1, i);
+    push_quad(index_arr, pt1, pt2, i3, i4);
+    // 因为uv不同，新插入2个顶点
+    pt1 = push_vertex(point_arr, uv_arr, cur, y1, z, u1, v1, i);
+    pt2 = push_vertex(point_arr, uv_arr, cur, y2, z, u1, v2, i);
+    cur = max;
+    max += step;
   }
-  push_quad(point_arr, uv_arr, index_arr, &min, p_max, uv_min, uv_max, z);
+  push_quad(index_arr, pt1, pt2, p3, p4);
 }
 // 将指定区域按v切开
-fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>, p_min: &Point2, p_max: &Point2, uv_min: &Point2, uv_max: &Point2, z: f32, step: f32){
-  let mut min = p_min.clone();
-  let mut max = Point2::new(p_max.x, min.y + step);
-  while max.y < p_max.y {
-    push_quad(point_arr, uv_arr, index_arr, &min, &max, uv_min, uv_max, z);
-    min.y = max.y;
-    max.y += step;
+fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
+  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  let x1 = point_arr[p1 as usize *3];
+  let x2 = point_arr[p1 as usize *3 + 3];
+  let mut cur = point_arr[p1 as usize *3 + 1] + step;
+  let mut max = point_arr[p3 as usize *3 + 1];
+  let mut pt1 = p1;
+  let mut pt4 = p4;
+  while cur < max {
+    let i2 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v2, i);
+    let i3 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v2, i);
+    push_quad(index_arr, pt1, i2, i3, pt4);
+    // 因为uv不同，新插入2个顶点
+    pt1 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v1, i);
+    pt4 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v1, i);
+    cur = max;
+    max += step;
   }
-  push_quad(point_arr, uv_arr, index_arr, &min, p_max, uv_min, uv_max, z);
+  push_quad(index_arr, pt1, p2, p3, pt4);
 }
