@@ -1,3 +1,4 @@
+use std::sync::{Arc};
 use common::{CullMode, CompareFunc, BlendFunc, BlendFactor, StencilOp};
 use ShareRef;
 
@@ -12,6 +13,19 @@ pub struct Pipeline {
     pub depth_state: ShareRef<DepthState>,
     pub stencil_state: ShareRef<StencilState>,
     pub blend_state: ShareRef<BlendState>,
+}
+
+impl Pipeline {
+    pub fn new() -> Self {
+        Pipeline {
+            vs_hash: 0,
+            fs_hash: 0,
+            raster_state: Arc::new(RasterState::new()),
+            depth_state: Arc::new(DepthState::new()),
+            blend_state: Arc::new(BlendState::new()),
+            stencil_state: Arc::new(StencilState::new()),
+        }
+    }
 }
 
 /** 

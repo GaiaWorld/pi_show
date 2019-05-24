@@ -17,6 +17,7 @@ use hal_core::*;
 use context::{WebGLContextImpl};
 use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
+use state::{State};
 
 /**
  * GPU Shader
@@ -397,17 +398,17 @@ impl Program {
         }
     }
 
-    pub fn set_uniforms(&mut self, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
+    pub fn set_uniforms(&mut self, state: &mut State, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
         
         for (name, curr) in values.iter() {
             let is_old_same = match self.last_uniforms.get_mut(name) {
                 None => {
-                    self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                    self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                     false
                 }
                 Some(old) => {
                     if !Arc::ptr_eq(old, curr) {
-                        self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                        self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                         false
                     } else {
                         true
@@ -422,7 +423,7 @@ impl Program {
         }
     }
 
-    fn set_uniforms_impl(&mut self, values: &HashMap<Atom, UniformValue<WebGLContextImpl>>) {
+    fn set_uniforms_impl(&mut self, state: &mut State, values: &HashMap<Atom, UniformValue<WebGLContextImpl>>) {
 
         let gl = self.gl.upgrade();
         if gl.is_none() {
@@ -433,7 +434,7 @@ impl Program {
         for (name, v) in values.iter() {
             if let Some(u) = self.all_uniforms.get(name) {
                 if !Self::is_uniform_same(v, &u.value) {
-                    Self::set_uniform(gl, &u.location, v);
+                    Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {
                 assert!(false, "set_uniforms failed, not exist in shader");
@@ -513,7 +514,7 @@ impl Program {
         }
     }
 
-    fn set_uniform(gl: &WebGLRenderingContext, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
+    fn set_uniform(gl: &WebGLRenderingContext, state: &mut State, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
         match value {
             UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => {
                 match *count {
@@ -570,8 +571,13 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
-                assert!(false, "TODO: sampler and texture uniform not support!");
+                let unit = state.use_texture(t, s);
+                if unit > 0 {
+                    gl.uniform1i(Some(location), unit as i32);
+                } else {
+                    assert!(false, "no support");
+                }
             }
         }
     }
-}   
+}

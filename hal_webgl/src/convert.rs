@@ -45,27 +45,26 @@ pub fn get_texture_filter_mode(mag: &TextureFilterMode, min: &TextureFilterMode,
         TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
     };
 
-    let mut min_mode = WebGLRenderingContext::NEAREST;
-    match mip {
+    let min_mode = match mip {
         None => {
-            min_mode = match min {
+            match min {
                 TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
                 TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
-            };
+            }
         }
         Some(TextureFilterMode::Nearest) => {
-            min_mode = match min {
+            match min {
                 TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_NEAREST,
                 TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_NEAREST,
-            };
+            }
         }
         Some(TextureFilterMode::Linear) => {
-            min_mode = match min {
+            match min {
                 TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_LINEAR,
                 TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_LINEAR,
-            };
+            }
         }
-    }
+    };
 
     (mag_mode, min_mode)
 }
