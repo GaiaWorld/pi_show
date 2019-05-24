@@ -153,6 +153,10 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
     insert_attr!(world, node, BorderImageRepeat, BorderImageRepeat(unsafe{ transmute(vertical)}, unsafe{ transmute(horizontal)}));
 }
 
+#[no_mangle]
+pub fn set_willchange(world: u32, node: u32, value: bool){
+    insert_value!(world, node, WillChange, value);
+}
 //设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node: u32, value: bool){

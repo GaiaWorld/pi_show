@@ -2,7 +2,7 @@
 // 容器设置了overflow的，就会产生一个裁剪矩形及对应的编号（编号都是2的次方），其下的所有的物件的by_overflow将会被设置为受到该id的影响
 // 因为很少来回变动，所以直接根据变化进行设置，不采用dirty
 // TODO 可以在没有旋转的情况下，使用包围盒来描述（使用第一个点的x为NaN来标识），提升query和渲染的性能。以后支持clip_path
-// TODO engine对象封装GLContext,ResMgr, style要整理一下,现在有点乱, 移除text_layout
+// TODO engine对象封装GLContext,ResMgr,
 // TODO CowList, MapAPI统一， VecMap性能优化, remove() -> T 改成 Option<T>
 // TODO EntityImpl 改为 Entity, Entity 改为 EntityT
 
@@ -52,7 +52,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
     let mut by = **unsafe{ write.1.get_unchecked(event.id)};
     let index = if overflow {
       // 添加根上的overflow的裁剪矩形
-      let i = set_index(&mut *write.0, 0, event.id);
+      let i = set_index(&mut write.0.id_arr, 0, event.id);
       if i == 0 {
         return;
       }
@@ -61,7 +61,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
       i
     }else{
       // 删除根上的overflow的裁剪矩形
-      let i = set_index(&mut *write.0, event.id, 0);
+      let i = set_index(&mut write.0.id_arr, event.id, 0);
       if i == 0 {
         return;
       }
@@ -88,7 +88,7 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
     }
     let overflow = match read.1.get(event.id){Some(r) => **r, _ => false};
     if overflow {
-      let i = get_index(&mut *write, event.id);
+      let i = get_index(&mut write.id_arr, event.id);
       if i > 0 {
         set_clip(event.id, i, &read, write)
       }
@@ -121,14 +121,14 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
     let overflow = match read.1.get(event.id){Some(r) => **r, _ => false};
     let mut b = false;
     if overflow {
-      set_index(&mut *write, event.id, 0);
+      set_index(&mut write.id_arr, event.id, 0);
       b = true;
     }
     // 递归调用，检查是否有overflow， 撤销设置OverflowClip
     for (id, _) in read.0.recursive_iter(node.children.head) {
       let overflow = match read.1.get(id){Some(r) => **r, _ => false};
       if overflow {
-        set_index(&mut *write, id, 0);
+        set_index(&mut write.id_arr, id, 0);
         b = true;
       }
     }
@@ -137,7 +137,33 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
     }
   }
 }
-
+// 寻找指定当前值cur的偏移量, 0表示没找到
+#[inline]
+pub fn get_index(id_arr: &[usize], cur: usize) -> usize {
+  for i in 0..id_arr.len() {
+    if cur == id_arr[i] {
+      return i + 1;
+    }
+  }
+  0
+}
+// 寻找指定当前值cur的偏移量, 设置成指定的值. 返回偏移量, 0表示没找到
+#[inline]
+pub fn set_index(id_arr: &mut [usize], cur: usize, value: usize) -> usize {
+  let i = get_index(id_arr, cur);
+  if i > 0 {
+    id_arr[i-1] = value;
+  }
+  i
+}
+#[inline]
+pub fn add_index(by: usize, index: usize) ->usize {
+  by | index
+}
+#[inline]
+pub fn del_index(by: usize, index: usize) ->usize {
+  by & !index
+}
 //================================ 内部静态方法
 // 设置裁剪区域，需要 world_matrix layout
 fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>) {
@@ -159,7 +185,7 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
   let overflow = match read.1.get(id){Some(r) => **r, _ => false};
   if overflow {
     // 添加根上的overflow的裁剪矩形
-    let i = set_index(&mut *write.0, 0, id);
+    let i = set_index(&mut write.0.id_arr, 0, id);
     if i > 0 {
       set_clip(id, i, read, write.0);
       by |= i;
@@ -172,33 +198,7 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
   }
 }
 
-// 寻找指定当前值cur的偏移量
-#[inline]
-fn get_index(overflow: &OverflowClip, cur: usize) -> usize {
-  for i in 0..overflow.id_vec.len() {
-    if cur == overflow.id_vec[i] {
-      return i + 1;
-    }
-  }
-  0
-}
-// 寻找指定当前值cur的偏移量, 设置成指定的值. 返回偏移量, 0表示没找到
-#[inline]
-fn set_index(overflow: &mut OverflowClip, cur: usize, value: usize) -> usize {
-  let i = get_index(overflow, cur);
-  if i > 0 {
-    overflow.id_vec[i-1] = value;
-  }
-  i
-}
-#[inline]
-fn add_index(by: usize, index: usize) ->usize {
-  by | index
-}
-#[inline]
-fn del_index(by: usize, index: usize) ->usize {
-  by & !index
-}
+
 // 整理方法。设置或取消所有子节点的by_overflow上的index。
 #[inline]
 fn adjust(idtree: &SingleCaseImpl<IdTree>, by_overflow: &mut MultiCaseImpl<Node, ByOverflow>, child: usize, index: usize, ops: fn(a:usize, b:usize)->usize) {
