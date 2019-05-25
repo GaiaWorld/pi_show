@@ -18,10 +18,12 @@ use context::{WebGLContextImpl};
 use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 use state::{State};
+use debug_info::*;
 
 /**
  * GPU Shader
  */
+#[derive(Debug)]
 pub struct Shader {
     shader_type: ShaderType,
     handle: WebGLShader,
@@ -133,9 +135,11 @@ impl ProgramManager {
             });
             Ok(shader_hash)
         } else {
-            Err(gl
-                .get_shader_info_log(&shader)
-                .unwrap_or_else(|| "Unknown error creating shader".into()))
+            let err = gl.get_shader_info_log(&shader)
+                .unwrap_or_else(|| "Unknown error creating shader".into());
+
+            debug_println!("Shader, compile_shader error, info = {:?}", &err);
+            Err(err)
         }
     }
 
@@ -152,6 +156,7 @@ impl ProgramManager {
         if let Some(program) = self.program_caches.get_mut(&program_hash) {
             return Ok(program);
         } else {
+            debug_println!("Shader, get_program error");
             return Err("Get Program Error!".to_string());
         }
     }
@@ -170,11 +175,13 @@ impl ProgramManager {
         // 确认shader存在，否则报错
         let vs = self.shader_caches.get(&vs_hash).ok_or_else(|| String::from("unknown vertex shader"))?;
         if vs.shader_type != ShaderType::Vertex {
+            debug_println!("Shader, link_program error, not found vs = {:?}", vs);
             return Err(format!("{} isn't vertex shader", vs_hash));
         }
 
         let fs = self.shader_caches.get(&fs_hash).ok_or_else(|| String::from("unknown fragment shader"))?;
         if fs.shader_type != ShaderType::Fragment {
+            debug_println!("Shader, link_program error, not found fs = {:?}", fs);
             return Err(format!("{} isn't fragment shader", fs_hash));
         }
 
@@ -192,9 +199,11 @@ impl ProgramManager {
             .unwrap_or(false);
 
         if !is_link_ok {
-            return Err(gl
+            let e = gl
                 .get_program_info_log(&program_handle)
-                .unwrap_or_else(|| "unkown link error".into()));
+                .unwrap_or_else(|| "unkown link error".into());
+            debug_println!("Shader, link_program error, link failed, info = {:?}", &e);
+            return Err(e);
         }
 
         let attributes = ProgramManager::init_attribute(&gl, &program_handle, self.max_vertex_attribs);
@@ -225,6 +234,7 @@ impl ProgramManager {
         // 因为webgl有警告，所以这里就不记录类型和大小了。
         for i in 0..max_attribute_count {
             let (attrib_name, name) = Self::get_attribute_by_location(i);
+            debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
             gl.bind_attrib_location(program, i, name);
             attributes.insert(attrib_name, i);
         }
@@ -255,7 +265,7 @@ impl ProgramManager {
                 },
                 None => false
             };
-
+            
             match uniform.type_() {
                 WebGLRenderingContext::FLOAT => {
                     if is_array {
@@ -342,7 +352,7 @@ impl ProgramManager {
             }
 
             let location = gl.get_uniform_location(program, &uniform.name()).unwrap();
-            
+            debug_println!("Shader, link_program, uniform name = {:?}, location = {:?}", &name, &location);
             uniforms.insert(Atom::from(uniform.name()), WebGLUniformImpl {
                 value: value,
                 location: location,
@@ -394,6 +404,7 @@ impl Program {
 
     pub fn use_me(&mut self) {
         if let Some(gl) = self.gl.upgrade() {
+            debug_println!("Shader, use_me, program = {:?}", &self.handle);
             gl.use_program(Some(&self.handle));
         }
     }
@@ -434,6 +445,7 @@ impl Program {
         for (name, v) in values.iter() {
             if let Some(u) = self.all_uniforms.get(name) {
                 if !Self::is_uniform_same(v, &u.value) {
+                    debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}", name, &u.location);
                     Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {

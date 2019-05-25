@@ -15,6 +15,7 @@ use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 use texture::{WebGLTextureImpl, WebGLTextureData};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
+use debug_info::*;
 
 pub struct WebGLContextImpl {
     gl: Arc<WebGLRenderingContext>,
@@ -123,6 +124,8 @@ impl Context for WebGLContextImpl {
             let p = pipeline.as_ref().as_ref();
             if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
                 program.use_me();
+            } else {
+                debug_println!("Context set_pipeline error, no program = ({:?}, {:?})", p.vs_hash, p.fs_hash);
             }
         }
     }

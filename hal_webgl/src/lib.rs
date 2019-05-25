@@ -10,6 +10,8 @@ extern crate stdweb;
 extern crate webgl_rendering_context;
 
 extern crate atom;
+#[macro_use]
+extern crate debug_info;
 extern crate hal_core;
 
 mod context;
@@ -26,7 +28,9 @@ mod shader;
 use std::sync::{Arc};
 use webgl_rendering_context::{WebGLRenderingContext};
 
-
+pub use self::sampler::{WebGLSamplerImpl};
+pub use self::render_target::{WebGLRenderTargetImpl};
+pub use self::geometry::{WebGLGeometryImpl};
 pub use self::context::{WebGLContextImpl};
 pub use self::texture::{WebGLTextureImpl, WebGLTextureData};
 

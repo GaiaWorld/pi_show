@@ -6,11 +6,13 @@ use stdweb::web::html_element::{ImageElement, CanvasElement};
 use convert::*;
 use sampler::{WebGLSamplerImpl};
 
+#[derive(Debug)]
 pub enum WebGLTextureData {
     Image(ImageElement),
     Canvas(CanvasElement),
 }
 
+#[derive(Debug)]
 pub struct WebGLTextureImpl {
     pub gl: Arc<WebGLRenderingContext>,
     pub width: u32,

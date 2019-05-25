@@ -3,14 +3,17 @@ use hal_core::{RTAttachment, RenderTarget, RenderBuffer};
 use texture::{WebGLTextureImpl};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLFramebuffer};
 
+#[derive(Debug)]
 pub struct WebGLRenderBufferImpl {
 }
 
+#[derive(Debug)]
 pub enum RenderTargetAttach {
     Texture(Arc<WebGLTextureImpl>),
     Buffer(Arc<WebGLRenderBufferImpl>),
 }
 
+#[derive(Debug)]
 pub struct WebGLRenderTargetImpl {
 
     gl: Weak<WebGLRenderingContext>,

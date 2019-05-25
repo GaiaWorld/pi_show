@@ -1,5 +1,6 @@
 use hal_core::*;
 
+#[derive(Debug)]
 pub struct WebGLSamplerImpl {
     pub min_filter: TextureFilterMode,
     pub mag_filter: TextureFilterMode,

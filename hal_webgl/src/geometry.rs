@@ -4,6 +4,7 @@ use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::{UnsafeTypedArray};
 
+#[derive(Debug)]
 pub struct Attribute {
     pub size: u32,
     pub item_count: u32,
@@ -11,6 +12,7 @@ pub struct Attribute {
     pub buffer: WebGLBuffer,    
 }
 
+#[derive(Debug)]
 pub struct Indices {
     pub size: u32,
     pub is_updatable: bool,
@@ -18,6 +20,7 @@ pub struct Indices {
     pub buffer: WebGLBuffer,    
 }
 
+#[derive(Debug)]
 pub struct WebGLGeometryImpl {
     gl: Weak<WebGLRenderingContext>,
     pub vertex_count: u32,

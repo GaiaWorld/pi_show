@@ -14,9 +14,11 @@ pub fn hello_vertex_shader() -> String{
 pub fn hello_fragment_shader() -> String{
     r#"
         precision highp float;
+        
+        uniform vec4 color;
 
         void main(void) {
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+            gl_FragColor = color;
         }
     "#.to_string()
 }
