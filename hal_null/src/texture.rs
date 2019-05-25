@@ -1,4 +1,4 @@
-use hal_core::{PixelFormat, Texture};
+use hal_core::{PixelFormat, TextureData, Texture};
 
 pub struct NullTextureImpl {
     
@@ -18,7 +18,7 @@ impl Texture for NullTextureImpl {
         false
     }
 
-    fn update(&self, _x: u32, _y: u32, _width: u32, _height: u32, _data: &[u8]) {
+    fn update(&self, _x: u32, _y: u32, _width: u32, _height: u32, _data: &TextureData) {
 
     }
 }

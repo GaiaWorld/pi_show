@@ -12,13 +12,19 @@ use hal_core::{Context, Pipeline, Uniforms};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
 
-use component::user::{Point2, Matrix4};
+use component::user::{Point2, Matrix4, Transform};
 use render::engine::{ PipelineInfo};
 
 #[derive(Debug)]
 pub struct OverflowClip{
-    pub id_vec: [usize;8],
+    pub id_arr: [usize;8],
     pub clip: [[Point2;4];8],
+}
+
+#[derive(Debug)]
+pub struct WillChangeTransform{
+    pub id_arr: [usize;32],
+    pub trans: [Transform;32],
 }
 
 #[derive(Debug)]

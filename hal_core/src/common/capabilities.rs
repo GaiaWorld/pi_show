@@ -1,6 +1,7 @@
 /**
  * Gpu硬件特性
  */
+#[derive(Debug)]
 pub struct Capabilities {
     // fs中最多的纹理单元
     pub max_textures_image_units: u32,

@@ -7,5 +7,5 @@ mod sampler;
 pub use self::context::{Context};
 pub use self::geometry::{Geometry};
 pub use self::render_target::{RenderBuffer, RenderTarget};
-pub use self::texture::{Texture};
+pub use self::texture::{Texture, TextureData};
 pub use self::sampler::{Sampler, SamplerDesc};

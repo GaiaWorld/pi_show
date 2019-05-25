@@ -1,3 +1,4 @@
+use std::sync::{Arc};
 use common::{CullMode, CompareFunc, BlendFunc, BlendFactor, StencilOp};
 use ShareRef;
 
@@ -14,9 +15,23 @@ pub struct Pipeline {
     pub blend_state: ShareRef<BlendState>,
 }
 
+impl Pipeline {
+    pub fn new() -> Self {
+        Pipeline {
+            vs_hash: 0,
+            fs_hash: 0,
+            raster_state: Arc::new(RasterState::new()),
+            depth_state: Arc::new(DepthState::new()),
+            blend_state: Arc::new(BlendState::new()),
+            stencil_state: Arc::new(StencilState::new()),
+        }
+    }
+}
+
 /** 
  * 光栅化状态
  */
+#[derive(Debug)]
 pub struct RasterState {
     pub cull_mode: Option<CullMode>,   // 默认：None
     pub is_front_face_ccw: bool,       // 默认：true
@@ -26,6 +41,7 @@ pub struct RasterState {
 /** 
  * 深度状态
  */
+#[derive(Debug)]
 pub struct DepthState {
     pub is_depth_test_enable: bool,
     pub is_depth_write_enable: bool,
@@ -35,6 +51,7 @@ pub struct DepthState {
 /** 
  * 模板状态
  */
+#[derive(Debug)]
 pub struct StencilState {
     pub is_stencil_test_enable: bool,
     
@@ -51,6 +68,7 @@ pub struct StencilState {
  * 混合状态
  * 注：src和dst因子不能同时填 常量 颜色
  */
+#[derive(Debug)]
 pub struct BlendState {
     pub rgb_equation: BlendFunc,
     pub alpha_equation: BlendFunc,
@@ -75,7 +93,7 @@ impl RasterState {
     
     pub fn new() -> Self {
         Self {
-            cull_mode: None,
+            cull_mode: Some(CullMode::Back),
             is_front_face_ccw: true,
             polygon_offset: (0.0, 0.0),
         }

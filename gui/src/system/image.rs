@@ -456,7 +456,8 @@ fn set_image_geometry<C: Context + Share>(
     let radius = cal_border_radius(border_radius,  layout);
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
     let positions = positions_width_radius(border_radius, layout, z_depth, (0.0, 0.0));
-    
+    let pos = (pos.min, Point2::new(pos.min.x, pos.max.y), pos.max, Point2::new(pos.max.x, pos.min.y));
+    let uv = (uv.min, Point2::new(uv.min.x, uv.max.y), uv.max, Point2::new(uv.max.x, uv.min.y));
     let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
     let (positions, _) = split_by_lg(positions, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
     let (positions, indices) = split_by_lg(positions, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));

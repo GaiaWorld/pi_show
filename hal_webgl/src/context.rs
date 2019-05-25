@@ -12,9 +12,10 @@ use hal_core::*;
 use state::{State};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
-use texture::{WebGLTextureImpl};
+use texture::{WebGLTextureImpl, WebGLTextureData};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
+use debug_info::*;
 
 pub struct WebGLContextImpl {
     gl: Arc<WebGLRenderingContext>,
@@ -78,21 +79,18 @@ impl Context for WebGLContextImpl {
         Ok(WebGLGeometryImpl::new(&self.gl))
     }
 
-    fn create_texture_2d(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _data: Option<&[u8]>) -> Result<Self::ContextTexture, String> {
-        Ok(WebGLTextureImpl {
-
-        })
+    fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String> {
+        WebGLTextureImpl::new_2d(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
-    fn create_texture_2d_with_canvas(&mut self, _width: u32, _height: u32, _pformat: PixelFormat, _dformat: DataFormat, _is_gen_mipmap: bool, _canvas: *const isize) -> Result<Self::ContextTexture, String> {
-        Ok(WebGLTextureImpl {
-
-        })
-    }
-
-    fn create_sampler(&mut self, _desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+        let desc = desc.as_ref().as_ref();
         Ok(WebGLSamplerImpl {
-
+            min_filter: desc.min_filter,
+            mag_filter: desc.mag_filter,
+            mip_filter: desc.mip_filter,
+            u_wrap: desc.u_wrap,
+            v_wrap: desc.v_wrap,
         })
     }
 
@@ -126,13 +124,15 @@ impl Context for WebGLContextImpl {
             let p = pipeline.as_ref().as_ref();
             if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
                 program.use_me();
+            } else {
+                debug_println!("Context set_pipeline error, no program = ({:?}, {:?})", p.vs_hash, p.fs_hash);
             }
         }
     }
 
     fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
-            program.set_uniforms(values);
+            program.set_uniforms(&mut self.state, values);
             self.state.draw(geometry);
         }
     }
@@ -156,6 +156,10 @@ impl WebGLContextImpl {
             state: state,
             program_mgr: mgr,
         }
+    }
+
+    pub fn create_texture_2d_webgl(&self, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &WebGLTextureData) -> Result<WebGLTextureImpl, String> {
+        WebGLTextureImpl::new_2d_webgl(&self.gl, level, pformat, dformat, is_gen_mipmap, data)
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {

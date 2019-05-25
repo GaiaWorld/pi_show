@@ -17,10 +17,13 @@ use hal_core::*;
 use context::{WebGLContextImpl};
 use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
+use state::{State};
+use debug_info::*;
 
 /**
  * GPU Shader
  */
+#[derive(Debug)]
 pub struct Shader {
     shader_type: ShaderType,
     handle: WebGLShader,
@@ -132,9 +135,11 @@ impl ProgramManager {
             });
             Ok(shader_hash)
         } else {
-            Err(gl
-                .get_shader_info_log(&shader)
-                .unwrap_or_else(|| "Unknown error creating shader".into()))
+            let err = gl.get_shader_info_log(&shader)
+                .unwrap_or_else(|| "Unknown error creating shader".into());
+
+            debug_println!("Shader, compile_shader error, info = {:?}", &err);
+            Err(err)
         }
     }
 
@@ -151,6 +156,7 @@ impl ProgramManager {
         if let Some(program) = self.program_caches.get_mut(&program_hash) {
             return Ok(program);
         } else {
+            debug_println!("Shader, get_program error");
             return Err("Get Program Error!".to_string());
         }
     }
@@ -169,11 +175,13 @@ impl ProgramManager {
         // 确认shader存在，否则报错
         let vs = self.shader_caches.get(&vs_hash).ok_or_else(|| String::from("unknown vertex shader"))?;
         if vs.shader_type != ShaderType::Vertex {
+            debug_println!("Shader, link_program error, not found vs = {:?}", vs);
             return Err(format!("{} isn't vertex shader", vs_hash));
         }
 
         let fs = self.shader_caches.get(&fs_hash).ok_or_else(|| String::from("unknown fragment shader"))?;
         if fs.shader_type != ShaderType::Fragment {
+            debug_println!("Shader, link_program error, not found fs = {:?}", fs);
             return Err(format!("{} isn't fragment shader", fs_hash));
         }
 
@@ -191,9 +199,11 @@ impl ProgramManager {
             .unwrap_or(false);
 
         if !is_link_ok {
-            return Err(gl
+            let e = gl
                 .get_program_info_log(&program_handle)
-                .unwrap_or_else(|| "unkown link error".into()));
+                .unwrap_or_else(|| "unkown link error".into());
+            debug_println!("Shader, link_program error, link failed, info = {:?}", &e);
+            return Err(e);
         }
 
         let attributes = ProgramManager::init_attribute(&gl, &program_handle, self.max_vertex_attribs);
@@ -224,6 +234,7 @@ impl ProgramManager {
         // 因为webgl有警告，所以这里就不记录类型和大小了。
         for i in 0..max_attribute_count {
             let (attrib_name, name) = Self::get_attribute_by_location(i);
+            debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
             gl.bind_attrib_location(program, i, name);
             attributes.insert(attrib_name, i);
         }
@@ -254,7 +265,7 @@ impl ProgramManager {
                 },
                 None => false
             };
-
+            
             match uniform.type_() {
                 WebGLRenderingContext::FLOAT => {
                     if is_array {
@@ -341,7 +352,7 @@ impl ProgramManager {
             }
 
             let location = gl.get_uniform_location(program, &uniform.name()).unwrap();
-            
+            debug_println!("Shader, link_program, uniform name = {:?}, location = {:?}", &name, &location);
             uniforms.insert(Atom::from(uniform.name()), WebGLUniformImpl {
                 value: value,
                 location: location,
@@ -393,28 +404,29 @@ impl Program {
 
     pub fn use_me(&mut self) {
         if let Some(gl) = self.gl.upgrade() {
+            // debug_println!("Shader, use_me, program = {:?}", &self.handle);
             gl.use_program(Some(&self.handle));
         }
     }
 
-    pub fn set_uniforms(&mut self, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
+    pub fn set_uniforms(&mut self, state: &mut State, values: &HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
         
         for (name, curr) in values.iter() {
             let is_old_same = match self.last_uniforms.get_mut(name) {
                 None => {
-                    self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                    self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                     false
                 }
                 Some(old) => {
                     if !Arc::ptr_eq(old, curr) {
-                        self.set_uniforms_impl(&curr.as_ref().as_ref().values);
+                        self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                         false
                     } else {
                         true
                     }
                 }
             };
-
+            
             if !is_old_same {
                 // 更新 last_uniforms
                 self.last_uniforms.insert(name.clone(), curr.clone());
@@ -422,7 +434,7 @@ impl Program {
         }
     }
 
-    fn set_uniforms_impl(&mut self, values: &HashMap<Atom, UniformValue<WebGLContextImpl>>) {
+    fn set_uniforms_impl(&mut self, state: &mut State, values: &HashMap<Atom, UniformValue<WebGLContextImpl>>) {
 
         let gl = self.gl.upgrade();
         if gl.is_none() {
@@ -431,9 +443,10 @@ impl Program {
         let gl = gl.as_ref().unwrap();
 
         for (name, v) in values.iter() {
-            if let Some(u) = self.all_uniforms.get(name) {
-                if !Self::is_uniform_same(v, &u.value) {
-                    Self::set_uniform(gl, &u.location, v);
+            if let Some(u) = self.all_uniforms.get_mut(name) {
+                if !Self::is_uniform_same(v, &mut u.value) {
+                    // debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}", name, &u.location);
+                    Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {
                 assert!(false, "set_uniforms failed, not exist in shader");
@@ -441,15 +454,45 @@ impl Program {
         }
     }
 
-    fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &UniformValue<WebGLContextImpl>) -> bool {
+    fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &mut UniformValue<WebGLContextImpl>) -> bool {
         match curr {
             UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => match old {
                 UniformValue::<WebGLContextImpl>::Float(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
                     match *count {
-                        1 => *v0 == *old_v0,
-                        2 => *v0 == *old_v0 && *v1 == *old_v1,
-                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
-                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        1 => {
+                            let r = *v0 == *old_v0;
+                            if !r {
+                                *old_v0 = *v0;
+                            }
+                            r
+                        }
+                        2 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                            }
+                            r
+                        }
+                        3 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                            }
+                            r
+                        }
+                        4 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                                *old_v3 = *v3;
+                            }
+                            r
+                        }
                         _ => {
                             assert!(false, "invalid uniform");
                             false
@@ -464,10 +507,40 @@ impl Program {
             UniformValue::<WebGLContextImpl>::Int(count, v0, v1, v2, v3) => match old {
                 UniformValue::<WebGLContextImpl>::Int(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
                     match *count {
-                        1 => *v0 == *old_v0,
-                        2 => *v0 == *old_v0 && *v1 == *old_v1,
-                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
-                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        1 => {
+                            let r = *v0 == *old_v0;
+                            if !r {
+                                *old_v0 = *v0;
+                            }
+                            r
+                        }
+                        2 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                            }
+                            r
+                        }
+                        3 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                            }
+                            r
+                        }
+                        4 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                                *old_v3 = *v3;
+                            }
+                            r
+                        }
                         _ => {
                             assert!(false, "invalid uniform");
                             false
@@ -513,7 +586,7 @@ impl Program {
         }
     }
 
-    fn set_uniform(gl: &WebGLRenderingContext, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
+    fn set_uniform(gl: &WebGLRenderingContext, state: &mut State, location: &WebGLUniformLocation, value: &UniformValue<WebGLContextImpl>) {
         match value {
             UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => {
                 match *count {
@@ -570,8 +643,13 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
-                assert!(false, "TODO: sampler and texture uniform not support!");
+                let unit = state.use_texture(t, s);
+                if unit > 0 {
+                    gl.uniform1i(Some(location), unit as i32);
+                } else {
+                    assert!(false, "no support");
+                }
             }
         }
     }
-}   
+}
