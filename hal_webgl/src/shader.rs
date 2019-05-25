@@ -426,7 +426,7 @@ impl Program {
                     }
                 }
             };
-
+            
             if !is_old_same {
                 // 更新 last_uniforms
                 self.last_uniforms.insert(name.clone(), curr.clone());
@@ -443,9 +443,9 @@ impl Program {
         let gl = gl.as_ref().unwrap();
 
         for (name, v) in values.iter() {
-            if let Some(u) = self.all_uniforms.get(name) {
-                if !Self::is_uniform_same(v, &u.value) {
-                    debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}", name, &u.location);
+            if let Some(u) = self.all_uniforms.get_mut(name) {
+                if !Self::is_uniform_same(v, &mut u.value) {
+                    // debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}", name, &u.location);
                     Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {
@@ -454,15 +454,45 @@ impl Program {
         }
     }
 
-    fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &UniformValue<WebGLContextImpl>) -> bool {
+    fn is_uniform_same(curr: &UniformValue<WebGLContextImpl>, old: &mut UniformValue<WebGLContextImpl>) -> bool {
         match curr {
             UniformValue::<WebGLContextImpl>::Float(count, v0, v1, v2, v3) => match old {
                 UniformValue::<WebGLContextImpl>::Float(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
                     match *count {
-                        1 => *v0 == *old_v0,
-                        2 => *v0 == *old_v0 && *v1 == *old_v1,
-                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
-                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        1 => {
+                            let r = *v0 == *old_v0;
+                            if !r {
+                                *old_v0 = *v0;
+                            }
+                            r
+                        }
+                        2 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                            }
+                            r
+                        }
+                        3 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                            }
+                            r
+                        }
+                        4 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                                *old_v3 = *v3;
+                            }
+                            r
+                        }
                         _ => {
                             assert!(false, "invalid uniform");
                             false
@@ -477,10 +507,40 @@ impl Program {
             UniformValue::<WebGLContextImpl>::Int(count, v0, v1, v2, v3) => match old {
                 UniformValue::<WebGLContextImpl>::Int(old_count, old_v0, old_v1, old_v2, old_v3) if *old_count == *count => {
                     match *count {
-                        1 => *v0 == *old_v0,
-                        2 => *v0 == *old_v0 && *v1 == *old_v1,
-                        3 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2,
-                        4 => *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3,
+                        1 => {
+                            let r = *v0 == *old_v0;
+                            if !r {
+                                *old_v0 = *v0;
+                            }
+                            r
+                        }
+                        2 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                            }
+                            r
+                        }
+                        3 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                            }
+                            r
+                        }
+                        4 => {
+                            let r = *v0 == *old_v0 && *v1 == *old_v1 && *v2 == *old_v2 && *v3 == *old_v3;
+                            if !r {
+                                *old_v0 = *v0;
+                                *old_v1 = *v1;
+                                *old_v2 = *v2;
+                                *old_v3 = *v3;
+                            }
+                            r
+                        }
                         _ => {
                             assert!(false, "invalid uniform");
                             false
@@ -533,7 +593,10 @@ impl Program {
                     1 => gl.uniform1f(Some(location), *v0),
                     2 => gl.uniform2f(Some(location), *v0, *v1),
                     3 => gl.uniform3f(Some(location), *v0, *v1, *v2),
-                    4 => gl.uniform4f(Some(location), *v0, *v1, *v2, *v3),
+                    4 => {
+                        debug_println!("Shader, set_uniform4f, location = {:?}, values = ({:?}, {:?}, {:?}, {:?})", location, *v0, *v1, *v2, *v3);
+                        gl.uniform4f(Some(location), *v0, *v1, *v2, *v3)
+                    }
                     _ => {
                         assert!(false, "no support");
                     }

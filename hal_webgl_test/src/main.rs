@@ -36,7 +36,8 @@ struct RenderData {
 
     pipeline: Arc<Pipeline>,
     geometry: Arc<WebGLGeometryImpl>,
-    uniforms: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>,
+    uniforms1: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>,
+    uniforms2: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>,
 }
 
 fn main() {
@@ -59,7 +60,7 @@ fn main() {
     let default_rt = webgl.get_default_render_target();
     let pipeline = init_pipeline(&mut webgl);
     let geometry = init_rect_geometry(&mut webgl);
-    let uniforms = init_uniforms(&mut webgl);
+    let (u1, u2) = init_uniforms(&mut webgl);
     let begin_data = init_begin_data();
 
     let data = Box::new(RenderData {
@@ -68,7 +69,8 @@ fn main() {
         begin_data: begin_data,
         pipeline: pipeline,
         geometry: geometry,
-        uniforms: uniforms, 
+        uniforms1: u1,
+        uniforms2: u2, 
     });
     
     let data = Box::into_raw(data) as u32;
@@ -99,7 +101,8 @@ fn render(data: *mut RenderData) {
     data.context.set_pipeline(&pipeline);
 
     let geometry = data.geometry.clone() as Arc<AsRef<WebGLGeometryImpl>>;
-    data.context.draw(&geometry, &data.uniforms);
+    data.context.draw(&geometry, &data.uniforms1);
+    data.context.draw(&geometry, &data.uniforms2);
 
     data.context.end_render();
 
@@ -150,19 +153,31 @@ fn init_rect_geometry(context: &mut WebGLContextImpl) -> Arc<WebGLGeometryImpl> 
     Arc::new(geometry)
 }
 
-fn init_uniforms(context: &mut WebGLContextImpl) -> HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>  {
+fn init_uniforms(context: &mut WebGLContextImpl) -> (HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>, HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>)  {
     
-    let mut map = HashMap::new();
+    let mut map1 = HashMap::new();
+    let mut map2 = HashMap::new();
 
-    let mut uniforms = context.create_uniforms();
-    let name = Atom::from("color");
-    
-    uniforms.set_float_4(&name, 1.0, 1.0, 0.0, 1.0);
+    let mut color = context.create_uniforms();
+    color.set_float_4(&Atom::from("uColor"), 1.0, 1.0, 0.0, 1.0);
+    let color = Arc::new(color);
 
-    map.insert(Atom::from("default"), Arc::new(uniforms) as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
+    let mut position1 = context.create_uniforms();
+    position1.set_float_3(&Atom::from("uPosition"), 0.0, 0.0, 0.0);
+    let position1 = Arc::new(position1);
+
+    let mut position2 = context.create_uniforms();
+    position2.set_float_3(&Atom::from("uPosition"), 0.05, -0.05, 0.0);
+    let position2 = Arc::new(position2);
+
+    map1.insert(Atom::from("position"), position1 as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
+    map1.insert(Atom::from("color"), color.clone() as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
     
+    map2.insert(Atom::from("position"), position2 as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
+    map2.insert(Atom::from("color"), color as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
+
     println!("init_uniforms");
-    map
+    (map1, map2)
 }
 
 fn init_hello_program(context: &mut WebGLContextImpl) -> (u64, u64) {
