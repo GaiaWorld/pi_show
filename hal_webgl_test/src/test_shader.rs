@@ -29,6 +29,7 @@ pub fn hello_fragment_shader() -> String{
                 alpha *= uAlpha;    
             #endif
             gl_FragColor = vec4(uColor.rgb, alpha * uColor.a);
+            gl_FragColor = vec4(1.0, 1.0, 0.0, 0.5);
         }
     "#.to_string()
 }

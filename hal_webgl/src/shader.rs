@@ -404,7 +404,7 @@ impl Program {
 
     pub fn use_me(&mut self) {
         if let Some(gl) = self.gl.upgrade() {
-            debug_println!("Shader, use_me, program = {:?}", &self.handle);
+            // debug_println!("Shader, use_me, program = {:?}", &self.handle);
             gl.use_program(Some(&self.handle));
         }
     }
@@ -593,10 +593,7 @@ impl Program {
                     1 => gl.uniform1f(Some(location), *v0),
                     2 => gl.uniform2f(Some(location), *v0, *v1),
                     3 => gl.uniform3f(Some(location), *v0, *v1, *v2),
-                    4 => {
-                        debug_println!("Shader, set_uniform4f, location = {:?}, values = ({:?}, {:?}, {:?}, {:?})", location, *v0, *v1, *v2, *v3);
-                        gl.uniform4f(Some(location), *v0, *v1, *v2, *v3)
-                    }
+                    4 => gl.uniform4f(Some(location), *v0, *v1, *v2, *v3),
                     _ => {
                         assert!(false, "no support");
                     }

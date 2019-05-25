@@ -124,7 +124,7 @@ impl State {
     pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
         
         gl.enable(WebGLRenderingContext::BLEND);
-        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
+        // gl.enable(WebGLRenderingContext::SCISSOR_TEST);
 
         let pipeline = Pipeline {
             vs_hash: 0,
@@ -178,7 +178,7 @@ impl State {
         if self.viewport_rect != *rect {
             
             self.gl.viewport(rect.0, rect.1, rect.2, rect.3);
-            self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
+            // self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
             debug_println!("State::set_viewport, rect = {:?}", rect);
             self.viewport_rect = *rect;
         }
@@ -278,7 +278,7 @@ impl State {
                 self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
                 self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
 
-                debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
+                // debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
             }
 
             self.geometry = Some(geometry.clone());
@@ -417,7 +417,7 @@ impl State {
     }
 
     fn set_cull_mode(gl: &WebGLRenderingContext, curr: &RasterState) {
-        debug_println!("State::set_cull_mode, mode = {:?}", &curr.cull_mode);
+        // debug_println!("State::set_cull_mode, mode = {:?}", &curr.cull_mode);
         match &curr.cull_mode {
             None => {
                 gl.disable(WebGLRenderingContext::CULL_FACE);
@@ -430,13 +430,13 @@ impl State {
     }
 
     fn set_front_face(gl: &WebGLRenderingContext, curr: &RasterState) {
-        debug_println!("State::set_front_face, is_ccw = {:?}", &curr.is_front_face_ccw);
+        // debug_println!("State::set_front_face, is_ccw = {:?}", &curr.is_front_face_ccw);
         let face = if curr.is_front_face_ccw { WebGLRenderingContext::CCW } else { WebGLRenderingContext::CW };
         gl.front_face(face);
     }
 
     fn set_polygon_offset(gl: &WebGLRenderingContext, curr: &RasterState) {
-        debug_println!("State::set_polygon_offset, value = {:?}", &curr.polygon_offset);
+        // debug_println!("State::set_polygon_offset, value = {:?}", &curr.polygon_offset);
         if curr.polygon_offset != (0.0, 0.0) {
             gl.enable(WebGLRenderingContext::POLYGON_OFFSET_FILL);
             gl.polygon_offset(curr.polygon_offset.0, curr.polygon_offset.1);
@@ -446,7 +446,7 @@ impl State {
     }
 
     fn set_depth_test(gl: &WebGLRenderingContext, curr: &DepthState) {
-        debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_test_enable);
+        // debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_test_enable);
         if curr.is_depth_test_enable {
             gl.enable(WebGLRenderingContext::DEPTH_TEST);
         } else { 
@@ -455,17 +455,17 @@ impl State {
     }
 
     fn set_depth_write(gl: &WebGLRenderingContext, curr: &DepthState) {
-        debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_write_enable);
+        // debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_write_enable);
         gl.depth_mask(curr.is_depth_write_enable);
     }
 
     fn set_depth_test_func(gl: &WebGLRenderingContext, curr: &DepthState) {
-        debug_println!("State::set_depth_test_func, func = {:?}", &curr.depth_test_func);
+        // debug_println!("State::set_depth_test_func, func = {:?}", &curr.depth_test_func);
         gl.depth_func(get_compare_func(&curr.depth_test_func));
     }
 
     fn set_stencil_test(gl: &WebGLRenderingContext, curr: &StencilState) {
-        debug_println!("State::set_stencil_test, enable = {:?}", &curr.is_stencil_test_enable);
+        // debug_println!("State::set_stencil_test, enable = {:?}", &curr.is_stencil_test_enable);
         if curr.is_stencil_test_enable {
             gl.enable(WebGLRenderingContext::STENCIL_TEST);
         } else {
@@ -474,13 +474,13 @@ impl State {
     }
 
     fn set_stencil_test_func(gl: &WebGLRenderingContext, curr: &StencilState) {
-        debug_println!("State::set_stencil_test_func, func = {:?}, ref = {:?}, mask = {:?}", &curr.stencil_test_func, &curr.stencil_ref, &curr.stencil_mask);
+        // debug_println!("State::set_stencil_test_func, func = {:?}, ref = {:?}, mask = {:?}", &curr.stencil_test_func, &curr.stencil_ref, &curr.stencil_mask);
         let func = get_compare_func(&curr.stencil_test_func);
         gl.stencil_func(func, curr.stencil_ref, curr.stencil_mask);
     }
 
     fn set_stencil_op(gl: &WebGLRenderingContext, curr: &StencilState) {
-        debug_println!("State::set_stencil_op, fail = {:?}, zfail = {:?}, zpass = {:?}", &curr.stencil_fail_op, &curr.stencil_zfail_op, &curr.stencil_zpass_op);
+        // debug_println!("State::set_stencil_op, fail = {:?}, zfail = {:?}, zpass = {:?}", &curr.stencil_fail_op, &curr.stencil_zfail_op, &curr.stencil_zpass_op);
         let fail = get_stencil_op(&curr.stencil_fail_op);
         let zfail = get_stencil_op(&curr.stencil_zfail_op);
         let zpass = get_stencil_op(&curr.stencil_zpass_op);
@@ -488,14 +488,14 @@ impl State {
     }
 
     fn set_blend_equation(gl: &WebGLRenderingContext, curr: &BlendState) {
-        debug_println!("State::set_blend_equation, rgb = {:?}, alpha = {:?}", &curr.rgb_equation, &curr.alpha_equation);
+        // debug_println!("State::set_blend_equation, rgb = {:?}, alpha = {:?}", &curr.rgb_equation, &curr.alpha_equation);
         let rgb = get_blend_func(&curr.rgb_equation);
         let alpha = get_blend_func(&curr.alpha_equation);
         gl.blend_equation_separate(rgb, alpha);
     }
 
     fn set_blend_factor(gl: &WebGLRenderingContext, curr: &BlendState) {
-        debug_println!("State::set_blend_factor, src_rgb = {:?}, dst_rgb = {:?}, src_alpha = {:?}, dst_alpha = {:?}", &curr.src_rgb_factor, &curr.dst_rgb_factor, &curr.src_alpha_factor, &curr.dst_alpha_factor);
+        // debug_println!("State::set_blend_factor, src_rgb = {:?}, dst_rgb = {:?}, src_alpha = {:?}, dst_alpha = {:?}", &curr.src_rgb_factor, &curr.dst_rgb_factor, &curr.src_alpha_factor, &curr.dst_alpha_factor);
         let srgb = get_blend_factor(&curr.src_rgb_factor);
         let drgb = get_blend_factor(&curr.dst_rgb_factor);
         let salpha = get_blend_factor(&curr.src_alpha_factor);
@@ -504,7 +504,7 @@ impl State {
     }
 
     fn set_blend_color(gl: &WebGLRenderingContext, curr: &BlendState) {
-        debug_println!("State::set_blend_color, rgba = {:?}", &curr.const_rgba);
+        // debug_println!("State::set_blend_color, rgba = {:?}", &curr.const_rgba);
         gl.blend_color(curr.const_rgba.0, curr.const_rgba.1, curr.const_rgba.2, curr.const_rgba.3);
     }
 }
