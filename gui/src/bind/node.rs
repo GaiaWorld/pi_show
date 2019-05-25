@@ -7,9 +7,11 @@ use std::{
 
 use ecs::{World, Lend, LendMut};
 use ecs::idtree::{IdTree, InsertType};
+use hal_core::*;
 
 use component::user::*;
 use entity::Node;
+use render::engine::Engine;
 
 fn create(world: &World) -> usize {
     let idtree = world.fetch_single::<IdTree>().unwrap();
@@ -118,12 +120,17 @@ pub fn remove_child(world: u32, node: u32){
 //     let name = Atom::from(name);
 //     let node = node as usize;
 //     let world = unsafe {&mut *(world as usize as *mut World)};
-//     let (width, height, texture) = match world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.get(&name) {
+//     let engine = world.fetch_single::<Engine<C>>().unwrap();
+//     let engine = engine.lend_mut();
+//     let (width, height, texture) = match engine.res_mgr.textures.get(&name) {
 //         Some(res) => {
 //           (res.width as u32, res.height as u32, Box::into_raw(Box::new(res)) as u32)
 //         },
 //         None => {
-//           let gl = world.component_mgr.world_2d.component_mgr.engine.gl.clone();
+//           let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+//           let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+
+//           let texture = engine.gl.create_texture_2d(width, height, PixelFormat::RGBA, DataFormat::UnsignedByte, false, data: Some<&[u8]>)
 //           let texture = match gl.create_texture() {
 //               Some(v) => v,
 //               None => panic!("create_texture is None"),
@@ -131,9 +138,7 @@ pub fn remove_child(world: u32, node: u32){
 //           gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
 //           js!{
 //             @{&gl}.texImage2D(@{&gl}.TEXTURE_2D, 0, @{&gl}.RGBA, @{&gl}.RGBA, @{&gl}.UNSIGNED_BYTE, __jsObj);
-//           };
-//           let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-//           let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+//           }; 
 //           gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
 //           gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
 //           let res = world.component_mgr.world_2d.component_mgr.engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture, gl.clone()) );

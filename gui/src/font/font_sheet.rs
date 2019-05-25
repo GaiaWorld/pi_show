@@ -2,7 +2,7 @@ use std::default::Default;
 use std::str::Chars;
 use std::sync::Arc;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 
 use atom::{Atom};
 use ucd::{Codepoint};
@@ -18,8 +18,8 @@ pub const FONT_SIZE: f32 = 32.0;
 pub struct FontSheet<C: Context + 'static + Send + Sync> {
     size: f32,
     color: CgColor,
-    src_map: FnvHashMap<Atom, Arc<SdfFont<Ctx=C>>>,
-    face_map: FnvHashMap<Atom, FontFace>,
+    src_map: HashMap<Atom, Arc<SdfFont<Ctx=C>>>,
+    face_map: HashMap<Atom, FontFace>,
 }
 unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
 unsafe impl<C: Context + 'static + Send + Sync> Send for FontSheet<C>{}
@@ -29,8 +29,8 @@ impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
         FontSheet {
             size: FONT_SIZE,
             color: CgColor::default(),
-            src_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
-            face_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
+            src_map: HashMap::with_capacity_and_hasher(0, Default::default()),
+            face_map: HashMap::with_capacity_and_hasher(0, Default::default()),
         }
     }
 }

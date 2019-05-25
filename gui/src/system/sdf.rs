@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::mem::transmute;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
@@ -51,11 +51,11 @@ pub struct SdfSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: FnvHashMap<u64, Arc<Pipeline>>,
+    pipelines: HashMap<u64, Arc<Pipeline>>,
 }
 
 impl<C: Context + Share> SdfSys<C> {
-    fn new() -> Self{
+    pub fn new() -> Self{
         SdfSys {
             box_color_render_map: VecMap::default(),
             box_shadow_render_map: VecMap::default(),
@@ -64,7 +64,7 @@ impl<C: Context + Share> SdfSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: FnvHashMap::default(),
+            pipelines: HashMap::default(),
         }
     }
 }
@@ -95,16 +95,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
         let box_color = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
-        if layout.border > 0.0 {
-            defines.stroke = true;
-            let border_color = &box_color.border;
-            let mut stroke_ubo = w.1.gl.create_uniforms();
-            stroke_ubo.set_float_1(&STROKE_SIZE, layout.border);
-            stroke_ubo.set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a); // 描边属性
-            ubos.insert(STROKE.clone(), Arc::new(stroke_ubo)); // COMMON
-        }
+        // if layout.border > 0.0 {
+        //     // defines.stroke = true;
+        //     let border_color = &box_color.border;
+        //     let mut stroke_ubo = w.1.gl.create_uniforms();
+        //     stroke_ubo.set_float_1(&STROKE_SIZE, layout.border);
+        //     stroke_ubo.set_float_4(&STROKE_COLOR, border_color.r, border_color.g, border_color.b, border_color.a); // 描边属性
+        //     ubos.insert(STROKE.clone(), Arc::new(stroke_ubo)); // COMMON
+        // }
 
         // 设置u_color宏或vertex_color宏， 设置顶点流，索引流，颜色流
         Self::change_color(event.id, &box_color.background, &mut defines, &mut ubos, r.11, r.4, r.9, &mut geometry, w.1);
@@ -140,7 +140,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         let box_shadow = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.2;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         
         let shadow_color = &box_shadow.color;
         let mut color_ubo = w.1.gl.create_uniforms();
@@ -397,7 +397,7 @@ impl<C: Context + Share> SdfSys<C> {
         blur: f32,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+        mut ubos: HashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
         view_ubo: & SingleCaseImpl<ViewUbo<C>>,
@@ -509,12 +509,10 @@ impl<C: Context + Share> SdfSys<C> {
         id: usize,
         z_depth: f32,
         bg_colors: &LinearGradientColor,
-        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
-        layouts: &MultiCaseImpl<Node, Layout>,
+        border_radiuss: &BorderRadius,
+        layouts: &Layout,
         geometry: &mut Arc<<C as Context>::ContextGeometry>,
     ){
-        let border_radius = unsafe { border_radiuss.get_unchecked(id) };
-        let layout = unsafe { layouts.get_unchecked(id) };
         let geometry = Arc::get_mut(geometry).unwrap();
 
         let mut lg_pos = Vec::with_capacity(bg_colors.list.len());
@@ -542,7 +540,7 @@ impl<C: Context + Share> SdfSys<C> {
         id: usize,
         bg_color: &Color,
         defines: &mut Defines,
-        ubos: &mut FnvHashMap<Atom, Arc<Uniforms<C>>>,
+        ubos: &mut HashMap<Atom, Arc<Uniforms<C>>>,
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
         z_depths: &MultiCaseImpl<Node, ZDepth>,
         layouts: &MultiCaseImpl<Node, Layout>,

@@ -224,6 +224,18 @@ fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2;4]{
     [lt, rt, lb, rb]
 }
 
+impl_system!{
+    OverflowImpl,
+    false,
+    {
+      EntityListener<Node, CreateEvent>
+      MultiCaseListener<Node, Overflow, ModifyEvent>
+      MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+      SingleCaseListener<IdTree, CreateEvent>
+      SingleCaseListener<IdTree, DeleteEvent>
+    }
+}
+
 // #[cfg(test)]
 // #[cfg(not(feature = "web"))]
 // use wcs::world::{World, System};

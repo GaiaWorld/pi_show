@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::vecmap::VecMap;
@@ -34,7 +34,7 @@ pub struct ClipSys<C: Context + Share>{
 struct ShaderAttr {
     geometry: Arc<(C as Context)::ContextGeometry>,
     pipeline: Arc<Pipeline>,
-    ubos: FnvHashMap<Atom, Arc<Uniforms>>,
+    ubos: HashMap<Atom, Arc<Uniforms>>,
 }
 
 
@@ -120,7 +120,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         ubo.set_mat_4v(ProjectionMatrix, &projection[0..16]);
         ubo.set_float_1(MESH_NUM, 8.0);
 
-        let mut ubos = FnvHashMap::default();
+        let mut ubos = HashMap::default();
         ubos.insert(CLIP_RENDER.clone(), Arc::new(ubo));
 
         self.dirty = true;

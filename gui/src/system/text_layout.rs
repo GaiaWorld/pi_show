@@ -34,13 +34,22 @@ use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 type Read<'a, C> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
 type Write<'a> = (&'a mut MultiCaseImpl<Node, CharBlock>, &'a mut MultiCaseImpl<Node, Layout>);
 
-pub struct LayoutImpl<'a, C: Context + 'static + Send + Sync> {
+pub struct LayoutImpl<C: Context + 'static + Send + Sync> {
   dirty: Vec<usize>, 
   temp: Vec<usize>,
-  write: *mut Write<'a>,
+  write: usize,
   mark: PhantomData<C>,
 }
-impl<'a, C: Context + 'static + Send + Sync> LayoutImpl<'a, C> {
+
+impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
+  pub fn new() -> Self{
+    LayoutImpl {
+      dirty: Vec::new(), 
+      temp: Vec::new(),
+      write: 0,
+      mark: PhantomData,
+    }
+  }
   fn set_dirty(&mut self, id: usize, write: &'a mut MultiCaseImpl<Node, CharBlock>) {
     match write.get_mut(id) {
       Some(node) => {
@@ -65,7 +74,7 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl<'a, C> {
     }
   }
 }
-impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
   type ReadData = Read<'a, C>;
   type WriteData = Write<'a>;
 
@@ -87,7 +96,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl<'a, C> {
       let layout = unsafe{ write.1.get_unchecked(Root)};
       (layout.width, layout.height)
     };
-    self.write= &mut write as *mut Write<'a>;
+    self.write= &mut write as *mut Write<'a> as usize;
     //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
     unsafe{ read.1.get_unchecked(Root)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C>, self as *const LayoutImpl<C> as *const c_void);
   }
@@ -96,7 +105,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl<'a, C> {
 }
 
 // 监听text属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -105,7 +114,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
   }
 }
 // 监听text属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -114,7 +123,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, M
   }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -123,7 +132,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextSty
   }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -132,7 +141,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextSty
   }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -141,7 +150,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, C
   }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -151,7 +160,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, M
 }
 
 // 监听CharBlock的删除
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl<'a, C> {
+impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl< C> {
   type ReadData = ();
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
@@ -172,7 +181,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   //更新布局
   let c = node.get_context() as isize;
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
-  let write = unsafe{ &mut *(layout_impl.write) };
+  let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   if c > 0 {
     // 节点布局更新
     write.1.insert(c as usize, node.get_layout());
@@ -333,4 +342,19 @@ fn set_node<C: Context + 'static + Send + Sync>(cb: &CharBlock, c: char, mut w: 
     node.set_width(w);
   }
   node
+}
+
+
+impl_system!{
+    LayoutImpl<C> where [C: 'static + Context + Send + Sync],
+    true,
+    {
+      MultiCaseListener<Node, Text, CreateEvent>
+      MultiCaseListener<Node, Text, ModifyEvent>
+      MultiCaseListener<Node, TextStyle, CreateEvent>
+      MultiCaseListener<Node, TextStyle, ModifyEvent>
+      MultiCaseListener<Node, Font, CreateEvent>
+      MultiCaseListener<Node, Font, ModifyEvent>
+      MultiCaseListener<Node, CharBlock, DeleteEvent>
+    }
 }

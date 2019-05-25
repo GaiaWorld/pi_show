@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
@@ -44,7 +44,7 @@ pub struct CharBlockSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: FnvHashMap<u64, Arc<Pipeline>>,
+    pipelines: HashMap<u64, Arc<Pipeline>>,
 }
 
 impl<C: Context + Share> CharBlockSys<C> {
@@ -57,7 +57,7 @@ impl<C: Context + Share> CharBlockSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: FnvHashMap::default(),
+            pipelines: HashMap::default(),
         }
     }
 }
@@ -106,7 +106,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let mut geometry = create_geometry(&mut w.1.gl);
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
         let index = self.create_charblock_renderobjs(event.id, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, w.0, w.1);
         self.char_block_render_map.insert(event.id, Item{index: index, defines: defines, position_dirty: true});
@@ -224,7 +224,7 @@ impl<C: Context + Share> CharBlockSys<C> {
         id: usize,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+        mut ubos: HashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
         view_ubo: & SingleCaseImpl<ViewUbo<C>>,
@@ -242,7 +242,7 @@ impl<C: Context + Share> CharBlockSys<C> {
         let opacity = unsafe { opacity.get_unchecked(id) }.0; 
         let mut defines = Defines::default();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         ubos.insert(VIEW_MATRIX.clone(), view_ubo.0.clone());//  视图矩阵
         ubos.insert(PROJECT_MATRIX.clone(), projection_ubo.0.clone()); // 投影矩阵
 

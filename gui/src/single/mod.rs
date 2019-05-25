@@ -3,7 +3,7 @@ pub mod oct;
 use std::sync::Arc;
 use std::fmt;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 
 use cgmath::Ortho;
 use slab::Slab;
@@ -13,6 +13,7 @@ use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
 
 use component::user::{Point2, Matrix4};
+use render::engine::{ PipelineInfo};
 
 #[derive(Debug)]
 pub struct OverflowClip{
@@ -52,9 +53,11 @@ pub struct RenderObj<C: Context>{
     pub depth: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+    pub ubos: HashMap<Atom, Arc<Uniforms<C>>>,
     pub geometry: Arc<<C as Context>::ContextGeometry>,
-    pub pipeline: Arc<Pipeline>,
+    pub pipeline: Arc<PipelineInfo>,
+    pub context: usize,
+    pub defines: Vec<Atom>,
     
     // pub shader_attr: Option<SharderAttr<C>>, 
 }
@@ -74,6 +77,12 @@ pub struct RenderObj<C: Context>{
 
 #[derive(Deref, DerefMut)]
 pub struct RenderObjs<C: Context>(pub Slab<RenderObj<C>>);
+
+impl<C: Context> Default for RenderObjs<C> {
+    fn default() -> Self {
+        Self(Slab::default())
+    }
+}
 
 unsafe impl<C: Context> Sync for RenderObj<C> {}
 unsafe impl<C: Context> Send for RenderObj<C> {}

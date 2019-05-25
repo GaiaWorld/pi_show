@@ -51,6 +51,12 @@ pub struct BoxColor{
 	pub border: CgColor,
 }
 
+#[derive(Debug, Clone, Component, Default)]
+pub struct BackgroundColor(pub Color);
+
+#[derive(Debug, Clone, Component, Default)]
+pub struct BorderColor(pub CgColor);
+
 #[derive(Clone, Component)]
 pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
 #[derive(Clone, Component)]
@@ -164,7 +170,7 @@ pub enum Color{
     // RGB(CgColor),
     RGBA(CgColor),
     LinearGradient(LinearGradientColor),
-    RadialGradient(RadialGradientColor),
+    // RadialGradient(RadialGradientColor),
 }
 
 impl Color {
@@ -181,14 +187,14 @@ impl Color {
                 }
                 return true;
             },
-            Color::RadialGradient(g) => {
-                for c in g.list.iter() {
-                    if c.rgba.a < 1.0 {
-                        return false
-                    }
-                }
-                return true;
-            }
+            // Color::RadialGradient(g) => {
+            //     for c in g.list.iter() {
+            //         if c.rgba.a < 1.0 {
+            //             return false
+            //         }
+            //     }
+            //     return true;
+            // }
         }
     }
 }
@@ -678,10 +684,11 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_bottom, &p2, &uv_right_bottom, &uv2, z); // 右下角
     push_quad(&mut point_arr, &mut uv_arr, &mut index_arr, &p_right_y1, &p_x2_top, &uv_right_y1, &uv_x2_top, z); // 右上角
     let (ustep, vstep) = match repeat {
+      
       Some(&BorderImageRepeat(vtype, utype)) => {
         // 根据图像大小和uv计算
-        let ustep = calc_step(right - left, img.0.width as f32 * (uv_right - uv_left), utype);
-        let vstep = calc_step(bottom - top, img.0.height as f32 * (uv_bottom - uv_top), vtype);
+        let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
         (ustep, vstep)
       },
       _ => (w, h)

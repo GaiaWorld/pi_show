@@ -1,11 +1,12 @@
 use std::mem::transmute;
 
+use stdweb::web::TypedArray;
+use stdweb::unstable::TryInto;
 
 use ecs::{World, LendMut};
 
 use component::user::*;
 use entity::Node;
-
 
 #[macro_use()]
 macro_rules! set_attr {
@@ -66,40 +67,39 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
     set_attr!(world, node, BoxColor, background, Color::RGBA(CgColor::new(r, g, b, a)));
 }
 
-// 设置一个径向渐变的背景颜色
-#[no_mangle]
-pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
-    // let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
-    // let background = 0;
-    // set_attr!(world, node, BoxColor, background, value);
-}
+// // 设置一个径向渐变的背景颜色
+// #[no_mangle]
+// pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
+//     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
+//     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
+//     insert_value!(world, node, BackgroundColor, value);
+// }
 
 // 设置一个线性渐变的背景颜色
 #[no_mangle]
 pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32){
-    // let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
-    // let background = 0;
-    // set_attr!(world, node, BoxColor, background, value);
+    let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
+    let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions.to_vec(), direction));
+    insert_value!(world, node, BackgroundColor, value);
 }
 
 // 设置边框颜色， 类型为rgba
 #[no_mangle]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let border = 0;
-    set_attr!(world, node, BoxColor, border, CgColor::new(r, g, b, a));
+    insert_value!(world, node, BorderColor, CgColor::new(r, g, b, a));
 }
 
-// // 设置边框圆角
-// #[no_mangle]
-// pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32){
-//     insert_attr!(world, node, BorderRadius, LengthUnit::Pixel(value));
-// }
+// 设置边框圆角
+#[no_mangle]
+pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32){ 
+    insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Pixel(x), y: LengthUnit::Pixel(y)});
+}
 
-// // 设置边框圆角
-// #[no_mangle]
-// pub fn set_border_radius_percent(world: u32, node: u32, value: f32){
-//     insert_value!(world, node, BorderRadius, LengthUnit::Percent(value));
-// }
+// 设置边框圆角
+#[no_mangle]
+pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32){
+    insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Percent(x), y: LengthUnit::Percent(y)});
+}
 
 // 设置阴影颜色
 #[no_mangle]

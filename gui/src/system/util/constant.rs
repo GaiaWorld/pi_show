@@ -6,9 +6,9 @@ lazy_static! {
     pub static ref COLOR: Atom = Atom::from("color");
 
     //common uniform
-    pub static ref VIEW_MATRIX: Atom = Atom::from("view_matrix");
-    pub static ref PROJECT_MATRIX: Atom = Atom::from("project_matrix");
-    pub static ref WORLD_MATRIX: Atom = Atom::from("world_matrix");
+    pub static ref VIEW_MATRIX: Atom = Atom::from("viewMatrix");
+    pub static ref PROJECT_MATRIX: Atom = Atom::from("projectMatrix");
+    pub static ref WORLD_MATRIX: Atom = Atom::from("worldMatrix");
     pub static ref CLIP_INDEICES: Atom = Atom::from("clipIndices");
     pub static ref UV: Atom = Atom::from("uv");
     pub static ref ALPHA: Atom = Atom::from("alpha");

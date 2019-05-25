@@ -399,6 +399,17 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
   }
 }
 
+impl_system!{
+    ZIndexImpl,
+    true,
+    {
+        EntityListener<Node, CreateEvent>
+        EntityListener<Node, DeleteEvent>
+        MultiCaseListener<Node, ZI, ModifyEvent>
+        SingleCaseListener<IdTree, CreateEvent>
+    }
+}
+
 // #[cfg(test)]
 // #[cfg(not(feature = "web"))]
 // use wcs::world::{World};

@@ -9,7 +9,7 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc, AttributeName};
 use polygon::*;
 use atom::Atom;
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 
 
 use component::user::*;
@@ -54,14 +54,14 @@ pub fn color_is_opaque(color: &Color) -> bool{
             }
             return true;
         },
-        Color::RadialGradient(g) => {
-            for c in g.list.iter() {
-                if c.rgba.a < 1.0 {
-                    return false
-                }
-            }
-            return true;
-        }
+        // Color::RadialGradient(g) => {
+        //     for c in g.list.iter() {
+        //         if c.rgba.a < 1.0 {
+        //             return false
+        //         }
+        //     }
+        //     return true;
+        // }
     }
 }
 
@@ -182,4 +182,21 @@ pub fn positions_from_layout(layout: &Layout, z_depth: f32, offset:(f32, f32)) -
         end_x,   end_y,   z_depth, // right_bootom
         end_x,   start_y, z_depth, // right_top
     )
+}
+
+pub fn create_increase_vec(count: usize) -> Vec<u16>{
+    let mut arr = Vec::with_capacity(count);
+    for i in 0..count{
+        arr.push(i as u16);
+    }
+    arr
+}
+
+pub fn find_item_from_vec<T: Eq>(vec: &Vec<T>, r: &T) -> usize{
+    for i in 0..vec.len() {
+        if vec[i] == *r {
+            return i + 1;
+        }
+    }
+    return 0;
 }

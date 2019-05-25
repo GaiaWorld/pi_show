@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use fnv::FnvHashMap;
+use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
@@ -39,12 +39,12 @@ pub struct ImageSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: FnvHashMap<u64, Arc<Pipeline>>,
+    pipelines: HashMap<u64, Arc<Pipeline>>,
     default_sampler: Option<Arc<SamplerRes<C>>>,
 }
 
 impl<C: Context + Share> ImageSys<C> {
-    fn new() -> Self{
+    pub fn new() -> Self{
         ImageSys {
             image_render_map: VecMap::default(),
             br_image_render_map: VecMap::default(),
@@ -53,7 +53,7 @@ impl<C: Context + Share> ImageSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: FnvHashMap::default(),
+            pipelines: HashMap::default(),
             default_sampler: None,
         }
     }
@@ -106,7 +106,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         let border_radius = unsafe { r.11.get_unchecked(event.id) };
         let image_clip = unsafe { r.12.get(event.id) };
         let object_fit = unsafe { r.13.get(event.id) };
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
@@ -199,7 +199,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         let bg_image = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         
         //如果layout > 0.0, 表示该节点曾经布局过, 设置position
         if layout.width > 0.0 {
@@ -349,7 +349,7 @@ impl<C: Context + Share> ImageSys<C> {
         src: &Arc<TextureRes<C>>,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+        mut ubos: HashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
         view_ubo: & SingleCaseImpl<ViewUbo<C>>,
@@ -368,7 +368,7 @@ impl<C: Context + Share> ImageSys<C> {
         let opacity = unsafe { opacity.get_unchecked(id) }.0; 
         let mut defines = Defines::default();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         ubos.insert(VIEW_MATRIX.clone(), view_ubo.0.clone());//  视图矩阵
         ubos.insert(PROJECT_MATRIX.clone(), projection_ubo.0.clone()); // 投影矩阵
 

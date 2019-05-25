@@ -34,15 +34,15 @@ impl Default for Opacity {
 #[derive(Deref, DerefMut, Component, Debug, Default)]
 pub struct Enable(pub bool);
 
-#[derive(Component, Debug, Default)]
-pub struct RenderObj{
-    pub pipeline: usize, //Rc<Pipeline>
-    pub depth: f32,
-    pub visibility: bool,
-    pub is_opacity: bool,
-    pub geometry: usize,
-    pub ubo: usize, //geometry 对象
-}
+// #[derive(Component, Debug, Default)]
+// pub struct RenderObj{
+//     pub pipeline: usize, //Rc<Pipeline>
+//     pub depth: f32,
+//     pub visibility: bool,
+//     pub is_opacity: bool,
+//     pub geometry: usize,
+//     pub ubo: usize, //geometry 对象
+// }
 
 #[derive(Component, Debug)]
 pub struct CharBlock {

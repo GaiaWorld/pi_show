@@ -5,6 +5,7 @@
 #![feature(custom_attribute)] 
 #![feature(type_ascription)]
 #![feature(link_args)]
+#![feature(vec_remove_item)]
 #[allow(unused_attributes)]
 
 #[macro_use]
