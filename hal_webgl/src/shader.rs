@@ -445,11 +445,11 @@ impl Program {
         for (name, v) in values.iter() {
             if let Some(u) = self.all_uniforms.get_mut(name) {
                 if !Self::is_uniform_same(v, &mut u.value) {
-                    // debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}", name, &u.location);
+                    debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}, value: {:?}", *name, &u.location, v);
                     Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {
-                assert!(false, "set_uniforms failed, not exist in shader");
+                assert!(false, "set_uniforms failed, not exist in shader: {:?}", name);
             }
         }
     }

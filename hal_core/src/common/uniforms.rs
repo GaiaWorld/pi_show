@@ -1,6 +1,7 @@
 use std::sync::{Arc, Weak};
 use std::convert::AsRef;
 use std::collections::{HashMap};
+use std::fmt;
 
 use atom::{Atom};
 use traits::{Context};
@@ -60,6 +61,20 @@ pub enum UniformValue<C: Context> {
     IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
     Sampler(Weak<AsRef<C::ContextSampler>>, Weak<AsRef<C::ContextTexture>>),
+}
+
+impl<C: Context> fmt::Debug for UniformValue<C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            UniformValue::Float(r0, r1, r2, r3, r4) => write!(f, " UniformValue::Float({}, {}, {}, {}, {})", r0, r1, r2, r3, r4),
+            UniformValue::Int(r0, r1, r2, r3, r4) => write!(f, " UniformValue::Int({}, {}, {}, {}, {})", r0, r1, r2, r3, r4),
+            UniformValue::FloatV(r0, r1) => write!(f, " UniformValue::FloatV({}, {:?})", r0, r1),
+            UniformValue::IntV(r0, r1) => write!(f, " UniformValue::IntV({}, {:?})", r0, r1),
+            UniformValue::MatrixV(r0, r1) => write!(f, " UniformValue::MatrixV({}, {:?})", r0, r1),
+            UniformValue::Sampler(_, _) => write!(f, " UniformValue::Sampler(_, _)"),
+        }
+        
+    }
 }
 
 impl<C: Context> Clone for UniformValue<C> {
