@@ -101,12 +101,12 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     // // world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
     // // world.register_system(CHAR_BLOCK_N.clone(), CharBlockSys::<C>::default());
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
-    // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
+    world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
     world
 }

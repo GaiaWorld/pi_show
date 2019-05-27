@@ -118,13 +118,15 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
 
         let mut geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut defines = Vec::new();
+        defines.push(UCOLOR.clone());
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, 1.0);
         common_ubo.set_float_4(&U_COLOR, border_color.0.r, border_color.0.g, border_color.0.b,border_color.0.a);
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
-        let pipeline = engine.create_pipeline(0, &COLOR_VS_SHADER_NAME.clone(), &COLOR_FS_SHADER_NAME.clone(), &[UCOLOR.clone()], self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let pipeline = engine.create_pipeline(0, &COLOR_VS_SHADER_NAME.clone(), &COLOR_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
         let is_opacity = if opacity < 1.0 || border_color.0.a < 1.0 {
             false
@@ -139,7 +141,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
             geometry: geometry,
             pipeline: pipeline.clone(),
             context: event.id,
-            defines: vec![UCOLOR.clone()],
+            defines: defines,
         };
 
         let notify = render_objs.get_notify();

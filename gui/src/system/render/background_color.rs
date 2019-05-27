@@ -148,7 +148,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
             0,
             &COLOR_VS_SHADER_NAME.clone(),
             &COLOR_FS_SHADER_NAME.clone(),
-            &[UCOLOR.clone()],
+            defines.as_slice(),
             self.rs.clone(),
             self.bs.clone(),
             self.ss.clone(),
@@ -319,6 +319,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
             ], bg_colors.direction);
             let (positions, indeices) = split_by_lg(positions, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
             let mut colors = interp_by_lg(positions.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
+            let indeices = to_triangle(indeices.as_slice());
             let colors = colors.pop().unwrap();
             (positions, indeices, Some(colors))
         },

@@ -43,6 +43,8 @@ impl<C: Context> Engine<C> {
             Err(s) => panic!("compile_fs_shader error"),
         };
 
+        println!("create_pipeline, defines:{:?}", defines);
+
         let mut hasher = DefaultHasher::new();
         start_hash.hash(&mut hasher);
         vs.hash(&mut hasher);
