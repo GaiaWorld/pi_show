@@ -192,6 +192,16 @@ impl ProgramManager {
         gl.attach_shader(&program_handle, &vs.handle);
         gl.attach_shader(&program_handle, &fs.handle);
 
+        let max_attribute_count = std::cmp::min(self.max_vertex_attribs, get_builtin_attribute_count());
+        
+        // 先绑定属性，再连接
+        // 因为webgl有警告，所以这里就不记录类型和大小了。
+        for i in 0..max_attribute_count {
+            let (attrib_name, name) = Self::get_attribute_by_location(i);
+            debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
+            gl.bind_attrib_location(&program_handle, i, name);
+        }
+
         gl.link_program(&program_handle);
         let is_link_ok = gl
             .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
@@ -206,7 +216,7 @@ impl ProgramManager {
             return Err(e);
         }
 
-        let attributes = ProgramManager::init_attribute(&gl, &program_handle, self.max_vertex_attribs);
+        let attributes = ProgramManager::init_attribute(&gl, &program_handle);
         let all_uniforms = ProgramManager::init_uniform(&gl, &program_handle);
         
         // 将program加入缓存
@@ -223,20 +233,28 @@ impl ProgramManager {
         Ok(())
     }
 
-    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram, max_vertex_attribs: u32) -> HashMap<AttributeName, u32> {
+    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram) -> HashMap<AttributeName, u32> {
         
         // 为了减少状态切换，限制attribute前16个location必须用下面的名字
 
         let mut attributes = HashMap::new();
         
-        let max_attribute_count = std::cmp::min(max_vertex_attribs, get_builtin_attribute_count());
-        
-        // 因为webgl有警告，所以这里就不记录类型和大小了。
-        for i in 0..max_attribute_count {
-            let (attrib_name, name) = Self::get_attribute_by_location(i);
-            debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
-            gl.bind_attrib_location(program, i, name);
-            attributes.insert(attrib_name, i);
+        let attributes_num = gl
+            .get_program_parameter(program, WebGLRenderingContext::ACTIVE_ATTRIBUTES)
+            .try_into()
+            .unwrap_or(0);
+
+        for i in 0..attributes_num {
+            match gl.get_active_attrib(program, i) {
+                Some(info) => {
+                    debug_println!("attribute name = {:?}, location = {:?}", &info.name(), i);
+                    attributes.insert(AttributeName::from(Atom::from(info.name())), i);
+                }
+                None => {
+
+                }
+            }
+
         }
 
         return attributes;
@@ -368,7 +386,7 @@ impl ProgramManager {
             1 => (AttributeName::Normal, "normal"),
             2 => (AttributeName::Color, "color"),
             3 => (AttributeName::UV0, "uv0"),
-            4 => (AttributeName::UV1, "uv0"),
+            4 => (AttributeName::UV1, "uv1"),
             5 => (AttributeName::SkinIndex, "skinIndex"),
             6 => (AttributeName::SkinWeight, "skinWeight"),
             7 => (AttributeName::Tangent, "tangent"),
@@ -445,7 +463,7 @@ impl Program {
         for (name, v) in values.iter() {
             if let Some(u) = self.all_uniforms.get_mut(name) {
                 if !Self::is_uniform_same(v, &mut u.value) {
-                    debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}, value: {:?}", *name, &u.location, v);
+                    // debug_println!("Shader, set_uniforms_impl, uniform name = {:?}, location = {:?}, value: {:?}", *name, &u.location, v);
                     Self::set_uniform(gl, state, &u.location, v);
                 }
             } else {
