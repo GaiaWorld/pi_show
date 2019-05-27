@@ -12,19 +12,33 @@ use hal_core::{Context, Pipeline, Uniforms};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
 
-use component::user::{Point2, Matrix4, Transform};
+use component::user::{Point2, Matrix4};
 use render::engine::{ PipelineInfo};
+
+pub use single::oct::Oct;
 
 #[derive(Debug)]
 pub struct OverflowClip{
-    pub id_arr: [usize;8],
+    pub id_vec: [usize;8],
     pub clip: [[Point2;4];8],
 }
 
-#[derive(Debug)]
-pub struct WillChangeTransform{
-    pub id_arr: [usize;32],
-    pub trans: [Transform;32],
+impl Default for OverflowClip {
+    fn default() -> Self {
+        Self {
+            id_vec: [0, 0, 0, 0, 0, 0, 0, 0],
+            clip: [
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            ],
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -97,7 +111,7 @@ impl<C: Context> RenderObjs<C> {
     pub fn insert(&mut self, value: RenderObj<C>, notify: Option<NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {
-            Some(n) => n.modify_event(id, "", 0),
+            Some(n) => n.create_event(id),
             _ =>()
         };
         id

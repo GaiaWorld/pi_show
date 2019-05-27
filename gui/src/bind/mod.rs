@@ -9,12 +9,15 @@ use webgl_rendering_context::{WebGLRenderingContext};
 use atom::Atom;
 use hal_webgl::WebGLContextImpl;
 use hal_core::Context;
-use ecs::World;
+use ecs::{World, idtree::IdTree, LendMut};
 
+use component::user::{ BorderRadius, LengthUnit };
 use render::engine::Engine;
 use render::res::{ TextureRes, Opacity };
-use world::create_world;
+use world::{ create_world, RENDER_DISPATCH };
 use font::sdf_font::{SdfFont, StaticSdfFont};
+use entity::Node;
+use layout::YgNode;
 
 pub mod style;
 pub mod node;
@@ -36,6 +39,20 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     debug_println!("create_gui");
     let engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebGLContextImpl>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
     let world = create_world(engine, width, height);
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = idtree.lend_mut();
+    let node = world.create_entity::<Node>();
+    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
+    let border_radius = border_radius.lend_mut();
+    border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
+
+    let ygnode = world.fetch_multi::<Node, YgNode>().unwrap();
+    let ygnode = ygnode.lend_mut();
+    let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
+    ygnode.set_width(width);
+    ygnode.set_height(height);
+
+    idtree.create(node);
     Box::into_raw(Box::new(world)) as u32
 }
 
@@ -44,7 +61,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
 pub fn render(world: u32){
     debug_println!("gui render");
     let world = unsafe {&mut *(world as usize as *mut World)};
-    world.run(&Atom::from("render"));
+    world.run(&RENDER_DISPATCH);
 }
 
 // 计算布局

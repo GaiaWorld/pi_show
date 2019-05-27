@@ -81,6 +81,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
   fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
   }
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+    debug_println!("LayoutImpl run");
     for id in self.dirty.iter() {
       if calc(*id, &read, &mut write) {
         self.temp.push(*id)
@@ -182,6 +183,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let c = node.get_context() as isize;
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
+  debug_println!("c------------------------------{}", c);
   if c > 0 {
     // 节点布局更新
     write.1.insert(c as usize, node.get_layout());

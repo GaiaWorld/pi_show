@@ -17,6 +17,9 @@ fn create(world: &World) -> usize {
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = idtree.lend_mut();
     let node = world.create_entity::<Node>();
+    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
+    let border_radius = border_radius.lend_mut();
+    border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
     idtree.create(node);
     node
 }

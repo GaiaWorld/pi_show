@@ -12,6 +12,7 @@ lazy_static! {
     pub static ref CLIP_INDEICES: Atom = Atom::from("clipIndices");
     pub static ref UV: Atom = Atom::from("uv");
     pub static ref ALPHA: Atom = Atom::from("alpha");
+    pub static ref TEXTURE: Atom = Atom::from("texture");
     
     // ubo name
     pub static ref VIEW: Atom = Atom::from("VIEW");

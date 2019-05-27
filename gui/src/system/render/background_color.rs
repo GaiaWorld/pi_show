@@ -33,7 +33,7 @@ lazy_static! {
 
 pub struct BackgroundColorSys<C: Context + Share>{
     background_color_render_map: VecMap<Item>,
-    position_dirtys: Vec<usize>,
+    geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
     rs: Arc<RasterState>,
     bs: Arc<BlendState>,
@@ -46,7 +46,7 @@ impl<C: Context + Share> BackgroundColorSys<C> {
     pub fn new() -> Self{
         BackgroundColorSys {
             background_color_render_map: VecMap::default(),
-            position_dirtys: Vec::new(),
+            geometry_dirtys: Vec::new(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
             bs: Arc::new(BlendState::new()),
@@ -67,9 +67,10 @@ impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
     );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn run(&mut self, read: Self::ReadData, render_objs: Self::WriteData){
+        println!("BackgroundColorSys run, dirty_len:{}", self.geometry_dirtys.len());
         let map = &mut self.background_color_render_map;
         let (layouts, border_radius, z_depths, background_colors) = read;
-        for id in  self.position_dirtys.iter() {
+        for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let border_radius = unsafe { border_radius.get_unchecked(*id) };
@@ -85,14 +86,20 @@ impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
+            debug_println!("bg_color, id: {}, layout: {:?}", id, layout);
+            debug_println!("bg_color, id: {}, positions: {:?}", id, positions.as_slice());
+            debug_println!("bg_color, id: {}, indices: {:?}", id, indices.as_slice());
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
             geometry.set_indices_short(indices.as_slice(), false);
             match colors {
-                Some(colors) => geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false),
+                Some(colors) => {
+                    debug_println!("bg_color, id: {}, colors: {:?}", id, colors.as_slice());
+                    geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false)
+                },
                 None => geometry.set_attribute(&AttributeName::Color, 4, None, false),
             };
         }
-        self.position_dirtys.clear();
+        self.geometry_dirtys.clear();
     }
 }
 
@@ -124,9 +131,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, 1.0);
-        common_ubo.set_float_1(&ALPHA, opacity);
         match &background_color.0 {
             Color::RGBA(c) => {
+                debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
                 common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
                 defines.push(U_COLOR.clone());
             },
@@ -163,7 +170,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         self.background_color_render_map.insert(event.id, Item{index: index, position_change: true});
-        self.position_dirtys.push(event.id);
+        self.geometry_dirtys.push(event.id);
     }
 }
 
@@ -181,16 +188,19 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
             Color::RGBA(c) => {
                 // 设置ubo
                 let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
+                debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
                 common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+
                 // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
                 if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
                     render_obj.defines.remove_item(&VERTEX_COLOR);
                     render_obj.defines.push(UCOLOR.clone());
                     if item.position_change == false {
                         item.position_change = true;
-                        self.position_dirtys.push(event.id);
+                        self.geometry_dirtys.push(event.id);
                     }
                 }
+                render_objs.get_notify().modify_event(item.index, "", 0);
             },
             Color::LinearGradient(_) => {
                 // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
@@ -199,7 +209,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
                     render_obj.defines.push(VERTEX_COLOR.clone());      
                     if item.position_change == false {
                         item.position_change = true;
-                        self.position_dirtys.push(event.id);
+                        self.geometry_dirtys.push(event.id);
                     }
                 }
             },
@@ -222,7 +232,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Delete
         let notify = render_objs.get_notify();
         render_objs.remove(item.index, Some(notify));
         if item.position_change == true {
-            self.position_dirtys.remove_item(&event.id);
+            self.geometry_dirtys.remove_item(&event.id);
         }
     }
 }
@@ -235,7 +245,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
         if let Some(item) = unsafe { self.background_color_render_map.get_mut(event.id) } {
             if item.position_change == false {
                 item.position_change = true;
-                self.position_dirtys.push(event.id);
+                self.geometry_dirtys.push(event.id);
             }
         };
     }
@@ -269,7 +279,7 @@ struct Item {
     position_change: bool,
 }
 
-//取集合体的顶点流和索引流和color属性流
+//取几何体的顶点流和索引流和color属性流
 fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &BackgroundColor) -> (Vec<f32>, Vec<u16>, Option<Vec<f32>>) {
     let radius = cal_border_radius(radius, layout);
     let start = layout.border;
@@ -288,7 +298,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     }
     match &color.0 {
         &Color::RGBA(_) => {
-            let indices = create_increase_vec(positions.len());
+            let indices = create_increase_vec(positions.len()/3);
             (positions, to_triangle(indices.as_slice()), None)
         },
         &Color::LinearGradient(ref bg_colors) => {
@@ -333,7 +343,7 @@ unsafe impl<C: Context + Share> Send for BackgroundColorSys<C>{}
 
 impl_system!{
     BackgroundColorSys<C> where [C: Context + Share],
-    false,
+    true,
     {
         MultiCaseListener<Node, BackgroundColor, CreateEvent>
         MultiCaseListener<Node, BackgroundColor, ModifyEvent>

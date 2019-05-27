@@ -63,8 +63,7 @@ macro_rules! set_show {
 
 #[no_mangle]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let background = 0;
-    set_attr!(world, node, BoxColor, background, Color::RGBA(CgColor::new(r, g, b, a)));
+    insert_value!(world, node, BackgroundColor, Color::RGBA(CgColor::new(r, g, b, a)));
 }
 
 // // 设置一个径向渐变的背景颜色
@@ -153,10 +152,6 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
     insert_attr!(world, node, BorderImageRepeat, BorderImageRepeat(unsafe{ transmute(vertical)}, unsafe{ transmute(horizontal)}));
 }
 
-#[no_mangle]
-pub fn set_willchange(world: u32, node: u32, value: bool){
-    insert_value!(world, node, WillChange, value);
-}
 //设置overflow
 #[no_mangle]
 pub fn set_overflow(world: u32, node: u32, value: bool){

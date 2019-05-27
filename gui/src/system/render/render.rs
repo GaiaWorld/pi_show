@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::collections::HashMap;
 
 use hal_core::*;
-use ecs::{SingleCaseImpl, Share, Runner};
+use ecs::{SingleCaseImpl, Share, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
 use atom::Atom;
 
 use render::engine::Engine;
@@ -32,6 +32,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, render_objs: Self::ReadData, engine: Self::WriteData){
+        debug_println!("RenderSys run");
         if self.dirty == false {
             return;
         }
@@ -61,12 +62,37 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     }
 }
 
+impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for RenderSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, _: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        self.dirty = true;
+    }
+}
+
+impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for RenderSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, _: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        self.dirty = true;
+    }
+}
+
+impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for RenderSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, _: &DeleteEvent, _: Self::ReadData, _: Self::WriteData){
+        self.dirty = true;
+    }
+}
+
 fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
     let mut ubos: HashMap<Atom, Arc<AsRef<Uniforms<C>>>> = HashMap::new();
     for (k, v) in obj.ubos.iter() {
         ubos.insert(k.clone(), v.clone() as Arc<AsRef<Uniforms<C>>>);
     }
+    debug_println!("draw-------------------------------------{}", obj.context);
     gl.draw(&(obj.geometry.clone() as Arc<AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 
@@ -119,5 +145,9 @@ impl<'a, C: Context + Share> Ord for TransparentOrd<'a, C>{
 impl_system!{
     RenderSys<C> where [C: Context + Share],
     true,
-    {}
+    {
+        SingleCaseListener<RenderObjs<C>, CreateEvent>
+        SingleCaseListener<RenderObjs<C>, ModifyEvent>
+        SingleCaseListener<RenderObjs<C>, DeleteEvent>  
+    }
 }

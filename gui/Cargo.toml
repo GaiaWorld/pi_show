@@ -37,5 +37,5 @@ derive_deref = "1.0.2"
 paste = "0.1"
 
 [features]
-#default = ["web"]
-#web = []
+default = ["web"]
+web = []

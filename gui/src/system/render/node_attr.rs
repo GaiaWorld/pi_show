@@ -24,6 +24,8 @@ use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME}
 
 pub struct NodeAttrSys<C: Context + Share>{
     node_render_map: VecMap<Vec<usize>>,
+    view_matrix_ubo: Option<Arc<Uniforms<C>>>,
+    project_matrix_ubo: Option<Arc<Uniforms<C>>>,
     marker: PhantomData<C>,
 }
 
@@ -31,8 +33,36 @@ impl<C: Context + Share> NodeAttrSys<C> {
     pub fn new() -> Self{
         NodeAttrSys {
             node_render_map: VecMap::default(),
+            view_matrix_ubo: None,
+            project_matrix_ubo: None,
             marker: PhantomData,
         }
+    }
+}
+
+impl<'a, C: Context + Share> Runner<'a> for NodeAttrSys<C>{
+    type ReadData = (
+        &'a SingleCaseImpl<ViewMatrix>,
+        &'a SingleCaseImpl<ProjectionMatrix>,
+    );
+    type WriteData =  &'a mut SingleCaseImpl<Engine<C>>;
+    fn run(&mut self, read: Self::ReadData, render_objs: Self::WriteData){
+    }
+    fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
+        let (view_matrix, projection_matrix) = read;
+
+        let mut view_matrix_ubo = engine.gl.create_uniforms();
+        let slice: &[f32; 16] = view_matrix.0.as_ref();
+        view_matrix_ubo.set_mat_4v(&VIEW_MATRIX, &slice[0..16]);
+        debug_println!("view_matrix: {:?}", &slice[0..16]);
+
+        let mut project_matrix_ubo = engine.gl.create_uniforms();
+        let slice: &[f32; 16] = projection_matrix.0.as_ref();
+        project_matrix_ubo.set_mat_4v(&PROJECT_MATRIX, &slice[0..16]);
+        debug_println!("projection_matrix: {:?}", &slice[0..16]);
+
+        self.view_matrix_ubo = Some(Arc::new(view_matrix_ubo));
+        self.project_matrix_ubo = Some(Arc::new(project_matrix_ubo));
     }
 }
 
@@ -76,7 +106,11 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let world_matrix = cal_matrix(event.id, world_matrixs, transforms, layouts);
         let slice: &[f32; 16] = world_matrix.as_ref();
         world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-        ubos.insert(WORLD_MATRIX.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
+        ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
+        debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+
+        ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
+        ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id) }.0;
         if by_overflow > 0 {
@@ -101,10 +135,12 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         }
 
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+        debug_println!("id: {}, opacity: {:?}", render_obj.context, opacity);
         unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
 
         let visibility = unsafe { visibilitys.get_unchecked(event.id) }.0;
         render_obj.visibility = visibility;
+        debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
     }
 }
 
@@ -127,9 +163,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
         let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
-            let mut ubos = &mut unsafe { render_objs.get_unchecked_mut(*id) }.ubos;
+            let mut render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
         }
     }
 }
@@ -143,8 +181,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
         let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
-            let ubos = &mut unsafe { render_objs.get_unchecked_mut(*id) }.ubos;
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            let ubos = &mut render_obj.ubos;
             unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
+            debug_println!("id: {}, opacity: {:?}", render_obj.context, opacity);
         }
     }
 }
@@ -221,7 +261,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent
 
         for id in obj_ids.iter() {
             let notify = render_objs.get_notify();
-            unsafe {render_objs.get_unchecked_write(*id, &notify)}.set_visibility(visibility);
+            let mut render_obj = unsafe {render_objs.get_unchecked_write(*id, &notify)};
+            render_obj.set_visibility(visibility);
+            debug_println!("id: {}, visibility: {:?}", render_obj.value.context, visibility);
         }
     }
 }
@@ -231,7 +273,7 @@ unsafe impl<C: Context + Share> Send for NodeAttrSys<C>{}
 
 impl_system!{
     NodeAttrSys<C> where [C: Context + Share],
-    false,
+    true,
     {
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>

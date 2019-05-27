@@ -1,6 +1,7 @@
+use std::os::raw::{c_void};
+
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{IdTree};
-
 
 use component::user::*;
 use layout::{YgNode};
@@ -14,7 +15,9 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys{
     type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, YgNode>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
       write.0.insert(event.id, Layout::default());
-      write.1.insert(event.id, YgNode::default());
+			let yoga = YgNode::default();
+			yoga.set_context(event.id as *mut c_void);
+      write.1.insert(event.id, yoga);
     }
 }
 
@@ -76,6 +79,7 @@ impl_system!{
     LayoutSys,
     false,
     {
+				EntityListener<Node, CreateEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
 				SingleCaseListener<IdTree, ModifyEvent>

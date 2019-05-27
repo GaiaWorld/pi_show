@@ -38,7 +38,7 @@ lazy_static! {
 
 pub struct CharBlockSys<C: Context + Share>{
     char_block_render_map: VecMap<Item>,
-    position_dirtys: Vec<usize>,
+    geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
     rs: Arc<RasterState>,
     bs: Arc<BlendState>,
@@ -51,7 +51,7 @@ impl<C: Context + Share> CharBlockSys<C> {
     fn new() -> Self{
         CharBlockSys {
             char_block_render_map: VecMap::default(),
-            position_dirtys: Vec::new(),
+            geometry_dirtys: Vec::new(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
             bs: Arc::new(BlendState::new()),
@@ -71,14 +71,14 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (char_blocks, z_depths, layouts) = read;
-        for id in self.position_dirtys.iter() {
+        for id in self.geometry_dirtys.iter() {
             let char_block = unsafe { char_blocks.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) };
             let layout = unsafe { layouts.get_unchecked(*id) };
             let item = unsafe { self.char_block_render_map.get_unchecked_mut(*id) };
             //劈分顶点， TODO
         }
-        self.position_dirtys.clear();
+        self.geometry_dirtys.clear();
     }
 }
 
@@ -109,7 +109,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
         let index = self.create_charblock_renderobjs(event.id, z_depth, false, ubos, &mut defines, geometry, r.0, r.1, r.2, r.5, r.6, r.7, r.8, r.9, r.10, w.0, w.1);
-        self.char_block_render_map.insert(event.id, Item{index: index, defines: defines, position_dirty: true});
+        self.char_block_render_map.insert(event.id, Item{index: index, defines: defines, geometry_dirty: true});
     }
 }
 
@@ -118,7 +118,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
-        self.delete_position_dirty(event.id);
+        self.delete_geometry_dirty(event.id);
         let item = self.char_block_render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));
@@ -131,7 +131,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         if event.field == "chars"{
-            self.mark_position_dirty(event.id);
+            self.mark_geometry_dirty(event.id);
         }
     }
 }
@@ -198,21 +198,21 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent
 
 impl<C: Context + Share> CharBlockSys<C> {
 
-    fn mark_position_dirty(&mut self, id: usize){
+    fn mark_geometry_dirty(&mut self, id: usize){
         let item = unsafe { self.char_block_render_map.get_unchecked_mut(id) };
-        if item.position_dirty == false {
-            item.position_dirty = true;
-            self.position_dirtys.push(id);
+        if item.geometry_dirty == false {
+            item.geometry_dirty = true;
+            self.geometry_dirtys.push(id);
         }
     }
 
-    fn delete_position_dirty(&mut self, id: usize){
+    fn delete_geometry_dirty(&mut self, id: usize){
         let item = unsafe { self.char_block_render_map.get_unchecked_mut(id) };
-        if item.position_dirty == true {
-            item.position_dirty = false;
-            for i in 0..self.position_dirtys.len() {
-                if self.position_dirtys[i] == id {
-                    self.position_dirtys.swap_remove(i);
+        if item.geometry_dirty == true {
+            item.geometry_dirty = false;
+            for i in 0..self.geometry_dirtys.len() {
+                if self.geometry_dirtys[i] == id {
+                    self.geometry_dirtys.swap_remove(i);
                     return;
                 }
             }
@@ -284,7 +284,7 @@ impl<C: Context + Share> CharBlockSys<C> {
 pub struct Item {
     index: usize,
     defines: Defines,
-    position_dirty: bool,
+    geometry_dirty: bool,
 }
 
 #[derive(Default)]
