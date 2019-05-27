@@ -12,7 +12,7 @@ use ecs::{SingleCaseImpl, Share, Runner, ModifyEvent, CreateEvent, DeleteEvent, 
 use atom::Atom;
 
 use render::engine::Engine;
-use single::{ RenderObjs, RenderObj};
+use single::{ RenderObjs, RenderObj, ViewPort};
 
 pub struct RenderSys<C: Context + Share>{
     dirty: bool,
@@ -29,9 +29,13 @@ impl<C: Context + Share> Default for RenderSys<C> {
 }
 
 impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
-    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
+    type ReadData = (
+        &'a SingleCaseImpl<RenderObjs<C>>,
+        &'a SingleCaseImpl<ViewPort>,
+    );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
-    fn run(&mut self, render_objs: Self::ReadData, engine: Self::WriteData){
+    fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
+        let (render_objs, view_port) = read;
         debug_println!("RenderSys run");
         if self.dirty == false {
             return;
@@ -52,13 +56,20 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         transparent_list.sort();
         opacity_list.sort();
 
+        let gl = &mut engine.gl;
+        gl.begin_render(
+            &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
+            &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>));
+        
         for obj in opacity_list.into_iter() {
-            render(&mut engine.gl, obj.0);
+            render(gl, obj.0);
         }
 
         for obj in transparent_list.into_iter() {
-            render(&mut engine.gl, obj.0);
+            render(gl, obj.0);
         }
+
+        gl.end_render();
     }
 }
 

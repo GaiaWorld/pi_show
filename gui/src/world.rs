@@ -1,7 +1,7 @@
 use std::default::Default;
 use std::sync::Arc;
 
-use hal_core::Context;
+use hal_core::{Context, RenderBeginDesc};
 use atom::Atom;
 use cgmath::One;
 
@@ -86,8 +86,8 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_single::<FontSheet<C>>(FontSheet::<C>::default());
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
+    world.register_single::<ViewPort>(ViewPort(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     
-
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
