@@ -56,16 +56,61 @@ fn main() {
     }
 
     let gl = Arc::new(gl);
-    let mut webgl = create_hal_webgl(gl);
+    let webgl = create_hal_webgl(gl);
+
+    let render_data = init_render_data(webgl);
+    let data = Box::into_raw(render_data) as u32;
+
+    js! {
+        Module._render(@{data});
+    }
+
+    stdweb::event_loop();
+}
+
+#[no_mangle]
+fn render(data: *mut RenderData) {
+
+    js! {
+        requestAnimationFrame(function () {
+            Module._render(@{data as u32});
+        })
+    }
+
+    let mut data = unsafe { Box::from_raw(data) };
+
+    let default_rt = data.default_rt.clone() as Arc<AsRef<WebGLRenderTargetImpl>>;
+    let begin_desc = data.begin_data.clone() as Arc<AsRef<RenderBeginDesc>>;
+    data.context.begin_render(&default_rt, &begin_desc);
+    
+    for m in data.meshes.iter_mut() {
+        let pipeline = m.pipeline.clone() as Arc<AsRef<Pipeline>>;
+        data.context.set_pipeline(&pipeline);
+
+        let geometry = m.geometry.clone() as Arc<AsRef<WebGLGeometryImpl>>;
+        data.context.draw(&geometry, &m.uniforms);
+    }
+    
+    data.context.end_render();
+
+    forget(data);
+}
+
+fn init_render_data(mut webgl: WebGLContextImpl) -> Box<RenderData> {
 
     // 初始化 shader
     let (vs, fs1, fs2) = init_hello_program(&mut webgl);
     
     // 初始化 pipeline
     let rs = Arc::new(RasterState::new());
-    let bs1 = Arc::new(BlendState::new()); 
+    
+    let mut bs1 = BlendState::new(); 
+    bs1.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+    let bs1 = Arc::new(bs1);
+    
     let ss = Arc::new(StencilState::new());
     let ds1 = Arc::new(DepthState::new());
+    
     let mut bs2 = BlendState::new();
     bs2.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
     let bs2 = Arc::new(bs2);
@@ -113,41 +158,7 @@ fn main() {
         meshes: vec![m1, m2],
     });
     
-    let data = Box::into_raw(data) as u32;
-
-    js! {
-        Module._render(@{data});
-    }
-
-    stdweb::event_loop();
-}
-
-#[no_mangle]
-fn render(data: *mut RenderData) {
-
-    js! {
-        requestAnimationFrame(function () {
-            Module._render(@{data as u32});
-        })
-    }
-
-    let mut data = unsafe { Box::from_raw(data) };
-
-    let default_rt = data.default_rt.clone() as Arc<AsRef<WebGLRenderTargetImpl>>;
-    let begin_desc = data.begin_data.clone() as Arc<AsRef<RenderBeginDesc>>;
-    data.context.begin_render(&default_rt, &begin_desc);
-    
-    for m in data.meshes.iter_mut() {
-        let pipeline = m.pipeline.clone() as Arc<AsRef<Pipeline>>;
-        data.context.set_pipeline(&pipeline);
-
-        let geometry = m.geometry.clone() as Arc<AsRef<WebGLGeometryImpl>>;
-        data.context.draw(&geometry, &m.uniforms);
-    }
-    
-    data.context.end_render();
-
-    forget(data);
+    data
 }
 
 fn init_begin_data() -> Arc<RenderBeginDesc> {
