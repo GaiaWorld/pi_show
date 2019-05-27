@@ -174,7 +174,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
     }
 }
 
-// 删除渲染对象
+// 修改渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, BackgroundColor>, &'a MultiCaseImpl<Node, Opacity>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;

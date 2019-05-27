@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
+use hal_core::*;
 use atom::Atom;
 use polygon::*;
 
@@ -18,10 +18,11 @@ use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
 use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
-use render::res::Opacity as ROpacity;
+use render::res::*;
+use render::res::{Opacity as ROpacity};
 use system::util::*;
 use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
-use system::render::shaders::color::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 
 pub struct ImageSys<C: Context + Share>{
     image_render_map: VecMap<Item>,
@@ -53,11 +54,18 @@ impl<C: Context + Share> ImageSys<C> {
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, BorderRadius>, &'a MultiCaseImpl<Node, ZDepth>);
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Image<C>>,
+        &'a MultiCaseImpl<Node, ImageClip>,
+        &'a MultiCaseImpl<Node, ObjectFit>,
+    );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.image_render_map;
-        let (layouts, border_radius, z_depths) = read;
+        let (layouts, border_radius, z_depths, images, image_clips, object_fits) = read;
         let (render_objs, _) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
@@ -65,7 +73,10 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
             let border_radius = unsafe { border_radius.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
-            let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1);
+            let image = unsafe { images.get_unchecked(*id) };
+            let image_clip = unsafe { image_clips.get(*id) };
+            let object_fit = unsafe { object_fits.get(*id) };
+            let (positions, uvs, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1, image, image_clip, object_fit);
 
             let mut render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = Arc::get_mut(&mut render_obj.geometry).unwrap();
@@ -75,6 +86,7 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
                 geometry.set_vertex_count(vertex_count);
             }
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
+            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false);
             geometry.set_indices_short(indices.as_slice(), false);
         }
         self.geometry_dirtys.clear();
@@ -115,6 +127,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
 
         let mut geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(
@@ -124,12 +137,14 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         );
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
-        let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), &[], self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
-        let is_opacity = if opacity < 1.0 || image.src.a < 1.0 {
+        let is_opacity = if opacity < 1.0 {
             false
-        }else {
+        }else if let ROpacity::Opaque = image.src.opacity{
             true
+        }else {
+            false
         };
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth - 1.0,
@@ -139,7 +154,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
             geometry: geometry,
             pipeline: pipeline.clone(),
             context: event.id,
-            defines: vec![UCOLOR.clone()],
+            defines: defines,
         };
 
         let notify = render_objs.get_notify();
@@ -156,16 +171,17 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (opacitys, images) = read;
         if let Some(item) = unsafe { self.image_render_map.get_mut(event.id) } {
-            let opacity = unsafe { opacitys.get_unchecked(id).0 };
-            let image = unsafe { images.get_unchecked(id) };
+            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+            let image = unsafe { images.get_unchecked(event.id) };
+            let index = item.index;
 
             // 图片改变， 修改渲染对象的不透明属性
-            self.change_is_opacity(event.id, opacity, image, item, render_objs);
+            self.change_is_opacity(event.id, opacity, image, index, render_objs);
 
             // 图片改变， 更新common_ubo中的纹理
-            let render_obj = unsafe { render_objs.get_unchecked(id) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON);
-            let common_ubo = Arc::mark_mut(common_ubo);
+            let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+            let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+            let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
                 &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
@@ -209,16 +225,17 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, images) = read;
-        if let Some(item) = unsafe { self.image_render_map.get(event.id) } {
-            let opacity = unsafe { opacitys.get_unchecked(id).0 };
-            let image = unsafe { images.get_unchecked(id) };
-            self.change_is_opacity(event.id, opacity, image, item, write);
+        if let Some(item) = self.image_render_map.get(event.id) {
+            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+            let image = unsafe { images.get_unchecked(event.id) };
+            let index = item.index;
+            self.change_is_opacity(event.id, opacity, image, index, write);
         }
     }
 }
 
 impl<'a, C: Context + Share> ImageSys<C> {
-    fn change_is_opacity(&mut self, id: usize, opacity: f32, image: &Image<C>, item: &Item, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, id: usize, opacity: f32, image: &Image<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
         }else if let ROpacity::Opaque = image.src.opacity{
@@ -228,7 +245,7 @@ impl<'a, C: Context + Share> ImageSys<C> {
         };
 
         let notify = render_objs.get_notify();
-        unsafe { render_objs.get_unchecked_write(item.index, &notify).set_is_opacity(is_opacity)};
+        unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
     }
 }
 
@@ -238,13 +255,13 @@ struct Item {
 }
 
 //取几何体的顶点流、 uv流和属性流
-fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    let start = layout.border;
+    let end_x = layout.width - layout.border;
+    let end_y = layout.height - layout.border;
     let positions = if radius.x == 0.0 {
-        let start = layout.border;
-        let end_x = layout.width - layout.border;
-        let end_y = layout.height - layout.border;
         vec![
             start, start, z_depth,
             start, end_y, z_depth,

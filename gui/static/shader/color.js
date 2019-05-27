@@ -20,7 +20,7 @@ let color_vs_code = `
     varying vec2 vpos;
     
     #ifdef VERTEX_COLOR
-        varying vec4 vColor;
+        varying vec4 vColor; 
     #endif
     
     void main(void) {

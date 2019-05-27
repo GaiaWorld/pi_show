@@ -15,28 +15,16 @@
         var RUST_BACKTRACE = 1;
     </script>
     <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
-    <script src="./shader/image.js"></script> <!--图片shader-->
-    <script src="./shader/sdf.js"></script>   <!--sdfshader-->
-    <script src="./shader/text.js"></script> <!--文字shader-->
-    <script src="./shader/init.js"></script> <!--创建engine  设置shadercode-->
+    <script src="./shader/color.js"></script>
+    <script src="./shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
 
-        var body = Module._create_node(gui);
-        Module._append_child(gui, 1, body);
-        Module._set_width(gui, body, 700);
-        Module._set_height(gui, body, 400);
-
-        Module._run(gui);
-
-        var root = Module._create_node(gui);
-        var image_node = Module._create_image_node(gui);
-        Module._append_child(gui, root, image_node);
-        Module._append_child(gui, body, root);
-        Module._set_width(gui, root, 700);
-        Module._set_height(gui, root, 400);
-        Module._set_backgroud_rgba_color(gui, root, 0.5, 0.0, 0.5, 1.0);
+        var node = Module._create_image_node(gui);
+        Module._append_child(gui, 1, node);
+        Module._set_width(gui, node, 100);
+        Module._set_height(gui, node, 100);
 
         // var root = Module._create_node(gui);
         // Module._append_child(gui, body, root);
