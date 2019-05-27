@@ -270,13 +270,15 @@ impl State {
             for (n, v) in geometry.as_ref().as_ref().attributes.iter() {
                 let index = get_attribute_location(n) as usize;
                 
+                self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
+                
                 if !self.enable_attrib_indices[index] {
                     self.gl.enable_vertex_attrib_array(index as u32);
                     self.enable_attrib_indices[index] = true;
                 }
                 
-                self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
                 self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
+                
 
                 // debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
             }
