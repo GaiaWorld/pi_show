@@ -310,9 +310,15 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
             }
 
             //渐变端点
-            let endp = find_lg_endp(&[0.0, 0.0, layout.width, layout.height], bg_colors.direction);
+            debug_println!("layout:{:?}, direction: {}", layout, bg_colors.direction);
+            let endp = find_lg_endp(&[
+                0.0, 0.0,
+                0.0, layout.height,
+                layout.width, layout.height,
+                layout.width, 0.0,
+            ], bg_colors.direction);
             let (positions, indeices) = split_by_lg(positions, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
-            let mut colors = interp_by_lg(positions.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.0);
+            let mut colors = interp_by_lg(positions.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
             let colors = colors.pop().unwrap();
             (positions, indeices, Some(colors))
         },
