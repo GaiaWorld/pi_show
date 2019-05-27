@@ -29,11 +29,19 @@
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
+        // var node2 = Module._create_node(gui);
+        // Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width_percent(gui, node2, 100.0);
+        // Module._set_height_percent(gui, node2, 100.0);
+        // Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 0.5);
+
+        // 测试线性渐变颜色
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width_percent(gui, node2, 100.0);
         Module._set_height_percent(gui, node2, 100.0);
-        Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 0.5);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node2, 30);
 
         Module._render(gui);
     </script>

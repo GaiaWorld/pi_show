@@ -61,6 +61,8 @@ impl Geometry for WebGLGeometryImpl {
     }
 
     fn set_attribute(&mut self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String> {
+        
+        debug_println!("Shader, set_attribute_impl, name = {:?}, data = {:?}", name, data);
 
         assert!(self.vertex_count > 0 && item_count > 0, "WebGLGeometryImpl set_attribute failed, vertex_count or item_count invalid");
     
@@ -142,7 +144,8 @@ impl Geometry for WebGLGeometryImpl {
     }
 
     fn set_indices_short(&mut self, data: &[u16], is_updatable: bool) -> Result<(), String> {
-        
+        debug_println!("Shader, set_indices_short, data = {:?}", data);
+
         assert!(self.vertex_count > 0 && data.len() > 0, "WebGLGeometryImpl set_indices_short failed, data.len invalid");
 
         let gl: Option<Arc<WebGLRenderingContext>> = self.gl.upgrade();
