@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use cgmath::Ortho;
 use slab::Slab;
 use atom::Atom;
-use hal_core::{Context, Pipeline, Uniforms};
+use hal_core::{Context, Pipeline, Uniforms, RenderBeginDesc};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
 
@@ -143,6 +143,7 @@ impl<C: Context> RenderObjs<C> {
 pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
 pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
 pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
+pub struct ViewPort(pub Arc<RenderBeginDesc>);
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
