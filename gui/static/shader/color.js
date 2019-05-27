@@ -63,6 +63,6 @@ let color_fs_code = `
     #endif
         
         c.a = c.a * alpha * blur;
-        gl_FragColor = vColor;
+        gl_FragColor = c;
     }
 `;

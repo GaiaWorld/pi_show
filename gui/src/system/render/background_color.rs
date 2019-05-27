@@ -135,7 +135,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
             Color::RGBA(c) => {
                 debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
                 common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
-                defines.push(U_COLOR.clone());
+                defines.push(UCOLOR.clone());
             },
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
