@@ -122,6 +122,7 @@ pub enum PixelFormat {
     RGB,
     RGBA,   
     ALPHA, 
+    DEPTH16,
 }
 
 /** 
