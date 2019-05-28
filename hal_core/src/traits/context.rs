@@ -121,7 +121,7 @@ pub trait Context {
     /** 
      * 创建渲染目标
      */
-    fn create_render_target(&mut self, w: u32, h: u32, format: &PixelFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String>;
+    fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String>;
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略

@@ -6,7 +6,7 @@ use atom::{Atom};
 use hal_core::*;
 
 use geometry::{NullGeometryImpl};
-use render_target::{NullRenderTargetImpl};
+use render_target::{NullRenderTargetImpl, NullRenderBufferImpl};
 use texture::{NullTextureImpl};
 use sampler::{NullSamplerImpl};
 
@@ -79,7 +79,7 @@ impl Context for NullContextImpl {
         })
     }
 
-    fn create_render_target(&mut self, _w: u32, _h: u32, _format: &PixelFormat, _has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
+    fn create_render_target(&mut self, _w: u32, _h: u32, _pformat: &PixelFormat, _dformat: &DataFormat, _has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
         Ok(NullRenderTargetImpl {
 
         })

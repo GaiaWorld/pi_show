@@ -94,8 +94,8 @@ impl Context for WebGLContextImpl {
         })
     }
 
-    fn create_render_target(&mut self, w: u32, h: u32, format: &PixelFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
-        WebGLRenderTargetImpl::new(&self.gl)
+    fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
+        WebGLRenderTargetImpl::new(&self.gl, w, h, pformat, dformat, has_depth)
     }
 
     fn begin_render(&mut self, render_target: &Arc<AsRef<Self::ContextRenderTarget>>, data: &Arc<AsRef<RenderBeginDesc>>) {
