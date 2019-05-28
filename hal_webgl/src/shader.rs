@@ -598,8 +598,7 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
-                assert!(false, "TODO: sampler and texture uniform not support!");
-                false
+                 false
             }
         }
     }

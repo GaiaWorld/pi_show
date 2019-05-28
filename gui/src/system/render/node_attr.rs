@@ -103,7 +103,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let mut ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
         let mut world_matrix_ubo = engine.gl.create_uniforms();
-        let world_matrix = cal_matrix(event.id, world_matrixs, transforms, layouts);
+        let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts);
         let slice: &[f32; 16] = world_matrix.as_ref();
         world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
         ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
@@ -112,7 +112,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
-        let by_overflow = unsafe { by_overflows.get_unchecked(event.id) }.0;
+        let by_overflow = unsafe { by_overflows.get_unchecked(render_obj.context) }.0;
         if by_overflow > 0 {
             let defines = &mut render_obj.defines;
 
@@ -134,11 +134,11 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
             render_obj.pipeline = pipeline;
         }
 
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+        let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         debug_println!("id: {}, opacity: {:?}", render_obj.context, opacity);
         unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
 
-        let visibility = unsafe { visibilitys.get_unchecked(event.id) }.0;
+        let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
         debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
     }

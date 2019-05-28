@@ -174,7 +174,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
     }
 }
 
-// 删除渲染对象
+// 修改渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, BackgroundColor>, &'a MultiCaseImpl<Node, Opacity>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
@@ -286,6 +286,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let end_x = layout.width - layout.border;
     let end_y = layout.height - layout.border;
     let mut positions;
+    debug_println!("radius:{:?}", radius);
     if radius.x == 0.0 {
         positions = vec![
             start, start, z_depth, // left_top
