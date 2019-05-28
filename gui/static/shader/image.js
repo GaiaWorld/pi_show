@@ -19,7 +19,8 @@ let image_vs_code = `
     
     void main(void) {
         gl_Position = (projectMatrix * viewMatrix * worldMatrix) * vec4(position, 1.0);
-        vuv = uvOffsetScale.xy + uv * uvOffsetScale.zw;
+        // vuv = uvOffsetScale.xy + uv * uvOffsetScale.zw;
+        vuv = uv;
     }
 `;
 let image_fs_code = `
@@ -34,7 +35,9 @@ let image_fs_code = `
     varying vec2 vuv;
 
     void main(void) {
-        vec4 c = color * texture2D(texture, vuv);
+        vec4 c = color;
+        c = texture2D(texture, vuv);
         gl_FragColor = vec4(c.rgb, c.a * alpha);
+        gl_FragColor = vec4(c.rgb, 1.0);
     }
 `;

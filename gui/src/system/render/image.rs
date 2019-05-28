@@ -277,9 +277,10 @@ fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_de
     let (positions, _) = split_by_lg(positions, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
     let (positions, indices) = split_by_lg(positions, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
     let indices = to_triangle(indices.as_slice());
-    debug_println!("positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.0.x]}], left_percent, right_percent, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
-    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.1.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    debug_println!("positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.3.x]}], left_percent, right_percent, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
+    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.3.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
     let v = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    debug_println!("111 positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], top_percent, bottom_percent, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
     println!("v u {:?}, {:?}", v, u);
     let mut uvs = Vec::with_capacity(u[0].len());
     for i in 0..u[0].len() {
