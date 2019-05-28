@@ -11,6 +11,7 @@ use atom::Atom;
 use hal_core::{Context, Pipeline, Uniforms, RenderBeginDesc};
 use ecs::{ Share, Write };
 use ecs::monitor::NotifyImpl;
+use map::vecmap::VecMap;
 
 use component::user::{Point2, Matrix4};
 use render::engine::{ PipelineInfo};
@@ -137,6 +138,39 @@ impl<C: Context> RenderObjs<C> {
 
     pub unsafe fn get_unchecked_write<'a>(&'a mut self, id: usize, notify: &'a NotifyImpl) -> Write<RenderObj<C>>{
         Write::new(id, self.0.get_unchecked_mut(id), &notify)
+    }
+}
+
+
+pub struct NodeRenderMap(VecMap<Vec<usize>>);
+
+impl NodeRenderMap {
+    pub fn new () -> Self{
+        Self (VecMap::default())
+    }
+
+    pub unsafe fn add_unchecked(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
+        let arr = self.0.get_unchecked_mut(node_id);
+        arr.push(render_id);
+        notify.modify_event(node_id, "add", render_id);
+    }
+
+    pub unsafe fn remove_unchecked(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
+        notify.modify_event(node_id, "remove", render_id);
+        let arr = self.0.get_unchecked_mut(node_id);
+        arr.remove_item(&render_id);
+    }
+
+    pub fn create(&mut self, node_id: usize) {
+        self.0.insert(node_id, Vec::new());
+    }
+
+    pub unsafe fn destroy_unchecked(&mut self, node_id: usize) {
+        self.0.remove_unchecked(node_id);
+    }
+
+    pub unsafe fn get_unchecked(&mut self, node_id: usize) -> &Vec<usize> {
+        self.0.get_unchecked(node_id)
     }
 }
 

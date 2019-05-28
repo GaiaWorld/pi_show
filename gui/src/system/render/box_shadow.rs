@@ -19,7 +19,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 
@@ -38,7 +38,6 @@ pub struct BoxShadowSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
 }
 
 impl<C: Context + Share> BoxShadowSys<C> {
@@ -51,7 +50,6 @@ impl<C: Context + Share> BoxShadowSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
         }
     }
 }
@@ -250,6 +248,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow
     let end_x = layout.width + box_shadow.h;
     let end_y = layout.height + box_shadow.v;
     let mut positions;
+    let mut indices;
     if radius.x == 0.0 {
         positions = vec![
             start_x, start_y, z_depth, // left_top
@@ -257,11 +256,13 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow
             end_x, end_y, z_depth, // right_bootom
             end_x, start_y, z_depth, // right_top
         ];
+        indices = vec![0, 1, 2, 3];
     } else {
-        positions = split_by_radius(start_x, start_y, end_x - box_shadow.h, end_y - box_shadow.v, radius.x, z_depth);
+        let r = split_by_radius(start_x, start_y, end_x - box_shadow.h, end_y - box_shadow.v, radius.x, z_depth, None);
+        positions = r.0;
+        indices = r.1;
     }
-    let indices = create_increase_vec(positions.len()/3);
-    (positions, to_triangle(indices.as_slice()), None)
+    (positions, to_triangle(indices.as_slice(), Vec::new()), None)
 }
 
 unsafe impl<C: Context + Share> Sync for BoxShadowSys<C>{}

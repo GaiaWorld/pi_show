@@ -19,7 +19,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 
@@ -39,7 +39,6 @@ pub struct BackgroundColorSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
 }
 
 impl<C: Context + Share> BackgroundColorSys<C> {
@@ -52,7 +51,6 @@ impl<C: Context + Share> BackgroundColorSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
         }
     }
 }
@@ -286,6 +284,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let end_x = layout.width - layout.border;
     let end_y = layout.height - layout.border;
     let mut positions;
+    let mut indices;
     debug_println!("radius:{:?}", radius);
     if radius.x == 0.0 {
         positions = vec![
@@ -294,13 +293,15 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
             end_x, end_y, z_depth, // right_bootom
             end_x, start, z_depth, // right_top
         ];
+        indices = vec![0, 1, 2, 3];
     } else {
-        positions = split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth);
+        let r = split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth, None);
+        positions = r.0;
+        indices = r.1;
     }
     match &color.0 {
         &Color::RGBA(_) => {
-            let indices = create_increase_vec(positions.len()/3);
-            (positions, to_triangle(indices.as_slice()), None)
+            (positions, to_triangle(indices.as_slice(), Vec::new()), None)
         },
         &Color::LinearGradient(ref bg_colors) => {
             let mut lg_pos = Vec::with_capacity(bg_colors.list.len());
@@ -318,11 +319,11 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
                 layout.width, layout.height,
                 layout.width, 0.0,
             ], bg_colors.direction);
-            let (positions, indeices) = split_by_lg(positions, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
-            let mut colors = interp_by_lg(positions.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
-            let indeices = to_triangle(indeices.as_slice());
+            let (positions, indices_arr) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
+            let mut colors = interp_mult_by_lg(positions.as_slice(), &indices_arr, vec![Vec::new()], vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
+            let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
-            (positions, indeices, Some(colors))
+            (positions, indices, Some(colors))
         },
     }
 }

@@ -19,7 +19,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 
 
 lazy_static! {
@@ -40,7 +40,7 @@ lazy_static! {
     
 
     // static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
-    // static ref CLIP_INDEICES_SIZE: Atom = Atom::from("clipTextureSize");
+    // static ref CLIP_indices_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
 pub struct SdfSys<C: Context + Share>{
@@ -433,7 +433,7 @@ impl<C: Context + Share> SdfSys<C> {
         if by_overflow > 0 {
             defines.clip = true;
             let mut by_overflow_ubo = engine.gl.create_uniforms();
-            by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性，
+            by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性，
         }
 
         let pipeline = engine.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
@@ -524,7 +524,7 @@ impl<C: Context + Share> SdfSys<C> {
 
         let radius = cal_border_radius(border_radius, layout);
         let position = split_by_radius(0.0, 0.0, layout.width, layout.height, radius.x, z_depth);
-        let (position, indeices) = split_by_lg(position, lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height)); // 计算end TODO
+        let (position, indices) = split_by_lg(position, lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height)); // 计算end TODO
         let colors = interp_by_lg(position.as_slice(), vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), (0.0, 0.0), (layout.width, layout.height));// 计算end TODO
 
         let vertex_count: u32 = (position.len()/3) as u32;
@@ -533,7 +533,7 @@ impl<C: Context + Share> SdfSys<C> {
         }
         geometry.set_attribute(&AttributeName::Position, 3, Some(position.as_slice()), false);
         geometry.set_attribute(&AttributeName::Color, 4, Some(colors[0].as_slice()), false);
-        geometry.set_indices_short(indeices.as_slice(), false);
+        geometry.set_indices_short(indices.as_slice(), false);
     }
 
     fn change_color(

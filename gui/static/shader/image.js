@@ -5,11 +5,10 @@ let image_vs_code = `
     precision highp float;
 
     // Attributes
-    attribute vec2 uv;
+    attribute vec2 uv0;
     attribute vec3 position;
     
     // Uniforms
-    uniform vec4 uvOffsetScale;
     uniform mat4 worldMatrix;
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
@@ -19,8 +18,7 @@ let image_vs_code = `
     
     void main(void) {
         gl_Position = (projectMatrix * viewMatrix * worldMatrix) * vec4(position, 1.0);
-        // vuv = uvOffsetScale.xy + uv * uvOffsetScale.zw;
-        vuv = uv;
+        vuv = uv0;
     }
 `;
 let image_fs_code = `

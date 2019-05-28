@@ -20,10 +20,26 @@ use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix
 use render::engine::{ Engine , PipelineInfo};
 use render::res::Opacity as ROpacity;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
 use system::render::shaders::color::{CHARBLOCK_FS_SHADER_NAME, CHARBLOCK_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font::StaticSdfFont;
+
+lazy_static! {
+    static ref IMAGE_SHADER_NAME: Atom = Atom::from("char_block");
+    static ref IMAGE_FS_SHADER_NAME: Atom = Atom::from("char_block_fs");
+    static ref IMAGE_VS_SHADER_NAME: Atom = Atom::from("char_block_vs");
+
+    static ref STROKE: Atom = Atom::from("ATROKE");
+    static ref UCOLOR: Atom = Atom::from("UCOLOR");
+    static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
+
+    static ref STROKE_CLAMP: Atom = Atom::from("strokeClamp");
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
+    static ref FONT_CLAMP: Atom = Atom::from("fontClamp");  // 0-1的小数，超过这个值即认为有字体，默认传0.75
+    static ref SMOOT_HRANFE: Atom = Atom::from("smoothRange");
+    static ref TEXTURE: Atom = Atom::from("texture");
+}
 
 pub struct CharBlockSys<C: Context + Share>{
     charblock_render_map: VecMap<Item>,
@@ -55,16 +71,15 @@ impl<C: Context + Share> CharBlockSys<C> {
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, BorderRadius>, &'a MultiCaseImpl<Node, ZDepth>);
+    type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, ZDepth>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.charblock_render_map;
-        let (layouts, border_radius, z_depths) = read;
+        let (layouts, z_depths) = read;
         let (render_objs, _) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
-            let border_radius = unsafe { border_radius.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
             let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1);
@@ -109,17 +124,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (images, text_style, font, z_depths, layouts, opacitys, font_sheet) = read;
+        let (images, text_styles, fonts, z_depths, layouts, opacitys, font_sheet) = read;
         let (render_objs, engine) = write;
-        let char_block = unsafe { images.get_unchecked(event.id) };
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let layout = unsafe { layouts.get_unchecked(event.id) };
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-
-        let mut geometry = create_geometry(&mut engine.gl);
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
-
-        let mut common_ubo = engine.gl.create_uniforms();
         let first_font = match font_sheet.get_first_font(&char_block.family) {
             Some(r) => r,
             None => {
@@ -127,16 +133,39 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
                 return;
             }
         }
-
         let texture = first_font.texture();
+        let char_block = unsafe { images.get_unchecked(event.id) };
+        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
+        let layout = unsafe { layouts.get_unchecked(event.id) };
+        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+        let text_style = unsafe { text_styles.get_unchecked(event.id) }.0;
+        let font = unsafe { fonts.get_unchecked(event.id) }.0;
+        let mut defines = Vec::new();
+
+        let mut geometry = create_geometry(&mut engine.gl);
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+
+        let mut common_ubo = engine.gl.create_uniforms();
+        
         common_ubo.set_sampler(
             &TEXTURE,
             &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
             &(first_font.texture() as Arc<AsRef<<C as Context>::ContextTexture>>)
         );
+        match &text_style.color {
+            Color::RGBA(c) => {
+                debug_println!("char_block, id: {}, color: {:?}", event.id, c);
+                common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
+                defines.push(UCOLOR.clone());
+            },
+            Color::LinearGradient(_) => {
+                defines.push(VERTEX_COLOR.clone());
+            },
+            _ => (),
+        }
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
-        let pipeline = engine.create_pipeline(0, &CHARBLOCK_VS_SHADER_NAME.clone(), &CHARBLOCK_FS_SHADER_NAME.clone(), &[UCOLOR.clone()], self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let pipeline = engine.create_pipeline(0, &CHARBLOCK_VS_SHADER_NAME.clone(), &CHARBLOCK_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
         let is_opacity = if opacity < 1.0 || char_block.src.a < 1.0 {
             false
@@ -151,7 +180,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
             geometry: geometry,
             pipeline: pipeline.clone(),
             context: event.id,
-            defines: vec![UCOLOR.clone()],
+            defines: defines,
         };
 
         let notify = render_objs.get_notify();
@@ -162,10 +191,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
 }
 
 // 修改渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, ModifyEvent> for CharBlockSys<C>{
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, CharBlock<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        match event.field {
+            "color" => {},
+            "stroke" => {},
+            _ => {},
+        }
+
         let (opacitys, images) = read;
         if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };

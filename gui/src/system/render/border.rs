@@ -19,7 +19,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 
@@ -38,7 +38,6 @@ pub struct BorderColorSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
 }
 
 impl<C: Context + Share> BorderColorSys<C> {
@@ -51,7 +50,6 @@ impl<C: Context + Share> BorderColorSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
         }
     }
 }
@@ -242,7 +240,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f3
             ],
         )
     }else {
-        return split_by_radius_border(0.0, 0.0, layout.width, layout.height, radius.x, layout.border, z_depth);
+        return split_by_radius_border(0.0, 0.0, layout.width, layout.height, radius.x, layout.border, z_depth, None);
     }
 }
 

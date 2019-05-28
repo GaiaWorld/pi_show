@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 use component::user::*;
 use component::calc::WorldMatrix;
-use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_INDEICES, CLIP};
+use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_indices, CLIP};
 use render::engine::Engine;
 use single::RenderObjs;
 use entity::Node;
@@ -119,10 +119,10 @@ pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
         return;
     }
     ubos.entry(CLIP.clone()).and_modify(|by_overflow_ubo|{
-        Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_INDEICES, by_overflow as f32);//裁剪属性
+        Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_indices, by_overflow as f32);//裁剪属性
     }).or_insert_with(||{
         let mut by_overflow_ubo = engine.gl.create_uniforms();
-        by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性
+        by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性
         Arc::new(by_overflow_ubo)
     });
     if defines.get_clip() == false {
@@ -165,14 +165,14 @@ pub fn cal_border_radius(border_radius: &BorderRadius,  layout: &Layout) -> Poin
     } 
 }
 
-pub fn positions_width_radius(border_radius: &BorderRadius, layout: &Layout, z_depth: f32, offset:(f32, f32)) -> Vec<f32>{
-    let r = cal_border_radius(border_radius, layout);
-    if r.x == 0.0 {
-        return positions_from_layout(layout, z_depth, offset);
-    }else {
-        return split_by_radius(0.0 + offset.0, 0.0 + offset.1, layout.width + offset.0, layout.height + offset.1, r.x, z_depth);
-    }
-}
+// pub fn positions_width_radius(border_radius: &BorderRadius, layout: &Layout, z_depth: f32, offset:(f32, f32)) -> Vec<f32>{
+//     let r = cal_border_radius(border_radius, layout);
+//     if r.x == 0.0 {
+//         return positions_from_layout(layout, z_depth, offset);
+//     }else {
+//         return split_by_radius(0.0 + offset.0, 0.0 + offset.1, layout.width + offset.0, layout.height + offset.1, r.x, z_depth, None);
+//     }
+// }
 
 pub fn positions_from_layout(layout: &Layout, z_depth: f32, offset:(f32, f32)) -> Vec<f32>{
     let (start_x, start_y, end_x, end_y) = (offset.0, offset.1, layout.width + offset.0, layout.height + offset.1);

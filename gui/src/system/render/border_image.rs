@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
+use hal_core::*;
 use atom::Atom;
 use polygon::*;
 
@@ -18,10 +18,10 @@ use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
 use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
-use render::res::Opacity as ROpacity;
+use render::res::{Opacity as ROpacity, SamplerRes};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
-use system::render::shaders::color::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
+use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 
 pub struct BorderImageSys<C: Context + Share>{
     image_render_map: VecMap<Item>,
@@ -31,7 +31,6 @@ pub struct BorderImageSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
     default_sampler: Option<Arc<SamplerRes<C>>>,
 }
 
@@ -45,7 +44,6 @@ impl<C: Context + Share> BorderImageSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
             default_sampler: None,
         }
     }
@@ -59,20 +57,22 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
         &'a MultiCaseImpl<Node, BorderImageClip>,
         &'a MultiCaseImpl<Node, BorderImageSlice>,
         &'a MultiCaseImpl<Node, BorderImageRepeat>,
+        &'a MultiCaseImpl<Node, BorderImage<C>>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.image_render_map;
-        let (layouts, z_depths, clips, slices, repeats) = read;
+        let (layouts, z_depths, clips, slices, repeats, images) = read;
         let (render_objs, _) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
-            let clip = unsafe { clips.get(id) };
-            let slice = unsafe { slices.get_unchecked(id) };
-            let repeat = unsafe { repeats.get(id) };
+            let slice = unsafe { slices.get_unchecked(*id) };
+            let image = unsafe { images.get_unchecked(*id) };
+            let repeat = repeats.get(*id);
+            let clip = clips.get(*id);
 
             let (positions, uvs, indices) = get_border_image_stream(image, clip, slice, repeat, layout, z_depth - 0.1, Vec::new(), Vec::new(), Vec::new());
 
@@ -94,10 +94,13 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
         let (_, engine) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        if engine.res_mgr.samplers.get(&hash).is_none() {
-            let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-            self.default_sampler = Some(engine.res_mgr.samplers.create(res));
-        }
+        match engine.res_mgr.samplers.get(&hash) {
+            Some(r) => self.default_sampler = Some(r.clone()),
+            None => {
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+            }
+        };
     }
 }
 
@@ -123,6 +126,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
 
         let mut geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(
@@ -132,12 +136,14 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         );
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
-        let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), &[], self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
-        let is_opacity = if opacity < 1.0 || image.src.a < 1.0 {
+        let is_opacity = if opacity < 1.0 {
             false
-        }else {
+        }else if let ROpacity::Opaque = image.src.opacity{
             true
+        }else {
+            false
         };
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth - 1.0,
@@ -147,7 +153,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
             geometry: geometry,
             pipeline: pipeline.clone(),
             context: event.id,
-            defines: vec![UCOLOR.clone()],
+            defines: defines,
         };
 
         let notify = render_objs.get_notify();
@@ -164,21 +170,22 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (opacitys, images) = read;
         if let Some(item) = unsafe { self.image_render_map.get_mut(event.id) } {
-            let opacity = unsafe { opacitys.get_unchecked(id).0 };
-            let image = unsafe { images.get_unchecked(id) };
-
-            // 图片改变， 修改渲染对象的不透明属性
-            self.change_is_opacity(event.id, opacity, image, item, render_objs);
+            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+            let image = unsafe { images.get_unchecked(event.id) };
 
             // 图片改变， 更新common_ubo中的纹理
-            let render_obj = unsafe { render_objs.get_unchecked(id) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON);
-            let common_ubo = Arc::mark_mut(common_ubo);
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+            let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+            let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
                 &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
                 &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
             );
+
+            // 图片改变， 修改渲染对象的不透明属性
+            let index = item.index;
+            self.change_is_opacity(event.id, opacity, image, index, render_objs);
         }
     }
 }
@@ -218,15 +225,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, images) = read;
         if let Some(item) = unsafe { self.image_render_map.get(event.id) } {
-            let opacity = unsafe { opacitys.get_unchecked(id).0 };
-            let image = unsafe { images.get_unchecked(id) };
-            self.change_is_opacity(event.id, opacity, image, item, write);
+            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+            let image = unsafe { images.get_unchecked(event.id) };
+            let index = item.index;
+            self.change_is_opacity(event.id, opacity, image, index, write);
         }
     }
 }
 
 impl<'a, C: Context + Share> BorderImageSys<C> {
-    fn change_is_opacity(&mut self, id: usize, opacity: f32, image: &BorderImage<C>, item: &Item, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, id: usize, opacity: f32, image: &BorderImage<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
         }else if let ROpacity::Opaque = image.src.opacity{
@@ -236,7 +244,7 @@ impl<'a, C: Context + Share> BorderImageSys<C> {
         };
 
         let notify = render_objs.get_notify();
-        unsafe { render_objs.get_unchecked_write(item.index, &notify).set_is_opacity(is_opacity)};
+        unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
     }
 }
 
@@ -247,6 +255,160 @@ struct Item {
 
 unsafe impl<C: Context + Share> Sync for BorderImageSys<C>{}
 unsafe impl<C: Context + Share> Send for BorderImageSys<C>{}
+
+
+pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
+  img: &BorderImage<C>,
+  clip: Option<&BorderImageClip>,
+  slice: &BorderImageSlice,
+  repeat: Option<&BorderImageRepeat>,
+  layout: &Layout, z: f32, mut point_arr: Polygon, mut uv_arr: Polygon, mut index_arr: Vec<u16>) -> (Polygon, Polygon, Vec<u16>){
+    let (uv1, uv2) = match clip {
+        Some(c) => (c.min, c.max),
+        _ => (Point2::new(0.0,0.0), Point2::new(1.0,1.0))
+    };
+    let p1 = Point2::new(0.0, 0.0);
+    let p2 = Point2::new(layout.width, layout.height);
+    let w = p2.x - p1.x;
+    let h = p2.y - p1.y;
+    let left = layout.border;
+    let right = layout.width - layout.border;
+    let top = layout.border;
+    let bottom = layout.height - layout.border;
+    let uvw = uv2.x - uv1.x;
+    let uvh = uv2.y - uv1.y;
+    let uv_left = slice.left * uvw;
+    let uv_right = slice.right * uvw;
+    let uv_top = slice.top * uvh;
+    let uv_bottom = slice.bottom * uvh;
+
+    // 先将16个顶点和uv放入数组，记录偏移量
+    let mut pi = (point_arr.len() / 3)  as u16;
+    // 左上的4个点
+    let p_x1_y1 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p1.y, z, uv1.x, uv1.y, &mut pi);
+    let p_x1_top = push_vertex(&mut point_arr, &mut uv_arr, p1.x, top, z, uv1.x, uv_top, &mut pi);
+    let p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, z, uv_left, uv_top, &mut pi);
+    let p_left_y1 = push_vertex(&mut point_arr, &mut uv_arr, left, p1.y, z, uv_left, uv1.y, &mut pi);
+    push_quad(&mut index_arr, p_x1_y1, p_x1_top, p_left_top, p_left_y1);
+
+    // 左下的4个点
+    let p_x1_bottom = push_vertex(&mut point_arr, &mut uv_arr, p1.x, bottom, z, uv1.x, uv_bottom, &mut pi);
+    let p_x1_y2 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p2.y, z, uv1.x, uv2.y, &mut pi);
+    let p_left_y2 = push_vertex(&mut point_arr, &mut uv_arr, left, p2.y, z, uv_left, uv2.y, &mut pi);
+    let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, z, uv_left, uv_bottom, &mut pi);
+    push_quad(&mut index_arr, p_x1_bottom, p_x1_y2, p_left_y2, p_left_bottom);
+
+    // 右下的4个点
+    let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, z, uv_right, uv_bottom, &mut pi);
+    let p_right_y2 = push_vertex(&mut point_arr, &mut uv_arr, right, p2.y, z, uv_right, uv2.y, &mut pi);
+    let p_x2_y2 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p2.y, z, uv2.x, uv2.y, &mut pi);
+    let p_x2_bottom = push_vertex(&mut point_arr, &mut uv_arr, p2.x, bottom, z, uv2.x, uv_bottom, &mut pi);
+    push_quad(&mut index_arr, p_right_bottom, p_right_y2, p_x2_y2, p_x2_bottom);
+
+    // 右上的4个点
+    let p_right_y1 = push_vertex(&mut point_arr, &mut uv_arr, right, p1.y, z, uv_right, uv1.y, &mut pi);
+    let p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, z, uv_right, uv_top, &mut pi);
+    let p_x2_top = push_vertex(&mut point_arr, &mut uv_arr, p2.x, top, z, uv2.x, uv_top, &mut pi);
+    let p_x2_y1 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p1.y, z, uv2.x, uv1.y, &mut pi);
+    push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
+
+    let (ustep, vstep) = match repeat {
+      Some(&BorderImageRepeat(utype, vtype)) => {
+        // 根据图像大小和uv计算
+        let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
+        let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
+        (ustep, vstep)
+      },
+      _ => (w, h)
+    };
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_left_y1, p_left_top, p_right_top, p_right_y1, z,
+    uv_left, uv1.y, uv_right, uv_top, ustep, &mut pi); // 上边
+    push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_left_bottom, p_left_y2, p_right_y2, p_right_bottom, z,
+    uv_left, uv_bottom, uv_right, uv2.y, ustep, &mut pi); // 下边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_x1_top, p_x1_bottom, p_left_bottom, p_left_top, z,
+    uv1.x, uv_top, uv_left, uv_bottom, vstep, &mut pi); // 左边
+    push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
+    p_right_top, p_right_bottom, p_x2_bottom, p_x2_top, z,
+    uv_right, uv_top, uv2.x, uv_bottom, vstep, &mut pi); // 右边
+    // 处理中间
+    if slice.fill {
+      push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
+    }
+    (point_arr, uv_arr, index_arr)
+}
+// 将四边形放进数组中
+fn push_vertex(point_arr: &mut Polygon, uv_arr: &mut Polygon, x: f32, y: f32, z: f32, u: f32, v: f32, i: &mut u16) -> u16 {
+    point_arr.extend_from_slice(&[x, y, z]);
+    uv_arr.extend_from_slice(&[u, v]);
+    let r = *i;
+    *i += 1;
+    r
+}
+// 将四边形放进数组中
+fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16){
+    index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]);
+}
+
+// 根据参数计算uv的step
+fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
+  let c = csize/img_size;
+  if c <= 1.0 {
+    return std::f32::INFINITY
+  }
+  match rtype {
+    BorderImageRepeatType::Repeat => csize / c.round(),
+    BorderImageRepeatType::Round => csize / c.ceil(),
+    BorderImageRepeatType::Space => csize / c.floor(),
+    _ => std::f32::INFINITY
+  }
+}
+
+// 将指定区域按u切开
+fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
+  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  let y1 = point_arr[p1 as usize *3 + 1];
+  let y2 = point_arr[p1 as usize *3 + 4];
+  let mut cur = point_arr[p1 as usize *3] + step;
+  let mut max = point_arr[p3 as usize *3];
+  let mut pt1 = p1;
+  let mut pt2 = p2;
+  while cur < max {
+    let i3 = push_vertex(point_arr, uv_arr, cur, y2, z, u2, v2, i);
+    let i4 = push_vertex(point_arr, uv_arr, cur, y1, z, u2, v1, i);
+    push_quad(index_arr, pt1, pt2, i3, i4);
+    // 因为uv不同，新插入2个顶点
+    pt1 = push_vertex(point_arr, uv_arr, cur, y1, z, u1, v1, i);
+    pt2 = push_vertex(point_arr, uv_arr, cur, y2, z, u1, v2, i);
+    cur = max;
+    max += step;
+  }
+  push_quad(index_arr, pt1, pt2, p3, p4);
+}
+// 将指定区域按v切开
+fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
+  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  let x1 = point_arr[p1 as usize *3];
+  let x2 = point_arr[p1 as usize *3 + 3];
+  let mut cur = point_arr[p1 as usize *3 + 1] + step;
+  let mut max = point_arr[p3 as usize *3 + 1];
+  let mut pt1 = p1;
+  let mut pt4 = p4;
+  while cur < max {
+    let i2 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v2, i);
+    let i3 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v2, i);
+    push_quad(index_arr, pt1, i2, i3, pt4);
+    // 因为uv不同，新插入2个顶点
+    pt1 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v1, i);
+    pt4 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v1, i);
+    cur = max;
+    max += step;
+  }
+  push_quad(index_arr, pt1, p2, p3, pt4);
+}
+
 
 impl_system!{
     BorderImageSys<C> where [C: Context + Share],

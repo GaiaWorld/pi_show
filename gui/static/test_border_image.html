@@ -12,12 +12,21 @@
 <body>
     <canvas id="canvas" width = "1000px" height="700px"></canvas>
     <script>
-        var RUST_BACKTRACE = 1;
-        var FitType_None = 0;
-        var FitType_Fill = 1;
-        var FitType_Contain = 2;
-        var FitType_Cover = 3;
-        var FitType_ScaleDown = 4;
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+        
+        var BorderImageRepeatType_Stretch = 0; // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
+        var BorderImageRepeatType_Repeat = 1; // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
+        var BorderImageRepeatType_Round = 2; // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
+        var BorderImageRepeatType_Space = 3;// 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
+    </script>
     </script>
     <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
     <script src="./shader/color.js"></script>
@@ -27,11 +36,14 @@
         var gui = Module._create_gui(engine, 1000, 700);
 
 
-        var node = Module._create_image_node(gui);
+        var node = Module._create_node(gui);
         Module._append_child(gui, node, 1);
-        // Module._set_width(gui, node, 100);
-        // Module._set_height(gui, node, 100);
-
+        Module._set_width(gui, node, 500);
+        Module._set_height(gui, node, 500);
+        Module._set_border(gui, node, YGEdgeAll, 20);
+        Module._set_image_clip(gui, node, 0, 0, 0.6328125, 0.6328125);
+        Module._set_border_image_slice(gui, node, 0.234375, 0.234375, 0.234375, 0.234375, true);
+        Module._set_border_image_repeat(gui, node, BorderImageRepeatType_Repeat, BorderImageRepeatType_Repeat);
         // var root = Module._create_node(gui);
         // Module._append_child(gui, body, root);
         // Module._set_width(gui, node, 512);
@@ -44,12 +56,8 @@
 
         image.onload = () => {
             window.__jsObj = image;
-            window.__jsObj1 = "./xxx.png";
-            Module._set_src(gui, node, 0, 0);
-            Module._set_image_clip(gui, node, 0, 0, 0.5, 0.5);
-            Module._set_object_fit(gui, node, FitType_Contain);
-            Module._set_width(gui, node, 512);
-            Module._set_height(gui, node, 100);
+            window.__jsObj1 = "./border.png";
+            Module._set_border_src(gui, node, 0, 0);
 
             Module._render(gui);
             
@@ -66,7 +74,7 @@
             //     image.src = "./test_image.jpg";
             // }, 2000);
         };
-        image.src = "./xxx.png";
+        image.src = "./border.png";
 
     </script>
 </body>

@@ -37,6 +37,7 @@ lazy_static! {
     pub static ref BG_COLOR_N: Atom = Atom::from("background_color_sys");
     pub static ref BOX_SHADOW_N: Atom = Atom::from("box_shadow_sys");
     pub static ref BR_COLOR_N: Atom = Atom::from("border_color_sys");
+    pub static ref BR_IMAGE_N: Atom = Atom::from("border_image_sys");
     pub static ref IMAGE_N: Atom = Atom::from("image_sys");
     pub static ref CHAR_BLOCK_N: Atom = Atom::from("charblock_sys");
     pub static ref NODE_ATTR_N: Atom = Atom::from("node_attr_sys");
@@ -89,6 +90,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
     world.register_single::<ViewPort>(ViewPort(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
+    world.register_single::<NodeRenderMap>(NodeRenderMap::new());
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -104,12 +106,13 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     // // world.register_system(CHAR_BLOCK_N.clone(), CharBlockSys::<C>::default());
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
     world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
+    world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));
     world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::<C>::new()));
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
     world
 }

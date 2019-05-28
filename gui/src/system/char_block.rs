@@ -17,7 +17,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
 use system::util::{cal_matrix, color_is_opaque, create_geometry, set_world_matrix_ubo, set_atrribute, by_overflow_change, DefinesList, DefinesClip};
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_INDEICES, COMMON, ALPHA, CLIP};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_indices, COMMON, ALPHA, CLIP};
 
 
 lazy_static! {
@@ -261,7 +261,7 @@ impl<C: Context + Share> CharBlockSys<C> {
         if by_overflow > 0 {
             defines.clip = true;
             let mut by_overflow_ubo = engine.gl.create_uniforms();
-            by_overflow_ubo.set_float_1(&CLIP_INDEICES, by_overflow as f32); //裁剪属性，
+            by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性，
         }
 
         let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());

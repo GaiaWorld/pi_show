@@ -16,14 +16,13 @@ use polygon::*;
 use component::user::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
 use entity::{Node};
-use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
+use single::*;
 use render::engine::Engine;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDEICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 pub struct NodeAttrSys<C: Context + Share>{
-    node_render_map: VecMap<Vec<usize>>,
     view_matrix_ubo: Option<Arc<Uniforms<C>>>,
     project_matrix_ubo: Option<Arc<Uniforms<C>>>,
     marker: PhantomData<C>,
@@ -32,7 +31,6 @@ pub struct NodeAttrSys<C: Context + Share>{
 impl<C: Context + Share> NodeAttrSys<C> {
     pub fn new() -> Self{
         NodeAttrSys {
-            node_render_map: VecMap::default(),
             view_matrix_ubo: None,
             project_matrix_ubo: None,
             marker: PhantomData,
@@ -68,17 +66,17 @@ impl<'a, C: Context + Share> Runner<'a> for NodeAttrSys<C>{
 
 impl<'a, C: Context + Share> EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
     type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-        self.node_render_map.insert(event.id, Vec::new());
+    type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
+        node_render_map.create(event.id);
     }
 }
 
 impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData){
-        unsafe { self.node_render_map.remove_unchecked(event.id) };
+    type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
+        unsafe { node_render_map.destroy_unchecked(event.id) };
     }
 }
 
@@ -93,12 +91,13 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Layout>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (clip_ubo, world_matrixs, by_overflows, opacitys, visibilitys, transforms, layouts) = read;
-        let (render_objs, engine) = write;
+        let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-        unsafe{ self.node_render_map.get_unchecked_mut(render_obj.context).push(event.id) };
+        let notify = node_render_map.get_notify();
+        unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
         
         let mut ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
@@ -135,7 +134,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         }
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
-        debug_println!("id: {}, opacity: {:?}", render_obj.context, opacity);
+        debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
         unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
@@ -147,20 +146,22 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
 // 删除索引
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+    type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, node_render_map: Self::WriteData){
         let render_obj = unsafe { read.get_unchecked(event.id) };
-        unsafe{ self.node_render_map.get_unchecked_mut(render_obj.context).remove_item(&event.id) };
+        let notify = node_render_map.get_notify();
+        unsafe{ node_render_map.remove_unchecked(render_obj.context, event.id, &notify) };
     }
 }
 
 //世界矩阵变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let world_matrix = cal_matrix(event.id, read.0, read.1, read.2);
-        let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
+        let (render_objs, node_render_map) = write;
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
             let mut render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
@@ -175,16 +176,17 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
 //不透明度变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData){
         let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-        let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
+        let (render_objs, node_render_map) = write;
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             let ubos = &mut render_obj.ubos;
             unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
-            debug_println!("id: {}, opacity: {:?}", render_obj.context, opacity);
+            debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
         }
     }
 }
@@ -192,12 +194,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<ClipUbo<C>>);
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (by_overflows, clip_ubo) = read;
-        let (render_objs, engine) = write;
+        let (render_objs, engine, node_render_map) = write;
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
-        let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         if by_overflow == 0 {
             for id in obj_ids.iter() {
@@ -254,10 +256,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
 // 设置visibility
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, write: Self::WriteData){
+        let (render_objs, node_render_map) = write;
         let visibility = unsafe { visibilitys.get_unchecked(event.id).0 };
-        let obj_ids = unsafe{ self.node_render_map.get_unchecked(event.id) };
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
             let notify = render_objs.get_notify();

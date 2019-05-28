@@ -176,6 +176,46 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
   debug_println!("set_src"); 
 }
 
+// __jsObj: image, __jsObj1: image_name(String)
+// 设置图片的src
+#[no_mangle]
+pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
+  let name: String = js!{return __jsObj1}.try_into().unwrap();
+  let name = Atom::from(name);
+  let node = node as usize;
+  let world = unsafe {&mut *(world as usize as *mut World)};
+  let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
+  let engine = engine.lend_mut();
+  let texture = match engine.res_mgr.textures.get(&name) {
+      Some(res) => {
+        res.clone()
+      },
+      None => {
+        let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+        let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+
+        let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
+          Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
+          Err(s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+            Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+            Err(s) => panic!("set_src error"),
+          },
+        };
+
+        // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
+        // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture.unwrap()) );
+        res
+      },
+  };
+  
+  let images = world.fetch_multi::<Node, BorderImage<WebGLContextImpl>>().unwrap();
+  let image = images.lend_mut();
+  image.insert(node, BorderImage{src: texture});
+
+  debug_println!("set_border_src"); 
+}
+
 #[no_mangle]
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};

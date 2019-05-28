@@ -53,7 +53,7 @@ pub fn char_block_fragment_shader() -> String{
         #endif
         
         #ifdef CLIP_PLANE
-            uniform float clipIndices;
+            uniform float clipindices;
             uniform sampler2D clipTexture;
             uniform float clipTextureSize;
         #endif
@@ -98,7 +98,7 @@ pub fn char_block_fragment_shader() -> String{
             vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
             vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
 
-            int index = int(clipIndices);
+            int index = int(clipindices);
             int mask = int(clipColor.r * 256.0);
             
             bvec4 m1, m2, i1, i2;
