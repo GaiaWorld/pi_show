@@ -156,6 +156,7 @@ pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
+#[derive(Debug)]
 pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
 
 pub enum LengthUnitType{

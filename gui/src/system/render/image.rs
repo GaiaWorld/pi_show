@@ -254,14 +254,16 @@ struct Item {
     position_change: bool,
 }
 
-//取几何体的顶点流、 uv流和属性流
+//取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
 fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
     let start = layout.border;
     let end_x = layout.width - layout.border;
     let end_y = layout.height - layout.border;
-    let positions = if radius.x == 0.0 {
+    debug_println!("layout1-----------------------------------pos:{:?}, uv:{:?}", pos, uv);
+    debug_println!("layout2-----------------------------------{:?}", layout);
+    let positions = if radius.x == 0.0 || layout.width == 0.0 || layout.height == 0.0 {
         vec![
             start, start, z_depth,
             start, end_y, z_depth,
@@ -271,15 +273,16 @@ fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_de
     } else {
         split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth)
     };
-    
     let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
     let (positions, _) = split_by_lg(positions, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
     let (positions, indices) = split_by_lg(positions, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
     let indices = to_triangle(indices.as_slice());
-    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.0.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    debug_println!("positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.0.x]}], left_percent, right_percent, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
+    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.1.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
     let v = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    println!("v u {:?}, {:?}", v, u);
     let mut uvs = Vec::with_capacity(u[0].len());
-    for i in 0..u.len() {
+    for i in 0..u[0].len() {
         uvs.push(u[0][i]);
         uvs.push(v[0][i]);
     }
