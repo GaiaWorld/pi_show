@@ -11,7 +11,7 @@ use hal_core::*;
 
 use state::{State};
 use geometry::{WebGLGeometryImpl};
-use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
+use render_target::{WebGLRenderTargetImpl, WebGLRenderBufferImpl};
 use texture::{WebGLTextureImpl, WebGLTextureData};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
@@ -94,16 +94,10 @@ impl Context for WebGLContextImpl {
         })
     }
 
-    fn create_render_target(&mut self) -> Result<Self::ContextRenderTarget, String> {
-        Err("no impl".to_string())
+    fn create_render_target(&mut self, w: u32, h: u32, format: &PixelFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
+        WebGLRenderTargetImpl::new(&self.gl)
     }
 
-    fn create_render_buffer(&mut self, _w: u32, _h: u32, _format: PixelFormat) -> Result<Self::ContextRenderBuffer, String> {
-        Ok(WebGLRenderBufferImpl {
-            
-        })
-    }
- 
     fn begin_render(&mut self, render_target: &Arc<AsRef<Self::ContextRenderTarget>>, data: &Arc<AsRef<RenderBeginDesc>>) {
         self.state.set_render_target(render_target);
         let data = data.as_ref().as_ref();

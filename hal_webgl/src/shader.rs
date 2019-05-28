@@ -185,23 +185,22 @@ impl ProgramManager {
             return Err(format!("{} isn't fragment shader", fs_hash));
         }
 
-        // 创建program，并链接
         let gl = self.gl.upgrade().unwrap();
-
+        
+        // 创建program
         let program_handle = gl.create_program().ok_or_else(|| String::from("unable to create shader object"))?;
         gl.attach_shader(&program_handle, &vs.handle);
         gl.attach_shader(&program_handle, &fs.handle);
 
-        let max_attribute_count = std::cmp::min(self.max_vertex_attribs, get_builtin_attribute_count());
-        
         // 先绑定属性，再连接
-        // 因为webgl有警告，所以这里就不记录类型和大小了。
+        let max_attribute_count = std::cmp::min(self.max_vertex_attribs, get_builtin_attribute_count());
         for i in 0..max_attribute_count {
             let (attrib_name, name) = Self::get_attribute_by_location(i);
             debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
             gl.bind_attrib_location(&program_handle, i, name);
         }
 
+        // 连接program
         gl.link_program(&program_handle);
         let is_link_ok = gl
             .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
@@ -216,6 +215,7 @@ impl ProgramManager {
             return Err(e);
         }
 
+        // 初始化attribute和uniform
         let attributes = ProgramManager::init_attribute(&gl, &program_handle);
         let all_uniforms = ProgramManager::init_uniform(&gl, &program_handle);
         

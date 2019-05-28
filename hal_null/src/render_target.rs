@@ -31,13 +31,11 @@ impl RenderTarget for NullRenderTargetImpl {
     type ContextTexture = NullTextureImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
 
-    fn attach_texture(&mut self, _attachment: RTAttachment, _texture: &Arc<Self::ContextTexture>) {
+    fn get_size(&self) -> (u32, u32) {
+        (0, 0)
     }
-    
-    fn attach_render_buffer(&mut self, _attachment: RTAttachment, _buffer: &Arc<Self::ContextRenderBuffer>) {
-    }
-    
-    fn get_texture(&self, _attachment: RTAttachment) -> Option<Arc<Self::ContextTexture>> {
+
+    fn get_color_texture(&self, index: u32) -> Option<Arc<Self::ContextTexture>> {
         None
     }
 }

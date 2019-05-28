@@ -121,13 +121,8 @@ pub trait Context {
     /** 
      * 创建渲染目标
      */
-    fn create_render_target(&mut self) -> Result<Self::ContextRenderTarget, String>;
+    fn create_render_target(&mut self, w: u32, h: u32, format: &PixelFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String>;
 
-    /** 
-     * 创建渲染缓冲区
-     */
-    fn create_render_buffer(&mut self, w: u32, h: u32, format: PixelFormat) -> Result<Self::ContextRenderBuffer, String>;
- 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效

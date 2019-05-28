@@ -70,15 +70,12 @@ impl RenderTarget for WebGLRenderTargetImpl {
     type ContextTexture = WebGLTextureImpl;
     type ContextRenderBuffer = WebGLRenderBufferImpl;
 
-    fn attach_texture(&mut self, _attachment: RTAttachment, _texture: &Arc<Self::ContextTexture>) {
-        assert!(self.frame_buffer.is_some(), "WebGLRenderTargetImpl attach_texture failed, no fbo");
+    fn get_size(&self) -> (u32, u32) {
+        // (self.width, self.height)
+        (0, 0)
     }
-    
-    fn attach_render_buffer(&mut self, _attachment: RTAttachment, _buffer: &Arc<Self::ContextRenderBuffer>) {
-        assert!(self.frame_buffer.is_some(), "WebGLRenderTargetImpl attach_render_buffer failed, no fbo");
-    }
-    
-    fn get_texture(&self, _attachment: RTAttachment) -> Option<Arc<Self::ContextTexture>> {
+
+    fn get_color_texture(&self, index: u32) -> Option<Arc<Self::ContextTexture>> {
         None
     }
 }

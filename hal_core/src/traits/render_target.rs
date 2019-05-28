@@ -31,18 +31,13 @@ pub trait RenderTarget: Drop + AsRef<Self> {
     type ContextTexture: Texture;
     type ContextRenderBuffer: RenderBuffer;
 
-    /**
-     * 为渲染目标邦纹理
+    /** 
+     * 取大小
      */
-    fn attach_texture(&mut self, attachment: RTAttachment, texture: &Arc<Self::ContextTexture>);
-    
-    /**
-     * 为渲染目标邦纹理
-     */
-    fn attach_render_buffer(&mut self, attachment: RTAttachment, buffer: &Arc<Self::ContextRenderBuffer>);
-    
+    fn get_size(&self) -> (u32, u32);
+
     /**
      * 取渲染目标中特定通道的纹理
      */
-    fn get_texture(&self, attachment: RTAttachment) -> Option<Arc<Self::ContextTexture>>;
+    fn get_color_texture(&self, index: u32) -> Option<Arc<Self::ContextTexture>>;
 }
