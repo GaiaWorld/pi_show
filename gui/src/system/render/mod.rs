@@ -8,6 +8,7 @@ mod render;
 mod image;
 // mod charblock;
 
+// pub use system::render::charblock::*;
 pub use system::render::border::*;
 pub use system::render::border_image::*;
 pub use system::render::background_color::*;

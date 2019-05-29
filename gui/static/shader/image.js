@@ -26,15 +26,13 @@ let image_fs_code = `
 
     // Uniforms
     uniform float alpha;
-    uniform vec4 color;
     uniform sampler2D texture;
 
     // Varyings
     varying vec2 vuv;
 
     void main(void) {
-        vec4 c = color;
-        c = texture2D(texture, vuv);
+        vec4 c = texture2D(texture, vuv);
         gl_FragColor = vec4(c.rgb, c.a * alpha);
         gl_FragColor = vec4(c.rgb, 1.0);
     }

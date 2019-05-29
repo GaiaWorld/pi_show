@@ -319,7 +319,10 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
                 layout.width, layout.height,
                 layout.width, 0.0,
             ], bg_colors.direction);
+            println!("split_by_lg------------------positions:{:?}, indices: {:?}, lg_pos:{:?}, start: ({}, {}), end: ({}, {})", positions, indices, lg_pos, (endp.0).0, (endp.0).1, (endp.1).0, (endp.1).1);
             let (positions, indices_arr) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
+            println!("indices_arr------------------{:?}", indices_arr);
+            // println!("interp_mult_by_lg------------------positions:{:?}, indices_arr: {:?}, lg_pos:{:?}, cfg: {:?}, start: ({}, {}), end: ({}, {})", positions, indices_arr, lg_pos, vec![LgCfg{unit:4, data: &color}], (endp.0).0, (endp.0).1, (endp.1).0, (endp.1).1);
             let mut colors = interp_mult_by_lg(positions.as_slice(), &indices_arr, vec![Vec::new()], vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
             let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
