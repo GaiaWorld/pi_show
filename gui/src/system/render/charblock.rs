@@ -21,7 +21,7 @@ use render::engine::{ Engine , PipelineInfo};
 use render::res::Opacity as ROpacity;
 use system::util::*;
 use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON, TEXTURE};
-use system::render::shaders::color::{CHARBLOCK_FS_SHADER_NAME, CHARBLOCK_VS_SHADER_NAME};
+use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font::StaticSdfFont;
 
@@ -30,7 +30,7 @@ lazy_static! {
     static ref IMAGE_FS_SHADER_NAME: Atom = Atom::from("char_block_fs");
     static ref IMAGE_VS_SHADER_NAME: Atom = Atom::from("char_block_vs");
 
-    static ref STROKE: Atom = Atom::from("ATROKE");
+    static ref STROKE: Atom = Atom::from("STROKE");
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
     static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
 
@@ -71,7 +71,12 @@ impl<C: Context + Share> CharBlockSys<C> {
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, ZDepth>);
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, TextStyle>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+    );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.charblock_render_map;
@@ -152,22 +157,34 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
             &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
             &(first_font.texture() as Arc<AsRef<<C as Context>::ContextTexture>>)
         );
+        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+
         match &text_style.color {
             Color::RGBA(c) => {
-                debug_println!("char_block, id: {}, color: {:?}", event.id, c);
-                common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
+                let mut ucolor_ubo = engine.create_uniforms();
+                ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
+                render_obj.ubos.insert(&UCOLOR, Arc::new(ucolor_ubo));
                 defines.push(UCOLOR.clone());
+                debug_println!("text, id: {}, color: {:?}", event.id, c);
             },
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
             },
             _ => (),
         }
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
-        let pipeline = engine.create_pipeline(0, &CHARBLOCK_VS_SHADER_NAME.clone(), &CHARBLOCK_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
+        let pipeline = engine.create_pipeline(
+            0,
+            &TEXT_VS_SHADER_NAME.clone(),
+            &TEXT_FS_SHADER_NAME.clone(),
+            defines.as_slice(),
+            self.rs.clone(),
+            self.bs.clone(),
+            self.ss.clone(),
+            self.ds.clone()
+        );
         
-        let is_opacity = if opacity < 1.0 || char_block.src.a < 1.0 {
+        let is_opacity = if opacity < 1.0 || !text_style.color.is_opacity() {
             false
         }else {
             true
@@ -190,37 +207,20 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, CreateEve
     }
 }
 
-// 修改渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, CharBlock<C>>);
+
+// 字体修改， 设置顶点数据脏
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, ModifyEvent> for CharBlockSys<C>{
+    type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        match event.field {
-            "color" => {},
-            "stroke" => {},
-            _ => {},
-        }
-
-        let (opacitys, images) = read;
-        if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
-            let opacity = unsafe { opacitys.get_unchecked(id).0 };
-            let char_block = unsafe { images.get_unchecked(id) };
-
-            // 图片改变， 修改渲染对象的不透明属性
-            self.change_is_opacity(event.id, opacity, char_block, item, render_objs);
-
-            // 图片改变， 更新common_ubo中的纹理
-            let render_obj = unsafe { render_objs.get_unchecked(id) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON);
-            let common_ubo = Arc::mark_mut(common_ubo);
-            common_ubo.set_sampler(
-                &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-                &(char_block.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
-            );
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let item = unsafe { self.charblock_render_map.get_unchecked(event.id) };
+        if item.position_change == false {
+            item.position_change = true;
+            self.geometry_dirtys.push(event.id);
         }
     }
 }
+
 
 // 删除渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, DeleteEvent> for CharBlockSys<C>{
@@ -236,17 +236,145 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock<C>, DeleteEve
     }
 }
 
-//布局修改， 需要重新计算顶点
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for CharBlockSys<C>{
-    type ReadData = ();
-    type WriteData = ();
+// 字体修改， 重新设置字体纹理
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockSys<C>{
+    type ReadData = (
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a MultiCaseImpl<Node, Font>>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let (font_sheet, font) = read;
         if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
+            let first_font = match font_sheet.get_first_font(&font.family) {
+                Some(r) => r,
+                None => {
+                    debug_println!("font is not exist: {}", **font.family);
+                    return;
+                }
+            };
+            let texture = first_font.texture();
+            let render_obj = unsafe { render_objs.get_mut(item.index) } {
+            let common_ubo = render_obj.ubos.get_mut(&COMMON);
+            let common_ubo = Arc::make_mut(common_ubo)
+            common_ubo.set_sampler(
+                &TEXTURE,
+                &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
+                &(first_font.texture() as Arc<AsRef<<C as Context>::ContextTexture>>)
+            );
+        }
+    }
+}
+
+// TextStyle修改， 设置对应的ubo和宏
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, TextStyle>>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let (opacitys, text_styles) = read;   
+        let (render_objs, engine) = write;
+        if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
+            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            let text_style = unsafe { text_styles.get_unchecked(event.id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+
+            match event.field {
+                "color" => {
+                    match &text_style.color {
+                        Color::RGBA(c) => {
+                            // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
+                            if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
+                                render_obj.defines.remove_item(&VERTEX_COLOR);
+
+                                let mut ucolor_ubo = engine.create_uniforms();
+                                render_obj.ubos.insert(&UCOLOR, Arc::new(ucolor_ubo));
+                                render_obj.defines.push(UCOLOR.clone());
+
+                                if item.position_change == false {
+                                    item.position_change = true;
+                                    self.geometry_dirtys.push(event.id);
+                                }
+                            }
+                            // 设置ubo
+                            let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+                            debug_println!("text_color, id: {}, color: {:?}", event.id, c);
+                            common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+
+                            render_objs.get_notify().modify_event(item.index, "", 0);
+                        },
+                        Color::LinearGradient(_) => {
+                            // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
+                            if find_item_from_vec(&render_obj.defines, &VERTEX_COLOR) == 0 {
+                                render_obj.defines.remove_item(&UCOLOR);
+                                render_obj.defines.push(VERTEX_COLOR.clone());
+                                render_obj.ubos.remove(&UCOLOR);   
+                                if item.position_change == false {
+                                    item.position_change = true;
+                                    self.geometry_dirtys.push(event.id);
+                                }
+                            }
+                        },
+                        _ => (),
+                    }
+
+                },
+                "stroke" => {
+                    if text_style.stroke.width == 0.0 {
+                        //  删除边框的宏
+                        match render_obj.defines.remove_item(&STROKE) {
+                            Some(_) => {
+                                // 如果边框宏存在， 删除边框对应的ubo， 重新创建渲染管线
+                                render_obj.ubos.remove(&STROKE);
+                                render_obj.pipeline = engine.create_pipeline(
+                                    0,
+                                    &TEXT_VS_SHADER_NAME.clone(),
+                                    &TEXT_FS_SHADER_NAME.clone(),
+                                    render_obj.defines.as_slice(),
+                                    self.rs.clone(),
+                                    self.bs.clone(),
+                                    self.ss.clone(),
+                                    self.ds.clone()
+                                );
+                            },
+                            None => ()
+                        };
+                        
+                    } else {
+                        // 边框宽度不为0， 并且不存在STROKE宏， 应该添加STROKE宏， 并添加边框对应的ubo， 且重新创建渲染管线
+                        if find_item_from_vec(&render_obj.defines, &STROKE) == 0 {
+                            render_obj.defines.push(STROKE);
+                            let mut stroke_ubo = engine.create_uniforms();
+                            let color = &text_style.color;
+                            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
+                            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
+                            render_obj.ubos.insert(&STROKE, Arc::new(stroke_ubo));
+                            render_obj.pipeline = engine.create_pipeline(
+                                0,
+                                &TEXT_VS_SHADER_NAME.clone(),
+                                &TEXT_FS_SHADER_NAME.clone(),
+                                render_obj.defines.as_slice(),
+                                self.rs.clone(),
+                                self.bs.clone(),
+                                self.ss.clone(),
+                                self.ds.clone()
+                            );
+                        }
+                    }
+                },
+                _ => return,
             }
-        };
+
+            let is_opacity = if opacity < 1.0 || !text_style.color.is_opacity() {
+                false
+            }else {
+                true
+            };
+            let notify = render_objs.get_notify();
+            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_is_opacity(is_opacity)};
+        }
     }
 }
 
@@ -284,37 +412,12 @@ struct Item {
     position_change: bool,
 }
 
-//取几何体的顶点流、 uv流和属性流
-fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
-    let radius = cal_border_radius(radius, layout);
-    let (pos, uv) = get_pos_uv(char_block, image_clip, object_fit, layout);
-    let positions = if radius.x == 0.0 {
-        let start = layout.border;
-        let end_x = layout.width - layout.border;
-        let end_y = layout.height - layout.border;
-        vec![
-            start, start, z_depth,
-            start, end_y, z_depth,
-            end_x, end_y, z_depth,
-            end_x, start, z_depth,
-        ]
-    } else {
-        split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth)
-    };
+//取几何体的顶点流、 颜色流和属性流
+fn get_geo_flow(char_block: &CharBlock, color: &Color, layout: &Layout, z_depth: f32) -> (Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
+    unimplemented!()
     
-    let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
-    let (positions, _) = split_by_lg(positions, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    let (positions, indices) = split_by_lg(positions, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
-    let indices = to_triangle(indices.as_slice());
-    let u = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.0.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
-    let v = interp_by_lg(&positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    let mut uvs = Vec::with_capacity(u[0].len());
-    for i in 0..u.len() {
-        uvs.push(u[0][i]);
-        uvs.push(v[0][i]);
-    }
 
-    (positions, uvs, indices)
+    // (positions, uvs, indices)
 }
 
 unsafe impl<C: Context + Share> Sync for CharBlockSys<C>{}

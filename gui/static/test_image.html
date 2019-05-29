@@ -47,9 +47,10 @@
             window.__jsObj1 = "./xxx.png";
             Module._set_src(gui, node, 0, 0);
             Module._set_image_clip(gui, node, 0, 0, 0.5, 0.5);
-            Module._set_object_fit(gui, node, FitType_Contain);
-            Module._set_width(gui, node, 512);
+            Module._set_object_fit(gui, node, FitType_Fill);
+            Module._set_width(gui, node, 300);
             Module._set_height(gui, node, 100);
+            Module._set_border_radius(gui, node, 20);
 
             Module._render(gui);
             

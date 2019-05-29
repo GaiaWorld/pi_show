@@ -357,7 +357,7 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
   let c = csize/img_size;
   if c <= 1.0 {
     return std::f32::INFINITY
-  }
+  } 
   match rtype {
     BorderImageRepeatType::Repeat => csize / c.round(),
     BorderImageRepeatType::Round => csize / c.ceil(),

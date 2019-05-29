@@ -25,6 +25,7 @@
     
     <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
     <script src="./shader/color.js"></script>
+    <script src="./shader/image.js"></script>
     <script src="./shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
@@ -53,24 +54,45 @@
         window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
         Module._set_background_linear_gradient_color(gui, node3, 0);
 
-        // 测试三点线性渐变颜色
-        var node5 = Module._create_node(gui);
-        Module._append_child(gui, node5, 1); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node5, 100.0);
-        Module._set_height(gui, node5, 100.0);
-        Module._set_margin(gui, node5, YGEdgeLeft, 10);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node5, 30);
-
-        // 测试三点线性渐变颜色
+        // 测试两点线性渐变颜色 + border_radius
         var node4 = Module._create_node(gui);
         Module._append_child(gui, node4, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node4, 100.0);
         Module._set_height(gui, node4, 100.0);
         Module._set_margin(gui, node4, YGEdgeLeft, 10);
         Module._set_border_radius(gui, node4, 50, 50);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
         Module._set_background_linear_gradient_color(gui, node4, 30);
+
+        // 测试三点线性渐变颜色
+        var node5 = Module._create_node(gui);
+        Module._append_child(gui, node5, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node5, 100.0);
+        Module._set_height(gui, node5, 100.0);
+        Module._set_margin(gui, node5, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node4, 50, 50);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node5, 30);
+
+        // 测试三点线性渐变颜色 + border_radius
+        var node6 = Module._create_node(gui);
+        Module._append_child(gui, node6, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node6, 100.0);
+        Module._set_height(gui, node6, 100.0);
+        Module._set_margin(gui, node6, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node6, 50, 50);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node6, 0);
+
+        // 测试三点线性渐变颜色(非0度渐变角) + border_radius
+        var node6 = Module._create_node(gui);
+        Module._append_child(gui, node6, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node6, 100.0);
+        Module._set_height(gui, node6, 100.0);
+        Module._set_margin(gui, node6, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node6, 50, 50);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node6, 30);
 
         Module._render(gui);
     </script>

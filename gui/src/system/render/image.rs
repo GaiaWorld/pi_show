@@ -258,15 +258,71 @@ struct Item {
 //取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
 fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
-    let (p, uv) = get_pos_uv(image, image_clip, object_fit, layout);
-    let pos = Quad(p.min, Point2::new(p.min.x, p.max.y), p.max, Point2::new(p2.max, p.min.y));
-    let uv = Quad(uv.min, Point2::new(uv.min.x, uv.max.y), uv.max, Point2::new(uv.max.x, uv.min.y));
+    let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    if radius.x == 0.0 {
+        use_image_pos_uv(pos, uv, z_depth)
+    }else{
+        if pos.min.x < radius.x && pos.min.y < radius.x {
+            use_layout_pos(uv, layout, &radius, z_depth)
+        }else {
+            use_image_pos_uv(pos, uv, z_depth)
+        }
+    }
 
+    // debug_println!("indices: {:?}", indices);
+    // let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
+    // debug_println!("split_by_lg,  positions:{:?}, indices:{:?}, top_percent: {}, bottom_percent: {}, start: ({}, {}) , end: ({}, {})", positions, indices, 0.0, 1.0, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
+    // let (positions, indices_arr) = split_by_lg(positions, indices, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    // debug_println!("split_mult_by_lg, positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
+    // let (positions, indices_arr) = split_mult_by_lg(positions, indices_arr, &[0.0, 1.0, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    // let indices = mult_to_triangle(&indices_arr, Vec::new());
+    // debug_println!("u positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
+    // let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    // let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
+    // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
+    // println!("v u {:?}, {:?}", v, u);
+    // let mut uvs = Vec::with_capacity(u[0].len());
+    // for i in 0..u[0].len() {
+    //     uvs.push(u[0][i]);
+    //     uvs.push(v[0][i]);
+    // }
+
+    
+}
+
+fn use_image_pos_uv(pos: Aabb2, uv: Aabb2, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>){
+    let mut uvs = Vec::new();
+    let mut poss = Vec::new();
+
+    uvs.push(uv.min.x);
+    uvs.push(uv.min.y);
+    uvs.push(uv.min.x);
+    uvs.push(uv.max.y);
+    uvs.push(uv.max.x);
+    uvs.push(uv.max.y);
+    uvs.push(uv.max.x);
+    uvs.push(uv.min.y);
+
+    poss.push(pos.min.x);
+    poss.push(pos.min.y);
+    poss.push(z_depth);
+    poss.push(pos.min.x);
+    poss.push(pos.max.y);
+    poss.push(z_depth);
+    poss.push(pos.max.x);
+    poss.push(pos.max.y);
+    poss.push(z_depth);
+    poss.push(pos.max.x);
+    poss.push(pos.min.y);
+    poss.push(z_depth);
+    (poss, uvs, vec![0, 1, 2, 0, 2, 3])
+}
+
+fn use_layout_pos(uv: Aabb2, layout: &Layout, radius: &Point2, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>){
     let start = layout.border;
     let end_x = layout.width - layout.border;
     let end_y = layout.height - layout.border;
-    debug_println!("layout1-----------------------------------pos:{:?}, uv:{:?}", pos, uv);
-    debug_println!("layout2-----------------------------------{:?}", layout);
+    debug_println!("layout-----------------------------------{:?}", layout);
     let (positions, indices) = if radius.x == 0.0 || layout.width == 0.0 || layout.height == 0.0 {
         (
             vec![
@@ -275,27 +331,27 @@ fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_de
                 end_x, end_y, z_depth,
                 end_x, start, z_depth,
             ],
-            vec![0, 1,2, 3],
+            vec![0, 1, 2, 3],
         )
     } else {
         split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth, None)
     };
-
-    let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
-    let (positions, indices_arr) = split_by_lg(positions, indices, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    let (positions, indices_arr) = split_mult_by_lg(positions, indices_arr, &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
+    // debug_println!("indices: {:?}", indices);
+    // debug_println!("split_by_lg,  positions:{:?}, indices:{:?}, top_percent: {}, bottom_percent: {}, start: ({}, {}) , end: ({}, {})", positions, indices, 0.0, 1.0, 0.0, 0.0, 0.0, layout.height);
+    let (positions, indices_arr) = split_by_lg(positions, indices, &[0.0, 1.0], (0.0, 0.0), (0.0, layout.height));
+    // debug_println!("split_mult_by_lg, positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, 0.0, 0.0, layout.width, 0.0);
+    let (positions, indices_arr) = split_mult_by_lg(positions, indices_arr, &[0.0, 1.0], (0.0, 0.0), (layout.width, 0.0));
     let indices = mult_to_triangle(&indices_arr, Vec::new());
-    debug_println!("positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.3.x]}], left_percent, right_percent, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
-    let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.0.x, uv.3.x]}], &[left_percent, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
-    let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    debug_println!("111 positions: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, vec![LgCfg{unit: 1, data: vec![uv.0.y, uv.1.y]}], top_percent, bottom_percent, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
-    println!("v u {:?}, {:?}", v, u);
+    // debug_println!("u positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, 0.0, 0.0, layout.width, 0.0);
+    let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], &[0.0, 1.0], (0.0, 0.0), (layout.width, 0.0));
+    let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], &[0.0, 1.0], (0.0, 0.0), (0.0, layout.height));
+    // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, 0.0, 0.0, 0.0, layout.height);
+    // println!("v u {:?}, {:?}", v, u);
     let mut uvs = Vec::with_capacity(u[0].len());
     for i in 0..u[0].len() {
         uvs.push(u[0][i]);
         uvs.push(v[0][i]);
     }
-
     (positions, uvs, indices)
 }
 
