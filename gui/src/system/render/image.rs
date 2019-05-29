@@ -319,22 +319,23 @@ fn use_image_pos_uv(pos: Aabb2, uv: Aabb2, z_depth: f32) -> (Vec<f32>, Vec<f32>,
 }
 
 fn use_layout_pos(uv: Aabb2, layout: &Layout, radius: &Point2, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>){
-    let start = layout.border;
-    let end_x = layout.width - layout.border;
-    let end_y = layout.height - layout.border;
+    let start_x = layout.border_left;
+    let start_y = layout.border_top;
+    let end_x = layout.width - layout.border_right;
+    let end_y = layout.height - layout.border_bottom;
     debug_println!("layout-----------------------------------{:?}", layout);
     let (positions, indices) = if radius.x == 0.0 || layout.width == 0.0 || layout.height == 0.0 {
         (
             vec![
-                start, start, z_depth,
-                start, end_y, z_depth,
+                start_x, start_y, z_depth,
+                start_x, end_y, z_depth,
                 end_x, end_y, z_depth,
-                end_x, start, z_depth,
+                end_x, start_y, z_depth,
             ],
             vec![0, 1, 2, 3],
         )
     } else {
-        split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth, None)
+        split_by_radius(start_x, start_y, end_x - start_x, end_y - start_y, radius.x - start_x, z_depth, None)
     };
     // debug_println!("indices: {:?}", indices);
     // debug_println!("split_by_lg,  positions:{:?}, indices:{:?}, top_percent: {}, bottom_percent: {}, start: ({}, {}) , end: ({}, {})", positions, indices, 0.0, 1.0, 0.0, 0.0, 0.0, layout.height);
@@ -364,8 +365,8 @@ fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Opt
         },
         _ => (Vector2::new(img.src.width as f32, img.src.height as f32), Point2::new(0.0,0.0), Point2::new(1.0,1.0))
     };
-    let mut p1 = Point2::new(layout.left + layout.border + layout.padding_left, layout.top + layout.border + layout.padding_top);
-    let mut p2 = Point2::new(layout.left + layout.width - layout.border - layout.padding_right, layout.top + layout.height - layout.border - layout.padding_bottom);
+    let mut p1 = Point2::new(layout.left + layout.border_left + layout.padding_left, layout.top + layout.border_top + layout.padding_top);
+    let mut p2 = Point2::new(layout.left + layout.width - layout.border_right - layout.padding_right, layout.top + layout.height - layout.border_bottom - layout.padding_bottom);
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
     // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。

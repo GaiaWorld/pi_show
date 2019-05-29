@@ -271,10 +271,10 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let p2 = Point2::new(layout.width, layout.height);
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
-    let left = layout.border;
-    let right = layout.width - layout.border;
-    let top = layout.border;
-    let bottom = layout.height - layout.border;
+    let left = layout.border_left;
+    let right = layout.width - layout.border_right;
+    let top = layout.border_top;
+    let bottom = layout.height - layout.border_bottom;
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
     let uv_left = uv1.x + slice.left * uvw;
@@ -284,7 +284,7 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
 
     // debug_println!("start 111111: {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
     //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
-
+    // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
     // 先将16个顶点和uv放入数组，记录偏移量
     let mut pi = (point_arr.len() / 3)  as u16;
     // 左上的4个点

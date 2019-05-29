@@ -5,6 +5,7 @@
 // TODO engine对象封装GLContext,ResMgr, style要整理一下,现在有点乱, 移除text_layout
 // TODO CowList, MapAPI统一， VecMap性能优化, remove() -> T 改成 Option<T>
 // TODO EntityImpl 改为 Entity, Entity 改为 EntityT
+// TODO 支持全局设置em对应的px
 
 
 use ecs::{
@@ -209,9 +210,9 @@ fn adjust(idtree: &SingleCaseImpl<IdTree>, by_overflow: &mut MultiCaseImpl<Node,
 }
 // 计算指定矩形的4个点
 fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2;4]{
-    let width = layout.width - layout.padding_left - layout.padding_right - layout.border - layout.border;
-    let height = layout.height - layout.padding_top - layout.padding_bottom - layout.border - layout.border;
-    let start = (layout.border + layout.padding_left - origin.x, layout.border + layout.padding_top - origin.y);
+    let width = layout.width - layout.padding_left - layout.padding_right - layout.border_left - layout.border_right;
+    let height = layout.height - layout.padding_top - layout.padding_bottom - layout.border_top - layout.border_bottom;
+    let start = (layout.border_left + layout.padding_left - origin.x, layout.border_top + layout.padding_top - origin.y);
     let left_top = m * Vector4::new(start.0,  start.1, 0.0, 1.0);
     let right_top = m * Vector4::new(start.0 + width, start.1, 0.0, 1.0);
     let left_bottom = m * Vector4::new(start.0, start.1 + height, 0.0, 1.0);
