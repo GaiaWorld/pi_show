@@ -278,9 +278,9 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
     let uv_left = slice.left * uvw;
-    let uv_right = slice.right * uvw;
+    let uv_right = uvw - slice.right * uvw;
     let uv_top = slice.top * uvh;
-    let uv_bottom = slice.bottom * uvh;
+    let uv_bottom = uvh - slice.bottom * uvh;
 
     // 先将16个顶点和uv放入数组，记录偏移量
     let mut pi = (point_arr.len() / 3)  as u16;

@@ -258,7 +258,10 @@ struct Item {
 //取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
 fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
-    let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    let (p, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    let pos = Quad(p.min, Point2::new(p.min.x, p.max.y), p.max, Point2::new(p2.max, p.min.y));
+    let uv = Quad(uv.min, Point2::new(uv.min.x, uv.max.y), uv.max, Point2::new(uv.max.x, uv.min.y));
+
     let start = layout.border;
     let end_x = layout.width - layout.border;
     let end_y = layout.height - layout.border;
@@ -297,7 +300,7 @@ fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_de
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Quad, Quad){
+fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Aabb2, Aabb2){
     let (size, mut uv1, mut uv2) = match clip {
         Some(c) => {
             let size = Vector2::new(img.src.width as f32 * (c.max.x - c.min.x).abs(), img.src.height as f32 * (c.max.y - c.min.y).abs());
@@ -369,9 +372,7 @@ fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Opt
       // 默认情况是填充
       _ => ()
     };
-    let pos = Quad(p1, Point2::new(p1.x, p2.y), p2, Point2::new(p2.x, p1.y));
-    let uv = Quad(uv1, Point2::new(uv1.x, uv2.y), uv2, Point2::new(uv2.x, uv1.y));
-    (pos, uv)
+    (Aabb2{min:p1, max:p2}, Aabb2{min:uv1, max:uv2})
 }
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){ 
