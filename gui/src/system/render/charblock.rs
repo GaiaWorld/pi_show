@@ -14,9 +14,9 @@ use atom::Atom;
 use polygon::*;
 
 use component::user::*;
+use single::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth, CharBlock};
 use entity::{Node};
-use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::{ Engine , PipelineInfo};
 use render::res::{Opacity as ROpacity, SamplerRes};
 use system::util::*;
@@ -71,19 +71,20 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
         &'a MultiCaseImpl<Node, CharBlock>,
         &'a MultiCaseImpl<Node, Font>,
         &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.charblock_render_map;
-        let (z_depths, text_styles, charblocks, fonts, font_sheet) = read;
+        let (z_depths, text_styles, charblocks, fonts, font_sheet, default_table) = read;
         let (render_objs, _) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let charblock = unsafe { charblocks.get_unchecked(*id) };
-            let text_style = unsafe { text_styles.get_unchecked(*id) };
-            let font = unsafe { fonts.get_unchecked(*id) };
+            let text_style = get_or_default(*id, text_styles, default_table);
+            let font = get_or_default(*id, fonts, default_table);
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
                 None => {
@@ -131,20 +132,21 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (images, text_styles, fonts, z_depths, layouts, opacitys, font_sheet) = read;
+        let (images, text_styles, fonts, z_depths, layouts, opacitys, font_sheet, default_table) = read;
         let (render_objs, engine) = write;
         let char_block = unsafe { images.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
         let layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-        let text_style = unsafe { text_styles.get_unchecked(event.id) };
-        let font = unsafe { fonts.get_unchecked(event.id) };
+        let text_style = get_or_default(event.id, text_styles, default_table);
+        let font = get_or_default(event.id, fonts, default_table);
         let first_font = match font_sheet.get_first_font(&font.family) {
             Some(r) => r,
             None => {
@@ -606,13 +608,15 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 unsafe impl<C: Context + Share> Sync for CharBlockSys<C>{}
 unsafe impl<C: Context + Share> Send for CharBlockSys<C>{}
 
-// impl_system!{
-//     CharBlockSys<C> where [C: Context + Share],
-//     true,
-//     {
-//         MultiCaseListener<Node, CharBlock, CreateEvent>
-//         MultiCaseListener<Node, CharBlock, ModifyEvent>
-//         MultiCaseListener<Node, CharBlock, DeleteEvent>
-//         MultiCaseListener<Node, Opacity, ModifyEvent>
-//     }
-// }
+impl_system!{
+    CharBlockSys<C> where [C: Context + Share],
+    true,
+    {
+        MultiCaseListener<Node, CharBlock, CreateEvent>
+        MultiCaseListener<Node, CharBlock, ModifyEvent>
+        MultiCaseListener<Node, CharBlock, DeleteEvent>
+        MultiCaseListener<Node, TextStyle, ModifyEvent>
+        MultiCaseListener<Node, Font, ModifyEvent>
+        MultiCaseListener<Node, Opacity, ModifyEvent>
+    }
+}

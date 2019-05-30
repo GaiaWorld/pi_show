@@ -46,6 +46,12 @@ lazy_static! {
 pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
+    let mut default_table = DefaultTable::new();
+    default_table.set::<TextStyle>(TextStyle::default());
+    let mut font = Font::default();
+    font.family = Atom::from("common");
+    default_table.set::<Font>(font);
+
     //user
     world.register_entity::<Node>();
     world.register_multi::<Node, Transform>();;
@@ -91,6 +97,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
     world.register_single::<ViewPort>(ViewPort(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
+    world.register_single::<DefaultTable>(DefaultTable::new());
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -103,7 +110,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     // // world.register_system(CLIP_N.clone(), ClipSys::<C>::default());
     // // world.register_system(SDF_N.clone(), CellSdfSys::new(SdfSys::<C>::new()));
     world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
-    // // world.register_system(CHAR_BLOCK_N.clone(), CharBlockSys::<C>::default());
+    world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C>::new(CharBlockSys::new()));
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
     world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
     world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));
@@ -112,7 +119,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
     world
 }

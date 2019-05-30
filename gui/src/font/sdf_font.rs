@@ -41,13 +41,13 @@ pub struct GlyphInfo{
 }
 
 pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
-    name: Atom,
+    pub name: Atom,
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
     // base: f32,
     padding: f32,
-    glyph_table: HashMap<char, Glyph>,
+    pub glyph_table: HashMap<char, Glyph>,
     texture: Arc<TextureRes<C>>,
 }
 
@@ -122,6 +122,26 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             texture: texture,
         }
     }
+
+    pub fn new_width_data(
+        name: Atom,
+        line_height: f32,
+        atlas_width: usize,
+        atlas_height: usize,
+        padding: f32,
+        glyph_table: HashMap<char, Glyph>,
+        texture: Arc<TextureRes<C>>,
+    ) -> Self{
+        StaticSdfFont {
+            name,
+            line_height,
+            atlas_width,
+            atlas_height,
+            padding,
+            glyph_table,
+            texture,
+        }
+    }
 }
 
 impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
@@ -141,20 +161,24 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             Err(s) => return Err(s.to_string()),
         };
         offset += name_len as usize;
-        if offset%2 == 1 {
-            offset += 1;
-        }
+        // if offset%2 == 1 {
+        //     offset += 1;
+        // }
         self.name = Atom::from(name_str);
 
-        self.line_height = value.get_lf32(offset);
-        offset += 4;
+        self.line_height = value.get_u8(offset) as f32;
+        offset += 1;
 
         self.atlas_width = value.get_lu16(offset) as usize;
         offset += 2;
         self.atlas_height = value.get_lu16(offset) as usize;
         offset += 2;
-        self.padding = value.get_lu16(offset) as f32;
-        offset += 2;
+        // padding
+        value.get_lu16(offset) as f32;
+        value.get_lu16(offset) as f32;
+        value.get_lu16(offset) as f32;
+        value.get_lu16(offset) as f32;
+        offset += 8;
 
         //字符uv表
         loop {
@@ -167,7 +191,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             offset += 2;
             let y = value.get_lu16(offset);
             offset += 2;
-            let ox = value.get_u8(offset);
+            let ox = value.get_li8(offset);
             offset += 1;
             let oy = value.get_u8(offset);
             offset += 1;
@@ -176,7 +200,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             let height = value.get_u8(offset);
             offset += 1;
             let advance = value.get_u8(offset);
-            offset += 2; // 加2， 对齐
+            // offset += 2; // 加2， 对齐
 
             self.glyph_table.insert(
                 unsafe{ transmute(id as u32) },

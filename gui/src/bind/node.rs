@@ -53,9 +53,6 @@ pub fn create_node(world: u32) -> u32{
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let node = create(world);
-    // let text = world.fetch_multi::<Node, Text>().unwrap();
-    // let text = text.lend_mut();
-    // text.insert(node, Text(Arc::new("".to_string())));
     debug_println!("create_text_node, node:{}", node);
     node as u32
 }
@@ -100,28 +97,15 @@ pub fn remove_child(world: u32, node: u32){
     debug_println!("remove_child");  
 }
 
+// __jsObj 文字字符串
 // #[no_mangle]
-// pub fn set_text_content(world: u32, node: u32){
-//     let value: String = js!(return __jsObj;).try_into().unwrap();
-//     let node = node as usize;
-//     let world = unsafe {&mut *(world as usize as *mut World)};
-//     let element_id = world.component_mgr.node._group.get(node).element.clone();
-//     match element_id {
-//         ElementId::Text(text_id) => {
-//             if text_id == 0 {
-//                 let mut node_ref = NodeWriteRef::new(node, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr);
-//                 let mut text = Text::default();
-//                 text.value = value;
-//                 node_ref.set_element(Element::Text(text));
-//             } else {
-//                 let mut text_ref = TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr);
-//                 text_ref.set_value(value);
-//             }
-//             debug_println!("set_text_content");
-//         },
-//         _ => (),
-//     }
-// }
+pub fn set_text_content(world: u32, node: u32){
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let text = world.fetch_multi::<Node, Text>().unwrap();
+    unsafe {text.lend_mut().insert(node as usize, Text(Arc::new(value)))};
+}
 
 // __jsObj: image, __jsObj1: image_name(String)
 // 设置图片的src

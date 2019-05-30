@@ -2,6 +2,7 @@ pub mod oct;
 
 use std::sync::Arc;
 use std::fmt;
+use std::any::{TypeId, Any};
 
 use std::collections::HashMap;
 
@@ -169,7 +170,7 @@ impl NodeRenderMap {
         self.0.remove_unchecked(node_id);
     }
 
-    pub unsafe fn get_unchecked(&mut self, node_id: usize) -> &Vec<usize> {
+    pub unsafe fn get_unchecked(&self, node_id: usize) -> &Vec<usize> {
         self.0.get_unchecked(node_id)
     }
 }
@@ -187,3 +188,48 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
+
+pub struct DefaultTable(HashMap<TypeId, Box<Any>>);
+
+impl DefaultTable {
+    pub fn new() -> Self{
+        Self(HashMap::new())
+    }
+
+    pub fn set<T: 'static + Any + Sync + Send>(&mut self, value: T){
+        self.0.insert(TypeId::of::<T>(), Box::new(value));
+    }
+
+    pub fn get<T: 'static + Any + Sync + Send>(&self) -> Option<&T>{
+        let r = self.0.get(&TypeId::of::<T>());
+        match self.0.get(&TypeId::of::<T>()) {
+            Some(r) => r.downcast_ref::<T>(),
+            None => None
+        }
+    }
+
+    pub fn get_mut<T: 'static + Any + Sync + Send>(&mut self) -> Option<&mut T>{
+        let r = self.0.get(&TypeId::of::<T>());
+        match self.0.get_mut(&TypeId::of::<T>()) {
+            Some(r) => r.downcast_mut::<T>(),
+            None => None
+        }
+    }
+
+    pub fn get_unchecked<T: 'static + Any + Sync + Send>(&self) -> &T{
+        let r = self.0.get(&TypeId::of::<T>());
+        self.0.get(&TypeId::of::<T>()).unwrap().downcast_ref::<T>().unwrap()
+    }
+
+    pub fn get_unchecked_mut<T: 'static + Any + Sync + Send>(&mut self) -> &mut T{
+        let r = self.0.get(&TypeId::of::<T>());
+        self.0.get_mut(&TypeId::of::<T>()).unwrap().downcast_mut::<T>().unwrap()
+    }
+
+    pub fn delete<T: 'static + Any + Sync + Send>(&mut self){
+        self.0.remove(&TypeId::of::<T>());
+    }
+}
+
+unsafe impl Sync for DefaultTable {}
+unsafe impl Send for DefaultTable {}

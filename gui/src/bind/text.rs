@@ -1,7 +1,7 @@
 use std::mem::transmute;
 
-// use stdweb::unstable::TryInto;
-// use stdweb::web::TypedArray;
+use stdweb::unstable::TryInto;
+use stdweb::web::TypedArray;
 
 
 use atom::Atom;
@@ -46,21 +46,13 @@ pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: 
     set_attr!(world, node_id, TextStyle, color, Color::RGBA(CgColor::new(r, g, b, a)));
 }
 
+// __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
 #[no_mangle]
 pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
-    // debug_println!("set_text_linear_gradient_color");
-    //  let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
-    // let node_id = node_id as usize;
-    // let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-    // let text_id = get_text_id(node_id, world);
-    // let style_id = world.component_mgr.node.element.text._group.get(text_id).text_style;
-    // if style_id == 0 {
-    //     let mut style = TextStyle::default();
-    //     style.color = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
-    //     TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr).set_text_style(style);
-    // } else {
-    //     TextStyleWriteRef::new(style_id, world.component_mgr.node.element.text.text_style.to_usize(), &mut world.component_mgr).set_color(Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction)));
-    // }
+    let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
+    let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions.to_vec(), direction));
+    let color = 0;
+    set_attr!(world, node_id, TextStyle, color, value);
 }
 
 
@@ -174,19 +166,11 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, Font, size, FontSize::Percent(value));
 }
 
-// #[no_mangle]
-// pub fn set_font_family(world: u32, node_id: u32){
-//     let value: String = js!(return __jsObj;).try_into().unwrap();
-//     let node_id = node_id as usize;
-//     let world = unsafe {&mut *(world as usize as *mut World<WorldDocMgr, ()>)};
-//     let text_id = get_text_id(node_id, world);
-//     let font_id = world.component_mgr.node.element.text._group.get(text_id).font;
-//     if font_id == 0 {
-//         let mut font = Font::default();
-//         font.family = Atom::from(value);
-//         TextWriteRef::new(text_id, world.component_mgr.node.element.text.to_usize(), &mut world.component_mgr).set_font(font);
-//     }else{
-//         FontWriteRef::new(font_id, world.component_mgr.node.element.text.font.to_usize(), &mut world.component_mgr).set_family(Atom::from(value));
-//     }
-//     debug_println!("set_font_family"); 
-// }
+// __jsObj: family name
+#[no_mangle]
+pub fn set_font_family(world: u32, node_id: u32){
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let family = 0;
+    set_attr!(world, node_id, Font, family, Atom::from(value));
+    debug_println!("set_font_family"); 
+}

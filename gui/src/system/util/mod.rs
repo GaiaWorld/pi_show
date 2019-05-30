@@ -5,7 +5,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 use std::mem::transmute;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
+use ecs::{Component, CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc, AttributeName};
 use polygon::*;
 use atom::Atom;
@@ -16,7 +16,7 @@ use component::user::*;
 use component::calc::WorldMatrix;
 use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_indices, CLIP};
 use render::engine::Engine;
-use single::RenderObjs;
+use single::{ RenderObjs, DefaultTable };
 use entity::Node;
 
 pub fn cal_matrix(
@@ -199,4 +199,11 @@ pub fn find_item_from_vec<T: Eq>(vec: &Vec<T>, r: &T) -> usize{
         }
     }
     return 0;
+}
+
+pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>, table: &'a DefaultTable) -> &'a T{
+    match c.get(id) {
+        Some(r) => r,
+        None => table.get_unchecked::<T>(),
+    }
 }

@@ -25,14 +25,14 @@ impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, YgNode>);
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
-		if event.index > 0 {
-			if event.field == "add" {
-				add_yoga(event.id, read.0, read.1);
-			}else if event.field == "remove"{
-				let parent_yoga = unsafe { read.1.get_unchecked(event.index)};
-				parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id)}.clone());
+			if event.index > 0 {
+				if event.field == "add" {
+					add_yoga(event.id, read.0, read.1);
+				}else if event.field == "remove"{
+					let parent_yoga = unsafe { read.1.get_unchecked(event.index)};
+					parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id)}.clone());
+				}
 			}
-		}
     }
 }
 
@@ -40,7 +40,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, YgNode>);
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
-		add_yoga(event.id, read.0, read.1);
+			add_yoga(event.id, read.0, read.1);
     }
 }
 
