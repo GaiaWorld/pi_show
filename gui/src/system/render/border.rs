@@ -213,9 +213,10 @@ struct Item {
 fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
     if radius.x == 0.0 {
-        let border_start = layout.border;
-        let border_end_x = layout.width - layout.border;
-        let border_end_y = layout.height - layout.border;
+        let border_start_x = layout.border_left;
+        let border_start_y = layout.border_top;
+        let border_end_x = layout.width - layout.border_right;
+        let border_end_y = layout.height - layout.border_bottom;
         return (
             vec![
                 0.0, 0.0, z_depth,
@@ -223,10 +224,10 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f3
                 layout.width, layout.height, z_depth,
                 layout.width, 0.0, z_depth,
 
-                border_start, border_start, z_depth,
-                border_start, border_end_y, z_depth,
+                border_start_x, border_start_y, z_depth,
+                border_start_x, border_end_y, z_depth,
                 border_end_x, border_end_y, z_depth,
-                border_end_x, border_start, z_depth,
+                border_end_x, border_start_y, z_depth,
             ],
             vec![
                 0, 1, 4,
@@ -240,7 +241,7 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f3
             ],
         )
     }else {
-        return split_by_radius_border(0.0, 0.0, layout.width, layout.height, radius.x, layout.border, z_depth, None);
+        return split_by_radius_border(0.0, 0.0, layout.width, layout.height, radius.x, layout.border_left, z_depth, None);
     }
 }
 

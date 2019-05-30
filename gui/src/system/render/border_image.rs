@@ -271,17 +271,20 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let p2 = Point2::new(layout.width, layout.height);
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
-    let left = layout.border;
-    let right = layout.width - layout.border;
-    let top = layout.border;
-    let bottom = layout.height - layout.border;
+    let left = layout.border_left;
+    let right = layout.width - layout.border_right;
+    let top = layout.border_top;
+    let bottom = layout.height - layout.border_bottom;
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
-    let uv_left = slice.left * uvw;
-    let uv_right = uvw - slice.right * uvw;
-    let uv_top = slice.top * uvh;
-    let uv_bottom = uvh - slice.bottom * uvh;
+    let uv_left = uv1.x + slice.left * uvw;
+    let uv_right = uv2.x - slice.right * uvw;
+    let uv_top = uv1.y + slice.top * uvh;
+    let uv_bottom = uv2.y - slice.bottom * uvh;
 
+    // debug_println!("start 111111: {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
+    //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
+    // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
     // 先将16个顶点和uv放入数组，记录偏移量
     let mut pi = (point_arr.len() / 3)  as u16;
     // 左上的4个点
@@ -370,7 +373,7 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
 fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
   p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
   let y1 = point_arr[p1 as usize *3 + 1];
-  let y2 = point_arr[p1 as usize *3 + 4];
+  let y2 = point_arr[p2 as usize *3 + 1];
   let mut cur = point_arr[p1 as usize *3] + step;
   let mut max = point_arr[p3 as usize *3];
   let mut pt1 = p1;
@@ -382,8 +385,7 @@ fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
     // 因为uv不同，新插入2个顶点
     pt1 = push_vertex(point_arr, uv_arr, cur, y1, z, u1, v1, i);
     pt2 = push_vertex(point_arr, uv_arr, cur, y2, z, u1, v2, i);
-    cur = max;
-    max += step;
+    cur += step;
   }
   push_quad(index_arr, pt1, pt2, p3, p4);
 }
@@ -391,7 +393,7 @@ fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
   p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
   let x1 = point_arr[p1 as usize *3];
-  let x2 = point_arr[p1 as usize *3 + 3];
+  let x2 = point_arr[p4 as usize *3];
   let mut cur = point_arr[p1 as usize *3 + 1] + step;
   let mut max = point_arr[p3 as usize *3 + 1];
   let mut pt1 = p1;
@@ -403,8 +405,7 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
     // 因为uv不同，新插入2个顶点
     pt1 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v1, i);
     pt4 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v1, i);
-    cur = max;
-    max += step;
+    cur += step;
   }
   push_quad(index_arr, pt1, p2, p3, pt4);
 }

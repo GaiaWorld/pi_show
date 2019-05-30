@@ -280,22 +280,23 @@ struct Item {
 //取几何体的顶点流和索引流和color属性流
 fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &BackgroundColor) -> (Vec<f32>, Vec<u16>, Option<Vec<f32>>) {
     let radius = cal_border_radius(radius, layout);
-    let start = layout.border;
-    let end_x = layout.width - layout.border;
-    let end_y = layout.height - layout.border;
+    let start_x = layout.border_left;
+    let start_y = layout.border_top;
+    let end_x = layout.width - layout.border_right;
+    let end_y = layout.height - layout.border_bottom;
     let mut positions;
     let mut indices;
     debug_println!("radius:{:?}", radius);
     if radius.x == 0.0 {
         positions = vec![
-            start, start, z_depth, // left_top
-            start, end_y, z_depth, // left_bootom
+            start_x, start_y, z_depth, // left_top
+            start_y, end_y, z_depth, // left_bootom
             end_x, end_y, z_depth, // right_bootom
-            end_x, start, z_depth, // right_top
+            end_x, start_y, z_depth, // right_top
         ];
         indices = vec![0, 1, 2, 3];
     } else {
-        let r = split_by_radius(start, start, end_x - layout.border, end_y - layout.border, radius.x - layout.border, z_depth, None);
+        let r = split_by_radius(start_x, start_y, end_x - start_x, end_y - start_y, radius.x - start_x, z_depth, None);
         positions = r.0;
         indices = r.1;
     }
