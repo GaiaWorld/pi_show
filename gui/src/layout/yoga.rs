@@ -188,6 +188,7 @@ pub type YGMeasureFunc =
     Option<unsafe extern "C" fn(node: YGNodeRef, width: c_float, widthMode: YGMeasureMode, height: c_float, heightMode: YGMeasureMode) -> YGSize>;
 pub type YGLogger = Option<unsafe extern "C" fn(config: YGConfigRef, node: YGNodeRef, level: YGLogLevel, format: *const c_char, args: va_list) -> c_int>;
 
+#[allow(unused_attributes)]
 #[link_args = "yoga.bc"]
 extern "C" {
     #[link_name = "\u{1}YGValueUndefined"]

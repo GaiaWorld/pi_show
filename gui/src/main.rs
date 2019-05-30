@@ -6,13 +6,13 @@
 #![feature(type_ascription)]
 #![feature(link_args)]
 #![feature(vec_remove_item)]
-#[allow(unused_attributes)]
+#![allow(unused_attributes)]
+#![allow(dead_code)]
 
 #[macro_use]
 extern crate ecs;
 #[macro_use]
 extern crate ecs_derive;
-#[macro_use]
 extern crate pointer;
 #[macro_use]
 extern crate lazy_static;
@@ -24,7 +24,6 @@ extern crate enum_default_macro;
 extern crate debug_info;
 pub extern crate paste;
 #[cfg(feature = "web")]
-#[macro_use]
 extern crate stdweb_derive;
 
 #[cfg(feature = "web")]
@@ -72,7 +71,7 @@ pub mod entity{
 
 pub type IdBind = usize;
 pub const Z_MAX: f32 = 4194304.0;
-pub const Root: usize = 1;
+pub const ROOT: usize = 1;
 
 fn main(){
     // a

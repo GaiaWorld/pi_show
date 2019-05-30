@@ -47,7 +47,7 @@ pub struct ClipSys<C: Context + Share>{
 }
 
 impl<C: Context + Share> ClipSys<C>{
-    fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
+    pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
         let (rs, bs, ss, ds) = (Arc::new(RasterState::new()), Arc::new(BlendState::new()), Arc::new(StencilState::new()), Arc::new(DepthState::new()));
         let defines = Vec::new();
         let pipeline = engine.create_pipeline(
@@ -69,16 +69,16 @@ impl<C: Context + Share> ClipSys<C>{
                 engine.res_mgr.samplers.create(res)
             },          
         };
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
         let target = engine.gl.create_render_target(w, h, &PixelFormat::RGB, &DataFormat::UnsignedByte, false).unwrap();
-        let mut by_ubo = engine.gl.create_uniforms();
+        let by_ubo = engine.gl.create_uniforms();
         // by_ubo.set_sampler(
         //     &CLIP_TEXTURE,
         //     &(sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
         //     &(target.get_color_texture(0).unwrap().clone())
         // );
 
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
         Self {
             mark: PhantomData,
@@ -144,7 +144,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
                 positions[i * 12 + 10] = p[1].y;
                 positions[i * 12 + 11] = 0.0;
             }
-            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true);
+            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
         }
         let mut ubos: HashMap<Atom, Arc<AsRef<Uniforms<C>>>> = HashMap::new();
         for (k, v) in self.ubos.iter() {
@@ -165,7 +165,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     }
     
     fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
 
         let mut indexs: Vec<f32> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
@@ -176,8 +176,8 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         }
         
         let geometry = unsafe {&mut *(geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_indices_short(indices.as_slice(), false);
-        geometry.set_attribute(&AttributeName::Custom(MESH_INDEX.clone()), 1, Some(indexs.as_slice()), true);
+        geometry.set_indices_short(indices.as_slice(), false).unwrap();
+        let _ = geometry.set_attribute(&AttributeName::Custom(MESH_INDEX.clone()), 1, Some(indexs.as_slice()), true);
 
         let ( _, projection, view, _) = read;
         let view: &[f32; 16] = view.0.as_ref();

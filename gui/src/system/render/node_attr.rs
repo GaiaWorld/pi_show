@@ -3,24 +3,17 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::mem::transmute;
 
-use std::collections::HashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
-use atom::Atom;
-use polygon::*;
+use hal_core::{Context, Uniforms};
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 
 pub struct NodeAttrSys<C: Context + Share>{
     view_matrix_ubo: Option<Arc<Uniforms<C>>>,
@@ -44,7 +37,7 @@ impl<'a, C: Context + Share> Runner<'a> for NodeAttrSys<C>{
         &'a SingleCaseImpl<ProjectionMatrix>,
     );
     type WriteData =  &'a mut SingleCaseImpl<Engine<C>>;
-    fn run(&mut self, read: Self::ReadData, render_objs: Self::WriteData){
+    fn run(&mut self, _read: Self::ReadData, _write: Self::WriteData){
     }
     fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
         let (view_matrix, projection_matrix) = read;
@@ -99,7 +92,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
         
-        let mut ubos = &mut render_obj.ubos;
+        let ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
         let mut world_matrix_ubo = engine.gl.create_uniforms();
         let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts);
@@ -135,7 +128,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
-        unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
+        Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
@@ -164,7 +157,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
-            let mut render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.as_ref();
             Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
@@ -185,7 +178,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             let ubos = &mut render_obj.ubos;
-            unsafe {Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity)};
+            Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
             debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
         }
     }

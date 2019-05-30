@@ -26,7 +26,7 @@ use component::{
   calc::{ZDepth, ZDepthWrite},
 };
 use Z_MAX;
-use Root;
+use ROOT;
 
 impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type ReadData = ();
@@ -143,7 +143,7 @@ impl ZIndexImpl {
     zi.pre_max_z = Z_MAX;
     zi.min_z = -Z_MAX;
     zi.pre_max_z = Z_MAX;
-    map.insert(Root, zi);
+    map.insert(ROOT, zi);
     ZIndexImpl {
       dirty: LayerDirty::default(),
       map: map,
@@ -180,7 +180,6 @@ impl ZIndexImpl {
   }
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
-        debug_println!("calc count: {:?}", self.dirty.count());
     for id in self.dirty.iter() {
         let (min_z, max_z, recursive) = {
           let zi = unsafe {self.map.get_unchecked_mut(*id)};

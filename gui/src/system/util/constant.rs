@@ -9,7 +9,7 @@ lazy_static! {
     pub static ref VIEW_MATRIX: Atom = Atom::from("viewMatrix");
     pub static ref PROJECT_MATRIX: Atom = Atom::from("projectMatrix");
     pub static ref WORLD_MATRIX: Atom = Atom::from("worldMatrix");
-    pub static ref CLIP_indices: Atom = Atom::from("clipindices");
+    pub static ref CLIP_INDICES: Atom = Atom::from("clipindices");
     pub static ref UV: Atom = Atom::from("uv");
     pub static ref ALPHA: Atom = Atom::from("alpha");
     pub static ref TEXTURE: Atom = Atom::from("texture");
@@ -25,5 +25,5 @@ lazy_static! {
 
     // clip uniform
     pub static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
-    pub static ref CLIP_indices_SIZE: Atom = Atom::from("clipTextureSize");
+    pub static ref CLIP_INDICES_SIZE: Atom = Atom::from("clipTextureSize");
 }

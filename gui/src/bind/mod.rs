@@ -1,7 +1,6 @@
 
-use std::mem::{transmute, uninitialized};
+use std::mem::{transmute};
 use std::sync::Arc;
-use std::collections::HashMap;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::TypedArray;
@@ -28,6 +27,7 @@ pub mod text;
 pub mod layout;
 pub mod transform;
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
@@ -36,7 +36,7 @@ pub fn create_engine() -> u32{
     let engine = Engine::new(gl);
     Box::into_raw(Box::new(engine)) as u32
 }
-
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     debug_println!("create_gui");
@@ -61,6 +61,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
 }
 
 // 渲染gui
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn render(world: u32){
     debug_println!("gui render");
@@ -69,6 +70,7 @@ pub fn render(world: u32){
 }
 
 // 计算布局
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn cal_layout(world: u32){
     debug_println!("cal_layout");
@@ -77,6 +79,7 @@ pub fn cal_layout(world: u32){
 }
 
 //设置shader
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_shader(engine: u32){
     debug_println!("set_shader");
@@ -111,6 +114,7 @@ pub fn set_shader(engine: u32){
 
 //           配置       图片                     图片名称
 //__jsObj: uv cfg, __jsObj1: image | canvas, __jsObj2: name(String)
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_sdf_font_res(world: u32) {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -127,9 +131,9 @@ pub fn add_sdf_font_res(world: u32) {
 
     let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj1}) {
         Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)).unwrap(),
-        Err(s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
+        Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
         Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)).unwrap(),
-        Err(s) => panic!("set_src error"),
+        Err(_s) => panic!("set_src error"),
         },
     };
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
@@ -137,7 +141,7 @@ pub fn add_sdf_font_res(world: u32) {
     // new_width_data
     let mut sdf_font = StaticSdfFont::<WebGLContextImpl>::new(texture_res.clone());
     debug_println!("sdf_font parse start");
-    sdf_font.parse(cfg.as_slice());
+    sdf_font.parse(cfg.as_slice()).unwrap();
     debug_println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
     font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
@@ -152,6 +156,7 @@ pub fn add_sdf_font_res(world: u32) {
 
 //          字体族名称                        字体名称（逗号分隔）     
 // __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔), 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     let world = unsafe {&mut *(world as usize as *mut World)};

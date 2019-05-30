@@ -32,6 +32,8 @@ fn create(world: &World) -> usize {
     node
 }
 
+#[allow(unused_attributes)]
+#[no_mangle]
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
@@ -41,6 +43,7 @@ fn insert_child(world: u32, child: u32, parent: u32, index: usize){
 }
 
 //创建容器节点， 容器节点可设置背景颜色
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_node(world: u32) -> u32{
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -49,6 +52,7 @@ pub fn create_node(world: u32) -> u32{
     node as u32
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -58,6 +62,7 @@ pub fn create_text_node(world: u32) -> u32 {
 }
 
 //创建图片节点
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_image_node(world: u32) -> u32{
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -67,6 +72,7 @@ pub fn create_image_node(world: u32) -> u32{
 }
 
 // 在尾部插入子节点
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -77,6 +83,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
     debug_println!("append_child"); 
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -87,6 +94,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
     debug_println!("insert_before"); 
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn remove_child(world: u32, node: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -98,17 +106,19 @@ pub fn remove_child(world: u32, node: u32){
 }
 
 // __jsObj 文字字符串
-// #[no_mangle]
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn set_text_content(world: u32, node: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
     let text = world.fetch_multi::<Node, Text>().unwrap();
-    unsafe {text.lend_mut().insert(node as usize, Text(Arc::new(value)))};
+    text.lend_mut().insert(node as usize, Text(Arc::new(value)));
 }
 
 // __jsObj: image, __jsObj1: image_name(String)
 // 设置图片的src
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
   let name: String = js!{return __jsObj1}.try_into().unwrap();
@@ -127,9 +137,9 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
 
         let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
           Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-          Err(s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+          Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
             Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            Err(s) => panic!("set_src error"),
+            Err(_s) => panic!("set_src error"),
           },
         };
 
@@ -162,6 +172,8 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
 
 // __jsObj: image, __jsObj1: image_name(String)
 // 设置图片的src
+
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
   let name: String = js!{return __jsObj1}.try_into().unwrap();
@@ -180,9 +192,9 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
 
         let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
           Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-          Err(s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+          Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
             Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            Err(s) => panic!("set_src error"),
+            Err(_s) => panic!("set_src error"),
           },
         };
 
@@ -200,6 +212,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
   debug_println!("set_border_src"); 
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -207,6 +220,7 @@ pub fn offset_top(world: u32, node: u32) -> f32 {
     unsafe {layout.lend().get_unchecked(node as usize)}.top
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -214,6 +228,7 @@ pub fn offset_left(world: u32, node: u32) -> f32 {
     unsafe {layout.lend().get_unchecked(node as usize)}.left
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -221,6 +236,7 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
     unsafe {layout.lend().get_unchecked(node as usize)}.width
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut World)};
@@ -254,6 +270,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 // }
 
 //content宽高的累加值
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn content_box(world: u32, node: u32) {
     let world = unsafe {&mut *(world as usize as *mut World)};

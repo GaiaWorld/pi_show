@@ -4,7 +4,6 @@
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 
 use std::{
-  sync::Arc,
   os::raw::{c_void},
   mem::replace,
   marker::PhantomData,
@@ -20,7 +19,7 @@ use ecs::{
   single::SingleCaseImpl,
 };
 
-use Root;
+use ROOT;
 use entity::{Node};
 use component::{
   user::*,
@@ -94,12 +93,12 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
       replace(&mut self.temp, temp);
     }
     let (w, h) = {
-      let layout = unsafe{ write.1.get_unchecked(Root)};
+      let layout = unsafe{ write.1.get_unchecked(ROOT)};
       (layout.width, layout.height)
     };
     self.write= &mut write as *mut Write<'a> as usize;
     //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-    unsafe{ read.1.get_unchecked(Root)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C>, self as *const LayoutImpl<C> as *const c_void);
+    unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C>, self as *const LayoutImpl<C> as *const c_void);
   }
   fn dispose(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
   }

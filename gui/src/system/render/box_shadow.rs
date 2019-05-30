@@ -3,23 +3,21 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::mem::transmute;
 
 use std::collections::HashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use map::{ vecmap::VecMap } ;
+use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
 use polygon::*;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::calc::{Opacity, ZDepth};
 use entity::{Node};
-use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
-use render::engine::{ Engine , PipelineInfo};
+use single::{RenderObjs, RenderObj};
+use render::engine::{ Engine};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 
@@ -76,24 +74,20 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
             let box_shadow = unsafe { box_shadows.get_unchecked(*id) };
             let (positions, indices, colors) = get_geo_flow(border_radius, layout, z_depth - 0.2, box_shadow);
 
-            let mut render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
-            debug_println!("box_shadow, id: {}, layout: {:?}", id, layout);
-            debug_println!("box_shadow, id: {}, positions: {:?}", id, positions.as_slice());
-            debug_println!("box_shadow, id: {}, indices: {:?}", id, indices.as_slice());
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
-            geometry.set_indices_short(indices.as_slice(), false);
+            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_indices_short(indices.as_slice(), false).unwrap();
             match colors {
                 Some(colors) => {
-                    debug_println!("box_shadow, id: {}, colors: {:?}", id, colors.as_slice());
-                    geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false)
+                    geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false).unwrap()
                 },
-                None => geometry.set_attribute(&AttributeName::Color, 4, None, false),
+                None => geometry.set_attribute(&AttributeName::Color, 4, None, false).unwrap(),
             };
         }
         self.geometry_dirtys.clear();
@@ -117,12 +111,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         let (box_shadows, border_radius, z_depths, layouts, opacitys) = read;
         let (render_objs, engine) = write;
         let box_shadow = unsafe { box_shadows.get_unchecked(event.id) };
-        let border_radius = unsafe { border_radius.get_unchecked(event.id) };
+        let _border_radius = unsafe { border_radius.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let layout = unsafe { layouts.get_unchecked(event.id) };
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+        let _layout = unsafe { layouts.get_unchecked(event.id) };
+        let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         let mut defines = Vec::new();
         defines.push(UCOLOR.clone());
@@ -225,8 +219,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent>
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = ();
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = unsafe { self.box_shadow_render_map.get_mut(event.id) } {
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        if let Some(item) = self.box_shadow_render_map.get_mut(event.id) {
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
