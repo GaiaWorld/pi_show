@@ -1,6 +1,7 @@
 use std::sync::{Arc, Weak};
 use hal_core::*;
 use texture::{WebGLTextureImpl};
+use context::{WebGLContextImpl};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLFramebuffer, WebGLRenderbuffer};
 use convert::*;
 
@@ -131,14 +132,13 @@ impl WebGLRenderTargetImpl {
 }
 
 impl RenderTarget for WebGLRenderTargetImpl {
-    type ContextTexture = WebGLTextureImpl;
-    type ContextRenderBuffer = WebGLRenderBufferImpl;
+    type RContext = WebGLContextImpl;
 
     fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
-    fn get_color_texture(&self, _index: u32) -> Option<Arc<Self::ContextTexture>> {
+    fn get_color_texture(&self, _index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
         match &self.color {
             &Some(RenderTargetAttach::Texture(ref v)) => Some(v.clone()),
             _ => None,

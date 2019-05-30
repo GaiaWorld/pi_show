@@ -13,8 +13,7 @@
 
 use std::sync::{Arc};
 
-use common::{RTAttachment};
-use traits::texture::{Texture};
+use traits::context::{Context};
 
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
@@ -28,8 +27,7 @@ pub trait RenderBuffer: Drop + AsRef<Self> {
  */
 pub trait RenderTarget: Drop + AsRef<Self> {
 
-    type ContextTexture: Texture;
-    type ContextRenderBuffer: RenderBuffer;
+    type RContext: Context;
 
     /** 
      * 取大小
@@ -39,5 +37,5 @@ pub trait RenderTarget: Drop + AsRef<Self> {
     /**
      * 取渲染目标中特定通道的纹理
      */
-    fn get_color_texture(&self, index: u32) -> Option<Arc<Self::ContextTexture>>;
+    fn get_color_texture(&self, index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>>;
 }
