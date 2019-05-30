@@ -53,6 +53,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     ygnode.set_height(height);
 
     idtree.create(node);
+    idtree.insert_child(node, 0, 0, None);
     Box::into_raw(Box::new(world)) as u32
 }
 
