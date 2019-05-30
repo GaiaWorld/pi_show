@@ -77,7 +77,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
             let (positions, uvs, indices) = get_border_image_stream(image, clip, slice, repeat, layout, z_depth - 0.1, Vec::new(), Vec::new(), Vec::new());
 
             let mut render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let geometry = Arc::get_mut(&mut render_obj.geometry).unwrap();
+            let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if vertex_count != geometry.get_vertex_count() {

@@ -45,6 +45,7 @@ pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
+    // base: f32,
     padding: f32,
     glyph_table: HashMap<char, Glyph>,
     texture: Arc<TextureRes<C>>,

@@ -17,44 +17,21 @@
         window.__gl = document.getElementById("canvas").getContext('webgl');
         var engine = Module._create_engine();
         var gui = Module._create_gui(engine, 1000, 700);
-        var res_count = 5;
-        var cfg, image, image1_ready, kaitiCfg, kaitiImage;
+        var res_count = 2;
+        var cfg, image;
 
         function load_ok() {
-            var root = Module._create_node(gui);
-            Module._append_child(gui, 1, root);
-            Module._set_width_percent(gui, root, 100.0);
-            Module._set_height_percent(gui, root, 100.0);
-            Module._set_backgroud_rgba_color(gui, root, 0.0, 1.0, 0.0, 1);
 
-            var image_node = Module._create_image_node(gui);
-            Module._append_child(gui, root, image_node);
-            window.__jsObj = image1;
-            window.__jsObj1 = "./20190422165842.jpg";
-            Module._set_src(gui, image_node, 1, 0);
-            Module._set_width(gui, image_node, 1000);
-            Module._set_height(gui, image_node, 700);
-            Module._set_position_type(gui, image_node, 1);
-
-            var u8Arr = new Uint8Array(image);
             window.__jsObj = cfg;
-            window.__jsObj1 = u8Arr;
+            window.__jsObj1 = image;
             window.__jsObj2 = "HYXingKaiJ";
             var sdf_font = Module._create_sdf_font(gui); //__jsObj: uv cfg, __jsObj1: image_buffer, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
             Module._add_sdf_font_res(gui, sdf_font);
 
-            var u8Arr = new Uint8Array(kaitiImage);
-            window.__jsObj = kaitiCfg;
-            window.__jsObj1 = u8Arr;
-            window.__jsObj2 = "KTXingKaiJ";
-            var sdf_font = Module._create_sdf_font(gui); //__jsObj: uv cfg, __jsObj1: image_buffer, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
-            Module._add_sdf_font_res(gui, sdf_font);
-
             window.__jsObj = "common"; //font_face_name
-            window.__jsObj1 = "HYXingKaiJ, KTXingKaiJ";
+            window.__jsObj1 = "HYXingKaiJ";
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
-            //文字必须先设置属性， 再_append_child， 暂不支持文字的内容和属性的更新
             var ce = Module._create_text_node(gui);
             // window.__jsObj = "测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下";
             window.__jsObj = "测兵量力123";
@@ -72,7 +49,7 @@
             Module._set_white_space(gui, ce, 0);
 
             // Module._set_font_size(gui, ce, );
-            Module._append_child(gui, root, ce);
+            Module._append_child(gui, ce, 1);
             
 
             Module._run(gui);   
@@ -103,21 +80,21 @@
         }
 
         var xmlhttp = newXMLHttpRequest();
-        xmlhttp.open("GET","hanyi.dfc",true);
+        xmlhttp.open("GET","38567_39569.json",true);
         xmlhttp.onreadystatechange=function(){
             if (xmlhttp.readyState==4 && xmlhttp.status==200){
-                cfg = new Uint8Array(xmlhttp.response);
+                cfg = Json.parse(xmlhttp.response);
                 res_count -= 1;;
                 if (res_count == 0) {
                     load_ok()
                 }
             }
         }
-        xmlhttp.responseType = 'arraybuffer';
+        xmlhttp.responseType = 'text';
         xmlhttp.send();
 
         var xmlhttp_image = newXMLHttpRequest();
-        xmlhttp_image.open("GET","hanyi.dft", true);
+        xmlhttp_image.open("GET","38567_39569.png", true);
         xmlhttp_image.onreadystatechange=function(){
             if (xmlhttp_image.readyState==4 && xmlhttp_image.status==200){
                 image = xmlhttp_image.response;
@@ -138,35 +115,7 @@
                 load_ok()
             }
         };
-        image1.src = "./20190422165842.jpg";
-
-        var kaiti_xmlhttp_image = newXMLHttpRequest();
-        kaiti_xmlhttp_image.open("GET","kaiti.dft", true);
-        kaiti_xmlhttp_image.onreadystatechange=function(){
-            if (kaiti_xmlhttp_image.readyState==4 && kaiti_xmlhttp_image.status==200){
-                kaitiImage = kaiti_xmlhttp_image.response;
-                res_count -= 1;
-                if (res_count == 0) {
-                    load_ok()
-                }
-            }
-        }
-        kaiti_xmlhttp_image.responseType = 'arraybuffer';
-        kaiti_xmlhttp_image.send();
-
-        var xmlhttp1 = newXMLHttpRequest();
-        xmlhttp1.open("GET","kaiti.dfc",true);
-        xmlhttp1.onreadystatechange=function(){
-            if (xmlhttp1.readyState==4 && xmlhttp1.status==200){
-                kaitiCfg = new Uint8Array(xmlhttp1.response);
-                res_count -= 1;
-                if (res_count == 0) {
-                    load_ok()
-                }
-            }
-        }
-        xmlhttp1.responseType = 'arraybuffer';
-        xmlhttp1.send();
+        image1.src = "./38567_39569.jpg";
             
     </script> 
 </body>

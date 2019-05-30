@@ -1,64 +1,29 @@
-let text_vs_shader_name = "text_vs";
-let text_fs_shader_name = "text_fs";
-
-let text_vs_code = `
-    precision highp float;
-
-    // Attributes
-    attribute vec3 position;
-    attribute vec2 uv0;
-    #ifdef VERTEX_COLOR
-    attribute vec4 color;
-    #endif
-
-    // Uniforms
-    uniform mat4 worldMatrix;
-    uniform mat4 viewMatrix;
-    uniform mat4 projectMatrix;
-
-    // Varyings
-    #ifdef VERTEX_COLOR
-    varying vec4 vColor;
-    #endif
-    varying vec2 vUV;
-    varying vec2 vPosition;
-
-    void main() {
-        gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position, 1.0);
-    #ifdef VERTEX_COLOR
-        vColor = color;
-    #endif
-        vUV = uv0;
-        vPosition = position.xy;
-    }
-`;
-let text_fs_code = `
-    #extension GL_OES_standard_derivatives : enable
+#extension GL_OES_standard_derivatives : enable
 
     precision highp float;
 
-    #ifdef CLIP_PLANE
+#ifdef CLIP_PLANE
     uniform float clipIndices;
     uniform sampler2D clipTexture;
     uniform float clipTextureSize;
-    #endif
+#endif
 
     // Varyings
-    #ifdef VERTEX_COLOR
+#ifdef VERTEX_COLOR
     varying vec4 vColor;
-    #endif
+#endif
     varying vec2 vUV;
     varying vec2 vPosition;
 
     // Uniforms
     // uniform float uPxRange;
-
-    uniform float Alpha;
-    uniform sampler2D Texture;
-    #ifdef STROKE
-    uniform float strokeSize;
-    uniform vec4 strokeColor;
-    #endif
+    
+    uniform float uAlpha;
+    uniform sampler2D uTexture;
+#ifdef STROKE
+    uniform float uBorder;
+    uniform vec4 uStrokeColor;
+#endif
 
     // 8位int型变二进制数组
     void toBit(int num, out bvec4 r1, out bvec4 r2) {
@@ -88,7 +53,7 @@ let text_fs_code = `
 
     void main() {
 
-    #ifdef CLIP_PLANE
+#ifdef CLIP_PLANE
         vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
         vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
 
@@ -104,13 +69,13 @@ let text_fs_code = `
         if (!bitAnd(notM1, notM2, i1, i2)) {
             discard;
         }
-    #endif
+#endif
 
         vec4 c = vec4(1.0);
-    #ifdef VERTEX_COLOR        
+#ifdef VERTEX_COLOR        
         v = v * vColor;
-    #endif
-        vec3 sample = texture2D(Texture, vUV).rgb;
+#endif
+        vec3 sample = texture2D(uTexture, vUV).rgb;
         float dist = median(sample.r, sample.g, sample.b);
 
         // float a = (dist - 0.5) * uPxRange + 0.5;
@@ -118,12 +83,11 @@ let text_fs_code = `
 
         float d = fwidth(dist);
         float a = smoothstep(-d, d, dist - 0.5);
-    #ifdef STROKE
-        c = mix(strokeColor, c, a);
-        a = smoothstep(-d, d, dist - (0.5 - strokeSize));
-    #endif
-        gl_FragColor = vec4(c.rgb, a * c.a * Alpha);
+#ifdef STROKE
+        c = mix(uStrokeColor, c, a);
+        a = smoothstep(-d, d, dist - (0.5 - uBorder));
+#endif
+        gl_FragColor = vec4(c.rgb, a * c.a * uAlpha);
         
         if (gl_FragColor.a < 0.02) discard;
     }
-`;
