@@ -30,4 +30,13 @@ var __jsObj = text_fs_shader_name;
 var __jsObj1 = text_fs_code;
 Module._set_shader(engine);
 
+// 设置文字shader
+var __jsObj = clip_vs_shader_name;
+var __jsObj1 = clip_vs_code;
+Module._set_shader(engine);
+
+var __jsObj = clip_fs_shader_name;
+var __jsObj1 = clip_fs_code;
+Module._set_shader(engine);
+
 

@@ -32,10 +32,11 @@
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
-        // var node1 = Module._create_node(gui);
-        // Module._append_child(gui, node1, 1); // 接口已修改， node和parent顺序颠倒
-        // Module._set_width(gui, node1, 200.0);
-        // Module._set_height(gui, node1, 200.0);
+        var node1 = Module._create_node(gui);
+        Module._append_child(gui, node1, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node1, 200.0);
+        Module._set_height(gui, node1, 200.0);
+        Module._set_overflow(gui, node1, true);
         // Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
 
         // var node2 = Module._create_node(gui);

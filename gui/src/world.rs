@@ -53,6 +53,8 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     font.family = Atom::from("common");
     default_table.set::<Font>(font);
 
+    let clip_sys = ClipSys::<C>::new(&mut engine, width as u32, height as u32);
+
     //user
     world.register_entity::<Node>();
     world.register_multi::<Node, Transform>();;
@@ -110,7 +112,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
-    // // world.register_system(CLIP_N.clone(), ClipSys::<C>::default());
+    world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // // world.register_system(SDF_N.clone(), CellSdfSys::new(SdfSys::<C>::new()));
     world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
     world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C>::new(CharBlockSys::new()));
@@ -123,7 +125,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
     world
 }

@@ -109,8 +109,12 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
 
         let (overflow, _projection, _view, view_port) = read;
         let gl = &mut engine.gl;
+        // gl.begin_render(
+        //     &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
+        //     &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
+        // );
         gl.begin_render(
-            &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
+            &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
             &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
         );
 
@@ -163,8 +167,9 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         }
         
         let geometry = unsafe {&mut *(geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_indices_short(indices.as_slice(), false).unwrap();
+        geometry.set_vertex_count(32);
         let _ = geometry.set_attribute(&AttributeName::Custom(MESH_INDEX.clone()), 1, Some(indexs.as_slice()), true);
+        geometry.set_indices_short(indices.as_slice(), false).unwrap();
 
         let ( _, projection, view, _) = read;
         let view: &[f32; 16] = view.0.as_ref();
@@ -256,5 +261,18 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, OverflowClip, ModifyEvent> f
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         self.dirty = true;
+    }
+}
+
+unsafe impl<C: Context + Share> Sync for ClipSys<C>{}
+unsafe impl<C: Context + Share> Send for ClipSys<C>{}
+
+
+impl_system!{
+    ClipSys<C> where [C: Context + Share],
+    true,
+    {
+        SingleCaseListener<OverflowClip, ModifyEvent>
+        MultiCaseListener<Node, ByOverflow, ModifyEvent>
     }
 }
