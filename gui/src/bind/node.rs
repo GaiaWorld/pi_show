@@ -98,7 +98,7 @@ pub fn remove_child(world: u32, node: u32){
 }
 
 // __jsObj 文字字符串
-// #[no_mangle]
+#[no_mangle]
 pub fn set_text_content(world: u32, node: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
     let node = node as usize;

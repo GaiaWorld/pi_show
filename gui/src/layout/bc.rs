@@ -81,7 +81,7 @@ impl YgNode {
         YgNode( 0 as yoga::YGNodeRef)
     }
     pub fn is_null(&self) -> bool {
-        self.is_null()
+        self.0.is_null()
     }
     pub fn set_position_type(&self, value: YGPositionType) { 
         yoga::yg_node_style_set_position_type(self.0, value)

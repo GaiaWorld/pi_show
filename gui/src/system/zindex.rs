@@ -180,7 +180,7 @@ impl ZIndexImpl {
   }
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
-        debug_println!("calc count: {:?}", self.dirty.count());
+        // debug_println!("calc count: {:?}", self.dirty.count());
     for id in self.dirty.iter() {
         let (min_z, max_z, recursive) = {
           let zi = unsafe {self.map.get_unchecked_mut(*id)};
