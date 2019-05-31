@@ -267,6 +267,8 @@ extern "C" {
     fn YGNodeCopyStyle(dstNode: YGNodeRef, srcNode: YGNodeRef);
     fn YGNodeGetContext(node: YGNodeRef) -> *mut c_void;
     fn YGNodeSetContext(node: YGNodeRef, context: *mut c_void);
+    fn YGNodeGetBind(node: YGNodeRef) -> *mut c_void;
+    fn YGNodeSetBind(node: YGNodeRef, bind: *mut c_void);
     fn YGConfigSetPrintTreeFlag(config: YGConfigRef, enabled: bool);
     fn YGNodeHasMeasureFunc(node: YGNodeRef) -> bool;
     fn YGNodeSetMeasureFunc(node: YGNodeRef, measureFunc: YGMeasureFunc);
@@ -696,6 +698,18 @@ pub fn yg_node_get_context(node: YGNodeRef) -> *mut c_void {
 pub fn yg_node_set_context(node: YGNodeRef, context: *mut c_void) {
 	unsafe {
         YGNodeSetContext(node, context);
+	}
+}
+
+pub fn yg_node_get_bind(node: YGNodeRef) -> *mut c_void {
+	unsafe {
+        YGNodeGetBind(node)
+	}
+}
+
+pub fn yg_node_set_bind(node: YGNodeRef, bind: *mut c_void) {
+	unsafe {
+        YGNodeSetBind(node, bind);
 	}
 }
 

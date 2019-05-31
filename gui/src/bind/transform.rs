@@ -21,33 +21,39 @@ macro_rules! push_func {
 }
 
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
     push_func!(world, node_id, TransformFunc::Translate(x, y));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::TranslateX(value));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::TranslateY(value));
 }
 
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
     push_func!(world, node_id, TransformFunc::TranslatePercent(x/100.0, y/100.0));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::TranslateX(value/100.0));
 
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::TranslateY(value/100.0));
@@ -55,26 +61,31 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
 }
 
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale(world: u32, node_id: u32, x: f32, y: f32) {
     push_func!(world, node_id, TransformFunc::Scale(x, y));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale_x(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleX(value));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleY(value));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::RotateZ(value));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
@@ -90,6 +101,7 @@ pub fn transform_none(world: u32, node_id: u32) {
     });
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y: f32) {
     let x_ty = unsafe{transmute(x_ty)};

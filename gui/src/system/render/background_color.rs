@@ -3,23 +3,21 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::mem::transmute;
 
 use std::collections::HashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::{ vecmap::VecMap, Map } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, BlendFunc, CullMode, ShaderType, Pipeline, Geometry, AttributeName};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use map::{ vecmap::VecMap } ;
+use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
 use polygon::*;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::calc::{Opacity, ZDepth};
 use entity::{Node};
-use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
-use render::engine::{ Engine , PipelineInfo};
+use single::{RenderObjs, RenderObjWrite, RenderObj};
+use render::engine::{ Engine};
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
 
@@ -84,17 +82,13 @@ impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
-            debug_println!("bg_color, id: {}, layout: {:?}", id, layout);
-            debug_println!("bg_color, id: {}, positions: {:?}", id, positions.as_slice());
-            debug_println!("bg_color, id: {}, indices: {:?}", id, indices.as_slice());
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
-            geometry.set_indices_short(indices.as_slice(), false);
+            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_indices_short(indices.as_slice(), false).unwrap();
             match colors {
                 Some(colors) => {
-                    debug_println!("bg_color, id: {}, colors: {:?}", id, colors.as_slice());
-                    geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false)
+                    geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false).unwrap()
                 },
-                None => geometry.set_attribute(&AttributeName::Color, 4, None, false),
+                None => geometry.set_attribute(&AttributeName::Color, 4, None, false).unwrap(),
             };
         }
         self.geometry_dirtys.clear();
@@ -118,12 +112,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         let (background_colors, border_radius, z_depths, layouts, opacitys) = read;
         let (render_objs, engine) = write;
         let background_color = unsafe { background_colors.get_unchecked(event.id) };
-        let border_radius = unsafe { border_radius.get_unchecked(event.id) };
+        let _border_radius = unsafe { border_radius.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let layout = unsafe { layouts.get_unchecked(event.id) };
+        let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         let mut defines = Vec::new();
 
@@ -138,7 +132,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
             },
-            _ => (),
         }
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
@@ -211,7 +204,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
                     }
                 }
             },
-            _ => (),
         }
 
         let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
@@ -239,8 +231,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Delete
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = unsafe { self.background_color_render_map.get_mut(event.id) } {
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        if let Some(item) = self.background_color_render_map.get_mut(event.id) {
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
@@ -260,7 +252,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 
 impl<'a, C: Context + Share> BackgroundColorSys<C> {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BackgroundColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-        if let Some(item) = unsafe { self.background_color_render_map.get_mut(id) } {
+        if let Some(item) = self.background_color_render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
             let background_color = unsafe { colors.get_unchecked(id) };
 

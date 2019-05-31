@@ -1,4 +1,3 @@
-use std::ops::Drop;
 
 use atom::Atom;
 use hal_core::{Context};

@@ -19,7 +19,7 @@ use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix
 use render::engine::Engine;
 use render::res::{ TextureRes, SamplerRes };
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_indices, COMMON, ALPHA, CLIP};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, UV, CLIP_INDICES, COMMON, ALPHA, CLIP};
 
 
 lazy_static! {
@@ -387,7 +387,7 @@ impl<C: Context + Share> ImageSys<C> {
         if by_overflow > 0 {
             defines.clip = true;
             let mut by_overflow_ubo = engine.gl.create_uniforms();
-            by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性，
+            by_overflow_ubo.set_float_1(&CLIP_INDICES, by_overflow as f32); //裁剪属性，
         }
 
         let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());

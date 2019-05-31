@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script>
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+    </script>
+    
+    <script src="../target/asmjs-unknown-emscripten/debug/gui.js?"+Math.random()></script>
+    <script src="./shader/color.js"></script>
+    <script src="./shader/image.js"></script>
+    <script src="./shader/text.js"></script>
+    <script>
+        var gl = document.getElementById("canvas").getContext('webgl');
+        window.__gl = gl;
+
+        var engine = Module._create_engine();
+        // 设置图片shader
+var __jsObj = color_vs_shader_name;
+var __jsObj1 = color_vs_code;
+Module._set_shader(engine);
+
+var __jsObj = color_fs_shader_name;
+var __jsObj1 = color_fs_code;
+Module._set_shader(engine);
+
+// 设置图片shader
+var __jsObj = image_vs_shader_name;
+var __jsObj1 = image_vs_code;
+Module._set_shader(engine);
+
+var __jsObj = image_fs_shader_name;
+var __jsObj1 = image_fs_code;
+Module._set_shader(engine);
+
+        var gui = Module._create_gui(engine, 1000, 700);
+
+        var node0 = Module._create_node(gui);
+        Module._set_width(gui, node0, 1000.0);
+        Module._set_height(gui, node0, 700.0);
+        Module._set_background_rgba_color(gui, node0, 1.0, 0.0, 0.0, 1.0);
+        Module._append_child(gui, node0, 1 );
+        
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node3, node0);
+        Module._set_width(gui, node3, 100.0);
+        Module._set_height(gui, node3, 40.0);
+        Module._set_background_rgba_color(gui, node3, 1.0, 1.0, 0.0, 1.0);
+        
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node4, node0);
+        Module._set_width(gui, node4, 100.0);
+        Module._set_height(gui, node4, 40.0);
+        Module._set_background_rgba_color(gui, node4, 1.0, 0.0, 1.0, 1.0);
+        
+        var node5 = Module._create_node(gui);
+        Module._append_child(gui, node5, node0);
+        Module._set_width(gui, node5, 100.0);
+        Module._set_height(gui, node5, 40.0);
+        Module._set_background_rgba_color(gui, node5, 0.0, 1.0, 0.0, 1.0);
+        
+        var node6 = Module._create_node(gui);
+        Module._append_child(gui, node6, node0);
+        Module._set_width(gui, node6, 100.0);
+        Module._set_height(gui, node6, 40.0);
+        Module._set_background_rgba_color(gui, node6, 1.0, 0.0, 0.0, 1.0);
+
+        Module._render(gui);
+
+        // setTimeout(() => {
+        //     Module._transform_rotate(gui, node2, 45);
+        //     Module._run(gui);
+
+        //     setTimeout(() => {
+        //         Module._transform_scale(gui, node2, 0.5, 0.5);
+        //         Module._run(gui);
+
+        //         setTimeout(() => {
+        //             Module._transform_translate_x(gui, node2, 100);
+        //             Module._run(gui);
+
+        //             setTimeout(() => {
+        //                 Module._transform_translate_x_percent(gui, node2, 100);
+        //                 Module._run(gui);
+
+        //                 // setTimeout(() => {
+        //                 //     Module._transform_translate_y_percent(gui, node4, 100);
+        //                 //     Module._run(gui);
+
+        //                 //     setTimeout(() => {
+        //                 //         Module._transform_scale(gui, node4, 2, 2);
+        //                 //         Module._run(gui);
+        //                 //     }, 4000);
+
+        //                 // }, 4000);
+
+        //             }, 4000);
+
+        //         }, 4000);
+
+        //     }, 4000);
+
+        // }, 4000);
+        
+    </script>
+</body>
+</html>

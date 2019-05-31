@@ -26,14 +26,22 @@ use component::{
   calc::{ZDepth, ZDepthWrite},
 };
 use Z_MAX;
-use Root;
+use ROOT;
 
 impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, ZI>, &'a mut MultiCaseImpl<Node, ZDepth>);
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-      self.map.insert(event.id, ZIndex::default());
+      let mut zi = ZIndex::default();
+      // 为root节点设置最大范围值
+      if event.id == ROOT {
+            zi.pre_min_z = -Z_MAX;
+            zi.pre_max_z = Z_MAX;
+            zi.min_z = -Z_MAX;
+            zi.max_z = Z_MAX;
+      }
+      self.map.insert(event.id, zi);
       write.0.insert(event.id, ZI::default());
       write.1.insert(event.id, ZDepth::default());
     }
@@ -136,17 +144,9 @@ pub struct ZIndexImpl {
 
 impl ZIndexImpl {
   pub fn new() -> ZIndexImpl {
-    let mut map = VecMap::new();
-    // 为root节点设置最大范围值
-    let mut zi = ZIndex::default();
-    zi.pre_min_z = -Z_MAX;
-    zi.pre_max_z = Z_MAX;
-    zi.min_z = -Z_MAX;
-    zi.pre_max_z = Z_MAX;
-    map.insert(Root, zi);
     ZIndexImpl {
       dirty: LayerDirty::default(),
-      map: map,
+      map: VecMap::new(),
       cache: Cache::new(),
     }
   }
@@ -172,43 +172,45 @@ impl ZIndexImpl {
   }
 
   fn delete_dirty(&mut self, id: usize, layer: usize) {
-    let zi = unsafe {self.map.remove_unchecked(id)};
-    if layer > 0 && zi.dirty != DirtyType::None {
-      self.dirty.delete(id, layer)
+    if layer > 0 {
+      let zi = unsafe {self.map.remove_unchecked(id)};
+      if zi.dirty != DirtyType::None {
+        self.dirty.delete(id, layer)
+      }
     }
     // 删除无需设脏，z值可以继续使用
   }
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
-        // debug_println!("calc count: {:?}", self.dirty.count());
     for id in self.dirty.iter() {
-        let (min_z, max_z, recursive) = {
-          let zi = unsafe {self.map.get_unchecked_mut(*id)};
-          if zi.dirty == DirtyType::None {
-            continue;
-          }
-          let b = zi.dirty == DirtyType::Normal;
-          zi.dirty = DirtyType::None;
-          zi.min_z = zi.pre_min_z;
-          zi.max_z = zi.pre_max_z;
-          (zi.min_z, zi.max_z, b)
-        };
-        let node = unsafe {idtree.get_unchecked(*id)};
-        if node.layer == 0 {
+      let (min_z, max_z, normal) = {
+        let zi = unsafe {self.map.get_unchecked_mut(*id)};
+      debug_println!("calc xxx: {:?} {:?}", id, zi);
+        if zi.dirty == DirtyType::None {
           continue;
         }
-        // 设置 z_depth, 其他系统会监听该值
-        unsafe {zdepth.get_unchecked_write(*id)}.set_0(min_z);
-        debug_println!("calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, recursive);
-        if node.count == 0 {
-          continue;
-        }
-        self.cache.sort(&self.map, idtree, node.children.head, 0);
-        if recursive {
-          self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
-        }else{
-          self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
-        }
+        let b = zi.dirty == DirtyType::Normal;
+        zi.dirty = DirtyType::None;
+        zi.min_z = zi.pre_min_z;
+        zi.max_z = zi.pre_max_z;
+        (zi.min_z, zi.max_z, b)
+      };
+      let node = unsafe {idtree.get_unchecked(*id)};
+      if node.layer == 0 {
+        continue;
+      }
+      // 设置 z_depth, 其他系统会监听该值
+      unsafe {zdepth.get_unchecked_write(*id)}.set_0(min_z);
+      debug_println!("calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
+      if node.count == 0 {
+        continue;
+      }
+      self.cache.sort(&self.map, idtree, node.children.head, 0);
+      if normal {
+        self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
+      }else{
+        self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
+      }
     }
     self.dirty.clear();
   }
@@ -331,6 +333,7 @@ impl Cache {
       zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
+debug_println!("---------recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
       }
@@ -385,6 +388,7 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     zi.max_z = max;
     // 设置 z_depth, 其他系统会监听该值
     unsafe {zdepth.get_unchecked_write(id)}.set_0(min);
+debug_println!("---------adjust: {:?} {:?} {:?}", id, min, max);
     // 判断是否为auto
     if min != max {
       (min, (max_z - min_z - 1.)/ (old_max_z - old_min_z), old_min_z)

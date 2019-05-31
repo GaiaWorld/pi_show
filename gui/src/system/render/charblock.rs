@@ -3,27 +3,26 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::mem::transmute;
 
 use std::collections::HashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::{ vecmap::VecMap, Map } ;
-use hal_core::*;
+use map::{ vecmap::VecMap } ;
 use atom::Atom;
 use polygon::*;
 
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use hal_core::*;
+
 use component::user::*;
 use single::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth, CharBlock};
+use component::calc::{Opacity, ZDepth, CharBlock};
 use entity::{Node};
 use render::engine::{ Engine , PipelineInfo};
-use render::res::{Opacity as ROpacity, SamplerRes};
+use render::res::{SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
-use font::sdf_font:: { StaticSdfFont, GlyphInfo, SdfFont };
+use font::sdf_font:: { GlyphInfo, SdfFont };
 
 lazy_static! {
     static ref STROKE: Atom = Atom::from("STROKE");
@@ -92,19 +91,19 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                     return;
                 }
             };
-            let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, font, &text_style.color, z_depth + 0.1, (0.0, 0.0));
+            let (positions, _uvs, colors, indices) = get_geo_flow(charblock, &first_font, font, &text_style.color, z_depth + 0.1, (0.0, 0.0));
 
-            let mut render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
-            geometry.set_indices_short(indices.as_slice(), false);
+            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_indices_short(indices.as_slice(), false).unwrap();
             match colors {
-                Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false);},
+                Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
                 None => ()
             };
         }
@@ -141,9 +140,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (images, text_styles, fonts, z_depths, layouts, opacitys, font_sheet, default_table) = read;
         let (render_objs, engine) = write;
-        let char_block = unsafe { images.get_unchecked(event.id) };
+        let _char_block = unsafe { images.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let layout = unsafe { layouts.get_unchecked(event.id) };
+        let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
         let text_style = get_or_default(event.id, text_styles, default_table);
         let font = get_or_default(event.id, fonts, default_table);
@@ -154,10 +153,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
                 return;
             }
         };
-        let texture = first_font.texture();
+        let _texture = first_font.texture();
         let mut defines = Vec::new();
 
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
@@ -180,7 +179,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
             },
-            _ => (),
         }
 
         let pipeline = engine.create_pipeline(
@@ -222,7 +220,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent> for CharBlockSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         let item = unsafe { self.charblock_render_map.get_unchecked_mut(event.id) };
         if item.position_change == false {
             item.position_change = true;
@@ -236,7 +234,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for CharBlockSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
         let item = self.charblock_render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));
@@ -255,7 +253,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (font_sheet, fonts) = read;
-        if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
+        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
             let font = unsafe { fonts.get_unchecked(event.id) };
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
@@ -264,7 +262,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                     return;
                 }
             };
-            let texture = first_font.texture();
+            let _texture = first_font.texture();
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
@@ -287,7 +285,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
-        if let Some(item) = unsafe { self.charblock_render_map.get_mut(event.id) } {
+        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
             let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
@@ -300,7 +298,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
                             if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
                                 render_obj.defines.remove_item(&VERTEX_COLOR);
 
-                                let mut ucolor_ubo = engine.gl.create_uniforms();
+                                let ucolor_ubo = engine.gl.create_uniforms();
                                 render_obj.ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
                                 render_obj.defines.push(UCOLOR.clone());
 
@@ -328,7 +326,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
                                 }
                             }
                         },
-                        _ => (),
                     }
 
                 },
@@ -390,7 +387,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_styles) = read;
-        if let Some(item) = unsafe { self.charblock_render_map.get(event.id) } {
+        if let Some(item) = self.charblock_render_map.get(event.id) {
             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             let index = item.index;
@@ -400,7 +397,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 }
 
 impl<'a, C: Context + Share> CharBlockSys<C> {
-    fn change_is_opacity(&mut self, id: usize, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, _id: usize, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
             false
         }else {
@@ -421,7 +418,7 @@ struct Item {
 fn get_geo_flow<C: Context + Share>(
     char_block: &CharBlock,
     sdf_font: &Arc<SdfFont<Ctx = C>>,
-    font: &Font,
+    _font: &Font,
     color: &Color,
     z_depth: f32,
     offset: (f32, f32)
@@ -552,7 +549,7 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     );
     if len > 12 {
         let mut i = i + 12;
-        for j in 0..(len - 16)/4 {
+        for _j in 0..(len - 16)/4 {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
             let uv;

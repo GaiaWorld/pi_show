@@ -4,9 +4,6 @@ use std::hash::Hash;
 
 use std::collections::HashMap;
 
-use atom::{Atom};
-
-
 //资源接口
 pub trait Res {
     type Key: Hash + Eq + Clone;

@@ -9,6 +9,7 @@ use layout::*;
 #[macro_use()]
 macro_rules! func_enum {
     ($func:ident) => {
+        #[allow(unused_attributes)]
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32, value: u32){
             let value = unsafe{transmute(value)};
@@ -25,6 +26,7 @@ macro_rules! func_enum {
 #[macro_use()]
 macro_rules! func_value {
     ($func:ident) => {
+        #[allow(unused_attributes)]
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32, value: f32){
             let node_id = node_id as usize;
@@ -40,6 +42,7 @@ macro_rules! func_value {
 #[macro_use()]
 macro_rules! func_enum_value {
     ($func:ident) => {
+        #[allow(unused_attributes)]
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32, edge: u32, value: f32){
             let edge = unsafe{transmute(edge)};
@@ -56,6 +59,7 @@ macro_rules! func_enum_value {
 #[macro_use()]
 macro_rules! func_auto {
     ($func:ident) => {
+        #[allow(unused_attributes)]
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32){
             let node_id = node_id as usize;

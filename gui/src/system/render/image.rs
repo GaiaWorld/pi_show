@@ -3,21 +3,19 @@
  */
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::mem::transmute;
 
 use std::collections::HashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::{ vecmap::VecMap, Map } ;
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
 use polygon::*;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::calc::{Opacity, ZDepth};
 use entity::{Node};
-use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
-use render::engine::{ Engine , PipelineInfo};
+use single::{RenderObjs, RenderObjWrite, RenderObj};
+use render::engine::{ Engine};
 use render::res::*;
 use render::res::{Opacity as ROpacity};
 use system::util::*;
@@ -72,20 +70,20 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
             let image = unsafe { images.get_unchecked(*id) };
-            let image_clip = unsafe { image_clips.get(*id) };
-            let object_fit = unsafe { object_fits.get(*id) };
+            let image_clip = image_clips.get(*id);
+            let object_fit = object_fits.get(*id);
             let (positions, uvs, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1, image, image_clip, object_fit);
 
-            let mut render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false);
-            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false);
-            geometry.set_indices_short(indices.as_slice(), false);
+            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
+            geometry.set_indices_short(indices.as_slice(), false).unwrap();
         }
         self.geometry_dirtys.clear();
     }
@@ -121,12 +119,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         let (images, border_radius, z_depths, layouts, opacitys) = read;
         let (render_objs, engine) = write;
         let image = unsafe { images.get_unchecked(event.id) };
-        let border_radius = unsafe { border_radius.get_unchecked(event.id) };
+        let _border_radius = unsafe { border_radius.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let layout = unsafe { layouts.get_unchecked(event.id) };
+        let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut geometry = create_geometry(&mut engine.gl);
+        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
         let defines = Vec::new();
 
@@ -171,7 +169,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (opacitys, images) = read;
-        if let Some(item) = unsafe { self.image_render_map.get_mut(event.id) } {
+        if let Some(item) = self.image_render_map.get_mut(event.id) {
             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
             let image = unsafe { images.get_unchecked(event.id) };
             let index = item.index;
@@ -196,7 +194,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
         let item = self.image_render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));
@@ -210,8 +208,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> 
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = unsafe { self.image_render_map.get_mut(event.id) } {
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        if let Some(item) = self.image_render_map.get_mut(event.id) {
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
@@ -236,7 +234,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 }
 
 impl<'a, C: Context + Share> ImageSys<C> {
-    fn change_is_opacity(&mut self, id: usize, opacity: f32, image: &Image<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, _id: usize, opacity: f32, image: &Image<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
         }else if let ROpacity::Opaque = image.src.opacity{

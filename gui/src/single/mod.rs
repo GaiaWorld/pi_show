@@ -1,7 +1,6 @@
 pub mod oct;
 
 use std::sync::Arc;
-use std::fmt;
 use std::any::{TypeId, Any};
 
 use std::collections::HashMap;
@@ -9,8 +8,8 @@ use std::collections::HashMap;
 use cgmath::Ortho;
 use slab::Slab;
 use atom::Atom;
-use hal_core::{Context, Pipeline, Uniforms, RenderBeginDesc};
-use ecs::{ Share, Write };
+use hal_core::{Context, Uniforms, RenderBeginDesc};
+use ecs::{ Write };
 use ecs::monitor::NotifyImpl;
 use map::vecmap::VecMap;
 
@@ -201,7 +200,6 @@ impl DefaultTable {
     }
 
     pub fn get<T: 'static + Any + Sync + Send>(&self) -> Option<&T>{
-        let r = self.0.get(&TypeId::of::<T>());
         match self.0.get(&TypeId::of::<T>()) {
             Some(r) => r.downcast_ref::<T>(),
             None => None
@@ -209,7 +207,6 @@ impl DefaultTable {
     }
 
     pub fn get_mut<T: 'static + Any + Sync + Send>(&mut self) -> Option<&mut T>{
-        let r = self.0.get(&TypeId::of::<T>());
         match self.0.get_mut(&TypeId::of::<T>()) {
             Some(r) => r.downcast_mut::<T>(),
             None => None
@@ -217,12 +214,10 @@ impl DefaultTable {
     }
 
     pub fn get_unchecked<T: 'static + Any + Sync + Send>(&self) -> &T{
-        let r = self.0.get(&TypeId::of::<T>());
         self.0.get(&TypeId::of::<T>()).unwrap().downcast_ref::<T>().unwrap()
     }
 
     pub fn get_unchecked_mut<T: 'static + Any + Sync + Send>(&mut self) -> &mut T{
-        let r = self.0.get(&TypeId::of::<T>());
         self.0.get_mut(&TypeId::of::<T>()).unwrap().downcast_mut::<T>().unwrap()
     }
 

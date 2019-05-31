@@ -5,16 +5,14 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 use std::mem::transmute;
 
-use ecs::{Component, CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
-use hal_core::{ Pipeline, RasterState, BlendState, StencilState, DepthState, Context, ShaderType, Geometry, Uniforms, SamplerDesc, AttributeName};
-use polygon::*;
+use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share};
+use hal_core::{ RasterState, BlendState, StencilState, DepthState, Context, Geometry, SamplerDesc, AttributeName};
 use atom::Atom;
-use std::collections::HashMap;
 
 
 use component::user::*;
 use component::calc::WorldMatrix;
-use system::util::constant::{POSITION, WORLD_MATRIX, COMMON, ALPHA, CLIP_indices, CLIP};
+use system::util::constant::{WORLD_MATRIX, CLIP_INDICES, CLIP};
 use render::engine::Engine;
 use single::{ RenderObjs, DefaultTable };
 use entity::Node;
@@ -80,16 +78,16 @@ pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32
         end_x,   end_y,   z_depth, // right_bootom
         end_x,   start_y, z_depth, // right_top
     ];
-    Arc::get_mut(geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false);
+    Arc::get_mut(geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false).unwrap();
 }
 
 pub fn set_world_matrix_ubo<C: Context + 'static>(
-    id: usize,
+    _id: usize,
     index: usize,
     world_matrix: &Matrix4,
     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
 ){
-    let mut ubos = &mut unsafe { render_objs.get_unchecked_mut(index) }.ubos;
+    let ubos = &mut unsafe { render_objs.get_unchecked_mut(index) }.ubos;
     let slice: &[f32; 16] = world_matrix.as_ref();
     Arc::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
 }
@@ -109,7 +107,7 @@ pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
     engine: &mut SingleCaseImpl<Engine<C>>,
 ){
     let mut obj = &mut unsafe { render_objs.get_unchecked_mut(index) };
-    let mut ubos = &mut obj.ubos;
+    let ubos = &mut obj.ubos;
     if by_overflow == 0 {
         ubos.remove(&CLIP);
         if defines.get_clip() == true {
@@ -119,10 +117,10 @@ pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
         return;
     }
     ubos.entry(CLIP.clone()).and_modify(|by_overflow_ubo|{
-        Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_indices, by_overflow as f32);//裁剪属性
+        Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);//裁剪属性
     }).or_insert_with(||{
         let mut by_overflow_ubo = engine.gl.create_uniforms();
-        by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性
+        by_overflow_ubo.set_float_1(&CLIP_INDICES, by_overflow as f32); //裁剪属性
         Arc::new(by_overflow_ubo)
     });
     if defines.get_clip() == false {

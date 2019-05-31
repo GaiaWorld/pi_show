@@ -61,13 +61,15 @@ macro_rules! set_show {
     };
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
     insert_value!(world, node, BackgroundColor, Color::RGBA(CgColor::new(r, g, b, a)));
 }
 
 // // 设置一个径向渐变的背景颜色
-// #[no_mangle]
+// #[allow(unused_attributes)]
+#[no_mangle]
 // pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
 //     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
 //     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
@@ -75,6 +77,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 // }
 
 // 设置一个线性渐变的背景颜色
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32){
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
@@ -83,30 +86,35 @@ pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f3
 }
 
 // 设置边框颜色， 类型为rgba
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
     insert_value!(world, node, BorderColor, CgColor::new(r, g, b, a));
 }
 
 // 设置边框圆角
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32){ 
     insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Pixel(x), y: LengthUnit::Pixel(y)});
 }
 
 // 设置边框圆角
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32){
     insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Percent(x), y: LengthUnit::Percent(y)});
 }
 
 // 设置阴影颜色
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
     let color = 0;
     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a));
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
     let blur = 0;
@@ -114,6 +122,7 @@ pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
 }
 
 // 设置阴影h
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
     let h = 0;
@@ -121,50 +130,59 @@ pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
 }
 
 // 设置阴影v
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
     let v = 0;
     set_attr!(world, node, BoxShadow, v, value);
 }
 //设置object_fit
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_object_fit(world: u32, node: u32, value: u8){
     insert_value!(world, node, ObjectFit, unsafe{ transmute(value)});
 }
 // 设置图像裁剪
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
     insert_value!(world, node, ImageClip, Aabb2{min: Point2::new(u1, v1), max: Point2::new(u2, v2)});
 }
 // 设置图像裁剪
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
     insert_value!(world, node, BorderImageClip, Aabb2{min: Point2::new(u1, v1), max: Point2::new(u2, v2)});
 }
 //设置border_image_slice
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, bottom: f32, left: f32, fill: bool){
     insert_attr!(world, node, BorderImageSlice, BorderImageSlice{top, right, bottom, left, fill});
 }
 //设置border_image_slice
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8){
     insert_attr!(world, node, BorderImageRepeat, BorderImageRepeat(unsafe{ transmute(vertical)}, unsafe{ transmute(horizontal)}));
 }
 
 //设置overflow
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_overflow(world: u32, node: u32, value: bool){
     insert_value!(world, node, Overflow, value);
 }
 
 //设置不透明度
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_opacity(world: u32, node: u32, value: f32) {
     insert_value!(world, node, Opacity, value);
 }
 
 //设置display
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_display(world: u32, node: u32, value: u8){
     let value = unsafe{ transmute(value)};
@@ -172,17 +190,20 @@ pub fn set_display(world: u32, node: u32, value: u8){
 }
 
 //设置visibility, true: visible, false: hidden,	默认true
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_visibility(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_visibility, value);
 }
 
 //设置visibility, true: visible, false: hidden,	默认true
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_enable(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_enable, value);
 }
 
+#[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_zindex(world: u32, node: u32, value: i32) {
     let value = value as isize;

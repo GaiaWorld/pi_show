@@ -19,7 +19,7 @@ use entity::{Node};
 use single::{RenderObjs, RenderObjWrite, RenderObj, ViewMatrix, ProjectionMatrix, ClipUbo, ViewUbo, ProjectionUbo};
 use render::engine::Engine;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_indices, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, POSITION, COLOR, CLIP_INDICES, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
 
 
 lazy_static! {
@@ -40,7 +40,7 @@ lazy_static! {
     
 
     // static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
-    // static ref CLIP_indices_SIZE: Atom = Atom::from("clipTextureSize");
+    // static ref CLIP_INDICES_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
 pub struct SdfSys<C: Context + Share>{
@@ -433,7 +433,7 @@ impl<C: Context + Share> SdfSys<C> {
         if by_overflow > 0 {
             defines.clip = true;
             let mut by_overflow_ubo = engine.gl.create_uniforms();
-            by_overflow_ubo.set_float_1(&CLIP_indices, by_overflow as f32); //裁剪属性，
+            by_overflow_ubo.set_float_1(&CLIP_INDICES, by_overflow as f32); //裁剪属性，
         }
 
         let pipeline = engine.create_pipeline(0, &BOX_VS_SHADER_NAME.clone(), &BOX_FS_SHADER_NAME.clone(), defines.list().as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
