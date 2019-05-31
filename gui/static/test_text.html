@@ -33,6 +33,12 @@
         Module._append_child(gui, node, body);
         Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
 
+        var node1 = Module._create_node(gui);
+        Module._set_width(gui, node1, 50);
+        Module._set_height(gui, node1, 50);
+        Module._append_child(gui, node1, node);
+        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 0.5);
+
         function load_ok() {
 
             window.__jsObj = cfg;

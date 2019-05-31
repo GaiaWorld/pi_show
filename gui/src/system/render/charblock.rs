@@ -48,12 +48,14 @@ pub struct CharBlockSys<C: Context + Share>{
 
 impl<C: Context + Share> CharBlockSys<C> {
     pub fn new() -> Self{
+        let mut bs = BlendState::new();
+        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         CharBlockSys {
             charblock_render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
-            bs: Arc::new(BlendState::new()),
+            bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
             pipelines: HashMap::default(),
@@ -143,7 +145,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let (text_styles, fonts, z_depths, opacitys, font_sheet, default_table) = read;
         let (render_objs, engine) = write;
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+        let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
         let text_style = get_or_default(event.id, text_styles, default_table);
         let font = get_or_default(event.id, fonts, default_table);
         let first_font = match font_sheet.get_first_font(&font.family) {
@@ -191,15 +193,15 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             self.ds.clone()
         );
         
-        let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
-            false
-        }else {
-            true
-        };
+        // let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
+        //     false
+        // }else {
+        //     true
+        // };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 1.0,
+            depth: z_depth + 0.2,
             visibility: false,
-            is_opacity: is_opacity,
+            is_opacity: false,
             ubos: ubos,
             geometry: geometry,
             pipeline: pipeline.clone(),
@@ -285,12 +287,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent>
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
             modify_stroke(item, text_style, render_objs, engine);
-            let index = item.index;
-            self.change_is_opacity(opacity, text_style, index, render_objs);
+            // let index = item.index;
+            // self.change_is_opacity(opacity, text_style, index, render_objs);
         }
     }
 }
@@ -306,12 +308,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, DeleteEvent>
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
             modify_stroke(item, text_style, render_objs, engine);
-            let index = item.index;
-            self.change_is_opacity(opacity, text_style, index, render_objs);
+            // let index = item.index;
+            // self.change_is_opacity(opacity, text_style, index, render_objs);
         }
     }
 }
@@ -324,7 +326,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles) = read;   
+        let (_opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
         println!("modify style {:?}, {:?}", event.field, unsafe { text_styles.get_unchecked(event.id) });
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
@@ -340,40 +342,40 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
                 _ => return,
             }
 
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let index = item.index;
-            self.change_is_opacity(opacity, text_style, index, render_objs);
+            // let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            // let index = item.index;
+            // self.change_is_opacity(opacity, text_style, index, render_objs);
         }
     }
 }
 
-//不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles) = read;
-        if let Some(item) = self.charblock_render_map.get(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-            let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            let index = item.index;
-            self.change_is_opacity( opacity, text_style, index, write);
-        }
-    }
-}
+// //不透明度变化， 修改渲染对象的is_opacity属性
+// impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C>{
+//     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
+//     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+//         let (opacitys, text_styles) = read;
+//         if let Some(item) = self.charblock_render_map.get(event.id) {
+//             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+//             // let text_style = unsafe { text_styles.get_unchecked(event.id) };
+//             // let index = item.index;
+//             // self.change_is_opacity( opacity, text_style, index, write);
+//         }
+//     }
+// }
 
-impl<'a, C: Context + Share> CharBlockSys<C> {
-    fn change_is_opacity(&mut self, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-        let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
-            false
-        }else {
-            true
-        };
+// impl<'a, C: Context + Share> CharBlockSys<C> {
+//     fn change_is_opacity(&mut self, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+//         let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
+//             false
+//         }else {
+//             true
+//         };
 
-        let notify = render_objs.get_notify();
-        unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
-    }
-}
+//         let notify = render_objs.get_notify();
+//         unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
+//     }
+// }
 
 struct Item {
     index: usize,
@@ -719,6 +721,6 @@ impl_system!{
         MultiCaseListener<Node, TextStyle, ModifyEvent>
         MultiCaseListener<Node, TextStyle, DeleteEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
+        // MultiCaseListener<Node, Opacity, ModifyEvent>
     }
 }

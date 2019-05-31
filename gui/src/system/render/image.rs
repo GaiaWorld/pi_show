@@ -72,7 +72,7 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
             let image = unsafe { images.get_unchecked(*id) };
             let image_clip = image_clips.get(*id);
             let object_fit = object_fits.get(*id);
-            let (positions, uvs, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1, image, image_clip, object_fit);
+            let (positions, uvs, indices) = get_geo_flow(border_radius, layout, z_depth, image, image_clip, object_fit);
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -146,7 +146,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
             false
         };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 1.0,
+            depth: z_depth,
             visibility: false,
             is_opacity: is_opacity,
             ubos: ubos,
