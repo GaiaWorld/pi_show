@@ -59,7 +59,7 @@ impl<C: Context + Share> CharBlockSys<C> {
             pipelines: HashMap::default(),
             default_sampler: None,
         }
-    }
+    }   
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -275,6 +275,27 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
 }
 
 // TextStyle修改， 设置对应的ubo和宏
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for CharBlockSys<C>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, TextStyle>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        let (opacitys, text_styles) = read;   
+        let (render_objs, engine) = write;
+        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            let text_style = unsafe { text_styles.get_unchecked(event.id) };
+            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
+            modify_stroke(item, text_style, render_objs, engine);
+            let index = item.index;
+            self.change_is_opacity(opacity, text_style, index, render_objs);
+        }
+    }
+}
+
+// TextStyle修改， 设置对应的ubo和宏
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
@@ -286,95 +307,19 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
         let (render_objs, engine) = write;
         println!("modify style {:?}, {:?}", event.field, unsafe { text_styles.get_unchecked(event.id) });
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             
             match event.field {
                 "color" => {
-                    match &text_style.color {
-                        Color::RGBA(c) => {
-                            // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-                            if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
-                                render_obj.defines.remove_item(&VERTEX_COLOR);
-
-                                let ucolor_ubo = engine.gl.create_uniforms();
-                                render_obj.ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
-                                render_obj.defines.push(UCOLOR.clone());
-
-                                if item.position_change == false {
-                                    item.position_change = true;
-                                    self.geometry_dirtys.push(event.id);
-                                }
-                            }
-                            // 设置ubo
-                            let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
-                            debug_println!("text_color, id: {}, color: {:?}", event.id, c);
-                            ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-
-                            render_objs.get_notify().modify_event(item.index, "", 0);
-                        },
-                        Color::LinearGradient(_) => {
-                            // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-                            if find_item_from_vec(&render_obj.defines, &VERTEX_COLOR) == 0 {
-                                render_obj.defines.remove_item(&UCOLOR);
-                                render_obj.defines.push(VERTEX_COLOR.clone());
-                                render_obj.ubos.remove(&UCOLOR);   
-                                if item.position_change == false {
-                                    item.position_change = true;
-                                    self.geometry_dirtys.push(event.id);
-                                }
-                            }
-                        },
-                    }
-
+                    modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
                 },
                 "stroke" => {
-                    if text_style.stroke.width == 0.0 {
-                        //  删除边框的宏
-                        match render_obj.defines.remove_item(&STROKE) {
-                            Some(_) => {
-                                // 如果边框宏存在， 删除边框对应的ubo， 重新创建渲染管线
-                                render_obj.ubos.remove(&STROKE);
-                                render_obj.pipeline = engine.create_pipeline(
-                                    0,
-                                    &TEXT_VS_SHADER_NAME.clone(),
-                                    &TEXT_FS_SHADER_NAME.clone(),
-                                    render_obj.defines.as_slice(),
-                                    self.rs.clone(),
-                                    self.bs.clone(),
-                                    self.ss.clone(),
-                                    self.ds.clone()
-                                );
-                            },
-                            None => ()
-                        };
-                        
-                    } else {
-                        // 边框宽度不为0， 并且不存在STROKE宏， 应该添加STROKE宏， 并添加边框对应的ubo， 且重新创建渲染管线
-                        if find_item_from_vec(&render_obj.defines, &STROKE) == 0 {
-                            render_obj.defines.push(STROKE.clone());
-                            let mut stroke_ubo = engine.gl.create_uniforms();
-                            let color = &text_style.stroke.color;
-                            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
-                            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
-                            render_obj.ubos.insert(STROKE.clone(), Arc::new(stroke_ubo));
-                            render_obj.pipeline = engine.create_pipeline(
-                                0,
-                                &TEXT_VS_SHADER_NAME.clone(),
-                                &TEXT_FS_SHADER_NAME.clone(),
-                                render_obj.defines.as_slice(),
-                                self.rs.clone(),
-                                self.bs.clone(),
-                                self.ss.clone(),
-                                self.ds.clone()
-                            );
-                        }
-                    }
+                    modify_stroke(item, text_style, render_objs, engine);
                 },
                 _ => return,
             }
 
+            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let index = item.index;
             self.change_is_opacity(opacity, text_style, index, render_objs);
         }
@@ -412,6 +357,92 @@ impl<'a, C: Context + Share> CharBlockSys<C> {
 struct Item {
     index: usize,
     position_change: bool,
+}
+
+fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>) {
+    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    if text_style.stroke.width == 0.0 {
+        //  删除边框的宏
+        match render_obj.defines.remove_item(&STROKE) {
+            Some(_) => {
+                // 如果边框宏存在， 删除边框对应的ubo， 重新创建渲染管线
+                render_obj.ubos.remove(&STROKE);
+                let old_pipeline = render_obj.pipeline.clone();
+                render_obj.pipeline = engine.create_pipeline(
+                    0,
+                    &TEXT_VS_SHADER_NAME.clone(),
+                    &TEXT_FS_SHADER_NAME.clone(),
+                    render_obj.defines.as_slice(),
+                    old_pipeline.rs.clone(),
+                    old_pipeline.bs.clone(),
+                    old_pipeline.ss.clone(),
+                    old_pipeline.ds.clone()
+                );
+            },
+            None => ()
+        };
+        
+    } else {
+        // 边框宽度不为0， 并且不存在STROKE宏， 应该添加STROKE宏， 并添加边框对应的ubo， 且重新创建渲染管线
+        if find_item_from_vec(&render_obj.defines, &STROKE) == 0 {
+            render_obj.defines.push(STROKE.clone());
+            let mut stroke_ubo = engine.gl.create_uniforms();
+            let color = &text_style.stroke.color;
+            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
+            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
+            render_obj.ubos.insert(STROKE.clone(), Arc::new(stroke_ubo));
+            let old_pipeline = render_obj.pipeline.clone();
+            render_obj.pipeline = engine.create_pipeline(
+                0,
+                &TEXT_VS_SHADER_NAME.clone(),
+                &TEXT_FS_SHADER_NAME.clone(),
+                render_obj.defines.as_slice(),
+                old_pipeline.rs.clone(),
+                old_pipeline.bs.clone(),
+                old_pipeline.ss.clone(),
+                old_pipeline.ds.clone()
+            );
+        }
+    }   
+}
+
+fn modify_color<C: Context + Share>(geometry_dirtys: &mut Vec<usize>, item: &mut Item, id: usize, text_style: &TextStyle, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>) {
+    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    match &text_style.color {
+        Color::RGBA(c) => {
+            // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
+            if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
+                render_obj.defines.remove_item(&VERTEX_COLOR);
+
+                let ucolor_ubo = engine.gl.create_uniforms();
+                render_obj.ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
+                render_obj.defines.push(UCOLOR.clone());
+
+                if item.position_change == false {
+                    item.position_change = true;
+                    geometry_dirtys.push(id);
+                }
+            }
+            // 设置ubo
+            let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+            debug_println!("text_color, id: {}, color: {:?}", id, c);
+            ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+
+            render_objs.get_notify().modify_event(item.index, "", 0);
+        },
+        Color::LinearGradient(_) => {
+            // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
+            if find_item_from_vec(&render_obj.defines, &VERTEX_COLOR) == 0 {
+                render_obj.defines.remove_item(&UCOLOR);
+                render_obj.defines.push(VERTEX_COLOR.clone());
+                render_obj.ubos.remove(&UCOLOR);   
+                if item.position_change == false {
+                    item.position_change = true;
+                    geometry_dirtys.push(id);
+                }
+            }
+        },
+    }
 }
 
 // 返回position， uv， color， index
@@ -551,7 +582,7 @@ fn cal_all_size<C: Context + Share>(char_block: &CharBlock, font_size: f32, sdf_
 fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     let pi = i * 3;
     let uvi = i * 2;
-    let len = positions.len() - i;
+    let len = positions.len() - pi;
     let (p1, p4) = (
         (
             positions[pi],

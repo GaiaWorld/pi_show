@@ -39,3 +39,9 @@ paste = "0.1"
 [features]
 default = ["web"]
 web = []
+
+[profile.release]
+lto = true
+opt-level = "z"
+panic = 'abort'
+codegen-units = 1

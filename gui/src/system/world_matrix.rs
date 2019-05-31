@@ -147,7 +147,7 @@ fn recursive_cal_matrix(
     idtree: &SingleCaseImpl<IdTree>,
     transform: &MultiCaseImpl<Node, Transform>,
     layout: &MultiCaseImpl<Node, Layout>,
-    world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>
+    world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
 ){
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 

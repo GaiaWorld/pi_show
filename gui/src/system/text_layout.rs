@@ -25,7 +25,7 @@ use component::{
   user::*,
   calc::*,
 };
-use layout::{YGDirection, YGFlexDirection, YgNode,  YGAlign};
+use layout::{YGDirection, YGFlexDirection, YgNode,  YGAlign, YGWrap};
 use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
 
@@ -187,6 +187,10 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   debug_println!("callback------------------------------{} {}", c, b);
   if b == 0 {
+    //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
+    if let Some(_) = write.0.get(c) {
+      return;
+    }
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else {
@@ -231,6 +235,8 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   while yg_index < count && parent_yoga.get_child(yg_index as u32) != yoga {
       yg_index+=1;
   }
+  // yg_index += 1; // yg_index此时为span节点的位置， 应该+1， 保持span的yoga节点排在整个文字块的第一个位置
+
   let font = match read.4.get(id) {
       Some(f) => f.clone(),
       _ => Font::default()
@@ -257,6 +263,12 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   if cb.indent != style.indent {
     yoga.set_width(style.indent);
     cb.indent = style.indent;
+  }
+
+  if style.white_space.allow_wrap() {
+    parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
+  }else {
+    parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
   }
   let mut index = 0;
   let mut word = YgNode::new_null();
