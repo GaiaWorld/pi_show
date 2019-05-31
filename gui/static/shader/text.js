@@ -133,6 +133,6 @@ let text_fs_code = `
     #endif
         gl_FragColor = vec4(c.rgb, a * c.a * alpha);
         
-        //if (gl_FragColor.a < 0.02) discard;
+        if (gl_FragColor.a < 0.02) discard;
     }
 `;
