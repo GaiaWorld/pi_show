@@ -1,0 +1,9 @@
+[workspace]
+
+members = [
+    "gui",
+    "hal_core",
+    "hal_null",
+    "hal_webgl",
+    "hal_webgl_test",
+]
