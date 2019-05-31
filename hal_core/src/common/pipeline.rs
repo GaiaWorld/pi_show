@@ -142,7 +142,7 @@ impl BlendState {
             dst_rgb_factor: BlendFactor::Zero,
             
             src_alpha_factor: BlendFactor::One,
-            dst_alpha_factor: BlendFactor::Zero,
+            dst_alpha_factor: BlendFactor::One,
 
             const_rgba: (1.0, 1.0, 1.0, 1.0),
         }
