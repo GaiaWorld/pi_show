@@ -130,7 +130,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
             true
         };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 1.0,
+            depth: z_depth - 0.1,
             visibility: false,
             is_opacity: is_opacity,
             ubos: ubos,
