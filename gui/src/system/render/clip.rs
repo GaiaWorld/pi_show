@@ -46,8 +46,7 @@ pub struct ClipSys<C: Context + Share>{
 impl<C: Context + Share> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
         let (rs, mut bs, ss, ds) = (Arc::new(RasterState::new()), BlendState::new(), Arc::new(StencilState::new()), Arc::new(DepthState::new()));
-
-        // bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
+        bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
         let bs = Arc::new(bs);
 
         let defines = Vec::new();
@@ -117,9 +116,24 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         //     &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
         //     &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
         // );
+
+        // pub struct RenderBeginDesc {
+        //     pub viewport: (i32, i32, i32, i32),    // x, y, 宽, 高，左上角为原点
+        //     pub clear_color: Option<(f32, f32, f32, f32)>, // r, g, b, a，范围：0-1，为None代表不更新颜色
+        //     pub clear_depth: Option<f32>,   // 0-1，1代表最远，为None代表不更新深度
+        //     pub clear_stencil: Option<u8>, // 0-255，为None代表不更新模板
+        // }
+        let viewport = &view_port.0.viewport;
+        let new_viewport = (viewport.0, viewport.1, viewport.2, viewport.3);
+        let viewport = RenderBeginDesc{
+            viewport: new_viewport,
+            clear_color: Some((0.0, 0.0, 0.0, 0.0)),
+            clear_depth: Some(1.0),
+            clear_stencil: None,
+        };
         gl.begin_render(
             &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
-            &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
+            &(Arc::new(viewport) as Arc<AsRef<RenderBeginDesc>>)
         );
 
         println!("overflow:{:?}", **overflow);

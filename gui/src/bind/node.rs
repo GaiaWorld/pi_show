@@ -8,13 +8,17 @@ use std::{
 use stdweb::unstable::TryInto;
 use stdweb::web::html_element::{ImageElement, CanvasElement};
 
-use ecs::{World, Lend, LendMut};
+use ecs::{World, Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::idtree::{IdTree, InsertType};
 use hal_core::*;
 use hal_webgl::*;
 use atom::Atom;
+use octree::intersects;
 
 use component::user::*;
+use component::calc::{ Enable, ByOverflow };
+use single::oct::Oct;
+use single::OverflowClip;
 use entity::Node;
 use render::engine::Engine;
 use render::res::{TextureRes};
@@ -301,3 +305,84 @@ pub fn content_box(world: u32, node: u32) {
     //   __jsObj.height = @{bottom - top}
     // }
 }
+
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn query(world: u32, x: f32, y: f32)-> u32{
+//     let world = unsafe {&mut *(world as usize as *mut World)};
+//     let octree = world.fetch_single::<Oct>().unwrap();
+//     let octree = octree.lend();
+//     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+//     let mut args = AbQueryArgs::new(world, aabb.clone(), 0);
+//     octree.query(&aabb, intersects, &mut args, ab_query_func);
+//     args.result as u32
+// }
+
+// /// aabb的查询函数的参数
+// struct AbQueryArgs<'a> {
+//   enables: &'a MultiCaseImpl<Node, Enable>,
+//   by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
+//   overflow_clip: &'a SingleCaseImpl<OverflowClip>,
+//   z_depth: &'a MultiCaseImpl<Node>,
+//   aabb: Aabb3<f32>,
+//   ev_type: u32,
+//   max_z: f32,
+//   result: usize,
+// }
+// impl<'a> AbQueryArgs<'a> {
+//   pub fn new(world: &World, aabb: Aabb3<f32>, ev_type: u32) -> AbQueryArgs {
+//     AbQueryArgs{
+//       world: world,
+//       aabb: aabb,
+//       ev_type: ev_type,
+//       max_z: -Z_MAX,
+//       result: 0,
+//     }
+//   }
+// }
+// /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
+// fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3<f32>, bind: &usize) {
+//   if intersects(&arg.aabb, aabb) {
+//     let enables = arg.enables.lend();
+//     let enable = unsafe { enables.get_unchecked(*bind) };
+//     //如果display = Display::None 或, real_visibility = false， 返回
+//     match enable {
+//       true => (),
+//       false => return,
+//     };
+//     // 取最大z的node
+//     if node.z_depth > arg.max_z {
+//       // 检查是否有裁剪，及是否在裁剪范围内
+//       if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+//         arg.result = *bind;
+//         arg.max_z = node.z_depth;
+//         }
+//     }
+//     // // 判断类型是否有相交
+//     // if (node.event_type as u32) & arg.ev_type != 0 {
+//     //     // 取最大z的node
+//     //     if node.z_depth > arg.max_z {
+//     //       // 检查是否有裁剪，及是否在裁剪范围内
+//     //       if node.by_overflow == 0 || in_overflow(&arg.mgr, node.by_overflow, aabb.min.x, aabb.min.y) {
+//     //         arg.result = *bind;
+//     //         arg.max_z = node.z_depth;
+//     //        }
+//     //     }
+//     // }
+//   }
+// }
+
+// /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
+// fn in_overflow(mgr: &WorldDocMgr, by_overflow: usize, x: f32, y: f32) -> bool{
+//   let xy = Point2::new(x, y);
+//   for i in 0..mgr.world_2d.component_mgr.overflow.0.len() {
+//     if by_overflow & (i + 1) != 0 && mgr.world_2d.component_mgr.overflow.0[i] > 0 {
+//       let p = &mgr.world_2d.component_mgr.overflow.1[i];
+//       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
+//         InnOuter::Inner => (),
+//         _ => return false
+//       }
+//     }
+//   }
+//   return true
+// }
