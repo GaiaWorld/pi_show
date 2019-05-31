@@ -226,7 +226,7 @@ fn test(){
 
     world.run(&Atom::from("test_show_sys"));
 
-    println!("cvisibilitys, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+    debug_println!("cvisibilitys, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
         unsafe{cvisibilitys.get_unchecked(e0)},
         unsafe{cvisibilitys.get_unchecked(e00)},
         unsafe{cvisibilitys.get_unchecked(e01)},
@@ -239,7 +239,7 @@ fn test(){
         unsafe{cvisibilitys.get_unchecked(e012)},
     );
 
-    println!("cenables, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+    debug_println!("cenables, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
         unsafe{cenables.get_unchecked(e0)},
         unsafe{cenables.get_unchecked(e00)},
         unsafe{cenables.get_unchecked(e01)},
