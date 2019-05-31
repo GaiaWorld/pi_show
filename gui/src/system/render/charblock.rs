@@ -91,7 +91,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                     return;
                 }
             };
-            let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &text_style.color, z_depth + 0.1, (0.0, 0.0));
+            let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &text_style.color, z_depth + 0.2, (0.0, 0.0));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};

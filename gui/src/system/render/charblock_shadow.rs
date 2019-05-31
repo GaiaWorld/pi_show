@@ -54,7 +54,100 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             pipelines: HashMap::default(),
             default_sampler: None,
         }
-    }   
+    }
+
+    pub fn create_render(
+        &mut self,
+        id: usize,
+        read: (
+            & MultiCaseImpl<Node, TextShadow>,
+            & MultiCaseImpl<Node, Font>,
+            & MultiCaseImpl<Node, ZDepth>,
+            & MultiCaseImpl<Node, Opacity>,
+            & MultiCaseImpl<Node, CharBlock>,
+            & SingleCaseImpl<FontSheet<C>>,
+            & SingleCaseImpl<DefaultTable>,
+        ),
+        write: (
+            & mut SingleCaseImpl<RenderObjs<C>>,
+            & mut SingleCaseImpl<Engine<C>>,
+        ),
+    ){
+        let (text_shadows, fonts, z_depths, opacitys, charblocks, font_sheet, default_table) = read;
+        let (render_objs, engine) = write;
+
+        let z_depth = unsafe { z_depths.get_unchecked(id) }.0;
+        let opacity = unsafe { opacitys.get_unchecked(id) }.0;
+
+        let text_shadow = match text_shadows.get(id) {
+            Some(r) => r,
+            None => return,
+        };
+        if let None = charblocks.get(id) {
+            return;
+        }
+
+        let font = get_or_default(id, fonts, default_table);
+        let first_font = match font_sheet.get_first_font(&font.family) {
+            Some(r) => r,
+            None => {
+                debug_println!("font is not exist: {}", font.family.as_str());
+                return;
+            }
+        };
+        let mut defines = Vec::new();
+
+        let geometry = create_geometry(&mut engine.gl);
+        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+
+        let mut common_ubo = engine.gl.create_uniforms();
+        
+        common_ubo.set_sampler(
+            &TEXTURE,
+            &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
+            &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+        );
+        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+
+        let c = &text_shadow.color;
+        let mut ucolor_ubo = engine.gl.create_uniforms();
+        ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+        ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
+        defines.push(UCOLOR.clone());
+        debug_println!("text_shadow, id: {}, color: {:?}", id, c);
+
+        let pipeline = engine.create_pipeline(
+            0,
+            &TEXT_VS_SHADER_NAME.clone(),
+            &TEXT_FS_SHADER_NAME.clone(),
+            defines.as_slice(),
+            self.rs.clone(),
+            self.bs.clone(),
+            self.ss.clone(),
+            self.ds.clone()
+        );
+        
+        let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
+            false
+        }else {
+            true
+        };
+        let render_obj: RenderObj<C> = RenderObj {
+            depth: z_depth - 1.0,
+            visibility: false,
+            is_opacity: is_opacity,
+            ubos: ubos,
+            geometry: geometry,
+            pipeline: pipeline.clone(),
+            context: id,
+            defines: defines,
+        };
+
+        let notify = render_objs.get_notify();
+        let index = render_objs.insert(render_obj, Some(notify));
+        self.charblock_render_map.insert(id, Item{index: index, position_change: true});
+        self.geometry_dirtys.push(id);
+    }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -86,7 +179,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
                     return;
                 }
             };
-            let (positions, uvs, indices) = get_geo_flow(charblock, &first_font, z_depth + 0.1, (text_shadow.h, text_shadow.v));
+            let (positions, uvs, indices) = get_geo_flow(charblock, &first_font, z_depth - 1.0, (text_shadow.h, text_shadow.v));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -123,6 +216,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         &'a MultiCaseImpl<Node, Font>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, CharBlock>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
     );
@@ -131,71 +225,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (text_shadows, fonts, z_depths, opacitys, font_sheet, default_table) = read;
-        let (render_objs, engine) = write;
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-        let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-        let font = get_or_default(event.id, fonts, default_table);
-        let first_font = match font_sheet.get_first_font(&font.family) {
-            Some(r) => r,
-            None => {
-                debug_println!("font is not exist: {}", font.family.as_str());
-                return;
-            }
-        };
-        let mut defines = Vec::new();
-
-        let geometry = create_geometry(&mut engine.gl);
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
-
-        let mut common_ubo = engine.gl.create_uniforms();
-        
-        common_ubo.set_sampler(
-            &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-            &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
-        );
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
-
-        let c = &text_shadow.color;
-        let mut ucolor_ubo = engine.gl.create_uniforms();
-        ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-        ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
-        defines.push(UCOLOR.clone());
-        debug_println!("text_shadow, id: {}, color: {:?}", event.id, c);
-
-        let pipeline = engine.create_pipeline(
-            0,
-            &TEXT_VS_SHADER_NAME.clone(),
-            &TEXT_FS_SHADER_NAME.clone(),
-            defines.as_slice(),
-            self.rs.clone(),
-            self.bs.clone(),
-            self.ss.clone(),
-            self.ds.clone()
-        );
-        
-        let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
-            false
-        }else {
-            true
-        };
-        let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 1.0,
-            visibility: false,
-            is_opacity: is_opacity,
-            ubos: ubos,
-            geometry: geometry,
-            pipeline: pipeline.clone(),
-            context: event.id,
-            defines: defines,
-        };
-
-        let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        self.charblock_render_map.insert(event.id, Item{index: index, position_change: true});
-        self.geometry_dirtys.push(event.id);
+        self.create_render(event.id, read, write);
     }
 }
 
@@ -219,11 +249,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        let item = self.charblock_render_map.remove(event.id).unwrap();
-        let notify = write.get_notify();
-        write.remove(item.index, Some(notify));
-        if item.position_change == true {
-            self.geometry_dirtys.remove_item(&event.id);
+        if let Some(item) = self.charblock_render_map.remove(event.id){
+            let notify = write.get_notify();
+            write.remove(item.index, Some(notify));
+            if item.position_change == true {
+                self.geometry_dirtys.remove_item(&event.id);
+            }
         }
     }
 }
@@ -259,44 +290,36 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
     }
 }
 
-// TextShadow修改， 设置对应的ubo和宏
+// 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
+        &'a MultiCaseImpl<Node, Font>,
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, CharBlock>,
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (opacitys, text_shadows) = read;   
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-            modify_color(item, event.id, text_shadow, render_objs);
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-            let index = item.index;
-            self.change_is_opacity(opacity, text_shadow, index, render_objs);
-        }
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs<C>>,
+        &'a mut SingleCaseImpl<Engine<C>>,
+    );
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        self.create_render(event.id, read, write);
     }
 }
-
-// TextShadow修改， 设置对应的ubo和宏
+// 删除渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextShadow>,
-    );
+    type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (opacitys, text_shadows) = read;   
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-            modify_color(item, event.id, text_shadow, render_objs);
-            let index = item.index;
-            self.change_is_opacity(opacity, text_shadow, index, render_objs);
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
+        if let Some(item) = self.charblock_render_map.remove(event.id){
+            let notify = write.get_notify();
+            write.remove(item.index, Some(notify));
+            if item.position_change == true {
+                self.geometry_dirtys.remove_item(&event.id);
+            }
         }
     }
 }
@@ -398,9 +421,8 @@ fn get_geo_flow<C: Context + Share>(
                 None => continue,
             };
             push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
-            // let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
-            indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-            i += 1;  
+            indices.extend_from_slice(&[i, i + 1, i + 2, i + 0, i + 2, i + 3]);
+            i += 4;  
         }
         return (positions, uvs, indices);
     } else {
@@ -423,7 +445,7 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.u_max, glyph.v_max,
         glyph.u_max, glyph.v_min,
     ]);
-    positions.extend_from_slice(&ps[0..16]);
+    positions.extend_from_slice(&ps[0..12]);
 }
 
 // //取几何体的顶点流、 颜色流和属性流
