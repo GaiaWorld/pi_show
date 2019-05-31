@@ -19,7 +19,7 @@ use system::render::shaders::clip::*;
 
 lazy_static! {
     static ref MESH_NUM: Atom = Atom::from("meshNum");
-    static ref MESH_INDEX: Atom = Atom::from("meshIndex");
+    // static ref MESH_INDEX: Atom = Atom::from("meshIndex");
     static ref CLIP_RENDER: Atom = Atom::from("clip_render");
 
     static ref COMMON: Atom = Atom::from("common");
@@ -45,7 +45,11 @@ pub struct ClipSys<C: Context + Share>{
 
 impl<C: Context + Share> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
-        let (rs, bs, ss, ds) = (Arc::new(RasterState::new()), Arc::new(BlendState::new()), Arc::new(StencilState::new()), Arc::new(DepthState::new()));
+        let (rs, mut bs, ss, ds) = (Arc::new(RasterState::new()), BlendState::new(), Arc::new(StencilState::new()), Arc::new(DepthState::new()));
+
+        // bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
+        let bs = Arc::new(bs);
+
         let defines = Vec::new();
         let pipeline = engine.create_pipeline(
             0,
@@ -118,6 +122,8 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
         );
 
+        println!("overflow:{:?}", **overflow);
+
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
         {
@@ -156,8 +162,6 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     }
     
     fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        let geometry = create_geometry(&mut engine.gl);
-
         let mut indexs: Vec<f32> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
 
@@ -166,9 +170,9 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
         }
         
-        let geometry = unsafe {&mut *(geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
+        let geometry = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
         geometry.set_vertex_count(32);
-        let _ = geometry.set_attribute(&AttributeName::Custom(MESH_INDEX.clone()), 1, Some(indexs.as_slice()), true);
+        let _ = geometry.set_attribute(&AttributeName::SkinIndex, 1, Some(indexs.as_slice()), false);
         geometry.set_indices_short(indices.as_slice(), false).unwrap();
 
         let ( _, projection, view, _) = read;
@@ -179,7 +183,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         ubo.set_mat_4v(&PROJECT_MATRIX, &projection[0..16]);
         ubo.set_float_1(&MESH_NUM, 8.0);
         self.ubos.insert(COMMON.clone(), Arc::new(ubo));
-
+    
         self.dirty = true;
     }
 }

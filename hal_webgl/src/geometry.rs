@@ -78,7 +78,8 @@ impl Geometry for WebGLGeometryImpl {
 
         let gl: &WebGLRenderingContext = gl.unwrap().as_ref();
 
-        if !self.attributes.contains_key(name) {
+        let is_first = !self.attributes.contains_key(name);
+        if is_first {
             match gl.create_buffer() {
                 None => {
                     return Err("WebGLGeometryImpl set_attribute failed".to_string());
@@ -102,8 +103,10 @@ impl Geometry for WebGLGeometryImpl {
                 gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&attribute.buffer));
                 let buffer = unsafe { UnsafeTypedArray::new(data) };
             
-                if attribute.is_updatable && is_updatable && data.len() as u32 == (self.vertex_count * item_count) {
-                    js! {   
+                if !is_first && (attribute.is_updatable && is_updatable && data.len() as u32 == (self.vertex_count * item_count)) {
+                    // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
+                    js! {
+                        console.log("bufferSubData = ", @{&buffer});
                         @{gl}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, 0, @{buffer});
                     }
                 } else { 
@@ -111,8 +114,9 @@ impl Geometry for WebGLGeometryImpl {
                     attribute.item_count = item_count;
                     attribute.is_updatable = is_updatable;
                     attribute.size = 4 * self.vertex_count * item_count;
-                    
+                    // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
+                        console.log("bufferData = ", @{&buffer});
                         @{gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{usage});
                     }
                 }

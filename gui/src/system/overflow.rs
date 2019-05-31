@@ -33,6 +33,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
       write.1.insert(event.id, ByOverflow::default());
+      write.0.insert(event.id, Overflow::default());
     }
 }
 

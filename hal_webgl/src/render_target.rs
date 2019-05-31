@@ -90,12 +90,16 @@ impl WebGLRenderTargetImpl {
     pub fn new(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
         
         let frame_buffer = gl.create_framebuffer();
-        if frame_buffer.is_none() {
-            return Err("WebGLRenderTargetImpl::new failed".to_string());
+        match &frame_buffer {
+            Some(fb) => {
+                gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, Some(&fb));
+            }
+            None => {
+                return Err("WebGLRenderTargetImpl::new failed".to_string());
+            }
         }
 
         let fb_type = WebGLRenderingContext::FRAMEBUFFER;
-
         let tex_target = WebGLRenderingContext::TEXTURE_2D;
         let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
         let color = match WebGLTextureImpl::new_2d(gl, w, h, 0, pformat, dformat, false, &TextureData::None) {

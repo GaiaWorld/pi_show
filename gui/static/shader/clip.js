@@ -6,7 +6,7 @@ let clip_vs_code = `
 
     // Attributes
     attribute vec3 position;
-    attribute float meshIndex;
+    attribute float skinIndex; // 网格索引
 
     // Uniforms
     uniform float meshNum;
@@ -18,10 +18,10 @@ let clip_vs_code = `
 
     void main(void) {
         
-        vPlaneIndex = pow(2.0, meshIndex);
+        vPlaneIndex = pow(2.0, skinIndex);
         
         vec4 pos;
-        if (meshIndex < meshNum) {
+        if (skinIndex < meshNum) {
             pos = projectMatrix * viewMatrix * vec4(position, 1.0);
         } else {
             pos = vec4(2.0, 2.0, 2.0, 1.0);
@@ -38,6 +38,6 @@ let clip_fs_code = `
 
     void main(void) {
         float p = vPlaneIndex / 256.0;
-        gl_FragColor = vec4(p);
+        gl_FragColor = vec4(p);        
     }
 `;
