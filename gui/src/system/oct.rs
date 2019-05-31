@@ -348,7 +348,7 @@ fn test(){
         true
     });
     world.run(&Atom::from("test_oct_sys"));
-    println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+    debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
         unsafe{oct.get_unchecked(e0)},
         unsafe{oct.get_unchecked(e00)},
         unsafe{oct.get_unchecked(e01)},

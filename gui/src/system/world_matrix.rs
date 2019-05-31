@@ -416,7 +416,7 @@ fn test(){
 
     world.run(&Atom::from("test_transform_sys"));
 
-    println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+    debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
         unsafe{world_matrixs.get_unchecked(e0)},
         unsafe{world_matrixs.get_unchecked(e00)},
         unsafe{world_matrixs.get_unchecked(e01)},
