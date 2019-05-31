@@ -69,6 +69,7 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
           dirty: true,
           layout_dirty: false,
         });
+        self.dirty.push(id);
       }
     }
   }
@@ -80,7 +81,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
   fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
   }
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
-    debug_println!("LayoutImpl run");
+    debug_println!("LayoutImpl run, dirty len: {}", self.dirty.len());
     for id in self.dirty.iter() {
       if calc(*id, &read, &mut write) {
         self.temp.push(*id)
@@ -110,6 +111,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
   fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+    println!("create Text------------------------------");
     self.set_dirty(event.id, write)
   }
 }
@@ -215,10 +217,12 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
+  debug_println!("calc-----------------------------------");
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();
   if parent_yoga.is_null() {
+    debug_println!("parent_yoga.is_null");
     return true
   }
   // 计算节点的yoga节点在父节点的yoga节点的位置
@@ -235,6 +239,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   // 获得字体高度
   cb.font_size = read.0.get_size(&font.family, &font.size);
   if cb.font_size == 0.0 {
+      debug_println!("font_size==0.0");
       return true
   }
   cb.dirty = false;
@@ -247,6 +252,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
       Some(t) => t.0.as_ref(),
       _ => "",
   };
+  debug_println!("text----------------------------------{:?}", text);
   // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
   if cb.indent != style.indent {
     yoga.set_width(style.indent);
@@ -257,6 +263,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   let mut word_index = 0;
   // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
   for cr in split(text, true, style.white_space.preserve_spaces()) {
+    debug_println!("split text----------------------------------");
     match cr {
       SplitResult::Newline =>{
         update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);

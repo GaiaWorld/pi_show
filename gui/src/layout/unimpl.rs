@@ -154,7 +154,7 @@ impl YgNode {
     pub fn set_context(&self, _context: *mut c_void){
         
     }
-    pub fn set_context(&self, bind: *mut c_void){
+    pub fn set_bind(&self, _bind: *mut c_void){
     }
     pub fn insert_child(&self, _node: YgNode, _index: u32){
 

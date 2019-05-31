@@ -5,24 +5,24 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use std::collections::HashMap;
-use map::{ vecmap::VecMap } ;
-use atom::Atom;
-use polygon::*;
-
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use map::{ vecmap::VecMap } ;
 use hal_core::*;
+use atom::Atom;
+use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
 
 use component::user::*;
 use single::*;
 use component::calc::{Opacity, ZDepth, CharBlock};
 use entity::{Node};
 use render::engine::{ Engine , PipelineInfo};
-use render::res::{SamplerRes};
+use render::res::{ SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
-use font::sdf_font:: { GlyphInfo, SdfFont };
+use font::sdf_font:: {GlyphInfo, SdfFont };
+
 
 lazy_static! {
     static ref STROKE: Atom = Atom::from("STROKE");
@@ -91,7 +91,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                     return;
                 }
             };
-            let (positions, _uvs, colors, indices) = get_geo_flow(charblock, &first_font, font, &text_style.color, z_depth + 0.1, (0.0, 0.0));
+            let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &text_style.color, z_depth + 0.1, (0.0, 0.0));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -101,6 +101,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                 geometry.set_vertex_count(vertex_count);
             }
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
             geometry.set_indices_short(indices.as_slice(), false).unwrap();
             match colors {
                 Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
@@ -114,9 +115,12 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
         let (_, engine) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        if engine.res_mgr.samplers.get(&hash).is_none() {
-            let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-            self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+        match engine.res_mgr.samplers.get(&hash) {
+            Some(r) => self.default_sampler = Some(r.clone()),
+            None => {
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+            }
         }
     }
 }
@@ -124,11 +128,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent> for CharBlockSys<C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, CharBlock>,
         &'a MultiCaseImpl<Node, TextStyle>,
         &'a MultiCaseImpl<Node, Font>,
         &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
@@ -138,11 +140,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (images, text_styles, fonts, z_depths, layouts, opacitys, font_sheet, default_table) = read;
+        let (text_styles, fonts, z_depths, opacitys, font_sheet, default_table) = read;
         let (render_objs, engine) = write;
-        let _char_block = unsafe { images.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
         let text_style = get_or_default(event.id, text_styles, default_table);
         let font = get_or_default(event.id, fonts, default_table);
@@ -153,7 +153,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
                 return;
             }
         };
-        let _texture = first_font.texture();
         let mut defines = Vec::new();
 
         let geometry = create_geometry(&mut engine.gl);
@@ -171,7 +170,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         match &text_style.color {
             Color::RGBA(c) => {
                 let mut ucolor_ubo = engine.gl.create_uniforms();
-                ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
+                ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
                 ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
                 defines.push(UCOLOR.clone());
                 debug_println!("text, id: {}, color: {:?}", event.id, c);
@@ -262,7 +261,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                     return;
                 }
             };
-            let _texture = first_font.texture();
+
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
@@ -285,11 +284,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
+        println!("modify style {:?}, {:?}", event.field, unsafe { text_styles.get_unchecked(event.id) });
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
             let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-
+            
             match event.field {
                 "color" => {
                     match &text_style.color {
@@ -376,7 +376,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
             }
 
             let index = item.index;
-            self.change_is_opacity(event.id, opacity, text_style, index, render_objs);
+            self.change_is_opacity(opacity, text_style, index, render_objs);
         }
     }
 }
@@ -391,13 +391,13 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             let index = item.index;
-            self.change_is_opacity(event.id, opacity, text_style, index, write);
+            self.change_is_opacity( opacity, text_style, index, write);
         }
     }
 }
 
 impl<'a, C: Context + Share> CharBlockSys<C> {
-    fn change_is_opacity(&mut self, _id: usize, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
             false
         }else {
@@ -418,7 +418,6 @@ struct Item {
 fn get_geo_flow<C: Context + Share>(
     char_block: &CharBlock,
     sdf_font: &Arc<SdfFont<Ctx = C>>,
-    _font: &Font,
     color: &Color,
     z_depth: f32,
     offset: (f32, f32)
@@ -430,6 +429,7 @@ fn get_geo_flow<C: Context + Share>(
     let mut i = 0;
     // let line_height = sdf_font.line_height;
 
+    println!("char_block---------------------------- {:?}", char_block);
     if char_block.chars.len() > 0 {
         match color {
             Color::RGBA(_) => {
@@ -439,15 +439,14 @@ fn get_geo_flow<C: Context + Share>(
                         None => continue,
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
-                    // let (v_min, v_max) = (1.0 - glyph.v_max, 1.0 - glyph.v_min);
-                    indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-                    i += 1;  
+                    indices.extend_from_slice(&[i, i + 1, i + 2, i + 0, i + 2, i + 3]);
+                    i += 4;  
                 }
                 return (positions, uvs, None, indices);
             },
             Color::LinearGradient(color) => {
                 let mut colors = vec![Vec::new()];
-                let (start, end) = cal_all_size(char_block); // 渐变范围
+                let (start, end) = cal_all_size(char_block, font_size, sdf_font); // 渐变范围
                 //渐变端点
                 let endp = find_lg_endp(&[
                     start.x, start.y,
@@ -455,6 +454,8 @@ fn get_geo_flow<C: Context + Share>(
                     end.x, end.y,
                     end.x, start.y,
                 ], color.direction);
+
+                println!("text, Linear start: {:?}, end: {:?}, direction: {:?}, endp:[({}, {}), ({}, {})]", start, end, color.direction, (endp.0).0, (endp.0).1, (endp.1).0, (endp.1).1);
 
                 let mut lg_pos = Vec::with_capacity(color.list.len());
                 let mut lg_color = Vec::with_capacity(color.list.len() * 4);
@@ -470,7 +471,8 @@ fn get_geo_flow<C: Context + Share>(
                         None => continue,
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
-
+                    
+                    println!("text, split_by_lg, positions: {:?}, indices:{:?}, lg_pos{:?}", positions, [i, i + 1, i + 2, i + 3], lg_pos.as_slice());
                     let (ps, indices_arr) = split_by_lg(
                         positions,
                         vec![i, i + 1, i + 2, i + 3],
@@ -480,9 +482,11 @@ fn get_geo_flow<C: Context + Share>(
                     );
                     positions = ps;
 
+                    println!("text, fill_uv, positions: {:?}, uvs:{:?}, i: {}", &positions, &uvs, i);
                     // 尝试为新增的点计算uv
                     fill_uv(&mut positions, &mut uvs, i as usize);
 
+                    println!("text, interp_mult_by_lg, positions: {:?}, indices_arr:{:?}, lg_color: {:?}, lg_pos: {:?}", &positions, &indices_arr, lg_color, lg_pos);
                     // 颜色插值
                     colors = interp_mult_by_lg(
                         positions.as_slice(),
@@ -490,12 +494,12 @@ fn get_geo_flow<C: Context + Share>(
                         colors,
                         lg_color.clone(),
                         lg_pos.as_slice(),
-                        (glyph.u_min, glyph.v_min),
-                        (glyph.u_max, glyph.v_max),
+                        endp.0.clone(),
+                        endp.1.clone(),
                     );
 
                     indices = mult_to_triangle(&indices_arr, indices);
-                    i = positions.len() as u16 / 4;
+                    i = positions.len() as u16 / 3;
                 }
                 return (positions, uvs, Some(colors.pop().unwrap()), indices);
             }
@@ -505,70 +509,117 @@ fn get_geo_flow<C: Context + Share>(
     }
 }
 
-fn cal_all_size(char_block: &CharBlock) -> (Point2, Point2) {
-    let mut start = char_block.chars[0].pos.clone();
-    let mut end = start.clone();
+fn cal_all_size<C: Context + Share>(char_block: &CharBlock, font_size: f32, sdf_font: &Arc<SdfFont<Ctx = C>>,) -> (Point2, Point2) {
+    let mut start = Point2::new(0.0, 0.0);
+    let mut end = Point2::new(0.0, 0.0);
+    let mut j = 0;
     for i in 0..char_block.chars.len() {
         let pos = &char_block.chars[i].pos;
-        if pos.x > end.x {
-            end.x = pos.x;
-        }else if pos.x < start.x{
+        let glyph = match sdf_font.glyph_info(char_block.chars[i].ch, font_size) {
+            Some(r) => r,
+            None => continue,
+        };
+        start = Point2::new(pos.x + glyph.ox, pos.y + glyph.oy);
+        end = Point2::new(start.x + glyph.width, start.y + glyph.height);
+        j += 1;
+        break;
+    }
+    for i in j..char_block.chars.len() {
+        let pos = &char_block.chars[i].pos;
+        let glyph = match sdf_font.glyph_info(char_block.chars[i].ch, font_size) {
+            Some(r) => r,
+            None => continue,
+        };
+        if pos.x < start.x{
             start.x = pos.x;
         }
-        if pos.y > end.y {
-            end.y = pos.y;
-        }else if pos.y < start.y{
+        let end_x = pos.x + glyph.width;
+        if end_x > end.x {
+            end.x = end_x;
+        } 
+        if pos.y < start.y{
             start.y = pos.y;
         }
+        let end_y = pos.y + font_size;
+        if end_y > end.y {
+            end.y = end_y;
+        } 
     }
     (start, end)
 }
 
 fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
-    let i = i * 3;
+    let pi = i * 3;
+    let uvi = i * 2;
     let len = positions.len() - i;
     let (p1, p4) = (
         (
-            positions[i],
-            positions[i + 1],
+            positions[pi],
+            positions[pi + 1],
         ),
         (
-            positions[i + 9],
-            positions[i + 10],
+            positions[pi + 6],
+            positions[pi + 7],
         ),
     );
     let (u1, u4) = (
         (
-            uvs[i],
-            uvs[i + 1]
+            uvs[uvi],
+            uvs[uvi + 1]
         ),
         (
-            uvs[i + 6],
-            uvs[i + 7]
+            uvs[uvi + 4],
+            uvs[uvi + 5]
         ),
     );
+
+    debug_println!("p1: {}, {}, p4: {}, {}, u1: {},{}, u4: {}, {}", p1.0, p1.1, p4.0, p4.1, u1.0, u1.1, u4.0, u4.1);
     if len > 12 {
-        let mut i = i + 12;
-        for _j in 0..(len - 16)/4 {
+        let mut i = pi + 12;
+        for _j in 0..(len - 12)/3 {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
+            debug_println!("pos_x: {}, pos_x: {}, i:derive_deref{}", pos_x, pos_y, i);
             let uv;
-            if pos_x == p1.0  {
-                let ratio = (pos_y - p1.1)/(p4.1 - p1.1);
-                uv = (u1.0, u1.1 * ratio + u4.1 * (1.0 - ratio) );
-            }else if pos_x == p4.0{
-                let ratio = (pos_y - p1.1)/(p4.1 - p1.1);
-                uv = (u4.0, u1.1 * ratio + u4.1 * (1.0 - ratio) );
-            }else if pos_y == p1.1{
-                let ratio = (pos_x - p1.0)/(p4.0 - p1.0);
-                uv = (u1.0 * ratio + u4.0 * (1.0 - ratio), u1.1 );
+            if pos_x - p1.0 < 0.001 || p1.0 - pos_x < 0.001 {
+                debug_println!("pos_x == p1.0, i: {}", i);
+                let base = p4.1 - p1.1;
+                let ratio = if base == 0.0 {
+                    0.0
+                } else {
+                    (pos_y - p1.1)/(p4.1 - p1.1)
+                };
+                uv = (u1.0, u1.1 * (1.0 - ratio) + u4.1 * ratio );
+            }else if pos_x - p4.0 < 0.001 || p4.0 - pos_x < 0.001{
+                debug_println!("pos_x == p4.0, i: {}", i);
+                let base = p4.1 - p1.1;
+                let ratio = if base == 0.0 {
+                    0.0
+                } else {
+                    (pos_y - p1.1)/(p4.1 - p1.1)
+                };
+                uv = (u4.0, u1.1  * (1.0 - ratio) + u4.1 * ratio );
+            }else if pos_y - p1.1 < 0.001 || p1.1 - pos_y < 0.001 {
+                let base = p4.0 - p1.0;
+                let ratio = if base == 0.0 {
+                    0.0
+                } else {
+                    (pos_x - p1.0)/(p4.0 - p1.0)
+                };
+                uv = (u1.0 * (1.0 - ratio) + u4.0 * ratio, u1.1 );
             }else {
             // }else if pos_y == p4.1{
-                let ratio = (pos_x - p1.0)/(p4.0 - p1.0);
-                uv = (u1.0 * ratio + u4.0 * (1.0 - ratio), u4.1 );
+                let base = p4.0 - p1.0;
+                let ratio = if base == 0.0 {
+                    0.0
+                } else {
+                    (pos_x - p1.0)/(p4.0 - p1.0)
+                };
+                uv = (u1.0 * (1.0 - ratio) + u4.0 * ratio , u4.1 );
             }
             uvs.push(uv.0);
             uvs.push(uv.1);
+            debug_println!("uvs: {}, {}", uv.0, uv.1);
             i += 3;
         }
     }
@@ -591,7 +642,7 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.u_max, glyph.v_max,
         glyph.u_max, glyph.v_min,
     ]);
-    positions.extend_from_slice(&ps[0..16]);
+    positions.extend_from_slice(&ps[0..12]);
 }
 
 // //取几何体的顶点流、 颜色流和属性流
