@@ -21,4 +21,13 @@ var __jsObj = image_fs_shader_name;
 var __jsObj1 = image_fs_code;
 Module._set_shader(engine);
 
+// 设置文字shader
+var __jsObj = text_vs_shader_name;
+var __jsObj1 = text_vs_code;
+Module._set_shader(engine);
+
+var __jsObj = text_fs_shader_name;
+var __jsObj1 = text_fs_code;
+Module._set_shader(engine);
+
 

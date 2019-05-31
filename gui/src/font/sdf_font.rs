@@ -80,17 +80,17 @@ impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> {
         let ratio = font_size/self.line_height;
         match self.glyph_table.get(&c) {
             Some(glyph) => {
-                let (min_u, max_v) = (glyph.x - self.padding, glyph.y + self.padding); //左上角
+                let (min_u, min_v) = (glyph.x, glyph.y); //左上角
                 Some(
                     GlyphInfo {
-                        height: ratio * (glyph.height + self.padding * 2.0),
-                        width: ratio * (glyph.width + self.padding * 2.0),
-                        ox: ratio * (glyph.ox - self.padding),
-                        oy: ratio * (glyph.oy + self.padding),
+                        height: ratio * glyph.height,
+                        width: ratio * glyph.width,
+                        ox: ratio * glyph.ox,
+                        oy: ratio * glyph.oy,
                         u_min: min_u/(self.atlas_width as f32),
-                        u_max: (min_u + glyph.width + self.padding)/(self.atlas_width as f32),
-                        v_min: (max_v - glyph.height - self.padding)/(self.atlas_height as f32),
-                        v_max: max_v/(self.atlas_height as f32),
+                        u_max: (min_u + glyph.width)/(self.atlas_width as f32),
+                        v_min: min_v/(self.atlas_height as f32),
+                        v_max: (min_v + glyph.height)/(self.atlas_height as f32),
                         adv: ratio * glyph.advance,
                     }
                 )

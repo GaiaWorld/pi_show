@@ -20,7 +20,7 @@ use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
-use font::sdf_font:: { GlyphInfo, SdfFont };
+use font::sdf_font:: {GlyphInfo, SdfFont };
 
 lazy_static! {
     static ref STROKE: Atom = Atom::from("STROKE");
@@ -89,7 +89,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
                     return;
                 }
             };
-            let (positions, _uvs, indices) = get_geo_flow(charblock, &first_font, font, z_depth + 0.1, (text_shadow.h, text_shadow.v));
+            let (positions, uvs, indices) = get_geo_flow(charblock, &first_font, z_depth + 0.1, (text_shadow.h, text_shadow.v));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -99,6 +99,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
                 geometry.set_vertex_count(vertex_count);
             }
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
             geometry.set_indices_short(indices.as_slice(), false).unwrap();
         }
         self.geometry_dirtys.clear();
@@ -108,9 +109,12 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
         let (_, engine) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        if engine.res_mgr.samplers.get(&hash).is_none() {
-            let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-            self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+        match engine.res_mgr.samplers.get(&hash) {
+            Some(r) => self.default_sampler = Some(r.clone()),
+            None => {
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+            }
         }
     }
 }
@@ -118,11 +122,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
 // 插入渲染对象
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent> for CharBlockShadowSys<C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, CharBlock>,
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
         &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
@@ -132,11 +134,9 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (images, text_shadows, fonts, z_depths, layouts, opacitys, font_sheet, default_table) = read;
+        let (text_shadows, fonts, z_depths, opacitys, font_sheet, default_table) = read;
         let (render_objs, engine) = write;
-        let _char_block = unsafe { images.get_unchecked(event.id) };
         let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
         let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
         let font = get_or_default(event.id, fonts, default_table);
@@ -249,7 +249,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                     return;
                 }
             };
-            let _texture = first_font.texture();
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
@@ -287,7 +286,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
                     render_objs.get_notify().modify_event(item.index, "", 0);
 
                     let index = item.index;
-                    self.change_is_opacity(event.id, opacity, text_shadow, index, render_objs);
+                    self.change_is_opacity( opacity, text_shadow, index, render_objs);
                 },
                 "blur" => (),
                 "h" | "v" => {
@@ -312,13 +311,13 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
             let index = item.index;
-            self.change_is_opacity(event.id, opacity, text_shadow, index, write);
+            self.change_is_opacity(opacity, text_shadow, index, write);
         }
     }
 }
 
 impl<'a, C: Context + Share> CharBlockShadowSys<C> {
-    fn change_is_opacity(&mut self, _id: usize, opacity: f32, text_shadow: &TextShadow, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
+    fn change_is_opacity(&mut self, opacity: f32, text_shadow: &TextShadow, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
             false
         }else {
@@ -339,7 +338,6 @@ struct Item {
 fn get_geo_flow<C: Context + Share>(
     char_block: &CharBlock,
     sdf_font: &Arc<SdfFont<Ctx = C>>,
-    _font: &Font,
     z_depth: f32,
     offset: (f32, f32)
 ) -> (Vec<f32>, Vec<f32>, Vec<u16>) {

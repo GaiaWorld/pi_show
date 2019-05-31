@@ -47,17 +47,21 @@ let text_fs_code = `
     #ifdef VERTEX_COLOR
     varying vec4 vColor;
     #endif
+    
     varying vec2 vUV;
     varying vec2 vPosition;
 
     // Uniforms
     // uniform float uPxRange;
 
-    uniform float Alpha;
-    uniform sampler2D Texture;
+    uniform float alpha;
+    uniform sampler2D texture;
     #ifdef STROKE
     uniform float strokeSize;
     uniform vec4 strokeColor;
+    #endif
+    #ifdef UCOLOR
+    uniform vec4 uColor;
     #endif
 
     // 8位int型变二进制数组
@@ -108,9 +112,14 @@ let text_fs_code = `
 
         vec4 c = vec4(1.0);
     #ifdef VERTEX_COLOR        
-        v = v * vColor;
+        c = c * vColor;
     #endif
-        vec3 sample = texture2D(Texture, vUV).rgb;
+
+    #ifdef UCOLOR
+        c = c * uColor;
+    #endif
+    
+    vec3 sample = texture2D(texture, vUV).rgb;
         float dist = median(sample.r, sample.g, sample.b);
 
         // float a = (dist - 0.5) * uPxRange + 0.5;
@@ -122,8 +131,8 @@ let text_fs_code = `
         c = mix(strokeColor, c, a);
         a = smoothstep(-d, d, dist - (0.5 - strokeSize));
     #endif
-        gl_FragColor = vec4(c.rgb, a * c.a * Alpha);
+        gl_FragColor = vec4(c.rgb, a * c.a * alpha);
         
-        if (gl_FragColor.a < 0.02) discard;
+        //if (gl_FragColor.a < 0.02) discard;
     }
 `;

@@ -212,6 +212,9 @@ impl YgNode {
     pub fn set_context(&self, context: *mut c_void){
         yoga::yg_node_set_context(self.0, context);
     }
+    pub fn set_bind(&self, bind: *mut c_void){
+        yoga::yg_node_set_bind(self.0, bind);
+    }
 
     // pub fn get_position_type(&self) -> YGPositionType {
     //    yoga::yg_node_style_get_position_type(self.0)
@@ -320,6 +323,11 @@ impl YgNode {
     pub fn get_context(&self) -> *mut c_void {
         yoga::yg_node_get_context(self.0)
     }
+    pub fn get_bind(&self) -> *mut c_void {
+        yoga::yg_node_get_bind(self.0)
+    }
+
+
     // pub fn is_reference_baseline(&self) -> bool { 
     //     yoga::yg_node_style_get_position_type(self.0)
     // }
