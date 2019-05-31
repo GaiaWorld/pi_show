@@ -179,37 +179,36 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlo
 //回调函数
 extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callback_args: *const c_void) {
   //更新布局
-  let c = node.get_context() as isize;
+  let b = node.get_bind() as usize;
+  let c = node.get_context() as usize;
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
-  debug_println!("c------------------------------{}", c);
-  if c > 0 {
+  debug_println!("callback------------------------------{} {}", c, b);
+  if b == 0 {
     // 节点布局更新
-    write.1.insert(c as usize, node.get_layout());
-  }else if c < 0 {
-    update(node, (-c) as usize, write);
+    write.1.insert(c, node.get_layout());
+  }else {
+    update(node, c, b - 1, write);
   }
 }
 
-// 节点布局更新
-fn update<'a>(mut node: YgNode, char_index: usize, write: &mut Write) {
+// 文字布局更新
+fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write) {
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
-  let mut node_id = node.get_context() as isize;
-  while node_id < 0 {
+  let node_id = node.get_context() as usize;
+  if node_id != id {
     let layout = node.get_layout();
     pos.x += layout.left;
     pos.y += layout.top;
-    node = node.get_parent();
-    node_id = node.get_context() as isize;
   }
-  let mut cb = unsafe {write.0.get_unchecked_mut(node_id as usize)};
+  let mut cb = unsafe {write.0.get_unchecked_mut(id)};
   let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
   cn.pos = pos;
   if !cb.layout_dirty {
     cb.layout_dirty = true;
-    unsafe { write.0.get_unchecked_write(node_id as usize).modify(|_|{
+    unsafe { write.0.get_unchecked_write(id).modify(|_|{
       return true;
     }) };
   }
@@ -260,22 +259,22 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   for cr in split(text, true, style.white_space.preserve_spaces()) {
     match cr {
       SplitResult::Newline =>{
-        update_char(cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
-        update_char(cb, '\t', cb.indent, read.0, &mut index, &parent_yoga, &mut yg_index);
+        update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+        update_char(id, cb, '\t', cb.indent, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Whitespace =>{
         // 设置成宽度为半高, 高度0
-        update_char(cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+        update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Word(c) => {
-        update_char(cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+        update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::WordStart(c) => {
-        word = update_char(cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
-       update_char(cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
+        word = update_char(id, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+       update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
       },
       SplitResult::WordNext(c) =>{
-       update_char(cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
+       update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
       },
       SplitResult::WordEnd =>{
           word = YgNode::new_null();
@@ -293,7 +292,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<C: Context + 'static + Send + Sync>(cb: &mut CharBlock, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &YgNode, yg_index: &mut usize) -> YgNode {
+fn update_char<C: Context + 'static + Send + Sync>(id: usize, cb: &mut CharBlock, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &YgNode, yg_index: &mut usize) -> YgNode {
   let i = *index;
   if i < cb.chars.len() {
     let cn = &cb.chars[i];
@@ -315,7 +314,8 @@ fn update_char<C: Context + 'static + Send + Sync>(cb: &mut CharBlock, c: char, 
     pos: Point2::default(),
     node: node.clone(),
   };
-  node.set_context((-(i as isize)) as *mut c_void);
+  node.set_bind((i + 1) as *mut c_void);
+  node.set_context(id as *mut c_void);
   parent.insert_child(node, *yg_index as u32);
   cb.chars.push(cn);
   *index = i + 1;
