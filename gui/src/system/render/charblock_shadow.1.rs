@@ -11,21 +11,24 @@ use hal_core::*;
 use atom::Atom;
 
 use component::user::*;
-use single::*;
 use component::calc::{Opacity, ZDepth, CharBlock};
+use single::*;
 use entity::{Node};
 use render::engine::{ Engine , PipelineInfo};
-use render::res::{ SamplerRes};
+use render::res::{SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 
-
 lazy_static! {
+    static ref STROKE: Atom = Atom::from("STROKE");
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
+    static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
 
+    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
@@ -54,7 +57,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             pipelines: HashMap::default(),
             default_sampler: None,
         }
-    }   
+    }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -160,7 +163,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
 
         let c = &text_shadow.color;
         let mut ucolor_ubo = engine.gl.create_uniforms();
-        ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+        ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b,c.a);
         ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
         defines.push(UCOLOR.clone());
         debug_println!("text_shadow, id: {}, color: {:?}", event.id, c);
@@ -176,7 +179,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             self.ds.clone()
         );
         
-        let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
+        let is_opacity = if opacity < 1.0 || c.a < 1.0{
             false
         }else {
             true
@@ -246,7 +249,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                     return;
                 }
             };
-
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
@@ -259,65 +261,30 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
     }
 }
 
-// TextShadow修改， 设置对应的ubo和宏
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextShadow>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (opacitys, text_shadows) = read;   
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-            modify_color(item, event.id, text_shadow, render_objs);
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-            let index = item.index;
-            self.change_is_opacity(opacity, text_shadow, index, render_objs);
-        }
-    }
-}
-
-// TextShadow修改， 设置对应的ubo和宏
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextShadow>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (opacitys, text_shadows) = read;   
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-            modify_color(item, event.id, text_shadow, render_objs);
-            let index = item.index;
-            self.change_is_opacity(opacity, text_shadow, index, render_objs);
-        }
-    }
-}
-
-// TextShadow修改， 设置对应的ubo和宏
+// TextStyle修改， 设置对应的ubo和宏
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
     );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_shadows) = read;   
-        println!("modify style {:?}, {:?}", event.field, unsafe { text_shadows.get_unchecked(event.id) });
+        let (render_objs, _engine) = write;
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-            
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+
             match event.field {
                 "color" => {
-                    modify_color(item, event.id, text_shadow, render_objs);
-                     let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+                    // 设置ubo
+                    let c = &text_shadow.color;
+                    let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+                    debug_println!("text_color, id: {}, color: {:?}", event.id, c);
+                    ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+                    render_objs.get_notify().modify_event(item.index, "", 0);
+
                     let index = item.index;
                     self.change_is_opacity( opacity, text_shadow, index, render_objs);
                 },
@@ -344,7 +311,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
             let index = item.index;
-            self.change_is_opacity( opacity, text_shadow, index, write);
+            self.change_is_opacity(opacity, text_shadow, index, write);
         }
     }
 }
@@ -365,16 +332,6 @@ impl<'a, C: Context + Share> CharBlockShadowSys<C> {
 struct Item {
     index: usize,
     position_change: bool,
-}
-
-fn modify_color<C: Context + Share>(item: &mut Item, id: usize, text_shadow: &TextShadow, render_objs: &mut SingleCaseImpl<RenderObjs<C>>) {
-    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    // 设置ubo
-    let c = &text_shadow.color;
-    let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
-    debug_println!("text_shadow_color, id: {}, color: {:?}", id, c);
-    ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-    render_objs.get_notify().modify_event(item.index, "", 0);
 }
 
 // 返回position， uv， color， index
@@ -437,17 +394,13 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 unsafe impl<C: Context + Share> Sync for CharBlockShadowSys<C>{}
 unsafe impl<C: Context + Share> Send for CharBlockShadowSys<C>{}
 
-impl_system!{
-    CharBlockShadowSys<C> where [C: Context + Share],
-    true,
-    {
-        MultiCaseListener<Node, CharBlock, CreateEvent>
-        MultiCaseListener<Node, CharBlock, ModifyEvent>
-        MultiCaseListener<Node, CharBlock, DeleteEvent>
-        MultiCaseListener<Node, TextShadow, CreateEvent>
-        MultiCaseListener<Node, TextShadow, ModifyEvent>
-        MultiCaseListener<Node, TextShadow, DeleteEvent>
-        MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-    }
-}
+// impl_system!{
+//     CharBlockShadowSys<C> where [C: Context + Share],
+//     true,
+//     {
+//         MultiCaseListener<Node, CharBlock, CreateEvent>
+//         MultiCaseListener<Node, CharBlock, ModifyEvent>
+//         MultiCaseListener<Node, CharBlock, DeleteEvent>
+//         MultiCaseListener<Node, Opacity, ModifyEvent>
+//     }
+// }

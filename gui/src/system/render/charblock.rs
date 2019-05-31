@@ -296,6 +296,27 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent>
 }
 
 // TextStyle修改， 设置对应的ubo和宏
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, TextStyle>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+        let (opacitys, text_styles) = read;   
+        let (render_objs, engine) = write;
+        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+            let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+            let text_style = unsafe { text_styles.get_unchecked(event.id) };
+            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
+            modify_stroke(item, text_style, render_objs, engine);
+            let index = item.index;
+            self.change_is_opacity(opacity, text_style, index, render_objs);
+        }
+    }
+}
+
+// TextStyle修改， 设置对应的ubo和宏
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
@@ -694,7 +715,9 @@ impl_system!{
         MultiCaseListener<Node, CharBlock, CreateEvent>
         MultiCaseListener<Node, CharBlock, ModifyEvent>
         MultiCaseListener<Node, CharBlock, DeleteEvent>
+        MultiCaseListener<Node, TextStyle, CreateEvent>
         MultiCaseListener<Node, TextStyle, ModifyEvent>
+        MultiCaseListener<Node, TextStyle, DeleteEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
     }

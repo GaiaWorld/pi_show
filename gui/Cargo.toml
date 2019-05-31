@@ -36,12 +36,12 @@ webgl-rendering-context = "0.1.0"
 derive_deref = "1.0.2"
 paste = "0.1"
 
-[features]
-default = ["web"]
-web = []
-
 [profile.release]
 lto = true
 opt-level = "z"
 panic = 'abort'
 codegen-units = 1
+
+[features]
+default = ["web"]
+web = []

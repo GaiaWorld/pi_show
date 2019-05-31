@@ -46,9 +46,9 @@
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
             var ce = Module._create_text_node(gui);
-            window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-            Module._set_text_linear_gradient_color(gui, ce, -30); //, direction: 0~360度
-            // Module._set_text_rgba_color(gui, ce, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
+            // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+            // Module._set_text_linear_gradient_color(gui, ce, -30); //, direction: 0~360度
+            Module._set_text_rgba_color(gui, ce, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
             // window.__jsObj = "测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下";
             window.__jsObj = "逋";
             Module._set_text_content(gui, ce); // 文字内容
@@ -56,7 +56,7 @@
             // Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
             window.__jsObj = "common";
             Module._set_font_family(gui, ce);
-            // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
+            Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
             // Module._set_text_stroke(gui, ce, 1, 0.0, 0.0, 1.0, 1.0);
             // Module._set_font_weight(gui, ce, 100); // 100 - 900, 500表示正常粗细， 小于500更细， 大于500更粗
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1

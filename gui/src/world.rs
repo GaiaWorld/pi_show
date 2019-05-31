@@ -67,12 +67,15 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
     world.register_multi::<Node, CharBlock>();
+    world.register_multi::<Node, Text>(); 
     world.register_multi::<Node, TextStyle>();
+    world.register_multi::<Node, TextShadow>();
     world.register_multi::<Node, Font>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Image<C>>();
     world.register_multi::<Node, ImageClip>();
     world.register_multi::<Node, ObjectFit>();
+
 
     //calc
     world.register_multi::<Node, ZDepth>();
@@ -83,7 +86,6 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, YgNode>();
-    world.register_multi::<Node, Text>(); 
     
     //single
     world.register_single::<ClipUbo<C>>(ClipUbo(Arc::new(engine.gl.create_uniforms())));
