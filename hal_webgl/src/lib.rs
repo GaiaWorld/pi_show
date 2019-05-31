@@ -33,6 +33,7 @@ pub use self::render_target::{WebGLRenderTargetImpl};
 pub use self::geometry::{WebGLGeometryImpl};
 pub use self::context::{WebGLContextImpl};
 pub use self::texture::{WebGLTextureImpl, WebGLTextureData};
+pub use self::convert::*;
 
 pub fn create_hal_webgl(context: Arc<WebGLRenderingContext>) -> WebGLContextImpl {
     WebGLContextImpl::new(context)

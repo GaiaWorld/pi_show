@@ -68,15 +68,15 @@ impl TextureCache {
 
     pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
         let mut is_find = false;
-        let mut min_count = 99999;
+        let mut _min_count = 99999;
         let mut min_index = 0;
         let mut r = 0;
         
         for (i, v) in self.values.iter_mut().enumerate() {
             if Weak::ptr_eq(texture, &v.texture) {
                 v.count += 1;
-                if v.count < min_count {
-                    min_count = v.count;
+                if v.count < _min_count {
+                    _min_count = v.count;
                     min_index = i;
                 }
                 if !Weak::ptr_eq(sampler, &v.sampler) {

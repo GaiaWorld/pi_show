@@ -37,7 +37,7 @@ pub struct Program {
     handle: WebGLProgram,
     gl: Weak<WebGLRenderingContext>,
     
-    attributes: HashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
+    _attributes: HashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
 
     all_uniforms: HashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
     last_uniforms: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>, // 上次设置的Uniforms，对应接口的概念
@@ -195,7 +195,7 @@ impl ProgramManager {
         // 先绑定属性，再连接
         let max_attribute_count = std::cmp::min(self.max_vertex_attribs, get_builtin_attribute_count());
         for i in 0..max_attribute_count {
-            let (attrib_name, name) = Self::get_attribute_by_location(i);
+            let (_attrib_name, name) = Self::get_attribute_by_location(i);
             debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
             gl.bind_attrib_location(&program_handle, i, name);
         }
@@ -223,7 +223,7 @@ impl ProgramManager {
         let program = Program {
             gl: self.gl.clone(),
             handle: program_handle,
-            attributes: attributes,
+            _attributes: attributes,
             all_uniforms: all_uniforms,
             last_uniforms: HashMap::new(),
         };
@@ -277,7 +277,7 @@ impl ProgramManager {
             let is_array = match uniform.name().find('[') {
                 Some(index) => {
                     let n = uniform.name();
-                    let (n, v) = n.split_at(index);
+                    let (n, _v) = n.split_at(index);
                     name = n.to_string();
                     true
                 },
@@ -597,7 +597,7 @@ impl Program {
                     false
                 }
             }
-            UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
+            UniformValue::<WebGLContextImpl>::Sampler(_s, _t) => {
                  false
             }
         }

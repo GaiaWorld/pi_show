@@ -58,12 +58,12 @@ use ShareRef;
  * context_end();
  */
 
-pub trait Context {
+pub trait Context: Sized {
     type ContextSelf: Context;
     type ContextGeometry: Geometry;
     type ContextTexture: Texture;
     type ContextSampler: Sampler;
-    type ContextRenderTarget: RenderTarget;
+    type ContextRenderTarget: RenderTarget<RContext = Self>;
     type ContextRenderBuffer: RenderBuffer;
 
     /**

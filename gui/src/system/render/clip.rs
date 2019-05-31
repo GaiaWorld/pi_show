@@ -4,18 +4,15 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use std::collections::HashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use ecs::idtree::{ IdTree};
-use map::vecmap::VecMap;
+use ecs::{ModifyEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use hal_core::*;
 use atom::Atom;
 
-use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow, ZDepth};
+use component::calc::{ByOverflow};
 use entity::{Node};
 use single::*;
 use render::engine:: { Engine, PipelineInfo };
-use render::res::{SamplerRes, TextureRes};
+use render::res::{SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::clip::*;
@@ -69,14 +66,13 @@ impl<C: Context + Share> ClipSys<C>{
                 engine.res_mgr.samplers.create(res)
             },          
         };
-        let geometry = create_geometry(&mut engine.gl);
         let target = engine.gl.create_render_target(w, h, &PixelFormat::RGB, &DataFormat::UnsignedByte, false).unwrap();
-        let by_ubo = engine.gl.create_uniforms();
-        // by_ubo.set_sampler(
-        //     &CLIP_TEXTURE,
-        //     &(sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-        //     &(target.get_color_texture(0).unwrap().clone())
-        // );
+        let mut by_ubo = engine.gl.create_uniforms();
+        by_ubo.set_sampler(
+            &CLIP_TEXTURE,
+            &(sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
+            &(target.get_color_texture(0).unwrap().clone() as  Arc<AsRef<<C as Context>::ContextTexture>>)
+        );
 
         let ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
@@ -84,7 +80,7 @@ impl<C: Context + Share> ClipSys<C>{
             mark: PhantomData,
             dirty: true,
             render_target: Arc::new(target),
-            by_ubo: Arc::new(engine.gl.create_uniforms()),
+            by_ubo: Arc::new(by_ubo),
             rs: rs,
             bs: bs,
             ss: ss,
@@ -106,13 +102,12 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        let gl = &mut engine.gl;
         if self.dirty == false {
             return;
         }
         self.dirty = false;
 
-        let (overflow, projection, view, view_port) = read;
+        let (overflow, _projection, _view, view_port) = read;
         let gl = &mut engine.gl;
         gl.begin_render(
             &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
@@ -154,14 +149,6 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         gl.draw(&(self.geometry.clone() as Arc<AsRef<<C as Context>::ContextGeometry>>), &ubos);
 
         gl.end_render();
-
-        // // 设置by_ubo
-        // let by_ubo = unsafe {&mut *(self.by_ubo.as_ref() as *const Uniforms<C> as usize as *mut Uniforms<C>)};
-        // by_ubo.set_sampler(
-        //     &CLIP_TEXTURE,
-        //     &(self.sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-        //     &(target.get_color_texture(0))
-        // );
     }
     
     fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
@@ -266,8 +253,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
 
 impl<'a, C: Context + Share> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+    type WriteData = ();
+    fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         self.dirty = true;
     }
 }

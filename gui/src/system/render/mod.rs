@@ -8,9 +8,10 @@ mod render;
 mod image;
 mod charblock;
 mod charblock_shadow;
-//mod clip;
+mod clip;
 
 
+pub use system::render::clip::*;
 pub use system::render::charblock::*;
 pub use system::render::charblock_shadow::*;
 pub use system::render::border::*;

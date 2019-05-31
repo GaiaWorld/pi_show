@@ -94,7 +94,7 @@ impl WebGLTextureImpl {
                     gl.generate_mipmap(WebGLRenderingContext::TEXTURE_2D);
                 }
                 
-                let mut t = WebGLTextureImpl {
+                let t = WebGLTextureImpl {
                     gl: gl.clone(),
                     width: w,
                     height: h,
@@ -137,7 +137,7 @@ impl WebGLTextureImpl {
                     gl.generate_mipmap(WebGLRenderingContext::TEXTURE_2D);
                 }
                 
-                let mut t = WebGLTextureImpl {
+                let t = WebGLTextureImpl {
                     gl: gl.clone(),
                     width: w,
                     height: h,
