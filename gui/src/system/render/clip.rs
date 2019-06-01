@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use std::collections::HashMap;
-use ecs::{ModifyEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use hal_core::*;
 use atom::Atom;
 
@@ -24,8 +24,9 @@ lazy_static! {
 
     static ref COMMON: Atom = Atom::from("common");
     
-    static ref CLIP_TEXTURE: Atom = Atom::from("clip_texture");
-    static ref CLIP_INDEX: Atom = Atom::from("clip_index");
+    static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
+    static ref CLIP_INDICES: Atom = Atom::from("clipIndices");
+    static ref CLIP_TEXTURE_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
 pub struct ClipSys<C: Context + Share>{
@@ -74,13 +75,15 @@ impl<C: Context + Share> ClipSys<C>{
                 engine.res_mgr.samplers.create(res)
             },          
         };
-        let target = engine.gl.create_render_target(w, h, &PixelFormat::RGB, &DataFormat::UnsignedByte, false).unwrap();
+        let size = next_power_of_two(w.max(h));
+        let target = engine.gl.create_render_target(size, size, &PixelFormat::RGB, &DataFormat::UnsignedByte, false).unwrap();
         let mut by_ubo = engine.gl.create_uniforms();
         by_ubo.set_sampler(
             &CLIP_TEXTURE,
             &(sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
             &(target.get_color_texture(0).unwrap().clone() as  Arc<AsRef<<C as Context>::ContextTexture>>)
         );
+        by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
 
         let ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
@@ -98,6 +101,44 @@ impl<C: Context + Share> ClipSys<C>{
             ubos: ubos,
             sampler: sampler,
         }
+    }
+
+    fn add_by_overflow(&self, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
+        let defines = &mut render_obj.defines;
+        let mut is_change = false;
+        // 插入裁剪ubo 插入裁剪宏
+        render_obj.ubos.entry(CLIP.clone()).or_insert_with(||{
+            defines.push(CLIP.clone());
+            is_change = true;
+            self.by_ubo.clone()
+        });
+
+        if is_change {
+            // 设置 by_clip_index
+            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Arc<Uniforms<C>>|{
+                debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
+                Arc::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
+            }).or_insert_with(||{
+                debug_println!("add clip ubo, by_overflow: {}", by_overflow);
+                let mut ubo = engine.gl.create_uniforms();
+                ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
+                Arc::new(engine.gl.create_uniforms())
+            });
+            
+            // 重新创建渲染管线
+            let pipeline = engine.create_pipeline(
+                0,
+                &render_obj.pipeline.vs,
+                &render_obj.pipeline.fs,
+                render_obj.defines.as_slice(),
+                render_obj.pipeline.rs.clone(),
+                render_obj.pipeline.bs.clone(),
+                render_obj.pipeline.ss.clone(),
+                render_obj.pipeline.ds.clone(),
+            );
+            render_obj.pipeline = pipeline;
+        }
+        return is_change;
     }
 }
 
@@ -117,10 +158,6 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
 
         let (overflow, _projection, _view, view_port) = read;
         let gl = &mut engine.gl;
-        // gl.begin_render(
-        //     &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
-        //     &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>)
-        // );
 
         // pub struct RenderBeginDesc {
         //     pub viewport: (i32, i32, i32, i32),    // x, y, 宽, 高，左上角为原点
@@ -136,12 +173,17 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             clear_depth: None,
             clear_stencil: None,
         };
+        // gl.begin_render(
+        //     &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
+        //     &(Arc::new(viewport) as Arc<AsRef<RenderBeginDesc>>)
+        // );
+
         gl.begin_render(
-            &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
+            &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
             &(Arc::new(viewport) as Arc<AsRef<RenderBeginDesc>>)
         );
 
-        println!("overflow:{:?}", **overflow);
+        debug_println!("overflow:{:?}", **overflow);
 
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
@@ -207,6 +249,24 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     }
 }
 
+//创建RenderObj， 为renderobj添加裁剪宏及ubo
+impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
+        let (render_objs, engine) = write;
+        let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+        let node_id = render_obj.context;
+        let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
+        println!("RenderObjs create by_overflow----------------------id: {}, by_overflow: {}", node_id, by_overflow);
+        if by_overflow > 0 {
+            if self.add_by_overflow(by_overflow, render_obj, engine) {
+                render_objs.get_notify().modify_event(node_id, "pipeline", 0);
+            }
+        }
+    }
+}
+
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
@@ -217,62 +277,37 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
+        println!("ByOverflow modify by_overflow----------------------id: {}, by_overflow: {}", event.id, by_overflow);
         if by_overflow == 0 {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
 
                 // 移除ubo
-                render_obj.ubos.remove(&CLIP);
-
-                //移除宏
-                render_obj.defines.remove_item(&CLIP);
-                
-                // 重新创建渲染管线
-                let pipeline = engine.create_pipeline(
-                    0,
-                    &render_obj.pipeline.vs,
-                    &render_obj.pipeline.fs,
-                    render_obj.defines.as_slice(),
-                    render_obj.pipeline.rs.clone(),
-                    render_obj.pipeline.bs.clone(),
-                    render_obj.pipeline.ss.clone(),
-                    render_obj.pipeline.ds.clone(),
-                );
-                render_obj.pipeline = pipeline;
+                if let Some(_) = render_obj.ubos.remove(&CLIP) {
+                    //移除宏
+                    render_obj.defines.remove_item(&CLIP);
+                    
+                    // 重新创建渲染管线
+                    let pipeline = engine.create_pipeline(
+                        0,
+                        &render_obj.pipeline.vs,
+                        &render_obj.pipeline.fs,
+                        render_obj.defines.as_slice(),
+                        render_obj.pipeline.rs.clone(),
+                        render_obj.pipeline.bs.clone(),
+                        render_obj.pipeline.ss.clone(),
+                        render_obj.pipeline.ds.clone(),
+                    );
+                    render_obj.pipeline = pipeline;
+                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
+                }  
             }
         } else {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-
-                let defines = &mut render_obj.defines;
-
-                // 插入裁剪ubo 插入裁剪宏
-                render_obj.ubos.entry(CLIP.clone()).or_insert_with(||{
-                    defines.push(CLIP.clone());
-                    self.by_ubo.clone()
-                });
-
-                // // 设置 by_clip_index
-                // render_obj.ubos.entry(CLIP_INDEX.clone()).or_insert_with(||{
-                //     let mut ubo = engine.gl.create_uniforms();
-                //     ubo.set_float_1(&CLIP_INDEX, by_overflow as f32);
-                //     Arc::new(engine.gl.create_uniforms())
-                // }).and_modify(|ubo: &mut Arc<Uniforms<C>>|{
-                //     Arc::make_mut(ubo).set_float_1(&CLIP_INDEX, by_overflow as f32);
-                // });
-                
-                // 重新创建渲染管线
-                let pipeline = engine.create_pipeline(
-                    0,
-                    &render_obj.pipeline.vs,
-                    &render_obj.pipeline.fs,
-                    render_obj.defines.as_slice(),
-                    render_obj.pipeline.rs.clone(),
-                    render_obj.pipeline.bs.clone(),
-                    render_obj.pipeline.ss.clone(),
-                    render_obj.pipeline.ds.clone(),
-                );
-                render_obj.pipeline = pipeline;
+                if self.add_by_overflow(by_overflow, render_obj, engine) {
+                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
+                }
             }
         }
     }
@@ -291,11 +326,24 @@ unsafe impl<C: Context + Share> Sync for ClipSys<C>{}
 unsafe impl<C: Context + Share> Send for ClipSys<C>{}
 
 
+
+fn next_power_of_two(value: u32) -> u32 {
+    let mut value = value - 1;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value += 1;
+    value
+}
+
 impl_system!{
     ClipSys<C> where [C: Context + Share],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
-        MultiCaseListener<Node, ByOverflow, ModifyEvent>
+        SingleCaseListener<RenderObjs<C>, CreateEvent>
+        MultiCaseListener<Node, ByOverflow, ModifyEvent>  
     }
 }

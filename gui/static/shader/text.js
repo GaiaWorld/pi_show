@@ -37,7 +37,7 @@ let text_fs_code = `
 
     precision highp float;
 
-    #ifdef CLIP_PLANE
+    #ifdef CLIP
     uniform float clipIndices;
     uniform sampler2D clipTexture;
     uniform float clipTextureSize;
@@ -92,7 +92,7 @@ let text_fs_code = `
 
     void main() {
 
-    #ifdef CLIP_PLANE
+    #ifdef CLIP
         vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
         vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
 

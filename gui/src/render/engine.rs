@@ -12,6 +12,7 @@ pub struct PipelineInfo {
     pub pipeline: Arc<Pipeline>,
     pub vs: Atom,
     pub fs: Atom,
+    pub defines: Vec<Atom>,
     pub rs: Arc<RasterState>,
     pub bs: Arc<BlendState>,
     pub ss: Arc<StencilState>,
@@ -54,15 +55,19 @@ impl<C: Context> Engine<C> {
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
-                Ok(r) => Arc::new(PipelineInfo{
-                    pipeline: Arc::new(r),
-                    vs: vs_name.clone(),
-                    fs: fs_name.clone(),
-                    rs: rs.clone(),
-                    bs: bs.clone(),
-                    ss: ss.clone(),
-                    ds: ds.clone(),
-                }),
+                Ok(r) => {
+                    let defines = Vec::from(defines);
+                    Arc::new(PipelineInfo{
+                        pipeline: Arc::new(r),
+                        vs: vs_name.clone(),
+                        fs: fs_name.clone(),
+                        defines: defines,
+                        rs: rs.clone(),
+                        bs: bs.clone(),
+                        ss: ss.clone(),
+                        ds: ds.clone(),
+                    })
+                },
                 Err(_) => panic!("create_pipeline error"), 
             }
         });

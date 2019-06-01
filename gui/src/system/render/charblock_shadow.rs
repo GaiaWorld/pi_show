@@ -237,10 +237,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        let item = unsafe { self.charblock_render_map.get_unchecked_mut(event.id) };
-        if item.position_change == false {
-            item.position_change = true;
-            self.geometry_dirtys.push(event.id);
+        if let Some(item) = self.charblock_render_map.get_mut(event.id){
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
         }
     }
 }
