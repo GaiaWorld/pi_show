@@ -222,10 +222,10 @@ fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2;4]{
     let width = layout.width - layout.padding_left - layout.padding_right - layout.border_left - layout.border_right;
     let height = layout.height - layout.padding_top - layout.padding_bottom - layout.border_top - layout.border_bottom;
     let start = (layout.border_left + layout.padding_left - origin.x, layout.border_top + layout.padding_top - origin.y);
-    let left_top = m * Vector4::new(start.0,  start.1, 0.0, 1.0);
-    let right_top = m * Vector4::new(start.0 + width, start.1, 0.0, 1.0);
-    let left_bottom = m * Vector4::new(start.0, start.1 + height, 0.0, 1.0);
-    let right_bottom = m * Vector4::new(start.1 + width, start.1 + height, 0.0, 1.0);
+    let left_top = m * Vector4::new(start.0,             start.1,          0.0, 1.0);
+    let right_top = m * Vector4::new(start.0 + width,    start.1,          0.0, 1.0);
+    let left_bottom = m * Vector4::new(start.0,          start.1 + height, 0.0, 1.0);
+    let right_bottom = m * Vector4::new(start.0 + width, start.1 + height, 0.0, 1.0);
 
     let lt = Point2{x: left_top.x, y: left_top.y};
     let rt = Point2{x: right_top.x, y: right_top.y};

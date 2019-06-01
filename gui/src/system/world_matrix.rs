@@ -134,9 +134,13 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
 fn get_lefttop_offset(layout: &Layout, parent_origin: &Point2, parent_layout: &Layout) -> Point2{
+    println!("offset111==================================layout: {:?}, parent_origin: {:?}, parent_layout: {:?}", layout, parent_origin, parent_layout);
     Point2::new(
-        layout.left - parent_origin.x + parent_layout.border_left + parent_layout.padding_left,
-        layout.top - parent_origin.y + parent_layout.border_top + parent_layout.padding_top
+        // layout.left - parent_origin.x + parent_layout.border_left + parent_layout.padding_left,
+        // layout.top - parent_origin.y + parent_layout.border_top + parent_layout.padding_top
+        // 当设置宽高为auto时 可能存在bug
+        layout.left - parent_origin.x,
+        layout.top - parent_origin.y
     )  
 }
 
@@ -162,6 +166,7 @@ fn recursive_cal_matrix(
         let parent_transform_origin = unsafe { transform.get_unchecked(parent) }.origin.to_value(parent_layout.width, parent_layout.height);
 
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
+        println!("offset==================================id: {}, offset: {:?}", id, offset);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
