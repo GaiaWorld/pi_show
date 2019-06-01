@@ -40,10 +40,14 @@ let color_fs_code = `
     uniform float blur;
     uniform float alpha;
 
+    #ifdef HSB
+        uniform vec3 hsvValue;
+    #endif
+
     #ifdef CLIP
-    uniform float clipIndices;
-    uniform sampler2D clipTexture;
-    uniform float clipTextureSize;
+        uniform float clipIndices;
+        uniform sampler2D clipTexture;
+        uniform float clipTextureSize;
     #endif
 
     // Varyings
@@ -57,27 +61,57 @@ let color_fs_code = `
         uniform vec4 uColor;
     #endif
 
-    // 8位int型变二进制数组
-    void toBit(int num, out bvec4 r1, out bvec4 r2) {
-        for (int i = 0; i < 4; ++i) {
-            r1[i] = (num / 2) * 2 != num;
-            num = (num - int(r1[i])) / 2;
+    #ifdef HSB
+
+        vec3 rgb2hcv(vec3 RGB)
+        {
+            // Based on work by Sam Hocevar and Emil Persson
+            vec4 P = mix(vec4(RGB.bg, -1.0, 2.0/3.0), vec4(RGB.gb, 0.0, -1.0/3.0), step(RGB.b, RGB.g));
+            vec4 Q = mix(vec4(P.xyw, RGB.r), vec4(RGB.r, P.yzx), step(P.x, RGB.r));
+            float C = Q.x - min(Q.w, Q.y);
+            float H = abs((Q.w - Q.y) / (6.0 * C + 1e-10) + Q.z);
+            return vec3(H, C, Q.x);
         }
 
-        for (int i = 0; i < 4; ++i) {
-            r2[i] = (num / 2) * 2 != num;
-            num = (num - int(r2[i])) / 2;
+        vec3 rgb2hsv(vec3 RGB)
+        {
+            vec3 HCV = rgb2hcv(RGB);
+            float L = HCV.z - HCV.y * 0.5;
+            float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + 1e-10);
+            return vec3(HCV.x, S, L);
         }
-    }
 
-    // 做与运算，返回true表示通过
-    bool bitAnd(in bvec4 a1, in bvec4 a2, in bvec4 b1, in bvec4 b2) {
-        
-        bvec4 v1 = bvec4(a1.x && b1.x, a1.y && b1.y, a1.z && b1.z, a1.w && b1.w);
-        bvec4 v2 = bvec4(a2.x && b2.x, a2.y && b2.y, a2.z && b2.z, a2.w && b2.w);
+        vec3 hsv2rgb(vec3 c)
+        {
+            c = vec3(fract(c.x), clamp(c.yz, 0.0, 1.0));
+            vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+            return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));
+        }
+    #endif
 
-        return v1 == bvec4(false) && v2 == bvec4(false);
-    }
+    #ifdef CLIP
+        // 8位int型变二进制数组
+        void toBit(int num, out bvec4 r1, out bvec4 r2) {
+            for (int i = 0; i < 4; ++i) {
+                r1[i] = (num / 2) * 2 != num;
+                num = (num - int(r1[i])) / 2;
+            }
+
+            for (int i = 0; i < 4; ++i) {
+                r2[i] = (num / 2) * 2 != num;
+                num = (num - int(r2[i])) / 2;
+            }
+        }
+
+        // 做与运算，返回true表示通过
+        bool bitAnd(in bvec4 a1, in bvec4 a2, in bvec4 b1, in bvec4 b2) {
+            
+            bvec4 v1 = bvec4(a1.x && b1.x, a1.y && b1.y, a1.z && b1.z, a1.w && b1.w);
+            bvec4 v2 = bvec4(a2.x && b2.x, a2.y && b2.y, a2.z && b2.z, a2.w && b2.w);
+
+            return v1 == bvec4(false) && v2 == bvec4(false);
+        }
+    #endif
 
     void main(void) {
 
@@ -107,7 +141,17 @@ let color_fs_code = `
             c = c * uColor;
         #endif
             
-            c.a = c.a * alpha * blur;
-            gl_FragColor = c;
+        #ifdef HSB
+            vec3 hsv = rgb2hsv(c.rgb);
+            hsv += hsvValue;
+            c.rgb = hsv2rgb(hsv);
+        #endif
+        
+        #ifdef GRAY
+            c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
+        #endif
+
+        c.a = c.a * alpha * blur;
+        gl_FragColor = c;
     }
 `;
