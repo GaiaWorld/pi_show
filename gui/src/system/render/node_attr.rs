@@ -206,68 +206,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
     }
 }
 
-// //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-// impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for NodeAttrSys<C>{
-//     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<ClipUbo<C>>);
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-//         let (by_overflows, clip_ubo) = read;
-//         let (render_objs, engine, node_render_map) = write;
-//         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
-//         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-
-//         if by_overflow == 0 {
-//             for id in obj_ids.iter() {
-//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-
-//                 // 移除ubo
-//                 render_obj.ubos.remove(&CLIP);
-
-//                 //移除宏
-//                 render_obj.defines.remove_item(&CLIP);
-                
-//                 // 重新创建渲染管线
-//                 let pipeline = engine.create_pipeline(
-//                     0,
-//                     &render_obj.pipeline.vs,
-//                     &render_obj.pipeline.fs,
-//                     render_obj.defines.as_slice(),
-//                     render_obj.pipeline.rs.clone(),
-//                     render_obj.pipeline.bs.clone(),
-//                     render_obj.pipeline.ss.clone(),
-//                     render_obj.pipeline.ds.clone(),
-//                 );
-//                 render_obj.pipeline = pipeline;
-//             }
-//         } else {
-//             for id in obj_ids.iter() {
-//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-
-//                 let defines = &mut render_obj.defines;
-
-//                 // 插入裁剪ubo 插入裁剪宏
-//                 render_obj.ubos.entry(CLIP.clone()).or_insert_with(||{
-//                     defines.push(CLIP.clone());
-//                     clip_ubo.0.clone()
-//                 });
-                
-//                 // 重新创建渲染管线
-//                 let pipeline = engine.create_pipeline(
-//                     0,
-//                     &render_obj.pipeline.vs,
-//                     &render_obj.pipeline.fs,
-//                     render_obj.defines.as_slice(),
-//                     render_obj.pipeline.rs.clone(),
-//                     render_obj.pipeline.bs.clone(),
-//                     render_obj.pipeline.ss.clone(),
-//                     render_obj.pipeline.ds.clone(),
-//                 );
-//                 render_obj.pipeline = pipeline;
-//             }
-//         }
-//     }
-// }
-
 // 设置visibility
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
