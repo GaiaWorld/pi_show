@@ -54,6 +54,7 @@ impl Context for WebGLContextImpl {
 
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
+            dirty_count: 0,
             values: HashMap::new(),
         }
     }

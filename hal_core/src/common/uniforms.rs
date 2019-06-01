@@ -40,12 +40,14 @@ use ShareRef;
  *      sampler           set_sampler
  */
 pub struct Uniforms<C: Context> {
+    pub dirty_count: u32,
     pub values: HashMap<Atom, UniformValue<C>>,
 }
 
 impl<C: Context> Clone for Uniforms<C> {
     fn clone(&self) -> Self {
         Uniforms{
+            dirty_count: 0,
             values: self.values.clone()
         }
     }
@@ -93,6 +95,7 @@ impl<C: Context> Clone for UniformValue<C> {
 impl<C: Context> Uniforms<C> {
 
     pub fn set_int_1(&mut self, name: &Atom, v: i32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -108,6 +111,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_2(&mut self, name: &Atom, v1:i32, v2: i32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -124,6 +128,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_3(&mut self, name: &Atom, v1:i32, v2: i32, v3: i32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -141,6 +146,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_4(&mut self, name: &Atom, v1:i32, v2: i32, v3: i32, v4:  i32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -159,6 +165,7 @@ impl<C: Context> Uniforms<C> {
     }
     
     pub fn set_float_1(&mut self, name: &Atom, v: f32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -174,6 +181,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_2(&mut self, name: &Atom, v1:f32, v2: f32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -190,6 +198,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_3(&mut self, name: &Atom, v1:f32, v2: f32, v3: f32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -207,6 +216,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_4(&mut self, name: &Atom, v1:f32, v2: f32, v3: f32, v4:  f32) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -225,6 +235,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_1v(&mut self, name: &Atom, v: &[i32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -240,6 +251,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_2v(&mut self, name: &Atom, v: &[i32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 2 == 0, "set_int_2v failed, v.len() % 2 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -256,6 +268,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_3v(&mut self, name: &Atom, v: &[i32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 3 == 0, "set_int_3v failed, v.len() % 3 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -272,6 +285,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_int_4v(&mut self, name: &Atom, v: &[i32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 3 == 0, "set_int_4v failed, v.len() % 4 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -288,6 +302,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_1v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {
@@ -303,6 +318,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_2v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 2 == 0, "set_float_2v failed, v.len() % 2 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -319,6 +335,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_3v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 3 == 0, "set_float_3v failed, v.len() % 3 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -335,6 +352,7 @@ impl<C: Context> Uniforms<C> {
     }
 
     pub fn set_float_4v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 4 == 0, "set_float_4v failed, v.len() % 4 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -354,6 +372,7 @@ impl<C: Context> Uniforms<C> {
      * 设置2*2的矩阵，注意：顺序列优先
      */
     pub fn set_mat_2v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 4 == 0, "set_mat_2v failed, v.len() % 4 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -373,6 +392,7 @@ impl<C: Context> Uniforms<C> {
      * 设置3*3的矩阵，注意：顺序列优先
      */
     pub fn set_mat_3v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 9 == 0, "set_mat_3v failed, v.len() % 9 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -392,6 +412,7 @@ impl<C: Context> Uniforms<C> {
      * 设置4*4的矩阵，注意：顺序列优先
      */
     pub fn set_mat_4v(&mut self, name: &Atom, v: &[f32]) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         assert!(v.len() % 16 == 0, "set_mat_4v failed, v.len() % 16 != 0");
         self.values.entry(name.clone())
             .and_modify(|rv| {
@@ -411,6 +432,7 @@ impl<C: Context> Uniforms<C> {
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
     pub fn set_sampler(&mut self, name: &Atom, sampler: &ShareRef<C::ContextSampler>, texture: &ShareRef<C::ContextTexture>) {
+        self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {
                 match rv {

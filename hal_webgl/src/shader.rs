@@ -40,7 +40,9 @@ pub struct Program {
     _attributes: HashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
 
     all_uniforms: HashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
-    last_uniforms: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>, // 上次设置的Uniforms，对应接口的概念
+
+    // u32是上一次设置时候的 dirty_count
+    last_uniforms: HashMap<Atom, (u32, Arc<AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
 }
 
 pub struct WebGLUniformImpl {
@@ -435,8 +437,8 @@ impl Program {
                     self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                     false
                 }
-                Some(old) => {
-                    if !Arc::ptr_eq(old, curr) {
+                Some((last_dirty_count, old)) => {
+                    if *last_dirty_count != curr.as_ref().as_ref().dirty_count || !Arc::ptr_eq(old, curr) {
                         self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
                         false
                     } else {
@@ -447,7 +449,7 @@ impl Program {
             
             if !is_old_same {
                 // 更新 last_uniforms
-                self.last_uniforms.insert(name.clone(), curr.clone());
+                self.last_uniforms.insert(name.clone(), (curr.as_ref().as_ref().dirty_count, curr.clone()));
             }
         }
     }
