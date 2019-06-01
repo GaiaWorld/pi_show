@@ -364,18 +364,23 @@ impl<'a> AbQueryArgs<'a> {
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) {
+  // debug_println!("ab_query_func----------------------------{}, {:?}, {:?}", *bind, aabb, arg.aabb);
   if intersects(&arg.aabb, aabb) {
+    // debug_println!("bind----------------------------{}", *bind);
     let enable = unsafe { arg.enables.get_unchecked(*bind) }.0;
-    //如果enable 为false， 表示不接收事件
+    // debug_println!("enable----------------------------{}", enable);
+    //如果enable true 表示不接收事件
     match enable {
       true => (),
       false => return,
     };
 
     let z_depth = unsafe { arg.z_depths.get_unchecked(*bind) }.0;
+    // debug_println!("----------------------------z_depth: {}, arg.max_z: {}", z_depth, arg.max_z);
     // 取最大z的node
     if z_depth > arg.max_z {
       let by_overflow = unsafe { arg.by_overflows.get_unchecked(*bind) }.0;
+      // debug_println!("by_overflow---------------------------{}",by_overflow);
       // 检查是否有裁剪，及是否在裁剪范围内
       if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, aabb.min.x, aabb.min.y) {
         arg.result = *bind;
@@ -399,9 +404,13 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
 /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
 fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
   let xy = Point2::new(x, y);
+  // debug_println!("overflow_clip len---------------------------{}",overflow_clip.id_vec.len());
   for i in 0..overflow_clip.id_vec.len() {
+    // debug_println!("i + 1---------------------------{}",i + 1);
+    // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
     if by_overflow & (i + 1) != 0 && overflow_clip.id_vec[i] > 0 {
       let p = &overflow_clip.clip[i];
+      // debug_println!("p---------------------------{:?}",p);
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
         _ => return false

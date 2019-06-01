@@ -23,39 +23,32 @@
         var YGEdgeAll = 8;
     </script>
     
-    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
-    <script src="./shader/clip.js"></script>
-    <script src="./shader/color.js"></script>
-    <script src="./shader/image.js"></script>
-    <script src="./shader/text.js"></script>
-    <script src="./shader/init.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="../shader/clip.js"></script>
+    <script src="../shader/color.js"></script>
+    <script src="../shader/image.js"></script>
+    <script src="../shader/text.js"></script>
+    <script src="../shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
-        //普通阴影
+        //普通边框
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node2, 100.0);
         Module._set_height(gui, node2, 100.0);
-        Module._set_box_shadow_color(gui, node2, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node2, 5.0);
-        Module._set_box_shadow_h(gui, node2, 20);
-        Module._set_box_shadow_v(gui, node2, 20);
-        Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
-
-        //圆角阴影
+        Module._set_border(gui, node2, YGEdgeAll, 10);
+        Module._set_border_color(gui, node2, 1.0, 0.0, 0.0, 0.5);
+        
+        //有圆角的边框
         var node3 = Module._create_node(gui);
         Module._append_child(gui, node3, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node3, 100.0);
         Module._set_height(gui, node3, 100.0);
-        Module._set_margin(gui, node3, YGEdgeLeft, 50);
-        Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node3, 5.0);
-        Module._set_box_shadow_h(gui, node3, 20);
-        Module._set_box_shadow_v(gui, node3, 20);
-        Module._set_border_radius(gui, node3, 20, 20);
-        Module._set_background_rgba_color(gui, node3, 1.0, 0.0, 0.0, 1.0);
-
+        Module._set_border(gui, node3, YGEdgeAll, 10);
+        Module._set_margin(gui, node3, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node3, 20, 20); // 设置圆角， 可以设置圆角的x， y， 尽管如此， 但现在仅支持一个值， 或默认将y的值替换成与x一样的值
+        Module._set_border_color(gui, node3, 0.0, 1.0, 0.0, 0.5);
 
         Module._render(gui);
     </script>

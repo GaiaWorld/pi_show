@@ -31,7 +31,7 @@ impl Default for Opacity {
 }
 
 //是否响应事件
-#[derive(Deref, DerefMut, Component, Debug, Default)]
+#[derive(Deref, DerefMut, Component, Debug)]
 pub struct Enable(pub bool);
 
 // #[derive(Component, Debug, Default)]
@@ -62,4 +62,10 @@ pub struct CharNode {
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置
   pub node: YgNode, // 对应的yoga节点
+}
+
+impl Default for Enable {
+  fn default() -> Self{
+    Self(true)
+  }
 }

@@ -129,7 +129,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("layout_sys".to_string(), &world);
+    dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
     world
 }

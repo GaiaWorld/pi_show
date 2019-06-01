@@ -13,6 +13,7 @@ use hal_core::*;
 use ecs::{World, idtree::IdTree, LendMut, Lend};
 
 use component::user::{ BorderRadius, LengthUnit };
+use component::calc::Visibility;
 use render::engine::Engine;
 use render::res::{ TextureRes, Opacity };
 use world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
@@ -48,6 +49,10 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
     let border_radius = border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
+
+    let visibilitys = world.fetch_multi::<Node, Visibility>().unwrap();
+    let visibilitys = visibilitys.lend_mut();
+    visibilitys.insert(node, Visibility(true));
 
     let ygnode = world.fetch_multi::<Node, YgNode>().unwrap();
     let ygnode = ygnode.lend_mut();
