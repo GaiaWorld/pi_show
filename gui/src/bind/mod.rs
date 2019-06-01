@@ -10,12 +10,12 @@ use webgl_rendering_context::{WebGLRenderingContext};
 use atom::Atom;
 use hal_webgl::*;
 use hal_core::*;
-use ecs::{World, idtree::IdTree, LendMut};
+use ecs::{World, idtree::IdTree, LendMut, Lend};
 
 use component::user::{ BorderRadius, LengthUnit };
 use render::engine::Engine;
 use render::res::{ TextureRes, Opacity };
-use world::{ create_world, RENDER_DISPATCH };
+use world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use font::sdf_font::{SdfFont, StaticSdfFont};
 use font::font_sheet::FontSheet;
 use entity::Node;
@@ -75,7 +75,7 @@ pub fn render(world: u32){
 pub fn cal_layout(world: u32){
     debug_println!("cal_layout");
     let world = unsafe {&mut *(world as usize as *mut World)};
-    world.run(&Atom::from("cal_layout"));
+    world.run(&LAYOUT_DISPATCH);
 }
 
 //设置shader
@@ -90,15 +90,17 @@ pub fn set_shader(engine: u32){
 }
 
 
-// #[no_mangle]
-// pub fn get_texture_res(engine: u32, key: String) -> u32{
-//     let engine = unsafe {&mut *(engine as usize as *mut Engine)};
-//     let key = Atom::from(key);
-//     match engine.res_mgr.textures.get(&key) {
-//         Some(res) => Box::into_raw(Box::new(res)) as u32,
-//         None => 0,
-//     }
-// }
+#[no_mangle]
+pub fn get_texture_res(world: u32, key: String) -> u32{
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
+    let engine = engine.lend();
+    let key = Atom::from(key);
+    match engine.res_mgr.textures.get(&key) {
+        Some(res) => Box::into_raw(Box::new(res)) as u32,
+        None => 0,
+    }
+}
 
 // #[no_mangle]
 // pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opacity: u8, compress: u32) -> u32{

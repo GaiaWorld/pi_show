@@ -1,3 +1,5 @@
+<!--测试bug  tansform: scale(-1, 1); transform-orignal: ; 变换中心似乎为父容器相对位置，而不是自己的中心-->
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -23,21 +25,51 @@
         var YGEdgeAll = 8;
     </script>
     
-    <script src="../target/asmjs-unknown-emscripten/debug/gui.js"></script>
-    <script src="./shader/clip.js"></script>
-    <script src="./shader/color.js"></script>
-    <script src="./shader/image.js"></script>
-    <script src="./shader/text.js"></script>
-    <script src="./shader/init.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="../shader/clip.js"></script>
+    <script src="../shader/color.js"></script>
+    <script src="../shader/image.js"></script>
+    <script src="../shader/text.js"></script>
+    <script src="../shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
         var node2 = Module._create_node(gui);
-        Module._append_child(gui, node2, 1, );
+        Module._append_child(gui, node2, 1);
         Module._set_width(gui, node2, 300.0);
-        Module._set_height(gui, node2, 200.0);
+        Module._set_height(gui, node2, 300.0);
         Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
-        Module._transform_origin(gui, node2, 1, 0, 1, 100); //x_ty, x, y_ty, y
+
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node3, node2);
+        Module._set_width(gui, node3, 100.0);
+        Module._set_height(gui, node3, 100.0);
+        Module._set_background_rgba_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
+
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node4, node2);
+        Module._set_width(gui, node4, 100.0);
+        Module._set_height(gui, node4, 100.0);
+        Module._set_background_rgba_color(gui, node4, 0.0, 1.0, 0.0, 1.0);
+
+        var node5 = Module._create_node(gui);
+        Module._append_child(gui, node5, node4);
+        Module._set_width(gui, node5, 50.0);
+        Module._set_height(gui, node5, 100.0);
+        Module._set_background_rgba_color(gui, node5, 0.0, 1.0, 0.0, 1.0);
+
+        var node6 = Module._create_node(gui);
+        Module._append_child(gui, node6, node4);
+        Module._set_width(gui, node6, 50.0);
+        Module._set_height(gui, node6, 100.0);
+        Module._set_background_rgba_color(gui, node6, 0.0, 0.0, 1.0, 1.0);
+        Module._render(gui);
+
+        setTimeout(() => {
+            Module._transform_scale(gui, node4, -1, 1);
+            Module._render(gui);
+        }, 2000);
+        // Module._transform_origin(gui, node2, 1, 0, 1, 100); //x_ty, x, y_ty, y
 
         // var node3 = Module._create_node(gui);
         // Module._append_child(gui, node2, node3);
@@ -57,8 +89,8 @@
             // Module._transform_rotate(gui, node2, 45);
             // Module._render(gui);
 
-            Module._transform_scale(gui, node2, 0.5, 0.5);
-            Module._render(gui);
+            // Module._transform_scale(gui, node2, 0.5, 0.5);
+            // Module._render(gui);
 
             // setTimeout(() => {
             //     Module._transform_scale(gui, node2, 0.5, 0.5);
