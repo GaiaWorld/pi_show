@@ -4,7 +4,7 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListe
 use ecs::idtree::{IdTree};
 
 use component::user::*;
-use layout::{YgNode};
+use layout::{YgNode, YGOverflow};
 use entity::{Node};
 
 pub struct LayoutSys;
@@ -17,6 +17,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys{
       write.0.insert(event.id, Layout::default());
 			let yoga = YgNode::default();
 			yoga.set_context(event.id as *mut c_void);
+			yoga.set_overflow(YGOverflow::YGOverflowScroll);
       write.1.insert(event.id, yoga);
     }
 }

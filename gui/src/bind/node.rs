@@ -302,10 +302,10 @@ pub fn content_box(world: u32, node: u32) {
         top = l.top;
       }
     }
-    // js!{
-    //   __jsObj.width = @{right - left};
-    //   __jsObj.height = @{bottom - top}
-    // }
+    js!{
+      __jsObj.width = @{right - left};
+      __jsObj.height = @{bottom - top}
+    }
 }
 
 #[allow(unused_attributes)]

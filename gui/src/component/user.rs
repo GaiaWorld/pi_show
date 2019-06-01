@@ -68,11 +68,11 @@ pub struct Image<C: Context + 'static + Send + Sync>{
 }
 
 #[derive(Clone, Component)]
-pub enum Filter{
+pub enum FilterFun{
   GrayScale(f32), //将图像转换为灰度图像。值定义转换的比例。值为100%则完全转为灰度图像，值为0%图像无变化
-  // HueRotate(deg),//给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化
+  HueRotate(f32),//给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg
   // Blur(px),//给图像设置高斯模糊
-  // BrightNess(%), //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化
+  BrightNess(f32), //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化 -1 ~ 1
 }
 
 //ObjectFit
