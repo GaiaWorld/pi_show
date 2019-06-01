@@ -31,7 +31,7 @@ impl Pipeline {
 /** 
  * 光栅化状态
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RasterState {
     pub cull_mode: Option<CullMode>,   // 默认：None
     pub is_front_face_ccw: bool,       // 默认：true
@@ -41,7 +41,7 @@ pub struct RasterState {
 /** 
  * 深度状态
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DepthState {
     pub is_depth_test_enable: bool,
     pub is_depth_write_enable: bool,
@@ -51,7 +51,7 @@ pub struct DepthState {
 /** 
  * 模板状态
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StencilState {
     pub is_stencil_test_enable: bool,
     
@@ -68,7 +68,7 @@ pub struct StencilState {
  * 混合状态
  * 注：src和dst因子不能同时填 常量 颜色
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlendState {
     pub rgb_equation: BlendFunc,
     pub alpha_equation: BlendFunc,
