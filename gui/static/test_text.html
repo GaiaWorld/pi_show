@@ -37,8 +37,14 @@
         var node1 = Module._create_node(gui);
         Module._set_width(gui, node1, 50);
         Module._set_height(gui, node1, 50);
+        Module._set_opacity(gui, node1, 0.8);
         Module._append_child(gui, node1, node);
-        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 0.5);
+        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
+
+        setTimeout(() => {
+            Module._set_opacity(gui, node1, 0.5);
+            Module._render(gui);  
+        }, 3000);
 
         function load_ok() {
 
@@ -55,16 +61,16 @@
             var ce = Module._create_text_node(gui);
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
             // Module._set_text_linear_gradient_color(gui, ce, -30); //, direction: 0~360度
-            Module._set_text_rgba_color(gui, ce, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
+            Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
             // window.__jsObj = "测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下";
-            window.__jsObj = "逋";
+            window.__jsObj = "逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋逋";
             Module._set_text_content(gui, ce); // 文字内容
-            // Module._set_letter_spacing(gui, ce, 1); // 字符间距
+            Module._set_letter_spacing(gui, ce, 5); // 字符间距
             // Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
             window.__jsObj = "common";
             Module._set_font_family(gui, ce);
             // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
-            // Module._set_text_stroke(gui, ce, 1, 0.0, 0.0, 1.0, 1.0);
+            Module._set_text_stroke(gui, ce, 0.1, 0.0, 0.0, 1.0, 1.0);
             // Module._set_font_weight(gui, ce, 100); // 100 - 900, 500表示正常粗细， 小于500更细， 大于500更粗
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
             // Module._set_text_linear_gradient_color(gui, ce, 0); //, direction: 0~360度
