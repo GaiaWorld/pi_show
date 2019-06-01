@@ -162,7 +162,7 @@ fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<Overflow
 }
 // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
 fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify: &mut bool) {
-debug_println!("set_overflow ---------listen: {:?}  {:?}", id, by);
+// debug_println!("set_overflow ---------listen: {:?}  {:?}", id, by);
   if by > 0 {
     unsafe {write.1.get_unchecked_write(id)}.set_0(by);
   }

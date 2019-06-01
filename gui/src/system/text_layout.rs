@@ -111,7 +111,6 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
   fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-    println!("create Text------------------------------");
     self.set_dirty(event.id, write)
   }
 }
@@ -185,7 +184,6 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let c = node.get_context() as usize;
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
-  debug_println!("callback------------------------------{} {}", c, b);
   if b == 0 {
     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     if let Some(_) = write.0.get(c) {
@@ -258,7 +256,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
       Some(t) => t.0.as_ref(),
       _ => "",
   };
-  debug_println!("text----------------------------------{:?}", text);
+  cb.letter_spacing = style.letter_spacing;
   // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
   if cb.indent != style.indent {
     yoga.set_width(style.indent);
@@ -275,7 +273,6 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   let mut word_index = 0;
   // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
   for cr in split(text, true, style.white_space.preserve_spaces()) {
-    debug_println!("split text----------------------------------");
     match cr {
       SplitResult::Newline =>{
         update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);

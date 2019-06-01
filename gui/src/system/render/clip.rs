@@ -122,7 +122,7 @@ impl<C: Context + Share> ClipSys<C>{
                 debug_println!("add clip ubo, by_overflow: {}", by_overflow);
                 let mut ubo = engine.gl.create_uniforms();
                 ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
-                Arc::new(engine.gl.create_uniforms())
+                Arc::new(ubo)
             });
             
             // 重新创建渲染管线

@@ -185,7 +185,7 @@ impl ZIndexImpl {
     for id in self.dirty.iter() {
       let (min_z, max_z, normal) = {
         let zi = unsafe {self.map.get_unchecked_mut(*id)};
-      debug_println!("calc xxx: {:?} {:?}", id, zi);
+        // debug_println!("calc xxx: {:?} {:?}", id, zi);
         if zi.dirty == DirtyType::None {
           continue;
         }
@@ -333,7 +333,7 @@ impl Cache {
       zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
-debug_println!("---------recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
+// debug_println!("---------recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
       }

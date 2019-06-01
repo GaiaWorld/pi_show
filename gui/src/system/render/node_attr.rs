@@ -109,6 +109,23 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
         debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
+
+        if !render_obj.is_opacity {   
+            let pipeline = &render_obj.pipeline;
+            let mut bs = pipeline.bs.clone();  
+            Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+            let pipeline = engine.create_pipeline(
+                1,
+                &pipeline.vs,
+                &pipeline.fs,
+                pipeline.defines.as_slice(),
+                pipeline.rs.clone(),
+                bs,
+                pipeline.ss.clone(),
+                pipeline.ds.clone(),
+            );
+            render_obj.pipeline = pipeline;
+        }
     }
 }
 
@@ -123,13 +140,13 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                 let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
                 let pipeline = &render_obj.pipeline;
                 let mut bs = pipeline.bs.clone();
-                if render_obj.is_opacity == true {
+                if render_obj.is_opacity == false {
                     Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
                 
                     let pipeline = engine.create_pipeline(
                         1,
                         &pipeline.vs,
-                        &pipeline.vs,
+                        &pipeline.fs,
                         pipeline.defines.as_slice(),
                         pipeline.rs.clone(),
                         bs,
@@ -143,7 +160,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                     let pipeline = engine.create_pipeline(
                         0,
                         &pipeline.vs,
-                        &pipeline.vs,
+                        &pipeline.fs,
                         pipeline.defines.as_slice(),
                         pipeline.rs.clone(),
                         bs,
@@ -151,7 +168,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                         pipeline.ds.clone(),
                     );
                     render_obj.pipeline = pipeline;
-                } 
+                }
+                render_objs.get_notify().modify_event(event.id, "pipeline", 0);
             },
             _ => (),
         }
@@ -184,6 +202,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
             let slice: &[f32; 16] = world_matrix.as_ref();
             Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+            render_objs.get_notify().modify_event(*id, "ubos", 0);
         }
     }
 }
@@ -202,6 +221,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
             let ubos = &mut render_obj.ubos;
             Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
             debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
+            render_objs.get_notify().modify_event(*id, "ubos", 0);
         }
     }
 }
@@ -234,6 +254,7 @@ impl_system!{
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
         SingleCaseListener<RenderObjs<C>, CreateEvent>
+        SingleCaseListener<RenderObjs<C>, ModifyEvent>
         SingleCaseListener<RenderObjs<C>, DeleteEvent>
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>

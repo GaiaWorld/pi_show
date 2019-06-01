@@ -46,14 +46,20 @@ impl<C: Context> Engine<C> {
 
         debug_println!("create_pipeline, defines:{:?}", defines);
 
+        
         let mut hasher = DefaultHasher::new();
         start_hash.hash(&mut hasher);
         vs.hash(&mut hasher);
         fs.hash(&mut hasher);
+        for d in defines.iter() {
+            d.hash(&mut hasher);
+        }
         let key = hasher.finish();
+        // debug_println!("create pipelines------------------------------{} , {}", start_hash, key);
 
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
+            // debug_println!("create pipelines------------------------------");
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
                     let defines = Vec::from(defines);
@@ -68,7 +74,7 @@ impl<C: Context> Engine<C> {
                         ds: ds.clone(),
                     })
                 },
-                Err(_) => panic!("create_pipeline error"), 
+                Err(e) => panic!("create_pipeline error: {:?}", e), 
             }
         });
 
