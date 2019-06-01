@@ -45,9 +45,14 @@ pub struct ClipSys<C: Context + Share>{
 
 impl<C: Context + Share> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
-        let (rs, mut bs, ss, ds) = (Arc::new(RasterState::new()), BlendState::new(), Arc::new(StencilState::new()), Arc::new(DepthState::new()));
+        let (rs, mut bs, ss, mut ds) = (Arc::new(RasterState::new()), BlendState::new(), Arc::new(StencilState::new()), DepthState::new());
+        
         bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
         let bs = Arc::new(bs);
+
+        ds.set_test_enable(false);
+        ds.set_write_enable(false);
+        let ds = Arc::new(ds);
 
         let defines = Vec::new();
         let pipeline = engine.create_pipeline(
@@ -127,8 +132,8 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         let new_viewport = (viewport.0, viewport.1, viewport.2, viewport.3);
         let viewport = RenderBeginDesc{
             viewport: new_viewport,
-            clear_color: Some((0.0, 0.0, 0.0, 0.0)),
-            clear_depth: Some(1.0),
+            clear_color: Some((0.0, 0.0, 0.0, 1.0)),
+            clear_depth: None,
             clear_stencil: None,
         };
         gl.begin_render(
