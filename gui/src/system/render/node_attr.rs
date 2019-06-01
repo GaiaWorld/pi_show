@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
-use hal_core::{Context, Uniforms};
+use hal_core::*;
 
 use component::user::*;
 use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow};
@@ -78,7 +78,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
     type ReadData = (
         &'a SingleCaseImpl<ClipUbo<C>>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -86,7 +85,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (clip_ubo, world_matrixs, by_overflows, opacitys, visibilitys, transforms, layouts) = read;
+        let (clip_ubo, world_matrixs, opacitys, visibilitys, transforms, layouts) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
@@ -104,28 +103,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
-        let by_overflow = unsafe { by_overflows.get_unchecked(render_obj.context) }.0;
-        if by_overflow > 0 {
-            let defines = &mut render_obj.defines;
-
-            // 插入裁剪ubo 插入裁剪宏
-            ubos.insert(CLIP.clone(), clip_ubo.0.clone());
-            defines.push(CLIP.clone());
-            
-            // 重新创建渲染管线
-            let pipeline = engine.create_pipeline(
-                0,
-                &render_obj.pipeline.vs,
-                &render_obj.pipeline.fs,
-                render_obj.defines.as_slice(),
-                render_obj.pipeline.rs.clone(),
-                render_obj.pipeline.bs.clone(),
-                render_obj.pipeline.ss.clone(),
-                render_obj.pipeline.ds.clone(),
-            );
-            render_obj.pipeline = pipeline;
-        }
-
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
         Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
@@ -133,6 +110,52 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
         debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
+    }
+}
+
+// 监听is_opacity的修改，修改渲染状态， 创建新的渲染管线
+impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for NodeAttrSys<C>{
+    type ReadData = ();
+    type WriteData = ( &'a mut SingleCaseImpl<RenderObjs<C>>,  &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
+        match event.field {
+            "is_opacity" => {
+                let (render_objs, engine) = write;
+                let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+                let pipeline = &render_obj.pipeline;
+                let mut bs = pipeline.bs.clone();
+                if render_obj.is_opacity == true {
+                    Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+                
+                    let pipeline = engine.create_pipeline(
+                        1,
+                        &pipeline.vs,
+                        &pipeline.vs,
+                        pipeline.defines.as_slice(),
+                        pipeline.rs.clone(),
+                        bs,
+                        pipeline.ss.clone(),
+                        pipeline.ds.clone(),
+                    );
+                    render_obj.pipeline = pipeline;
+                } else {
+                    Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
+                
+                    let pipeline = engine.create_pipeline(
+                        0,
+                        &pipeline.vs,
+                        &pipeline.vs,
+                        pipeline.defines.as_slice(),
+                        pipeline.rs.clone(),
+                        bs,
+                        pipeline.ss.clone(),
+                        pipeline.ds.clone(),
+                    );
+                    render_obj.pipeline = pipeline;
+                } 
+            },
+            _ => (),
+        }
     }
 }
 
