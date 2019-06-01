@@ -1,1 +1,11 @@
-001:   tansform: scale(-1, 1); transform-orignal: ; 变换中心似乎为父容器相对位置，而不是自己的中心
+001:   tansform: scale(-1, 1); transform-orignal: ; 变换中心似乎为父容器相对位置，而不是自己的中心 (未重现， 详见bug_test/001.html)
+
+002:   使用多个字体时：默认字体(文本节点创建时就设置一个准备好的字体) 和 手动设置的字体(解析样式时再次设置字体) 一致会报错，不一致有可能会报错 （同种字体设置两次测试没有问题，
+        不同字体还未测试）
+003:   文字不能做垂直居中   (bug 不存在)
+
+004： flex 主轴高度没有计算元素 padding, margin 检查 （不是一个bug， gui的布局系统， padding, border不会撑大容器， 相当于css为元素设置了box-sizing: border-box;）
+
+005：  box-shadow - 显示在节点上面,没有在节点下面 （未重现）
+
+006： 滚动问题 - 现滚动时获取 height: auto 的子节点高度返回 0 - _offset_height()    (未重现， 详见bug_test/006.html)

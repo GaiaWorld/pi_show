@@ -27,19 +27,20 @@
         Module._set_width(gui, body, 1000);
         Module._set_height(gui, body, 700);
         Module._append_child(gui, body, 1);
+        Module._set_align_content(gui, body, 2);
 
-        var node = Module._create_node(gui);
-        Module._set_width(gui, node, 100);
-        Module._set_height(gui, node, 100);
-        Module._append_child(gui, node, body);
-        Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+        // var node = Module._create_node(gui);
+        // Module._set_width(gui, node, 100);
+        // Module._set_height(gui, node, 100);
+        // Module._append_child(gui, node, body);
+        // Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
 
-        var node1 = Module._create_node(gui);
-        Module._set_width(gui, node1, 50);
-        Module._set_height(gui, node1, 50);
-        Module._set_opacity(gui, node1, 0.8);
-        Module._append_child(gui, node1, node);
-        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
+        // var node1 = Module._create_node(gui);
+        // Module._set_width(gui, node1, 50);
+        // Module._set_height(gui, node1, 50);
+        // Module._set_opacity(gui, node1, 0.8);
+        // Module._append_child(gui, node1, node);
+        // Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
 
         setTimeout(() => {
             Module._set_opacity(gui, node1, 0.5);
@@ -81,14 +82,6 @@
             
 
             Module._render(gui);   
-            
-
-            // Module._remove_child(gui, 1, ce);
-
-            // window.__jsObj = "试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下";
-            // Module._set_text_content(gui, ce); // 文字内容
-
-            // Module._run(gui); 
         }
             
 
