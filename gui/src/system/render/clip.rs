@@ -103,38 +103,42 @@ impl<C: Context + Share> ClipSys<C>{
         }
     }
 
-    fn add_by_overflow(&self, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>){
+    fn add_by_overflow(&self, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
         let defines = &mut render_obj.defines;
-
+        let mut is_change = false;
         // 插入裁剪ubo 插入裁剪宏
         render_obj.ubos.entry(CLIP.clone()).or_insert_with(||{
             defines.push(CLIP.clone());
+            is_change = true;
             self.by_ubo.clone()
         });
 
-        // 设置 by_clip_index
-        render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Arc<Uniforms<C>>|{
-            debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
-            Arc::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
-        }).or_insert_with(||{
-            debug_println!("add clip ubo, by_overflow: {}", by_overflow);
-            let mut ubo = engine.gl.create_uniforms();
-            ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
-            Arc::new(engine.gl.create_uniforms())
-        });
-        
-        // 重新创建渲染管线
-        let pipeline = engine.create_pipeline(
-            0,
-            &render_obj.pipeline.vs,
-            &render_obj.pipeline.fs,
-            render_obj.defines.as_slice(),
-            render_obj.pipeline.rs.clone(),
-            render_obj.pipeline.bs.clone(),
-            render_obj.pipeline.ss.clone(),
-            render_obj.pipeline.ds.clone(),
-        );
-        render_obj.pipeline = pipeline;
+        if is_change {
+            // 设置 by_clip_index
+            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Arc<Uniforms<C>>|{
+                debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
+                Arc::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
+            }).or_insert_with(||{
+                debug_println!("add clip ubo, by_overflow: {}", by_overflow);
+                let mut ubo = engine.gl.create_uniforms();
+                ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
+                Arc::new(engine.gl.create_uniforms())
+            });
+            
+            // 重新创建渲染管线
+            let pipeline = engine.create_pipeline(
+                0,
+                &render_obj.pipeline.vs,
+                &render_obj.pipeline.fs,
+                render_obj.defines.as_slice(),
+                render_obj.pipeline.rs.clone(),
+                render_obj.pipeline.bs.clone(),
+                render_obj.pipeline.ss.clone(),
+                render_obj.pipeline.ds.clone(),
+            );
+            render_obj.pipeline = pipeline;
+        }
+        return is_change;
     }
 }
 
@@ -252,10 +256,13 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
         let (render_objs, engine) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-        let by_overflow = unsafe { by_overflows.get_unchecked(render_obj.context).0 };
-        println!("RenderObjs create by_overflow----------------------{}", by_overflow);
+        let node_id = render_obj.context;
+        let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
+        println!("RenderObjs create by_overflow----------------------id: {}, by_overflow: {}", node_id, by_overflow);
         if by_overflow > 0 {
-            self.add_by_overflow(by_overflow, render_obj, engine);
+            if self.add_by_overflow(by_overflow, render_obj, engine) {
+                render_objs.get_notify().modify_event(node_id, "pipeline", 0);
+            }
         }
     }
 }
@@ -270,34 +277,37 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        println!("ByOverflow modify by_overflow----------------------{}", by_overflow);
+        println!("ByOverflow modify by_overflow----------------------id: {}, by_overflow: {}", event.id, by_overflow);
         if by_overflow == 0 {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
 
                 // 移除ubo
-                render_obj.ubos.remove(&CLIP);
-
-                //移除宏
-                render_obj.defines.remove_item(&CLIP);
-                
-                // 重新创建渲染管线
-                let pipeline = engine.create_pipeline(
-                    0,
-                    &render_obj.pipeline.vs,
-                    &render_obj.pipeline.fs,
-                    render_obj.defines.as_slice(),
-                    render_obj.pipeline.rs.clone(),
-                    render_obj.pipeline.bs.clone(),
-                    render_obj.pipeline.ss.clone(),
-                    render_obj.pipeline.ds.clone(),
-                );
-                render_obj.pipeline = pipeline;
+                if let Some(_) = render_obj.ubos.remove(&CLIP) {
+                    //移除宏
+                    render_obj.defines.remove_item(&CLIP);
+                    
+                    // 重新创建渲染管线
+                    let pipeline = engine.create_pipeline(
+                        0,
+                        &render_obj.pipeline.vs,
+                        &render_obj.pipeline.fs,
+                        render_obj.defines.as_slice(),
+                        render_obj.pipeline.rs.clone(),
+                        render_obj.pipeline.bs.clone(),
+                        render_obj.pipeline.ss.clone(),
+                        render_obj.pipeline.ds.clone(),
+                    );
+                    render_obj.pipeline = pipeline;
+                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
+                }  
             }
         } else {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                self.add_by_overflow(by_overflow, render_obj, engine);
+                if self.add_by_overflow(by_overflow, render_obj, engine) {
+                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
+                }
             }
         }
     }
