@@ -8,12 +8,12 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use hal_core::*;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ByOverflow};
+use component::calc::{Visibility, WorldMatrix, Opacity};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
 use system::util::*;
-use system::util::constant::{PROJECT_MATRIX, WORLD_MATRIX, VIEW_MATRIX, ALPHA, CLIP, VIEW, PROJECT, WORLD, COMMON};
+use system::util::constant::*;
 
 pub struct NodeAttrSys<C: Context + Share>{
     view_matrix_ubo: Option<Arc<Uniforms<C>>>,
@@ -76,7 +76,6 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for NodeAttrS
 //创建索引
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<ClipUbo<C>>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
@@ -85,7 +84,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (clip_ubo, world_matrixs, opacitys, visibilitys, transforms, layouts) = read;
+        let (world_matrixs, opacitys, visibilitys, transforms, layouts) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();

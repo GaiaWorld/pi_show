@@ -103,7 +103,7 @@ impl<C: Context + Share> ClipSys<C>{
         }
     }
 
-    fn add_by_overflow(&self, id: usize, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>){
+    fn add_by_overflow(&self, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>){
         let defines = &mut render_obj.defines;
 
         // 插入裁剪ubo 插入裁剪宏
@@ -255,7 +255,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let by_overflow = unsafe { by_overflows.get_unchecked(render_obj.context).0 };
         println!("RenderObjs create by_overflow----------------------{}", by_overflow);
         if by_overflow > 0 {
-            self.add_by_overflow(event.id, by_overflow, render_obj, engine);
+            self.add_by_overflow(by_overflow, render_obj, engine);
         }
     }
 }
@@ -296,8 +296,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
             }
         } else {
             for id in obj_ids.iter() {
-                let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-                self.add_by_overflow(*id, by_overflow, render_obj, engine);
+                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                self.add_by_overflow(by_overflow, render_obj, engine);
             }
         }
     }
