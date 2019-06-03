@@ -120,6 +120,7 @@ pub fn set_text_content(world: u32, node: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let text = world.fetch_multi::<Node, Text>().unwrap();
     text.lend_mut().insert(node as usize, Text(Arc::new(value)));
+    debug_println!("set_text_content");  
 }
 
 // __jsObj: image, __jsObj1: image_name(String)

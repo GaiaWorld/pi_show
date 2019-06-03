@@ -83,7 +83,7 @@ pub fn image_fragment_shader() -> String{
 #endif
 
         vec4 c = color * texture2D(texture, vuv);
-        gl_FragColor = vec4(c.rgb, c.a * alpha);
+        gl_FragColor = vec4(c.rgb,  alpha);
     }
     "#.to_string()
 }

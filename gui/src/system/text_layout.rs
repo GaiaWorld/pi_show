@@ -242,6 +242,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   cb.family = font.family.clone();
   // 获得字体高度
   cb.font_size = read.0.get_size(&font.family, &font.size);
+  debug_println!("read.0---------------------- {:?}", font.family);
   if cb.font_size == 0.0 {
       debug_println!("font_size==0.0");
       return true

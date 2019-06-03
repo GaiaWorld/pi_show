@@ -72,6 +72,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderColorSys<C>{
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if  vertex_count == 0 {
+                geometry.set_vertex_count(vertex_count);
                 continue;
             }
             if vertex_count != geometry.get_vertex_count() {
@@ -79,6 +80,8 @@ impl<'a, C: Context + Share> Runner<'a> for BorderColorSys<C>{
             }
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
             geometry.set_indices_short(indices.as_slice(), false).unwrap();
+
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
         self.geometry_dirtys.clear();
     }

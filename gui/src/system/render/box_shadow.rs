@@ -78,6 +78,7 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if  vertex_count == 0 {
+                geometry.set_vertex_count(vertex_count);
                 continue;
             }
             if vertex_count != geometry.get_vertex_count() {
@@ -91,6 +92,8 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
                 },
                 None => geometry.set_attribute(&AttributeName::Color, 4, None, false).unwrap(),
             };
+
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
         self.geometry_dirtys.clear();
     }

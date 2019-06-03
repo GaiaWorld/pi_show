@@ -30,18 +30,18 @@
         // Module._set_align_content(gui, body, 2);
 
         function load_ok() {
-            // window.__jsObj = cfg;
-            // window.__jsObj1 = image;
-            // window.__jsObj2 = "36779_37232.png";
-            // var sdf_font = Module._add_sdf_font_res(gui); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
+            window.__jsObj = cfg;
+            window.__jsObj1 = image;
+            window.__jsObj2 = "36779_37232.png";
+            var sdf_font = Module._add_sdf_font_res(gui); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
 
-            // window.__jsObj = "commonyy"; //font_face_name
-            // window.__jsObj1 = "simhei";
-            // Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
+            window.__jsObj = "common"; //font_face_name
+            window.__jsObj1 = "simhei";
+            Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
             window.__jsObj = cfg1;
             window.__jsObj1 = image1;
-            window.__jsObj2 = "21627_21937.png";
+            window.__jsObj2 = "36779_37232.png";
             var sdf_font = Module._add_sdf_font_res(gui); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
 
             window.__jsObj = "commonxxx"; //font_face_name
@@ -49,7 +49,7 @@
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
             var ce = Module._create_text_node(gui);
-            window.__jsObj = "commonxxx";
+            window.__jsObj = "common";
             Module._set_font_family(gui, ce);
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
             // Module._set_text_linear_gradient_color(gui, ce, -30); //, direction: 0~360度
@@ -58,7 +58,6 @@
             Module._set_text_content(gui, ce); // 文字内容
             Module._set_letter_spacing(gui, ce, 5); // 字符间距
             // Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
-            
             // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
             // Module._set_text_stroke(gui, ce, 0.1, 0.0, 0.0, 1.0, 1.0);
             // Module._set_font_weight(gui, ce, 100); // 100 - 900, 500表示正常粗细， 小于500更细， 大于500更粗
@@ -67,15 +66,15 @@
             // Module._set_white_space(gui, ce, 0);
             Module._append_child(gui, ce, 1);
 
-            // // Module._set_font_size(gui, ce, );
-            // Module._render(gui);
-            // setTimeout(() => {
-            //     window.__jsObj = "commonyy";
-            //     Module._set_font_family(gui, ce);
-            //     window.__jsObj = "逋";
-            //     Module._set_text_content(gui, ce); // 文字内容
-            //     Module._render(gui);
-            // }, 3000);
+            // Module._set_font_size(gui, ce, );
+            Module._render(gui);
+            setTimeout(() => {
+                window.__jsObj = "common";
+                Module._set_font_family(gui, ce);
+                window.__jsObj = "咀";
+                Module._set_text_content(gui, ce); // 文字内容
+                Module._render(gui);
+            }, 3000);
             
             
             
@@ -112,15 +111,6 @@
         xmlhttp.responseType = 'arraybuffer';
         xmlhttp.send();
 
-        image = new Image();
-        image.onload = () => {
-            res_count -= 1;
-            if (res_count == 0) {
-                load_ok()
-            }
-        };
-        image.src = "../test_text/36779_37232.png";
-
         var xmlhttp1 = newXMLHttpRequest();
         xmlhttp1.open("GET","../test_text/21627_21937.json.bin",true);
         xmlhttp1.onreadystatechange=function(){
@@ -134,6 +124,15 @@
         }
         xmlhttp1.responseType = 'arraybuffer';
         xmlhttp1.send();
+
+        image = new Image();
+        image.onload = () => {
+            res_count -= 1;
+            if (res_count == 0) {
+                load_ok()
+            }
+        };
+        image.src = "../test_text/36779_37232.png";
 
         image1 = new Image();
         image1.onload = () => {

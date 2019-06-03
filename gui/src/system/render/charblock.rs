@@ -100,6 +100,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if  vertex_count == 0 {
+                geometry.set_vertex_count(vertex_count);
                 continue;
             }
             if vertex_count != geometry.get_vertex_count() {
@@ -112,6 +113,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                 Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
                 None => ()
             };
+
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
+            println!("geometry_dirtys----------------------------------------");
         }
         self.geometry_dirtys.clear();
     }
@@ -275,6 +279,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                 &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
                 &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
             );
+
+            println!("Font modify {}", event.id);
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
         }
     }
 }

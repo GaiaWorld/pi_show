@@ -180,11 +180,13 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
         value.get_lu16(offset) as f32;
         offset += 8;
 
+        // println!("value: {:?}", value);
         //字符uv表
         loop {
             if offset >= value.len() {
                 break;
             }
+            
             let id = value.get_lu16(offset);
             offset += 2;
             let x = value.get_lu16(offset);
@@ -200,7 +202,8 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             let height = value.get_u8(offset);
             offset += 1;
             let advance = value.get_u8(offset);
-            // offset += 2; // 加2， 对齐
+            // offset += 1;
+            offset += 2; // 加2， 对齐
 
             self.glyph_table.insert(
                 unsafe{ transmute(id as u32) },
