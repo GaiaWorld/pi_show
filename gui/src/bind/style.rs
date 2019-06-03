@@ -56,7 +56,7 @@ macro_rules! set_show {
         unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
             let old = s.clone();
             s.$name($value);
-            old == *s
+            old != *s
         });
     };
 }

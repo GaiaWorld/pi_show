@@ -46,11 +46,14 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         let mut transparent_list = Vec::new();
         let mut opacity_list = Vec::new();
         for item in render_objs.iter() {
-            if item.1.is_opacity == true {
-                opacity_list.push(OpacityOrd(item.1));
-            }else {
-                transparent_list.push(TransparentOrd(item.1));
+            if item.1.visibility == true {
+                if item.1.is_opacity == true {
+                    opacity_list.push(OpacityOrd(item.1));
+                }else {
+                    transparent_list.push(TransparentOrd(item.1));
+                }
             }
+            
         }
 
         transparent_list.sort();

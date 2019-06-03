@@ -492,10 +492,12 @@ impl Show {
 
   #[inline]
   pub fn set_display(&mut self, display: Display){
+    println!("set_display: {:?}", display);
     match display {
       Display::Flex => self.0 &= !(ShowType::Display as usize),
       Display::None => self.0 |= ShowType::Display as usize,
     }
+    println!("set_display show: {:?}", self);
   }
 
   #[inline]
