@@ -72,7 +72,7 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
             let image = unsafe { images.get_unchecked(*id) };
             let image_clip = image_clips.get(*id);
             let object_fit = object_fits.get(*id);
-            let (positions, uvs, indices) = get_geo_flow(border_radius, layout, z_depth, image, image_clip, object_fit);
+            let (positions, uvs, indices) = get_geo_flow(border_radius, layout, 0.7, image, image_clip, object_fit);
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -316,6 +316,8 @@ fn use_image_pos_uv(pos: Aabb2, uv: Aabb2, z_depth: f32) -> (Vec<f32>, Vec<f32>,
     poss.push(pos.max.x);
     poss.push(pos.min.y);
     poss.push(z_depth);
+
+    println!("image: -------------------------------------uvs: {:?}, poss:{:?}", uvs, poss);
     (poss, uvs, vec![0, 1, 2, 0, 2, 3])
 }
 
@@ -366,8 +368,8 @@ fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Opt
         },
         _ => (Vector2::new(img.src.width as f32, img.src.height as f32), Point2::new(0.0,0.0), Point2::new(1.0,1.0))
     };
-    let mut p1 = Point2::new(layout.left + layout.border_left + layout.padding_left, layout.top + layout.border_top + layout.padding_top);
-    let mut p2 = Point2::new(layout.left + layout.width - layout.border_right - layout.padding_right, layout.top + layout.height - layout.border_bottom - layout.padding_bottom);
+    let mut p1 = Point2::new(layout.border_left + layout.padding_left, layout.border_top + layout.padding_top);
+    let mut p2 = Point2::new(layout.width - layout.border_right - layout.padding_right, layout.height - layout.border_bottom - layout.padding_bottom);
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
     // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
