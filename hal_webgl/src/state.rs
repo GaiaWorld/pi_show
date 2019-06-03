@@ -73,12 +73,12 @@ impl TextureCache {
         let mut r = 0;
         
         for (i, v) in self.values.iter_mut().enumerate() {
+            if v.count < _min_count {
+                _min_count = v.count;
+                min_index = i;
+            }
             if Weak::ptr_eq(texture, &v.texture) {
                 v.count += 1;
-                if v.count < _min_count {
-                    _min_count = v.count;
-                    min_index = i;
-                }
                 if !Weak::ptr_eq(sampler, &v.sampler) {
                     match (texture.upgrade(), sampler.upgrade()) {
                         (Some(texture), Some(sampler)) => {
