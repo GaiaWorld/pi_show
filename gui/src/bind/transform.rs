@@ -20,6 +20,22 @@ macro_rules! push_func {
     };
 }
 
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn clear_transform(world: u32, node_id: u32) {
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let attr = world.fetch_multi::<Node, Transform>().unwrap();
+    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+        if transform.funcs.len() > 0 {
+            transform.funcs.clear();
+            true
+        }else {
+            false
+        }
+        
+    });
+}
 
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -57,7 +73,6 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
 #[no_mangle]
 pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::TranslateY(value/100.0));
-
 }
 
 

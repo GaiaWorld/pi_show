@@ -103,6 +103,9 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
 }
 
 fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
+    if obj.geometry.get_vertex_count() == 0 {
+        return;
+    }
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
     let mut ubos: HashMap<Atom, Arc<AsRef<Uniforms<C>>>> = HashMap::new();
     for (k, v) in obj.ubos.iter() {

@@ -187,6 +187,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
+            if  vertex_count == 0 {
+                continue;
+            }
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
@@ -343,9 +346,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
             match event.field {
                 "color" => {
                     modify_color(item, event.id, text_shadow, render_objs);
-                    // let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-                    // let index = item.index;
-                    // self.change_is_opacity( opacity, text_shadow, index, render_objs);
                 },
                 "blur" => (),
                 "h" | "v" => {
@@ -359,34 +359,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
         }
     }
 }
-
-// //不透明度变化， 修改渲染对象的is_opacity属性
-// impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockShadowSys<C>{
-//     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextShadow>);
-//     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-//         let (opacitys, text_shadows) = read;
-//         if let Some(item) = self.charblock_render_map.get(event.id) {
-//             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-//             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
-//             let index = item.index;
-//             self.change_is_opacity( opacity, text_shadow, index, write);
-//         }
-//     }
-// }
-
-// impl<'a, C: Context + Share> CharBlockShadowSys<C> {
-//     fn change_is_opacity(&mut self, opacity: f32, text_shadow: &TextShadow, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-//         let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
-//             false
-//         }else {
-//             true
-//         };
-
-//         let notify = render_objs.get_notify();
-//         unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
-//     }
-// }
 
 struct Item {
     index: usize,

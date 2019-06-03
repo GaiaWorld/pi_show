@@ -78,6 +78,9 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
             let vertex_count: u32 = (positions.len()/3) as u32;
+            if  vertex_count == 0 {
+                continue;
+            }
             if vertex_count != geometry.get_vertex_count() {
                 geometry.set_vertex_count(vertex_count);
             }
