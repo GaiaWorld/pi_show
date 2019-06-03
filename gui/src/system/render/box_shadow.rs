@@ -62,7 +62,6 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
     );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn run(&mut self, read: Self::ReadData, render_objs: Self::WriteData){
-        println!("BoxShadowSys run, dirty_len:{}", self.geometry_dirtys.len());
         let map = &mut self.box_shadow_render_map;
         let (layouts, border_radius, z_depths, box_shadows) = read;
         for id in  self.geometry_dirtys.iter() {

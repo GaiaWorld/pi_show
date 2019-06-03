@@ -29,11 +29,9 @@ impl OctSys {
         transforms: &mut MultiCaseImpl<Node, Transform>,
         octree:  &mut SingleCaseImpl<Oct>,
     ){
-        println!("modify_oct1---------------------------------");
         if idtree.get(id).is_none() {
             return;
         };
-        println!("modify_oct2---------------------------------");
 
         let world_matrix = unsafe {world_matrixs.get_unchecked(id)};
         let layout = unsafe {layouts.get_unchecked(id)};
@@ -44,7 +42,6 @@ impl OctSys {
         
         let notify = octree.get_notify();
         octree.update(id, aabb, Some(notify));
-        println!("modify_oct3---------------------------------id:{}, aadd:{:?}", id, aabb);
     }
 }
 

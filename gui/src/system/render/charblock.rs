@@ -331,7 +331,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (_opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
-        println!("modify style {:?}, {:?}", event.field, unsafe { text_styles.get_unchecked(event.id) });
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             
@@ -486,7 +485,6 @@ fn get_geo_flow<C: Context + Share>(
     let mut i = 0;
     // let line_height = sdf_font.line_height;
 
-    println!("char_block---------------------------- {:?}", char_block);
     if char_block.chars.len() > 0 {
         match color {
             Color::RGBA(_) => {
@@ -512,8 +510,6 @@ fn get_geo_flow<C: Context + Share>(
                     end.x, start.y,
                 ], color.direction);
 
-                println!("text, Linear start: {:?}, end: {:?}, direction: {:?}, endp:[({}, {}), ({}, {})]", start, end, color.direction, (endp.0).0, (endp.0).1, (endp.1).0, (endp.1).1);
-
                 let mut lg_pos = Vec::with_capacity(color.list.len());
                 let mut lg_color = Vec::with_capacity(color.list.len() * 4);
                 for v in color.list.iter() {
@@ -529,7 +525,6 @@ fn get_geo_flow<C: Context + Share>(
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
                     
-                    println!("text, split_by_lg, positions: {:?}, indices:{:?}, lg_pos{:?}", positions, [i, i + 1, i + 2, i + 3], lg_pos.as_slice());
                     let (ps, indices_arr) = split_by_lg(
                         positions,
                         vec![i, i + 1, i + 2, i + 3],
@@ -539,11 +534,9 @@ fn get_geo_flow<C: Context + Share>(
                     );
                     positions = ps;
 
-                    println!("text, fill_uv, positions: {:?}, uvs:{:?}, i: {}", &positions, &uvs, i);
                     // 尝试为新增的点计算uv
                     fill_uv(&mut positions, &mut uvs, i as usize);
 
-                    println!("text, interp_mult_by_lg, positions: {:?}, indices_arr:{:?}, lg_color: {:?}, lg_pos: {:?}", &positions, &indices_arr, lg_color, lg_pos);
                     // 颜色插值
                     colors = interp_mult_by_lg(
                         positions.as_slice(),

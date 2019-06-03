@@ -339,7 +339,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (_opacitys, text_shadows) = read;   
-        println!("modify style {:?}, {:?}", event.field, unsafe { text_shadows.get_unchecked(event.id) });
         if let Some(item) = self.charblock_render_map.get_mut(event.id) {
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
             

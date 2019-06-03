@@ -258,7 +258,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let node_id = render_obj.context;
         let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
-        println!("RenderObjs create by_overflow----------------------id: {}, by_overflow: {}", node_id, by_overflow);
         if by_overflow > 0 {
             if self.add_by_overflow(by_overflow, render_obj, engine) {
                 render_objs.get_notify().modify_event(node_id, "pipeline", 0);
@@ -277,7 +276,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        println!("ByOverflow modify by_overflow----------------------id: {}, by_overflow: {}", event.id, by_overflow);
         if by_overflow == 0 {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
