@@ -19,7 +19,7 @@
         var FitType_Cover = 3;
         var FitType_ScaleDown = 4;
     </script>
-    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/release/gui.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -73,7 +73,7 @@
             setTimeout(() => {
                 window.__jsObj = image3;
                 window.__jsObj1 = "./01.png";
-                Module._set_src(gui, node2, 1, 0);
+                Module._set_src(gui, node2, 1, 0); // 
                 Module._render(gui);
             }, 3000);
             
