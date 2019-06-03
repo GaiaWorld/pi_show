@@ -70,7 +70,7 @@ pub mod entity{
 }
 
 pub type IdBind = usize;
-pub const Z_MAX: f32 = 4194304.0;
+pub const Z_MAX: f32 = 419430.0;
 pub const ROOT: usize = 1;
 
 fn main(){
