@@ -122,7 +122,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         defines.push(UCOLOR.clone());
 
         let mut common_ubo = engine.gl.create_uniforms();
-        common_ubo.set_float_1(&BLUR, box_shadow.blur);
+        common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
         common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
@@ -173,8 +173,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent>
             },
             "blur" => {
                 let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
-                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur);
-                common_ubo.set_float_1(&BLUR, box_shadow.blur);
+                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
+                common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
                 return;
             },
             "h" | "v" => {
@@ -188,8 +188,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent>
                 let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
                 debug_println!("box_shadow, id: {}, color: {:?}", event.id, box_shadow.color);
                 common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
-                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur);
-                common_ubo.set_float_1(&BLUR, box_shadow.blur);
+                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
+                common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
                 let item  = unsafe { self.box_shadow_render_map.get_unchecked_mut(event.id) };
                 if item.position_change == false {
                     item.position_change = true;
