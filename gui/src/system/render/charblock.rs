@@ -156,25 +156,22 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
         let text_style = get_or_default(event.id, text_styles, default_table);
         let font = get_or_default(event.id, fonts, default_table);
-        let first_font = match font_sheet.get_first_font(&font.family) {
-            Some(r) => r,
-            None => {
-                debug_println!("font is not exist: {}", font.family.as_str());
-                return;
-            }
-        };
         let mut defines = Vec::new();
 
         let geometry = create_geometry(&mut engine.gl);
         let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
-        
-        common_ubo.set_sampler(
-            &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-            &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
-        );
+        match font_sheet.get_first_font(&font.family) {
+            Some(r) => {
+                common_ubo.set_sampler(
+                    &TEXTURE,
+                    &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
+                    &(r.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+                );
+            },
+            None => debug_println!("font is not exist: {}", font.family.as_str())
+        };
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
         match &text_style.color {
