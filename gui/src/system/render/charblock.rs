@@ -49,7 +49,9 @@ pub struct CharBlockSys<C: Context + Share>{
 impl<C: Context + Share> CharBlockSys<C> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
+        let mut ds = DepthState::new();
         bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        ds.set_write_enable(false);
         CharBlockSys {
             charblock_render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
@@ -57,7 +59,7 @@ impl<C: Context + Share> CharBlockSys<C> {
             rs: Arc::new(RasterState::new()),
             bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
-            ds: Arc::new(DepthState::new()),
+            ds: Arc::new(ds),
             pipelines: HashMap::default(),
             default_sampler: None,
         }

@@ -180,11 +180,15 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
             let image = unsafe { images.get_unchecked(event.id) };
             let index = item.index;
 
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
             // 图片改变， 修改渲染对象的不透明属性
             self.change_is_opacity(event.id, opacity, image, index, render_objs);
 
             // 图片改变， 更新common_ubo中的纹理
-            let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
@@ -192,11 +196,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
                 &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
                 &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
             );
-
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
         }
     }
 }

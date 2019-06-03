@@ -32,7 +32,7 @@
         Module._set_width(gui, body, 400);
         Module._set_height(gui, body, 400);
         Module._append_child(gui, body, 1);
-        Module._set_overflow(gui, body, true);
+        // Module._set_overflow(gui, body, true);
 
         // var node1 = Module._create_image_node(gui);
         // Module._append_child(gui, node1, body);
@@ -67,6 +67,19 @@
             Module._render(gui);
         };
         image2.src = "./04.png";
+
+        var image3 = new Image();
+        image3.onload = () => {
+            setTimeout(() => {
+                window.__jsObj = image3;
+                window.__jsObj1 = "./01.png";
+                Module._set_src(gui, node2, 1, 0);
+                Module._render(gui);
+            }, 3000);
+            
+        };
+        image3.src = "./01.png";
+
 
         // var image3 = new Image();
         // image3.onload = () => {

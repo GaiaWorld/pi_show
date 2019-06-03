@@ -124,6 +124,5 @@ let image_fs_code = `
         #endif
 
         gl_FragColor = vec4(c.rgb, c.a * alpha);
-        gl_FragColor = vec4(c.rgb, 1.0);
     }
 `;
