@@ -55,7 +55,6 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         for s in src.split(',') {
             v.push(Atom::from(s.trim_start().trim_end()))
         }
-        println!("set_face: {:?}", v);
         let face = FontFace {
             oblique: oblique,
             size: size,
@@ -63,7 +62,6 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
             src: v.clone(),
         };
         self.face_map.insert(family.clone(), face);
-        println!("self.face_map: {:?}, family:{:?}", v, family);
     }
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_size(&self, font_face: &Atom, size: &FontSize) -> f32 {

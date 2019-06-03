@@ -296,7 +296,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
                 &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
             );
 
-            println!("Font modify {}", event.id);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
