@@ -9,3 +9,5 @@
 005：  box-shadow - 显示在节点上面,没有在节点下面 （未重现）
 
 006： 滚动问题 - 现滚动时获取 height: auto 的子节点高度返回 0 - _offset_height()    (未重现， 详见bug_test/006.html)
+
+007： display不起作用   （已解决）
