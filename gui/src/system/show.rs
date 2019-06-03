@@ -58,6 +58,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+        debug_println!("IdTree DeleteEvent, id: {}", event.id);
         cancel_visibility(event.id, read, write.0);
         cancel_enable(event.id, read, write.1);
     }
@@ -69,6 +70,7 @@ fn cancel_visibility(
     visibility: &mut MultiCaseImpl<Node, CVisibility>,
 ){
     let mut write = unsafe { visibility.get_unchecked_write(id) };
+    debug_println!("cancel_visibility,  write.value.0: {}",  write.value.0);
     if write.value.0 == false {
         return;
     }
@@ -138,6 +140,7 @@ impl_system!{
         EntityListener<Node, CreateEvent>
         MultiCaseListener<Node, Show, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
+        SingleCaseListener<IdTree, DeleteEvent>
     }
 }
 
