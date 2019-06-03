@@ -192,6 +192,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
                 &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
                 &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
             );
+
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
         }
     }
 }

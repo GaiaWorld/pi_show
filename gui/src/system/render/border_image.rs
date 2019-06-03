@@ -189,6 +189,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
             // 图片改变， 修改渲染对象的不透明属性
             let index = item.index;
             self.change_is_opacity(event.id, opacity, image, index, render_objs);
+
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
         }
     }
 }
