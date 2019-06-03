@@ -317,7 +317,6 @@ fn use_image_pos_uv(pos: Aabb2, uv: Aabb2, z_depth: f32) -> (Vec<f32>, Vec<f32>,
     poss.push(pos.min.y);
     poss.push(z_depth);
 
-    println!("image: -------------------------------------uvs: {:?}, poss:{:?}", uvs, poss);
     (poss, uvs, vec![0, 1, 2, 0, 2, 3])
 }
 
