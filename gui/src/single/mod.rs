@@ -188,7 +188,7 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
 
-pub struct DefaultTable(HashMap<TypeId, Box<Any>>);
+pub struct DefaultTable(HashMap<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
     pub fn new() -> Self{

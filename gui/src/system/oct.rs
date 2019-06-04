@@ -138,7 +138,7 @@ fn test(){
     let layouts = world.fetch_multi::<Node, Layout>().unwrap();
     let layouts = LendMut::lend_mut(&layouts);
     let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
-    let world_matrixs = LendMut::lend_mut(&world_matrixs);
+    let _world_matrixs = LendMut::lend_mut(&world_matrixs);
     let zdepths = world.fetch_multi::<Node, ZDepth>().unwrap();
     let zdepths = LendMut::lend_mut(&zdepths);
 

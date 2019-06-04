@@ -24,12 +24,34 @@
         var res_count = 4;
         var cfg, cfg1, image, image1;
 
+        var body = Module._create_node(gui);
+        Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height_percent(gui, body, 100.0);
+        Module._render(gui);
+
+        Module._set_display(gui, body, 1);
+        Module._render(gui);
+
+        Module._set_display(gui, body, 0);
+
+        var node1 = Module._create_node(gui);
+        Module._set_width(gui, node1, 500.0);
+        Module._set_height(gui, node1, 300.0);
+        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+
+        var node2 = Module._create_node(gui);
+        Module._set_width(gui, node2, 160.0);
+        Module._set_height(gui, node2, 30.0);
+        Module._set_background_rgba_color(gui, node2, 0.0, 0.0, 1.0, 1.0);
+
+        Module._append_child(gui, node2, node1); // 接口已修改， node和parent顺序颠倒
+        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
         function load_ok() {
             window.__jsObj = cfg;
             window.__jsObj1 = image;
             window.__jsObj2 = "36779_37232.png";
-            var sdf_font = Module._
-            (gui); 
+            var sdf_font = Module._add_sdf_font_res(gui); 
 
             window.__jsObj = "common"; //font_face_name
             window.__jsObj1 = "simhei";
@@ -45,13 +67,16 @@
             Module._add_font_face(gui, 0, 32, 500); 
 
             var ce = Module._create_text_node(gui);
-            window.__jsObj = "common";
-            Module._set_font_family(gui, ce);
-            Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
             window.__jsObj = "逋";
             Module._set_text_content(gui, ce); // 文字内容
-            Module._set_letter_spacing(gui, ce, 5); // 字符间距
-            Module._append_child(gui, ce, 1);
+            Module._set_font_size(gui, ce, 24);
+            Module._set_line_height(gui, ce, 24);
+            Module._set_font_weight(gui, ce, 900);
+            Module._set_letter_spacing(gui, ce, 20); // 字符间距
+            Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            window.__jsObj = "common";
+            Module._set_font_family(gui, ce);        
+            Module._append_child(gui, ce, node2);
 
             // Module._set_font_size(gui, ce, );
             Module._render(gui);

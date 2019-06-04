@@ -61,8 +61,8 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
 
         let gl = &mut engine.gl;
         gl.begin_render(
-            &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
-            &(view_port.0.clone() as Arc<AsRef<RenderBeginDesc>>));
+            &(gl.get_default_render_target().clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
+            &(view_port.0.clone() as Arc<dyn AsRef<RenderBeginDesc>>));
         
         for obj in opacity_list.into_iter() {
             debug_println!("draw opacity-------------------------");
@@ -106,13 +106,13 @@ fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
     if obj.geometry.get_vertex_count() == 0 {
         return;
     }
-    gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
-    let mut ubos: HashMap<Atom, Arc<AsRef<Uniforms<C>>>> = HashMap::new();
+    gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
+    let mut ubos: HashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = HashMap::new();
     for (k, v) in obj.ubos.iter() {
-        ubos.insert(k.clone(), v.clone() as Arc<AsRef<Uniforms<C>>>);
+        ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
     }
     debug_println!("draw-------------------------------------{}", obj.context);
-    gl.draw(&(obj.geometry.clone() as Arc<AsRef<<C as Context>::ContextGeometry>>), &ubos);
+    gl.draw(&(obj.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 
 struct OpacityOrd<'a, C: Context + Share>(&'a RenderObj<C>);

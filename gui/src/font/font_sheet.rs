@@ -18,7 +18,7 @@ pub const FONT_SIZE: f32 = 32.0;
 pub struct FontSheet<C: Context + 'static + Send + Sync> {
     size: f32,
     color: CgColor,
-    src_map: HashMap<Atom, Arc<SdfFont<Ctx=C>>>,
+    src_map: HashMap<Atom, Arc<dyn SdfFont<Ctx=C>>>,
     face_map: HashMap<Atom, FontFace>,
 }
 unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
@@ -45,7 +45,7 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         self.color = color;
     }
     // 设置SDFFont
-    pub fn set_src(&mut self, name: Atom, src: Arc<SdfFont<Ctx=C>>) {
+    pub fn set_src(&mut self, name: Atom, src: Arc<dyn SdfFont<Ctx=C>>) {
         self.src_map.insert(name, src);
     }
     
@@ -94,7 +94,7 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         }
     }
 
-    pub fn get_first_font(&self, font_face: &Atom) -> Option<Arc<SdfFont<Ctx=C>>>{
+    pub fn get_first_font(&self, font_face: &Atom) -> Option<Arc<dyn SdfFont<Ctx=C>>>{
         match self.face_map.get(font_face) {
             Some(face) => {
                 for name in &face.src {

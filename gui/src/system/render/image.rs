@@ -137,8 +137,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(
             &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-            &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+            &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(image.src.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
@@ -193,8 +193,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> 
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-                &(image.src.clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(image.src.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
             );
         }
     }

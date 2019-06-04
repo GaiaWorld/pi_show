@@ -171,6 +171,6 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     let src: String = js!(return __jsObj1;).try_into().unwrap();
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
-
+    
     font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
 }

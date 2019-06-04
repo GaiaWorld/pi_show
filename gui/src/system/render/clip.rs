@@ -80,8 +80,8 @@ impl<C: Context + Share> ClipSys<C>{
         let mut by_ubo = engine.gl.create_uniforms();
         by_ubo.set_sampler(
             &CLIP_TEXTURE,
-            &(sampler.clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-            &(target.get_color_texture(0).unwrap().clone() as  Arc<AsRef<<C as Context>::ContextTexture>>)
+            &(sampler.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(target.get_color_texture(0).unwrap().clone() as  Arc<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
 
@@ -179,14 +179,14 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         // );
 
         gl.begin_render(
-            &(self.render_target.clone() as Arc<AsRef<C::ContextRenderTarget>>), 
-            &(Arc::new(viewport) as Arc<AsRef<RenderBeginDesc>>)
+            &(self.render_target.clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
+            &(Arc::new(viewport) as Arc<dyn AsRef<RenderBeginDesc>>)
         );
 
         debug_println!("overflow:{:?}", **overflow);
 
         // set_pipeline
-        gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<AsRef<Pipeline>>));
+        gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
         {
             let geometry_ref = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
@@ -212,12 +212,12 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
         }
-        let mut ubos: HashMap<Atom, Arc<AsRef<Uniforms<C>>>> = HashMap::new();
+        let mut ubos: HashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = HashMap::new();
         for (k, v) in self.ubos.iter() {
-            ubos.insert(k.clone(), v.clone() as Arc<AsRef<Uniforms<C>>>);
+            ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
         }
         //draw
-        gl.draw(&(self.geometry.clone() as Arc<AsRef<<C as Context>::ContextGeometry>>), &ubos);
+        gl.draw(&(self.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 
         gl.end_render();
     }

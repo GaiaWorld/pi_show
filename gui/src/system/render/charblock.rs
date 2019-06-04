@@ -166,8 +166,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             Some(r) => {
                 common_ubo.set_sampler(
                     &TEXTURE,
-                    &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-                    &(r.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+                    &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                    &(r.texture().clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
             },
             None => debug_println!("font is not exist: {}", font.family.as_str())
@@ -274,8 +274,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().clone() as Arc<AsRef<<C as Context>::ContextSampler>>),
-                &(first_font.texture().clone() as Arc<AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(first_font.texture().clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
             );
 
             if item.position_change == false {
@@ -480,7 +480,7 @@ fn modify_color<C: Context + Share>(geometry_dirtys: &mut Vec<usize>, item: &mut
 // 返回position， uv， color， index
 fn get_geo_flow<C: Context + Share>(
     char_block: &CharBlock,
-    sdf_font: &Arc<SdfFont<Ctx = C>>,
+    sdf_font: &Arc<dyn SdfFont<Ctx = C>>,
     color: &Color,
     z_depth: f32,
     offset: (f32, f32)
@@ -566,7 +566,7 @@ fn get_geo_flow<C: Context + Share>(
     }
 }
 
-fn cal_all_size<C: Context + Share>(char_block: &CharBlock, font_size: f32, sdf_font: &Arc<SdfFont<Ctx = C>>,) -> (Point2, Point2) {
+fn cal_all_size<C: Context + Share>(char_block: &CharBlock, font_size: f32, sdf_font: &Arc<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
     let mut start = Point2::new(0.0, 0.0);
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
