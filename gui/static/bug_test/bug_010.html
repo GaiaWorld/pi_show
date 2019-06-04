@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script>
+        var RUST_BACKTRACE = 1;
+        var FitType_None = 0;
+        var FitType_Fill = 1;
+        var FitType_Contain = 2;
+        var FitType_Cover = 3;
+        var FitType_ScaleDown = 4;
+    </script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="../shader/clip.js"></script>
+    <script src="../shader/color.js"></script>
+    <script src="../shader/image.js"></script>
+    <script src="../shader/text.js"></script>
+    <script src="../shader/init.js"></script>
+    <script>
+        var gui = Module._create_gui(engine, 1000, 700);
+
+        var body = Module._create_node(gui);
+        Module._append_child(gui, body, 1);
+        Module._set_width(gui, body, 1000);
+        Module._set_height(gui, body, 700);
+        Module._set_background_rgba_color(gui, body, 1.0, 1.0, 1.0, 1.0);
+        Module._render(gui);
+
+        var node1 = Module._create_image_node(gui);
+        Module._set_width(gui, node1, 500);
+        Module._set_height(gui, node1, 600);
+        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 0.5);
+
+        var node2 = Module._create_image_node(gui);
+        Module._set_width(gui, node2, 300);
+        Module._set_height(gui, node2, 300);
+        Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
+
+        var node3 = Module._create_image_node(gui);
+        Module._set_width(gui, node3, 100);
+        Module._set_height(gui, node3, 100);
+        // Module._set_background_rgba_color(gui, node2, 0.0, 0.0, 1.0, 0.9);
+
+        Module._append_child(gui, node3, node2);
+        Module._append_child(gui, node2, node1);
+        Module._append_child(gui, node1, body);
+
+        var image3 = new Image();
+        image3.onload = () => {
+            setTimeout(() => {
+                window.__jsObj = image3;
+                window.__jsObj1 = "./01.png";
+                Module._set_src(gui, node3, 1, 0); // 
+                Module._render(gui);
+            }, 3000);
+            
+        };
+        image3.src = "../test_image/01.png";
+    </script>
+</body>
+</html>
