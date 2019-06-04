@@ -189,6 +189,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
     if let Some(_) = write.0.get(c) {
       return;
     }
+
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else {
@@ -198,6 +199,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
 
 // 文字布局更新
 fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write) {
+  debug_println!("update text layout------------------------id: id{}", id);
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
@@ -210,6 +212,7 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
   let mut cb = unsafe {write.0.get_unchecked_mut(id)};
   let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
   cn.pos = pos;
+  debug_println!("update text layout1------------------------cb.layout_dirty:{}", cb.layout_dirty);
   if !cb.layout_dirty {
     cb.layout_dirty = true;
     unsafe { write.0.get_unchecked_write(id).modify(|_|{
@@ -219,7 +222,7 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
-  debug_println!("calc-----------------------------------");
+  debug_println!("textlayout calc-----------------------------------");
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();

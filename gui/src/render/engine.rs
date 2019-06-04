@@ -43,10 +43,7 @@ impl<C: Context> Engine<C> {
             Ok(r) => r,
             Err(_s) => panic!("compile_fs_shader error"),
         };
-
-        debug_println!("create_pipeline, defines:{:?}", defines);
-
-        
+    
         let mut hasher = DefaultHasher::new();
         start_hash.hash(&mut hasher);
         vs.hash(&mut hasher);
@@ -55,13 +52,12 @@ impl<C: Context> Engine<C> {
             d.hash(&mut hasher);
         }
         let key = hasher.finish();
-        // debug_println!("create pipelines------------------------------{} , {}", start_hash, key);
 
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
-            // debug_println!("create pipelines------------------------------");
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
+                    debug_println!("create_pipeline, defines:{:?}", defines);
                     let defines = Vec::from(defines);
                     Arc::new(PipelineInfo{
                         pipeline: Arc::new(r),

@@ -14,44 +14,72 @@ use component::user::*;
 use entity::{Node};
 
 #[derive(Default)]
-pub struct FilterSys{
-    hsv_default: HSV,
-    filter_default: Filter,
+pub struct FilterSys;
+
+impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>);
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.marked_dirty(event.id, read);
+    }
 }
 
-impl FilterSys{
-    fn cal_hsv(
-        &self,
-        id: usize,
-        idtree: &SingleCaseImpl<IdTree>,
-        parent_hsv: &HSV,
-        filters: &MultiCaseImpl<Node, Filter>,
-        hsvs: &mut MultiCaseImpl<Node, HSV>,
-    ){
-        match filters.get(id){
-            Some(filter) => {
+impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for FilterSys{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.marked_dirty(event.id, read);
+    }
+}
 
-                let hsv = HSV {
-                    h: cal_h(filter.hue_rotate + parent_hsv.h),
-                    s: 
-                }
-            },
-            None => {hsvs.insert(id, parent_hsv.clone());},
-        }
-        let filter = m filters.get(id) -
-        for id in self.dirty.iter() {
-            {
-                let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
-                if  *dirty_mark == false {
-                    continue;
-                }
-                *dirty_mark = false;
-            }
+impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for FilterSys{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.marked_dirty(event.id, read);
+    }
+}
 
-            let parent_id = unsafe { idtree.get_unchecked(*id).parent };
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, idtree, transform, layout, world_matrix);
-        }
-        self.dirty.clear();
+#[inline]
+fn cal_hsv(
+    id: usize,
+    idtree: &SingleCaseImpl<IdTree>,
+    filters: &MultiCaseImpl<Node, Filter>,
+    hsvs: &mut MultiCaseImpl<Node, HSV>,
+){
+    let node = unsafe { idtree.get_unchecked(id)};
+    let hsv = match hsvs.get(node.parent){
+        Some(hsv) => hsv.clone(),
+        None => HSV::default(),
+    };
+
+    recursive_cal_hsv(id, idtree, &hsv, filters, hsvs)
+}
+
+#[inline]
+fn recursive_cal_hsv(
+    id: usize,
+    idtree: &SingleCaseImpl<IdTree>,
+    parent_hsv: &HSV,
+    filters: &MultiCaseImpl<Node, Filter>,
+    hsvs: &mut MultiCaseImpl<Node, HSV>,
+){
+    let hsv = match filters.get(id){
+        Some(filter) => {
+            let hsv = HSV {
+                h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
+                s: cal_s_from_grayscale(filter.gray_scale + parent_hsv.s),
+                v: cal_v_from_brightness(filter.bright_ness + parent_hsv.v),
+            };
+            hsvs.insert(id, hsv.clone());   
+            hsv
+        },
+        None => {hsvs.insert(id, parent_hsv.clone()); parent_hsv.clone()},
+    };
+
+    let first = unsafe { idtree.get_unchecked(id).children.head };
+    for child_id in idtree.iter(first) {
+        recursive_cal_hsv(child_id.0, idtree, &hsv, filters, hsvs);
     }
 }
 
@@ -84,20 +112,10 @@ fn cal_s_from_grayscale(grayscale: f32) -> f32{
 }
 
 fn cal_v_from_brightness(brightness: f32) -> f32{
-    if grayscale > 1.0 {
-        1.0
-    }else if grayscale < 0.0{
+    if brightness < 0.0 {
         0.0
-    } else {
-        grayscale
-    }
-}
-
-impl<'a> Runner<'a> for FilterSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
-    type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        self.cal_matrix(read.0, read.1, read.2, write);
+    }else {
+        brightness
     }
 }
 

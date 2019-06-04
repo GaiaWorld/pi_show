@@ -71,23 +71,23 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, CharBlock>,
         &'a MultiCaseImpl<Node, Font>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock>,);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let map = &mut self.charblock_render_map;
-        let (z_depths, text_styles, charblocks, fonts, font_sheet, default_table) = read;
-        let (render_objs, _) = write;
+        let (z_depths, text_styles, fonts, font_sheet, default_table) = read;
+        let (render_objs, _, charblocks) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
-            let charblock = unsafe { charblocks.get_unchecked(*id) };
+            let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
             let text_style = get_or_default(*id, text_styles, default_table);
             let font = get_or_default(*id, fonts, default_table);
+            charblock.layout_dirty = false;
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
                 None => {
@@ -122,7 +122,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
     }
 
     fn setup(&mut self, _: Self::ReadData, write: Self::WriteData){
-        let (_, engine) = write;
+        let (_, engine, _) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
         match engine.res_mgr.samplers.get(&hash) {
@@ -228,6 +228,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         let item = unsafe { self.charblock_render_map.get_unchecked_mut(event.id) };
+        debug_println!("CharBlock modify-----------------------------, id: {}", event.id);
         if item.position_change == false {
             item.position_change = true;
             self.geometry_dirtys.push(event.id);
