@@ -65,7 +65,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderColorSys<C>{
             let border_radius = unsafe { border_radius.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
-            let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.1);
+            let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.2);
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -136,7 +136,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
             true
         };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 0.1,
+            depth: z_depth - 0.2,
             visibility: false,
             is_opacity: is_opacity,
             ubos: ubos,
