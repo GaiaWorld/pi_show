@@ -43,13 +43,15 @@
         Module._set_width(gui, node2, 10.0);
         Module._set_height(gui, node2, 10.0);
         Module._set_position(gui, node2, YGEdgeTop, 10);
-        // Module._set_border(gui, node2, YGEdgeAll, 10);
+        Module._set_border(gui, node2, YGEdgeAll, 10);
         Module._set_padding(gui, node2, YGEdgeAll, 10);
 
         Module._render(gui);
         
-        console.log("top", Module._offset_top(gui, node2)) ;
-        console.log("top", Module._offset_top(gui, node1)) ;
+        var __jsObj = {};
+        Module._offset_document(gui, node2);
+        
+        console.log("top", __jsObj );
 
         // var node2 = Module._create_node(gui);
         // Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
