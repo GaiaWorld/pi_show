@@ -71,7 +71,7 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
             let box_shadow = unsafe { box_shadows.get_unchecked(*id) };
-            let (positions, indices, colors) = get_geo_flow(border_radius, layout, z_depth - 0.2, box_shadow);
+            let (positions, indices, colors) = get_geo_flow(border_radius, layout, z_depth - 0.3, box_shadow);
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
@@ -143,7 +143,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         );
         
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth - 0.2,
+            depth: z_depth - 0.3,
             visibility: false,
             is_opacity: false,
             ubos: ubos,
@@ -246,7 +246,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             }
             let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
             let notify = render_objs.get_notify();
-            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_depth(z_depth - 0.2)};
+            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_depth(z_depth - 0.3)};
         };
     }
 }

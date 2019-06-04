@@ -66,8 +66,8 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
-            let slice = unsafe { slices.get_unchecked(*id) };
             let image = unsafe { images.get_unchecked(*id) };
+            let slice = slices.get(*id);
             let repeat = repeats.get(*id);
             let clip = clips.get(*id);
 
@@ -286,7 +286,7 @@ unsafe impl<C: Context + Share> Send for BorderImageSys<C>{}
 pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
   img: &BorderImage<C>,
   clip: Option<&BorderImageClip>,
-  slice: &BorderImageSlice,
+  slice: Option<&BorderImageSlice>,
   repeat: Option<&BorderImageRepeat>,
   layout: &Layout, z: f32, mut point_arr: Polygon, mut uv_arr: Polygon, mut index_arr: Vec<u16>) -> (Polygon, Polygon, Vec<u16>){
     let (uv1, uv2) = match clip {
@@ -303,10 +303,20 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     let bottom = layout.height - layout.border_bottom;
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
-    let uv_left = uv1.x + slice.left * uvw;
-    let uv_right = uv2.x - slice.right * uvw;
-    let uv_top = uv1.y + slice.top * uvh;
-    let uv_bottom = uv2.y - slice.bottom * uvh;
+    let (uv_left, uv_right, uv_top, uv_bottom) = match slice {
+        Some(slice) => (
+            uv1.x + slice.left * uvw,
+            uv2.x - slice.right * uvw,
+            uv1.y + slice.top * uvh,
+            uv2.y - slice.bottom * uvh,
+        ),
+        None => (
+            uv1.x + 0.25 * uvw,
+            uv2.x - 0.25 * uvw,
+            uv1.y + 0.25 * uvh,
+            uv2.y - 0.25 * uvh,
+        ),
+    };
 
     // debug_println!("start 111111: {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
     //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
@@ -363,8 +373,10 @@ pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
     p_right_top, p_right_bottom, p_x2_bottom, p_x2_top, z,
     uv_right, uv_top, uv2.x, uv_bottom, vstep, &mut pi); // 右边
     // 处理中间
-    if slice.fill {
-      push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
+    if let Some(slice) = slice{
+        if slice.fill {
+            push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
+        }
     }
     (point_arr, uv_arr, index_arr)
 }
