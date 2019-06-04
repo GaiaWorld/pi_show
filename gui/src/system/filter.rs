@@ -57,17 +57,19 @@ impl FilterSys{
 fn cal_h(hue_rotate: f32) -> f32{
     if hue_rotate > 0.0 {
         loop {
-            if hue_rotate <= 360 {}
+            if hue_rotate <= 360.0 {
+                return hue_rotate/180.0 - 1.0;
+            }
+            hue_rotate -= 360.0;
         } 
     }else {
         loop {
-            if hue_rotate > 0.0 {
-
+            if hue_rotate >= 0.0 {
+                return hue_rotate/180.0 - 1.0;
             }
+            hue_rotate += 360.0;
         } 
     }
-    
-    if r 
 }
 
 impl<'a> Runner<'a> for FilterSys{

@@ -276,8 +276,8 @@ pub fn offset_document(world: u32, node_id: u32) {
   js!{
     __jsObj.left = @{left_top.x};
     __jsObj.top = @{left_top.y};
-    __jsObj.width = @{layout.width - layout.border_left - layout.border_right - layout.padding_left - layout.padding_right}
-    __jsObj.height = @{layout.height - layout.border_top - layout.border_bottom - layout.padding_top - layout.padding_bottom}
+    __jsObj.width = @{layout.width - layout.border_left - layout.border_right - layout.padding_left - layout.padding_right};
+    __jsObj.height = @{layout.height - layout.border_top - layout.border_bottom - layout.padding_top - layout.padding_bottom};
   }
 }
 
