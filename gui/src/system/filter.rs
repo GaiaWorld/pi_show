@@ -32,7 +32,8 @@ impl FilterSys{
             Some(filter) => {
 
                 let hsv = HSV {
-                    h: filter.hue_rotate
+                    h: cal_h(filter.hue_rotate + parent_hsv.h),
+                    s: 
                 }
             },
             None => {hsvs.insert(id, parent_hsv.clone());},
@@ -54,21 +55,41 @@ impl FilterSys{
     }
 }
 
-fn cal_h(hue_rotate: f32) -> f32{
+fn cal_h_from_hue(hue_rotate: f32) -> f32{
     if hue_rotate > 0.0 {
         loop {
             if hue_rotate <= 360.0 {
-                return hue_rotate/180.0 - 1.0;
+                return hue_rotate;
             }
             hue_rotate -= 360.0;
         } 
     }else {
         loop {
             if hue_rotate >= 0.0 {
-                return hue_rotate/180.0 - 1.0;
+                return hue_rotate;
             }
             hue_rotate += 360.0;
         } 
+    }
+}
+
+fn cal_s_from_grayscale(grayscale: f32) -> f32{
+    if grayscale > 1.0 {
+        1.0
+    }else if grayscale < 0.0{
+        0.0
+    } else {
+        grayscale
+    }
+}
+
+fn cal_v_from_brightness(brightness: f32) -> f32{
+    if grayscale > 1.0 {
+        1.0
+    }else if grayscale < 0.0{
+        0.0
+    } else {
+        grayscale
     }
 }
 
