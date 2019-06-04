@@ -67,9 +67,11 @@
         Module._set_position(gui, node4, YGEdgeLeft, 150);
         Module._set_zindex(gui, node4, 20);
         Module._render(gui);
-        Module._set_zindex(gui, node3, 15);
-        Module._render(gui);
 
+        setTimeout(() => {
+            Module._set_zindex(gui, node3, 15);
+            Module._render(gui);
+        }, 3000);
         
     </script>
 </body>
