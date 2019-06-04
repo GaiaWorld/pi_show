@@ -17,7 +17,7 @@ use octree::intersects;
 use cg2d::{include_quad2, InnOuter};
 
 use component::user::*;
-use component::calc::{ Enable, ByOverflow, ZDepth};
+use component::calc::{ Enable, ByOverflow, ZDepth, WorldMatrix};
 use single::oct::Oct;
 use single::{ OverflowClip};
 use entity::Node;
@@ -251,22 +251,35 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
     unsafe {layout.lend().get_unchecked(node as usize)}.height
 }
 
-// #[no_mangle]
-// pub fn offset_document(world: u32, node: u32) {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
-//   let node = world.component_mgr.node._group.get(node);
-//   let layout = node.get_layout();
-//   let world_matrix = &world.component_mgr.node.world_matrix._group.get(node.world_matrix).owner;
+#[no_mangle]
+pub fn offset_document(world: u32, node_id: u32) {
+  let node_id = node_id as usize;
+  let world = unsafe {&mut *(world as usize as *mut World)};
+  let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
+  let world_matrixs = world_matrixs.lend();
+  let layouts = world.fetch_multi::<Node, Layout>().unwrap();
+  let layouts = layouts.lend();
+  let idtree = world.fetch_single::<IdTree>().unwrap();
+  let idtree = idtree.lend();
+  
+  let node = match idtree.get(node_id) {
+    Some(n) => n,
+    None => panic!("offset_document fail, node is not exist"),
+  };
 
-//   let left_top = Vector4::new(-(layout.width - layout.border -layout.padding_left)/2.0, -(layout.height - layout.border -layout.padding_top)/2.0, 1.0, 1.0);
-//   let left_top = (world_matrix.0)*left_top;
+  let parent_world_matrix = unsafe { &world_matrixs.get_unchecked(node.parent) };
+  let layout = unsafe { &layouts.get_unchecked(node_id) };
 
-//   js!{
-//     __jsObj.left = @{left_top.x};
-//     __jsObj.top = @{left_top.y}
-//   }
-// }
+  let left_top = Vector4::new(layout.left, layout.top, 1.0, 1.0);
+  let left_top = (parent_world_matrix.0) * left_top;
+
+  js!{
+    __jsObj.left = @{left_top.x};
+    __jsObj.top = @{left_top.y};
+    __jsObj.width = @{layout.width - layout.border_left - layout.border_right - layout.padding_left - layout.padding_right}
+    __jsObj.height = @{layout.height - layout.border_top - layout.border_bottom - layout.padding_top - layout.padding_bottom}
+  }
+}
 
 // #[no_mangle]
 // pub fn set_event_type(world: u32, node: u32, ty: u8) {

@@ -54,21 +54,21 @@ impl FilterSys{
     }
 }
 
-// fn cal_h(hue_rotate: f32) -> f32{
-//     if hue_rotate > 0.0 {
-//         loop {
-//             if hue_rotate <= 360
-//         } 
-//     }else {
-//         loop {
-//             if hue_rotate > 0.0 {
+fn cal_h(hue_rotate: f32) -> f32{
+    if hue_rotate > 0.0 {
+        loop {
+            if hue_rotate <= 360 {}
+        } 
+    }else {
+        loop {
+            if hue_rotate > 0.0 {
 
-//             }
-//         } 
-//     }
+            }
+        } 
+    }
     
-//     if r 
-// }
+    if r 
+}
 
 impl<'a> Runner<'a> for FilterSys{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
