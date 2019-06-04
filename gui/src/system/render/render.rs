@@ -70,7 +70,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         }
 
         for obj in transparent_list.into_iter() {
-            debug_println!("draw transparent-------------------------");
+            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.0.depth,  obj.0.context);
             render(gl, obj.0);
         }
 

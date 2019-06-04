@@ -358,6 +358,23 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     }
 }
 
+//深度修改， 需要重新计算顶点, 并设置渲染对象的深度值
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for CharBlockSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, render_objs: Self::WriteData){
+        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+            let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
+            let notify = render_objs.get_notify();
+            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_depth(z_depth + 0.2)};
+        };
+    }
+}
+
 // //不透明度变化， 修改渲染对象的is_opacity属性
 // impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C>{
 //     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
@@ -724,6 +741,6 @@ impl_system!{
         MultiCaseListener<Node, TextStyle, ModifyEvent>
         MultiCaseListener<Node, TextStyle, DeleteEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
-        // MultiCaseListener<Node, Opacity, ModifyEvent>
+        MultiCaseListener<Node, ZDepth, ModifyEvent>
     }
 }

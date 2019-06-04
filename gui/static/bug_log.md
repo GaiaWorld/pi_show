@@ -5,7 +5,7 @@
 
 004： flex 主轴高度没有计算元素 padding, margin 检查 （不是一个bug， gui的布局系统， padding, border不会撑大容器， 相当于css为元素设置了box-sizing: border-box;）
 
-005：  box-shadow - 显示在节点上面,没有在节点下面 （未重现）
+005： box-shadow - 显示在节点上面,没有在节点下面 （未重现）
 
 006： 滚动问题 - 现滚动时获取 height: auto 的子节点高度返回 0 - _offset_height()    (未重现， 详见bug_test/006.html)
 

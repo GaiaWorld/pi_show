@@ -247,6 +247,23 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
     }
 }
 
+//深度修改， 需要重新计算顶点, 并设置渲染对象的深度值
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for BackgroundColorSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, render_objs: Self::WriteData){
+        if let Some(item) = self.background_color_render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+            let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
+            let notify = render_objs.get_notify();
+            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_depth(z_depth - 0.1)};
+        };
+    }
+}
+
 //不透明度变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BackgroundColor>);
@@ -361,5 +378,6 @@ impl_system!{
         MultiCaseListener<Node, BackgroundColor, DeleteEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
+        MultiCaseListener<Node, ZDepth, ModifyEvent>
     }
 }
