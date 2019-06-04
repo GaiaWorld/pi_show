@@ -34,6 +34,14 @@ impl Default for Opacity {
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Enable(pub bool);
 
+// HSV
+#[derive(Clone, Debug, Default, Component)]
+pub struct HSV {
+  pub h: f32,
+  pub s: f32,
+  pub v: f32,
+}
+
 // #[derive(Component, Debug, Default)]
 // pub struct RenderObj{
 //     pub pipeline: usize, //Rc<Pipeline>

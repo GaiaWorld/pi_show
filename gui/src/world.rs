@@ -78,6 +78,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, Image<C>>();
     world.register_multi::<Node, ImageClip>();
     world.register_multi::<Node, ObjectFit>();
+    world.register_multi::<Node, Filter>();
 
 
     //calc
@@ -89,6 +90,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, YgNode>();
+    world.register_multi::<Node, HSV>();
     
     //single
     world.register_single::<ClipUbo<C>>(ClipUbo(Arc::new(engine.gl.create_uniforms())));
