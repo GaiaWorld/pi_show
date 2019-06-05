@@ -434,6 +434,7 @@ impl<C: Context> Uniforms<C> {
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
     pub fn set_sampler(&mut self, name: &Atom, sampler: &ShareRef<C::ContextSampler>, texture: &ShareRef<C::ContextTexture>) {
+        self.has_texture = true;
         self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {

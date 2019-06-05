@@ -97,7 +97,7 @@ pub trait Context: Sized {
     /** 
      * 创建Uniforms
      */
-    fn create_uniforms(&mut self, has_texture: bool) -> Uniforms<Self> where Self: std::marker::Sized;
+    fn create_uniforms(&mut self) -> Uniforms<Self> where Self: std::marker::Sized;
 
     /** 
      * 创建几何数据
