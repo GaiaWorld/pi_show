@@ -17,7 +17,7 @@ use octree::intersects;
 use cg2d::{include_quad2, InnOuter};
 
 use component::user::*;
-use component::calc::{ Enable, ByOverflow, ZDepth, WorldMatrix};
+use component::calc::*;
 use single::oct::Oct;
 use single::{ OverflowClip};
 use entity::Node;

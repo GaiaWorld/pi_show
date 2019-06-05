@@ -42,7 +42,7 @@ pub struct Program {
     all_uniforms: FnvHashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
 
     // u32是上一次设置时候的 dirty_count
-    last_uniforms: FnvHashMap<Atom, (u32, Arc<AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
+    last_uniforms: FnvHashMap<Atom, (u32, Arc<dyn AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
 }
 
 pub struct WebGLUniformImpl {
@@ -429,7 +429,7 @@ impl Program {
         }
     }
 
-    pub fn set_uniforms(&mut self, state: &mut State, values: &FnvHashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>) {
+    pub fn set_uniforms(&mut self, state: &mut State, values: &FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<WebGLContextImpl>>>>) {
         
         for (name, curr) in values.iter() {
             let is_old_same = match self.last_uniforms.get_mut(name) {

@@ -1,3 +1,4 @@
+#![recursion_limit="256"]
 #![feature(nll)] 
 #![feature(proc_macro_hygiene)]
 #![feature(rustc_const_unstable)] 

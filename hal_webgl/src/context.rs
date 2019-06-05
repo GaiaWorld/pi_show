@@ -60,7 +60,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<AsRef<RasterState>>, bs: Arc<AsRef<BlendState>>, ss: Arc<AsRef<StencilState>>, ds: Arc<AsRef<DepthState>>) -> Result<Pipeline, String> {
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<dyn AsRef<RasterState>>, bs: Arc<dyn AsRef<BlendState>>, ss: Arc<dyn AsRef<StencilState>>, ds: Arc<dyn AsRef<DepthState>>) -> Result<Pipeline, String> {
         
         // 链接Shader成Program
         if let Err(s) = self.program_mgr.get_program(vs_hash, fs_hash) {
@@ -85,7 +85,7 @@ impl Context for WebGLContextImpl {
         WebGLTextureImpl::new_2d(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
-    fn create_sampler(&mut self, desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, desc: Arc<dyn AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
         let desc = desc.as_ref().as_ref();
         Ok(WebGLSamplerImpl {
             min_filter: desc.min_filter,
@@ -100,7 +100,7 @@ impl Context for WebGLContextImpl {
         WebGLRenderTargetImpl::new(&self.gl, w, h, pformat, dformat, has_depth)
     }
 
-    fn begin_render(&mut self, render_target: &Arc<AsRef<Self::ContextRenderTarget>>, data: &Arc<AsRef<RenderBeginDesc>>) {
+    fn begin_render(&mut self, render_target: &Arc<dyn AsRef<Self::ContextRenderTarget>>, data: &Arc<dyn AsRef<RenderBeginDesc>>) {
         self.state.set_render_target(render_target);
         let data = data.as_ref().as_ref();
         self.state.set_viewport(&data.viewport);
@@ -114,7 +114,7 @@ impl Context for WebGLContextImpl {
 
     }
 
-    fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>) {
+    fn set_pipeline(&mut self, pipeline: &Arc<dyn AsRef<Pipeline>>) {
         
         if !self.state.set_pipeline(pipeline) {
             let p = pipeline.as_ref().as_ref();
@@ -126,7 +126,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
+    fn draw(&mut self, geometry: &Arc<dyn AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
             program.set_uniforms(&mut self.state, values);
             self.state.draw(geometry);
@@ -141,7 +141,7 @@ impl WebGLContextImpl {
         let caps = Self::create_caps(gl.as_ref());
         let rt = Arc::new(WebGLRenderTargetImpl::new_default(&gl));
 
-        let state = State::new(&gl, &(rt.clone() as Arc<AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
+        let state = State::new(&gl, &(rt.clone() as Arc<dyn AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
 
         let mgr = ProgramManager::new(&gl, caps.max_vertex_attribs);
 

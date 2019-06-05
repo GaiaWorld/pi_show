@@ -20,10 +20,10 @@ pub struct State {
 
     gl: Arc<WebGLRenderingContext>, 
 
-    pipeline: Arc<AsRef<Pipeline>>,
+    pipeline: Arc<dyn AsRef<Pipeline>>,
 
-    geometry: Option<Arc<AsRef<WebGLGeometryImpl>>>,
-    target: Arc<AsRef<WebGLRenderTargetImpl>>,
+    geometry: Option<Arc<dyn AsRef<WebGLGeometryImpl>>>,
+    target: Arc<dyn AsRef<WebGLRenderTargetImpl>>,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     enable_attrib_indices: Vec<bool>,
 
@@ -33,8 +33,8 @@ pub struct State {
 struct TextureSlot {
     unit: usize,
     count: usize, // 等于0代表没用过
-    texture: Weak<AsRef<WebGLTextureImpl>>,
-    sampler: Weak<AsRef<WebGLSamplerImpl>>,
+    texture: Weak<dyn AsRef<WebGLTextureImpl>>,
+    sampler: Weak<dyn AsRef<WebGLSamplerImpl>>,
 }
 
 impl TextureSlot {
@@ -69,7 +69,7 @@ impl TextureCache {
     }
 
     // 缓存策略：当槽不够的时候，移除最远的槽。
-    pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &Weak<dyn AsRef<WebGLTextureImpl>>, sampler: &Weak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         let mut min_index = 0;
         let mut min_count = usize::max_value();
 
@@ -121,7 +121,7 @@ impl TextureCache {
 
 impl State {
 
-    pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
+    pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
         
         gl.enable(WebGLRenderingContext::BLEND);
         // gl.enable(WebGLRenderingContext::SCISSOR_TEST);
@@ -157,11 +157,11 @@ impl State {
         state
     }
 
-    pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &Weak<dyn AsRef<WebGLTextureImpl>>, sampler: &Weak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         self.tex_caches.use_texture(texture, sampler)
     }
 
-    pub fn set_render_target(&mut self, rt: &Arc<AsRef<WebGLRenderTargetImpl>>) {
+    pub fn set_render_target(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
         if !Arc::ptr_eq(&self.target, rt) {
             let fbo = &rt.as_ref().as_ref().frame_buffer;
             self.gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, fbo.as_ref());
@@ -226,7 +226,7 @@ impl State {
     /** 
      * 如果program相同，返回true
      */
-    pub fn set_pipeline(&mut self, pipeline: &Arc<AsRef<Pipeline>>) -> bool {
+    pub fn set_pipeline(&mut self, pipeline: &Arc<dyn AsRef<Pipeline>>) -> bool {
         if Arc::ptr_eq(&self.pipeline, pipeline) {
             return true;
         }
@@ -257,7 +257,7 @@ impl State {
         mgr.get_program(p.vs_hash, p.fs_hash)
     }
 
-    pub fn draw(&mut self, geometry: &Arc<AsRef<WebGLGeometryImpl>>) {
+    pub fn draw(&mut self, geometry: &Arc<dyn AsRef<WebGLGeometryImpl>>) {
 
         let need_set_geometry = match &self.geometry {
             None => true,
