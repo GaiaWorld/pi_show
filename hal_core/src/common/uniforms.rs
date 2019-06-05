@@ -41,7 +41,8 @@ use ShareRef;
  *      sampler           set_sampler
  */
 pub struct Uniforms<C: Context> {
-    pub dirty_count: u32,
+    pub dirty_count: u32,  // 用于设置脏
+    pub has_texture: bool, // 该UBO是否含有纹理，如果含有纹理，需要每次设置。
     pub values: FnvHashMap<Atom, UniformValue<C>>,
 }
 
@@ -49,6 +50,7 @@ impl<C: Context> Clone for Uniforms<C> {
     fn clone(&self) -> Self {
         Uniforms{
             dirty_count: 0,
+            has_texture: self.has_texture,
             values: self.values.clone()
         }
     }
@@ -433,6 +435,7 @@ impl<C: Context> Uniforms<C> {
      * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
      */
     pub fn set_sampler(&mut self, name: &Atom, sampler: &ShareRef<C::ContextSampler>, texture: &ShareRef<C::ContextTexture>) {
+        self.has_texture = true;
         self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())
             .and_modify(|rv| {

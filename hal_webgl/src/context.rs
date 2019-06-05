@@ -56,6 +56,7 @@ impl Context for WebGLContextImpl {
         Uniforms::<Self::ContextSelf> {
             dirty_count: 0,
             values: FnvHashMap::default(),
+			has_texture: false,
         }
     }
 
