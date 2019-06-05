@@ -22,10 +22,6 @@ use component::calc::Opacity as COpacity;
 use single::oct::Oct;
 use single::{ OverflowClip};
 use entity::Node;
-use render::engine::Engine;
-use render::res::{TextureRes};
-use layout::*;
-use Z_MAX;
 
 
 #[allow(unused_attributes)]
@@ -37,7 +33,7 @@ pub fn node_info(world: u32, node: u32) {
     let idtree = idtree.borrow();
 
     let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
-    let z_depth = unsafe { z_depth.lend().get_unchecked(node) }.0 as u32;
+    let z_depth = unsafe { z_depth.lend().get_unchecked(node) }.0;
 
     let enable = world.fetch_multi::<Node, Enable>().unwrap();
     let enable = unsafe { enable.lend().get_unchecked(node) }.0;
@@ -46,7 +42,7 @@ pub fn node_info(world: u32, node: u32) {
     let visibility = unsafe { visibility.lend().get_unchecked(node) }.0;
 
     let by_overflow = world.fetch_multi::<Node, ByOverflow>().unwrap();
-    let by_overflow = unsafe { by_overflow.lend().get_unchecked(node) }.0 as u32;
+    let by_overflow = unsafe { by_overflow.lend().get_unchecked(node) }.0;
 
     let opacity = world.fetch_multi::<Node, COpacity>().unwrap();
     let opacity = unsafe { opacity.lend().get_unchecked(node) }.0;
@@ -66,45 +62,82 @@ pub fn node_info(world: u32, node: u32) {
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout);
     let layout = unsafe { layout.get_unchecked(node) };
     
+    // border box
+    let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
+    let b_left_bottom = world_matrix1 * Vector4::new(0.0, layout.height, 1.0, 1.0);
+    let b_right_bottom = world_matrix1 * Vector4::new(layout.width, layout.height, 1.0, 1.0);
+    let b_right_top = world_matrix1 * Vector4::new(layout.width, 0.0, 1.0, 1.0);
 
-
-    let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
-    let b_left_bottom = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
-    let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
-    let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
-    
-    js!{
-        console.log(@{format!("{:?}", layout)});
+    // border box
+    let absolute_b_box = Quad {
+        left_top: Point2::new(b_left_top.x, b_left_top.y),
+        left_bottom: Point2::new(b_left_bottom.x, b_left_bottom.y),
+        right_bottom: Point2::new(b_right_bottom.x, b_right_bottom.y),
+        right_top: Point2::new(b_right_top.x, b_right_top.y),
     };
+
+    // padding box
+    let p_left_top = world_matrix1 * Vector4::new(layout.border_left, layout.border_top, 1.0, 1.0);
+    let p_left_bottom = world_matrix1 * Vector4::new(layout.border_left, layout.height - layout.border_bottom, 1.0, 1.0);
+    let p_right_bottom = world_matrix1 * Vector4::new(layout.width - layout.border_right, layout.height - layout.border_bottom, 1.0, 1.0);
+    let p_right_top = world_matrix1 * Vector4::new(layout.width - layout.border_right, layout.border_top, 1.0, 1.0);
+
+    let absolute_p_box = Quad {
+        left_top: Point2::new(p_left_top.x, p_left_top.y),
+        left_bottom: Point2::new(p_left_bottom.x, p_left_bottom.y),
+        right_bottom: Point2::new(p_right_bottom.x, p_right_bottom.y),
+        right_top: Point2::new(p_right_top.x, p_right_top.y),
+    };
+
+    // content box
+    let c_left_top = world_matrix1 * Vector4::new(layout.border_left + layout.padding_left, layout.border_top + layout.padding_top, 1.0, 1.0);
+    let c_left_bottom = world_matrix1 * Vector4::new(layout.border_left + layout.padding_left, layout.height - layout.border_bottom - layout.padding_bottom, 1.0, 1.0);
+    let c_right_bottom = world_matrix1 * Vector4::new(layout.width - layout.border_right - layout.padding_right, layout.height - layout.border_bottom - layout.padding_bottom, 1.0, 1.0);
+    let c_right_top = world_matrix1 * Vector4::new(layout.width - layout.border_right - layout.padding_right, layout.border_top + layout.padding_top, 1.0, 1.0);
+    
+    let absolute_c_box = Quad {
+        left_top: Point2::new(c_left_top.x, c_left_top.y),
+        left_bottom: Point2::new(c_left_bottom.x, c_left_bottom.y),
+        right_bottom: Point2::new(c_right_bottom.x, c_right_bottom.y),
+        right_top: Point2::new(c_right_top.x, c_right_top.y),
+    };
+
+    let info = Info {
+        by_overflow: by_overflow,
+        visibility: visibility,
+        enable: enable,
+        opacity: opacity,
+        zindex: z_depth,
+        layout: layout.clone(),
+        border_box: absolute_b_box,
+        padding_box: absolute_p_box,
+        content_box: absolute_c_box,
+    };
+
+    js!{
+        console.log("node_info:", @{format!("{:?}", info)});
+    }
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn overflow_clip(world: u32) {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
+    let overflow_clip = overflow_clip.lend();
+    js!{
+        console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
+    }
 }
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
-// pub fn node_layout(world: u32, node: u32) {
-//     let node = node as usize;
+// pub fn bound_box(world: u32, node: u32) {
+//     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut World)};
-
-//     let layout = world.fetch_multi::<Node, Layout>().unwrap();
-//     let layout = unsafe { layout.lend().get_unchecked(node) };
-
+//     let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
 //     js!{
-//       window._____info = layout: {
-//           width: @{layout.width},
-//           height: @{layout.height},
-//           border_left: @{layout.border_left},
-//           border_top: @{layout.border_top},
-//           border_right: @{layout.border_right},
-//           border_bottom: @{layout.border_bottom},
-//           padding_left: @{layout.padding_left},
-//           padding_top: @{layout.padding_top},
-//           padding_right: @{layout.padding_right},
-//           padding_bottom: @{layout.padding_bottom},
-//           left: @{layout.left},
-//           top: @{layout.top}
-//         },
-//       };
-//       console.log(_____info);
-//       window._____info = null;
+//         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
 //     }
 // }
 
@@ -125,4 +158,25 @@ fn cal_matrix(
     }
     
     world_matrix.0.clone()
+}
+
+#[derive(Debug)]
+struct Quad{
+    left_top: Point2,
+    left_bottom: Point2,
+    right_bottom: Point2,
+    right_top: Point2,
+}
+
+#[derive(Debug)]
+struct Info{
+    by_overflow: usize,
+    visibility: bool,
+    enable: bool,
+    opacity: f32,
+    zindex: f32,
+    layout: Layout,
+    border_box: Quad,
+    padding_box: Quad,
+    content_box: Quad,
 }

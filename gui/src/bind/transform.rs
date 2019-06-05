@@ -65,14 +65,14 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
-    push_func!(world, node_id, TransformFunc::TranslateX(value/100.0));
+    push_func!(world, node_id, TransformFunc::TranslateXPercent(value/100.0));
 
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
-    push_func!(world, node_id, TransformFunc::TranslateY(value/100.0));
+    push_func!(world, node_id, TransformFunc::TranslateYPercent(value/100.0));
 }
 
 

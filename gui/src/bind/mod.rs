@@ -27,7 +27,7 @@ pub mod node;
 pub mod text;
 pub mod layout;
 pub mod transform;
-// pub mod info;
+pub mod info;
 
 #[allow(unused_attributes)]
 #[no_mangle]
