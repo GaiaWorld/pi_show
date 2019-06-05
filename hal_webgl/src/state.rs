@@ -32,7 +32,7 @@ pub struct State {
 
 struct TextureSlot {
     unit: usize,
-    count: u32, // 等于0代表没用过
+    count: usize, // 等于0代表没用过
     texture: Weak<AsRef<WebGLTextureImpl>>,
     sampler: Weak<AsRef<WebGLSamplerImpl>>,
 }
@@ -50,6 +50,7 @@ impl TextureSlot {
 
 struct TextureCache {
     gl: Arc<WebGLRenderingContext>,
+    tex_use_count: usize,
     values: Vec<TextureSlot>,
 }
 
@@ -63,59 +64,58 @@ impl TextureCache {
         TextureCache {
             gl: gl.clone(),
             values: cache,
+            tex_use_count: 1,
         }
     }
 
+    // 缓存策略：当槽不够的时候，移除最远的槽。
     pub fn use_texture(&mut self, texture: &Weak<AsRef<WebGLTextureImpl>>, sampler: &Weak<AsRef<WebGLSamplerImpl>>) -> u32 {
-        let mut is_find = false;
-        let mut _min_count = 99999;
         let mut min_index = 0;
-        let mut r = 0;
-        
+        let mut min_count = usize::max_value();
+
         for (i, v) in self.values.iter_mut().enumerate() {
-            if v.count < _min_count {
-                _min_count = v.count;
+            if v.count < min_count {
+                min_count = v.count;
                 min_index = i;
             }
             if Weak::ptr_eq(texture, &v.texture) {
-                v.count += 1;
+                v.count = self.tex_use_count;
+                self.tex_use_count += 1;
+
                 if !Weak::ptr_eq(sampler, &v.sampler) {
                     match (texture.upgrade(), sampler.upgrade()) {
                         (Some(texture), Some(sampler)) => {
                             texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
                         }
                         _ => {
-
+                            panic!("use_texture failed, texture or sampler not exist");
                         }
                     }
                     v.sampler = sampler.clone();
                 }
-                is_find = true;
-                r = v.unit;
-                break;
+                return v.unit as u32;
             }
         }
-        if !is_find {
-            // 改掉count最小的那个
-            if let Some(v)= self.values.get_mut(min_index) {
-                v.count = 1;
-                v.texture = texture.clone();
-                v.sampler = sampler.clone();
+    
+        let v = self.values.get_mut(min_index).unwrap();
+        v.count = self.tex_use_count;
+        self.tex_use_count += 1;
+        
+        let unit = v.unit;
+        v.texture = texture.clone();
+        v.sampler = sampler.clone();
 
-                match (texture.upgrade(), sampler.upgrade()) {
-                    (Some(texture), Some(sampler)) => {
-                        self.gl.active_texture(WebGLRenderingContext::TEXTURE0 + (v.unit as u32));
-                        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture.as_ref().as_ref().handle));
-                        texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
-                        r = v.unit;
-                    }
-                    _ => {
-
-                    }
-                }
+        match (texture.upgrade(), sampler.upgrade()) {
+            (Some(texture), Some(sampler)) => {
+                self.gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
+                self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture.as_ref().as_ref().handle));
+                texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
+                return unit as u32;
+            }
+            _ => {
+                panic!("use_texture failed, texture or sampler not exist");
             }
         }
-        r as u32
     }
 }
 
@@ -148,6 +148,7 @@ impl State {
             target: rt.clone(),
             viewport_rect: (0, 0, 0, 0),
             enable_attrib_indices: vec![false; max_attributes as usize],
+            
             tex_caches: tex_caches,
         };  
 

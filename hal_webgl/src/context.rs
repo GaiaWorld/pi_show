@@ -52,9 +52,10 @@ impl Context for WebGLContextImpl {
         self.program_mgr.compile_shader(shader_type, name, defines) 
     }
 
-    fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
+    fn create_uniforms(&mut self, has_texture: bool) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
             dirty_count: 0,
+            has_texture: has_texture,
             values: HashMap::new(),
         }
     }

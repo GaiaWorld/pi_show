@@ -128,7 +128,7 @@ fn init_render_data(mut webgl: WebGLContextImpl) -> Box<RenderData> {
 
     // 初始化Uniforms
 
-    let mut color = webgl.create_uniforms();
+    let mut color = webgl.create_uniforms(false);
     color.set_float_4(&Atom::from("uColor"), 1.0, 1.0, 0.0, 1.0);
     let color = Arc::new(color);
 
@@ -196,7 +196,7 @@ fn init_uniforms(context: &mut WebGLContextImpl, color: &Arc<Uniforms<WebGLConte
     
     let mut map = HashMap::new();
 
-    let mut each = context.create_uniforms();
+    let mut each = context.create_uniforms(false);
     each.set_float_3(&Atom::from("uPosition"), 0.0, 0.0, 0.0);
     if alpha != 1.0 {
         each.set_float_1(&Atom::from("uAlpha"), alpha);

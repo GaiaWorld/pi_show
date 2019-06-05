@@ -51,9 +51,11 @@ impl Context for NullContextImpl {
         Ok(0)
     }
 
-    fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
+    fn create_uniforms(&mut self, has_texture: bool) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
             values: HashMap::new(),
+            dirty_count: 0,
+            has_texture: has_texture,
         }
     }
 

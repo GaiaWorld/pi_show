@@ -438,8 +438,11 @@ impl Program {
                     false
                 }
                 Some((last_dirty_count, old)) => {
-                    if *last_dirty_count != curr.as_ref().as_ref().dirty_count || !Arc::ptr_eq(old, curr) {
-                        self.set_uniforms_impl(state, &curr.as_ref().as_ref().values);
+                    let c = curr.as_ref().as_ref();
+                    // 含有纹理的必须每帧更新，调用use_texture才行。
+                    // 高层设置脏的，必须更新。
+                    if c.has_texture || *last_dirty_count != c.dirty_count || !Arc::ptr_eq(old, curr) {
+                        self.set_uniforms_impl(state, &c.values);
                         false
                     } else {
                         true
