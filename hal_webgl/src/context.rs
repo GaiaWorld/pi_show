@@ -1,11 +1,11 @@
 use std::sync::{Arc};
-use std::collections::{HashMap};
 
 use atom::{Atom};
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use stdweb::unstable::TryInto;
 use extension::*;
+use fnv::FnvHashMap;
 
 use hal_core::*;
 
@@ -55,7 +55,7 @@ impl Context for WebGLContextImpl {
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
             dirty_count: 0,
-            values: HashMap::new(),
+            values: FnvHashMap::default(),
         }
     }
 
@@ -125,7 +125,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
+    fn draw(&mut self, geometry: &Arc<AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
             program.set_uniforms(&mut self.state, values);
             self.state.draw(geometry);

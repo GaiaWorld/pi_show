@@ -13,6 +13,7 @@ extern crate atom;
 #[macro_use]
 extern crate debug_info;
 extern crate hal_core;
+extern crate fnv;
 
 mod context;
 mod geometry;

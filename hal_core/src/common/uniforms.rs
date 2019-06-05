@@ -1,7 +1,8 @@
 use std::sync::{Arc, Weak};
 use std::convert::AsRef;
-use std::collections::{HashMap};
 use std::fmt;
+
+use fnv::FnvHashMap;
 
 use atom::{Atom};
 use traits::{Context};
@@ -41,7 +42,7 @@ use ShareRef;
  */
 pub struct Uniforms<C: Context> {
     pub dirty_count: u32,
-    pub values: HashMap<Atom, UniformValue<C>>,
+    pub values: FnvHashMap<Atom, UniformValue<C>>,
 }
 
 impl<C: Context> Clone for Uniforms<C> {

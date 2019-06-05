@@ -3,6 +3,7 @@
  */
 
 extern crate atom;
+extern crate fnv;
 
 mod traits;
 mod common;

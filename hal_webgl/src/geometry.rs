@@ -1,8 +1,8 @@
-use std::collections::{HashMap};
 use std::sync::{Arc, Weak};
 use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::{UnsafeTypedArray};
+use fnv::FnvHashMap;
 
 #[derive(Debug)]
 pub struct Attribute {
@@ -25,7 +25,7 @@ pub struct WebGLGeometryImpl {
     gl: Weak<WebGLRenderingContext>,
     pub vertex_count: u32,
     pub indices: Option<Indices>,
-    pub attributes: HashMap<AttributeName, Attribute>,
+    pub attributes: FnvHashMap<AttributeName, Attribute>,
 }
 
 impl WebGLGeometryImpl {
@@ -35,7 +35,7 @@ impl WebGLGeometryImpl {
             gl: Arc::downgrade(gl),
             vertex_count: 0,
             indices: None,
-            attributes: HashMap::new(),            
+            attributes: FnvHashMap::default(),            
         }
     }
 }
