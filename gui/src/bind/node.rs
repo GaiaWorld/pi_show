@@ -6,7 +6,7 @@ use std::{
 };
 
 use stdweb::unstable::TryInto;
-use stdweb::web::html_element::{ImageElement, CanvasElement};
+use stdweb::Object;
 
 use ecs::{World, Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::idtree::{IdTree, InsertType};
@@ -142,17 +142,21 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
         let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
         let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-        let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
-          Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-          Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
-            Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+        let texture = match TryInto::<Object>::try_into(js!{return __jsObj;}) {
+            Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
             Err(s) => panic!("set_src error, {:?}", s),
-          },
         };
+        // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
+        //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
+        //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+        //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+        //     Err(s) => panic!("set_src error, {:?}", s),
+        //   },
+        // };
 
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture.unwrap()) );
+        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
         (width, height, res)
       },
   };
@@ -197,17 +201,21 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
         let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
         let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-        let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
-          Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-          Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
-            Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            Err(s) => panic!("set_src error, {:?}", s),
-          },
+        let texture = match TryInto::<Object>::try_into(js!{return __jsObj}) {
+            Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+            Err(_) => panic!("set_src error"),
         };
+        // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
+        //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
+        //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+        //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+        //     Err(s) => panic!("set_src error, {:?}", s),
+        //   },
+        // };
 
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture.unwrap()) );
+        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
         res
       },
   };

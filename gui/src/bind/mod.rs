@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::TypedArray;
-use stdweb::web::html_element::{ImageElement, CanvasElement};
+use stdweb::Object;
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use atom::Atom;
@@ -27,7 +27,7 @@ pub mod node;
 pub mod text;
 pub mod layout;
 pub mod transform;
-pub mod info;
+// pub mod info;
 
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -137,13 +137,17 @@ pub fn add_sdf_font_res(world: u32) {
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
 
-    let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj1}) {
-        Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)).unwrap(),
-        Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
-        Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)).unwrap(),
-        Err(s) => panic!("set_src error, {:?}", s),
-        },
+    let texture = match TryInto::<Object>::try_into(js!{return __jsObj1}) {
+        Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+        Err(_) => panic!("set_src error"),
     };
+    // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj1}) {
+    //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)).unwrap(),
+    //     Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
+    //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)).unwrap(),
+    //     Err(s) => panic!("set_src error, {:?}", s),
+    //     },
+    // };
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.textures.create(texture_res);
     // new_width_data

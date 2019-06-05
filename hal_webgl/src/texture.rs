@@ -117,7 +117,7 @@ impl WebGLTextureImpl {
                 gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
                 
                 js! {
-                    @{gl.as_ref()}.texImage2D(WebGLRenderingContext::TEXTURE_2D, @{level}, @{p}, @{p}, @{d}, @{data});
+                    @{gl.as_ref()}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{level}, @{p}, @{p}, @{d}, @{data});
                 }
                 
                 if is_gen_mipmap {
@@ -149,7 +149,7 @@ impl WebGLTextureImpl {
         let d = get_data_format(&self.data_format);
 
         js! {
-            @{self.gl.as_ref()}.texSubImage2D(WebGLRenderingContext::TEXTURE_2D, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data});
+            @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data});
         }
     }
 
