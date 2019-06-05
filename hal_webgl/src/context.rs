@@ -3,6 +3,7 @@ use std::sync::{Arc};
 use atom::{Atom};
 use webgl_rendering_context::{WebGLRenderingContext};
 
+use stdweb::{Object};
 use stdweb::unstable::TryInto;
 use extension::*;
 use fnv::FnvHashMap;
@@ -12,7 +13,7 @@ use hal_core::*;
 use state::{State};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl, WebGLRenderBufferImpl};
-use texture::{WebGLTextureImpl, WebGLTextureData};
+use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
 use debug_info::*;
@@ -154,8 +155,8 @@ impl WebGLContextImpl {
         }
     }
 
-    pub fn create_texture_2d_webgl(&self, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &WebGLTextureData) -> Result<WebGLTextureImpl, String> {
-        WebGLTextureImpl::new_2d_webgl(&self.gl, level, pformat, dformat, is_gen_mipmap, data)
+    pub fn create_texture_2d_webgl(&self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
+        WebGLTextureImpl::new_2d_webgl(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {
