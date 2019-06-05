@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::default::Default;
 use std::sync::Arc;
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 use hal_core::*;
 use ecs::{SingleCaseImpl, Share, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
@@ -36,7 +36,6 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         let (render_objs, view_port) = read;
-        debug_println!("RenderSys run");
         if self.dirty == false {
             return;
         }
@@ -107,7 +106,7 @@ fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
         return;
     }
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
-    let mut ubos: HashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = HashMap::new();
+    let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
     for (k, v) in obj.ubos.iter() {
         ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
     }

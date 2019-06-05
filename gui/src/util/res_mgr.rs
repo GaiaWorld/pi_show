@@ -2,7 +2,7 @@
 use std::sync::{Arc, Weak};
 use std::hash::Hash;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 //资源接口
 pub trait Res {
@@ -16,11 +16,11 @@ pub trait Res {
 }
 
 //资源表
-pub struct ResMap<T: Res> (HashMap<<T as Res>::Key, Weak<T>>);
+pub struct ResMap<T: Res> (FnvHashMap<<T as Res>::Key, Weak<T>>);
 
 impl<T:Res> ResMap<T> {
     pub fn new() -> ResMap<T>{
-        ResMap(HashMap::with_capacity_and_hasher(0, Default::default()))
+        ResMap(FnvHashMap::with_capacity_and_hasher(0, Default::default()))
     }
 	// 获得指定键的资源
 	pub fn get(&self, name: &<T as Res>::Key) -> Option<Arc<T>> {

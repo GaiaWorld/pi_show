@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -131,7 +131,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
         let geometry = create_geometry(&mut engine.gl);
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();

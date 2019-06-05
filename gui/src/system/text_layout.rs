@@ -192,19 +192,19 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
 
     // 节点布局更新
     write.1.insert(c, node.get_layout());
-  }else {
+  }else if c > 0 {
     update(node, c, b - 1, write);
   }
 }
 
 // 文字布局更新
 fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write) {
-  debug_println!("update text layout------------------------id: id{}", id);
+  debug_println!("update text layout------------------------id: {}b{}", id, char_index);
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
   let node_id = node.get_context() as usize;
-  if node_id != id {
+  if node_id == 0 {
     let layout = node.get_layout();
     pos.x += layout.left;
     pos.y += layout.top;
@@ -236,7 +236,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   while yg_index < count && parent_yoga.get_child(yg_index as u32) != yoga {
       yg_index+=1;
   }
-  // yg_index += 1; // yg_index此时为span节点的位置， 应该+1， 保持span的yoga节点排在整个文字块的第一个位置
+  yg_index += 1; // yg_index此时为span节点的位置， 应该+1， 保持span的yoga节点排在整个文字块的第一个位置
 
   let font = match read.4.get(id) {
       Some(f) => f.clone(),
@@ -290,7 +290,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::WordStart(c) => {
-        word = update_char(id, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+        word = update_char(0, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
        update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
       },
       SplitResult::WordNext(c) =>{

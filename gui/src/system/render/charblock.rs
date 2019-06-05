@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -42,7 +42,7 @@ pub struct CharBlockSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
+    pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
     default_sampler: Option<Arc<SamplerRes<C>>>,
 }
 
@@ -60,7 +60,7 @@ impl<C: Context + Share> CharBlockSys<C> {
             bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(ds),
-            pipelines: HashMap::default(),
+            pipelines: FnvHashMap::default(),
             default_sampler: None,
         }
     }   
@@ -159,7 +159,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let mut defines = Vec::new();
 
         let geometry = create_geometry(&mut engine.gl);
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
         match font_sheet.get_first_font(&font.family) {
@@ -510,6 +510,7 @@ fn get_geo_flow<C: Context + Share>(
     let mut i = 0;
     // let line_height = sdf_font.line_height;
 
+    println!("charblock get_geo_flow: {:?}", char_block);
     if char_block.chars.len() > 0 {
         match color {
             Color::RGBA(_) => {

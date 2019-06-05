@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use hal_core::*;
 use atom::Atom;
@@ -40,7 +40,7 @@ pub struct ClipSys<C: Context + Share>{
     ds: Arc<DepthState>,
     pipeline: Arc<PipelineInfo>,
     geometry: Arc<<C as Context>::ContextGeometry>,
-    ubos: HashMap<Atom, Arc<Uniforms<C>>>,
+    ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
     sampler: Arc<SamplerRes<C>>,
 }
 
@@ -85,7 +85,7 @@ impl<C: Context + Share> ClipSys<C>{
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
 
-        let ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         Self {
             mark: PhantomData,
@@ -212,7 +212,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
         }
-        let mut ubos: HashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = HashMap::new();
+        let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
         for (k, v) in self.ubos.iter() {
             ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
         }

@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::mem::transmute;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share};
 use ecs::idtree::{ IdTree};
 use map::{ vecmap::VecMap, Map } ;
@@ -51,7 +51,7 @@ pub struct SdfSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<Pipeline>>,
+    pipelines: FnvHashMap<u64, Arc<Pipeline>>,
 }
 
 impl<C: Context + Share> SdfSys<C> {
@@ -64,7 +64,7 @@ impl<C: Context + Share> SdfSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
+            pipelines: FnvHashMap::default(),
         }
     }
 }
@@ -95,7 +95,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxColor, CreateEvent> 
         let box_color = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.1;
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         // if layout.border > 0.0 {
         //     // defines.stroke = true;
@@ -140,7 +140,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         let box_shadow = unsafe { r.3.get_unchecked(event.id) };
         let layout = unsafe { r.9.get_unchecked(event.id) };
         let z_depth = unsafe { r.4.get_unchecked(event.id) }.0 - 0.2;
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
         
         let shadow_color = &box_shadow.color;
         let mut color_ubo = w.1.gl.create_uniforms();
@@ -397,7 +397,7 @@ impl<C: Context + Share> SdfSys<C> {
         blur: f32,
         z_depth: f32,
         is_opacity: bool,
-        mut ubos: HashMap<Atom, Arc<Uniforms<C>>>,
+        mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
         defines: &mut Defines,
         mut geometry: Arc<<C as Context>::ContextGeometry>,
         view_ubo: & SingleCaseImpl<ViewUbo<C>>,
@@ -540,7 +540,7 @@ impl<C: Context + Share> SdfSys<C> {
         id: usize,
         bg_color: &Color,
         defines: &mut Defines,
-        ubos: &mut HashMap<Atom, Arc<Uniforms<C>>>,
+        ubos: &mut FnvHashMap<Atom, Arc<Uniforms<C>>>,
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
         z_depths: &MultiCaseImpl<Node, ZDepth>,
         layouts: &MultiCaseImpl<Node, Layout>,

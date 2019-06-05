@@ -36,92 +36,56 @@
 
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, 1);
-        Module._set_width(gui, node2, 500.0);
+        Module._set_width(gui, node2, 1000.0);
         Module._set_height(gui, node2, 700.0);
         Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
 
         var node3 = Module._create_node(gui);
         Module._append_child(gui, node3, node2);
-        Module._set_width(gui, node3, 100.0);
+        Module._set_width(gui, node3, 200.0);
         Module._set_height(gui, node3, 100.0);
         Module._set_background_rgba_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
 
+        var img = create_absolute_img(node3, 200, 100);
+
         var node4 = Module._create_node(gui);
         Module._append_child(gui, node4, node2);
-        Module._set_width(gui, node4, 100.0);
+        // Module._set_position(gui, node4, 0, 100.0);
+        Module._set_width(gui, node4, 200.0);
         Module._set_height(gui, node4, 100.0);
         Module._set_background_rgba_color(gui, node4, 0.0, 1.0, 0.0, 1.0);
-
-        var node5 = Module._create_node(gui);
-        Module._append_child(gui, node5, node4);
-        Module._set_width(gui, node5, 50.0);
-        Module._set_height(gui, node5, 100.0);
-        Module._set_background_rgba_color(gui, node5, 0.0, 1.0, 0.0, 1.0);
-
-        var node6 = Module._create_node(gui);
-        Module._append_child(gui, node6, node4);
-        Module._set_width(gui, node6, 50.0);
-        Module._set_height(gui, node6, 100.0);
-        Module._set_background_rgba_color(gui, node6, 0.0, 0.0, 1.0, 1.0);
-        Module._render(gui);
+        Module._transform_scale(gui, node4, -1, 1);
 
         setTimeout(() => {
-            Module._transform_scale(gui, node4, -1, 1);
-            Module._render(gui);
-        }, 2000);
-        // Module._transform_origin(gui, node2, 1, 0, 1, 100); //x_ty, x, y_ty, y
+            var img = create_absolute_img(node4, 200, 100);
+        }, 3000);
+        
 
-        // var node3 = Module._create_node(gui);
-        // Module._append_child(gui, node2, node3);
-        // Module._set_width(gui, node3, 100.0);
-        // Module._set_height(gui, node3, 50.0);
-        // Module._set_backgroud_rgba_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
+        function create_absolute_img(parent, w, h) {
+            var node1 = Module._create_image_node(gui);
+            Module._set_position_type(gui, node1, 1);
+            Module._set_width(gui, node1, w);
+            Module._set_height(gui, node1, h);
+            Module._append_child(gui, node1, parent);
 
-        // var node4 = Module._create_node(gui);
-        // Module._append_child(gui, node2, node4);
-        // Module._set_width(gui, node4, 100.0);
-        // Module._set_height(gui, node4, 50.0);
-        // Module._set_backgroud_rgba_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
-        // Module._transform_origin(gui, node2, 1, 50, 1, 50); //x_ty, x, y_ty, y
+            var image3 = new Image();
+            image3.onload = () => {
+                window.__jsObj = image3;
+                window.__jsObj1 = "../test_image/01.png";
+                Module._set_src(gui, node1, 1, 0); // 
+
+                Module._render(gui);
+                // console.warn(Module._query(gui, 50, 50));
+                // Module._render(gui);
+                // console.warn(Module._query(gui, 50, 50));
+                
+            };
+            image3.src = "../test_image/01.png";
+            return node1;
+        }
+
         Module._render(gui);
 
-        setTimeout(() => {
-            // Module._transform_rotate(gui, node2, 45);
-            // Module._render(gui);
-
-            // Module._transform_scale(gui, node2, 0.5, 0.5);
-            // Module._render(gui);
-
-            // setTimeout(() => {
-            //     Module._transform_scale(gui, node2, 0.5, 0.5);
-            //     Module._render(gui);
-
-            //     setTimeout(() => {
-            //         Module._transform_translate_x(gui, node2, 100);
-            //         Module._render(gui);
-
-            //         setTimeout(() => {
-            //             Module._transform_translate_x_percent(gui, node2, 100);
-            //             Module._render(gui);
-
-            //             // setTimeout(() => {
-            //             //     Module._transform_translate_y_percent(gui, node4, 100);
-            //             //     Module._render(gui);
-
-            //             //     setTimeout(() => {
-            //             //         Module._transform_scale(gui, node4, 2, 2);
-            //             //         Module._render(gui);
-            //             //     }, 2000);
-
-            //             // }, 2000);
-
-            //         }, 2000);
-
-            //     }, 2000);
-
-            // }, 2000);
-
-        }, 2000);
         
     </script>
 </body>

@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 use atom::Atom;
 use hal_core::{Context, Pipeline, RasterState, BlendState, StencilState, DepthState, ShaderType};
@@ -22,7 +22,7 @@ pub struct PipelineInfo {
 pub struct Engine<C: Context>{
     pub gl: C,
     pub res_mgr: ResMgr<C>,
-    pub pipelines: HashMap<u64, Arc<PipelineInfo>>,
+    pub pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
 }
 
 impl<C: Context> Engine<C> {
@@ -30,7 +30,7 @@ impl<C: Context> Engine<C> {
         Engine{
             gl: gl,
             res_mgr: ResMgr::new(),
-            pipelines: HashMap::default(),
+            pipelines: FnvHashMap::default(),
         }
     }
 

@@ -140,7 +140,7 @@ pub fn add_sdf_font_res(world: u32) {
         Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)).unwrap(),
         Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
         Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)).unwrap(),
-        Err(_s) => panic!("set_src error"),
+        Err(s) => panic!("set_src error, {:?}", s),
         },
     };
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);

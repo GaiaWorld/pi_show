@@ -146,7 +146,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
           Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
           Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
             Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            Err(_s) => panic!("set_src error"),
+            Err(s) => panic!("set_src error, {:?}", s),
           },
         };
 
@@ -201,7 +201,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
           Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
           Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
             Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            Err(_s) => panic!("set_src error"),
+            Err(s) => panic!("set_src error, {:?}", s),
           },
         };
 

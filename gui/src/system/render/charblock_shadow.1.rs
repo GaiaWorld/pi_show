@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -40,7 +40,7 @@ pub struct CharBlockShadowSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: HashMap<u64, Arc<PipelineInfo>>,
+    pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
     default_sampler: Option<Arc<SamplerRes<C>>>,
 }
 
@@ -54,7 +54,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             bs: Arc::new(BlendState::new()),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(DepthState::new()),
-            pipelines: HashMap::default(),
+            pipelines: FnvHashMap::default(),
             default_sampler: None,
         }
     }
@@ -150,7 +150,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let mut defines = Vec::new();
 
         let geometry = create_geometry(&mut engine.gl);
-        let mut ubos: HashMap<Atom, Arc<Uniforms<C>>> = HashMap::default();
+        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
         

@@ -3,7 +3,7 @@ pub mod oct;
 use std::sync::Arc;
 use std::any::{TypeId, Any};
 
-use std::collections::HashMap;
+use fnv::FnvHashMap;
 
 use cgmath::Ortho;
 use slab::Slab;
@@ -74,7 +74,7 @@ pub struct RenderObj<C: Context>{
     pub depth: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: HashMap<Atom, Arc<Uniforms<C>>>,
+    pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
     pub geometry: Arc<<C as Context>::ContextGeometry>,
     pub pipeline: Arc<PipelineInfo>,
     pub context: usize,
@@ -188,11 +188,11 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
 
-pub struct DefaultTable(HashMap<TypeId, Box<dyn Any>>);
+pub struct DefaultTable(FnvHashMap<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
     pub fn new() -> Self{
-        Self(HashMap::new())
+        Self(FnvHashMap::default())
     }
 
     pub fn set<T: 'static + Any + Sync + Send>(&mut self, value: T){
