@@ -284,7 +284,7 @@ struct Item {
 fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radius, layout);
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
-    if radius.x == 0.0 {
+    if radius.x <= layout.border_left  {
         use_image_pos_uv(pos, uv, z_depth)
     }else{
         if pos.min.x < radius.x && pos.min.y < radius.x {

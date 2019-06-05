@@ -302,10 +302,10 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let mut positions;
     let mut indices;
     debug_println!("radius:{:?}", radius);
-    if radius.x == 0.0 || radius.x - start_x <= 0.0 {
+    if radius.x <= start_x {
         positions = vec![
             start_x, start_y, z_depth, // left_top
-            start_y, end_y, z_depth, // left_bootom
+            start_x, end_y, z_depth, // left_bootom
             end_x, end_y, z_depth, // right_bootom
             end_x, start_y, z_depth, // right_top
         ];
