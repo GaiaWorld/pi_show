@@ -1,36 +1,16 @@
-use std::{
-  sync::Arc,
-  usize::MAX as UMAX,
-  f32::INFINITY as FMAX,
-  mem::transmute,
-};
-
-use stdweb::unstable::TryInto;
-use stdweb::web::html_element::{ImageElement, CanvasElement};
-
-use ecs::{World, Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
-use ecs::idtree::{IdTree, InsertType};
-use hal_core::*;
-use hal_webgl::*;
-use atom::Atom;
-use octree::intersects;
-use cg2d::{include_quad2, InnOuter};
-
+use ecs::{World, Lend, MultiCaseImpl};
 use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
-use single::oct::Oct;
 use single::{ OverflowClip};
 use entity::Node;
 
-
+// 打印节点信息
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn node_info(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.borrow();
 
     let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
     let z_depth = unsafe { z_depth.lend().get_unchecked(node) }.0;
@@ -46,9 +26,6 @@ pub fn node_info(world: u32, node: u32) {
 
     let opacity = world.fetch_multi::<Node, COpacity>().unwrap();
     let opacity = unsafe { opacity.lend().get_unchecked(node) }.0;
-
-    let hsv = world.fetch_multi::<Node, HSV>().unwrap();
-    let hsv = unsafe { hsv.lend().get_unchecked(node) };
 
     let layout = world.fetch_multi::<Node, Layout>().unwrap();
     let layout = layout.lend();

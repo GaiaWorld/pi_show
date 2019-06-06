@@ -28,6 +28,13 @@ pub trait SdfFont {
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 }
 
+// 字体生成器
+pub trait MSdfGenerator{
+    fn gen(&self, font_name: &str, c: char) -> Glyph;
+
+    fn gen_mult(&self, font_name: &str, chars: &[char]) -> Vec<Glyph>;
+}
+
 pub struct GlyphInfo{
     pub width: f32,
     pub height: f32,
@@ -40,24 +47,34 @@ pub struct GlyphInfo{
     pub adv: f32,
 }
 
-pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
+pub struct DefaultSdfFont<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> {
     pub name: Atom,
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
-    // base: f32,
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
     texture: Arc<TextureRes<C>>,
+    generator: Option<G>,
 }
 
-impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> { 
+impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> SdfFont for DefaultSdfFont<C, G> { 
     type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
         match self.glyph_table.get(&c) {
             Some(glyph) => font_size/self.line_height*glyph.advance,
-            None => 0.0,
+            None => {
+                match &self.generator {
+                    &Some(ref g) => {
+                        let glyph = g.gen(self.name.as_ref(), c);
+                        let advance = glyph.advance;
+                        unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
+                        font_size/self.line_height*advance
+                    },
+                    &None => 0.0,
+                }
+            },
         }
     }
 
@@ -110,9 +127,9 @@ impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
+impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> DefaultSdfFont<C, G> {
     pub fn new(texture: Arc<TextureRes<C>>) -> Self{
-        StaticSdfFont {
+        DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
             atlas_width: 0,
@@ -120,6 +137,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             padding: 0.0,
             glyph_table: FnvHashMap::default(),
             texture: texture,
+            generator: None,
         }
     }
 
@@ -131,8 +149,9 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
         padding: f32,
         glyph_table: FnvHashMap<char, Glyph>,
         texture: Arc<TextureRes<C>>,
+        generator: Option<G>
     ) -> Self{
-        StaticSdfFont {
+        DefaultSdfFont {
             name,
             line_height,
             atlas_width,
@@ -140,11 +159,12 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             padding,
             glyph_table,
             texture,
+            generator,
         }
     }
 }
 
-impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
+impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> DefaultSdfFont<C, G> {
     pub fn parse(&mut self, value: &[u8]) -> Result<(), String>{
         let mut offset = 12;
         match String::from_utf8(Vec::from(&value[0..11])) {

@@ -147,7 +147,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
         &'a SingleCaseImpl<ViewMatrix>,
-        &'a SingleCaseImpl<ViewPort>,
+        &'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
