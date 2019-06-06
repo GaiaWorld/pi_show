@@ -164,8 +164,9 @@ impl State {
     pub fn set_render_target(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
         if !Arc::ptr_eq(&self.target, rt) {
             let fbo = &rt.as_ref().as_ref().frame_buffer;
-            self.gl.bind_framebuffer(WebGLRenderingContext::FRAMEBUFFER, fbo.as_ref());
-
+            js! {
+                @{self.gl.as_ref()}.bindFramebuffer(WebGLRenderingContext::FRAMEBUFFER, @{fbo.as_ref()});
+            }
             debug_println!("State::set_render_target, fbo = {:?}", fbo.as_ref());
 
             self.target = rt.clone();
