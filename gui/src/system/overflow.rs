@@ -231,7 +231,7 @@ fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2;4]{
     let rt = Point2{x: right_top.x, y: right_top.y};
     let lb = Point2{x: left_bottom.x, y: left_bottom.y};
     let rb = Point2{x: right_bottom.x, y: right_bottom.y};
-    [lt, rt, lb, rb]
+    [lt, lb, rb, rt]
 }
 
 impl_system!{

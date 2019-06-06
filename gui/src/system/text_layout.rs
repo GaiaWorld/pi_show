@@ -80,8 +80,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
 
   fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
   }
-  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
-    debug_println!("LayoutImpl run, dirty len: {}", self.dirty.len());
+  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
     for id in self.dirty.iter() {
       if calc(*id, &read, &mut write) {
         self.temp.push(*id)

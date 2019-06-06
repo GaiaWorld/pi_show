@@ -198,16 +198,16 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
                 positions[i * 12 + 1] = p[0].y;
                 positions[i * 12 + 2] = 0.0;
 
-                positions[i * 12 + 3] = p[2].x;
-                positions[i * 12 + 4] = p[2].y;
+                positions[i * 12 + 3] = p[1].x;
+                positions[i * 12 + 4] = p[1].y;
                 positions[i * 12 + 5] = 0.0;
 
-                positions[i * 12 + 6] = p[3].x;
-                positions[i * 12 + 7] = p[3].y;
+                positions[i * 12 + 6] = p[2].x;
+                positions[i * 12 + 7] = p[2].y;
                 positions[i * 12 + 8] = 0.0;
 
-                positions[i * 12 + 9] = p[1].x;
-                positions[i * 12 + 10] = p[1].y;
+                positions[i * 12 + 9] = p[3].x;
+                positions[i * 12 + 10] = p[3].y;
                 positions[i * 12 + 11] = 0.0;
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();

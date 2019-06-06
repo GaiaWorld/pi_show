@@ -256,11 +256,11 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
 pub struct FontGenerator;
 
 impl MSdfGenerator for FontGenerator{
-    fn gen(&self, _font_name: &str, _c: char) -> Glyph {
+    fn gen(&self, _c: char) -> Glyph {
         unimplemented!{}
     }
 
-    fn gen_mult(&self, _font_name: &str, _chars: &[char]) -> Vec<Glyph> {
+    fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {
         unimplemented!{}
     }
-} 
+}

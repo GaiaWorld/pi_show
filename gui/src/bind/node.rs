@@ -435,7 +435,8 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
       let by_overflow = unsafe { arg.by_overflows.get_unchecked(*bind) }.0;
       // debug_println!("by_overflow---------------------------{}",by_overflow);
       // 检查是否有裁剪，及是否在裁剪范围内
-      if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, aabb.min.x, aabb.min.y) {
+      if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, arg.aabb.min.x, arg.aabb.min.y) {
+        println!("in_overflow------------------overflow_clip");
         arg.result = *bind;
         arg.max_z = z_depth;
       }
@@ -457,13 +458,11 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
 /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
 fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
   let xy = Point2::new(x, y);
-  // debug_println!("overflow_clip len---------------------------{}",overflow_clip.id_vec.len());
   for i in 0..overflow_clip.id_vec.len() {
     // debug_println!("i + 1---------------------------{}",i + 1);
     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
     if by_overflow & (i + 1) != 0 && overflow_clip.id_vec[i] > 0 {
       let p = &overflow_clip.clip[i];
-      // debug_println!("p---------------------------{:?}",p);
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
         _ => return false
