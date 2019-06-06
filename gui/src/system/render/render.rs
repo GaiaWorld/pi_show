@@ -64,7 +64,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
             &(render_begin.0.clone() as Arc<dyn AsRef<RenderBeginDesc>>));
         
         for obj in opacity_list.into_iter() {
-            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.0.depth,  obj.0.context);
+            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.0.depth + obj.0.depth_diff,  obj.0.context);
             render(gl, obj.0); 
         }
 

@@ -86,6 +86,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
     let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
+    // println!("xxxxxxxxxxxxxxxxx, append_child, child: {}, parent: {}", child, parent);
     debug_println!("append_child"); 
 }
 
@@ -97,6 +98,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
     let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
+    // println!("xxxxxxxxxxxxxxxxx, insert_before, child: {}, brother: {}", child, brother);
     debug_println!("insert_before"); 
 }
 
@@ -108,6 +110,7 @@ pub fn remove_child(world: u32, node: u32){
     let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.remove(node as usize, Some(&notify));
+    // println!("xxxxxxxxxxxxxxxxx, remove: {}", node);
     debug_println!("remove_child");  
 }
 

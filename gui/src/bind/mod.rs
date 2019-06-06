@@ -29,8 +29,10 @@ pub mod info;
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
-    let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
+    // let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
+    // let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
+
+    let gl = WebGLContextImpl::new(Arc::new(gl), None);
     let engine = Engine::new(gl);
     Box::into_raw(Box::new(engine)) as u32
 }
@@ -75,6 +77,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn render(world: u32){
+    // println!("xxxxxxxxxxxxxxxxx, render");
     // debug_println!("gui render");
     let world = unsafe {&mut *(world as usize as *mut World)};
     world.run(&RENDER_DISPATCH);

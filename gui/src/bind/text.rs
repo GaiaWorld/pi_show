@@ -253,11 +253,24 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
 }
 
-pub struct FontGenerator;
+pub struct FontGenerator{
+    texture_res: Arc<TextureRes<WebGLContextImpl>>,
+    font_name: Atom,
+    x: u16,
+    y: u16,
+    next_y_diff: u8,
+}
 
 impl MSdfGenerator for FontGenerator{
-    fn gen(&self, _c: char) -> Glyph {
-        unimplemented!{}
+    fn gen(&self, c: char) -> Glyph {
+        let c: u32 = unsafe{transmute(c)};
+        let buffer: TypedArray<u8>  = js!{return gen_font(@{self.font_name.as_ref()}, @{c})}.try_into().unwrap();
+        let buffer = buffer.to_vec();
+        let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
+
+        // if 
+
+        glyph
     }
 
     fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {

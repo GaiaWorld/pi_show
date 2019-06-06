@@ -238,6 +238,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             let ubos = &mut render_obj.ubos;
             Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, render_obj.depth + render_obj.depth_diff);
             debug_println!("id: {}, z_depth: {:?}", render_obj.context, render_obj.depth + render_obj.depth_diff);
+            // println!("xxxxxxxxxxx, z_depth: {:?}, id: {}", render_obj.depth + render_obj.depth_diff, render_obj.context);
             render_objs.get_notify().modify_event(*id, "ubos", 0);
         }
     }
