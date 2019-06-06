@@ -1,8 +1,11 @@
 use std::sync::{Arc, Weak};
 use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
-use stdweb::{UnsafeTypedArray};
+use stdweb::{UnsafeTypedArray, Object};
+use stdweb::unstable::TryInto;
 use fnv::FnvHashMap;
+
+use convert::{get_attribute_location};
 
 #[derive(Debug)]
 pub struct Attribute {
@@ -26,15 +29,36 @@ pub struct WebGLGeometryImpl {
     pub vertex_count: u32,
     pub indices: Option<Indices>,
     pub attributes: FnvHashMap<AttributeName, Attribute>,
+    pub vao: Option<Object>,
 }
 
 impl WebGLGeometryImpl {
     
     pub fn new(gl: &Arc<WebGLRenderingContext>) -> Self {
+
+        let is_vao: bool = match TryInto::<bool>::try_into(js! {
+            @{gl.as_ref()}.get_extension("OES_vertex_array_object") != null;
+        }) {
+            Ok(r) => r,
+            Err(_) => false,
+        };
+
+        let vao = if is_vao {
+            match TryInto::<Object>::try_into(js! {
+                return @{gl.as_ref()}.get_extension("OES_vertex_array_object").createVertexArrayOES()
+            }) {
+                Ok(object) => Some(object),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+        
         WebGLGeometryImpl {
             gl: Arc::downgrade(gl),
             vertex_count: 0,
             indices: None,
+            vao: vao,
             attributes: FnvHashMap::default(),            
         }
     }
@@ -85,6 +109,22 @@ impl Geometry for WebGLGeometryImpl {
                     return Err("WebGLGeometryImpl set_attribute failed".to_string());
                 }
                 Some(buffer) => {
+
+                    if let Some(vao) = &self.vao {
+                        js! {
+                            @{gl}.getExtension("OES_vertex_array_object").bindVertexArrayOES(@{&vao});
+                        }
+
+                        let index = get_attribute_location(name) as usize;
+                        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&buffer));
+                        gl.enable_vertex_attrib_array(index as u32);
+                        gl.vertex_attrib_pointer(index as u32, item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);    
+
+                        js! {
+                            @{gl}.getExtension("OES_vertex_array_object").bindVertexArrayOES(null);
+                        }
+                    }
+
                     self.attributes.insert(name.clone(), Attribute {
                         size: 0,
                         item_count: 0,
@@ -106,7 +146,6 @@ impl Geometry for WebGLGeometryImpl {
                 if !is_first && (attribute.is_updatable && is_updatable && data.len() as u32 == (self.vertex_count * item_count)) {
                     // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
-                        console.log("bufferSubData = ", @{&buffer});
                         @{gl}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, 0, @{buffer});
                     }
                 } else { 
@@ -116,7 +155,6 @@ impl Geometry for WebGLGeometryImpl {
                     attribute.size = 4 * self.vertex_count * item_count;
                     // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
-                        console.log("bufferData = ", @{&buffer});
                         @{gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{usage});
                     }
                 }
@@ -142,6 +180,20 @@ impl Geometry for WebGLGeometryImpl {
         match (self.gl.upgrade(), self.attributes.remove(name)) {
             (Some(gl), Some(attribute)) => {
                 gl.delete_buffer(Some(&attribute.buffer));
+
+                if let Some(vao) = &self.vao {
+                    js! {
+                        @{gl.as_ref()}.getExtension("OES_vertex_array_object").bindVertexArrayOES(@{&vao});
+                    }
+                    
+                    let index = get_attribute_location(name) as usize;
+                    gl.enable_vertex_attrib_array(index as u32);
+                    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, None);
+                    
+                    js! {
+                        @{gl.as_ref()}.getExtension("OES_vertex_array_object").bindVertexArrayOES(null);
+                    }
+                }
             }
             _ => { }
         }
@@ -163,6 +215,19 @@ impl Geometry for WebGLGeometryImpl {
         if self.indices.is_none() {
             match gl.create_buffer() {
                 Some(buffer) => {
+
+                    if let Some(vao) = &self.vao {
+                        js! {
+                            @{gl}.getExtension("OES_vertex_array_object").bindVertexArrayOES(@{&vao});
+                        }
+                        
+                        gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
+                        
+                        js! {
+                            @{gl}.getExtension("OES_vertex_array_object").bindVertexArrayOES(null);
+                        }
+                    }
+
                     self.indices = Some(Indices {
                         size: 2 * data.len() as u32,
                         is_short_type: true,
@@ -200,10 +265,26 @@ impl Geometry for WebGLGeometryImpl {
         Ok(())
     }
 
+    // FIXME
+    // TODO 
+    // 注：有文章说，opengl无法在vao移除indices。
+    // 出处：http://www.photoneray.com/opengl-vao-vbo/
     fn remove_indices(&mut self) {
         match (self.gl.upgrade(), self.indices.take()) {
             (Some(gl), Some(indices)) => {
                 gl.delete_buffer(Some(&indices.buffer));
+
+                if let Some(vao) = &self.vao {
+                    js! {
+                        @{gl.as_ref()}.getExtension("OES_vertex_array_object").bindVertexArrayOES(@{&vao});
+                    }
+                    
+                    gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, None);
+                    
+                    js! {
+                        @{gl.as_ref()}.getExtension("OES_vertex_array_object").bindVertexArrayOES(null);
+                    }
+                }
             }
             _ => {}
         }
