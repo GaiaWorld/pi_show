@@ -63,7 +63,6 @@ impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
     );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn run(&mut self, read: Self::ReadData, render_objs: Self::WriteData){
-        debug_println!("BackgroundColorSys run, dirty_len:{}", self.geometry_dirtys.len());
         let map = &mut self.background_color_render_map;
         let (layouts, border_radius, z_depths, background_colors) = read;
         for id in  self.geometry_dirtys.iter() {

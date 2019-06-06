@@ -30,9 +30,9 @@ pub trait SdfFont {
 
 // 字体生成器
 pub trait MSdfGenerator{
-    fn gen(&self, font_name: &str, c: char) -> Glyph;
+    fn gen(&self, c: char) -> Glyph;
 
-    fn gen_mult(&self, font_name: &str, chars: &[char]) -> Vec<Glyph>;
+    fn gen_mult(&self, chars: &[char]) -> Vec<Glyph>;
 }
 
 pub struct GlyphInfo{
