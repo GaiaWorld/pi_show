@@ -67,7 +67,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
             None => {
                 match &self.generator {
                     &Some(ref g) => {
-                        let glyph = g.gen(self.name.as_ref(), c);
+                        let glyph = g.gen(c);
                         let advance = glyph.advance;
                         unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
                         font_size/self.line_height*advance
