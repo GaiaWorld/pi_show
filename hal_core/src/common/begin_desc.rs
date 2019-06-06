@@ -7,7 +7,7 @@
  * let data = RenderBeginDesc::new();
  * data.set_***(...);
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RenderBeginDesc {
     pub viewport: (i32, i32, i32, i32),    // x, y, 宽, 高，左上角为原点
     pub clear_color: Option<(f32, f32, f32, f32)>, // r, g, b, a，范围：0-1，为None代表不更新颜色

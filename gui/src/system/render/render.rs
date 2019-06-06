@@ -12,7 +12,7 @@ use ecs::{SingleCaseImpl, Share, Runner, ModifyEvent, CreateEvent, DeleteEvent, 
 use atom::Atom;
 
 use render::engine::Engine;
-use single::{ RenderObjs, RenderObj, ViewPort};
+use single::{ RenderObjs, RenderObj, RenderBegin};
 
 pub struct RenderSys<C: Context + Share>{
     dirty: bool,
@@ -31,11 +31,11 @@ impl<C: Context + Share> Default for RenderSys<C> {
 impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<RenderObjs<C>>,
-        &'a SingleCaseImpl<ViewPort>,
+        &'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        let (render_objs, view_port) = read;
+        let (render_objs, render_begin) = read;
         if self.dirty == false {
             return;
         }
@@ -61,7 +61,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         let gl = &mut engine.gl;
         gl.begin_render(
             &(gl.get_default_render_target().clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
-            &(view_port.0.clone() as Arc<dyn AsRef<RenderBeginDesc>>));
+            &(render_begin.0.clone() as Arc<dyn AsRef<RenderBeginDesc>>));
         
         for obj in opacity_list.into_iter() {
             debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.0.depth,  obj.0.context);

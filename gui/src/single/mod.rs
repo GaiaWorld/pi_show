@@ -178,7 +178,7 @@ impl NodeRenderMap {
 pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
 pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
 pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct ViewPort(pub Arc<RenderBeginDesc>);
+pub struct RenderBegin(pub Arc<RenderBeginDesc>);
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}

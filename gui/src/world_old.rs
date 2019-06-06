@@ -102,7 +102,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_single::<FontSheet<C>>(FontSheet::<C>::default());
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
-    world.register_single::<RenderBegin>(RenderBegin(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
+    world.register_single::<ViewPort>(ViewPort(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
     world.register_single::<DefaultTable>(default_table);
     
