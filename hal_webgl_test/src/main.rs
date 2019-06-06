@@ -1,17 +1,19 @@
 use std::sync::{Arc};
 
+extern crate fnv;
 #[macro_use]
 extern crate stdweb;
-
 extern crate webgl_rendering_context;
 extern crate atom;
+#[macro_use]
+extern crate debug_info;
 extern crate hal_core;
 extern crate hal_webgl;
 
 mod test_shader;
 
 use std::mem::forget;
-use std::collections::{HashMap};
+use fnv::FnvHashMap;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::{
@@ -32,7 +34,7 @@ use test_shader::{hello_vertex_shader, hello_fragment_shader};
 struct RenderMesh {
     pipeline: Arc<Pipeline>,
     geometry: Arc<WebGLGeometryImpl>,
-    uniforms: HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>,
+    uniforms: FnvHashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>,
 }
 
 struct RenderData {
@@ -56,7 +58,7 @@ fn main() {
     }
 
     let gl = Arc::new(gl);
-    let webgl = create_hal_webgl(gl);
+    let webgl = create_hal_webgl(gl, None);
 
     let render_data = init_render_data(webgl);
     let data = Box::into_raw(render_data) as u32;
@@ -187,14 +189,14 @@ fn init_rect_geometry(context: &mut WebGLContextImpl, rect: &[f32], z: f32) -> A
     let _ = geometry.set_attribute(&AttributeName::Position, 3, Some(&position), false);
     let _ = geometry.set_indices_short(&indices, false);
 
-    println!("init_geometry");
+    debug_println!("init_geometry");
     
     Arc::new(geometry)
 }
 
-fn init_uniforms(context: &mut WebGLContextImpl, color: &Arc<Uniforms<WebGLContextImpl>>, alpha: f32) -> HashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>  {
+fn init_uniforms(context: &mut WebGLContextImpl, color: &Arc<Uniforms<WebGLContextImpl>>, alpha: f32) -> FnvHashMap<Atom, Arc<AsRef<Uniforms<WebGLContextImpl>>>>  {
     
-    let mut map = HashMap::new();
+    let mut map = FnvHashMap::default();
 
     let mut each = context.create_uniforms();
     each.set_float_3(&Atom::from("uPosition"), 0.0, 0.0, 0.0);
@@ -207,7 +209,7 @@ fn init_uniforms(context: &mut WebGLContextImpl, color: &Arc<Uniforms<WebGLConte
     map.insert(Atom::from("each"), each as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
     map.insert(Atom::from("color"), color.clone() as Arc<AsRef<Uniforms<WebGLContextImpl>>>);
 
-    println!("init_uniforms");
+    debug_println!("init_uniforms");
     map
 }
 
@@ -223,6 +225,6 @@ fn init_hello_program(context: &mut WebGLContextImpl) -> (u64, u64, u64) {
     let fs1 = context.compile_shader(ShaderType::Fragment, &fs_name, &[]).unwrap();
     let fs2 = context.compile_shader(ShaderType::Fragment, &fs_name, &[alpha]).unwrap();
 
-    println!("init_hello_program");
+    debug_println!("init_hello_program");
     (vs, fs1, fs2)
 }

@@ -8,8 +8,10 @@ edition = "2018"
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+debug_info={path="../../pi_lib/debug_info"}
 hal_core={path="../hal_core"}
 hal_webgl={path="../hal_webgl"}
+fnv = "*"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
