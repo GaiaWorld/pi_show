@@ -34,7 +34,8 @@ pub mod transform;
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    let gl = WebGLContextImpl::new(Arc::new(gl));
+    let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
+    let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
     let engine = Engine::new(gl);
     Box::into_raw(Box::new(engine)) as u32
 }

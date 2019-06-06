@@ -72,6 +72,7 @@ impl ProjectionMatrix {
 #[derive(Write)]
 pub struct RenderObj<C: Context>{
     pub depth: f32,
+    pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
     pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,

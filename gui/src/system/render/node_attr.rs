@@ -6,14 +6,19 @@ use std::sync::Arc;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
 use hal_core::*;
+use atom::Atom;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity};
+use component::calc::{Visibility, WorldMatrix, Opacity, ZDepth};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
 use system::util::*;
 use system::util::constant::*;
+
+lazy_static! {
+    static ref Z_DEPTH: Atom = Atom::from("zDepth");
+}
 
 pub struct NodeAttrSys<C: Context + Share>{
     view_matrix_ubo: Option<Arc<Uniforms<C>>>,
@@ -99,8 +104,14 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
         debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
 
+        let mut z_depth_ubo = engine.gl.create_uniforms();
+        z_depth_ubo.set_float_1(&Z_DEPTH, render_obj.depth + render_obj.depth_diff);
+        ubos.insert(Z_DEPTH.clone(), Arc::new(z_depth_ubo)); // Z_DEPTH
+        debug_println!("id: {}, z_depth: {:?}", render_obj.context, render_obj.depth + render_obj.depth_diff);
+
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
+       
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
@@ -212,6 +223,26 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
     }
 }
 
+//世界矩阵变化， 设置ubo
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
+        let (render_objs, node_render_map) = write;
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+        let z_depth = unsafe{ z_depths.get_unchecked(event.id) }.0;
+
+        for id in obj_ids.iter() {
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            render_obj.depth = z_depth;
+            let ubos = &mut render_obj.ubos;
+            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, render_obj.depth + render_obj.depth_diff);
+            debug_println!("id: {}, z_depth: {:?}", render_obj.context, render_obj.depth + render_obj.depth_diff);
+            render_objs.get_notify().modify_event(*id, "ubos", 0);
+        }
+    }
+}
+
 //不透明度变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
@@ -264,6 +295,6 @@ impl_system!{
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>
-        // MultiCaseListener<Node, ByOverflow, ModifyEvent>
+        MultiCaseListener<Node, ZDepth, ModifyEvent>
     }
 }

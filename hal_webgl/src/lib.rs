@@ -41,6 +41,6 @@ use stdweb::{Object};
 /** 
  * fbo用js创建的WebGLFramebuffer，如果为None，说明要渲染到屏幕上；否则用fbo当渲染目标
  */
-pub fn create_hal_webgl(context: Arc<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> WebGLContextImpl {
-    WebGLContextImpl::new(context, fbo, w, h)
+pub fn create_hal_webgl(context: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> WebGLContextImpl {
+    WebGLContextImpl::new(context, fbo)
 }

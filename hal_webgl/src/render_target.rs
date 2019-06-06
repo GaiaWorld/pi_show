@@ -99,7 +99,7 @@ impl WebGLRenderTargetImpl {
         }) {
             Ok(fb) => {
                 js! {
-                    @{gl.as_ref()}.bindFramebuffer(WebGLRenderingContext::FRAMEBUFFER, @{&fb});
+                    @{gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fb});
                 }
 
                 let fb_type = WebGLRenderingContext::FRAMEBUFFER;

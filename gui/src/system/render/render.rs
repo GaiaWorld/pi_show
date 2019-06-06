@@ -141,13 +141,13 @@ struct TransparentOrd<'a, C: Context + Share>(&'a RenderObj<C>);
 
 impl<'a, C: Context + Share> PartialOrd for TransparentOrd<'a, C> {
 	fn partial_cmp(&self, other: &TransparentOrd<'a, C>) -> Option<Ordering> {
-		self.0.depth.partial_cmp(&other.0.depth)
+		(self.0.depth + other.0.depth_diff).partial_cmp(&(other.0.depth + other.0.depth_diff))
 	}
 }
 
 impl<'a, C: Context + Share> PartialEq for TransparentOrd<'a, C>{
 	 fn eq(&self, other: &TransparentOrd<'a, C>) -> bool {
-        self.0.depth.eq(&other.0.depth)
+        (self.0.depth + other.0.depth_diff).eq(&(other.0.depth + other.0.depth_diff))
     }
 }
 

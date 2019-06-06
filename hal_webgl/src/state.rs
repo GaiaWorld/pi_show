@@ -165,7 +165,7 @@ impl State {
         if !Arc::ptr_eq(&self.target, rt) {
             let fbo = &rt.as_ref().as_ref().frame_buffer;
             js! {
-                @{self.gl.as_ref()}.bindFramebuffer(WebGLRenderingContext::FRAMEBUFFER, @{fbo.as_ref()});
+                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{fbo.as_ref()});
             }
             debug_println!("State::set_render_target, fbo = {:?}", fbo.as_ref());
 

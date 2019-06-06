@@ -15,6 +15,7 @@ let color_vs_code = `
     uniform mat4 worldMatrix;
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
+    uniform float zDepth;
 
     // Varyings
     varying vec2 vpos;
@@ -24,7 +25,7 @@ let color_vs_code = `
     #endif
     
     void main(void) {
-        gl_Position = (projectMatrix * viewMatrix * worldMatrix) * vec4(position, 1.0);
+        gl_Position = (projectMatrix * viewMatrix * worldMatrix) * vec4(position.x, position.y, zDepth, 1.0);
         vpos = position.xy;
 
         #ifdef VERTEX_COLOR
