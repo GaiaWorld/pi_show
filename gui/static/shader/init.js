@@ -1,5 +1,6 @@
 var gl = document.getElementById("canvas").getContext('webgl');
 window.__gl = gl;
+window.__fbo = undefined;
 
 var engine = Module._create_engine();
 

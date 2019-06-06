@@ -137,10 +137,10 @@ impl Context for WebGLContextImpl {
 
 impl WebGLContextImpl {
 
-    pub fn new(gl: Arc<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
+    pub fn new(gl: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
         
         let caps = Self::create_caps(gl.as_ref());
-        let rt = Arc::new(WebGLRenderTargetImpl::new_default(&gl, fbo, w, h));
+        let rt = Arc::new(WebGLRenderTargetImpl::new_default(&gl, fbo, 0, 0));
 
         let state = State::new(&gl, &(rt.clone() as Arc<dyn AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
 
