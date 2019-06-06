@@ -265,26 +265,38 @@ impl State {
             Some(g) => !Arc::ptr_eq(g, geometry),
         };
 
-        if need_set_geometry {
-
-            self.geometry = Some(geometry.clone());
-            
-            for (n, v) in geometry.as_ref().as_ref().attributes.iter() {
-                let index = get_attribute_location(n) as usize;
-                
-                self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
-                
-                if !self.enable_attrib_indices[index] {
-                    self.gl.enable_vertex_attrib_array(index as u32);
-                    self.enable_attrib_indices[index] = true;
+        if need_set_geometry {            
+            match &geometry.as_ref().as_ref().vao {
+                Some(vao) => {
+                    let extension = geometry.as_ref().as_ref().gl_vao_extension.as_ref().unwrap();
+                    js! {
+                        @{&extension}.bindVertexArrayOES(@{&vao});
+                    }
                 }
-                
-                self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
-                
-
-                // debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
+                None => {
+                    for (n, v) in geometry.as_ref().as_ref().attributes.iter() {
+                        let index = get_attribute_location(n) as usize;
+                        
+                        self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
+                        
+                        if !self.enable_attrib_indices[index] {
+                            self.gl.enable_vertex_attrib_array(index as u32);
+                            self.enable_attrib_indices[index] = true;
+                        }
+                        
+                        self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
+                        // debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
+                    }
+                    
+                    match &geometry.as_ref().as_ref().indices {
+                        None => {}
+                        Some(indices) => {
+                            self.gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&indices.buffer));
+                        }
+                    }
+                }
             }
-
+            
             self.geometry = Some(geometry.clone());
         }
         
@@ -294,8 +306,6 @@ impl State {
                 self.gl.draw_arrays(WebGLRenderingContext::TRIANGLES, 0, geometry.vertex_count as i32);
             }
             Some(indices) => {
-                
-                self.gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&indices.buffer));
                 
                 let (data_type, count) = if indices.is_short_type {
                     (WebGLRenderingContext::UNSIGNED_SHORT, indices.size / 2)
