@@ -151,7 +151,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         }else {
             false
         };
-        println!("xxxxxxxxxxxxxxxxxcreate image{}", event.id);
+        debug_println!("xxxxxxxxxxxxxxxxxcreate image{}", event.id);
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth,
             depth_diff: 0.0,

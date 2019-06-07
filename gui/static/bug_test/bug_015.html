@@ -21,7 +21,7 @@
 </head>
 <body>
     <canvas id="canvas" width = "1000px" height="700px"></canvas>
-    <script src="../../target/asmjs-unknown-emscripten/release/gui.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -34,63 +34,150 @@
         Module._append_child(gui, node2, 1);
         Module._render(gui);
 
-        for (i  = 0 ; i < 51; i++) {
+        for (i  = 0 ; i < 151; i++) {
             Module._create_node(gui);
         }
-        Module._append_child(gui, 4, 3);
-        Module._append_child(gui, 5, 3);
-        Module._append_child(gui, 6, 3);
-        Module._append_child(gui, 7, 3);
-        Module._append_child(gui, 8, 3);
-        Module._append_child(gui, 9, 3);
-        Module._append_child(gui, 10, 3);
-        Module._append_child(gui, 11, 3);
-        Module._append_child(gui, 3, 2);
-        Module._append_child(gui, 14, 13);
-        Module._append_child(gui, 13, 12);
-        Module._append_child(gui, 16, 15);
-        Module._append_child(gui, 15, 18);
-        Module._append_child(gui, 17, 12);
-        Module._append_child(gui, 20, 19);
-        Module._append_child(gui, 19, 12);
-        Module._append_child(gui, 12, 6);
-        Module._append_child(gui, 22, 21);
-        Module._append_child(gui, 25, 24);
-        Module._append_child(gui, 24, 23);
-        Module._append_child(gui, 23, 21);
-        Module._append_child(gui, 21, 6);
-        Module._render(gui);
+        let add = (arr, delay) => {
+            setTimeout(() =>{
+                for(let r of arr) {
+                    console.log("-----------", r[0], r[1]);
+                    Module._append_child(gui, r[0], r[1]);
+                }
+            Module._render(gui);
+            }, delay);
+        };
+//===================================================
+add([
 
-        Module._append_child(gui, 29, 28);
-        Module._append_child(gui, 30, 28);
-        Module._append_child(gui, 33, 32);
-        Module._append_child(gui, 32, 31);
-        Module._append_child(gui, 36, 35);
-        Module._append_child(gui, 35, 34);
-        Module._append_child(gui, 34, 31);
-        Module._append_child(gui, 31, 28);
-        Module._append_child(gui, 38, 37);
-        Module._append_child(gui, 37, 28);
-        Module._append_child(gui, 42, 41);
-        Module._append_child(gui, 44, 43);
-        Module._append_child(gui, 43, 41);
-        Module._append_child(gui, 41, 40);
-        Module._append_child(gui, 47, 46);
-        Module._append_child(gui, 48, 46);
-        Module._append_child(gui, 50, 49);
-        Module._append_child(gui, 49, 46);
-        Module._append_child(gui, 52, 51);
-        Module._append_child(gui, 51, 46);
-        Module._append_child(gui, 53, 46);
-        Module._append_child(gui, 46, 45);
-        Module._append_child(gui, 45, 40);
-        Module._append_child(gui, 40, 39);
-        Module._append_child(gui, 39, 28);
-        Module._append_child(gui, 28, 27);
-        Module._append_child(gui, 27, 26);
-        Module._append_child(gui, 26, 6);
-        Module._render(gui);
-            
+[4, 3
+], [5, 3
+], [6, 3
+], [7, 3
+], [8, 3
+], [9, 3
+], [10, 3
+], [11, 3
+], [3, 2
+], [14, 13
+], [13, 12
+], [16, 15
+], [15, 12
+], [18, 17
+], [17, 12
+], [20, 19
+], [19, 12
+], [12, 6
+], [22, 21
+], [25, 24
+], [26, 24
+], [27, 24
+], [24, 23
+], [30, 29
+], [29, 28
+
+], [32, 31
+], [31, 28
+], [34, 33
+], [33, 28
+], [28, 23
+], [23, 21
+], [36, 35
+], [35, 21
+], [39, 38
+], [38, 37
+], [37, 21
+], [41, 40
+], [40, 21
+], [43, 42
+], [42, 21
+], [45, 44
+], [44, 21
+], [21, 6
+]], 1000);
+
+add([
+[49, 48
+], [50, 48
+], [53, 52
+], [52, 51
+], [56, 55
+], [55, 54
+], [54, 51
+], [51, 48
+
+], [58, 57
+], [57, 48
+], [62, 61
+], [64, 63
+], [63, 61
+], [61, 60
+], [67, 66
+], [68, 66
+], [70, 69
+], [69, 66
+], [72, 71
+], [71, 66
+], [73, 66
+], [66, 65
+], [65, 60
+], [75, 74
+], [77, 76
+], [76, 74
+], [74, 60
+], [81, 80
+], [82, 80
+], [84, 83
+], [83, 80
+], [86, 85
+], [85, 80
+], [80, 79
+], [79, 78
+], [89, 88
+], [90, 88
+], [92, 91
+], [91, 88
+], [94, 93
+], [93, 88
+], [95, 88
+], [88, 87
+], [87, 78
+], [78, 60
+], [60, 59
+], [59, 48
+], [97, 96
+], [98, 96
+], [101, 100
+], [102, 100
+], [104, 103
+], [103, 100
+], [100, 99
+], [107, 106
+], [106, 105
+], [109, 108
+], [108, 105
+], [105, 99
+], [111, 110
+], [113, 112
+], [112, 110
+], [114, 110
+], [110, 99
+], [117, 116
+], [116, 115
+], [119, 118
+], [118, 115
+], [115, 99
+], [99, 96
+], [121, 120
+], [123, 122
+], [122, 120
+], [120, 96
+], [96, 48
+], [48, 47
+], [47, 46
+], [46, 6
+]], 2000);
+
+        
     </script> 
 </body>
 </html>

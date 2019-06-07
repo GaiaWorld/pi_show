@@ -439,7 +439,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
       // debug_println!("by_overflow---------------------------{}",by_overflow);
       // 检查是否有裁剪，及是否在裁剪范围内
       if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, arg.aabb.min.x, arg.aabb.min.y) {
-        println!("in_overflow------------------overflow_clip");
+        debug_println!("in_overflow------------------overflow_clip");
         arg.result = *bind;
         arg.max_z = z_depth;
       }
