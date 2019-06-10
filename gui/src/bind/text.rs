@@ -1,4 +1,4 @@
-use std::mem::transmute;
+use std::mem::{transmute, transmute_copy};
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
@@ -231,7 +231,7 @@ pub fn add_sdf_font_res(world: u32) {
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.textures.create(texture_res);
     // new_width_data
-    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl, FontGenerator>::new(texture_res.clone());
+    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl, FontGenerator>::new(texture_res.clone(), FontGenerator{font_name: name.clone()});
     debug_println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
     debug_println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
@@ -253,24 +253,54 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
 }
 
+// 动态字体纹理回调
+// __jsObj: canvas __jsObj1: string, (字体名称)
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn update_font_texture(world: u32, u: u32, v: u32, width: u32, height: u32){
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let font_name: String = js!(return __jsObj1;).try_into().unwrap();
+    let font_name = Atom::from(font_name);
+    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
+    let font_sheet = font_sheet.lend_mut();
+    let src = match font_sheet.get_src(&font_name) {
+        Some(r) => r,
+        None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
+    };
+
+    match TryInto::<TypedArray<u8>>::try_into(js!{return __jsObj.getImageData(u, v, width, height)}) {
+        Ok(data) => {
+            let data = data.to_vec();
+            src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
+        },
+        Err(_) => panic!("update_font_texture error"),
+    };
+}
+
 pub struct FontGenerator{
-    texture_res: Arc<TextureRes<WebGLContextImpl>>,
     font_name: Atom,
-    x: u16,
-    y: u16,
-    next_y_diff: u8,
 }
 
 impl MSdfGenerator for FontGenerator{
-    fn gen(&self, c: char) -> Glyph {
-        let c: u32 = unsafe{transmute(c)};
-        let buffer: TypedArray<u8>  = js!{return gen_font(@{self.font_name.as_ref()}, @{c})}.try_into().unwrap();
-        let buffer = buffer.to_vec();
-        let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
-
-        // if 
-
-        glyph
+    fn gen(&self, s: char) -> Glyph {
+        let c: u32 = unsafe{transmute_copy(&s)};
+        match TryInto::<TypedArray<u8>>::try_into(js!{return __gen_font(@{self.font_name.as_ref()}, @{c})}){
+            Ok(buffer) => {
+                let buffer = buffer.to_vec();
+                let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
+                glyph
+            },
+            Err(_) => Glyph {
+                id: s,
+                x: 0.0,
+                y: 0.0,
+                ox: 0.0, 
+                oy: 0.0,
+                width: 0.0, 
+                height: 0.0,
+                advance: 0.0,
+            }
+        }
     }
 
     fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {

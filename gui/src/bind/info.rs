@@ -1,3 +1,7 @@
+use std::mem::transmute;
+
+use serde::{Serialize};
+
 use ecs::{World, Lend, MultiCaseImpl};
 use component::user::*;
 use component::calc::*;
@@ -85,14 +89,15 @@ pub fn node_info(world: u32, node: u32) {
         enable: enable,
         opacity: opacity,
         zindex: z_depth,
-        layout: layout.clone(),
+        layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
     };
 
     js!{
-        console.log("node_info:", @{format!("{:?}", info)});
+        window.__jsObj = @{info};
+        // console.log("node_info:", @{format!("{:?}", info)});
     }
 }
 
@@ -137,23 +142,55 @@ fn cal_matrix(
     world_matrix.0.clone()
 }
 
-#[derive(Debug)]
+#[derive(Serialize)]
+struct Point2{
+    x: f32, 
+    y: f32,
+}
+js_serializable!( Point2 );
+
+impl Point2 {
+    fn new(x: f32, y: f32) -> Self {
+        Self {x, y}
+    }
+}
+
+#[derive(Serialize)]
 struct Quad{
     left_top: Point2,
     left_bottom: Point2,
     right_bottom: Point2,
     right_top: Point2,
 }
+js_serializable!( Quad );
 
-#[derive(Debug)]
+#[derive(Serialize)]
+struct Layout1{
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+    border_left: f32,
+    border_top: f32,
+    border_right: f32,
+    border_bottom: f32,
+    padding_left: f32,
+    padding_top: f32,
+    padding_right: f32,
+    padding_bottom: f32,
+}
+js_serializable!( Layout1 );
+
+#[derive(Serialize)]
 struct Info{
     by_overflow: usize,
     visibility: bool,
     enable: bool,
     opacity: f32,
     zindex: f32,
-    layout: Layout,
+    layout: Layout1,
     border_box: Quad,
     padding_box: Quad,
     content_box: Quad,
 }
+js_serializable!( Info );

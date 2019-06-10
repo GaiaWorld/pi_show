@@ -48,6 +48,10 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
     pub fn set_src(&mut self, name: Atom, src: Arc<dyn SdfFont<Ctx=C>>) {
         self.src_map.insert(name, src);
     }
+
+    pub fn get_src(&mut self, name: &Atom) -> Option<&Arc<dyn SdfFont<Ctx=C>>> {
+        self.src_map.get(name)
+    }
     
     // 设置FontFace
     pub fn set_face(&mut self, family: Atom, oblique: f32, size: f32, weight: f32, src: String) {
