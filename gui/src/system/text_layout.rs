@@ -67,7 +67,6 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
           indent: 0.0,
           chars: Vec::new(),
           dirty: true,
-          layout_dirty: false,
         });
         self.dirty.push(id);
       }
@@ -186,7 +185,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   if b == 0 {
-    // println!("update1111111111------------------------layout: {:?}", node.get_layout());
+    println!("update1111111111------------------------layout: {:?}", node.get_layout());
     // println!("update333333333333333------------------------style: {:?}", node.get_style());
     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     if let Some(_) = write.0.get(c) {
@@ -196,7 +195,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else if c > 0 {
-    // println!("update2222222222222------------------------layout: {:?}", node.get_layout());
+    println!("update2222222222222------------------------layout: {:?}", node.get_layout());
     // println!("update4444444444444444-----------------------style: {:?}", node.get_style());
     update(node, c, b - 1, write);
   }
@@ -216,17 +215,17 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
     pos.x += layout.left;
     pos.y += layout.top;
   }
-  let mut cb = unsafe {write.0.get_unchecked_mut(id)};
+  let cb = unsafe {write.0.get_unchecked_mut(id)};
   let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
   cn.pos = pos;
   // println!("update text layout1------------------------cb.layout_dirty:{}, pos:{:?},parent:{:?}", cb.layout_dirty, pos, node.get_layout());
   // println!("update text layout2------------------------pcount: {}, layout: {:?}", node.get_child_count(), layout);
-  if !cb.layout_dirty {
-    cb.layout_dirty = true;
-    unsafe { write.0.get_unchecked_write(id).modify(|_|{
-      return true;
-    }) };
-  }
+  // if !cb.layout_dirty {
+  //   cb.layout_dirty = true;
+  //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
+  //     return true;
+  //   }) };
+  // }
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
@@ -297,7 +296,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Word(c) => {
-        // println!("Word----------------------------{:?}, index: {}", c, index);
+        println!("Word----------------------------{:?}, index: {}", c, index);
         update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::WordStart(c) => {
@@ -322,7 +321,17 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         cb.chars[i].node.free()
     }
     unsafe{cb.chars.set_len(index)};
+    
   }
+  unsafe { write.0.get_unchecked_write(id).modify(|_|{
+    return true;
+  }) };
+  // if !cb.layout_dirty {
+  //   cb.layout_dirty = true;
+  //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
+  //     return true;
+  //   }) };
+  // }
   false
 }
 // 更新字符，如果字符不同，则清空后重新插入

@@ -62,7 +62,6 @@ pub struct CharBlock {
   pub indent: f32,
   pub chars: Vec<CharNode>, // 字符集合
   pub dirty: bool,
-  pub layout_dirty: bool,
 }
 #[derive(Debug)]
 pub struct CharNode {

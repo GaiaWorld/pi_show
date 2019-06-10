@@ -87,7 +87,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
             let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
             let text_style = get_or_default(*id, text_styles, default_table);
             let font = get_or_default(*id, fonts, default_table);
-            charblock.layout_dirty = false;
+            charblock.dirty = false;
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
                 None => {
