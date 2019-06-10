@@ -8,6 +8,7 @@
 #![feature(vec_remove_item)]
 #![allow(unused_attributes)]
 #![allow(dead_code)]
+#![feature(rustc_private)]
 
 #[macro_use]
 extern crate ecs;
@@ -31,6 +32,7 @@ extern crate webgl_rendering_context;
 #[cfg(feature = "web")]
 #[macro_use]
 extern crate stdweb;
+extern crate serde;
  
 
 extern crate deque;
@@ -53,6 +55,7 @@ extern crate hal_core;
 extern crate polygon;
 #[cfg(feature = "web")]
 extern crate hal_webgl;
+#[cfg(feature = "web")]
 
 pub mod system;
 pub mod component;

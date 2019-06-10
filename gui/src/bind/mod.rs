@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
-use stdweb::Object;
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use atom::Atom;

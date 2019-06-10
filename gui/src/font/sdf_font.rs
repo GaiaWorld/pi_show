@@ -55,7 +55,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync, G: MSdfGenerator +
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
     texture: Arc<TextureRes<C>>,
-    generator: Option<G>,
+    generator: G,
 }
 
 impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> SdfFont for DefaultSdfFont<C, G> { 
@@ -65,15 +65,10 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
         match self.glyph_table.get(&c) {
             Some(glyph) => font_size/self.line_height*glyph.advance,
             None => {
-                match &self.generator {
-                    &Some(ref g) => {
-                        let glyph = g.gen(c);
-                        let advance = glyph.advance;
-                        unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
-                        font_size/self.line_height*advance
-                    },
-                    &None => 0.0,
-                }
+                let glyph = self.generator.gen(c);
+                let advance = glyph.advance;
+                unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
+                font_size/self.line_height*advance
             },
         }
     }
@@ -128,7 +123,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
 }
 
 impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Sync> DefaultSdfFont<C, G> {
-    pub fn new(texture: Arc<TextureRes<C>>) -> Self{
+    pub fn new(texture: Arc<TextureRes<C>>, generator: G) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -137,7 +132,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
             padding: 0.0,
             glyph_table: FnvHashMap::default(),
             texture: texture,
-            generator: None,
+            generator: generator,
         }
     }
 
@@ -149,7 +144,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
         padding: f32,
         glyph_table: FnvHashMap<char, Glyph>,
         texture: Arc<TextureRes<C>>,
-        generator: Option<G>
+        generator: G
     ) -> Self{
         DefaultSdfFont {
             name,
