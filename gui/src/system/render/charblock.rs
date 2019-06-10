@@ -494,7 +494,7 @@ fn get_geo_flow<C: Context + Share>(
     let mut i = 0;
     // let line_height = sdf_font.line_height;
 
-    println!("charblock get_geo_flow: {:?}", char_block);
+    debug_println!("charblock get_geo_flow: {:?}", char_block);
     if char_block.chars.len() > 0 {
         match color {
             Color::RGBA(_) => {
