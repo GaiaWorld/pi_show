@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+        var YGEdgeLeft = 0;
+        var YGEdgeTop = 1;
+        var YGEdgeRight = 2;
+        var YGEdgeBottom = 3;
+        var YGEdgeStart = 4;
+        var YGEdgeEnd = 5;
+        var YGEdgeHorizontal = 6;
+        var YGEdgeVertical = 7;
+        var YGEdgeAll = 8;
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui.js"></script>
+    <script src="../shader/clip.js"></script>
+    <script src="../shader/color.js"></script>
+    <script src="../shader/image.js"></script>
+    <script src="../shader/text.js"></script>
+    <script src="../shader/init.js"></script>
+    <script>
+        var gui = Module._create_gui(engine, 1000, 700);
+
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, node2, 1);
+        Module._render(gui);
+
+        for (i  = 0 ; i < 151; i++) {
+            Module._create_node(gui);
+        }
+        let add = (arr, delay) => {
+            setTimeout(() =>{
+                for(let r of arr) {
+                    console.log("-----------", r[0], r[1]);
+                    Module._append_child(gui, r[0], r[1]);
+                }
+            Module._render(gui);
+            }, delay);
+        };
+//===================================================
+add([
+
+[4, 3
+], [5, 3
+], [6, 3
+], [7, 3
+], [8, 3
+], [9, 3
+], [10, 3
+], [11, 3
+], [3, 2
+], [14, 13
+], [13, 12
+], [16, 15
+], [15, 12
+], [18, 17
+], [17, 12
+], [20, 19
+], [19, 12
+], [12, 6
+], [22, 21
+], [25, 24
+], [26, 24
+], [27, 24
+], [24, 23
+], [30, 29
+], [29, 28
+
+], [32, 31
+], [31, 28
+], [34, 33
+], [33, 28
+], [28, 23
+], [23, 21
+], [36, 35
+], [35, 21
+], [39, 38
+], [38, 37
+], [37, 21
+], [41, 40
+], [40, 21
+], [43, 42
+], [42, 21
+], [45, 44
+], [44, 21
+], [21, 6
+]], 1000);
+
+add([
+[49, 48
+], [50, 48
+], [53, 52
+], [52, 51
+], [56, 55
+], [55, 54
+], [54, 51
+], [51, 48
+
+], [58, 57
+], [57, 48
+], [62, 61
+], [64, 63
+], [63, 61
+], [61, 60
+], [67, 66
+], [68, 66
+], [70, 69
+], [69, 66
+], [72, 71
+], [71, 66
+], [73, 66
+], [66, 65
+], [65, 60
+], [75, 74
+], [77, 76
+], [76, 74
+], [74, 60
+], [81, 80
+], [82, 80
+], [84, 83
+], [83, 80
+], [86, 85
+], [85, 80
+], [80, 79
+], [79, 78
+], [89, 88
+], [90, 88
+], [92, 91
+], [91, 88
+], [94, 93
+], [93, 88
+], [95, 88
+], [88, 87
+], [87, 78
+], [78, 60
+], [60, 59
+], [59, 48
+], [97, 96
+], [98, 96
+], [101, 100
+], [102, 100
+], [104, 103
+], [103, 100
+], [100, 99
+], [107, 106
+], [106, 105
+], [109, 108
+], [108, 105
+], [105, 99
+], [111, 110
+], [113, 112
+], [112, 110
+], [114, 110
+], [110, 99
+], [117, 116
+], [116, 115
+], [119, 118
+], [118, 115
+], [115, 99
+], [99, 96
+], [121, 120
+], [123, 122
+], [122, 120
+], [120, 96
+], [96, 48
+], [48, 47
+], [47, 46
+], [46, 6
+]], 2000);
+
+        
+    </script> 
+</body>
+</html>

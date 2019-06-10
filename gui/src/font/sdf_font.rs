@@ -254,3 +254,35 @@ pub struct Glyph {
     pub height: f32,
     pub advance: f32,
 }
+
+impl Glyph {
+    pub fn parse(value: &[u8], offset: &mut usize) -> Self {
+        let id = value.get_lu16(*offset);
+        *offset += 2;
+        let x = value.get_lu16(*offset);
+        *offset += 2;
+        let y = value.get_lu16(*offset);
+        *offset += 2;
+        let ox = value.get_li8(*offset);
+        *offset += 1;
+        let oy = value.get_u8(*offset);
+        *offset += 1;
+        let width = value.get_u8(*offset);
+        *offset += 1;
+        let height = value.get_u8(*offset);
+        *offset += 1;
+        let advance = value.get_u8(*offset);
+        *offset += 2; // 加2， 对齐
+
+        Glyph {
+            id: unsafe{ transmute(id as u32) },
+            x: x as f32,
+            y: y as f32,
+            ox: ox as f32,
+            oy: oy as f32,
+            width: width as f32,
+            height: height as f32,
+            advance: advance as f32,
+        }
+    }
+}

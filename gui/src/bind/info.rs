@@ -44,7 +44,7 @@ pub fn node_info(world: u32, node: u32) {
     let b_left_bottom = world_matrix1 * Vector4::new(0.0, layout.height, 1.0, 1.0);
     let b_right_bottom = world_matrix1 * Vector4::new(layout.width, layout.height, 1.0, 1.0);
     let b_right_top = world_matrix1 * Vector4::new(layout.width, 0.0, 1.0, 1.0);
-
+    
     // border box
     let absolute_b_box = Quad {
         left_top: Point2::new(b_left_top.x, b_left_top.y),

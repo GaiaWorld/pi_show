@@ -159,10 +159,11 @@ impl ZIndexImpl {
       // 如果为z为auto，则向上找zindex不为auto的节点，zindex不为auto的节点有堆叠上下文
       if zi.old != AUTO {
         if zi.dirty == DirtyType::None {
-          zi.dirty = DirtyType::Normal;
+          zi.dirty = DirtyType::Recursive;
           self.dirty.mark(id, node.layer);
+          //println!("zindex- set_parent_dirty: {:?} {:?} {:?} {:?} {:?} {:?}", id, zi, node.parent, node.layer, node.count, node.children.head);
         }
-        if (node.count as f32) < zi.pre_max_z - zi.pre_min_z {
+        if (node.count as f32 * 10.0) < zi.pre_max_z - zi.pre_min_z {
           return;
         }
         // 如果z范围超过自身全部子节点及其下子节点数量，则继续向上设置脏，等calc_z调整以获得足够的z范围
@@ -185,7 +186,7 @@ impl ZIndexImpl {
     for id in self.dirty.iter() {
       let (min_z, max_z, normal) = {
         let zi = unsafe {self.map.get_unchecked_mut(*id)};
-        debug_println!("calc xxx: {:?} {:?}", id, zi);
+        // println!("calc xxx: {:?} {:?}", id, zi);
         if zi.dirty == DirtyType::None {
           continue;
         }
@@ -201,7 +202,7 @@ impl ZIndexImpl {
       }
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(*id)}.set_0(min_z);
-      debug_println!("calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
+      //println!("zindex- calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
       if node.count == 0 {
         continue;
       }
@@ -210,6 +211,16 @@ impl ZIndexImpl {
         self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
       }else{
         self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
+      }
+    }
+    if self.dirty.count() > 0 {
+      // 详细打印
+      for (id, n) in idtree.recursive_iter(2) {
+        let mut v = String::new();
+        for _ in 1..n.layer {
+          v.push('-')
+        }
+        //println!("zindex- info: {:?} {:?} {:?} count:{:?}, layer:{:?}", v, id, unsafe {self.map.get_unchecked_mut(id)}, n.count, n.layer);
       }
     }
     self.dirty.clear();
@@ -261,30 +272,35 @@ impl Cache {
   }
   // 计算真正的z
   fn calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
+    min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     let auto_len = self.z_auto.len();
+    // println!("count--------------------------count: {}, auto_len: {}", count, auto_len);
     // 计算大致的劈分间距
     let split = if count > auto_len {
-      (max_z - min_z - 1. - auto_len as f32) / (count - auto_len) as f32
+      (max_z - min_z - auto_len as f32) / (count - auto_len) as f32
     }else{
       1.
     };
-    min_z += 1.; // 第一个子节点的z，要在父节点z上加1
+    // println!("negative_heap: len: {:?}, value: {:?}", self.negative_heap.len(), self.negative_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
       adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
+    // println!("z_auto: len: {:?}, value: {:?}", self.z_auto.len(), self.z_auto);
     for n_id in &self.z_auto {
       adjust(map, idtree, zdepth, *n_id, unsafe {idtree.get_unchecked(*n_id)}, min_z, min_z, f32::NAN, 0.);
       min_z += 1.;
     }
     self.z_auto.clear();
+    // println!("z_zero: len: {:?}, value: {:?}", self.z_zero.len(), self.z_zero);
     for &ZSort(_, _, n_id, c) in &self.z_zero {
       max_z = min_z + split + split * c as f32;
       adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     self.z_zero.clear();
+    // println!("z_node_heapzero: len: {:?}, value: {:?}", self.node_heap.len(), self.node_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
       adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
@@ -293,15 +309,15 @@ impl Cache {
   }
 // 计算真正的z
   fn recursive_calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) {
+    min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     let auto_len = self.z_auto.len();
     // 计算大致的劈分间距
     let split = if count > auto_len {
-      (max_z - min_z - 1. - auto_len as f32) / (count - auto_len) as f32
+      (max_z - min_z - auto_len as f32) / (count - auto_len) as f32
     }else{
       1.
     };
     let start = self.temp.len();
-    min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
       self.temp.push((n_id, min_z, max_z));
@@ -333,7 +349,7 @@ impl Cache {
       zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
- debug_println!("---------recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
+      //println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
       }
@@ -342,6 +358,7 @@ impl Cache {
         continue;
       }
       self.sort(map, idtree, node.children.head, 0);
+      //println!("zindex- ---recursive_sort: {:?} {:?} {:?}", id, node.children.head, node.count);
       self.recursive_calc(map, idtree, zdepth, min_z, max_z, node.count);
     }
   }
@@ -364,8 +381,10 @@ fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &Id
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
 fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+  
   let (min, r, old_min) = {
     let zi = unsafe{map.get_unchecked_mut(id)};
+    // println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
     let (min, max) = if !rate.is_nan() {
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
@@ -375,9 +394,11 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     zi.pre_max_z = max;
     // 如果节点脏，则跳过，后面会进行处理
     if zi.dirty != DirtyType::None{
+      // println!("---------dirty adjust: {:?} {:?} {:?}", id, min, max);
       return
     }
     if max >= zi.max_z && min <= zi.min_z {
+      // println!("点的z范围变大--------- adjust: {:?} {:?} {:?}", id, min, max);
       // 如果子节点的z范围变大，则可以不继续处理该子节点
       return;
     }
@@ -388,10 +409,12 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     zi.max_z = max;
     // 设置 z_depth, 其他系统会监听该值
     unsafe {zdepth.get_unchecked_write(id)}.set_0(min);
-debug_println!("---------adjust: {:?} {:?} {:?}", id, min, max);
+    // println!("---------adjust: {:?} {:?} {:?}", id, min, max);
+    
     // 判断是否为auto
     if min != max {
-      (min, (max_z - min_z - 1.)/ (old_max_z - old_min_z), old_min_z)
+      // println!("xxx---------id: {:?} min_z: {:?} max_z: {:?}, old_min: {:?} old_max:{}, rate:{}", id, min_z, max_z, old_min_z, old_max_z, (max_z - min_z - 1.)/ (old_max_z - old_min_z));
+      (min, (max - min - 1.)/ (old_max_z - old_min_z), old_min_z)
     }else if !rate.is_nan() {
       // 如果是auto，则重用min_z, rate, parent_min
       (min_z, rate, parent_min)
