@@ -1,15 +1,14 @@
-use std::sync::{Arc};
 use atom::Atom;
-use std::convert::{AsRef};
 
 use fnv::FnvHashMap;
 
-use common::{Uniforms, ShaderType, Capabilities, Pipeline, RenderBeginDesc, PixelFormat, DataFormat, RasterState, DepthState, StencilState, BlendState};
-use traits::texture::{Texture, TextureData};
+use common::{Uniforms, ShaderType, Capabilities, RenderBeginDesc};
 use traits::geometry::{Geometry};
-use traits::sampler::{Sampler, SamplerDesc};
+use traits::program::{Program};
 use traits::render_target::{RenderTarget, RenderBuffer};
-use ShareRef;
+use traits::sampler::{Sampler};
+use traits::state::{RasterState, DepthState, StencilState, BlendState};
+use traits::texture::{Texture};
 
 /**
  * 渲染上下文，负责如下功能
@@ -17,70 +16,35 @@ use ShareRef;
  * 1. 创建资源
  * 2. 设置状态
  * 3. 渲染物体
- * 
- * 调用顺序如下：
- * 
- * let mut (context) = Context::new(gl);
- * 
- * // 初始化 shader
- * 
- * context.set_shader_code("hello_vs", "代码");
- * context.set_shader_code("hello_fs", "代码");
- 
- * let vs = context.compile_shader(ShaderType.VS, "hello_vs", ["STROKE", "CLIP"]);
- * let fs = context.compile_shader(ShaderType.FS, "hello_fs", ["STROKE", "CLIP"]);
- * 
- * // 创建资源
- * let geometry = context.create_geometry(vertex_count).unwrap();
- * let texture = context.create_texture_2d(...).unwrap();
- * let sampler = context.create_sampler(...).unwrap();
- * 
- * let ss = RasterState::new().set_**();
- * let bs = BlendState::new().set_**();
- * let ss = StencilState::new().set_**();
- * let ds = DepthState::new().set_**();
- * let pipeline = context.create_pipeline(vs, fs, rs, bs, ss, ds);
- *
- * let u1 = Uniforms::new().set("world", ....).set("view", ...);
- * let u2 = Uniforms::new().set("abc", ....);
- * let u3 = Uniforms::new().set("def", ....);
- *
- * // 渲染循环
- * context_begin(渲染目标, 视口, 清空处理);
- *
- * context.set_pipeline(pipeline_1);
- * context.draw(geometry_1, [u1, u2, u3]);
- * context.draw(geometry_2, [u4, u2, u3]);
- * 
- * context.set_pipeline(pipeline_2);
- * context.draw(geometry_3, [u1, u2, u3]);
- * context.draw(geometry_4, [u4, u2, u3]);
- *
- * context_end();
  */
 
 pub trait Context: Sized {
     type ContextSelf: Context;
-    type ContextGeometry: Geometry;
-    type ContextTexture: Texture;
-    type ContextSampler: Sampler;
+    type ContextGeometry: Geometry<RContext = Self>;
+    type ContextTexture: Texture<RContext = Self>;
+    type ContextSampler: Sampler<RContext = Self>;
     type ContextRenderTarget: RenderTarget<RContext = Self>;
-    type ContextRenderBuffer: RenderBuffer;
+    type ContextRenderBuffer: RenderBuffer<RContext = Self>;
+    type ContextBlendState: BlendState<RContext = Self>;
+    type ContextDepthState: DepthState<RContext = Self>;
+    type ContextRasterState: RasterState<RContext = Self>;
+    type ContextStencilState: StencilState<RContext = Self>;
+    type ContextProgram: Program<RContext = Self>;
 
     /**
      * 取特性
      */
-    fn get_caps(&self) -> Arc<Capabilities>;
+    fn get_caps(&self) -> &Capabilities;
 
     /**
      * 取默认的渲染目标
      */
-    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget>;
+    fn get_default_render_target(&self) -> &Self::ContextRenderTarget;
 
     /** 
      * 设置shader代码
      */
-    fn set_shader_code<C: AsRef<str>>(&mut self, name: &Atom, code: &C);
+    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C);
 
     /**
      * 编译shader，返回shader对应的hash
@@ -88,63 +52,35 @@ pub trait Context: Sized {
      * 策略：底层握住所有的Shader句柄，不会释放
      * 注：Shader编译耗时，最好事先 编译 和 链接
      */
-    fn compile_shader(&mut self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String>;
-
-    /** 
-     * 创建渲染管线
-     */
-    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: ShareRef<RasterState>, bs: ShareRef<BlendState>, ss: ShareRef<StencilState>, ds: ShareRef<DepthState>) -> Result<Pipeline, String>;
-
-    /** 
-     * 创建Uniforms
-     */
-    fn create_uniforms(&mut self) -> Uniforms<Self> where Self: std::marker::Sized;
-
-    /** 
-     * 创建几何数据
-     */
-    fn create_geometry(&self) -> Result<Self::ContextGeometry, String>;
-
-    /** 
-     * 创建2D纹理
-     * width: 宽
-     * height: 高
-     * format: 格式
-     * is_gen_mipmap: 是否生成mipmap
-     */
-    fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String>;
-
-    /** 
-     * 创建采样器
-     */
-    fn create_sampler(&mut self, desc: ShareRef<SamplerDesc>) -> Result<Self::ContextSampler, String>;
-
-    /** 
-     * 创建渲染目标
-     */
-    fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String>;
+    fn compile_shader(&self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String>;
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn begin_render(&mut self, render_target: &ShareRef<Self::ContextRenderTarget>, data: &ShareRef<RenderBeginDesc>);
+    fn begin_render(&self, render_target: &Self::ContextRenderTarget, data: &RenderBeginDesc);
 
     /** 
      * 结束渲染
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn end_render(&mut self);
+    fn end_render(&self);
 
     /** 
-     * 设置渲染管线
+     * 设置Program
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_pipeline(&mut self, pipeline: &ShareRef<Pipeline>);
+    fn set_program(&self, program: &Self::ContextProgram);
+
+    /** 
+     * 设置State
+     * 注：该方法都要在begin_render和end_render之间调用，否则无效
+     */
+    fn set_state(&self, bs: &Self::ContextBlendState, ds: &Self::ContextDepthState, rs: &Self::ContextRasterState, ss: &Self::ContextStencilState);
 
     /** 
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: &ShareRef<Self::ContextGeometry>, values: &FnvHashMap<Atom, ShareRef<Uniforms<Self>>>) where Self: std::marker::Sized;
+    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &[Self::ContextSampler]);
 }

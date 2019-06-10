@@ -1,4 +1,4 @@
-use self::util::{CullMode};
+use common::util::{CullMode};
 
 /** 
  * 光栅化状态

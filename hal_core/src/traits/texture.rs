@@ -1,4 +1,6 @@
+use std::sync::{Arc};
 use common::{PixelFormat};
+use traits::context::{Context};
 
 /** 
  * 纹理
@@ -10,7 +12,11 @@ pub enum TextureData<'a> {
     F32(&'a [f32]),
 }
 
-pub trait Texture: Drop + AsRef<Self> {
+pub trait Texture {
+    type RContext: Context;
+
+    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn delete(&self);
 
     fn get_size(&self) -> (u32, u32);
 

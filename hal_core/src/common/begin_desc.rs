@@ -65,9 +65,3 @@ impl RenderBeginDesc {
         self.clear_stencil = if is_clear { Some(stencil) } else { None };
     }
 }
-
-impl AsRef<Self> for RenderBeginDesc {
-    fn as_ref(&self) -> &Self {
-        &self
-    }
-}

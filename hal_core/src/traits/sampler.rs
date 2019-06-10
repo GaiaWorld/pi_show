@@ -1,33 +1,11 @@
 
-use common::{TextureFilterMode, TextureWrapMode};
+use std::sync::{Arc};
+use common::{SamplerDesc};
+use traits::context::{Context};
 
-pub struct SamplerDesc {
-    pub min_filter: TextureFilterMode,
-    pub mag_filter: TextureFilterMode,
-    pub mip_filter: Option<TextureFilterMode>,
+pub trait Sampler {
+    type RContext: Context;
 
-    pub u_wrap: TextureWrapMode,
-    pub v_wrap: TextureWrapMode,
-}
-
-impl AsRef<Self> for SamplerDesc {
-    fn as_ref(&self) -> &Self {
-        self
-    }
-}
-
-pub trait Sampler: Drop + AsRef<Self> {
-}
-
-impl Default for SamplerDesc {
-    fn default() -> Self {
-        SamplerDesc {
-            min_filter: TextureFilterMode::Linear,
-            mag_filter: TextureFilterMode::Linear,
-            mip_filter: None,
-
-            u_wrap: TextureWrapMode::Repeat,
-            v_wrap: TextureWrapMode::Repeat,
-        }
-    }
+    fn new(context: &Arc<Self::RContext>, desc: &SamplerDesc) -> Self;
+    fn delete(&self);
 }

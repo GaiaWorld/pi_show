@@ -8,9 +8,5 @@ extern crate fnv;
 mod traits;
 mod common;
 
-use std::sync::Arc;
-
 pub use traits::*;
 pub use common::*;
-
-pub type ShareRef<T> = Arc<AsRef<T> + 'static>;

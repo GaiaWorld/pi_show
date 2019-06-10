@@ -1,4 +1,4 @@
-use self::util::{CompareFunc, StencilOp};
+use common::util::{CompareFunc, StencilOp};
 
 /** 
  * 模板状态

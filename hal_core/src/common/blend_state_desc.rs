@@ -1,4 +1,4 @@
-use self::util::{BlendFunc, BlendFactor};
+use common::util::{BlendFunc, BlendFactor};
 
 /** 
  * 混合状态

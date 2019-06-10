@@ -1,3 +1,6 @@
+use std::sync::{Arc};
+use traits::context::{Context};
+
 /** 
  * 渲染目标
  * 
@@ -11,23 +14,27 @@
  *         模板缓冲区一般是RenderBuffer，不需要取出来
  */
 
-use std::sync::{Arc};
-
-use traits::context::{Context};
-
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
-pub trait RenderBuffer: Drop + AsRef<Self> {
+pub trait RenderBuffer {
+    type RContext: Context;
+
+    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn delete(&self);
+
     fn get_size(&self) -> (u32, u32);
 }
 
 /** 
  * 渲染目标
  */
-pub trait RenderTarget: Drop + AsRef<Self> {
+pub trait RenderTarget {
 
     type RContext: Context;
+
+    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn delete(&self);
 
     /** 
      * 取大小

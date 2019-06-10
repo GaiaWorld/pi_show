@@ -1,9 +1,16 @@
+use std::sync::{Arc};
 use common::{AttributeName};
+use traits::context::{Context};
 
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry: Drop + AsRef<Self> {
+pub trait Geometry {
+
+    type RContext: Context;
+
+    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn delete(&self);
 
     /** 
      * 是否有属性
@@ -19,7 +26,7 @@ pub trait Geometry: Drop + AsRef<Self> {
      * 设置顶点的个数
      * 注：一旦设置了顶点个数，就意味着老的attribute和indiecs无效，要全部重新设置
      */
-    fn set_vertex_count(&mut self, count: u32);
+    fn set_vertex_count(&self, count: u32);
 
     /**
      * 设置属性数据
@@ -28,22 +35,22 @@ pub trait Geometry: Drop + AsRef<Self> {
      * 如果data为None，开辟一个长度是：vertex_count * item_count * 4大小的buffer
      * 如果用同name设置多次，会根据上次的is_updatable来决定是否需要用 buffer_sub_data 还是用 buffer_data
      */
-    fn set_attribute(&mut self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String>;
+    fn set_attribute(&self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String>;
      
     /**
      * 删除属性
      */
-    fn remove_attribute(&mut self, name: &AttributeName);
+    fn remove_attribute(&self, name: &AttributeName);
 
     /**
      * 设置索引
      */
-    fn set_indices_short(&mut self, data: &[u16], is_updatable: bool) -> Result<(), String>;
+    fn set_indices_short(&self, data: &[u16], is_updatable: bool) -> Result<(), String>;
 
     /**
      * 删除索引
      */
-    fn remove_indices(&mut self);
+    fn remove_indices(&self);
 
     /**
      * 更新属性数据，
