@@ -1,12 +1,7 @@
-use std::sync::{Arc, Weak};
-use std::convert::AsRef;
+
 use std::fmt;
-
 use fnv::FnvHashMap;
-
 use atom::{Atom};
-use traits::{Context};
-use ShareRef;
 
 /** 
  * Uniform集合
@@ -37,16 +32,14 @@ use ShareRef;
  *      mat2 or mat2[N]   set_mat_2v
  *      mat3 or mat3[N]   set_mat_3v
  *      mat4 or mat4[N]   set_mat_4v
- * 
- *      sampler           set_sampler
  */
-pub struct Uniforms<C: Context> {
+pub struct Uniforms {
     pub dirty_count: u32,  // 用于设置脏
     pub has_texture: bool, // 该UBO是否含有纹理，如果含有纹理，需要每次设置。
-    pub values: FnvHashMap<Atom, UniformValue<C>>,
+    pub values: FnvHashMap<Atom, UniformValue>,
 }
 
-impl<C: Context> Clone for Uniforms<C> {
+impl Clone for Uniforms {
     fn clone(&self) -> Self {
         Uniforms{
             dirty_count: 0,
@@ -59,16 +52,15 @@ impl<C: Context> Clone for Uniforms<C> {
 /** 
  * Uniform的值，包含各种Uniform枚举
  */
-pub enum UniformValue<C: Context> {
+pub enum UniformValue {
     Float(u8, f32, f32, f32, f32), // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     Int(u8, i32, i32, i32, i32),   // 第一个是后面有效的个数，值只能为: 1, 2, 3, 4
     FloatV(u8, Vec<f32>),          // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4
     IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
-    Sampler(Weak<AsRef<C::ContextSampler>>, Weak<AsRef<C::ContextTexture>>),
 }
 
-impl<C: Context> fmt::Debug for UniformValue<C> {
+impl fmt::Debug for UniformValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             UniformValue::Float(r0, r1, r2, r3, r4) => write!(f, " UniformValue::Float({}, {}, {}, {}, {})", r0, r1, r2, r3, r4),
@@ -76,26 +68,24 @@ impl<C: Context> fmt::Debug for UniformValue<C> {
             UniformValue::FloatV(r0, r1) => write!(f, " UniformValue::FloatV({}, {:?})", r0, r1),
             UniformValue::IntV(r0, r1) => write!(f, " UniformValue::IntV({}, {:?})", r0, r1),
             UniformValue::MatrixV(r0, r1) => write!(f, " UniformValue::MatrixV({}, {:?})", r0, r1),
-            UniformValue::Sampler(_, _) => write!(f, " UniformValue::Sampler(_, _)"),
         }
         
     }
 }
 
-impl<C: Context> Clone for UniformValue<C> {
+impl Clone for UniformValue {
     fn clone(&self) -> Self {
         match self {
-            UniformValue::<C>::Float(c, v1, v2, v3, v4) => UniformValue::<C>::Float(*c, *v1, *v2, *v3, *v4),
-            UniformValue::<C>::Int(c, v1, v2, v3, v4) => UniformValue::<C>::Int(*c, *v1, *v2, *v3, *v4),
-            UniformValue::<C>::FloatV(c, v) => UniformValue::<C>::FloatV(*c, v.clone()),
-            UniformValue::<C>::IntV(c, v) => UniformValue::<C>::IntV(*c, v.clone()),
-            UniformValue::<C>::MatrixV(c, v) => UniformValue::<C>::MatrixV(*c, v.clone()),
-            UniformValue::<C>::Sampler(s, t) => UniformValue::<C>::Sampler(s.clone(), t.clone()),
+            UniformValue::Float(c, v1, v2, v3, v4) => UniformValue::Float(*c, *v1, *v2, *v3, *v4),
+            UniformValue::Int(c, v1, v2, v3, v4) => UniformValue::Int(*c, *v1, *v2, *v3, *v4),
+            UniformValue::FloatV(c, v) => UniformValue::FloatV(*c, v.clone()),
+            UniformValue::IntV(c, v) => UniformValue::IntV(*c, v.clone()),
+            UniformValue::MatrixV(c, v) => UniformValue::MatrixV(*c, v.clone()),
         }
     }
 }
 
-impl<C: Context> Uniforms<C> {
+impl Uniforms {
 
     pub fn set_int_1(&mut self, name: &Atom, v: i32) {
         self.dirty_count = self.dirty_count.wrapping_add(1);
@@ -431,30 +421,4 @@ impl<C: Context> Uniforms<C> {
             .or_insert(UniformValue::MatrixV(4, v.to_vec()));
     }
 
-    /** 
-     * 设置纹理对应的Sampler，Uniform设置纹理只能用Sampler的方式设置。
-     */
-    pub fn set_sampler(&mut self, name: &Atom, sampler: &ShareRef<C::ContextSampler>, texture: &ShareRef<C::ContextTexture>) {
-        self.has_texture = true;
-        self.dirty_count = self.dirty_count.wrapping_add(1);
-        self.values.entry(name.clone())
-            .and_modify(|rv| {
-                match rv {
-                    UniformValue::Sampler(s, t) => { 
-                        *s = Arc::downgrade(sampler);
-                        *t = Arc::downgrade(texture);
-                    }
-                    _ => { 
-                        assert!(false, "Uniforms::set_sampler failed, type not match");
-                    }
-                }
-            })
-            .or_insert(UniformValue::Sampler(Arc::downgrade(sampler), Arc::downgrade(texture)));
-    }
-}
-
-impl<C: Context> AsRef<Self> for Uniforms<C> {
-    fn as_ref(&self) -> &Self {
-        &self
-    }
 }
