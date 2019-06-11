@@ -185,8 +185,8 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   if b == 0 {
-    // println!("update1111111111------------------------layout: {:?}", node.get_layout());
-    // println!("update333333333333333------------------------style: {:?}", node.get_style());
+    println!("update1111111111------------------------layout: {:?}", node.get_layout());
+    println!("update333333333333333------------------------style: {:?}", node.get_style());
     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     if let Some(_) = write.0.get(c) {
       return;
@@ -195,8 +195,8 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else if c > 0 {
-    // println!("update2222222222222------------------------layout: {:?}", node.get_layout());
-    // println!("update4444444444444444-----------------------style: {:?}", node.get_style());
+    println!("update2222222222222------------------------layout: {:?}", node.get_layout());
+    println!("update4444444444444444-----------------------style: {:?}", node.get_style());
     update(node, c, b - 1, write);
   }
 }
@@ -318,7 +318,8 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   //清除多余的CharNode
   if index < cb.chars.len() {
     for i in index..cb.chars.len() {
-        cb.chars[i].node.free()
+		cb.chars[i].node.get_parent().remove_child(cb.chars[i].node.clone());
+    	// cb.chars[i].node.free()
     }
     unsafe{cb.chars.set_len(index)};
     
