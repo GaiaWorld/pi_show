@@ -81,7 +81,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
   }
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
     for id in self.dirty.iter() {
-      println!("dirty------------------------{}", id);
+      // println!("dirty------------------------{}", id);
       if calc(*id, &read, &mut write) {
         self.temp.push(*id)
       }
@@ -110,7 +110,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
   fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-    println!("listen dirty------------------------{}", event.id);
+    // println!("listen dirty------------------------{}", event.id);
     self.set_dirty(event.id, write)
   }
 }
@@ -185,7 +185,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   if b == 0 {
-    println!("update1111111111------------------------layout: {:?}", node.get_layout());
+    // println!("update1111111111------------------------layout: {:?}", node.get_layout());
     // println!("update333333333333333------------------------style: {:?}", node.get_style());
     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     if let Some(_) = write.0.get(c) {
@@ -195,7 +195,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else if c > 0 {
-    println!("update2222222222222------------------------layout: {:?}", node.get_layout());
+    // println!("update2222222222222------------------------layout: {:?}", node.get_layout());
     // println!("update4444444444444444-----------------------style: {:?}", node.get_style());
     update(node, c, b - 1, write);
   }
@@ -229,7 +229,7 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
-  println!("textlayout calc-----------------------------------");
+  // println!("textlayout calc-----------------------------------");
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();
@@ -252,7 +252,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   cb.family = font.family.clone();
   // 获得字体高度
   cb.font_size = read.0.get_size(&font.family, &font.size);
-  println!("read.0---------------------- {:?}", font.family);
+  // println!("read.0---------------------- {:?}", font.family);
   if cb.font_size == 0.0 {
       println!("font_size==0.0");
       return true
@@ -296,7 +296,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Word(c) => {
-        println!("Word----------------------------{:?}, index: {}", c, index);
+        // println!("Word----------------------------{:?}, index: {}", c, index);
         update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::WordStart(c) => {
