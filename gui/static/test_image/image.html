@@ -27,7 +27,7 @@
     <script src="../shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
-
+        Module._set_clear_color(gui, 1, 1, 0, 0);
 
         var node = Module._create_image_node(gui);
         Module._append_child(gui, node, 1);
