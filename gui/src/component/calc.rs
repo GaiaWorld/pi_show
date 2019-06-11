@@ -37,9 +37,9 @@ pub struct Enable(pub bool);
 // HSV
 #[derive(Clone, Debug, Default, Component)]
 pub struct HSV {
-  pub h: f32,
-  pub s: f32,
-  pub v: f32,
+  pub h: f32, // 0-360
+  pub s: f32, // 0-1
+  pub v: f32, // 0-Infinity
 }
 
 // #[derive(Component, Debug, Default)]
