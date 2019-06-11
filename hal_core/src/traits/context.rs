@@ -2,7 +2,7 @@ use atom::Atom;
 
 use fnv::FnvHashMap;
 
-use common::{Uniforms, ShaderType, Capabilities, RenderBeginDesc};
+use common::{Uniforms, Capabilities, RenderBeginDesc};
 use traits::geometry::{Geometry};
 use traits::program::{Program};
 use traits::render_target::{RenderTarget, RenderBuffer};
@@ -13,9 +13,8 @@ use traits::texture::{Texture};
 /**
  * 渲染上下文，负责如下功能
  * 
- * 1. 创建资源
- * 2. 设置状态
- * 3. 渲染物体
+ * 1. 设置状态
+ * 2. 渲染物体
  */
 
 pub trait Context: Sized {
@@ -39,20 +38,7 @@ pub trait Context: Sized {
     /**
      * 取默认的渲染目标
      */
-    fn get_default_render_target(&self) -> &Self::ContextRenderTarget;
-
-    /** 
-     * 设置shader代码
-     */
-    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C);
-
-    /**
-     * 编译shader，返回shader对应的hash
-     * Shader相关接口
-     * 策略：底层握住所有的Shader句柄，不会释放
-     * 注：Shader编译耗时，最好事先 编译 和 链接
-     */
-    fn compile_shader(&self, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String>;
+    fn get_default_target(&self) -> &Self::ContextRenderTarget;
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略

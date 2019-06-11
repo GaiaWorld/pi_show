@@ -3,7 +3,7 @@ use common::util::{CompareFunc};
 /** 
  * 深度状态
  */
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 pub struct DepthStateDesc {
     pub is_depth_test_enable: bool,
     pub is_depth_write_enable: bool,

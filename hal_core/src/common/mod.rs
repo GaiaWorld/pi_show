@@ -9,7 +9,7 @@ mod stencil_state_desc;
 mod uniforms;
 mod util;
 
-pub use self::attribute_name::{AttributeName};
+pub use self::attribute_name::{AttributeName, get_builtin_attribute_count};
 pub use self::begin_desc::{RenderBeginDesc};
 pub use self::blend_state_desc::{BlendStateDesc};
 pub use self::capabilities::{Capabilities};

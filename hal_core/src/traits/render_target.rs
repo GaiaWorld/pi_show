@@ -1,3 +1,4 @@
+use std::hash::{Hash};
 use std::sync::{Arc};
 use traits::context::{Context};
 
@@ -17,10 +18,10 @@ use traits::context::{Context};
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
-pub trait RenderBuffer {
+pub trait RenderBuffer: Hash {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
     fn delete(&self);
 
     fn get_size(&self) -> (u32, u32);
@@ -29,11 +30,12 @@ pub trait RenderBuffer {
 /** 
  * 渲染目标
  */
-pub trait RenderTarget {
+pub trait RenderTarget: Hash {
 
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderTarget, String>;
+    
     fn delete(&self);
 
     /** 

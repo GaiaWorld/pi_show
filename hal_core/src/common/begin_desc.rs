@@ -2,10 +2,6 @@
  * 开始渲染必要的数据
  * 一次渲染需要知道：渲染目标，视口，清空颜色-深度-模板
  * 
- * 用法：
- * 
- * let data = RenderBeginDesc::new();
- * data.set_***(...);
  */
 #[derive(Debug, Clone)]
 pub struct RenderBeginDesc {

@@ -1,3 +1,4 @@
+use std::hash::{Hash};
 use std::sync::{Arc};
 use common::{AttributeName};
 use traits::context::{Context};
@@ -5,11 +6,12 @@ use traits::context::{Context};
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry {
+pub trait Geometry: Hash {
 
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Self;
+    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextGeometry, String>;
+
     fn delete(&self);
 
     /** 
