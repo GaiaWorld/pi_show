@@ -106,9 +106,9 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
 
         let mut z_depth_ubo = engine.gl.create_uniforms();
-        z_depth_ubo.set_float_1(&Z_DEPTH, (render_obj.depth + render_obj.depth_diff)/Z_MAX);
+        z_depth_ubo.set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
         ubos.insert(Z_DEPTH.clone(), Arc::new(z_depth_ubo)); // Z_DEPTH
-        debug_println!("id: {}, z_depth: {:?}", render_obj.context, -(render_obj.depth + render_obj.depth_diff)/Z_MAX);
+        debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
 
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
@@ -140,6 +140,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
                 ds,
             );
             render_obj.pipeline = pipeline;
+            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
         }
     }
 }
@@ -235,10 +236,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
 
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-            render_obj.depth = z_depth;
+            render_obj.depth = z_depth + render_obj.depth_diff;
             let ubos = &mut render_obj.ubos;
-            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, (render_obj.depth + render_obj.depth_diff)/Z_MAX);
-            debug_println!("id: {}, z_depth: {:?}", render_obj.context, -(render_obj.depth + render_obj.depth_diff)/Z_MAX);
+            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
+            debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
             // println!("xxxxxxxxxxx, z_depth: {:?}, id: {}", render_obj.depth + render_obj.depth_diff, render_obj.context);
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }

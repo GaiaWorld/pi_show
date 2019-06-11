@@ -118,7 +118,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         debug_println!("text_shadow, id: {}, color: {:?}", id, c);
 
         let pipeline = engine.create_pipeline(
-            0,
+            1,
             &TEXT_VS_SHADER_NAME.clone(),
             &TEXT_FS_SHADER_NAME.clone(),
             defines.as_slice(),
@@ -134,7 +134,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         //     true
         // };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth + 0.1,
             depth_diff: 0.1,
             visibility: false,
             is_opacity: false,

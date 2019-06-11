@@ -188,7 +188,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         }
 
         let pipeline = engine.create_pipeline(
-            0,
+            1,
             &TEXT_VS_SHADER_NAME.clone(),
             &TEXT_FS_SHADER_NAME.clone(),
             defines.as_slice(),
@@ -204,7 +204,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         //     true
         // };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth + 0.2,
             depth_diff: 0.2,
             visibility: false,
             is_opacity: false,
@@ -403,7 +403,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                 render_obj.ubos.remove(&STROKE);
                 let old_pipeline = render_obj.pipeline.clone();
                 render_obj.pipeline = engine.create_pipeline(
-                    0,
+                    old_pipeline.start_hash,
                     &TEXT_VS_SHADER_NAME.clone(),
                     &TEXT_FS_SHADER_NAME.clone(),
                     render_obj.defines.as_slice(),
@@ -412,6 +412,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                     old_pipeline.ss.clone(),
                     old_pipeline.ds.clone()
                 );
+                render_objs.get_notify().modify_event(item.index, "pipeline", 0);
             },
             None => ()
         };
@@ -427,7 +428,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
             render_obj.ubos.insert(STROKE.clone(), Arc::new(stroke_ubo));
             let old_pipeline = render_obj.pipeline.clone();
             render_obj.pipeline = engine.create_pipeline(
-                0,
+                old_pipeline.start_hash,
                 &TEXT_VS_SHADER_NAME.clone(),
                 &TEXT_FS_SHADER_NAME.clone(),
                 render_obj.defines.as_slice(),
@@ -436,6 +437,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                 old_pipeline.ss.clone(),
                 old_pipeline.ds.clone()
             );
+            render_objs.get_notify().modify_event(item.index, "pipeline", 0);
         }
     }   
 }

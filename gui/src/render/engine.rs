@@ -17,6 +17,7 @@ pub struct PipelineInfo {
     pub bs: Arc<BlendState>,
     pub ss: Arc<StencilState>,
     pub ds: Arc<DepthState>,
+    pub start_hash: u64,
 }
 
 pub struct Engine<C: Context>{
@@ -60,6 +61,7 @@ impl<C: Context> Engine<C> {
                     debug_println!("create_pipeline, defines:{:?}", defines);
                     let defines = Vec::from(defines);
                     Arc::new(PipelineInfo{
+                        start_hash: start_hash,
                         pipeline: Arc::new(r),
                         vs: vs_name.clone(),
                         fs: fs_name.clone(),
