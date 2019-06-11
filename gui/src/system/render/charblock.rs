@@ -100,6 +100,8 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
+            
             let vertex_count: u32 = (positions.len()/3) as u32;
             if  vertex_count == 0 {
                 geometry.set_vertex_count(vertex_count);
@@ -115,8 +117,6 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                 Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
                 None => ()
             };
-
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
         self.geometry_dirtys.clear();
     }
@@ -188,7 +188,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         }
 
         let pipeline = engine.create_pipeline(
-            0,
+            1,
             &TEXT_VS_SHADER_NAME.clone(),
             &TEXT_FS_SHADER_NAME.clone(),
             defines.as_slice(),
@@ -204,7 +204,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         //     true
         // };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth + 0.2,
             depth_diff: 0.2,
             visibility: false,
             is_opacity: false,
@@ -403,7 +403,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                 render_obj.ubos.remove(&STROKE);
                 let old_pipeline = render_obj.pipeline.clone();
                 render_obj.pipeline = engine.create_pipeline(
-                    0,
+                    old_pipeline.start_hash,
                     &TEXT_VS_SHADER_NAME.clone(),
                     &TEXT_FS_SHADER_NAME.clone(),
                     render_obj.defines.as_slice(),
@@ -412,6 +412,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                     old_pipeline.ss.clone(),
                     old_pipeline.ds.clone()
                 );
+                render_objs.get_notify().modify_event(item.index, "pipeline", 0);
             },
             None => ()
         };
@@ -427,7 +428,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
             render_obj.ubos.insert(STROKE.clone(), Arc::new(stroke_ubo));
             let old_pipeline = render_obj.pipeline.clone();
             render_obj.pipeline = engine.create_pipeline(
-                0,
+                old_pipeline.start_hash,
                 &TEXT_VS_SHADER_NAME.clone(),
                 &TEXT_FS_SHADER_NAME.clone(),
                 render_obj.defines.as_slice(),
@@ -436,6 +437,7 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                 old_pipeline.ss.clone(),
                 old_pipeline.ds.clone()
             );
+            render_objs.get_notify().modify_event(item.index, "pipeline", 0);
         }
     }   
 }

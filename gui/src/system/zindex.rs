@@ -215,7 +215,7 @@ impl ZIndexImpl {
     }
     if self.dirty.count() > 0 {
       // 详细打印
-      for (id, n) in idtree.recursive_iter(2) {
+      for (_id, n) in idtree.recursive_iter(2) {
         let mut v = String::new();
         for _ in 1..n.layer {
           v.push('-')

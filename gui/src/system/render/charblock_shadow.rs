@@ -118,7 +118,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         debug_println!("text_shadow, id: {}, color: {:?}", id, c);
 
         let pipeline = engine.create_pipeline(
-            0,
+            1,
             &TEXT_VS_SHADER_NAME.clone(),
             &TEXT_FS_SHADER_NAME.clone(),
             defines.as_slice(),
@@ -134,7 +134,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         //     true
         // };
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth + 0.1,
             depth_diff: 0.1,
             visibility: false,
             is_opacity: false,
@@ -185,6 +185,8 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
+            
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
 
             let vertex_count: u32 = (positions.len()/3) as u32;
             if  vertex_count == 0 {
@@ -197,8 +199,6 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
             geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
             geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
             geometry.set_indices_short(indices.as_slice(), false).unwrap();
-
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
         self.geometry_dirtys.clear();
     }

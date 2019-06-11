@@ -143,7 +143,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         );
         
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth - 0.3,
             depth_diff: -0.3,
             visibility: false,
             is_opacity: false,

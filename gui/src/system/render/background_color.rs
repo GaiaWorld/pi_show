@@ -153,7 +153,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         
         let is_opacity = background_is_opacity(opacity, background_color);
         let render_obj: RenderObj<C> = RenderObj {
-            depth: z_depth,
+            depth: z_depth - 0.2,
             depth_diff: -0.2,
             visibility: false,
             is_opacity: is_opacity,

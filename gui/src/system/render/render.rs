@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::default::Default;
 use std::sync::Arc;
+
 use fnv::FnvHashMap;
 
 use hal_core::*;
@@ -15,14 +16,27 @@ use render::engine::Engine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
 
 pub struct RenderSys<C: Context + Share>{
+    transparent_dirty: bool,
+    opacity_dirty: bool,
     dirty: bool,
+    opacity_list: Vec<usize>,
+    transparent_list: Vec<usize>,
+    // opacity_list: BTreeMap<f32, usize>, // 不透明列表
+    // transparent_list: BTreeMap<u32, usize>, // 透明列表
+    // transpare
+    // nt_map: 
     mark: PhantomData<C>,
 }
 
 impl<C: Context + Share> Default for RenderSys<C> {
     fn default() -> Self{
         Self{
+            transparent_dirty: false,
+            opacity_dirty: false,
             dirty: false,
+            opacity_list: Vec::new(),
+            transparent_list: Vec::new(),
+            // transparent_list: BTreeMap::new(),
             mark: PhantomData,
         }
     }
@@ -36,41 +50,96 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         let (render_objs, render_begin) = read;
+
         if self.dirty == false {
             return;
         }
-
         self.dirty = false;
-
-        let mut transparent_list = Vec::new();
-        let mut opacity_list = Vec::new();
-        for item in render_objs.iter() {
-            if item.1.visibility == true {
-                if item.1.is_opacity == true {
-                    opacity_list.push(OpacityOrd(item.1));
-                }else {
-                    transparent_list.push(TransparentOrd(item.1));
+        
+        if self.transparent_dirty && self.opacity_dirty {
+            self.opacity_list.clear();
+            self.transparent_list.clear();
+            for item in render_objs.iter() {
+                if item.1.visibility == true {
+                    if item.1.is_opacity == true {
+                        self.opacity_list.push(item.0);
+                    }else {
+                        self.transparent_list.push(item.0);
+                    }
                 }
             }
-            
+            self.transparent_list.sort_by(|id1, id2|{
+                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
+                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                obj1.depth.partial_cmp(&obj2.depth).unwrap()
+            });
+            self.opacity_list.sort_by(|id1, id2|{
+                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
+                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                (obj1.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(obj2.pipeline.pipeline.as_ref() as *const Pipeline as usize)).unwrap()
+            });
+        } else if self.transparent_dirty {
+            self.transparent_list.clear();
+            for item in render_objs.iter() {
+                if item.1.visibility == true {
+                    if item.1.is_opacity != true {
+                        self.transparent_list.push(item.0);
+                    }
+                }
+            }
+            self.transparent_list.sort_by(|id1, id2|{
+                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
+                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                obj1.depth.partial_cmp(&obj2.depth).unwrap()
+            });
+        } else if self.opacity_dirty {
+            self.opacity_list.clear();
+            for item in render_objs.iter() {
+                if item.1.visibility == true {
+                    if item.1.is_opacity == true {
+                        self.opacity_list.push(item.0);
+                    }
+                }
+            }
+            self.opacity_list.sort_by(|id1, id2|{
+                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
+                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                (obj1.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(obj2.pipeline.pipeline.as_ref() as *const Pipeline as usize)).unwrap()
+            });
         }
 
-        transparent_list.sort();
-        opacity_list.sort();
+
+        // let mut transparent_list = Vec::new();
+        // let mut opacity_list = Vec::new();
+        // for item in render_objs.iter() {
+        //     if item.1.visibility == true {
+        //         if item.1.is_opacity == true {
+        //             opacity_list.push(OpacityOrd(item.1, item.0));
+        //         }else {
+        //             transparent_list.push(TransparentOrd(item.1, item.0));
+        //         }
+        //     }
+            
+        // }
+
+        // transparent_list.sort();
+        // opacity_list.sort();
 
         let gl = &mut engine.gl;
         gl.begin_render(
             &(gl.get_default_render_target().clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
             &(render_begin.0.clone() as Arc<dyn AsRef<RenderBeginDesc>>));
         
-        for obj in opacity_list.into_iter() {
-            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.0.depth + obj.0.depth_diff,  obj.0.context);
-            render(gl, obj.0); 
+        for id in self.opacity_list.iter() {
+            let obj = unsafe { render_objs.get_unchecked(*id) };
+            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            render(gl, obj); 
         }
 
-        for obj in transparent_list.into_iter() {
-            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.0.depth,  obj.0.context);
-            render(gl, obj.0);
+        for id in self.transparent_list.iter() {
+            let obj = unsafe { render_objs.get_unchecked(*id) };
+            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            render(gl, obj);
         }
 
         gl.end_render();
@@ -78,26 +147,57 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
 }
 
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for RenderSys<C>{
-    type ReadData = ();
+    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = ();
-    fn listen(&mut self, _: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        let obj = unsafe { render_objs.get_unchecked(event.id) };
+        if obj.is_opacity == false {
+            self.transparent_dirty = true;
+        } else {
+            self.opacity_dirty = true;
+        }
     }
 }
 
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for RenderSys<C>{
-    type ReadData = ();
+    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = ();
-    fn listen(&mut self, _: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+    fn listen(&mut self, event: &ModifyEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        match event.field {
+            "depth" => {
+                let obj = unsafe { render_objs.get_unchecked(event.id) };
+                if obj.is_opacity == false {
+                    self.transparent_dirty = true;
+                }
+            },
+            "pipiline" => {
+                let obj = unsafe { render_objs.get_unchecked(event.id) };
+                if obj.is_opacity == true {
+                    self.opacity_dirty = true;
+                }
+            },
+            "is_opacity" => {
+                self.opacity_dirty = true;
+                self.transparent_dirty = true;
+            }
+            _ => ()
+        }
     }
 }
 
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for RenderSys<C>{
-    type ReadData = ();
+    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = ();
-    fn listen(&mut self, _: &DeleteEvent, _: Self::ReadData, _: Self::WriteData){
+    fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        let obj = unsafe { render_objs.get_unchecked(event.id) };
+        if obj.is_opacity == false {
+            self.transparent_dirty = true;
+        } else {
+            self.opacity_dirty = true;
+        }
     }
 }
 
@@ -114,7 +214,7 @@ fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
     gl.draw(&(obj.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 
-struct OpacityOrd<'a, C: Context + Share>(&'a RenderObj<C>);
+struct OpacityOrd<'a, C: Context + Share>(&'a RenderObj<C>, usize);
 
 impl<'a, C: Context + Share> PartialOrd for OpacityOrd<'a, C> {
 	fn partial_cmp(&self, other: &OpacityOrd<'a, C>) -> Option<Ordering> {
@@ -137,7 +237,7 @@ impl<'a, C: Context + Share> Ord for OpacityOrd<'a, C>{
     }
 }
 
-struct TransparentOrd<'a, C: Context + Share>(&'a RenderObj<C>);
+struct TransparentOrd<'a, C: Context + Share>(&'a RenderObj<C>, usize);
 
 impl<'a, C: Context + Share> PartialOrd for TransparentOrd<'a, C> {
 	fn partial_cmp(&self, other: &TransparentOrd<'a, C>) -> Option<Ordering> {
