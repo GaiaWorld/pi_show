@@ -195,44 +195,35 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
         value.get_lu16(offset) as f32;
         offset += 8;
 
-        println!("offset--------------------{}", offset);
         // println!("value: {:?}", value);
         //字符uv表
         loop {
+
             if offset >= value.len() {
                 break;
             }
-            
-            let id = value.get_lu16(offset);
-            offset += 2;
-            let x = value.get_lu16(offset);
-            offset += 2;
-            let y = value.get_lu16(offset);
-            offset += 2;
-            let ox = value.get_li8(offset);
-            offset += 1;
-            let oy = value.get_u8(offset);
-            offset += 1;
-            let width = value.get_u8(offset);
-            offset += 1;
-            let height = value.get_u8(offset);
-            offset += 1;
-            let advance = value.get_u8(offset);
+            // Glyph::parse(value, &mut offset)
+            // let id = value.get_lu16(offset);
+            // offset += 2;
+            // let x = value.get_lu16(offset);
+            // offset += 2;
+            // let y = value.get_lu16(offset);
+            // offset += 2;
+            // let ox = value.get_li8(offset);
             // offset += 1;
-            offset += 2; // 加2， 对齐
-
+            // let oy = value.get_u8(offset);
+            // offset += 1;
+            // let width = value.get_u8(offset);
+            // offset += 1;
+            // let height = value.get_u8(offset);
+            // offset += 1;
+            // let advance = value.get_u8(offset);
+            // // offset += 1;
+            // offset += 2; // 加2， 对齐
+            let glyph = Glyph::parse(value, &mut offset);
             self.glyph_table.insert(
-                unsafe{ transmute(id as u32) },
-                Glyph {
-                    id: unsafe{ transmute(id as u32) },
-                    x: x as f32,
-                    y: y as f32,
-                    ox: ox as f32,
-                    oy: oy as f32,
-                    width: width as f32,
-                    height: height as f32,
-                    advance: advance as f32,
-                }
+                glyph.id,
+                glyph
             );
         }
         Ok(())
