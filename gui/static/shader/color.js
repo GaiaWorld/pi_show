@@ -16,22 +16,18 @@ let color_vs_code = `
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
     uniform float zDepth;
-
-    // Varyings
-    varying vec2 vpos;
     
     #ifdef VERTEX_COLOR
         varying vec4 vColor; 
     #endif
     
     void main(void) {
-        gl_Position = (projectMatrix * viewMatrix * worldMatrix) * vec4(position.x, position.y, zDepth, 1.0);
-        vpos = position.xy;
+        vec4 p = (projectMatrix * viewMatrix * worldMatrix) * vec4(position.x, position.y, 1.0, 1.0);
+        gl_Position = vec4(p.x, p.y, zDepth, 1.0);
 
         #ifdef VERTEX_COLOR
             vColor = color;
         #endif
-
     }
 `;
 let color_fs_code = `
@@ -50,9 +46,6 @@ let color_fs_code = `
         uniform sampler2D clipTexture;
         uniform float clipTextureSize;
     #endif
-
-    // Varyings
-    varying vec2 vpos;
 
     #ifdef VERTEX_COLOR
         varying vec4 vColor;

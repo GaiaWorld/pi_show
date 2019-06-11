@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
+use stdweb::Object;
 use webgl_rendering_context::{WebGLRenderingContext};
 
 use atom::Atom;
@@ -28,10 +29,10 @@ pub mod info;
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    // let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
-    // let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
+    let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
+    let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
 
-    let gl = WebGLContextImpl::new(Arc::new(gl), None);
+    // let gl = WebGLContextImpl::new(Arc::new(gl), None);
     let engine = Engine::new(gl);
     Box::into_raw(Box::new(engine)) as u32
 }

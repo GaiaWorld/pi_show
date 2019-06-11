@@ -30,9 +30,9 @@ pub trait SdfFont {
 
 // 字体生成器
 pub trait MSdfGenerator{
-    fn gen(&self, c: char) -> Glyph;
+    fn gen(&self, font_name: &str, c: char) -> Glyph;
 
-    fn gen_mult(&self, chars: &[char]) -> Vec<Glyph>;
+    // fn gen_mult(&self, chars: &[char]) -> Vec<Glyph>;
 }
 
 pub struct GlyphInfo{
@@ -65,7 +65,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
         match self.glyph_table.get(&c) {
             Some(glyph) => font_size/self.line_height*glyph.advance,
             None => {
-                let glyph = self.generator.gen(c);
+                let glyph = self.generator.gen(self.name.as_ref(), c);
                 let advance = glyph.advance;
                 unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
                 font_size/self.line_height*advance
@@ -195,6 +195,7 @@ impl<C: Context + 'static + Send + Sync, G: MSdfGenerator + 'static + Send + Syn
         value.get_lu16(offset) as f32;
         offset += 8;
 
+        println!("offset--------------------{}", offset);
         // println!("value: {:?}", value);
         //字符uv表
         loop {

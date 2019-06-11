@@ -37,11 +37,11 @@ impl<C: Context> Engine<C> {
     pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Arc<PipelineInfo> {
         let vs = match self.gl.compile_shader(ShaderType::Vertex, vs_name, defines) {
             Ok(r) => r,
-            Err(_s) => panic!("compile_vs_shader error"),
+            Err(s) => panic!("compile_vs_shader error: {:?}", s),
         };
         let fs = match self.gl.compile_shader(ShaderType::Fragment, fs_name, defines) {
             Ok(r) => r,
-            Err(_s) => panic!("compile_fs_shader error"),
+            Err(s) => panic!("compile_fs_shader error: {:?}", s),
         };
     
         let mut hasher = DefaultHasher::new();

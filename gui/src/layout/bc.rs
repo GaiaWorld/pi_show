@@ -56,6 +56,41 @@ pub use layout::yoga::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWra
 //     }
 // }
 
+#[derive(Debug)]
+pub struct Style{
+    left: yoga::YGValue,
+    right: yoga::YGValue,
+    top: yoga::YGValue,
+    bottom: yoga::YGValue,
+    width: yoga::YGValue,
+    height: yoga::YGValue,
+    margin_left: yoga::YGValue,
+    margin_top: yoga::YGValue,
+    margin_right: yoga::YGValue,
+    margin_bottom: yoga::YGValue,
+    padding_left: yoga::YGValue,
+    padding_top: yoga::YGValue,
+    padding_right: yoga::YGValue,
+    padding_bottom: yoga::YGValue,
+    border_left:f32,
+    border_top: f32,
+    border_right: f32,
+    border_bottom: f32,
+    align_content: YGAlign,
+    align_items: YGAlign,
+    justify_content: YGJustify,
+    flex_direction: YGFlexDirection,
+    flex_wrap: YGWrap,
+    align_self: YGAlign,
+    position_type: YGPositionType,
+    flex_grow: f32,
+    flex_shrink: f32,
+    flex_basis: yoga::YGValue,
+    min_width: yoga::YGValue,
+    min_height: yoga::YGValue,
+    max_width: yoga::YGValue,
+    max_height: yoga::YGValue,
+}
 
 // pub type YgNodeP = YgNode;
 
@@ -87,7 +122,7 @@ impl YgNode {
         yoga::yg_node_style_set_position_type(self.0, value)
     }
     pub fn set_position(&self, edge: YGEdge, position: f32) { 
-        yoga::yg_node_style_set_position(self.0, edge, position);
+        yoga::yg_node_style_set_position(self.0, edge, position * 100.0);
     }
     pub fn set_position_percent(&self, edge: YGEdge, position: f32) {
         yoga::yg_node_style_set_position_percent(self.0, edge, position);
@@ -114,7 +149,7 @@ impl YgNode {
         yoga::yg_node_style_set_justify_content(self.0, value);
     }
     pub fn set_margin(&self, edge: YGEdge, value: f32) { 
-        yoga::yg_node_style_set_margin(self.0, edge, value);
+        yoga::yg_node_style_set_margin(self.0, edge, value * 100.0);
     }
     pub fn set_margin_percent(&self, edge: YGEdge, value: f32) { 
         yoga::yg_node_style_set_margin_percent(self.0, edge, value);
@@ -135,7 +170,7 @@ impl YgNode {
         yoga::yg_node_style_set_flex(self.0, value);
     }
     pub fn set_flex_basis(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_basis(self.0, value); 
+        yoga::yg_node_style_set_flex_basis(self.0, value * 100.0); 
     }
     pub fn set_flex_basis_percent(&self, value: f32) { 
         yoga::yg_node_style_set_flex_basis_percent(self.0, value); 
@@ -144,14 +179,14 @@ impl YgNode {
         yoga::yg_node_style_set_flex_basis_auto(self.0); 
     }
     pub fn set_flex_grow(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_grow(self.0, value);
+        yoga::yg_node_style_set_flex_grow(self.0, value * 100.0);
     }
     pub fn set_flex_shrink(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_shrink(self.0, value); 
+        yoga::yg_node_style_set_flex_shrink(self.0, value * 100.0); 
     }
 
     pub fn set_width(&self, value: f32) { 
-        yoga::yg_node_style_set_width(self.0, value);
+        yoga::yg_node_style_set_width(self.0, value * 100.0);
     }
 
     pub fn set_width_percent(&self, value: f32){ 
@@ -161,7 +196,7 @@ impl YgNode {
         yoga::yg_node_style_set_width_auto(self.0);
     }
     pub fn set_height(&self, value: f32){ 
-        yoga::yg_node_style_set_height(self.0, value);
+        yoga::yg_node_style_set_height(self.0, value * 100.0);
     }
     pub fn set_height_percent(&self, value: f32){ 
         yoga::yg_node_style_set_height_percent(self.0, value);
@@ -171,7 +206,7 @@ impl YgNode {
     }
 
     pub fn set_min_width(&self, value: f32){ 
-        yoga::yg_node_style_set_min_width(self.0, value);
+        yoga::yg_node_style_set_min_width(self.0, value * 100.0);
     }
     pub fn set_min_width_percent(&self, value: f32){ 
         yoga::yg_node_style_set_min_width_percent(self.0, value);
@@ -184,26 +219,26 @@ impl YgNode {
     }
 
     pub fn set_max_width(&self, value: f32){ 
-        yoga::yg_node_style_set_max_width(self.0, value);
+        yoga::yg_node_style_set_max_width(self.0, value * 100.0);
     }
     pub fn set_max_width_percent(&self, value: f32){
         yoga::yg_node_style_set_max_width_percent(self.0, value);
     }
     pub fn set_max_height(&self, value: f32){ 
-        yoga::yg_node_style_set_max_height(self.0, value);
+        yoga::yg_node_style_set_max_height(self.0, value * 100.0);
     }
     pub fn set_max_height_percent(&self, value: f32){
         yoga::yg_node_style_set_max_height_percent(self.0, value);
     }
 
     pub fn set_aspect_ratio(&self, value: f32){ 
-        yoga::yg_node_style_set_aspect_ratio(self.0, value);
+        yoga::yg_node_style_set_aspect_ratio(self.0, value * 100.0);
     }
     pub fn set_border(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_border(self.0, edge, value);
+        yoga::yg_node_style_set_border(self.0, edge, value * 100.0);
     }
     pub fn set_padding(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_padding(self.0, edge, value);
+        yoga::yg_node_style_set_padding(self.0, edge, value * 100.0);
     }
     pub fn set_padding_percent(&self, edge: YGEdge, value: f32){
         yoga::yg_node_style_set_padding_percent(self.0, edge, value);
@@ -215,83 +250,6 @@ impl YgNode {
     pub fn set_bind(&self, bind: *mut c_void){
         yoga::yg_node_set_bind(self.0, bind);
     }
-
-    // pub fn get_position_type(&self) -> YGPositionType {
-    //    yoga::yg_node_style_get_position_type(self.0)
-    // }
-    // pub fn get_position(&self, edge: YGEdge) -> f32 { 
-    //     yoga::yg_node_style_get_position(self.0, edge)
-    // }
-
-    // pub fn get_align_content(&self) -> YGAlign {
-    //     yoga::yg_node_style_get_align_content(self.0) 
-    // }
-    // pub fn get_align_items(&self) -> YGAlign{ 
-    //     yoga::yg_node_style_get_align_items(self.0)
-    // }
-    // pub fn get_align_self(&self) -> YGAlign { 
-    //     yoga::yg_node_style_get_align_self(self.0)
-    // }
-    // pub fn get_flex_wrap(&self) -> YGWrap {
-    //     yoga::yg_node_style_get_flex_wrap(self.0)
-    // }
-    // pub fn get_justify_content(&self) -> YGJustify { 
-    //     yoga::yg_node_style_get_position_type(self.0)
-    // }
-
-    // pub fn get_margin(&self, edge: YGEdge) -> f32 { 
-    //     yoga::yg_node_style_get_margin(self.0)
-    // }
-
-    // pub fn get_flex_basis(&self) -> f32 {
-    //     yoga::yg_node_style_get_flex_basis(self.0)
-    // }
-    // pub fn get_flex_grow(&self) -> f32 { 
-    //     yoga::yg_node_style_get_flex_grow(self.0)
-    // }
-    // pub fn get_flex_shrink(&self) -> f32 { 
-    //     yoga::yg_node_style_get_flex_shrink(self.0)
-    // }
-
-    // pub fn get_width(&self) -> f32 { 
-    //     yoga::yg_node_style_get_width(self.0)
-    // }
-    // pub fn get_height(&self) -> f32 { 
-    //     yoga::yg_node_style_get_height(self.0)
-    // }
-
-    // pub fn get_min_width(&self) -> f32 { 
-    //     yoga::yg_node_style_get_min_width(self.0)
-    // }
-    // pub fn get_min_height(&self) -> f32 { 
-    //     yoga::yg_node_style_get_min_height(self.0)
-    // }
-
-    // pub fn get_max_width(&self) -> f32 { 
-    //     yoga::yg_node_style_get_max_width(self.0)
-    // }
-    // pub fn get_max_height(&self) -> f32 { 
-    //     yoga::yg_node_style_get_max_height(self.0)
-    // }
-
-    // pub fn get_aspect_ratio(&self) -> f32 { 
-    //     yoga::yg_node_style_get_aspect_ratio(self.0)
-    // }
-
-    // pub fn get_border(&self, edge: YGEdge) -> f32 {
-    //     yoga::yg_node_style_get_border(self.0, edge)
-    // }
-
-    // pub fn get_overflow(&self) -> YGOverflow { 
-    //     yoga::yg_node_style_get_overflow(self.0)
-    // }
-    // pub fn get_display(&self) -> YGDisplay { 
-    //     yoga::yg_node_style_get_display(self.0)
-    // }
-
-    // pub fn get_padding(&self, edge: YGEdge) -> f32 { 
-    //     yoga::yg_node_style_get_padding(self.0)
-    // }
 
     pub fn insert_child(&self, node: YgNode, index: u32){
         yoga::yg_node_insert_child(self.0, node.0, index)
@@ -320,6 +278,49 @@ impl YgNode {
     pub fn get_height(&self) -> yoga::YGValue {
         yoga::yg_node_style_get_height(self.0)
     }
+    pub fn get_top(&self) -> yoga::YGValue {
+        yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeTop)
+    }
+    pub fn get_left(&self) -> yoga::YGValue {
+        yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeLeft)
+    }
+
+    pub fn get_style(&self) -> Style {
+        Style{
+            left: yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeLeft),
+            right: yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeRight),
+            top: yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeTop),
+            bottom: yoga::yg_node_style_get_position(self.0, YGEdge::YGEdgeBottom),
+            width: yoga::yg_node_style_get_width(self.0),
+            height: yoga::yg_node_style_get_height(self.0),
+            margin_left: yoga::yg_node_style_get_margin(self.0, YGEdge::YGEdgeLeft),
+            margin_top: yoga::yg_node_style_get_margin(self.0, YGEdge::YGEdgeTop),
+            margin_right: yoga::yg_node_style_get_margin(self.0, YGEdge::YGEdgeRight),
+            margin_bottom: yoga::yg_node_style_get_margin(self.0, YGEdge::YGEdgeBottom),
+            padding_left: yoga::yg_node_style_get_padding(self.0, YGEdge::YGEdgeLeft),
+            padding_top: yoga::yg_node_style_get_padding(self.0, YGEdge::YGEdgeTop),
+            padding_right: yoga::yg_node_style_get_padding(self.0, YGEdge::YGEdgeRight),
+            padding_bottom: yoga::yg_node_style_get_padding(self.0, YGEdge::YGEdgeBottom),
+            border_left: yoga::yg_node_style_get_border(self.0, YGEdge::YGEdgeLeft),
+            border_top: yoga::yg_node_style_get_border(self.0, YGEdge::YGEdgeTop),
+            border_right: yoga::yg_node_style_get_border(self.0, YGEdge::YGEdgeRight),
+            border_bottom: yoga::yg_node_style_get_border(self.0, YGEdge::YGEdgeBottom),
+            align_content: yoga::yg_node_style_get_align_content(self.0),
+            align_items: yoga::yg_node_style_get_align_items(self.0),
+            justify_content: yoga::yg_node_style_get_justify_content(self.0),
+            flex_direction: yoga::yg_node_style_get_flex_direction(self.0),
+            flex_wrap: yoga::yg_node_style_get_flex_wrap(self.0),
+            align_self: yoga::yg_node_style_get_align_self(self.0),
+            position_type: yoga::yg_node_style_get_position_type(self.0),
+            flex_grow: yoga::yg_node_style_get_flex_grow(self.0),
+            flex_shrink: yoga::yg_node_style_get_flex_shrink(self.0),
+            flex_basis: yoga::yg_node_style_get_flex_basis(self.0),
+            min_width: yoga::yg_node_style_get_min_width(self.0),
+            min_height: yoga::yg_node_style_get_min_height(self.0),
+            max_width: yoga::yg_node_style_get_max_width(self.0),
+            max_height: yoga::yg_node_style_get_max_height(self.0),
+        }
+    }
     pub fn get_context(&self) -> *mut c_void {
         yoga::yg_node_get_context(self.0)
     }
@@ -343,49 +344,29 @@ impl YgNode {
     }
 
     pub fn calculate_layout(&self, width: f32, height:f32, direction: YGDirection){
-        yoga::yg_node_calculate_layout(self.0, width, height, direction);
+        yoga::yg_node_calculate_layout(self.0, width * 100.0, height * 100.0, direction);
     }
 
     pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: CallbackFunc, arg: *const c_void) {
-        yoga::yg_node_calculate_layout_by_callback(self.0, width, height, direction, unsafe { std::mem::transmute(callback) }, arg);
+        yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, direction, unsafe { std::mem::transmute(callback) }, arg);
     }
-
-//     为指定节点设置上下文
-// yoga::yg_node_set_context(node, Box::into_raw(Box::new(0u8)) as *mut c_void);
-// 计算布局并回调
-// yoga::yg_node_calculate_layout_by_callback(node, 1000.0, 1000.0, YGDirection::YGDirectionLTR, callback);
-
-// //回调函数
-// #[no_mangle]
-// extern "C" fn callback(context: *const c_void) {
-//     //更新布局
-//     let node = unsafe { Box::from_raw(context as *mut u8) };
-//     Box::into_raw(Box::new(node));
-// }
 
     pub fn get_layout(&self) -> Layout {
         Layout{
-            left: yoga::yg_node_layout_get_left(self.0),
-            top: yoga::yg_node_layout_get_top(self.0),
-            width: yoga::yg_node_layout_get_width(self.0),
-            height: yoga::yg_node_layout_get_height(self.0),
-            border_left: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft),
-            border_top: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeTop),
-            border_right: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeRight),
-            border_bottom: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeBottom),
-            padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft),
-            padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop),
-            padding_right: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeRight),
-            padding_bottom: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeBottom),
+            left: yoga::yg_node_layout_get_left(self.0)/100.0,
+            top: yoga::yg_node_layout_get_top(self.0)/100.0,
+            width: yoga::yg_node_layout_get_width(self.0)/100.0,
+            height: yoga::yg_node_layout_get_height(self.0)/100.0,
+            border_left: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft)/100.0,
+            border_top: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeTop)/100.0,
+            border_right: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeRight)/100.0,
+            border_bottom: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeBottom)/100.0,
+            padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft)/100.0,
+            padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop)/100.0,
+            padding_right: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeRight)/100.0,
+            padding_bottom: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeBottom)/100.0,
         }
     }
-
-    // pub fn get_computed_size(&self) -> Vector2 {
-    //     Vector2{
-    //         x: self.0.getComputedWidth(), 
-    //         y:self.0.getComputedHeight()
-    //     }
-    // }
 
     pub fn get_layout_margin(&self, edge: YGEdge) -> f32 { 
         yoga::yg_node_layout_get_margin(self.0, edge)
@@ -421,321 +402,3 @@ impl YgNode {
 }
 
 pub type CallbackFunc = unsafe extern "C" fn(node: YgNode, args: *const c_void);
-
-
-// #[derive(Clone, Debug, PartialEq, Eq, ReferenceType)]
-// #[reference(instance_of = "YgNode")]
-// pub struct YgNode( Reference );
-
-// impl YgNode {
-//     pub fn new () -> YgNode {
-//         js! (return new YgNode();).try_into().unwrap()
-//     }
-
-//     pub fn set_position_type (&self, ) {
-//         js! (
-//             return @{self}.setPositionType();
-//         );
-//     }
-// }
-
-
-// extern "C" {
-//     pub type Node;
-//     #[wasm_bindgen(constructor)]
-//     pub fn new() -> Node;
-
-//     #[wasm_bindgen(method)]
-//     pub fn setPositionType(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setPosition(this: &Node, edge: u8, position: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setPositionPercent(this: &Node, edge: u8, position: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setAlignContent(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setAlignItems(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setAlignSelf(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexDirection(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexWrap(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setJustifyContent(this: &Node, value: u8);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setMargin(this: &Node, edge: u8, position: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMarginPercent(this: &Node, edge: u8, position: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMarginAuto(this: &Node, edge: u8);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setOverflow(this: &Node, value: u8);
-//     #[wasm_bindgen(method)]
-//     pub fn setDisplay(this: &Node, value: u8);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setFlex(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexBasis(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexBasisPercent(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexGrow(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setFlexShrink(this: &Node, value: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setWidth(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setWidthPercent(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setWidthAuto(this: &Node);
-//     #[wasm_bindgen(method)]
-//     pub fn setHeight(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setHeightPercent(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setHeightAuto(this: &Node);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setMinWidth(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMinWidthPercent(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMinHeight(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMinHeightPercent(this: &Node, value: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setMaxWidth(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMaxWidthPercent(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMaxHeight(this: &Node, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setMaxHeightPercent(this: &Node, value: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setAspectRatio(this: &Node, value: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn setBorder(this: &Node, edge: u8, value: f32);
-//     #[wasm_bindgen(method)]
-
-//     #[wasm_bindgen(method)]
-//     pub fn setPadding(this: &Node, edge: u8, value: f32);
-//     #[wasm_bindgen(method)]
-//     pub fn setPaddingPercent(this: &Node, edge: u8, value: f32);
-
-//     #[wasm_bindgen(method)]
-//     pub fn getPositionType(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getPosition(this: &Node, edge: u8) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getAlignContent(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getAlignItems(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getAlignSelf(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getFlexWrap(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getJustifyContent(this: &Node) -> u8;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getMargin(this: &Node, edge: u8) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getFlexBasis(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getFlexGrow(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getFlexShrink(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getWidth(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getHeight(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getMinWidth(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getMinHeight(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getMaxWidth(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getMaxHeight(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getAspectRatio(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getBorder(this: &Node, edge: u8) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getOverflow(this: &Node) -> u8;
-//     #[wasm_bindgen(method)]
-//     pub fn getDisplay(this: &Node) -> u8;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getPadding(this: &Node, edge: u8) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn insertChild(this: &Node, node: Node, index: usize);
-//     #[wasm_bindgen(method)]
-//     pub fn removeChild(this: &Node, node: &Node);
-
-//     #[wasm_bindgen(method)]
-//     pub fn getChildCount(this: &Node) -> usize;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getParent(this: &Node) -> Node;
-//     #[wasm_bindgen(method)]
-//     pub fn getChild(this: &Node, index: usize) -> Node;
-
-//     #[wasm_bindgen(method)]
-//     pub fn isReferenceBaseline(this: &Node) -> bool;
-//     #[wasm_bindgen(method)]
-//     pub fn setIsReferenceBaseline(this: &Node, value: bool);
-
-//     #[wasm_bindgen(method)]
-//     pub fn markDirty(this: &Node);
-//     #[wasm_bindgen(method)]
-//     pub fn isDirty(this: &Node) -> bool;
-
-//     #[wasm_bindgen(method)]
-//     pub fn calculateLayout(this: &Node, width: f32, height:f32, direction: u8);
-    
-
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedLeft(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedRight(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedTop(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedBottom(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedWidth(this: &Node) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedHeight(this: &Node) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedMargin(this: &Node, edge: u8) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedBorder(this: &Node, edge: u8) -> f32;
-//     #[wasm_bindgen(method)]
-//     pub fn getComputedPadding(this: &Node, edge: u8) -> f32;
-
-//     #[wasm_bindgen(method)]
-//     pub fn clone_node(this: &Node) -> Node;
-
-//     #[wasm_bindgen(method)]
-//     pub fn free(this: &Node);
-// }
-
-// //定义横轴方向， 当主轴为横轴是， 会与FlexDirection的值相会影响
-// #[derive(Debug, Copy, Clone)]
-// pub enum Direction {
-//     Inherit,
-//     LTR,
-//     RTL,
-// }
-
-// //主轴
-// #[derive(Debug, Copy, Clone)]
-// pub enum FlexDirection {
-//     Column, //主轴为垂直方向，起点在上沿。(默认)
-//     ColumnReverse,//主轴为垂直方向，起点在下沿。
-//     Row,//主轴为水平方向，起点在左端
-//     RowReverse,//主轴为水平方向，起点在右端。
-// }
-
-// //flex-wrap属性定义，如果一条轴线排不下，如何换行
-// #[derive(Debug, Copy, Clone)]
-// pub enum FlexWrap {
-//     NoWrap, //不换行
-//     Wrap, //下一行在下方
-//     WrapReverse, //下一行在上方
-// }
-
-// //定义了项目在主轴上的对齐方式
-// #[derive(Debug, Copy, Clone)]
-// pub enum JustifyContent {
-//     Start, //主轴方向起点对齐
-//     Center, //主轴方向居中对齐对齐
-//     End, //主轴方向终点对齐
-//     SpaceBetween, // 两端对齐，项目之间的间隔都相等
-//     SpaceAround, // 每个项目两侧的间隔相等。所以，项目之间的间隔比项目与边框的间隔大一倍
-// }
-
-// //定义项目在交叉轴上如何对齐
-// #[derive(Debug, Copy, Clone)]
-// pub enum AlignItems {
-//     Start, //交叉轴方向起点对齐
-//     Center, //交叉轴方向居中对齐
-//     End, //交叉轴方向终点对齐
-//     BaseLine, // 项目的第一行文字的基线对齐
-//     Stretch, // 如果项目未设置高度或设为auto，将占满整个容器的高度
-// }
-
-// // 定义了多根轴线的对齐方式。如果项目只有一根轴线，该属性不起作用
-// #[derive(Debug, Copy, Clone)]
-// pub enum AlignContent {
-//     Start, //与交叉轴的起点对齐
-//     Center, // 与交叉轴的中点对齐
-//     End, // 与交叉轴的终点对齐
-//     SpaceBetween, // 与交叉轴两端对齐，轴线之间的间隔平均分布
-//     SpaceAround, // 每根轴线两侧的间隔都相等。所以，轴线之间的间隔比轴线与边框的间隔大一倍
-//     Stretch, // 轴线占满整个交叉轴
-// }
-
-// //align-self属性允许单个项目有与其他项目不一样的对齐方式，可覆盖align-items属性。默认值为auto，表示继承父元素的align-items属性，如果没有父元素，则等同于stretch
-// #[derive(Debug, Copy, Clone)]
-// pub enum AlignSelf {
-//     Auto,
-//     Start,
-//     Center,
-//     End,
-//     BaseLine,
-//     Stretch,
-// }
-
-// //定位类型
-// #[derive(Debug, Copy, Clone)]
-// pub enum PositionType {
-//     Relative,
-//     Absolute,
-// }
-
-// #[derive(Debug, Copy, Clone)]
-// pub enum YGEdge {
-//     Left,
-//     Top,
-//     Right,
-//     Bottom,
-//     Start,
-//     End,
-//     Horizontal,
-//     Vertical,
-//     All,
-// }
-
-// #[derive(Debug, Copy, Clone)]
-// pub enum Overflow {
-//     YGOverflowVisible,
-//     YGOverflowHidden,
-//     YGOverflowScroll
-// }
-
-// #[derive(Debug, Copy, Clone)]
-// pub enum Display {
-//     Flex,
-//     None
-// }
