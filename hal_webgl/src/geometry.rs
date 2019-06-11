@@ -149,7 +149,7 @@ impl Geometry for WebGLGeometryImpl {
                 let buffer = unsafe { UnsafeTypedArray::new(data) };
             
                 if !is_first && (attribute.is_updatable && is_updatable && data.len() as u32 == (self.vertex_count * item_count)) {
-                    // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
+                    // debug_println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
                         @{gl}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, 0, @{buffer});
                     }
@@ -158,7 +158,7 @@ impl Geometry for WebGLGeometryImpl {
                     attribute.item_count = item_count;
                     attribute.is_updatable = is_updatable;
                     attribute.size = 4 * self.vertex_count * item_count;
-                    // println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
+                    // debug_println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
                         @{gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{usage});
                     }
