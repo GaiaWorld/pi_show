@@ -128,7 +128,18 @@ impl ProgramManager {
 
         gl.shader_source(&shader, &s);
         gl.compile_shader(&shader);
+
         let is_compile_ok = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
+
+        // 微信小游戏移动端环境，返回的是1-0，所以需要再来一次
+        let is_compile_ok = if is_compile_ok { is_compile_ok } else {
+            let r = gl
+                .get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS)
+                .try_into()
+                .unwrap_or(0);
+
+            r != 0
+        };
 
         if is_compile_ok {
             self.shader_caches.insert(shader_hash, Shader {
@@ -208,6 +219,15 @@ impl ProgramManager {
             .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
             .try_into()
             .unwrap_or(false);
+
+        // 微信小游戏移动端环境，返回的是1-0，所以需要再来一次
+        let is_link_ok = if is_link_ok { is_link_ok } else {
+            let r = gl.get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
+            .try_into()
+            .unwrap_or(0);
+
+            r != 0
+        };
 
         if !is_link_ok {
             let e = gl

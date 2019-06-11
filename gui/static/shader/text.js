@@ -22,15 +22,14 @@ let text_vs_code = `
     varying vec4 vColor;
     #endif
     varying vec2 vUV;
-    varying vec2 vPosition;
 
     void main() {
-        gl_Position = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, zDepth, 1.0);
+        vec4 p = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        gl_Position = vec4(p.x, p.y, zDepth, 1.0);
     #ifdef VERTEX_COLOR
         vColor = color;
     #endif
         vUV = uv0;
-        vPosition = position.xy;
     }
 `;
 let text_fs_code = `
@@ -54,7 +53,6 @@ let text_fs_code = `
     #endif
     
     varying vec2 vUV;
-    varying vec2 vPosition;
 
     // Uniforms
     // uniform float uPxRange;

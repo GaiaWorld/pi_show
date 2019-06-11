@@ -15,6 +15,7 @@ use single::*;
 use render::engine::Engine;
 use system::util::*;
 use system::util::constant::*;
+use Z_MAX;
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
@@ -105,9 +106,9 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
 
         let mut z_depth_ubo = engine.gl.create_uniforms();
-        z_depth_ubo.set_float_1(&Z_DEPTH, render_obj.depth + render_obj.depth_diff);
+        z_depth_ubo.set_float_1(&Z_DEPTH, (render_obj.depth + render_obj.depth_diff)/Z_MAX);
         ubos.insert(Z_DEPTH.clone(), Arc::new(z_depth_ubo)); // Z_DEPTH
-        debug_println!("id: {}, z_depth: {:?}", render_obj.context, render_obj.depth + render_obj.depth_diff);
+        debug_println!("id: {}, z_depth: {:?}", render_obj.context, -(render_obj.depth + render_obj.depth_diff)/Z_MAX);
 
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         ubos.insert(PROJECT.clone(), self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
@@ -236,10 +237,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             render_obj.depth = z_depth;
             let ubos = &mut render_obj.ubos;
-            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, render_obj.depth + render_obj.depth_diff);
-            debug_println!("id: {}, z_depth: {:?}", render_obj.context, render_obj.depth + render_obj.depth_diff);
+            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, (render_obj.depth + render_obj.depth_diff)/Z_MAX);
+            debug_println!("id: {}, z_depth: {:?}", render_obj.context, -(render_obj.depth + render_obj.depth_diff)/Z_MAX);
             // println!("xxxxxxxxxxx, z_depth: {:?}, id: {}", render_obj.depth + render_obj.depth_diff, render_obj.context);
-            render_objs.get_notify().modify_event(*id, "ubos", 0);
+            render_objs.get_notify().modify_event(*id, "depth", 0);
         }
     }
 }

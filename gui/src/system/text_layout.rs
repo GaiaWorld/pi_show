@@ -67,7 +67,6 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
           indent: 0.0,
           chars: Vec::new(),
           dirty: true,
-          layout_dirty: false,
         });
         self.dirty.push(id);
       }
@@ -82,6 +81,7 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
   }
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
     for id in self.dirty.iter() {
+      println!("dirty------------------------{}", id);
       if calc(*id, &read, &mut write) {
         self.temp.push(*id)
       }
@@ -110,6 +110,7 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
   type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
 
   fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+    println!("listen dirty------------------------{}", event.id);
     self.set_dirty(event.id, write)
   }
 }
@@ -184,6 +185,8 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
   let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
   let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
   if b == 0 {
+    println!("update1111111111------------------------layout: {:?}", node.get_layout());
+    // println!("update333333333333333------------------------style: {:?}", node.get_style());
     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     if let Some(_) = write.0.get(c) {
       return;
@@ -192,41 +195,46 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
     // 节点布局更新
     write.1.insert(c, node.get_layout());
   }else if c > 0 {
+    println!("update2222222222222------------------------layout: {:?}", node.get_layout());
+    // println!("update4444444444444444-----------------------style: {:?}", node.get_style());
     update(node, c, b - 1, write);
   }
 }
 
 // 文字布局更新
 fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write) {
-  debug_println!("update text layout------------------------id: {}b{}", id, char_index);
+  // println!("update text layout------------------------id: {}b{}, node_width: {:?}, top: {:?}", id, char_index, node.get_width(), node.get_top());
   let layout = node.get_layout();
   let mut pos = Point2{x: layout.left, y: layout.top};
   node = node.get_parent();
   let node_id = node.get_context() as usize;
+  // println!("pos-----------------------{:?}, p", pos);
   if node_id == 0 {
+    // println!("11111111-----------------------");
     let layout = node.get_layout();
     pos.x += layout.left;
     pos.y += layout.top;
   }
-  let mut cb = unsafe {write.0.get_unchecked_mut(id)};
+  let cb = unsafe {write.0.get_unchecked_mut(id)};
   let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
   cn.pos = pos;
-  debug_println!("update text layout1------------------------cb.layout_dirty:{}", cb.layout_dirty);
-  if !cb.layout_dirty {
-    cb.layout_dirty = true;
-    unsafe { write.0.get_unchecked_write(id).modify(|_|{
-      return true;
-    }) };
-  }
+  // println!("update text layout1------------------------cb.layout_dirty:{}, pos:{:?},parent:{:?}", cb.layout_dirty, pos, node.get_layout());
+  // println!("update text layout2------------------------pcount: {}, layout: {:?}", node.get_child_count(), layout);
+  // if !cb.layout_dirty {
+  //   cb.layout_dirty = true;
+  //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
+  //     return true;
+  //   }) };
+  // }
 }
 // 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
-  debug_println!("textlayout calc-----------------------------------");
+  println!("textlayout calc-----------------------------------");
   let cb = unsafe{ write.0.get_unchecked_mut(id)};
   let yoga = unsafe { read.1.get_unchecked(id).clone() };
   let parent_yoga = yoga.get_parent();
   if parent_yoga.is_null() {
-    debug_println!("parent_yoga.is_null");
+    println!("parent_yoga.is_null");
     return true
   }
   // 计算节点的yoga节点在父节点的yoga节点的位置
@@ -244,9 +252,9 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   cb.family = font.family.clone();
   // 获得字体高度
   cb.font_size = read.0.get_size(&font.family, &font.size);
-  debug_println!("read.0---------------------- {:?}", font.family);
+  println!("read.0---------------------- {:?}", font.family);
   if cb.font_size == 0.0 {
-      debug_println!("font_size==0.0");
+      println!("font_size==0.0");
       return true
   }
   cb.dirty = false;
@@ -278,24 +286,30 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   for cr in split(text, true, style.white_space.preserve_spaces()) {
     match cr {
       SplitResult::Newline =>{
+        // println!("SplitResult::Newline----------------------------");
         update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
         update_char(id, cb, '\t', cb.indent, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Whitespace =>{
+        // println!("Whitespace----------------------------");
         // 设置成宽度为半高, 高度0
         update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::Word(c) => {
+        println!("Word----------------------------{:?}, index: {}", c, index);
         update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
       },
       SplitResult::WordStart(c) => {
+        // println!("WordStart----------------------------{:?}", c);
         word = update_char(0, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
        update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
       },
       SplitResult::WordNext(c) =>{
+        // println!("WordNext----------------------------{:?}", c);
        update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
       },
       SplitResult::WordEnd =>{
+        // println!("WordEnd----------------------------");
           word = YgNode::new_null();
           word_index = 0;
       },
@@ -307,7 +321,17 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         cb.chars[i].node.free()
     }
     unsafe{cb.chars.set_len(index)};
+    
   }
+  unsafe { write.0.get_unchecked_write(id).modify(|_|{
+    return true;
+  }) };
+  // if !cb.layout_dirty {
+  //   cb.layout_dirty = true;
+  //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
+  //     return true;
+  //   }) };
+  // }
   false
 }
 // 更新字符，如果字符不同，则清空后重新插入

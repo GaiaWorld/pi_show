@@ -11,6 +11,7 @@ use hal_core::*;
 use hal_webgl::*;
 
 use component::user::*;
+use single::RenderObjs;
 use entity::Node;
 use render::res::{ TextureRes, Opacity };
 use render::engine::Engine;
@@ -231,7 +232,7 @@ pub fn add_sdf_font_res(world: u32) {
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.textures.create(texture_res);
     // new_width_data
-    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl, FontGenerator>::new(texture_res.clone(), FontGenerator{font_name: name.clone()});
+    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl, FontGenerator>::new(texture_res.clone(), FontGenerator);
     debug_println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
     debug_println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
@@ -267,30 +268,35 @@ pub fn update_font_texture(world: u32, u: u32, v: u32, width: u32, height: u32){
         Some(r) => r,
         None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
     };
-
-    match TryInto::<TypedArray<u8>>::try_into(js!{return __jsObj.getImageData(u, v, width, height)}) {
+    
+    // 优化， getImageData性能不好， 应该直接更新canvas， TODO
+    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u}, @{v}, @{width}, @{height}).data.buffer);} ) {
         Ok(data) => {
             let data = data.to_vec();
             src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
+            let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
+            let render_objs = render_objs.lend_mut();
+            render_objs.get_notify().modify_event(1, "", 0);
         },
         Err(_) => panic!("update_font_texture error"),
     };
 }
 
-pub struct FontGenerator{
-    font_name: Atom,
-}
+pub struct FontGenerator;
 
 impl MSdfGenerator for FontGenerator{
-    fn gen(&self, s: char) -> Glyph {
+    fn gen(&self, name: &str, s: char) -> Glyph {
         let c: u32 = unsafe{transmute_copy(&s)};
-        match TryInto::<TypedArray<u8>>::try_into(js!{return __gen_font(@{self.font_name.as_ref()}, @{c})}){
+        match TryInto::<TypedArray<u8>>::try_into(js!{return __gen_font(@{name}, @{c})}){
             Ok(buffer) => {
                 let buffer = buffer.to_vec();
                 let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
+                println!("buffer-------------------------------");
                 glyph
             },
-            Err(_) => Glyph {
+            Err(_) => {
+                println!("buffer no11-------------------------------");
+                Glyph {
                 id: s,
                 x: 0.0,
                 y: 0.0,
@@ -300,10 +306,11 @@ impl MSdfGenerator for FontGenerator{
                 height: 0.0,
                 advance: 0.0,
             }
+            }
         }
     }
 
-    fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {
-        unimplemented!{}
-    }
+    // fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {
+    //     unimplemented!{}
+    // }
 }
