@@ -73,20 +73,21 @@
 
             var node3 = Module._create_node(gui);
             Module._append_child(gui, node3, 1); // 接口已修改， node和parent顺序颠倒
-            Module._set_width(gui, node3, 80.0);
-            Module._set_height(gui, node3, 80.0);
+            Module._set_width(gui, node3, 100.0);
+            Module._set_height(gui, node3, 100.0);
             Module._set_margin(gui, node3, YGEdgeLeft, 10);
             Module._set_background_rgba_color(gui, node3, 0.0, 1.0, 0.0, 0.5);
             
+            Module._render(gui);
             var i = 100;
             var render = function(){
                 Module._render(gui);
                 if (i == 100){
                     i = 200;
-                    Module._set_width(gui, node2, i);
+                    Module._set_width(gui, node3, i);
                 }else {
                     i = 100;
-                    Module._set_width(gui, node2, i);
+                    Module._set_width(gui, node3, i);
                 }
                 
                 requestAnimationFrame(() => {

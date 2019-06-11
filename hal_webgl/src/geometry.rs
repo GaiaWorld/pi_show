@@ -38,13 +38,15 @@ impl WebGLGeometryImpl {
     
     pub fn new(gl: &Arc<WebGLRenderingContext>) -> Self {
 
-        let gl_vao_extension = match TryInto::<Object>::try_into(js! {
-            return @{gl.as_ref()}.getExtension("OES_vertex_array_object");
-        }) {
-            Ok(r) => Some(r),
-            Err(_) => None,
-        };
-
+        // let gl_vao_extension = match TryInto::<Object>::try_into(js! {
+        //     return @{gl.as_ref()}.getExtension("OES_vertex_array_object");
+        // }) {
+        //     Ok(r) => Some(r),
+        //     Err(_) => None,
+        // };
+        
+        let gl_vao_extension = None;
+        
         let vao = if gl_vao_extension.is_some() {
             let extension = gl_vao_extension.as_ref().unwrap();
             match TryInto::<Object>::try_into(js! {
