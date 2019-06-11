@@ -319,7 +319,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
   if index < cb.chars.len() {
     for i in index..cb.chars.len() {
 		cb.chars[i].node.get_parent().remove_child(cb.chars[i].node.clone());
-    	// cb.chars[i].node.free()
+    	cb.chars[i].node.free();
     }
     unsafe{cb.chars.set_len(index)};
     
