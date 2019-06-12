@@ -29,8 +29,6 @@ pub struct WebGLGeometryImpl {
     pub vertex_count: u32,
     pub indices: Option<Indices>,
     pub attributes: FnvHashMap<AttributeName, Attribute>,
-    
-    pub gl_vao_extension: Option<Object>,
     pub vao: Option<Object>,
 }
 
@@ -38,17 +36,16 @@ impl WebGLGeometryImpl {
     
     pub fn new(gl: &Arc<WebGLRenderingContext>) -> Self {
 
-        let gl_vao_extension = match TryInto::<Object>::try_into(js! {
-            return @{gl.as_ref()}.getExtension("OES_vertex_array_object");
+        let is_vao_extension = match TryInto::<bool>::try_into(js! {
+            return @{gl.as_ref()}.getExtension("OES_vertex_array_object") != null;
         }) {
-            Ok(r) => Some(r),
-            Err(_) => None,
+            Ok(_) => true,
+            Err(_) => false,
         };
-
-        let vao = if gl_vao_extension.is_some() {
-            let extension = gl_vao_extension.as_ref().unwrap();
+        
+        let vao = if is_vao_extension {
             match TryInto::<Object>::try_into(js! {
-                return @{extension}.createVertexArrayOES()
+                return @{gl.as_ref()}.createVertexArray()
             }) {
                 Ok(object) => Some(object),
                 Err(_) => None,
@@ -62,7 +59,6 @@ impl WebGLGeometryImpl {
             vertex_count: 0,
             indices: None,
             vao: vao,
-            gl_vao_extension: gl_vao_extension,
             attributes: FnvHashMap::default(),            
         }
     }
@@ -90,7 +86,7 @@ impl Geometry for WebGLGeometryImpl {
 
     fn set_attribute(&mut self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String> {
         
-        debug_println!("Shader, set_attribute_impl, name = {:?}, data = {:?}", name, data);
+        debug_println!("Geometry, set_attribute, name = {:?}, data = {:?}", name, data);
 
         assert!(self.vertex_count > 0 && item_count > 0, "WebGLGeometryImpl set_attribute failed, vertex_count or item_count invalid");
     
@@ -115,18 +111,17 @@ impl Geometry for WebGLGeometryImpl {
                 Some(buffer) => {
 
                     if let Some(vao) = &self.vao {
-                        let extension = self.gl_vao_extension.as_ref().unwrap();
                         js! {
-                            @{&extension}.bindVertexArrayOES(@{&vao});
+                            @{&gl}.bindVertexArray(@{&vao});
                         }
 
                         let index = get_attribute_location(name) as usize;
-                        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&buffer));
                         gl.enable_vertex_attrib_array(index as u32);
+                        gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&buffer));
                         gl.vertex_attrib_pointer(index as u32, item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);    
 
                         js! {
-                            @{&extension}.bindVertexArrayOES(null);
+                            @{&gl}.bindVertexArray(null);
                         }
                     }
 
@@ -149,7 +144,7 @@ impl Geometry for WebGLGeometryImpl {
                 let buffer = unsafe { UnsafeTypedArray::new(data) };
             
                 if !is_first && (attribute.is_updatable && is_updatable && data.len() as u32 == (self.vertex_count * item_count)) {
-                    // debug_println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
+                    // debug_println!("Geometry, attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
                         @{gl}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, 0, @{buffer});
                     }
@@ -158,7 +153,7 @@ impl Geometry for WebGLGeometryImpl {
                     attribute.item_count = item_count;
                     attribute.is_updatable = is_updatable;
                     attribute.size = 4 * self.vertex_count * item_count;
-                    // debug_println!("attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
+                    // debug_println!("Geometry, attribute: name = {:?}, size = {:?}, item_count = {:?}", &name, attribute.size, item_count);
                     js! {
                         @{gl}.bufferData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{buffer}, @{usage});
                     }
@@ -182,22 +177,21 @@ impl Geometry for WebGLGeometryImpl {
     }
     
     fn remove_attribute(&mut self, name: &AttributeName) {
+        debug_println!("Geometry, remove_attribute");
         match (self.gl.upgrade(), self.attributes.remove(name)) {
             (Some(gl), Some(attribute)) => {
                 gl.delete_buffer(Some(&attribute.buffer));
 
                 if let Some(vao) = &self.vao {
-                    let extension = self.gl_vao_extension.as_ref().unwrap();
                     js! {
-                        @{&extension}.bindVertexArrayOES(@{&vao});
+                        @{gl.as_ref()}.bindVertexArray(@{&vao});
                     }
                     
                     let index = get_attribute_location(name) as usize;
-                    gl.enable_vertex_attrib_array(index as u32);
-                    gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, None);
-                    
+                    gl.disable_vertex_attrib_array(index as u32);
+
                     js! {
-                        @{&extension}.bindVertexArrayOES(null);
+                        @{gl.as_ref()}.bindVertexArray(null);
                     }
                 }
             }
@@ -206,7 +200,7 @@ impl Geometry for WebGLGeometryImpl {
     }
 
     fn set_indices_short(&mut self, data: &[u16], is_updatable: bool) -> Result<(), String> {
-        debug_println!("Shader, set_indices_short, data = {:?}", data);
+        debug_println!("Geometry, set_indices_short, data = {:?}", data);
 
         assert!(self.vertex_count > 0 && data.len() > 0, "WebGLGeometryImpl set_indices_short failed, data.len invalid");
 
@@ -223,15 +217,14 @@ impl Geometry for WebGLGeometryImpl {
                 Some(buffer) => {
 
                     if let Some(vao) = &self.vao {
-                        let extension = self.gl_vao_extension.as_ref().unwrap();
                         js! {
-                            @{&extension}.bindVertexArrayOES(@{&vao});
+                            @{&gl}.bindVertexArray(@{&vao});
                         }
                         
                         gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
                         
                         js! {
-                            @{&extension}.bindVertexArrayOES(null);
+                            @{&gl}.bindVertexArray(null);
                         }
                     }
 
@@ -264,7 +257,7 @@ impl Geometry for WebGLGeometryImpl {
                 let usage = if is_updatable { WebGLRenderingContext::DYNAMIC_DRAW } else { WebGLRenderingContext::STATIC_DRAW };
 
                 js! {
-                    @{gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{buffer}, @{usage});
+                    @{gl}.bufferData(@{WebGLRenderingContext::ELEMENT_ARRAY_BUFFER}, @{&buffer}, @{usage});
                 }
             }
         }
@@ -277,20 +270,20 @@ impl Geometry for WebGLGeometryImpl {
     // 注：有文章说，opengl无法在vao移除indices。
     // 出处：http://www.photoneray.com/opengl-vao-vbo/
     fn remove_indices(&mut self) {
+        debug_println!("Geometry, remove_indices");
         match (self.gl.upgrade(), self.indices.take()) {
             (Some(gl), Some(indices)) => {
                 gl.delete_buffer(Some(&indices.buffer));
 
                 if let Some(vao) = &self.vao {
-                    let extension = self.gl_vao_extension.as_ref().unwrap();
                     js! {
-                        @{&extension}.bindVertexArrayOES(@{&vao});
+                        @{gl.as_ref()}.bindVertexArray(@{&vao});
                     }
                     
                     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, None);
                     
                     js! {
-                        @{&extension}.bindVertexArrayOES(null);
+                        @{gl.as_ref()}.bindVertexArray(null);
                     }
                 }
             }
@@ -323,9 +316,8 @@ impl Drop for WebGLGeometryImpl {
     fn drop(&mut self) {
         if let Some(gl) = &self.gl.upgrade() {
             if let Some(vao) = &self.vao {
-                let extension = self.gl_vao_extension.as_ref().unwrap();
                 js! {
-                    @{extension}.deleteVertexArrayOES(@{vao});
+                    @{gl.as_ref()}.deleteVertexArray(@{vao});
                 }
             }
 

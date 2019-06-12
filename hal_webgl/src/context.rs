@@ -112,7 +112,10 @@ impl Context for WebGLContextImpl {
      * 对别的平台，如果RenderTarget是屏幕，就要调用swapBuffer，但是webgl不需要。
      */
     fn end_render(&mut self) {
-
+        let gl = self.gl.as_ref();
+        js! {
+            var vao = @{gl}.bindVertexArray(null);
+        }
     }
 
     fn set_pipeline(&mut self, pipeline: &Arc<dyn AsRef<Pipeline>>) {
@@ -188,6 +191,28 @@ impl WebGLContextImpl {
         let vertex_array_object = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         let instanced_arrays = gl.get_extension::<ANGLEInstancedArrays>().map_or(false, |_v| true);
         
+        if vertex_array_object {
+            js! {
+                var vao = @{&gl}.getExtension("OES_vertex_array_object");
+                @{&gl}.createVertexArray = vao.createVertexArrayOES.bind(vao);
+            }
+
+            js! {
+                var vao = @{&gl}.getExtension("OES_vertex_array_object");
+                @{&gl}.bindVertexArray = vao.bindVertexArrayOES.bind(vao);
+            }
+
+            js! {
+                var vao = @{&gl}.getExtension("OES_vertex_array_object");
+                @{&gl}.deleteVertexArray = vao.deleteVertexArrayOES.bind(vao);
+            }
+
+            js! {
+                var vao = @{&gl}.getExtension("OES_vertex_array_object");
+                @{&gl}.isVertexArray = vao.isVertexArrayOES.bind(vao);
+            }
+        }
+
         Capabilities {
             max_textures_image_units: max_textures_image_units,
             max_vertex_texture_image_units: max_vertex_texture_image_units,

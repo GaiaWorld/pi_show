@@ -27,28 +27,8 @@
         Module._set_width(gui, body, 1000);
         Module._set_height(gui, body, 700);
         Module._append_child(gui, body, 1);
-        // Module._set_align_content(gui, body, 2);
-
-        // var node = Module._create_node(gui);
-        // Module._set_width(gui, node, 100);
-        // Module._set_height(gui, node, 100);
-        // Module._append_child(gui, node, body);
-        // Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
-
-        // var node1 = Module._create_node(gui);
-        // Module._set_width(gui, node1, 50);
-        // Module._set_height(gui, node1, 50);
-        // Module._set_opacity(gui, node1, 0.8);
-        // Module._append_child(gui, node1, node);
-        // Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
-
-        // setTimeout(() => {
-        //     Module._set_opacity(gui, node1, 0.5);
-        //     Module._render(gui);  
-        // }, 3000);
 
         function load_ok() {
-
             window.__jsObj = cfg;
             window.__jsObj1 = image;
             window.__jsObj2 = "36779_37232.png";
@@ -58,6 +38,17 @@
             window.__jsObj = "common"; //font_face_name
             window.__jsObj1 = "simhei";
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
+
+            var div = Module._create_node(gui);
+            Module._append_child(gui, div, body);
+            Module._set_width(gui, div, 200);
+            Module._set_height(gui, div, 200);
+
+            var name = Module._create_node(gui);
+            Module._append_child(gui, name, div);
+            Module._set_width(gui, name, 100);
+            Module._set_height(gui, name, 32);
+
 
             var ce = Module._create_text_node(gui);
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
@@ -78,21 +69,31 @@
             // Module._set_white_space(gui, ce, 0);
 
             // Module._set_font_size(gui, ce, );
-            Module._append_child(gui, ce, body);
+            Module._append_child(gui, ce, name);
+
+            var toke = Module._create_text_node(gui);
+            Module._set_text_rgba_color(gui, toke, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            window.__jsObj = "迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨";
+            Module._set_text_content(gui, toke); // 文字内容
+            Module._set_letter_spacing(gui, toke, 5); // 字符间距
+            window.__jsObj = "common";
+            Module._set_font_family(gui, toke);
+            Module._set_text_stroke(gui, toke, 0.1, 0.0, 0.0, 1.0, 1.0);
+            Module._append_child(gui, toke, div);
             
 
             Module._render(gui);   
 
-            setTimeout(() => {
-                window.__jsObj = "逋";
-                Module._set_text_content(gui, ce); // 文字内容
-                Module._render(gui);
-                setTimeout(() => {
-                    window.__jsObj = "";
-                    Module._set_text_content(gui, ce); // 文字内容
-                    Module._render(gui);   
-                }, 1000);
-            }, 1000);
+            // setTimeout(() => {
+            //     window.__jsObj = "逋";
+            //     Module._set_text_content(gui, ce); // 文字内容
+            //     Module._render(gui);
+            //     setTimeout(() => {
+            //         window.__jsObj = "";
+            //         Module._set_text_content(gui, ce); // 文字内容
+            //         Module._render(gui);   
+            //     }, 1000);
+            // }, 1000);
         }
             
 
