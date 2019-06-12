@@ -401,6 +401,9 @@ fn look_text(world_id: u32, node: usize, text: &str){
                     None => i += 1,
                 }
             }
+            if chars.len() == 0 {
+                return;
+            }
             let chars: Vec<u32> = unsafe {transmute(chars)};
             let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
 
