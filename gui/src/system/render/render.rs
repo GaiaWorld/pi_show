@@ -50,13 +50,16 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         let (render_objs, render_begin) = read;
-
-        if self.dirty == false {
-            return;
-        }
+        return;
+        // println!("--------------------------------------");
+        // if self.dirty == false {
+        //     return;
+        // }
+        println!("render obj--------------------------------------");
         self.dirty = false;
         
         if self.transparent_dirty && self.opacity_dirty {
+            // println!("transparent_dirty opacity_dirty--------------------------------------");
             self.opacity_list.clear();
             self.transparent_list.clear();
             for item in render_objs.iter() {
@@ -79,6 +82,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
                 (obj1.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(obj2.pipeline.pipeline.as_ref() as *const Pipeline as usize)).unwrap()
             });
         } else if self.transparent_dirty {
+            // println!("transparent_dirty--------------------------------------");
             self.transparent_list.clear();
             for item in render_objs.iter() {
                 if item.1.visibility == true {
@@ -93,6 +97,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
                 obj1.depth.partial_cmp(&obj2.depth).unwrap()
             });
         } else if self.opacity_dirty {
+            // println!("opacity_dirty--------------------------------------");
             self.opacity_list.clear();
             for item in render_objs.iter() {
                 if item.1.visibility == true {
@@ -132,13 +137,13 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            // println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj); 
         }
 
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            // println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj);
         }
 
@@ -151,6 +156,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        println!("RenderObjs create--------------------------------------");
         let obj = unsafe { render_objs.get_unchecked(event.id) };
         if obj.is_opacity == false {
             self.transparent_dirty = true;
@@ -165,6 +171,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        println!("RenderObjs midify--------------------------------------");
         match event.field {
             "depth" => {
                 let obj = unsafe { render_objs.get_unchecked(event.id) };
@@ -192,6 +199,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
+        println!("RenderObjs DeleteEvent--------------------------------------");
         let obj = unsafe { render_objs.get_unchecked(event.id) };
         if obj.is_opacity == false {
             self.transparent_dirty = true;
