@@ -1,5 +1,4 @@
 use std::{
-  sync::Arc,
   usize::MAX as UMAX,
   f32::INFINITY as FMAX,
   mem::transmute,
@@ -112,18 +111,6 @@ pub fn remove_child(world: u32, node: u32){
     idtree.remove(node as usize, Some(&notify));
     // println!("xxxxxxxxxxxxxxxxx, remove: {}", node);
     debug_println!("remove_child");  
-}
-
-// __jsObj 文字字符串
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_text_content(world: u32, node: u32){
-    let value: String = js!(return __jsObj;).try_into().unwrap();
-    let node = node as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let text = world.fetch_multi::<Node, Text>().unwrap();
-    text.lend_mut().insert(node as usize, Text(Arc::new(value)));
-    debug_println!("set_text_content");  
 }
 
 // __jsObj: image, __jsObj1: image_name(String)

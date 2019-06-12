@@ -1,9 +1,9 @@
-use std::mem::{transmute, transmute_copy};
+use std::mem::{transmute};
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::TypedArray;
-use stdweb::Object;
+use stdweb::{Object, UnsafeTypedArray};
 
 use atom::Atom;
 use ecs::{World, LendMut};
@@ -11,11 +11,11 @@ use hal_core::*;
 use hal_webgl::*;
 
 use component::user::*;
-use single::RenderObjs;
+use single::{ RenderObjs, DefaultTable };
 use entity::Node;
 use render::res::{ TextureRes, Opacity };
 use render::engine::Engine;
-use font::sdf_font::{DefaultSdfFont, MSdfGenerator, Glyph, SdfFont};
+use font::sdf_font::{DefaultSdfFont, Glyph, SdfFont};
 use font::font_sheet::FontSheet;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
@@ -196,6 +196,17 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
 #[no_mangle]
 pub fn set_font_family(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
+
+    // 生成不存在的字体
+    let world1 = unsafe {&mut *(world as usize as *mut World)};
+    let node = node_id as usize;
+    let texts = world1.fetch_multi::<Node, Text>().unwrap();
+    let texts = texts.lend_mut();
+    match texts.get(node) {
+        Some(t) => look_text(world, node, t.0.as_str()),
+        None => (),
+    };
+    
     let family = 0;
     set_attr!(world, node_id, Font, family, Atom::from(value));
     debug_println!("set_font_family"); 
@@ -232,7 +243,7 @@ pub fn add_sdf_font_res(world: u32) {
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.textures.create(texture_res);
     // new_width_data
-    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl, FontGenerator>::new(texture_res.clone(), FontGenerator);
+    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone());
     debug_println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
     debug_println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
@@ -254,11 +265,27 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
 }
 
-// 动态字体纹理回调
-// __jsObj: canvas __jsObj1: string, (字体名称)
+// __jsObj 文字字符串
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn update_font_texture(world: u32, u: u32, v: u32, width: u32, height: u32){
+pub fn set_text_content(world_id: u32, node: u32){
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let node = node as usize;
+    let world = unsafe {&mut *(world_id as usize as *mut World)};
+
+    // 生成不存在的字体
+    look_text(world_id, node, value.as_str());
+
+    let text = world.fetch_multi::<Node, Text>().unwrap();
+    text.lend_mut().insert(node as usize, Text(Arc::new(value)));
+    debug_println!("set_text_content");  
+}
+
+// 动态字体纹理回调
+// __jsObj: canvas __jsObj1: string, (字体名称)__jsObj2: u32Array, (draw 字符)
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn update_font_texture(world: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let font_name: String = js!(return __jsObj1;).try_into().unwrap();
     let font_name = Atom::from(font_name);
@@ -268,12 +295,43 @@ pub fn update_font_texture(world: u32, u: u32, v: u32, width: u32, height: u32){
         Some(r) => r,
         None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
     };
+
+    let chars = TryInto::<TypedArray<u32>>::try_into(js!{return __jsObj2;}).unwrap().to_vec();
+    if chars.len() == 0 {
+        return;
+    }
+    let (mut u1, mut v1, mut u2, mut v2) = (std::f32::MAX, std::f32::MAX, std::f32::MIN, std::f32::MIN);
+    for c in chars.into_iter() {
+        let c: char = unsafe { transmute(c) };
+        match src.get_glyph(&c) {
+            Some(glyph) => {
+                if u1 > glyph.x {
+                    u1 = glyph.x;
+                }
+                if v1 > glyph.y {
+                    v1 = glyph.y;
+                }
+                let g_u2 = glyph.x + glyph.width;
+                let g_v2 = glyph.y + glyph.height;
+                if u2 < g_u2 {
+                    u2 = g_u2;
+                }
+                if v2 < g_v2 {
+                    v2 = g_v2;
+                }
+            },
+            None => panic!("glyph is not exist: {}", c),
+        }
+    }
     
+    let width = (u2-u1) as u32;
+    let height = (v2-v1) as u32;
+    println!("u1: {}, v1: {}, width: {}, height: {}", u1, v1, width, height);
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
-    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u}, @{v}, @{width}, @{height}).data.buffer);} ) {
+    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u1 as u32}, @{v1 as u32}, @{width}, @{height}).data.buffer);} ) {
         Ok(data) => {
             let data = data.to_vec();
-            src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
+            src.texture().bind.update(u1 as u32, v1 as u32, width, height, &TextureData::U8(data.as_slice()));
             let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
             let render_objs = render_objs.lend_mut();
             render_objs.get_notify().modify_event(1, "", 0);
@@ -282,35 +340,74 @@ pub fn update_font_texture(world: u32, u: u32, v: u32, width: u32, height: u32){
     };
 }
 
-pub struct FontGenerator;
+// pub struct FontGenerator;
 
-impl MSdfGenerator for FontGenerator{
-    fn gen(&self, name: &str, s: char) -> Glyph {
-        let c: u32 = unsafe{transmute_copy(&s)};
-        match TryInto::<TypedArray<u8>>::try_into(js!{return __gen_font(@{name}, @{c})}){
-            Ok(buffer) => {
-                let buffer = buffer.to_vec();
-                let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
-                println!("buffer-------------------------------");
-                glyph
-            },
-            Err(_) => {
-                println!("buffer no11-------------------------------");
-                Glyph {
-                id: s,
-                x: 0.0,
-                y: 0.0,
-                ox: 0.0, 
-                oy: 0.0,
-                width: 0.0, 
-                height: 0.0,
-                advance: 0.0,
+// impl MSdfGenerator for FontGenerator{
+    
+
+//     // fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {
+//     //     unimplemented!{}
+//     // }
+// }
+
+pub fn gen_font(world: u32, name: &str, chars: &[u32]) -> Vec<Glyph> {
+    let chars = unsafe { UnsafeTypedArray::<u32>::new(chars) };
+    match TryInto::<TypedArray<u8>>::try_into(js!{return __gen_font(@{world}, @{name}, @{chars})}){
+        Ok(buffer) => {
+            let buffer = buffer.to_vec();
+            let mut glyphs = Vec::new();
+            let mut i = 0;
+            loop {
+                glyphs.push(Glyph::parse(buffer.as_slice(), &mut i));
+                if i >= buffer.len() {
+                    break;
+                }
+                // let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
             }
-            }
-        }
+            
+            println!("buffer-------------------------------");
+            glyphs
+        },
+        Err(_) => panic!("gen font error"),
     }
+}
 
-    // fn gen_mult(&self, _chars: &[char]) -> Vec<Glyph> {
-    //     unimplemented!{}
-    // }
+fn look_text(world_id: u32, node: usize, text: &str){
+    let world = unsafe {&mut *(world_id as usize as *mut World)};
+    let fonts = world.fetch_multi::<Node, Font>().unwrap();
+    let fonts = fonts.lend_mut();
+    let default_table = world.fetch_single::<DefaultTable>().unwrap();
+    let default_table = default_table.lend_mut();
+
+    let font = match fonts.get(node) {
+        Some(r) => r,
+        None => default_table.get_unchecked::<Font>(),
+    };
+
+    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
+    let font_sheet = font_sheet.lend_mut();
+
+    match font_sheet.get_first_font(&font.family) {
+        Some(r) => {
+            let mut chars: Vec<char> = text.chars().collect();
+            let mut i = 0;
+            loop {
+                if i >= chars.len() {
+                    break;
+                }
+
+                match r.get_glyph(&chars[i]) {
+                    Some(_g) => {chars.swap_remove(i);},
+                    None => i += 1,
+                }
+            }
+            let chars: Vec<u32> = unsafe {transmute(chars)};
+            let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
+
+            for v in gl.into_iter() {
+                r.add_glyph(v.id, v);
+            }
+        },
+        None => ()
+    }
 }
