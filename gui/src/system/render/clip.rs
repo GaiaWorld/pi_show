@@ -151,9 +151,9 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
     );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        // if self.dirty == false {
-        //     return;
-        // }
+        if self.dirty == false {
+            return;
+        }
         self.dirty = false;
 
         let (overflow, _projection, _view, view_port) = read;
@@ -179,7 +179,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         // );
 
         gl.begin_render(
-            &(gl.get_default_render_target().clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
+            &(self.render_target.clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
             &(Arc::new(viewport) as Arc<dyn AsRef<RenderBeginDesc>>)
         );
 
@@ -211,14 +211,12 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
                 positions[i * 12 + 11] = 0.0;
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
-            println!("clip Position : {:?}", &positions[0..96]);
         }
         let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
         for (k, v) in self.ubos.iter() {
             ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
         }
         //draw
-        println!("clip draw ---------------------------");
         gl.draw(&(self.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 
         gl.end_render();

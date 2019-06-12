@@ -77,7 +77,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn render(world: u32){
-    // println!("xxxxxxxxxxxxxxxxx, render");
+    println!("xxxxxxxxxxxxxxxxx, render");
     // debug_println!("gui render");
     let world = unsafe {&mut *(world as usize as *mut World)};
     world.run(&RENDER_DISPATCH);
