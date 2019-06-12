@@ -51,9 +51,9 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         let (render_objs, render_begin) = read;
 
-        // if self.dirty == false {
-        //     return;
-        // }
+        if self.dirty == false {
+            return;
+        }
         self.dirty = false;
         // println!("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         
