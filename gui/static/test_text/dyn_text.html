@@ -28,31 +28,48 @@
         Module._set_height(gui, body, 700);
         Module._append_child(gui, body, 1);
         
-        window.__gen_font = function (name, c) {
-            var glyph = cfg.get(c);
-            if (!glyph) {
-                return 0;
-            }else {
-                var buffer = new ArrayBuffer(12);
-                var u16 = new Uint16Array(buffer);
-                var u8 = new Uint8Array(buffer);
-                u16[0] = glyph["id"];
-                u16[1] = glyph.x;
-                u16[2] = glyph.y;
-                u8[6] = glyph.xoffset;
-                u8[7] = glyph.yoffset;
-                u8[8] = glyph.width;
-                u8[9] = glyph.height;
-                u8[10] = glyph.xadvance;
-                setTimeout(() => {
+        window.__gen_font = function (worlf, name, chars) {
+            
+            var buffer = new ArrayBuffer(12 * chars.length);
+            var draw_chars = new Array();
+            for (var i = 0; i < chars.length; i++) {
+                var glyph = cfg.get(chars[i]);
+                if (!glyph) {
+                    var u16 = new Uint16Array(buffer, 12*i);
+                    var u8 = new Uint8Array(buffer, 12*i);
+                    u16[0] = glyph["id"];
+                    u16[1] = 0;
+                    u16[2] = 0;
+                    u8[6] = 0;
+                    u8[7] = 0;
+                    u8[8] = 0;
+                    u8[9] = 0;
+                    u8[10] = 0;
+                }else {
+                    var u16 = new Uint16Array(buffer, 12*i);
+                    var u8 = new Uint8Array(buffer, 12*i);
+                    u16[0] = glyph["id"];
+                    u16[1] = glyph.x;
+                    u16[2] = glyph.y;
+                    u8[6] = glyph.xoffset;
+                    u8[7] = glyph.yoffset;
+                    u8[8] = glyph.width;
+                    u8[9] = glyph.height;
+                    u8[10] = glyph.xadvance;
+                    draw_chars.push(chars[i]);
                     canvas.getContext("2d").drawImage(image, glyph.x, glyph.y, glyph.width, glyph.height, glyph.x, glyph.y, glyph.width, glyph.height);
-                    window.__jsObj = canvas;
-                    window.__jsObj1 = name;
-                    Module._update_font_texture(gui, glyph.x, glyph.y, glyph.width, glyph.height);
-                    Module._render(gui);   
-                }, 0);
-                return u8;
+                }
             }
+            var u8 = new Uint8Array(buffer);
+            var chars1 = new Uint32Array(draw_chars);
+            setTimeout(() => {
+                window.__jsObj = canvas;
+                window.__jsObj1 = name;
+                window.__jsObj2 = chars1;
+                Module._update_font_texture(gui);
+                Module._render(gui);   
+            }, 0);
+            return u8;
         }
 
         function load_ok() {
@@ -71,12 +88,12 @@
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
             var ce = Module._create_text_node(gui);
+            window.__jsObj = "common";
+            Module._set_font_family(gui, ce);
             Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
             window.__jsObj = "逋逋";
             Module._set_text_content(gui, ce); // 文字内容
             Module._set_letter_spacing(gui, ce, 5); // 字符间距
-            window.__jsObj = "common";
-            Module._set_font_family(gui, ce);
             Module._append_child(gui, ce, body);
             
 
