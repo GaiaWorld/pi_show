@@ -42,6 +42,7 @@ pub trait Context: Sized {
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
+     * 注：begin-end之间，只能调用下面的几个方法，不能再调用任何创建和更新方法。
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
     fn begin_render(&self, render_target: &Self::ContextRenderTarget, data: &RenderBeginDesc);
