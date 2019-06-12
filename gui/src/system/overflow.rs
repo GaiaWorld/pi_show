@@ -41,7 +41,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
   type WriteData = Write<'a>;
 
   fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-debug_println!("OverflowImpl ---------listen: {:?}", event.id);
+    // println!("OverflowImpl ---------listen: {:?}", event.id);
     let node = unsafe{ read.0.get_unchecked(event.id)};
     if node.layer == 0 {
       return
@@ -55,7 +55,7 @@ debug_println!("OverflowImpl ---------listen: {:?}", event.id);
         return;
       }
       set_clip(event.id, i, &read, write.0);
-      by |= i;
+      by |= 1>>(i-1);
       i
     }else{
       // 删除根上的overflow的裁剪矩形
@@ -105,12 +105,12 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     let overflow = match read.1.get(node.parent){Some(r) => **r, _ => false};
     if overflow {
       let i = get_index(write.0, node.parent);
-      by |= i;
+      by |= 1>>(i-1);
     }
     let mut modify = false;
     set_overflow(event.id, by, &read, &mut write, &mut modify);
     if modify {
-  debug_println!("OverflowImpl ---------modify: {:?}  {:?}", event.id, modify);
+//   debug_println!("OverflowImpl ---------modify: {:?}  {:?}", event.id, modify);
       write.0.get_notify().modify_event(0, "", 0)
     }
   }
@@ -157,7 +157,7 @@ fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<Overflow
 }
 // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
 fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify: &mut bool) {
-// debug_println!("set_overflow ---------listen: {:?}  {:?}", id, by);
+    // println!("set_overflow ---------id: {:?}  {:?}", id, by);
   if by > 0 {
     unsafe {write.1.get_unchecked_write(id)}.set_0(by);
   }
@@ -167,9 +167,10 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
     let i = set_index(&mut *write.0, 0, id);
     if i > 0 {
       set_clip(id, i, read, write.0);
-      by |= i;
+      by |= 1>>(i - 1);
       *modify = true;
     }
+    // println!("overflow--------------id:{}, i: {}, by: {}", id, i, by);
   }
   let node = unsafe{ read.0.get_unchecked(id)};
   for (id, _n) in read.0.iter(node.children.head) {
