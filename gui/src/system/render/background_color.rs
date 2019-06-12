@@ -140,6 +140,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         }
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
+        // println!("ds----------------{:?}", self.ds);
         let pipeline = engine.create_pipeline(
             0,
             &COLOR_VS_SHADER_NAME.clone(),
@@ -152,6 +153,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         );
         
         let is_opacity = background_is_opacity(opacity, background_color);
+        // debug_println!("xxxxxxxxxxxxxxxxxcreate color{}， is_opacity: {}", event.id, is_opacity);
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth - 0.2,
             depth_diff: -0.2,
@@ -185,7 +187,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
             Color::RGBA(c) => {
                 // 设置ubo
                 let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
-                debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
+                // debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
                 common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
 
                 // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
@@ -265,6 +267,7 @@ impl<'a, C: Context + Share> BackgroundColorSys<C> {
             let is_opacity = background_is_opacity(opacity, background_color);
             
             let notify = render_objs.get_notify();
+            // debug_println!("set_is_opacity color{}， is_opacity: {}", id, is_opacity);
             unsafe { render_objs.get_unchecked_write(item.index, &notify).set_is_opacity(is_opacity)};
         }
     }
@@ -332,12 +335,14 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     }
 }
 
-fn background_is_opacity(is_opacity: f32, background_color: &BackgroundColor) -> bool{
-    if is_opacity < 1.0 {
+fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bool{
+    if opacity < 1.0 {
+        // println!("cccccccccccccccccccccccccc opacity:{}", opacity);
         return false;
     }
     match &background_color.0 {
         &Color::RGBA(ref c) => if c.a < 1.0 {
+            // println!("cccccccccccccccccccccccccc:{}", c.a);
             return false;
         },
         &Color::LinearGradient(ref r) => {
@@ -348,6 +353,7 @@ fn background_is_opacity(is_opacity: f32, background_color: &BackgroundColor) ->
             }
         },
     };
+    // println!("cccccccccccccccccccccccccc11111");
     return true;
 }
 

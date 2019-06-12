@@ -125,9 +125,10 @@ impl<C: Context + Share> ClipSys<C>{
                 Arc::new(ubo)
             });
             
+            // println!("clip--------------------------------{:?}", render_obj.context);
             // 重新创建渲染管线
             let pipeline = engine.create_pipeline(
-                0,
+                render_obj.pipeline.start_hash,
                 &render_obj.pipeline.vs,
                 &render_obj.pipeline.fs,
                 render_obj.defines.as_slice(),
@@ -285,9 +286,10 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
                     //移除宏
                     render_obj.defines.remove_item(&CLIP);
                     
+                    println!("clip--------------------------------{:?}", render_obj.context);
                     // 重新创建渲染管线
                     let pipeline = engine.create_pipeline(
-                        0,
+                        render_obj.pipeline.start_hash,
                         &render_obj.pipeline.vs,
                         &render_obj.pipeline.fs,
                         render_obj.defines.as_slice(),
