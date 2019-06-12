@@ -110,11 +110,14 @@ impl Context for WebGLContextImpl {
 
     /** 
      * 对别的平台，如果RenderTarget是屏幕，就要调用swapBuffer，但是webgl不需要。
+     * 注：在这里，要解除vao的绑定，否则下面更新的buffer会绑到最后一个vao上。
      */
     fn end_render(&mut self) {
         let gl = self.gl.as_ref();
         js! {
-            var vao = @{gl}.bindVertexArray(null);
+            if (@{&gl}.bindVertexArray) {
+                @{&gl}.bindVertexArray(null);
+            }
         }
     }
 
