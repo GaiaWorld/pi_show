@@ -124,6 +124,13 @@ pub trait Context: Sized {
      */
     fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String>;
 
+    /**
+     * 将渲染库底层的状态还原成状态机的状态
+     * 目的：因为我们会和别的渲染引擎使用同一个底层渲染库，每个引擎的状态机，会导致底层状态机不一致，所以要有这个方法。
+     * 保证一帧开始调用begin之前调用一次。
+     */
+    fn restore_state(&mut self);
+
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
