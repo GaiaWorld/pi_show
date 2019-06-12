@@ -268,9 +268,9 @@ impl State {
         if need_set_geometry {            
             match &geometry.as_ref().as_ref().vao {
                 Some(vao) => {
-                    let extension = geometry.as_ref().as_ref().gl_vao_extension.as_ref().unwrap();
+                    let gl = self.gl.as_ref();
                     js! {
-                        @{&extension}.bindVertexArrayOES(@{&vao});
+                        @{gl}.bindVertexArray(@{&vao});
                     }
                 }
                 None => {
