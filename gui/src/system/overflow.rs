@@ -55,7 +55,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
         return;
       }
       set_clip(event.id, i, &read, write.0);
-      by |= 1>>(i-1);
+      by |= 1<<(i-1);
       i
     }else{
       // 删除根上的overflow的裁剪矩形
@@ -105,12 +105,12 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     let overflow = match read.1.get(node.parent){Some(r) => **r, _ => false};
     if overflow {
       let i = get_index(write.0, node.parent);
-      by |= 1>>(i-1);
+      by |= 1<<(i-1);
     }
     let mut modify = false;
     set_overflow(event.id, by, &read, &mut write, &mut modify);
     if modify {
-//   debug_println!("OverflowImpl ---------modify: {:?}  {:?}", event.id, modify);
+  debug_println!("OverflowImpl ---------modify: {:?}  {:?}", event.id, modify);
       write.0.get_notify().modify_event(0, "", 0)
     }
   }
@@ -167,7 +167,7 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
     let i = set_index(&mut *write.0, 0, id);
     if i > 0 {
       set_clip(id, i, read, write.0);
-      by |= 1>>(i - 1);
+      by |= 1<<(i - 1);
       *modify = true;
     }
     // println!("overflow--------------id:{}, i: {}, by: {}", id, i, by);
