@@ -5,6 +5,7 @@
 use std::sync::{Arc, Weak};
 use hal_core::*;
 use convert::*;
+use extension::*;
 use shader::{Program, ProgramManager};
 use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
@@ -438,6 +439,10 @@ impl State {
      */
     pub fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &mut State) {
         // debug_println!("State::apply_all_state");
+		gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+		gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+		gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
         gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
         gl.clear_depth(state.clear_depth);
         gl.clear_stencil(state.clear_stencil as i32);
@@ -456,12 +461,15 @@ impl State {
         gl.viewport(rect.0, rect.1, rect.2, rect.3);
         gl.scissor(rect.0, rect.1, rect.2, rect.3);
 
-        for (i, v) in state.enable_attrib_indices.iter().enumerate() {
-            if *v {
-                gl.enable_vertex_attrib_array(i as u32);
+        let is_vao_extension = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
+        if !is_vao_extension {
+            for (i, v) in state.enable_attrib_indices.iter_mut().enumerate() {
+                if *v {
+                    gl.disable_vertex_attrib_array(i as u32);
+                    *v = false;
+                }
             }
         }
-
         state.tex_caches.reset();
     }
 
