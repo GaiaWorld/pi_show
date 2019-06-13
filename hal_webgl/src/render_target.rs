@@ -81,6 +81,20 @@ impl WebGLRenderBufferImpl {
 
 impl WebGLRenderTargetImpl {
     pub fn new_default(gl: &Arc<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
+
+        let fbo = match fbo {
+            None => None,
+            Some(fbo) => match TryInto::<Object>::try_into(js! {
+                var fboWrap = {
+                    wrap: @{fbo},
+                };
+                return fboWrap;
+            }) {
+                Err(_) => panic!("new default rendertarget failed"),
+                Ok(fbo) => Some(fbo),
+            }
+        };
+        
         WebGLRenderTargetImpl {
             gl: Arc::downgrade(gl),
             is_default: true,
@@ -95,11 +109,15 @@ impl WebGLRenderTargetImpl {
     pub fn new(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
         
         match TryInto::<Object>::try_into(js! {
-            return @{gl.as_ref()}.createFramebuffer()
+            var fbo = @{gl.as_ref()}.createFramebuffer();
+            var fboWrap = {
+                wrap: fbo
+            };
+            return fboWrap;
         }) {
             Ok(fb) => {
                 js! {
-                    @{gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fb});
+                    @{gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fb}.wrap);
                 }
 
                 let fb_type = WebGLRenderingContext::FRAMEBUFFER;
@@ -138,7 +156,7 @@ impl WebGLRenderTargetImpl {
                 })            
             }
             Err(_) => {
-                return Err("WebGLRenderTargetImpl::new failed".to_string());
+                return Err("WebGLRenderTargetImpl::new failed, Convertion Object Error".to_string());
             }
         }
     }
@@ -163,7 +181,7 @@ impl Drop for WebGLRenderTargetImpl {
     fn drop(&mut self) {
         if let Some(gl) = &self.gl.upgrade() {
             js! {
-                @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer});
+                @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer}.wrap);
             }
         }
     }

@@ -187,7 +187,7 @@ impl State {
         } else {
             let fbo = fbo.as_ref().unwrap();
             js!{
-                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo});
+                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
             }
         }
         // debug_println!("State::set_render_target, fbo = {:?}", fbo.as_ref());
