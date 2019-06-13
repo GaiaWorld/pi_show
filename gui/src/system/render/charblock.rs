@@ -487,14 +487,14 @@ fn get_geo_flow<C: Context + Share>(
     sdf_font: &Arc<dyn SdfFont<Ctx = C>>,
     color: &Color,
     z_depth: f32,
-    offset: (f32, f32)
+    mut offset: (f32, f32)
 ) -> (Vec<f32>, Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
     let mut positions: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut indices: Vec<u16> = Vec::new();
     let font_size = char_block.font_size;
     let mut i = 0;
-    // let line_height = sdf_font.line_height;
+    offset.1 += (char_block.line_height - font_size)/2.0;
 
     debug_println!("charblock get_geo_flow: {:?}", char_block);
     if char_block.chars.len() > 0 {
