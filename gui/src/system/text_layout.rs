@@ -382,7 +382,7 @@ fn set_node<C: Context + 'static + Send + Sync>(cb: &CharBlock, c: char, mut w: 
         node.set_width_auto();
         node.set_height(cb.line_height);
         node.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
-    }else{
+    }else{ // "\t"
         node.set_width(w);
     }
     node

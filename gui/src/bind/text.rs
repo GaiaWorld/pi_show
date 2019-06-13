@@ -181,7 +181,7 @@ pub fn set_font_size_none(world: u32, node_id: u32){
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::Length(value));
+    set_attr!(world, node_id, Font, size, FontSize::Length(value + 2.0));
 }
 
 #[allow(unused_attributes)]
@@ -262,7 +262,7 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
     
-    font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
+    font_sheet.set_face(Atom::from(family), oblique, size + 2.0, weight, src);
 }
 
 // __jsObj 文字字符串
