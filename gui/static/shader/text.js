@@ -37,7 +37,7 @@ let text_fs_code = `
 
     precision highp float;
 
-    #ifdef HSB
+    #ifdef HSV
         uniform vec3 hsvValue;
     #endif
 
@@ -67,7 +67,7 @@ let text_fs_code = `
     uniform vec4 uColor;
     #endif
 
-    #ifdef HSB
+    #ifdef HSV
         vec3 rgb2hcv(vec3 RGB)
         {
             // Based on work by Sam Hocevar and Emil Persson
@@ -164,7 +164,7 @@ let text_fs_code = `
         a = smoothstep(-d, d, dist - (0.5 - strokeSize));
     #endif
 
-    #ifdef HSB
+    #ifdef HSV
         vec3 hsv = rgb2hsv(c.rgb);
         hsv += hsvValue;
         c.rgb = hsv2rgb(hsv);

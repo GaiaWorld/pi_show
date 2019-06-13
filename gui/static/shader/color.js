@@ -37,7 +37,7 @@ let color_fs_code = `
     uniform float blur;
     uniform float alpha;
 
-    #ifdef HSB
+    #ifdef HSV
         uniform vec3 hsvValue;
     #endif
 
@@ -55,7 +55,7 @@ let color_fs_code = `
         uniform vec4 uColor;
     #endif
 
-    #ifdef HSB
+    #ifdef HSV
 
         vec3 rgb2hcv(vec3 RGB)
         {
@@ -135,7 +135,7 @@ let color_fs_code = `
             c = c * uColor;
         #endif
             
-        #ifdef HSB
+        #ifdef HSV
             vec3 hsv = rgb2hsv(c.rgb);
             hsv += hsvValue;
             c.rgb = hsv2rgb(hsv);

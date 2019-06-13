@@ -70,9 +70,9 @@ pub struct Image<C: Context + 'static + Send + Sync>{
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component)]
 pub struct Filter {
-  pub hue_rotate: f32, //给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg
-  pub bright_ness: f32, //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化 -1 ~ 1
-  pub gray_scale: f32, //将图像转换为灰度图像。值定义转换的比例。值为100%则完全转为灰度图像，值为0%图像无变化
+  pub hue_rotate: f32, //给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg 0~360
+  pub bright_ness: f32, //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化 0 ~ 2
+  pub gray_scale: f32, //将图像转换为灰度图像。值定义转换的比例。值为100%则完全转为灰度图像，值为0%图像无变化 0~1
   // blur: f32, //给图像设置高斯模糊 
 }
 
@@ -80,7 +80,7 @@ impl Default for Filter {
     fn default() -> Self {
         Self {
             hue_rotate: 0.0,
-            bright_ness: 1.0,
+            bright_ness: 1.0, 
             gray_scale: 0.0,
         }
     }

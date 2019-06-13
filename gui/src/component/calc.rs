@@ -37,9 +37,9 @@ pub struct Enable(pub bool);
 // HSV
 #[derive(Clone, Debug, Component)]
 pub struct HSV {
-  pub h: f32, // 0-360
-  pub s: f32, // 0-1
-  pub v: f32, // 0-Infinity
+  pub h: f32, // 0-360 
+  pub s: f32, // -1~1  -1表示变灰， 0表示不变， 1表示更饱和
+  pub v: f32, // 0-2 0表示黑色， 1表示不变， 2表示更亮
 }
 
 impl Default for HSV {
