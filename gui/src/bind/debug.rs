@@ -2,11 +2,13 @@ use std::mem::transmute;
 
 use serde::{Serialize};
 
+use hal_webgl::*;
+
 use ecs::{World, Lend, MultiCaseImpl};
 use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
-use single::{ OverflowClip};
+use single::{ OverflowClip, RenderObjs};
 use entity::Node;
 // use layout::YgNode;
 
@@ -118,6 +120,17 @@ pub fn overflow_clip(world: u32) {
     js!{
         console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
     }
+}
+
+// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_render_dirty(world: u32) {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
+    let render_objs = render_objs.lend();
+    
+    render_objs.get_notify().modify_event(1, "", 0); 
 }
 
 // #[allow(unused_attributes)]

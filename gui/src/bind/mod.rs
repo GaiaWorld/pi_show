@@ -22,7 +22,7 @@ pub mod node;
 pub mod text;
 pub mod layout;
 pub mod transform;
-pub mod info;
+pub mod debug;
 
 #[allow(unused_attributes)]
 #[no_mangle]

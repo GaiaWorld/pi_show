@@ -9,7 +9,7 @@ use hal_core::*;
 use atom::Atom;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ZDepth};
+use component::calc::{Visibility, WorldMatrix, Opacity, ZDepth, HSV};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
@@ -19,6 +19,8 @@ use Z_MAX;
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
+    static ref HSV_MACRO: Atom = Atom::from("HSV");
+    static ref HSV_ATTR: Atom = Atom::from("hsv");
 }
 
 pub struct NodeAttrSys<C: Context + Share>{
@@ -284,6 +286,59 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent
     }
 }
 
+// // 设置hsv
+// impl<'a, C: Context + Share> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
+//     type ReadData = &'a MultiCaseImpl<Node, HSV>;
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+//     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
+//         let (render_objs, node_render_map) = write;
+//         let hsv = unsafe { hsvs.get_unchecked(event.id) };
+//         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+
+//         for id in obj_ids.iter() {
+//             let notify = render_objs.get_notify();
+//             let mut render_obj = unsafe {render_objs.get_unchecked_mut(*id, &notify)};
+
+
+//             debug_println!("id: {}, hsv: {:?}", render_obj.value.context, visibility);
+//         }
+//     }
+// }
+
+// fn add_hsv<C: Context>(hsv: &HSV, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
+//     let defines = &mut render_obj.defines;
+//     let mut define_change = false;
+//     // 插入裁剪ubo 插入裁剪宏
+//     render_obj.ubos.entry(HSV.clone()).or_insert_with(||{
+//         defines.push(HSV.clone());
+//         is_change = true;
+//         self.by_ubo.clone()
+//     });
+
+//     if define_change {
+//         let mut hsv_ubo = engine.gl.create_uniforms();
+//         hsv_ubo.set_float_3(&HSV_ATTR, hsv.h, hsv.s, hsv.v);
+//         render_obj.ubos.insert(HSV.clone(), ubo);
+
+//         // 重新创建渲染管线
+//         let pipeline = engine.create_pipeline(
+//             render_obj.pipeline.start_hash,
+//             &render_obj.pipeline.vs,
+//             &render_obj.pipeline.fs,
+//             render_obj.defines.as_slice(),
+//             render_obj.pipeline.rs.clone(),
+//             render_obj.pipeline.bs.clone(),
+//             render_obj.pipeline.ss.clone(),
+//             render_obj.pipeline.ds.clone(),
+//         );
+//         render_obj.pipeline = pipeline;
+//     } else {
+//         let hsv_ubo = render_obj.ubos.get_mut(&HSV).unwrap();
+//         Arc::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, hsv.h, hsv.s, hsv.v);
+//     }
+
+//     return define_change;
+// }
 unsafe impl<C: Context + Share> Sync for NodeAttrSys<C>{}
 unsafe impl<C: Context + Share> Send for NodeAttrSys<C>{}
 

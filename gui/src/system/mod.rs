@@ -8,7 +8,7 @@ mod oct;
 mod util;
 mod text_layout;
 mod render;
-// mod filter;
+mod filter;
 
 pub use system::overflow::*;
 pub use system::zindex::*;

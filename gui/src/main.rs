@@ -55,7 +55,6 @@ extern crate hal_core;
 extern crate polygon;
 #[cfg(feature = "web")]
 extern crate hal_webgl;
-#[cfg(feature = "web")]
 
 pub mod system;
 pub mod component;

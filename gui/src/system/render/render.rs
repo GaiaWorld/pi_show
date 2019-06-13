@@ -55,7 +55,6 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
             return;
         }
         self.dirty = false;
-        // println!("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         
         if self.transparent_dirty && self.opacity_dirty {
             self.opacity_list.clear();
