@@ -290,7 +290,7 @@ impl State {
                 Some(vao) => {
                     let gl = self.gl.as_ref();
                     js! {
-                        @{gl}.bindVertexArray(@{&vao});
+                        @{gl}.bindVertexArray(@{&vao}.wrap);
                     }
                 }
                 None => {

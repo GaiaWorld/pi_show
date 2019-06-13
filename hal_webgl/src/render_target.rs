@@ -86,7 +86,7 @@ impl WebGLRenderTargetImpl {
             None => None,
             Some(fbo) => match TryInto::<Object>::try_into(js! {
                 var fboWrap = {
-                    wrap: @{fbo},
+                    wrap: @{fbo}
                 };
                 return fboWrap;
             }) {
