@@ -45,7 +45,7 @@ impl WebGLGeometryImpl {
         
         let vao = if is_vao_extension {
             match TryInto::<Object>::try_into(js! {
-                var vao = @{gl.as_ref()}.createVertexArray()
+                var vao = @{gl.as_ref()}.createVertexArray();
                 var vaoWrap = {
                     wrap: vao
                 };
