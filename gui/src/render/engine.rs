@@ -58,7 +58,7 @@ impl<C: Context> Engine<C> {
         let r = self.pipelines.entry(key).or_insert_with(|| {
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
-                    // println!("create_pipeline, defines:{:?}, vs: {:?}, fs: {:?}, ds: {:?}, start_hash: {}", defines, fs_name, fs, ds, start_hash);
+                    println!("create_pipeline, defines:{:?}, vs: {:?}, fs: {:?}, ds: {:?}, start_hash: {}", defines, fs_name, fs, ds, start_hash);
                     let defines = Vec::from(defines);
                     Arc::new(PipelineInfo{
                         start_hash: start_hash,

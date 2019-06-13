@@ -18,5 +18,5 @@ pub use system::world_matrix::*;
 pub use system::layout::*;
 pub use system::oct::*;
 pub use system::text_layout::*;
-// pub use system::filter::*;
+pub use system::filter::*;
 pub use system::render::*;

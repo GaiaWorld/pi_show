@@ -132,13 +132,13 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
         
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            // debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj); 
         }
 
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            // debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj);
         }
 
