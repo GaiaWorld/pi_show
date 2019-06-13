@@ -122,11 +122,11 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         render_obj.visibility = visibility;
         debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
 
+        // println!("render_obj is_opacity id: {}, is_opacity: {:?}", render_obj.context, render_obj.is_opacity);
         if !render_obj.is_opacity {   
-            
             let pipeline = &render_obj.pipeline;
             let mut bs = pipeline.bs.clone();
-            let mut ds = pipeline.ds.clone();  
+            let mut ds = pipeline.ds.clone();
             Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
             Arc::make_mut(&mut ds).set_write_enable(false);
             let pipeline = engine.create_pipeline(
@@ -160,7 +160,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                 if render_obj.is_opacity == false {
                     Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
                     Arc::make_mut(&mut ds).set_write_enable(false);
-                
+                    // println!("is_opacity false---------------------{}", render_obj.context);
                     let pipeline = engine.create_pipeline(
                         1,
                         &pipeline.vs,
@@ -174,7 +174,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                     render_obj.pipeline = pipeline;
                 } else {
                     Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
-                
+                    Arc::make_mut(&mut ds).set_write_enable(true);
+                    // println!("is_opacity true---------------------{}", render_obj.context);
                     let pipeline = engine.create_pipeline(
                         0,
                         &pipeline.vs,

@@ -11,7 +11,7 @@ use sampler::{WebGLSamplerImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
-use debug_info::*;
+// use debug_info::*;
 
 pub struct State {
     clear_color: (f32, f32, f32, f32), 
@@ -20,7 +20,7 @@ pub struct State {
 
     gl: Arc<WebGLRenderingContext>, 
 
-    pipeline: Arc<dyn AsRef<Pipeline>>,
+    pub pipeline: Arc<dyn AsRef<Pipeline>>,
 
     geometry: Option<Arc<dyn AsRef<WebGLGeometryImpl>>>,
     target: Arc<dyn AsRef<WebGLRenderTargetImpl>>,
@@ -66,6 +66,15 @@ impl TextureCache {
             values: cache,
             tex_use_count: 1,
         }
+    }
+
+    pub fn reset(&mut self) {
+        let cap = self.values.capacity() + 1;
+        let mut cache = Vec::with_capacity(cap - 1);
+        for i in 1..cap {
+            cache.push(TextureSlot::new(i));
+        }
+        self.values = cache;
     }
 
     // 缓存策略：当槽不够的时候，移除最远的槽。
@@ -136,7 +145,7 @@ impl State {
         };
         
         let tex_caches = TextureCache::new(gl, max_tex_unit_num as usize);
-        let state = State {
+        let mut state = State {
             gl: gl.clone(),
 
             clear_color: (1.0, 1.0, 1.0, 1.0), 
@@ -152,7 +161,7 @@ impl State {
             tex_caches: tex_caches,
         };  
 
-        Self::apply_all_state(gl, &state);
+        Self::apply_all_state(gl, &mut state);
 
         state
     }
@@ -163,14 +172,24 @@ impl State {
 
     pub fn set_render_target(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
         if !Arc::ptr_eq(&self.target, rt) {
-            let fbo = &rt.as_ref().as_ref().frame_buffer;
-            js! {
-                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{fbo.as_ref()});
-            }
-            debug_println!("State::set_render_target, fbo = {:?}", fbo.as_ref());
-
+            self.set_render_target_impl(rt);
             self.target = rt.clone();
         }
+    }
+
+    fn set_render_target_impl(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
+        let fbo = &rt.as_ref().as_ref().frame_buffer;
+        if fbo.is_none() {
+            js! {
+                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
+            }
+        } else {
+            let fbo = fbo.as_ref().unwrap();
+            js!{
+                @{self.gl.as_ref()}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo});
+            }
+        }
+        // debug_println!("State::set_render_target, fbo = {:?}", fbo.as_ref());
     }
 
     /** 
@@ -180,8 +199,8 @@ impl State {
         if self.viewport_rect != *rect {
             
             self.gl.viewport(rect.0, rect.1, rect.2, rect.3);
-            // self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
-            debug_println!("State::set_viewport, rect = {:?}", rect);
+            self.gl.scissor(rect.0, rect.1, rect.2, rect.3);
+            // debug_println!("State::set_viewport, rect = {:?}", rect);
             self.viewport_rect = *rect;
         }
     }
@@ -192,7 +211,7 @@ impl State {
             flag |= WebGLRenderingContext::COLOR_BUFFER_BIT;
 
             if *color != self.clear_color {
-                debug_println!("State::set_clear, color = {:?}", color);
+                // debug_println!("State::set_clear, color = {:?}", color);
                 self.gl.clear_color(color.0, color.1, color.2, color.3);
                 self.clear_color = *color;
             }
@@ -202,7 +221,7 @@ impl State {
             flag |= WebGLRenderingContext::DEPTH_BUFFER_BIT;
 
             if *depth != self.clear_depth {
-                debug_println!("State::set_clear, depth = {:?}", depth);
+                // debug_println!("State::set_clear, depth = {:?}", depth);
                 self.gl.clear_depth(*depth);
                 self.clear_depth = *depth;
             }
@@ -212,7 +231,7 @@ impl State {
             flag |= WebGLRenderingContext::STENCIL_BUFFER_BIT;
 
             if *stencil != self.clear_stencil {
-                debug_println!("State::set_clear, stencil = {:?}", stencil);
+                // debug_println!("State::set_clear, stencil = {:?}", stencil);
                 self.gl.clear_stencil(*stencil as i32);
                 self.clear_stencil = *stencil;
             }
@@ -417,8 +436,8 @@ impl State {
     /** 
      * 全状态设置，仅用于创建State时候
      */
-    fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &State) {
-        debug_println!("State::apply_all_state");
+    pub fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &mut State) {
+        // debug_println!("State::apply_all_state");
         gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
         gl.clear_depth(state.clear_depth);
         gl.clear_stencil(state.clear_stencil as i32);
@@ -428,6 +447,22 @@ impl State {
         Self::set_depth_state(gl.as_ref(), None, p.depth_state.as_ref().as_ref());
         Self::set_blend_state(gl.as_ref(), None, p.blend_state.as_ref().as_ref());
         Self::set_stencil_state(gl.as_ref(), None, p.stencil_state.as_ref().as_ref());
+
+        state.geometry = None;
+        
+        state.set_render_target_impl(&state.target.clone());
+
+        let rect = &state.viewport_rect;
+        gl.viewport(rect.0, rect.1, rect.2, rect.3);
+        gl.scissor(rect.0, rect.1, rect.2, rect.3);
+
+        for (i, v) in state.enable_attrib_indices.iter().enumerate() {
+            if *v {
+                gl.enable_vertex_attrib_array(i as u32);
+            }
+        }
+
+        state.tex_caches.reset();
     }
 
     fn set_cull_mode(gl: &WebGLRenderingContext, curr: &RasterState) {

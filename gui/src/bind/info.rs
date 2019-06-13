@@ -97,7 +97,8 @@ pub fn node_info(world: u32, node: u32) {
 
     js!{
         window.__jsObj = @{info};
-        // console.log("node_info:", @{format!("{:?}", info)});
+        // window.__jsObj1 = window.__jsObj;
+        console.log("node_info:", window.__jsObj);
     }
 }
 

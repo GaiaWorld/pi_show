@@ -101,7 +101,19 @@ impl Context for WebGLContextImpl {
         WebGLRenderTargetImpl::new(&self.gl, w, h, pformat, dformat, has_depth)
     }
 
+    fn restore_state(&mut self) {
+        let p = self.state.pipeline.as_ref().as_ref();
+        if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
+            program.use_me();
+        }
+        State::apply_all_state(&self.gl, &mut self.state);
+    }
+
     fn begin_render(&mut self, render_target: &Arc<dyn AsRef<Self::ContextRenderTarget>>, data: &Arc<dyn AsRef<RenderBeginDesc>>) {
+
+        // 注：暂时在这里重置所有状态
+        self.restore_state();
+
         self.state.set_render_target(render_target);
         let data = data.as_ref().as_ref();
         self.state.set_viewport(&data.viewport);

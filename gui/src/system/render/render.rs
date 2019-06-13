@@ -55,6 +55,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderSys<C>{
             return;
         }
         self.dirty = false;
+        // println!("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         
         if self.transparent_dirty && self.opacity_dirty {
             self.opacity_list.clear();
@@ -206,11 +207,12 @@ fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
         return;
     }
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
+    // println! ("draw-------------------------------------id: {}, key: {}, ds: {:?}", obj.context, obj.pipeline.key, &obj.pipeline.ds);
     let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
     for (k, v) in obj.ubos.iter() {
         ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
     }
-    debug_println!("draw-------------------------------------{}", obj.context);
+    // debug_println!("draw-------------------------------------{}", obj.context);
     gl.draw(&(obj.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 

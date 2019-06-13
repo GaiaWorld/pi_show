@@ -151,7 +151,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         }else {
             false
         };
-        debug_println!("xxxxxxxxxxxxxxxxxcreate image{}", event.id);
+        debug_println!("xxxxxxxxxxxxxxxxxcreate image{}， is_opacity: {}", event.id, is_opacity);
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth,
             depth_diff: 0.0,
@@ -254,7 +254,7 @@ impl<'a, C: Context + Share> ImageSys<C> {
         }else {
             false
         };
-
+        debug_println!("set_is_opacity color{}， is_opacity: {}", _id, is_opacity);
         let notify = render_objs.get_notify();
         unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
     }

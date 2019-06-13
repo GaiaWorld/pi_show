@@ -53,12 +53,12 @@ impl<C: Context> Engine<C> {
             d.hash(&mut hasher);
         }
         let key = hasher.finish();
-
+        // println!("create_pipeline1, defines:{:?}, vs: {:?}, fs: {:?}, ds: {:?}, start_hash: {}, key:{}", defines, fs_name, fs, ds, start_hash, key);
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
-                    debug_println!("create_pipeline, defines:{:?}", defines);
+                    // println!("create_pipeline, defines:{:?}, vs: {:?}, fs: {:?}, ds: {:?}, start_hash: {}", defines, fs_name, fs, ds, start_hash);
                     let defines = Vec::from(defines);
                     Arc::new(PipelineInfo{
                         start_hash: start_hash,
