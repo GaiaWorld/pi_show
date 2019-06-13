@@ -77,12 +77,22 @@ pub const Z_MAX: f32 = 419430.0;
 // pub const Z_MAX: f32 = 50.0;
 pub const ROOT: usize = 1;
 
+
+// use layout::{ YgNode, YGDirection };
 fn main(){
-    // a
-    // test::yoga::test();
-    // test::yoga::test_layout_system();
-    // test::render::test();
-    // test::bind::test();
-    // test::bind::test_query();
-    // test::bind::test11()
+    // let root = YgNode::new();
+    // root.set_width(1000.0);
+    // root.set_height(700.0);
+
+    // let node = YgNode::new();
+    // root.insert_child(node, 0);
+
+    // root.calculate_layout(1000.0, 700.0, YGDirection::YGDirectionLTR);
+
+    // println!("node layout: {:?}", node.get_layout());
+    // println!("node style: {:?}", node.get_style());
+
+    // println!("root layout: {:?}", root.get_layout());
+    // println!("root style: {:?}", root.get_style());
+    
 }

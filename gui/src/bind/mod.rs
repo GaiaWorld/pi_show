@@ -15,7 +15,7 @@ use single::RenderBegin;
 use render::engine::Engine;
 use world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use entity::Node;
-use layout::YgNode;
+use layout::{ YgNode, YGAlign };
 
 pub mod style;
 pub mod node;
@@ -58,6 +58,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
     ygnode.set_width(width);
     ygnode.set_height(height);
+    ygnode.set_align_items(YGAlign::YGAlignFlexStart);
 
     idtree.create(node);
     idtree.insert_child(node, 0, 0, None);

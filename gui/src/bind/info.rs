@@ -8,6 +8,7 @@ use component::calc::*;
 use component::calc::Opacity as COpacity;
 use single::{ OverflowClip};
 use entity::Node;
+// use layout::YgNode;
 
 // 打印节点信息
 #[allow(unused_attributes)]
@@ -95,10 +96,16 @@ pub fn node_info(world: u32, node: u32) {
         content_box: absolute_c_box,
     };
 
+    // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
+    // let yogas = yogas.lend();
+    // let yoga = unsafe { yogas.get_unchecked(node) };
+
     js!{
         window.__jsObj = @{info};
         // window.__jsObj1 = window.__jsObj;
-        console.log("node_info:", window.__jsObj);
+        // console.log("node_info:", window.__jsObj);
+        // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
+        // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
     }
 }
 
