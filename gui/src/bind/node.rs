@@ -373,6 +373,34 @@ pub fn query(world: u32, x: f32, y: f32)-> u32{
     args.result as u32
 }
 
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let entitys = world.fetch_entity::<Node>().unwrap();
+    let octree = world.fetch_single::<Oct>().unwrap();
+    let enables = world.fetch_multi::<Node, Enable>().unwrap();
+    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
+    let by_overflows = world.fetch_multi::<Node, ByOverflow>().unwrap();
+    let z_depths = world.fetch_multi::<Node, ZDepth>().unwrap();
+
+    let entitys = entitys.lend();
+    let octree = octree.lend();
+    let enables = enables.lend();
+    let overflow_clip = overflow_clip.lend();
+    let by_overflows = by_overflows.lend();
+    let z_depths = z_depths.lend();
+
+    let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
+
+    for e in entitys.iter() {
+        let oct = unsafe { octree.get_unchecked(e) };
+        ab_query_func(&mut args, e, oct.0, &e);
+    }
+    args.result as u32
+}
+
 /// aabb的查询函数的参数
 struct AbQueryArgs<'a> {
   enables: &'a MultiCaseImpl<Node, Enable>,
