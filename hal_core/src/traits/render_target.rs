@@ -17,7 +17,7 @@ use traits::context::{Context};
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
-pub trait RenderBuffer {
+pub trait RenderBuffer : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
@@ -35,7 +35,7 @@ pub trait RenderBuffer {
 /** 
  * 渲染目标
  */
-pub trait RenderTarget {
+pub trait RenderTarget : Clone {
 
     type RContext: Context;
 

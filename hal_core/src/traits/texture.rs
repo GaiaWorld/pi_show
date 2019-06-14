@@ -1,17 +1,24 @@
 use std::sync::{Arc};
+use std::marker::PhantomData;
 use common::{PixelFormat, DataFormat};
 use traits::context::{Context};
 
-pub trait TextureData {
+pub trait CustomTextureData {
     type RContext: Context;
 
-    fn update(&self, context: &Arc<Self::RContext>);
+    fn update(&self, texture: &<Self::RContext as Context>::ContextTexture);
 }
 
-pub trait Texture {
+pub enum TextureData<'a, C: Context> {
+    F32(u32, u32, u32, u32, &'a[f32]),  // (x, y, w, h, data)
+    U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
+    Custom(Box<dyn CustomTextureData<RContext = C>>),
+}
+
+pub trait Texture : Clone {
     type RContext: Context;
     
-    fn new_2d(context: &Arc<Self::RContext>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&dyn TextureData<RContext = Self::RContext>>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
+    fn new_2d(context: &Arc<Self::RContext>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<Self::RContext>>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
 
     fn delete(&self);
 
@@ -26,5 +33,5 @@ pub trait Texture {
 
     fn is_gen_mipmap(&self) -> bool;
 
-    fn update(&self, mipmap_level: u32, data: &dyn TextureData<RContext = Self::RContext>);
+    fn update(&self, mipmap_level: u32, data: &TextureData<Self::RContext>);
 }

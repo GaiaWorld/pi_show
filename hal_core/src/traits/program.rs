@@ -3,7 +3,7 @@ use atom::{Atom};
 use common::{ShaderType};
 use traits::context::{Context};
 
-pub trait Program {
+pub trait Program : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextProgram, String>;

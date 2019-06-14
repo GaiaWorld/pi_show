@@ -2,7 +2,7 @@ use std::sync::{Arc};
 use common::{SamplerDesc};
 use traits::context::{Context};
 
-pub trait Sampler {
+pub trait Sampler : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String>;

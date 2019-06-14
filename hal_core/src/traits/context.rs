@@ -20,6 +20,7 @@ use traits::texture::{Texture};
 
 pub trait Context: Sized {
     type ContextSelf: Context;
+    
     type ContextBuffer: Buffer<RContext = Self>;
     type ContextGeometry: Geometry<RContext = Self>;
     type ContextTexture: Texture<RContext = Self>;
@@ -78,5 +79,5 @@ pub trait Context: Sized {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &[Self::ContextSampler]);
+    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &[(Self::ContextSampler, Self::ContextTexture)]);
 }

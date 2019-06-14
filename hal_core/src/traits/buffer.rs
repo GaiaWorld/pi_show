@@ -16,7 +16,7 @@ pub enum BufferData<'a> {
 /** 
  * Buffer：显存的抽象
  */
-pub trait Buffer {
+pub trait Buffer : Clone {
 
     type RContext: Context;
 

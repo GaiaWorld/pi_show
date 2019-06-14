@@ -6,7 +6,7 @@ use traits::context::{Context};
  * 渲染状态的trait
  */
 
-pub trait BlendState {
+pub trait BlendState : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>, desc: &BlendStateDesc) -> Result<<Self::RContext as Context>::ContextBlendState, String>;
@@ -21,7 +21,7 @@ pub trait BlendState {
     fn get_desc(&self) -> &BlendStateDesc;
 }
 
-pub trait DepthState {
+pub trait DepthState : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>, desc: &DepthStateDesc) -> Result<<Self::RContext as Context>::ContextDepthState, String>;
@@ -36,7 +36,7 @@ pub trait DepthState {
     fn get_desc(&self) -> &DepthStateDesc;
 }
 
-pub trait RasterState {
+pub trait RasterState : Clone {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>, desc: &RasterStateDesc) -> Result<<Self::RContext as Context>::ContextRasterState, String>;
@@ -51,7 +51,7 @@ pub trait RasterState {
     fn get_desc(&self) -> &RasterStateDesc;
 }
 
-pub trait StencilState {
+pub trait StencilState : Clone {
     type RContext: Context;
     
     fn new(context: &Arc<Self::RContext>, desc: &StencilStateDesc) -> Result<<Self::RContext as Context>::ContextStencilState, String>;
