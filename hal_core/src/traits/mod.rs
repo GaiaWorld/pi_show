@@ -1,3 +1,4 @@
+mod buffer;
 mod context;
 mod geometry;
 mod program;
@@ -6,6 +7,7 @@ mod sampler;
 mod state;
 mod texture;
 
+pub use self::buffer::{Buffer, BufferType, BufferData};
 pub use self::context::{Context};
 pub use self::geometry::{Geometry};
 pub use self::program::{Program};

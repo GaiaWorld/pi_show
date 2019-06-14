@@ -3,7 +3,7 @@ use common::util::{CompareFunc, StencilOp};
 /** 
  * 模板状态
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct StencilStateDesc {
     pub is_stencil_test_enable: bool,
     

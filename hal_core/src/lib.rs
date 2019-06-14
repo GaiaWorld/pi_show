@@ -4,6 +4,7 @@
 
 extern crate atom;
 extern crate fnv;
+extern crate ordered_float;
 
 mod traits;
 mod common;

@@ -1,10 +1,11 @@
+use ordered_float::{OrderedFloat};
 use common::util::{BlendFunc, BlendFactor};
 
 /** 
  * 混合状态
  * 注：src和dst因子不能同时填 常量 颜色
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct BlendStateDesc {
     pub rgb_equation: BlendFunc,
     pub alpha_equation: BlendFunc,
@@ -15,7 +16,7 @@ pub struct BlendStateDesc {
     pub src_alpha_factor: BlendFactor,
     pub dst_alpha_factor: BlendFactor,
 
-    pub const_rgba: (f32, f32, f32, f32),
+    pub const_rgba: (OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>),
 }
 
 impl BlendStateDesc {
@@ -31,7 +32,7 @@ impl BlendStateDesc {
             src_alpha_factor: BlendFactor::One,
             dst_alpha_factor: BlendFactor::One,
 
-            const_rgba: (1.0, 1.0, 1.0, 1.0),
+            const_rgba: (OrderedFloat(1.0), OrderedFloat(1.0), OrderedFloat(1.0), OrderedFloat(1.0)),
         }
     }
 
@@ -76,6 +77,6 @@ impl BlendStateDesc {
      * 默认是白色
      */
     pub fn set_const_rgba(&mut self, r: f32, g: f32, b: f32, a: f32) {
-        self.const_rgba = (r, g, b, a);
+        self.const_rgba = (OrderedFloat(r), OrderedFloat(g), OrderedFloat(b), OrderedFloat(a));
     }
 }

@@ -8,3 +8,4 @@ authors = ["moyy <moyy@yineng.com>"]
 [dependencies]
 atom={path="../../pi_lib/atom"}
 fnv="*"
+ordered-float = "1.0"

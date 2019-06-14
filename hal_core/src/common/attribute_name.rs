@@ -4,7 +4,7 @@ use atom::{Atom};
  * Attribute的名字，类型可以更改，
  * 注：请尽量使用内置的Attribute名，以便于内部加速
  */
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum AttributeName {
     Position,   // shader attribute：position，一般是vec3
     Normal,     // shader attribute：normal，一般是vec3 

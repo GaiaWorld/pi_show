@@ -1,13 +1,14 @@
+use ordered_float::{OrderedFloat};
 use common::util::{CullMode};
 
 /** 
  * 光栅化状态
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct RasterStateDesc {
     pub cull_mode: Option<CullMode>,   // 默认：None
     pub is_front_face_ccw: bool,       // 默认：true
-    pub polygon_offset: (f32, f32),    // 成员分别是factor和units，默认：(0, 0)
+    pub polygon_offset: (OrderedFloat<f32>, OrderedFloat<f32>),    // 成员分别是factor和units，默认：(0, 0)
 }
 
 impl RasterStateDesc {
@@ -16,7 +17,7 @@ impl RasterStateDesc {
         Self {
             cull_mode: None, // Some(CullMode::Back),
             is_front_face_ccw: true,
-            polygon_offset: (0.0, 0.0),
+            polygon_offset: (OrderedFloat(0.0), OrderedFloat(0.0)),
         }
     }
 
@@ -41,6 +42,6 @@ impl RasterStateDesc {
      * 默认：不会做任何偏移
      */
     pub fn set_polygon_offset(&mut self, factor: f32, unit: f32) {
-        self.polygon_offset = (factor, unit);
+        self.polygon_offset = (OrderedFloat(factor), OrderedFloat(unit));
     }
 }

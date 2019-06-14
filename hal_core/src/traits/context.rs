@@ -3,6 +3,7 @@ use atom::Atom;
 use fnv::FnvHashMap;
 
 use common::{Uniforms, Capabilities, RenderBeginDesc};
+use traits::buffer::{Buffer};
 use traits::geometry::{Geometry};
 use traits::program::{Program};
 use traits::render_target::{RenderTarget, RenderBuffer};
@@ -19,6 +20,7 @@ use traits::texture::{Texture};
 
 pub trait Context: Sized {
     type ContextSelf: Context;
+    type ContextBuffer: Buffer<RContext = Self>;
     type ContextGeometry: Geometry<RContext = Self>;
     type ContextTexture: Texture<RContext = Self>;
     type ContextSampler: Sampler<RContext = Self>;

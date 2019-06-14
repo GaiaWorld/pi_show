@@ -3,7 +3,7 @@ use common::util::{TextureFilterMode, TextureWrapMode};
 /** 
  * 纹理采样器描述，sampler，纹理的采样状态
  */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct SamplerDesc {
     pub min_filter: TextureFilterMode,
     pub mag_filter: TextureFilterMode,

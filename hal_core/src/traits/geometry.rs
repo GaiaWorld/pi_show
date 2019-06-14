@@ -19,11 +19,6 @@ pub trait Geometry {
     fn get_id(&self) -> u64;
 
     /** 
-     * 是否有属性
-     */
-    fn has_attribute(&self, name: &AttributeName) -> bool;
-
-    /** 
      * 获取当前的顶点个数
      */   
     fn get_vertex_count(&self) -> u32;
@@ -36,12 +31,11 @@ pub trait Geometry {
 
     /**
      * 设置属性数据
-     * item_count，每个顶点的该属性占多少个float
-     * is_updatable尽量是false，以提高最优性能
-     * 如果data为None，开辟一个长度是：vertex_count * item_count * 4大小的buffer
-     * 如果用同name设置多次，会根据上次的is_updatable来决定是否需要用 buffer_sub_data 还是用 buffer_data
+     * offset：该属性所在Buffer的索引，默认0
+     * stride：该属性需要相隔多远才能取到下一个值，默认：0
+     * count：该属性的一个元素占用Buffer的几个单位
      */
-    fn set_attribute(&self, name: &AttributeName, item_count: u32, data: Option<&[f32]>, is_updatable: bool) -> Result<(), String>;
+    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String>;
      
     /**
      * 删除属性
@@ -50,19 +44,13 @@ pub trait Geometry {
 
     /**
      * 设置索引
+     * offset: 该索引从buffer的偏移量
+     * count：该索引占用了buffer的多少个单位
      */
-    fn set_indices_short(&self, data: &[u16], is_updatable: bool) -> Result<(), String>;
+    fn set_indices_short(&self, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize) -> Result<(), String>;
 
     /**
      * 删除索引
      */
     fn remove_indices(&self);
-
-    /**
-     * 更新属性数据，
-     * 不存在属性名，崩溃
-     * is_updatable为false，崩溃
-     * item_offset + data.len() >= vertex_count * size，崩溃
-     */
-    fn update_attribute(&self, name: &AttributeName, item_offset: u32, data: &[f32]);
 }
