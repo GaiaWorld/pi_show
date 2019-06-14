@@ -29,7 +29,7 @@ pub mod debug;
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
+    let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
     let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
 
     // let gl = WebGLContextImpl::new(Arc::new(gl), None);

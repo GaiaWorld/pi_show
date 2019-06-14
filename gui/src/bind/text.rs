@@ -229,7 +229,7 @@ pub fn add_sdf_font_res(world: u32) {
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
 
-    let texture = match TryInto::<Object>::try_into(js!{return __jsObj1}) {
+    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
         Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
         Err(_) => panic!("set_src error"),
     };
