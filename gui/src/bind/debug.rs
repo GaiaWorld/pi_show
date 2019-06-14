@@ -4,12 +4,13 @@ use serde::{Serialize};
 
 use hal_webgl::*;
 
-use ecs::{World, Lend, MultiCaseImpl};
+use ecs::{World, Lend};
 use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
-use single::{ OverflowClip, RenderObjs};
+use single::{ OverflowClip, RenderObjs, DefaultTable};
 use entity::Node;
+use system::util::cal_matrix;
 // use layout::YgNode;
 
 // 打印节点信息
@@ -43,7 +44,10 @@ pub fn node_info(world: u32, node: u32) {
     let transform = world.fetch_multi::<Node, Transform>().unwrap();
     let transform = transform.lend();
 
-    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout);
+    let default_table = world.fetch_single::<DefaultTable>().unwrap();
+    let default_table = default_table.lend();
+
+    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, default_table);
     let layout = unsafe { layout.get_unchecked(node) };
     
     // border box
@@ -143,25 +147,6 @@ pub fn set_render_dirty(world: u32) {
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
 //     }
 // }
-
-fn cal_matrix(
-    id: usize,
-    world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
-    transforms: &MultiCaseImpl<Node, Transform>,
-    layouts: &MultiCaseImpl<Node, Layout>,
-) -> Matrix4 {
-    let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-    let transform = unsafe { transforms.get_unchecked(id) };
-    let layout = unsafe { layouts.get_unchecked(id) };
-
-    let origin = transform.origin.to_value(layout.width, layout.height);
-
-    if origin.x != 0.0 || origin.y != 0.0 {
-        return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
-    }
-    
-    world_matrix.0.clone()
-}
 
 #[derive(Serialize)]
 struct Point2{

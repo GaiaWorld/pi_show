@@ -18,8 +18,9 @@ use cg2d::{include_quad2, InnOuter};
 use component::user::*;
 use component::calc::*;
 use single::oct::Oct;
-use single::{ OverflowClip};
+use single::{ OverflowClip, DefaultTable};
 use entity::Node;
+use system::util::get_or_default;
 use render::engine::Engine;
 use render::res::{TextureRes};
 use layout::*;
@@ -259,8 +260,10 @@ pub fn offset_document(world: u32, node_id: u32) {
   let world_matrixs = world_matrixs.lend();
   let transforms = world.fetch_multi::<Node, Transform>().unwrap();
   let transforms = transforms.lend();
+  let default_table = world.fetch_single::<DefaultTable>().unwrap();
+  let default_table = default_table.lend();
 
-  let transform = unsafe {transforms.get_unchecked(node_id)};
+  let transform = get_or_default(node_id, transforms, default_table);
   let layout = unsafe {layouts.get_unchecked(node_id)};
   let origin = transform.origin.to_value(layout.width, layout.height);
 

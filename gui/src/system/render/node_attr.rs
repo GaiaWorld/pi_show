@@ -90,10 +90,11 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, HSV>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (world_matrixs, opacitys, visibilitys, transforms, layouts, hsvs) = read;
+        let (world_matrixs, opacitys, visibilitys, transforms, layouts, hsvs, default_table) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
@@ -103,7 +104,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         let ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
         let mut world_matrix_ubo = engine.gl.create_uniforms();
-        let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts);
+        let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts, default_table);
         let slice: &[f32; 16] = world_matrix.as_ref();
         world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
         ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
@@ -226,10 +227,11 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
 
 //世界矩阵变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
+    type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>, &'a SingleCaseImpl<DefaultTable>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let world_matrix = cal_matrix(event.id, read.0, read.1, read.2);
+        let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
+        // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
         let (render_objs, node_render_map) = write;
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 

@@ -50,6 +50,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
 
     let mut default_table = DefaultTable::new();
     default_table.set::<TextStyle>(TextStyle::default());
+    default_table.set::<Transform>(Transform::default());
     let mut font = Font::default();
     font.family = Atom::from("common");
     default_table.set::<Font>(font);

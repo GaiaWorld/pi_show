@@ -5,7 +5,7 @@ mod show;
 mod world_matrix;
 mod layout;
 mod oct;
-mod util;
+pub mod util;
 mod text_layout;
 mod render;
 mod filter;
