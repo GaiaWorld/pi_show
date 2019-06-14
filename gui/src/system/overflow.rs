@@ -16,7 +16,8 @@ use component::{
   user::*,
   calc::*,
 };
-use single::OverflowClip;
+use single::{ OverflowClip, DefaultTable };
+use system::util::get_or_default;
 
 
 
@@ -32,7 +33,14 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
     }
 }
 
-type Read<'a> = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Overflow>, &'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
+type Read<'a> = (
+    &'a SingleCaseImpl<IdTree>,
+    &'a MultiCaseImpl<Node, Overflow>,
+    &'a MultiCaseImpl<Node, WorldMatrix>,
+    &'a MultiCaseImpl<Node, Transform>,
+    &'a MultiCaseImpl<Node, Layout>,
+    &'a SingleCaseImpl<DefaultTable>,
+);
 type Write<'a> = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, ByOverflow>);
 
 //监听overflow属性的改变
@@ -147,12 +155,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
 fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>) {
   let world_matrix = unsafe{ read.2.get_unchecked(id)};
   let layout = unsafe{ read.4.get_unchecked(id)};
-  let origin = match read.3.get(id) {
-    Some(transform) => {
-      transform.origin.to_value(layout.width, layout.height)
-    },
-    _ => Point2::default()
-  };
+  let origin = get_or_default(id, read.3, read.5).origin.to_value(layout.width, layout.height);
   clip.clip[i-1] = calc_point(layout, world_matrix, &origin);
 }
 // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow

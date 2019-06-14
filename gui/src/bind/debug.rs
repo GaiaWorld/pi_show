@@ -2,12 +2,16 @@ use std::mem::transmute;
 
 use serde::{Serialize};
 
-use ecs::{World, Lend, MultiCaseImpl};
+use hal_webgl::*;
+
+use ecs::{World, Lend};
 use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
-use single::{ OverflowClip};
+use single::{ OverflowClip, RenderObjs, DefaultTable};
 use entity::Node;
+use system::util::cal_matrix;
+// use layout::YgNode;
 
 // 打印节点信息
 #[allow(unused_attributes)]
@@ -40,7 +44,10 @@ pub fn node_info(world: u32, node: u32) {
     let transform = world.fetch_multi::<Node, Transform>().unwrap();
     let transform = transform.lend();
 
-    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout);
+    let default_table = world.fetch_single::<DefaultTable>().unwrap();
+    let default_table = default_table.lend();
+
+    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, default_table);
     let layout = unsafe { layout.get_unchecked(node) };
     
     // border box
@@ -95,10 +102,16 @@ pub fn node_info(world: u32, node: u32) {
         content_box: absolute_c_box,
     };
 
+    // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
+    // let yogas = yogas.lend();
+    // let yoga = unsafe { yogas.get_unchecked(node) };
+
     js!{
         window.__jsObj = @{info};
         // window.__jsObj1 = window.__jsObj;
-        console.log("node_info:", window.__jsObj);
+        // console.log("node_info:", window.__jsObj);
+        // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
+        // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
     }
 }
 
@@ -113,6 +126,17 @@ pub fn overflow_clip(world: u32) {
     }
 }
 
+// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_render_dirty(world: u32) {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
+    let render_objs = render_objs.lend();
+    
+    render_objs.get_notify().modify_event(1, "", 0); 
+}
+
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // pub fn bound_box(world: u32, node: u32) {
@@ -123,25 +147,6 @@ pub fn overflow_clip(world: u32) {
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
 //     }
 // }
-
-fn cal_matrix(
-    id: usize,
-    world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
-    transforms: &MultiCaseImpl<Node, Transform>,
-    layouts: &MultiCaseImpl<Node, Layout>,
-) -> Matrix4 {
-    let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-    let transform = unsafe { transforms.get_unchecked(id) };
-    let layout = unsafe { layouts.get_unchecked(id) };
-
-    let origin = transform.origin.to_value(layout.width, layout.height);
-
-    if origin.x != 0.0 || origin.y != 0.0 {
-        return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
-    }
-    
-    world_matrix.0.clone()
-}
 
 #[derive(Serialize)]
 struct Point2{

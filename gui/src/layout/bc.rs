@@ -122,7 +122,7 @@ impl YgNode {
         yoga::yg_node_style_set_position_type(self.0, value)
     }
     pub fn set_position(&self, edge: YGEdge, position: f32) { 
-        yoga::yg_node_style_set_position(self.0, edge, position * 10000.0);
+        yoga::yg_node_style_set_position(self.0, edge, position * 100.0);
     }
     pub fn set_position_percent(&self, edge: YGEdge, position: f32) {
         yoga::yg_node_style_set_position_percent(self.0, edge, position);
@@ -149,7 +149,7 @@ impl YgNode {
         yoga::yg_node_style_set_justify_content(self.0, value);
     }
     pub fn set_margin(&self, edge: YGEdge, value: f32) { 
-        yoga::yg_node_style_set_margin(self.0, edge, value * 10000.0);
+        yoga::yg_node_style_set_margin(self.0, edge, (value * 100.0).round());
     }
     pub fn set_margin_percent(&self, edge: YGEdge, value: f32) { 
         yoga::yg_node_style_set_margin_percent(self.0, edge, value);
@@ -170,7 +170,7 @@ impl YgNode {
         yoga::yg_node_style_set_flex(self.0, value);
     }
     pub fn set_flex_basis(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_basis(self.0, value * 10000.0); 
+        yoga::yg_node_style_set_flex_basis(self.0, (value * 100.0).round()); 
     }
     pub fn set_flex_basis_percent(&self, value: f32) { 
         yoga::yg_node_style_set_flex_basis_percent(self.0, value); 
@@ -179,14 +179,14 @@ impl YgNode {
         yoga::yg_node_style_set_flex_basis_auto(self.0); 
     }
     pub fn set_flex_grow(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_grow(self.0, value * 10000.0);
+        yoga::yg_node_style_set_flex_grow(self.0, (value * 100.0).round());
     }
     pub fn set_flex_shrink(&self, value: f32) { 
-        yoga::yg_node_style_set_flex_shrink(self.0, value * 10000.0); 
+        yoga::yg_node_style_set_flex_shrink(self.0, (value * 100.0).round()); 
     }
 
     pub fn set_width(&self, value: f32) { 
-        yoga::yg_node_style_set_width(self.0, value * 10000.0);
+        yoga::yg_node_style_set_width(self.0, (value * 100.0).round());
     }
 
     pub fn set_width_percent(&self, value: f32){ 
@@ -196,7 +196,7 @@ impl YgNode {
         yoga::yg_node_style_set_width_auto(self.0);
     }
     pub fn set_height(&self, value: f32){ 
-        yoga::yg_node_style_set_height(self.0, value * 10000.0);
+        yoga::yg_node_style_set_height(self.0, (value * 100.0).round());
     }
     pub fn set_height_percent(&self, value: f32){ 
         yoga::yg_node_style_set_height_percent(self.0, value);
@@ -206,39 +206,39 @@ impl YgNode {
     }
 
     pub fn set_min_width(&self, value: f32){ 
-        yoga::yg_node_style_set_min_width(self.0, value * 10000.0);
+        yoga::yg_node_style_set_min_width(self.0, (value * 100.0).round());
     }
     pub fn set_min_width_percent(&self, value: f32){ 
         yoga::yg_node_style_set_min_width_percent(self.0, value);
     }
     pub fn set_min_height(&self, value: f32){ 
-        yoga::yg_node_style_set_min_height(self.0, value);
+        yoga::yg_node_style_set_min_height(self.0, (value * 100.0).round());
     }
     pub fn set_min_height_percent(&self, value: f32){
         yoga::yg_node_style_set_min_height_percent(self.0, value);
     }
 
     pub fn set_max_width(&self, value: f32){ 
-        yoga::yg_node_style_set_max_width(self.0, value * 10000.0);
+        yoga::yg_node_style_set_max_width(self.0, (value * 100.0).round());
     }
     pub fn set_max_width_percent(&self, value: f32){
         yoga::yg_node_style_set_max_width_percent(self.0, value);
     }
     pub fn set_max_height(&self, value: f32){ 
-        yoga::yg_node_style_set_max_height(self.0, value * 10000.0);
+        yoga::yg_node_style_set_max_height(self.0, (value * 100.0).round());
     }
     pub fn set_max_height_percent(&self, value: f32){
         yoga::yg_node_style_set_max_height_percent(self.0, value);
     }
 
     pub fn set_aspect_ratio(&self, value: f32){ 
-        yoga::yg_node_style_set_aspect_ratio(self.0, value * 10000.0);
+        yoga::yg_node_style_set_aspect_ratio(self.0, (value * 100.0).round());
     }
     pub fn set_border(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_border(self.0, edge, value * 10000.0);
+        yoga::yg_node_style_set_border(self.0, edge, (value * 100.0).round());
     }
     pub fn set_padding(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_padding(self.0, edge, value * 10000.0);
+        yoga::yg_node_style_set_padding(self.0, edge, (value * 100.0).round());
     }
     pub fn set_padding_percent(&self, edge: YGEdge, value: f32){
         yoga::yg_node_style_set_padding_percent(self.0, edge, value);
@@ -344,27 +344,27 @@ impl YgNode {
     }
 
     pub fn calculate_layout(&self, width: f32, height:f32, direction: YGDirection){
-        yoga::yg_node_calculate_layout(self.0, width * 10000.0, height * 10000.0, direction);
+        yoga::yg_node_calculate_layout(self.0, width * 100.0, height * 100.0, direction);
     }
 
     pub fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: CallbackFunc, arg: *const c_void) {
-        yoga::yg_node_calculate_layout_by_callback(self.0, width * 10000.0, height * 10000.0, direction, unsafe { std::mem::transmute(callback) }, arg);
+        yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, direction, unsafe { std::mem::transmute(callback) }, arg);
     }
 
     pub fn get_layout(&self) -> Layout {
         Layout{
-            left: yoga::yg_node_layout_get_left(self.0)/10000.0,
-            top: yoga::yg_node_layout_get_top(self.0)/10000.0,
-            width: yoga::yg_node_layout_get_width(self.0)/10000.0,
-            height: yoga::yg_node_layout_get_height(self.0)/10000.0,
-            border_left: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft)/10000.0,
-            border_top: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeTop)/10000.0,
-            border_right: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeRight)/10000.0,
-            border_bottom: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeBottom)/10000.0,
-            padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft)/10000.0,
-            padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop)/10000.0,
-            padding_right: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeRight)/10000.0,
-            padding_bottom: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeBottom)/10000.0,
+            left: yoga::yg_node_layout_get_left(self.0)/100.0,
+            top: yoga::yg_node_layout_get_top(self.0)/100.0,
+            width: yoga::yg_node_layout_get_width(self.0)/100.0,
+            height: yoga::yg_node_layout_get_height(self.0)/100.0,
+            border_left: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeLeft)/100.0,
+            border_top: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeTop)/100.0,
+            border_right: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeRight)/100.0,
+            border_bottom: yoga::yg_node_layout_get_border(self.0, YGEdge::YGEdgeBottom)/100.0,
+            padding_left: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeLeft)/100.0,
+            padding_top: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeTop)/100.0,
+            padding_right: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeRight)/100.0,
+            padding_bottom: yoga::yg_node_layout_get_padding(self.0, YGEdge::YGEdgeBottom)/100.0,
         }
     }
 

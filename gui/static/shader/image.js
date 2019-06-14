@@ -30,7 +30,7 @@ let image_fs_code = `
     uniform float alpha;
     uniform sampler2D texture;
 
-    #ifdef HSB
+    #ifdef HSV
         uniform vec3 hsvValue;
     #endif
 
@@ -43,7 +43,7 @@ let image_fs_code = `
     // Varyings
     varying vec2 vuv;
 
-    #ifdef HSB
+    #ifdef HSV
         vec3 rgb2hcv(vec3 RGB)
         {
             // Based on work by Sam Hocevar and Emil Persson
@@ -115,7 +115,7 @@ let image_fs_code = `
 
         vec4 c = texture2D(texture, vuv);
         
-        #ifdef HSB
+        #ifdef HSV
             vec3 hsv = rgb2hsv(c.rgb);
             hsv += hsvValue;
             c.rgb = hsv2rgb(hsv);

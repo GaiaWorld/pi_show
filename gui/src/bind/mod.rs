@@ -15,21 +15,21 @@ use single::RenderBegin;
 use render::engine::Engine;
 use world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use entity::Node;
-use layout::YgNode;
+use layout::{ YgNode, YGAlign };
 
 pub mod style;
 pub mod node;
 pub mod text;
 pub mod layout;
 pub mod transform;
-pub mod info;
+pub mod debug;
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    let fbo: Option<Object> = TryInto::<Option<Object>>::try_into(js!(return __fbo;)).unwrap();
+    let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
     let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
 
     // let gl = WebGLContextImpl::new(Arc::new(gl), None);
@@ -58,6 +58,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
     ygnode.set_width(width);
     ygnode.set_height(height);
+    ygnode.set_align_items(YGAlign::YGAlignFlexStart);
 
     idtree.create(node);
     idtree.insert_child(node, 0, 0, None);

@@ -44,10 +44,10 @@
             Module._set_width(gui, div, 200);
             Module._set_height(gui, div, 200);
 
-            var name = Module._create_node(gui);
-            Module._append_child(gui, name, div);
-            Module._set_width(gui, name, 100);
-            Module._set_height(gui, name, 32);
+            // var name = Module._create_node(gui);
+            // Module._append_child(gui, name, div);
+            // Module._set_width(gui, name, 100);
+            // Module._set_height(gui, name, 32);
 
 
             var ce = Module._create_text_node(gui);
@@ -58,7 +58,7 @@
             window.__jsObj = "逋逋";
             Module._set_text_content(gui, ce); // 文字内容
             Module._set_letter_spacing(gui, ce, 5); // 字符间距
-            // Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
+            Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
             window.__jsObj = "common";
             Module._set_font_family(gui, ce);
             // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
@@ -69,7 +69,7 @@
             // Module._set_white_space(gui, ce, 0);
 
             // Module._set_font_size(gui, ce, );
-            Module._append_child(gui, ce, name);
+            Module._append_child(gui, ce, div);
 
             var toke = Module._create_text_node(gui);
             Module._set_text_rgba_color(gui, toke, 1.0, 0.0, 0.0, 1.0); // r, g, b, a

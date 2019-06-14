@@ -40,6 +40,7 @@ use stdweb::{Object};
 
 /** 
  * fbo用js创建的WebGLFramebuffer，如果为None，说明要渲染到屏幕上；否则用fbo当渲染目标
+ * 注：WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
  */
 pub fn create_hal_webgl(context: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> WebGLContextImpl {
     WebGLContextImpl::new(context, fbo)

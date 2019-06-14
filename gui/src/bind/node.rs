@@ -18,8 +18,9 @@ use cg2d::{include_quad2, InnOuter};
 use component::user::*;
 use component::calc::*;
 use single::oct::Oct;
-use single::{ OverflowClip};
+use single::{ OverflowClip, DefaultTable};
 use entity::Node;
+use system::util::get_or_default;
 use render::engine::Engine;
 use render::res::{TextureRes};
 use layout::*;
@@ -132,7 +133,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
         let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
         let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-        let texture = match TryInto::<Object>::try_into(js!{return __jsObj;}) {
+        let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
             Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
             Err(s) => panic!("set_src error, {:?}", s),
         };
@@ -191,7 +192,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
         let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
         let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-        let texture = match TryInto::<Object>::try_into(js!{return __jsObj}) {
+        let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
             Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
             Err(_) => panic!("set_src error"),
         };
@@ -259,8 +260,10 @@ pub fn offset_document(world: u32, node_id: u32) {
   let world_matrixs = world_matrixs.lend();
   let transforms = world.fetch_multi::<Node, Transform>().unwrap();
   let transforms = transforms.lend();
+  let default_table = world.fetch_single::<DefaultTable>().unwrap();
+  let default_table = default_table.lend();
 
-  let transform = unsafe {transforms.get_unchecked(node_id)};
+  let transform = get_or_default(node_id, transforms, default_table);
   let layout = unsafe {layouts.get_unchecked(node_id)};
   let origin = transform.origin.to_value(layout.width, layout.height);
 
@@ -370,6 +373,34 @@ pub fn query(world: u32, x: f32, y: f32)-> u32{
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
     let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
     octree.query(&aabb, intersects, &mut args, ab_query_func);
+    args.result as u32
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let entitys = world.fetch_entity::<Node>().unwrap();
+    let octree = world.fetch_single::<Oct>().unwrap();
+    let enables = world.fetch_multi::<Node, Enable>().unwrap();
+    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
+    let by_overflows = world.fetch_multi::<Node, ByOverflow>().unwrap();
+    let z_depths = world.fetch_multi::<Node, ZDepth>().unwrap();
+
+    let entitys = entitys.lend();
+    let octree = octree.lend();
+    let enables = enables.lend();
+    let overflow_clip = overflow_clip.lend();
+    let by_overflows = by_overflows.lend();
+    let z_depths = z_depths.lend();
+
+    let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
+    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
+
+    for e in entitys.iter() {
+        let oct = unsafe { octree.get_unchecked(e) };
+        ab_query_func(&mut args, e, oct.0, &e);
+    }
     args.result as u32
 }
 

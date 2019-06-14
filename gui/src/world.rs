@@ -42,6 +42,7 @@ lazy_static! {
     pub static ref CHAR_BLOCK_N: Atom = Atom::from("charblock_sys");
     pub static ref CHAR_BLOCK_SHADOW_N: Atom = Atom::from("charblock_shadow_sys");
     pub static ref NODE_ATTR_N: Atom = Atom::from("node_attr_sys");
+    pub static ref FILTER_N: Atom = Atom::from("filter_sys");
 }
 
 pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
@@ -49,6 +50,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
 
     let mut default_table = DefaultTable::new();
     default_table.set::<TextStyle>(TextStyle::default());
+    default_table.set::<Transform>(Transform::default());
     let mut font = Font::default();
     font.family = Atom::from("common");
     default_table.set::<Font>(font);
@@ -125,9 +127,11 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::<C>::new()));
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
+    world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
+    
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();

@@ -181,7 +181,7 @@ pub fn set_font_size_none(world: u32, node_id: u32){
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::Length(value));
+    set_attr!(world, node_id, Font, size, FontSize::Length(value + 2.0));
 }
 
 #[allow(unused_attributes)]
@@ -229,17 +229,11 @@ pub fn add_sdf_font_res(world: u32) {
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
 
-    let texture = match TryInto::<Object>::try_into(js!{return __jsObj1}) {
+    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
         Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
         Err(_) => panic!("set_src error"),
     };
-    // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj1}) {
-    //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)).unwrap(),
-    //     Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj1}){
-    //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)).unwrap(),
-    //     Err(s) => panic!("set_src error, {:?}", s),
-    //     },
-    // };
+
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.textures.create(texture_res);
     // new_width_data
@@ -262,7 +256,7 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
     
-    font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
+    font_sheet.set_face(Atom::from(family), oblique, size + 2.0, weight, src);
 }
 
 // __jsObj 文字字符串

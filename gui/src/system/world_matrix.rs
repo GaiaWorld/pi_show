@@ -8,6 +8,8 @@ use dirty::LayerDirty;
 
 use component::user::{ Transform };
 use component::calc::{ WorldMatrix, ZDepth };
+use single::DefaultTable;
+use system::util::get_or_default;
 use map::vecmap::{VecMap};
 
 use component::user::*;
@@ -46,7 +48,8 @@ impl WorldMatrixSys{
         idtree: &SingleCaseImpl<IdTree>,
         transform: &MultiCaseImpl<Node, Transform>,
         layout: &MultiCaseImpl<Node, Layout>,
-        world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>
+        world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
+        default_table: &SingleCaseImpl<DefaultTable>,
     ){
         for id in self.dirty.iter() {
             {
@@ -58,17 +61,18 @@ impl WorldMatrixSys{
             }
 
             let parent_id = unsafe { idtree.get_unchecked(*id).parent };
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, idtree, transform, layout, world_matrix);
+            let transform_value = get_or_default(parent_id, transform, default_table);
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table);
         }
         self.dirty.clear();
     }
 }
 
 impl<'a> Runner<'a> for WorldMatrixSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>, &'a SingleCaseImpl<DefaultTable>);
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        self.cal_matrix(read.0, read.1, read.2, write);
+        self.cal_matrix(read.0, read.1, read.2, write, read.3);
     }
 }
 
@@ -76,7 +80,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, WorldMatrix>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.0.insert(event.id, Transform::default());
+        // write.0.insert(event.id, Transform::default());
         write.1.insert(event.id, WorldMatrix::default());
         self.dirty_mark_list.insert(event.id, false);
     }
@@ -147,22 +151,24 @@ fn recursive_cal_matrix(
     dirty_mark_list: &mut VecMap<bool>,
     parent: usize,
     id: usize,
+    parent_transform: &Transform,
     idtree: &SingleCaseImpl<IdTree>,
     transform: &MultiCaseImpl<Node, Transform>,
     layout: &MultiCaseImpl<Node, Layout>,
     world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
+    default_table: &SingleCaseImpl<DefaultTable>,
 ){
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
-    let transform_value = unsafe { transform.get_unchecked(id) };
+    let transform_value = get_or_default(id, transform, default_table);
 
     let matrix = if parent == 0 {
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
     }else {
         let parent_layout = unsafe { layout.get_unchecked(parent) };
         let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };
-        let parent_transform_origin = unsafe { transform.get_unchecked(parent) }.origin.to_value(parent_layout.width, parent_layout.height);
+        let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
 
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
@@ -172,7 +178,7 @@ fn recursive_cal_matrix(
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
-        recursive_cal_matrix(dirty_mark_list, id, child_id.0, idtree, transform, layout, world_matrix);
+        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_table);
     }
 }
 

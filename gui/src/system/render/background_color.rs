@@ -337,12 +337,10 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
 
 fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bool{
     if opacity < 1.0 {
-        // println!("cccccccccccccccccccccccccc opacity:{}", opacity);
         return false;
     }
     match &background_color.0 {
         &Color::RGBA(ref c) => if c.a < 1.0 {
-            // println!("cccccccccccccccccccccccccc:{}", c.a);
             return false;
         },
         &Color::LinearGradient(ref r) => {
@@ -353,7 +351,6 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
             }
         },
     };
-    // println!("cccccccccccccccccccccccccc11111");
     return true;
 }
 

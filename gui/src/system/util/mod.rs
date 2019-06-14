@@ -22,9 +22,10 @@ pub fn cal_matrix(
     world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
     transforms: &MultiCaseImpl<Node, Transform>,
     layouts: &MultiCaseImpl<Node, Layout>,
+    default_table: &SingleCaseImpl<DefaultTable>,
 ) -> Matrix4 {
     let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-    let transform = unsafe { transforms.get_unchecked(id) };
+    let transform = get_or_default(id, transforms, default_table);
     let layout = unsafe { layouts.get_unchecked(id) };
 
     let origin = transform.origin.to_value(layout.width, layout.height);

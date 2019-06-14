@@ -155,6 +155,9 @@ impl Context for WebGLContextImpl {
 
 impl WebGLContextImpl {
 
+    /** 
+     * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
+     */
     pub fn new(gl: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
         
         let caps = Self::create_caps(gl.as_ref());
@@ -173,6 +176,10 @@ impl WebGLContextImpl {
         }
     }
 
+
+    /** 
+     * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
+     */
     pub fn create_texture_2d_webgl(&self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         WebGLTextureImpl::new_2d_webgl(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
