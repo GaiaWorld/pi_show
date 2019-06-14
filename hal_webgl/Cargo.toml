@@ -7,7 +7,9 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+slab={path="../../pi_lib/slab"}
 hal_core={path="../hal_core"}
+ordered-float = "1.0"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
