@@ -199,8 +199,8 @@ pub fn set_visibility(world: u32, node: u32, value: bool) {
 //设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_enable(world: u32, node: u32, value: bool) {
-    set_show!(world, node, set_enable, value);
+pub fn set_enable(world: u32, node: u32, value: u32) {
+    set_show!(world, node, set_enable, unsafe{transmute(value as u8)});
 }
 
 #[allow(unused_attributes)]

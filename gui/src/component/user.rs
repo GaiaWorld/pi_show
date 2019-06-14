@@ -385,11 +385,20 @@ impl TransformOrigin {
     }
 }
 
+#[derive(Debug)]
 enum ShowType{
   Display = 1, // 0表示 Flex
   Visibility = 2, // 0表示no Visible
-  Enable = 4, // 0表示no Enable
+  Enable = 12, // 0表示no Enable
 }
+
+#[derive(Debug)]
+pub enum EnableType{
+    Auto = 0, 
+    None = 1,
+    Visible = 2,
+}
+
 impl Transform {
     pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> Matrix4 {
         // M = T * R * S
@@ -496,51 +505,50 @@ impl Default for Opacity {
 }
 
 impl Show {
-  #[inline]
-  pub fn get_display(&self) -> Display {
-    unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
-  }
-
-  #[inline]
-  pub fn set_display(&mut self, display: Display){
-    match display {
-      Display::Flex => self.0 &= !(ShowType::Display as usize),
-      Display::None => self.0 |= ShowType::Display as usize,
+    #[inline]
+    pub fn get_display(&self) -> Display {
+        unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
     }
-  }
 
-  #[inline]
-  pub fn get_visibility(&self) -> bool{
-    (self.0 & (ShowType::Visibility as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_visibility(&mut self, visibility: bool){
-    if visibility {
-      self.0 |= ShowType::Visibility as usize;
-    }else{
-      self.0 &= !(ShowType::Visibility as usize);
+    #[inline]
+    pub fn set_display(&mut self, display: Display){
+        match display {
+            Display::Flex => self.0 &= !(ShowType::Display as usize),
+            Display::None => self.0 |= ShowType::Display as usize,
+        }
     }
-  }
 
-  #[inline]
-  pub fn get_enable(&self) -> bool{
-    (self.0 & (ShowType::Enable as usize)) != 0
-  }
-
-  #[inline]
-  pub fn set_enable(&mut self, enable: bool){
-    if enable {
-      self.0 |= ShowType::Enable as usize;
-    }else{
-      self.0 &= !(ShowType::Enable as usize);
+    #[inline]
+    pub fn get_visibility(&self) -> bool{
+        (self.0 & (ShowType::Visibility as usize)) != 0
     }
-  }
+
+    #[inline]
+    pub fn set_visibility(&mut self, visibility: bool){
+        if visibility {
+            self.0 |= ShowType::Visibility as usize;
+        }else{
+            self.0 &= !(ShowType::Visibility as usize);
+        }
+    }
+
+    #[inline]
+    pub fn get_enable(&self) -> EnableType{
+        let r = unsafe{ transmute(((self.0 & (ShowType::Enable as usize)) >> 2) as u8 ) };
+        r
+    }
+
+    #[inline]
+    pub fn set_enable(&mut self, enable: EnableType){
+        // println!("enable1--------------------{}, {:?}, {}", self.0, ShowType::Enable as usize, enable as usize);
+        self.0 = self.0 & !(ShowType::Enable as usize) | ((enable as usize) << 2);
+        println!("enable2--------------------{}", self.0);
+    }
 }
 
 impl Default for Show {
   fn default() -> Show {
-    Show((ShowType::Enable as usize) | (ShowType::Visibility as usize))
+    Show(ShowType::Visibility as usize)
   }
 }
 impl Default for ImageClip {
