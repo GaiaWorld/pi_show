@@ -19,6 +19,7 @@ use render::res::{Opacity as ROpacity, SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use util::res_mgr::Res;
 
 pub struct BorderImageSys<C: Context + Share>{
     image_render_map: VecMap<Item>,
@@ -28,7 +29,7 @@ pub struct BorderImageSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    default_sampler: Option<Arc<SamplerRes<C>>>,
+    default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
 impl<C: Context + Share> BorderImageSys<C> {
@@ -97,11 +98,11 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
         let (_, engine) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        match engine.res_mgr.samplers.get(&hash) {
+        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => self.default_sampler = Some(r.clone()),
             None => {
                 let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-                self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+                self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
             }
         };
     }
@@ -134,8 +135,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(
             &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-            &(image.src.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+            &(self.default_sampler.as_ref().unwrap().0.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(image.src.0.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
 
@@ -183,8 +184,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(image.src.clone() as Arc<dyn  AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().0.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(image.src.0.clone() as Arc<dyn  AsRef<<C as Context>::ContextTexture>>)
             );
 
             if item.position_change == false {

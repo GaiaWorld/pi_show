@@ -9,6 +9,7 @@
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
+#![feature(fnbox)]
 
 #[macro_use]
 extern crate ecs;
@@ -53,6 +54,7 @@ extern crate color;
 extern crate util as lib_util;
 extern crate hal_core;
 extern crate polygon;
+extern crate hashmap;
 #[cfg(feature = "web")]
 extern crate hal_webgl;
 
@@ -66,6 +68,7 @@ pub mod render;
 pub mod bind;
 pub mod util;
 pub mod world;
+// pub mod ordered_float;
 
 pub mod entity{
     pub struct Node;
@@ -75,7 +78,15 @@ pub type IdBind = usize;
 pub const Z_MAX: f32 = 419430.0;
 // pub const Z_MAX: f32 = 50.0;
 pub const ROOT: usize = 1;
+pub type HashMap<T> = hashmap::HashMap<usize, T>;
 
+#[cfg(not(feature = "web"))]
+pub fn set_timeout(ms: usize, f: Box<FnBox()>) -> usize{
+
+}
+
+#[cfg(feature = "web")]
+pub use bind::set_timeout;
 
 // use layout::{ YgNode, YGDirection };
 fn main(){

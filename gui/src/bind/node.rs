@@ -125,7 +125,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
   let world = unsafe {&mut *(world as usize as *mut World)};
   let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
   let engine = engine.lend_mut();
-  let (width, height, texture) = match engine.res_mgr.textures.get(&name) {
+  let (width, height, texture) = match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&name) {
       Some(res) => {
         (res.width as u32, res.height as u32, res.clone())
       },
@@ -147,7 +147,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
 
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+        let res = engine.res_mgr.create::<TextureRes<WebGLContextImpl>>(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
         (width, height, res)
       },
   };
@@ -184,7 +184,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
   let world = unsafe {&mut *(world as usize as *mut World)};
   let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
   let engine = engine.lend_mut();
-  let texture = match engine.res_mgr.textures.get(&name) {
+  let texture = match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&name) {
       Some(res) => {
         res.clone()
       },
@@ -206,7 +206,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
 
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
         // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-        let res = engine.res_mgr.textures.create(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+        let res = engine.res_mgr.create::<TextureRes<WebGLContextImpl>>(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
         res
       },
   };

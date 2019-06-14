@@ -20,7 +20,6 @@ use system::util::*;
 use system::util::constant::{COMMON};
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
-
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
     static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");

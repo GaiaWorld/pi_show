@@ -235,7 +235,7 @@ pub fn add_sdf_font_res(world: u32) {
     };
 
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
-    let texture_res = engine.res_mgr.textures.create(texture_res);
+    let texture_res = engine.res_mgr.create(texture_res);
     // new_width_data
     let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone());
     debug_println!("sdf_font parse start");

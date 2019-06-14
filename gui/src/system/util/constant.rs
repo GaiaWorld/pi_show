@@ -26,4 +26,7 @@ lazy_static! {
     // clip uniform
     pub static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
     pub static ref CLIP_INDICES_SIZE: Atom = Atom::from("clipTextureSize");
+
+    // 四边形集合体的hash值
+    pub static ref QUAD_GEO_HASH: u64 = 0;
 }

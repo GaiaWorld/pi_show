@@ -2,7 +2,7 @@
 use atom::Atom;
 use hal_core::{Context};
 
-use util::res_mgr::{ Res, ResMap};
+use util::res_mgr::{ ResTrait, Release};
 // use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +46,7 @@ pub struct TextureRes<C: Context> {
 //     }
 // }
 
-impl<C: Context> TextureRes<C> {
+impl<C: Context + 'static> TextureRes<C> {
     // 创建资源
 	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: Compress, bind: C::ContextTexture) -> Self{
         TextureRes {
@@ -59,7 +59,8 @@ impl<C: Context> TextureRes<C> {
         }
     }
 }
-impl<C: Context> Res for TextureRes<C> {
+
+impl<C: Context + 'static> ResTrait for TextureRes<C> {
     type Key = Atom;
 	// 创建资源
 	fn name(&self) -> &Self::Key{
@@ -67,19 +68,21 @@ impl<C: Context> Res for TextureRes<C> {
     }
 }
 
-impl<C: Context> AsRef<<C as Context>::ContextTexture> for TextureRes<C> {
+impl<C: Context + 'static> Release for TextureRes<C> {}
+
+impl<C: Context + 'static> AsRef<<C as Context>::ContextTexture> for TextureRes<C> {
     fn as_ref(&self) -> &<C as Context>::ContextTexture{
         &self.bind
     }
 }
 
 #[derive(Debug)]
-pub struct SamplerRes<C: Context> {
+pub struct SamplerRes<C: Context + 'static> {
     pub name: u64,
     pub bind: C::ContextSampler,
 }
 
-impl<C: Context> SamplerRes<C> {
+impl<C: Context + 'static> SamplerRes<C> {
     // 创建资源
 	pub fn new(key: u64, bind: C::ContextSampler) -> Self{
         SamplerRes {
@@ -89,7 +92,7 @@ impl<C: Context> SamplerRes<C> {
     }
 }
 
-impl<C: Context> Res for SamplerRes<C> {
+impl<C: Context + 'static> ResTrait for SamplerRes<C> {
     type Key = u64;
 	// 创建资源
 	fn name(&self) -> &Self::Key{
@@ -97,25 +100,29 @@ impl<C: Context> Res for SamplerRes<C> {
     }
 }
 
-impl<C: Context> AsRef<<C as Context>::ContextSampler> for SamplerRes<C> {
+impl<C: Context + 'static> AsRef<<C as Context>::ContextSampler> for SamplerRes<C> {
     fn as_ref(&self) -> &<C as Context>::ContextSampler{
         &self.bind
     }
 }
 
-pub struct ResMgr<C: Context> {
-    pub textures: ResMap<TextureRes<C>>,
-    pub samplers: ResMap<SamplerRes<C>>,
-}
+impl<C: Context + 'static> Release for SamplerRes<C> {}
 
-impl<C: Context> ResMgr<C> {
-    pub fn new() -> Self{
-        ResMgr{
-            textures: ResMap::new(),
-            samplers: ResMap::new(),
-        }
-    }
-}
+// pub struct ResMgr<C: Context> {
+//     pub textures: ResMap<TextureRes<C>>,
+//     pub samplers: ResMap<SamplerRes<C>>,
+// }
 
-unsafe impl<C: Context + Sync> Sync for TextureRes<C> {}
-unsafe impl<C: Context + Send> Send for TextureRes<C> {}
+// impl<C: Context> ResMgr<C> {
+//     pub fn new() -> Self{
+//         ResMgr{
+//             textures: ResMap::new(),
+//             samplers: ResMap::new(),
+//         }
+//     }
+// }
+
+unsafe impl<C: Context> Sync for TextureRes<C> {}
+unsafe impl<C: Context> Send for TextureRes<C> {}
+unsafe impl<C: Context> Sync for SamplerRes<C> {}
+unsafe impl<C: Context> Send for SamplerRes<C> {}

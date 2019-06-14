@@ -6,7 +6,7 @@ use fnv::FnvHashMap;
 
 use atom::Atom;
 use hal_core::{Context, Pipeline, RasterState, BlendState, StencilState, DepthState, ShaderType};
-use render::res::{ResMgr};
+use util::res_mgr::ResMgr;
 
 pub struct PipelineInfo {
     pub pipeline: Arc<Pipeline>,
@@ -22,7 +22,7 @@ pub struct PipelineInfo {
 
 pub struct Engine<C: Context>{
     pub gl: C,
-    pub res_mgr: ResMgr<C>,
+    pub res_mgr: ResMgr,
     pub pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
 }
 
