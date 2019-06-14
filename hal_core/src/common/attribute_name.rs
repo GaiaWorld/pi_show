@@ -4,7 +4,7 @@ use atom::{Atom};
  * Attribute的名字，类型可以更改，
  * 注：请尽量使用内置的Attribute名，以便于内部加速
  */
-#[derive(PartialEq, Hash, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum AttributeName {
     Position,   // shader attribute：position，一般是vec3
     Normal,     // shader attribute：normal，一般是vec3 
@@ -23,13 +23,6 @@ pub enum AttributeName {
     UV7,        // shader attribute：uv7，一般是vec2
     UV8,        // shader attribute：uv8，一般是vec2
     Custom(Atom), // 自定义名字，无非必要，最好不用,
-}
-
-/** 
- * 内置Attribute名字的就是上面的16个
- */
-pub fn get_builtin_attribute_count() -> u32 {
-    16
 }
 
 impl From<Atom> for AttributeName {
@@ -77,5 +70,14 @@ impl Into<Atom> for AttributeName {
             AttributeName::UV8 => Atom::from("uv8"),
             AttributeName::Custom(n) => n.clone(),
         }       
+    }
+}
+
+impl AttributeName {
+    /** 
+     * 内置Attribute名字的就是上面的16个
+     */
+    pub fn get_builtin_count() -> u32 {
+        16
     }
 }

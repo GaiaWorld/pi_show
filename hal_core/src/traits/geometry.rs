@@ -1,4 +1,3 @@
-use std::hash::{Hash};
 use std::sync::{Arc};
 use common::{AttributeName};
 use traits::context::{Context};
@@ -6,7 +5,7 @@ use traits::context::{Context};
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry: Hash {
+pub trait Geometry {
 
     type RContext: Context;
 
@@ -15,8 +14,13 @@ pub trait Geometry: Hash {
     fn delete(&self);
 
     /** 
+     * 取唯一id，作为排序的依据
+     */
+    fn get_id(&self) -> u64;
+
+    /** 
      * 是否有属性
-     */   
+     */
     fn has_attribute(&self, name: &AttributeName) -> bool;
 
     /** 

@@ -1,15 +1,19 @@
-use std::hash::{Hash};
 use std::sync::{Arc};
 use atom::{Atom};
 use common::{ShaderType};
 use traits::context::{Context};
 
-pub trait Program: Hash {
+pub trait Program {
     type RContext: Context;
 
     fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextProgram, String>;
     
     fn delete(&self);
+
+    /** 
+     * 取唯一id，作为排序的依据
+     */
+    fn get_id(&self) -> u64;
 
     /** 
      * 方便的构造函数，根据vs，fs创建对应的Program
