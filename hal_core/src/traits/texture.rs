@@ -1,5 +1,5 @@
 use std::sync::{Arc};
-use common::{PixelFormat};
+use common::{PixelFormat, DataFormat};
 use traits::context::{Context};
 
 pub trait TextureData {
@@ -10,9 +10,9 @@ pub trait TextureData {
 
 pub trait Texture {
     type RContext: Context;
-
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
     
+    fn new_2d(context: &Arc<Self::RContext>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<&dyn TextureData<RContext = Self::RContext>>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
+
     fn delete(&self);
 
     /** 
@@ -26,5 +26,5 @@ pub trait Texture {
 
     fn is_gen_mipmap(&self) -> bool;
 
-    fn update(&self, data: &Arc<dyn TextureData<RContext = Self::RContext>>);
+    fn update(&self, mipmap_level: u32, data: &dyn TextureData<RContext = Self::RContext>);
 }
