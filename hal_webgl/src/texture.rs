@@ -108,6 +108,9 @@ impl WebGLTextureImpl {
         }
     }
 
+    /** 
+     * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
+     */
     pub fn new_2d_webgl(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         match gl.create_texture()  {
             Some(texture) => {
@@ -117,7 +120,7 @@ impl WebGLTextureImpl {
                 gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
                 
                 js! {
-                    @{gl.as_ref()}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{level}, @{p}, @{p}, @{d}, @{data});
+                    @{gl.as_ref()}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{level}, @{p}, @{p}, @{d}, @{data}.wrap);
                 }
                 
                 if is_gen_mipmap {
@@ -144,12 +147,15 @@ impl WebGLTextureImpl {
         }
     }
 
+    /** 
+     * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
+     */
     pub fn update_webgl(&self, x: u32, y: u32, w: u32, h: u32, data: &Object) {
         let p = get_pixel_format(&self.pixel_format);
         let d = get_data_format(&self.data_format);
 
         js! {
-            @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data});
+            @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data}.wrap);
         }
     }
 

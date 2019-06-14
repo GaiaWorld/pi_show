@@ -80,21 +80,12 @@ impl WebGLRenderBufferImpl {
 }
 
 impl WebGLRenderTargetImpl {
+    
+    /** 
+     * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
+     */
     pub fn new_default(gl: &Arc<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
 
-        let fbo = match fbo {
-            None => None,
-            Some(fbo) => match TryInto::<Object>::try_into(js! {
-                var fboWrap = {
-                    wrap: @{fbo}
-                };
-                return fboWrap;
-            }) {
-                Err(_) => panic!("new default rendertarget failed"),
-                Ok(fbo) => Some(fbo),
-            }
-        };
-        
         WebGLRenderTargetImpl {
             gl: Arc::downgrade(gl),
             is_default: true,
