@@ -30,7 +30,7 @@ impl<C: Context> Engine<C> {
     pub fn new(gl: C) -> Self {
         Engine{
             gl: gl,
-            res_mgr: ResMgr::new(),
+            res_mgr: ResMgr::new(36000),
             pipelines: FnvHashMap::default(),
         }
     }

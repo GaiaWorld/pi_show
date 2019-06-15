@@ -81,7 +81,7 @@ impl<C: Context + Share> ClipSys<C>{
         let mut by_ubo = engine.gl.create_uniforms();
         by_ubo.set_sampler(
             &CLIP_TEXTURE,
-            &(sampler.0.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
             &(target.get_color_texture(0).unwrap().clone() as  Arc<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);

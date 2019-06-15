@@ -143,6 +143,12 @@ pub fn notify_timeout(f1: u32, f2: u32){
     let _f: Box<dyn FnOnce()> = unsafe { transmute((f1 as usize, f2 as usize)) };
 }
 
+pub fn cancel_timeout(id: usize){
+    js!{
+        clearTimeout(@{id as u32});
+    }
+}
+
 pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
     let (x, y): (usize, usize) = unsafe { transmute(f) };
     js!{
@@ -151,4 +157,10 @@ pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
         }, @{ms as u32});
     }
     0
+}
+
+pub fn now_time() -> u64{
+    TryInto::<u64>::try_into(js!{
+        return Date.now();
+    }).unwrap()
 }

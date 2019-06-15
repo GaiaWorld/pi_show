@@ -103,8 +103,8 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             Some(r) => {
                 common_ubo.set_sampler(
                     &TEXTURE,
-                    &(self.default_sampler.as_ref().unwrap().0.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                    &(r.texture().0.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+                    &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                    &(r.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
             },
             None => debug_println!("font is not exist: {}", font.family.as_str()),
@@ -293,8 +293,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().0.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(first_font.texture().0.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
             );
 
             if item.position_change == false {

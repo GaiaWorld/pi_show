@@ -85,8 +85,22 @@ pub fn set_timeout(ms: usize, f: Box<FnBox()>) -> usize{
 
 }
 
+#[cfg(not(feature = "web"))]
+pub fn now_time() -> u64 {
+
+}
+
+#[cfg(not(feature = "web"))]
+pub fn cancel_timeout(id: usize) {
+
+}
+
 #[cfg(feature = "web")]
 pub use bind::set_timeout;
+#[cfg(feature = "web")]
+pub use bind::now_time;
+#[cfg(feature = "web")]
+pub use bind::cancel_timeout;
 
 // use layout::{ YgNode, YGDirection };
 fn main(){
