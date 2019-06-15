@@ -18,7 +18,7 @@ use traits::texture::{Texture};
  * 2. 渲染物体
  */
 
-pub trait Context: Sized {
+pub trait Context: Sized + Clone {
     type ContextSelf: Context;
     
     type ContextBuffer: Buffer<RContext = Self>;
@@ -42,6 +42,11 @@ pub trait Context: Sized {
      * 取默认的渲染目标
      */
     fn get_default_target(&self) -> &Self::ContextRenderTarget;
+
+    /** 
+     * 设置shader代码
+     */
+    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C);
 
     /**
      * 将渲染库底层的状态还原成状态机的状态
@@ -79,5 +84,5 @@ pub trait Context: Sized {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &[(Self::ContextSampler, Self::ContextTexture)]);
+    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &FnvHashMap<Atom, (Self::ContextSampler, Self::ContextTexture)>);
 }

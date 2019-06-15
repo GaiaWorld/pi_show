@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use common::{PixelFormat, DataFormat};
 use traits::context::{Context};
 
@@ -14,10 +13,10 @@ pub enum TextureData<'a, C: Context> {
     Custom(Box<dyn CustomTextureData<RContext = C>>),
 }
 
-pub trait Texture : Clone {
+pub trait Texture : Sized + Clone {
     type RContext: Context;
     
-    fn new_2d(context: &Arc<Self::RContext>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<Self::RContext>>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
+    fn new_2d(context: &Self::RContext, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<Self::RContext>>) -> Result<<Self::RContext as Context>::ContextTexture, String>;
 
     fn delete(&self);
 

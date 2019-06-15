@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use common::{BlendStateDesc, DepthStateDesc, RasterStateDesc, StencilStateDesc};
 use traits::context::{Context};
 
@@ -6,10 +5,10 @@ use traits::context::{Context};
  * 渲染状态的trait
  */
 
-pub trait BlendState : Clone {
+pub trait BlendState : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>, desc: &BlendStateDesc) -> Result<<Self::RContext as Context>::ContextBlendState, String>;
+    fn new(context: &Self::RContext, desc: &BlendStateDesc) -> Result<<Self::RContext as Context>::ContextBlendState, String>;
     
     fn delete(&self);
 
@@ -21,10 +20,10 @@ pub trait BlendState : Clone {
     fn get_desc(&self) -> &BlendStateDesc;
 }
 
-pub trait DepthState : Clone {
+pub trait DepthState : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>, desc: &DepthStateDesc) -> Result<<Self::RContext as Context>::ContextDepthState, String>;
+    fn new(context: &Self::RContext, desc: &DepthStateDesc) -> Result<<Self::RContext as Context>::ContextDepthState, String>;
     
     fn delete(&self);
 
@@ -36,10 +35,10 @@ pub trait DepthState : Clone {
     fn get_desc(&self) -> &DepthStateDesc;
 }
 
-pub trait RasterState : Clone {
+pub trait RasterState : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>, desc: &RasterStateDesc) -> Result<<Self::RContext as Context>::ContextRasterState, String>;
+    fn new(context: &Self::RContext, desc: &RasterStateDesc) -> Result<<Self::RContext as Context>::ContextRasterState, String>;
     
     fn delete(&self);
 
@@ -51,10 +50,10 @@ pub trait RasterState : Clone {
     fn get_desc(&self) -> &RasterStateDesc;
 }
 
-pub trait StencilState : Clone {
+pub trait StencilState : Sized + Clone {
     type RContext: Context;
     
-    fn new(context: &Arc<Self::RContext>, desc: &StencilStateDesc) -> Result<<Self::RContext as Context>::ContextStencilState, String>;
+    fn new(context: &Self::RContext, desc: &StencilStateDesc) -> Result<<Self::RContext as Context>::ContextStencilState, String>;
     
     fn delete(&self);
     

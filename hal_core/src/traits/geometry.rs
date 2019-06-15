@@ -1,15 +1,14 @@
-use std::sync::{Arc};
 use common::{AttributeName};
 use traits::context::{Context};
 
 /** 
  * 几何数据：存放attribute，和index的地方
  */
-pub trait Geometry : Clone {
+pub trait Geometry : Sized + Clone {
 
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextGeometry, String>;
+    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextGeometry, String>;
 
     fn delete(&self);
 
@@ -35,8 +34,9 @@ pub trait Geometry : Clone {
      * stride：该属性需要相隔多远才能取到下一个值，默认：0
      * count：该属性的一个元素占用Buffer的几个单位
      */
-    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String>;
-     
+    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String>;
+    fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String>;
+      
     /**
      * 删除属性
      */
@@ -47,7 +47,8 @@ pub trait Geometry : Clone {
      * offset: 该索引从buffer的偏移量
      * count：该索引占用了buffer的多少个单位
      */
-    fn set_indices_short(&self, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize) -> Result<(), String>;
+    fn set_indices_short(&self, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String>;
+    fn set_indices_short_with_offset(&self, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize) -> Result<(), String>;
 
     /**
      * 删除索引

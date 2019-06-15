@@ -1,11 +1,10 @@
-use std::sync::{Arc};
 use common::{SamplerDesc};
 use traits::context::{Context};
 
-pub trait Sampler : Clone {
+pub trait Sampler : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String>;
+    fn new(context: &Self::RContext, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String>;
 
     fn delete(&self);
 

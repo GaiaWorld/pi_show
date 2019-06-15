@@ -16,11 +16,14 @@ use wrap::state::{WebGLRasterStateWrap, WebGLDepthStateWrap, WebGLStencilStateWr
 use wrap::texture::{WebGLTextureWrap};
 use wrap::gl_slab::{GLSlab, GLSlot};
 
-pub struct WebGLContextWrap {
+pub struct WebGLContextWrapImpl {
     caps: Capabilities,
     default_rt: WebGLRenderTargetWrap,
     slab: GLSlab,
 }
+
+#[derive(Clone)]
+pub struct WebGLContextWrap(Arc<WebGLContextWrapImpl>);
 
 impl Context for WebGLContextWrap {
     type ContextSelf = WebGLContextWrap;
@@ -38,11 +41,15 @@ impl Context for WebGLContextWrap {
     type ContextProgram = WebGLProgramWrap;
 
     fn get_caps(&self) -> &Capabilities {
-        &self.caps
+        &self.0.caps
     }
 
     fn get_default_target(&self) -> &Self::ContextRenderTarget {
-        &self.default_rt
+        &self.0.default_rt
+    }
+
+    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C) {
+
     }
 
     fn restore_state(&mut self) {
@@ -65,7 +72,7 @@ impl Context for WebGLContextWrap {
 
     }
 
-    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &[(Self::ContextSampler, Self::ContextTexture)]) {
+    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &FnvHashMap<Atom, (Self::ContextSampler, Self::ContextTexture)>) {
 
     }
 }
@@ -76,10 +83,10 @@ impl WebGLContextWrap {
 
         let default_rt = WebGLRenderTargetWrap::new(GLSlot::new(&Weak::new(), 0, 0));
 
-        Self {
+        Self(Arc::new(WebGLContextWrapImpl {
             caps: Capabilities::new(),
             default_rt: default_rt,
             slab: slab,    
-        }
+        }))
     }
 }

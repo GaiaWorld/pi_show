@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use traits::context::{Context};
 
 /** 
@@ -17,10 +16,10 @@ use traits::context::{Context};
 /** 
  * 用于渲染目标的Buffer，一般用于当作渲染目标的深度缓冲
  */
-pub trait RenderBuffer : Clone {
+pub trait RenderBuffer : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
+    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
     
     fn delete(&self);
 
@@ -39,7 +38,7 @@ pub trait RenderTarget : Clone {
 
     type RContext: Context;
 
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderTarget, String>;
+    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderTarget, String>;
     
     fn delete(&self);
 

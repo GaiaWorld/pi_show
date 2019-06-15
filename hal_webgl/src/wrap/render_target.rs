@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use hal_core::{Context, RenderBuffer, RenderTarget};
 use wrap::context::{WebGLContextWrap};
 use wrap::texture::{WebGLTextureWrap};
@@ -11,7 +10,7 @@ pub struct WebGLRenderBufferWrap(GLSlot);
 impl RenderBuffer for WebGLRenderBufferWrap {
     type RContext = WebGLContextWrap;
 
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String> {
+    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String> {
         Err("not implmentation".to_string())
     }
     
@@ -40,7 +39,7 @@ impl WebGLRenderTargetWrap {
 impl RenderTarget for WebGLRenderTargetWrap {
     type RContext = WebGLContextWrap;
 
-    fn new(context: &Arc<Self::RContext>) -> Result<<Self::RContext as Context>::ContextRenderTarget, String> {
+    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderTarget, String> {
         Err("not implmentation".to_string())
     }
     

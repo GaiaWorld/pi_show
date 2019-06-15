@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use hal_core::{PixelFormat, DataFormat, Texture, TextureData};
 use wrap::context::{WebGLContextWrap};
 use wrap::gl_slab::{GLSlot};
@@ -10,7 +9,7 @@ pub struct WebGLTextureWrap(GLSlot);
 impl Texture for WebGLTextureWrap {
     type RContext = WebGLContextWrap;
     
-    fn new_2d(context: &Arc<Self::RContext>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<Self::RContext>>) -> Result<Self, String> {
+    fn new_2d(context: &Self::RContext, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<Self::RContext>>) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
 

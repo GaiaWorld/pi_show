@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use hal_core::{Context, Sampler, SamplerDesc};
 use wrap::context::{WebGLContextWrap};
 use wrap::gl_slab::{GLSlot};
@@ -13,7 +12,7 @@ pub struct WebGLSamplerWrap {
 impl Sampler for WebGLSamplerWrap {
     type RContext = WebGLContextWrap;
 
-    fn new(context: &Arc<Self::RContext>, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String> {
+    fn new(context: &Self::RContext, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String> {
         Err("not implmentation".to_string())
     }
 

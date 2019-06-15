@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use traits::context::{Context};
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -16,14 +15,14 @@ pub enum BufferData<'a> {
 /** 
  * Buffer：显存的抽象
  */
-pub trait Buffer : Clone {
+pub trait Buffer : Sized + Clone {
 
     type RContext: Context;
 
     /** 
      * is_updatable表示是否需要更新，根据这个来让显卡决定将该buffer放到不同的地方，以便显卡优化性能。
      */
-    fn new(context: &Arc<Self::RContext>, btype: BufferType, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String>;
+    fn new(context: &Self::RContext, btype: BufferType, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String>;
 
     fn delete(&self);
 
