@@ -2,9 +2,10 @@ use std::sync::{Arc};
 use hal_core::{Context, Buffer, BufferData, BufferType};
 use wrap::context::{WebGLContextWrap};
 use implement::{WebGLBufferImpl};
+use wrap::gl_slot::{GLSlot};
 
 pub struct WebGLBufferWrap {
-
+ 
 }
 
 impl Buffer for WebGLBufferWrap {

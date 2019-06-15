@@ -1,5 +1,4 @@
 use std::sync::{Arc};
-use std::marker::PhantomData;
 use common::{PixelFormat, DataFormat};
 use traits::context::{Context};
 

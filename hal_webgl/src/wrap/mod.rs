@@ -7,6 +7,8 @@ mod sampler;
 mod state;
 mod texture;
 
+mod gl_slab;
+
 pub use self::buffer::{WebGLBufferWrap};
 pub use self::context::{WebGLContextWrap};
 pub use self::geometry::{WebGLGeometryWrap};

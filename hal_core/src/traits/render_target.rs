@@ -56,5 +56,5 @@ pub trait RenderTarget : Clone {
     /**
      * 取渲染目标中特定通道的纹理
      */
-    fn get_color_texture(&self, index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>>;
+    fn get_color_texture(&self, index: u32) -> Option<<<Self as RenderTarget>::RContext as Context>::ContextTexture>;
 }
