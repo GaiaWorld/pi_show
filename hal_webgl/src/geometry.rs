@@ -30,32 +30,27 @@ pub struct WebGLGeometryImpl {
     pub indices: Option<Indices>,
     pub attributes: FnvHashMap<AttributeName, Attribute>,
     pub vao: Option<Object>,
+    pub vao_extension: Option<Arc<Object>>,
 }
 
 impl WebGLGeometryImpl {
     
-    pub fn new(gl: &Arc<WebGLRenderingContext>) -> Self {
+    pub fn new(gl: &Arc<WebGLRenderingContext>, vao_extension: Option<Arc<Object>>) -> Self {
 
-        let is_vao_extension = match TryInto::<bool>::try_into(js! {
-            return @{gl.as_ref()}.getExtension("OES_vertex_array_object") != null;
-        }) {
-            Ok(_) => true,
-            Err(_) => false,
-        };
-        
-        let vao = if is_vao_extension {
-            match TryInto::<Object>::try_into(js! {
-                var vao = @{gl.as_ref()}.createVertexArray();
-                var vaoWrap = {
-                    wrap: vao
-                };
-                return vaoWrap;
-            }) {
-                Ok(object) => Some(object),
-                Err(_) => None,
+        let vao = match &vao_extension {
+            None => None,
+            Some(extension) => {
+                match TryInto::<Object>::try_into(js! {
+                    var vao = @{extension.as_ref()}.wrap.createVertexArrayOES();
+                    var vaoWrap = {
+                        wrap: vao
+                    };
+                    return vaoWrap;
+                }) {
+                    Ok(object) => Some(object),
+                    Err(_) => None,
+                }
             }
-        } else {
-            None
         };
         
         WebGLGeometryImpl {
@@ -63,6 +58,7 @@ impl WebGLGeometryImpl {
             vertex_count: 0,
             indices: None,
             vao: vao,
+            vao_extension: vao_extension,
             attributes: FnvHashMap::default(),            
         }
     }
@@ -115,8 +111,9 @@ impl Geometry for WebGLGeometryImpl {
                 Some(buffer) => {
 
                     if let Some(vao) = &self.vao {
+                        let extension = self.vao_extension.as_ref().unwrap().as_ref();
                         js! {
-                            @{&gl}.bindVertexArray(@{&vao}.wrap);
+                            @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
                         }
 
                         let index = get_attribute_location(name) as usize;
@@ -125,7 +122,7 @@ impl Geometry for WebGLGeometryImpl {
                         gl.vertex_attrib_pointer(index as u32, item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);    
 
                         js! {
-                            @{&gl}.bindVertexArray(null);
+                            @{&extension}.wrap.bindVertexArrayOES(null);
                         }
                     }
 
@@ -187,15 +184,16 @@ impl Geometry for WebGLGeometryImpl {
                 gl.delete_buffer(Some(&attribute.buffer));
 
                 if let Some(vao) = &self.vao {
+                    let extension = self.vao_extension.as_ref().unwrap().as_ref();
                     js! {
-                        @{gl.as_ref()}.bindVertexArray(@{&vao}.wrap);
+                        @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
                     }
                     
                     let index = get_attribute_location(name) as usize;
                     gl.disable_vertex_attrib_array(index as u32);
 
                     js! {
-                        @{gl.as_ref()}.bindVertexArray(null);
+                        @{&extension}.wrap.bindVertexArrayOES(null);
                     }
                 }
             }
@@ -221,14 +219,15 @@ impl Geometry for WebGLGeometryImpl {
                 Some(buffer) => {
 
                     if let Some(vao) = &self.vao {
+                        let extension = self.vao_extension.as_ref().unwrap().as_ref();
                         js! {
-                            @{&gl}.bindVertexArray(@{&vao}.wrap);
+                            @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
                         }
                         
                         gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer));
                         
                         js! {
-                            @{&gl}.bindVertexArray(null);
+                            @{&extension}.wrap.bindVertexArrayOES(null);
                         }
                     }
 
@@ -280,14 +279,15 @@ impl Geometry for WebGLGeometryImpl {
                 gl.delete_buffer(Some(&indices.buffer));
 
                 if let Some(vao) = &self.vao {
+                    let extension = self.vao_extension.as_ref().unwrap().as_ref();
                     js! {
-                        @{gl.as_ref()}.bindVertexArray(@{&vao}.wrap);
+                        @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
                     }
                     
                     gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, None);
                     
                     js! {
-                        @{gl.as_ref()}.bindVertexArray(null);
+                        @{&extension}.wrap.bindVertexArrayOES(null);
                     }
                 }
             }
@@ -320,8 +320,9 @@ impl Drop for WebGLGeometryImpl {
     fn drop(&mut self) {
         if let Some(gl) = &self.gl.upgrade() {
             if let Some(vao) = &self.vao {
+                let extension = self.vao_extension.as_ref().unwrap().as_ref();
                 js! {
-                    @{gl.as_ref()}.deleteVertexArray(@{vao}.wrap);
+                    @{&extension}.wrap.deleteVertexArrayOES(@{vao}.wrap);
                 }
             }
 

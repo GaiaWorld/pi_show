@@ -23,6 +23,7 @@ pub struct WebGLContextImpl {
     caps: Arc<Capabilities>,
     default_rt: Arc<WebGLRenderTargetImpl>,
     state: State,
+    vao_extension: Option<Arc<Object>>,
     program_mgr: ProgramManager,
 }
 
@@ -79,7 +80,11 @@ impl Context for WebGLContextImpl {
     }
 
     fn create_geometry(&self) -> Result<Self::ContextGeometry, String> {
-        Ok(WebGLGeometryImpl::new(&self.gl))
+        let vao_extension = match &self.vao_extension {
+            None => None,
+            Some(extension) => Some(extension.clone()),
+        };
+        Ok(WebGLGeometryImpl::new(&self.gl, vao_extension))
     }
 
     fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String> {
@@ -125,10 +130,10 @@ impl Context for WebGLContextImpl {
      * 注：在这里，要解除vao的绑定，否则下面更新的buffer会绑到最后一个vao上。
      */
     fn end_render(&mut self) {
-        let gl = self.gl.as_ref();
-        js! {
-            if (@{&gl}.bindVertexArray) {
-                @{&gl}.bindVertexArray(null);
+        if let Some(vao_extension) = &self.vao_extension {
+            let extension = vao_extension.as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
             }
         }
     }
@@ -167,11 +172,28 @@ impl WebGLContextImpl {
 
         let mgr = ProgramManager::new(&gl, caps.max_vertex_attribs);
 
+        let vao_extension = if caps.vertex_array_object {
+            match TryInto::<Object>::try_into(js! {
+                var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
+                if (!extension) { return; }
+                var vaoExtensionWrap = {
+                    wrap: extension
+                };
+                return vaoExtensionWrap;
+            }) {
+                Ok(object) => Some(Arc::new(object)),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
+
         WebGLContextImpl {
             gl: gl,
             caps: Arc::new(caps),
             default_rt: rt,
             state: state,
+            vao_extension: vao_extension,
             program_mgr: mgr,
         }
     }
@@ -213,36 +235,6 @@ impl WebGLContextImpl {
         let vertex_array_object = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         let instanced_arrays = gl.get_extension::<ANGLEInstancedArrays>().map_or(false, |_v| true);
         
-        if vertex_array_object {
-            js! {
-                var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                if (vao) {
-                    @{&gl}.createVertexArray = vao.createVertexArrayOES.bind(vao);
-                }
-            }
-
-            js! {
-                var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                if (vao) {
-                    @{&gl}.bindVertexArray = vao.bindVertexArrayOES.bind(vao);
-                }
-            }
-
-            js! {
-                var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                if (vao) {
-                    @{&gl}.deleteVertexArray = vao.deleteVertexArrayOES.bind(vao);
-                }
-            }
-
-            js! {
-                var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                if (vao) {
-                    @{&gl}.isVertexArray = vao.isVertexArrayOES.bind(vao);
-                }
-            }
-        }
-
         Capabilities {
             max_textures_image_units: max_textures_image_units,
             max_vertex_texture_image_units: max_vertex_texture_image_units,
