@@ -216,22 +216,22 @@ impl WebGLContextImpl {
         if vertex_array_object {
             js! {
                 var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                @{&gl}.createVertexArray = vao.createVertexArrayOES.bind(vao);
+                vao && @{&gl}.createVertexArray = vao.createVertexArrayOES.bind(vao);
             }
 
             js! {
                 var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                @{&gl}.bindVertexArray = vao.bindVertexArrayOES.bind(vao);
+                vao && @{&gl}.bindVertexArray = vao.bindVertexArrayOES.bind(vao);
             }
 
             js! {
                 var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                @{&gl}.deleteVertexArray = vao.deleteVertexArrayOES.bind(vao);
+                vao && @{&gl}.deleteVertexArray = vao.deleteVertexArrayOES.bind(vao);
             }
 
             js! {
                 var vao = @{&gl}.getExtension("OES_vertex_array_object");
-                @{&gl}.isVertexArray = vao.isVertexArrayOES.bind(vao);
+                vao && @{&gl}.isVertexArray = vao.isVertexArrayOES.bind(vao);
             }
         }
 
