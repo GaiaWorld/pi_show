@@ -103,9 +103,9 @@ pub fn node_info(world: u32, node: u32) {
         content_box: absolute_c_box,
     };
 
-    let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
-    let yogas = yogas.lend();
-    let yoga = unsafe { yogas.get_unchecked(node) };
+    // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
+    // let yogas = yogas.lend();
+    // let yoga = unsafe { yogas.get_unchecked(node) };
 
     let octs = world.fetch_single::<Oct>().unwrap();
     let octs = octs.lend();
