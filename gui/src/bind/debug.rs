@@ -9,7 +9,7 @@ use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
 use single::{ OverflowClip, RenderObjs, DefaultTable};
-use single::oct::Oct;
+// use single::oct::Oct;
 use entity::Node;
 use system::util::cal_matrix;
 // use layout::YgNode;
@@ -103,13 +103,14 @@ pub fn node_info(world: u32, node: u32) {
         content_box: absolute_c_box,
     };
 
+
     // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
     // let yogas = yogas.lend();
     // let yoga = unsafe { yogas.get_unchecked(node) };
 
-    let octs = world.fetch_single::<Oct>().unwrap();
-    let octs = octs.lend();
-    let oct = unsafe { octs.get_unchecked(node) };
+    // let octs = world.fetch_single::<Oct>().unwrap();
+    // let octs = octs.lend();
+    // let oct = unsafe { octs.get_unchecked(node) };
 
     js!{
         window.__jsObj = @{info};

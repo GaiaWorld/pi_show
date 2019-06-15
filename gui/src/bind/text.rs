@@ -217,6 +217,7 @@ pub fn set_font_family(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_sdf_font_res(world: u32) {
+    // println!("sdf_font parse start");
     let world = unsafe {&mut *(world as usize as *mut World)};
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
@@ -238,9 +239,9 @@ pub fn add_sdf_font_res(world: u32) {
     let texture_res = engine.res_mgr.create(texture_res);
     // new_width_data
     let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone());
-    debug_println!("sdf_font parse start");
+    println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
-    debug_println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
+    println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
     font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
 }
@@ -285,12 +286,14 @@ pub fn update_font_texture(world: u32){
     let font_name = Atom::from(font_name);
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
+    // println!("update_font_texture, font_name: {:?}", font_name);
     let src = match font_sheet.get_src(&font_name) {
         Some(r) => r,
         None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
     };
 
     let chars = TryInto::<TypedArray<u32>>::try_into(js!{return __jsObj2;}).unwrap().to_vec();
+    // println!("update_font_texture, chars_len: {:?}", chars.len());
     if chars.len() == 0 {
         return;
     }
@@ -320,7 +323,7 @@ pub fn update_font_texture(world: u32){
     
     let width = (u2-u1) as u32;
     let height = (v2-v1) as u32;
-    println!("u1: {}, v1: {}, width: {}, height: {}", u1, v1, width, height);
+    // println!("u1: {}, v1: {}, width: {}, height: {}", u1, v1, width, height);
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
     match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u1 as u32}, @{v1 as u32}, @{width}, @{height}).data.buffer);} ) {
         Ok(data) => {
@@ -359,7 +362,7 @@ pub fn gen_font(world: u32, name: &str, chars: &[u32]) -> Vec<Glyph> {
                 // let glyph = Glyph::parse(buffer.as_slice(), &mut 0);
             }
             
-            println!("buffer-------------------------------");
+            // println!("buffer-------------------------------buffer: {:?}, glyphs: {:?}", buffer, glyphs);
             glyphs
         },
         Err(_) => panic!("gen font error"),
