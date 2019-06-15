@@ -2,10 +2,11 @@ use std::sync::{Arc};
 use hal_core::{Context, RenderBuffer, RenderTarget};
 use wrap::context::{WebGLContextWrap};
 use wrap::texture::{WebGLTextureWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 
-pub struct WebGLRenderBufferWrap {
-}
+#[derive(Clone)]
+pub struct WebGLRenderBufferWrap(GLSlot);
 
 impl RenderBuffer for WebGLRenderBufferWrap {
     type RContext = WebGLContextWrap;
@@ -27,15 +28,13 @@ impl RenderBuffer for WebGLRenderBufferWrap {
     }
 }
 
-impl Clone for WebGLRenderBufferWrap {
-    fn clone(&self) -> Self {
-        Self {
-            
-        }
-    }
-}
+#[derive(Clone)]
+pub struct WebGLRenderTargetWrap(GLSlot);
 
-pub struct WebGLRenderTargetWrap {
+impl WebGLRenderTargetWrap {
+    pub fn new(slot: GLSlot) -> Self {
+        Self(slot)
+    }
 }
 
 impl RenderTarget for WebGLRenderTargetWrap {
@@ -59,13 +58,5 @@ impl RenderTarget for WebGLRenderTargetWrap {
 
     fn get_color_texture(&self, index: u32) -> Option<<<Self as RenderTarget>::RContext as Context>::ContextTexture> {
         None
-    }
-}
-
-impl Clone for WebGLRenderTargetWrap {
-    fn clone(&self) -> Self {
-        Self {
-            
-        }
     }
 }

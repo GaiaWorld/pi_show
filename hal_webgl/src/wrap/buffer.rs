@@ -1,12 +1,11 @@
 use std::sync::{Arc};
 use hal_core::{Context, Buffer, BufferData, BufferType};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLBufferImpl};
-use wrap::gl_slot::{GLSlot};
 
-pub struct WebGLBufferWrap {
- 
-}
+#[derive(Clone)]
+pub struct WebGLBufferWrap(GLSlot);
 
 impl Buffer for WebGLBufferWrap {
     type RContext = WebGLContextWrap;
@@ -25,13 +24,5 @@ impl Buffer for WebGLBufferWrap {
 
     fn update(&self, offset: usize, data: BufferData) {
 
-    }
-}
-
-impl Clone for WebGLBufferWrap {
-    fn clone(&self) -> Self {
-        Self {
-
-        }
     }
 }

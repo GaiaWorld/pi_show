@@ -1,7 +1,6 @@
 use atom::Atom;
-use slab::{Slab};
 
-use std::sync::{Arc};
+use std::sync::{Arc, Weak};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 
@@ -15,7 +14,7 @@ use wrap::render_target::{WebGLRenderTargetWrap, WebGLRenderBufferWrap};
 use wrap::sampler::{WebGLSamplerWrap};
 use wrap::state::{WebGLRasterStateWrap, WebGLDepthStateWrap, WebGLStencilStateWrap, WebGLBlendStateWrap};
 use wrap::texture::{WebGLTextureWrap};
-use wrap::gl_slab::{GLSlab};
+use wrap::gl_slab::{GLSlab, GLSlot};
 
 pub struct WebGLContextWrap {
     caps: Capabilities,
@@ -73,14 +72,14 @@ impl Context for WebGLContextWrap {
 
 impl WebGLContextWrap {
     pub fn new(context: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
-        let default_rt = WebGLRenderTargetWrap {
+        let slab = GLSlab::new();
 
-        };
+        let default_rt = WebGLRenderTargetWrap::new(GLSlot::new(&Weak::new(), 0, 0));
 
         Self {
             caps: Capabilities::new(),
             default_rt: default_rt,
-            slab: GLSlab::new(),
+            slab: slab,    
         }
     }
 }

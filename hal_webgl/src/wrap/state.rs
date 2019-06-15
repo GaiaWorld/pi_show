@@ -1,10 +1,13 @@
 use std::sync::{Arc};
 use hal_core::{Context, BlendState, DepthState, RasterState, StencilState, BlendStateDesc, DepthStateDesc, RasterStateDesc, StencilStateDesc};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLRasterStateImpl, WebGLStencilStateImpl};
 
+#[derive(Clone)]
 pub struct WebGLBlendStateWrap {
     desc: BlendStateDesc,
+    slot: GLSlot,
 }
 
 impl BlendState for WebGLBlendStateWrap {
@@ -28,18 +31,12 @@ impl BlendState for WebGLBlendStateWrap {
     }
 }
 
-impl Clone for WebGLBlendStateWrap {
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc.clone(),
-        }
-    }
-}
-
 // ================================== 
 
+#[derive(Clone)]
 pub struct WebGLDepthStateWrap {
     desc: DepthStateDesc,
+    slot: GLSlot,
 }
 
 impl DepthState for WebGLDepthStateWrap {
@@ -63,18 +60,12 @@ impl DepthState for WebGLDepthStateWrap {
     }
 }
 
-impl Clone for WebGLDepthStateWrap {
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc.clone(),
-        }
-    }
-}
-
 // ================================== 
 
+#[derive(Clone)]
 pub struct WebGLRasterStateWrap {
     desc: RasterStateDesc,
+    slot: GLSlot,
 }
 
 impl RasterState for WebGLRasterStateWrap {
@@ -98,18 +89,12 @@ impl RasterState for WebGLRasterStateWrap {
     }
 }
 
-impl Clone for WebGLRasterStateWrap {
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc.clone(),
-        }
-    }
-}
-
 // ================================== 
 
+#[derive(Clone)]
 pub struct WebGLStencilStateWrap {
     desc: StencilStateDesc,
+    slot: GLSlot,
 }
 
 impl StencilState for WebGLStencilStateWrap {
@@ -130,13 +115,5 @@ impl StencilState for WebGLStencilStateWrap {
 
     fn get_desc(&self) -> &StencilStateDesc {
         &self.desc
-    }
-}
-
-impl Clone for WebGLStencilStateWrap {
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc.clone(),
-        }
     }
 }

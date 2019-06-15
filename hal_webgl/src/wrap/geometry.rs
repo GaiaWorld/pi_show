@@ -1,10 +1,11 @@
 use std::sync::{Arc};
 use hal_core::{AttributeName, Context, Geometry};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLGeometryImpl};
 
-pub struct WebGLGeometryWrap {
-}
+#[derive(Clone)]
+pub struct WebGLGeometryWrap(GLSlot);
 
 impl Geometry for WebGLGeometryWrap {
 
@@ -44,13 +45,5 @@ impl Geometry for WebGLGeometryWrap {
 
     fn remove_indices(&self) {
 
-    }
-}
-
-impl Clone for WebGLGeometryWrap {
-    fn clone(&self) -> Self {
-        Self {
-            
-        }
     }
 }

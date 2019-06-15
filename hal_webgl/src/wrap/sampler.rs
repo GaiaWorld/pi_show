@@ -1,9 +1,12 @@
 use std::sync::{Arc};
 use hal_core::{Context, Sampler, SamplerDesc};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLSamplerImpl};
 
+#[derive(Clone)]
 pub struct WebGLSamplerWrap {
+    slot: GLSlot,
     desc: SamplerDesc,
 }
 
@@ -24,13 +27,5 @@ impl Sampler for WebGLSamplerWrap {
 
     fn get_desc(&self) -> &SamplerDesc {
         &self.desc
-    }
-}
-
-impl Clone for WebGLSamplerWrap {
-    fn clone(&self) -> Self {
-        Self {
-            desc: self.desc.clone(),
-        }
     }
 }

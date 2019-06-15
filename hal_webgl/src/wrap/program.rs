@@ -2,10 +2,11 @@ use std::sync::{Arc};
 use atom::{Atom};
 use hal_core::{Context, ShaderType, Program};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLProgramImpl};
 
-pub struct WebGLProgramWrap {
-}
+#[derive(Clone)]
+pub struct WebGLProgramWrap(GLSlot);
 
 impl Program for WebGLProgramWrap {
     type RContext = WebGLContextWrap;
@@ -44,13 +45,5 @@ impl Program for WebGLProgramWrap {
 
     fn compile_shader(context: &Self::RContext, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String> {
         Err("not implmentation".to_string())
-    }
-}
-
-impl Clone for WebGLProgramWrap {
-    fn clone(&self) -> Self {
-        Self {
-            
-        }
     }
 }

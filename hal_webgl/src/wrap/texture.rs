@@ -1,11 +1,11 @@
 use std::sync::{Arc};
-use hal_core::{PixelFormat, DataFormat, Context, Texture, TextureData};
+use hal_core::{PixelFormat, DataFormat, Texture, TextureData};
 use wrap::context::{WebGLContextWrap};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLTextureImpl};
 
-pub struct WebGLTextureWrap {
-
-}
+#[derive(Clone)]
+pub struct WebGLTextureWrap(GLSlot);
 
 impl Texture for WebGLTextureWrap {
     type RContext = WebGLContextWrap;
@@ -36,12 +36,5 @@ impl Texture for WebGLTextureWrap {
 
     fn update(&self, mipmap_level: u32, data: &TextureData<Self::RContext>) {
 
-    }
-}
-
-impl Clone for WebGLTextureWrap {
-    fn clone(&self) -> Self {
-        Self {
-        }
     }
 }
