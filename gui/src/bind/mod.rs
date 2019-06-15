@@ -140,7 +140,8 @@ pub fn get_texture_res(world: u32, key: String) -> u32{
 
 #[no_mangle]
 pub fn notify_timeout(f1: u32, f2: u32){
-    let _f: Box<dyn FnOnce()> = unsafe { transmute((f1 as usize, f2 as usize)) };
+    let f: Box<dyn FnOnce()> = unsafe { transmute((f1 as usize, f2 as usize)) };
+    f();
 }
 
 pub fn cancel_timeout(id: usize){
