@@ -260,7 +260,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         Some(f) => f.clone(),
         _ => TextStyle::default()
     };
-    cb.line_height = get_line_height(cb.font_size, &style.line_height);
+    cb.line_height = (get_line_height(cb.font_size, &style.line_height) * 100.0).round()/100.0;
     let text = match read.2.get(id) {
         Some(t) => t.0.as_ref(),
         _ => "",

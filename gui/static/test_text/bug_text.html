@@ -39,7 +39,7 @@
             window.__jsObj1 = "kaiti";
             Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
-            var t0 = create_text(1, "将将将将将将将将将", [0.7, 0.0, 0.7, 1.0]);
+            var t0 = create_text(1, "100/100", [0.0, 0.0, 0.0, 1.0]);
             Module._render(gui);
         }
 
@@ -51,6 +51,7 @@
 
             var txtNode = Module._create_text_node(gui);
             Module._set_font_size(gui, txtNode, 16);
+            Module._set_line_height(gui, txtNode, 50);
             Module._set_text_rgba_color(gui, txtNode, 1.0, 0.0, 0.0, 1.0); 
             window.__jsObj = "kaiti";
             Module._set_font_family(gui, txtNode); 

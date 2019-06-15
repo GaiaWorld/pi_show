@@ -21,6 +21,7 @@ use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
+use util::res_mgr::Res;
 
 
 lazy_static! {
@@ -38,7 +39,7 @@ pub struct CharBlockShadowSys<C: Context + Share>{
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
     pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
-    default_sampler: Option<Arc<SamplerRes<C>>>,
+    default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
 impl<C: Context + Share> CharBlockShadowSys<C> {
@@ -102,8 +103,8 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             Some(r) => {
                 common_ubo.set_sampler(
                     &TEXTURE,
-                    &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                    &(r.texture().clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+                    &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                    &(r.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
             },
             None => debug_println!("font is not exist: {}", font.family.as_str()),
@@ -207,11 +208,11 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
         let (_, engine) = write;
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        match engine.res_mgr.samplers.get(&hash) {
+        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => self.default_sampler = Some(r.clone()),
             None => {
                 let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-                self.default_sampler = Some(engine.res_mgr.samplers.create(res));
+                self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
             }
         }
     }
@@ -292,8 +293,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
             let common_ubo = Arc::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(first_font.texture().clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
             );
 
             if item.position_change == false {

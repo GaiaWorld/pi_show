@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::mem::transmute;
 
 use stdweb::unstable::TryInto;
 use stdweb::Object;
@@ -13,6 +14,7 @@ use component::user::{ BorderRadius, LengthUnit };
 use component::calc::Visibility;
 use single::RenderBegin;
 use render::engine::Engine;
+use render::res::TextureRes;
 use world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use entity::Node;
 use layout::{ YgNode, YGAlign };
@@ -111,7 +113,7 @@ pub fn get_texture_res(world: u32, key: String) -> u32{
     let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
     let engine = engine.lend();
     let key = Atom::from(key);
-    match engine.res_mgr.textures.get(&key) {
+    match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
         Some(res) => Box::into_raw(Box::new(res)) as u32,
         None => 0,
     }
@@ -136,3 +138,30 @@ pub fn get_texture_res(world: u32, key: String) -> u32{
 //     world.component_mgr.font.set_src(res.name(), res);
 // }
 
+#[no_mangle]
+pub fn notify_timeout(f1: u32, f2: u32){
+    let f: Box<dyn FnOnce()> = unsafe { transmute((f1 as usize, f2 as usize)) };
+    f();
+}
+
+pub fn cancel_timeout(id: usize){
+    js!{
+        clearTimeout(@{id as u32});
+    }
+}
+
+pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
+    let (x, y): (usize, usize) = unsafe { transmute(f) };
+    js!{
+        return set_timeout(function(){
+            Module._notify_timeout(@{x as u32}, @{y as u32});
+        }, @{ms as u32});
+    }
+    0
+}
+
+pub fn now_time() -> u64{
+    TryInto::<u64>::try_into(js!{
+        return Date.now();
+    }).unwrap()
+}

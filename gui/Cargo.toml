@@ -17,6 +17,7 @@ deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
 util = {path="../../pi_lib/util"}
 map = {path="../../pi_lib/map"}
+hashmap = {path="../../pi_lib/hashmap"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
 atom = {path="../../pi_lib/atom"}
@@ -36,6 +37,7 @@ webgl-rendering-context = "0.1.0"
 derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }
+# ordered-float = { version = "1.0", default-features = false }
 
 [profile.release]
 lto = true

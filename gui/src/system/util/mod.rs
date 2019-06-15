@@ -17,6 +17,11 @@ use render::engine::Engine;
 use single::{ RenderObjs, DefaultTable };
 use entity::Node;
 
+lazy_static! {
+    // 四边形集合体的hash值
+    pub static ref QUAD_GEO_HASH: u64 = 0;
+}
+
 pub fn cal_matrix(
     id: usize,
     world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
@@ -206,3 +211,13 @@ pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>
         None => table.get_unchecked::<T>(),
     }
 }
+
+// pub fn quad_geo_hash() -> u64 {
+//     QUAD_GEO_HASH
+// }
+
+// pub fn quad_geo_hash() -> u64 {
+//     QUAD_GEO_HASH
+// }
+
+// use ordered_float::NotNan;

@@ -12,6 +12,8 @@ use hal_core::Context;
 use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
+use HashMap;
+use util::res_mgr::Res;
 
 //================================== 组件
 #[derive(Clone, Debug, Default, Component, PartialEq)]
@@ -43,6 +45,7 @@ pub struct Opacity(pub f32);
 pub struct Show(pub usize);
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
@@ -55,20 +58,22 @@ pub struct BoxColor{
 }
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct BackgroundColor(pub Color);
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
-pub struct BackgroundImage<C: Context + 'static + Send + Sync>(pub Arc<TextureRes<C>>);
-#[derive(Clone, Component)]
+#[storage(HashMap)]
 pub struct Image<C: Context + 'static + Send + Sync>{
-  pub src: Arc<TextureRes<C>>
+  pub src: Res<TextureRes<C>>
 }
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component)]
+#[storage(HashMap)]
 pub struct Filter {
   pub hue_rotate: f32, //给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg 0~360
   pub bright_ness: f32, //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化 0 ~ 2
@@ -88,32 +93,40 @@ impl Default for Filter {
 
 //ObjectFit
 #[derive(Deref, DerefMut, Component, Default)]
+#[storage(HashMap)]
 pub struct ObjectFit(pub FitType);
 
 #[derive(Deref, DerefMut, Component)]
+#[storage(HashMap)]
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
+#[storage(HashMap)]
 pub struct BorderImage<C: Context + 'static + Send + Sync>{
-  pub src: Arc<TextureRes<C>>
+  pub src: Res<TextureRes<C>>
 }
 
 #[derive(Deref, DerefMut, Component)]
+#[storage(HashMap)]
 pub struct BorderImageClip(pub Aabb2);
 
 #[derive(Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct BorderImageSlice{
   pub top: f32, pub right: f32, pub bottom: f32, pub left: f32, pub fill: bool,
 }
 #[derive(Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 #[derive(Debug, Clone, Component)]
+#[storage(HashMap)]
 pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
 }
 #[derive(Debug, Clone, Default, Component)]
+#[storage(HashMap)]
 pub struct BoxShadow{
     pub h: f32,
     pub v: f32,
@@ -123,6 +136,7 @@ pub struct BoxShadow{
 }
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct TextStyle{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
@@ -135,9 +149,11 @@ pub struct TextStyle{
 }
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct Text(pub Arc<String>);
 
 #[derive(Debug, Clone, Component, Default)]
+#[storage(HashMap)]
 pub struct TextShadow{
     pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
     pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
@@ -145,12 +161,14 @@ pub struct TextShadow{
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 #[derive(Component, Default)]
+#[storage(HashMap)]
 pub struct SrcClip{
   pub uv: (Point2, Point2),
   pub size: Vector2,
 }
 
 #[derive(Component, Debug, Clone, Default)]
+#[storage(HashMap)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。

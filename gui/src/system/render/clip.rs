@@ -16,6 +16,7 @@ use render::res::{SamplerRes};
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::clip::*;
+use util::res_mgr::Res;
 
 lazy_static! {
     static ref MESH_NUM: Atom = Atom::from("meshNum");
@@ -41,7 +42,7 @@ pub struct ClipSys<C: Context + Share>{
     pipeline: Arc<PipelineInfo>,
     geometry: Arc<<C as Context>::ContextGeometry>,
     ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
-    sampler: Arc<SamplerRes<C>>,
+    sampler: Res<SamplerRes<C>>,
 }
 
 impl<C: Context + Share> ClipSys<C>{
@@ -68,11 +69,11 @@ impl<C: Context + Share> ClipSys<C>{
         );
         let s = SamplerDesc::default();
         let hash = sampler_desc_hash(&s);
-        let sampler = match engine.res_mgr.samplers.get(&hash) {
+        let sampler = match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => r.clone(),
             None => {
                 let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-                engine.res_mgr.samplers.create(res)
+                engine.res_mgr.create::<SamplerRes<C>>(res)
             },          
         };
         let size = next_power_of_two(w.max(h));
@@ -80,7 +81,7 @@ impl<C: Context + Share> ClipSys<C>{
         let mut by_ubo = engine.gl.create_uniforms();
         by_ubo.set_sampler(
             &CLIP_TEXTURE,
-            &(sampler.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
             &(target.get_color_texture(0).unwrap().clone() as  Arc<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);

@@ -1,5 +1,4 @@
 use std::mem::transmute;
-use std::sync::Arc;
 
 use fnv::FnvHashMap;
 
@@ -8,10 +7,11 @@ use data_view::GetView;
 use atom::Atom;
 
 use render::res::TextureRes;
+use util::res_mgr::Res;
 // use font::FontMeasure;
 
 pub trait SdfFont {
-    type Ctx: Context;
+    type Ctx: Context + 'static;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32;
 
@@ -23,7 +23,7 @@ pub trait SdfFont {
 
     fn atlas_height(&self) -> usize;
     
-    fn texture(&self) -> &Arc<TextureRes<Self::Ctx>>;
+    fn texture(&self) -> &Res<TextureRes<Self::Ctx>>;
 
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 
@@ -58,7 +58,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     atlas_height: usize,
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
-    texture: Arc<TextureRes<C>>,
+    texture: Res<TextureRes<C>>,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
@@ -130,13 +130,13 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     }
 
     #[inline]
-    fn texture(&self) -> &Arc<TextureRes<C>> {
+    fn texture(&self) -> &Res<TextureRes<C>> {
         &self.texture
     }
 }
 
 impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
-    pub fn new(texture: Arc<TextureRes<C>>) -> Self{
+    pub fn new(texture: Res<TextureRes<C>>) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -155,7 +155,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         atlas_height: usize,
         padding: f32,
         glyph_table: FnvHashMap<char, Glyph>,
-        texture: Arc<TextureRes<C>>,
+        texture: Res<TextureRes<C>>,
     ) -> Self{
         DefaultSdfFont {
             name,
