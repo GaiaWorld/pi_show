@@ -133,9 +133,6 @@ impl State {
 
     pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
         
-        gl.enable(WebGLRenderingContext::BLEND);
-        // gl.enable(WebGLRenderingContext::SCISSOR_TEST);
-
         let pipeline = Pipeline {
             vs_hash: 0,
             fs_hash: 0,
@@ -438,6 +435,10 @@ impl State {
      * 全状态设置，仅用于创建State时候
      */
     pub fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &mut State) {
+
+        gl.enable(WebGLRenderingContext::BLEND);
+        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
+
         // debug_println!("State::apply_all_state");
 		gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
 		gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
