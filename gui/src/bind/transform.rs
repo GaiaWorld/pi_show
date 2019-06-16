@@ -34,15 +34,20 @@ pub fn clear_transform(world: u32, node_id: u32) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut World)};
     let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
-        if transform.funcs.len() > 0 {
-            transform.funcs.clear();
-            true
-        }else {
-            false
-        }
-        
-    });
+    let attr = attr.lend_mut();
+    match unsafe { attr.get_write(node_id) } {
+        Some(mut r) => {
+            r.modify(|transform: &mut Transform| {
+                if transform.funcs.len() > 0 {
+                    transform.funcs.clear();
+                    true
+                }else {
+                    false
+                }
+            }); 
+        },
+        None => ()
+    }
 }
 
 #[allow(unused_attributes)]
