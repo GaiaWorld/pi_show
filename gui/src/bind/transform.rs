@@ -13,10 +13,18 @@ macro_rules! push_func {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut World)};
         let attr = world.fetch_multi::<Node, Transform>().unwrap();
-        unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
-            transform.funcs.push($value);
-            true
-        });
+        let attr = attr.lend_mut();
+        match attr.get_write(node_id) {
+            Some(r) => r.modify(|transform: &mut Transform| {
+                transform.funcs.push($value);
+                true
+            }),
+            None => {
+                let mut transform = Transform::default();
+                transform.funcs.push($value);
+                attr.insert(node_id, transform);
+            }
+        }
     };
 }
 
