@@ -15,7 +15,7 @@ macro_rules! push_func {
         let attr = world.fetch_multi::<Node, Transform>().unwrap();
         let attr = attr.lend_mut();
         match attr.get_write(node_id) {
-            Some(r) => r.modify(|transform: &mut Transform| {
+            Some(mut r) => r.modify(|transform: &mut Transform| {
                 transform.funcs.push($value);
                 true
             }),
