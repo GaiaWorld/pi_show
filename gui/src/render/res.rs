@@ -108,6 +108,30 @@ impl<C: Context + 'static> AsRef<<C as Context>::ContextSampler> for SamplerRes<
 
 impl<C: Context + 'static> Release for SamplerRes<C> {}
 
+#[derive(Debug)]
+pub struct GeometryRes<C: Context + 'static> {
+    pub name: u64,
+    pub bind: C::ContextGeometry,
+}
+
+impl<C: Context + 'static> Release for GeometryRes<C> {}
+
+impl<C: Context + 'static> ResTrait for GeometryRes<C> {
+    type Key = u64;
+	// 创建资源
+	fn name(&self) -> &Self::Key{
+        &self.name
+    }
+}
+
+impl<C: Context + 'static> AsRef<<C as Context>::ContextGeometry> for GeometryRes<C> {
+    fn as_ref(&self) -> &<C as Context>::ContextGeometry{
+        &self.bind
+    }
+}
+
+
+
 // pub struct ResMgr<C: Context> {
 //     pub textures: ResMap<TextureRes<C>>,
 //     pub samplers: ResMap<SamplerRes<C>>,
@@ -126,3 +150,5 @@ unsafe impl<C: Context> Sync for TextureRes<C> {}
 unsafe impl<C: Context> Send for TextureRes<C> {}
 unsafe impl<C: Context> Sync for SamplerRes<C> {}
 unsafe impl<C: Context> Send for SamplerRes<C> {}
+unsafe impl<C: Context> Sync for GeometryRes<C> {}
+unsafe impl<C: Context> Send for GeometryRes<C> {}

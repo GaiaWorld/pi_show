@@ -15,6 +15,8 @@ use map::vecmap::VecMap;
 
 use component::user::{Point2, Matrix4};
 use render::engine::{ PipelineInfo};
+use render::res::GeometryRes;
+use util::res_mgr::Res;
 
 pub use single::oct::Oct;
 
@@ -70,13 +72,13 @@ impl ProjectionMatrix {
 }
 
 #[derive(Write)]
-pub struct RenderObj<C: Context>{
+pub struct RenderObj<C: Context + 'static>{
     pub depth: f32,
     pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
     pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
-    pub geometry: Arc<<C as Context>::ContextGeometry>,
+    pub geometry: Option<Res<GeometryRes<C>>>,
     pub pipeline: Arc<PipelineInfo>,
     pub context: usize,
     pub defines: Vec<Atom>,
@@ -98,7 +100,7 @@ pub struct RenderObj<C: Context>{
 // }
 
 #[derive(Deref, DerefMut)]
-pub struct RenderObjs<C: Context>(pub Slab<RenderObj<C>>);
+pub struct RenderObjs<C: Context + 'static>(pub Slab<RenderObj<C>>);
 
 impl<C: Context> Default for RenderObjs<C> {
     fn default() -> Self {
@@ -106,10 +108,10 @@ impl<C: Context> Default for RenderObjs<C> {
     }
 }
 
-unsafe impl<C: Context> Sync for RenderObj<C> {}
-unsafe impl<C: Context> Send for RenderObj<C> {}
+unsafe impl<C: Context + 'static> Sync for RenderObj<C> {}
+unsafe impl<C: Context + 'static> Send for RenderObj<C> {}
 
-impl<C: Context> RenderObjs<C> {
+impl<C: Context + 'static> RenderObjs<C> {
     pub fn insert(&mut self, value: RenderObj<C>, notify: Option<NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {

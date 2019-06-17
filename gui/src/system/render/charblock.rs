@@ -13,10 +13,11 @@ use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_e
 
 use component::user::*;
 use single::*;
-use component::calc::{Opacity, ZDepth, CharBlock};
+use component::calc::{Opacity, ZDepth, CharBlock, WorldMatrixRender};
 use entity::{Node};
 use render::engine::{ Engine , PipelineInfo};
 use render::res::{ SamplerRes};
+use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
@@ -36,7 +37,7 @@ lazy_static! {
 }
 
 pub struct CharBlockSys<C: Context + Share>{
-    charblock_render_map: VecMap<Item>,
+    render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
     rs: Arc<RasterState>,
@@ -54,7 +55,7 @@ impl<C: Context + Share> CharBlockSys<C> {
         bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         ds.set_write_enable(false);
         CharBlockSys {
-            charblock_render_map: VecMap::default(),
+            render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
@@ -78,9 +79,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock>,);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let map = &mut self.charblock_render_map;
+        let map = &mut self.render_map;
         let (z_depths, text_styles, fonts, font_sheet, default_table) = read;
-        let (render_objs, _, charblocks) = write;
+        let (render_objs, engine, charblocks) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
@@ -99,25 +100,21 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
             let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &text_style.color, z_depth + 0.2, (0.0, 0.0));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
-            
-            let vertex_count: u32 = (positions.len()/3) as u32;
-            if  vertex_count == 0 {
-                geometry.set_vertex_count(vertex_count);
-                continue;
-            }
-            if vertex_count != geometry.get_vertex_count() {
-                geometry.set_vertex_count(vertex_count);
-            }
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
-            geometry.set_indices_short(indices.as_slice(), false).unwrap();
-            match colors {
-                Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
-                None => ()
+            if positions.len() == 0 {
+                render_obj.geometry = None;
+            } else {
+                let mut geometry = create_geometry(&mut engine.gl);
+                geometry.set_vertex_count((positions.len()/3) as u32);
+                geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+                geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
+                geometry.set_indices_short(indices.as_slice(), false).unwrap();
+                match colors {
+                    Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
+                    None => ()
+                };
+                render_obj.geometry = Some(Res::new(0, Arc::new(GeometryRes{name: 0, bind: geometry})));
             };
+            render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
         self.geometry_dirtys.clear();
     }
@@ -159,7 +156,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let font = get_or_default(event.id, fonts, default_table);
         let mut defines = Vec::new();
 
-        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
@@ -210,7 +206,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             visibility: false,
             is_opacity: false,
             ubos: ubos,
-            geometry: geometry,
+            geometry: None,
             pipeline: pipeline.clone(),
             context: event.id,
             defines: defines,
@@ -218,7 +214,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        self.charblock_render_map.insert(event.id, Item{index: index, position_change: true});
+        self.render_map.insert(event.id, Item{index: index, position_change: true});
         self.geometry_dirtys.push(event.id);
     }
 }
@@ -229,7 +225,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        let item = unsafe { self.charblock_render_map.get_unchecked_mut(event.id) };
+        let item = unsafe { self.render_map.get_unchecked_mut(event.id) };
         debug_println!("CharBlock modify-----------------------------, id: {}", event.id);
         if item.position_change == false {
             item.position_change = true;
@@ -244,7 +240,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        let item = self.charblock_render_map.remove(event.id).unwrap();
+        let item = self.render_map.remove(event.id).unwrap();
         let notify = write.get_notify();
         write.remove(item.index, Some(notify));
         if item.position_change == true {
@@ -262,7 +258,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (font_sheet, fonts) = read;
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let font = unsafe { fonts.get_unchecked(event.id) };
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
@@ -299,7 +295,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent>
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
@@ -320,7 +316,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, DeleteEvent>
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
@@ -341,7 +337,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (_opacitys, text_styles) = read;   
         let (render_objs, engine) = write;
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             
             match event.field {
@@ -361,13 +357,52 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent>
     }
 }
 
+type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
+
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C>{
+    type ReadData = MatrixRead<'a>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        self.modify_matrix(event.id, read, render_objs);
+    }
+}
+
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C>{
+    type ReadData = MatrixRead<'a>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        self.modify_matrix(event.id, read, render_objs);
+    }
+}
+
+impl<'a, C: Context + Share> CharBlockSys<C>{
+    fn modify_matrix(
+        &self,
+        id: usize,
+        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
+        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
+    ){
+        if let Some(item) = self.render_map.get(id) {
+            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+
+            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
+            let ubos = &mut render_obj.ubos;
+            let slice: &[f32; 16] = world_matrix.0.as_ref();
+            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            debug_println!("charblock, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+            render_objs.get_notify().modify_event(item.index, "ubos", 0);
+        }
+    }
+}
+
 // //不透明度变化， 修改渲染对象的is_opacity属性
 // impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C>{
 //     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
 //     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
 //     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
 //         let (opacitys, text_styles) = read;
-//         if let Some(item) = self.charblock_render_map.get(event.id) {
+//         if let Some(item) = self.render_map.get(event.id) {
 //             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
 //             // let text_style = unsafe { text_styles.get_unchecked(event.id) };
 //             // let index = item.index;
@@ -730,5 +765,7 @@ impl_system!{
         MultiCaseListener<Node, TextStyle, ModifyEvent>
         MultiCaseListener<Node, TextStyle, DeleteEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
+        MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
+        MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
     }
 }

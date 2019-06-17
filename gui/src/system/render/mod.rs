@@ -9,6 +9,7 @@ mod image;
 mod charblock;
 mod charblock_shadow;
 mod clip;
+mod render_matrix;
 
 
 pub use system::render::clip::*;
@@ -21,3 +22,4 @@ pub use system::render::image::*;
 pub use system::render::node_attr::*;
 pub use system::render::render::*;
 pub use system::render::box_shadow::*;
+pub use system::render::render_matrix::*;
