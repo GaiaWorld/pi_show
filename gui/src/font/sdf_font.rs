@@ -38,6 +38,8 @@ pub trait SdfFont {
     fn curr_uv(&self) -> (f32, f32);
 
     fn set_curr_uv(&self, value: (f32, f32));
+
+    fn stroke_width(&self) -> f32;
 }
 
 // // 字体生成器
@@ -69,6 +71,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     texture: Res<TextureRes<C>>,
     dyn_type: usize,
     curr_uv: (f32, f32),
+    stroke_width: f32,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
@@ -155,6 +158,10 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         unsafe {&mut *(self as *const Self as usize as *mut Self)}.curr_uv = value
     }
 
+    fn stroke_width(&self) -> f32 {
+        self.stroke_width
+    }
+
 
     #[inline]
     fn texture(&self) -> &Res<TextureRes<C>> {
@@ -174,6 +181,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             texture: texture,
             dyn_type: dyn_type,
             curr_uv: (0.0, 0.0),
+            stroke_width: 0.0,
         }
     }
 
@@ -196,6 +204,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             texture,
             dyn_type: 0,
             curr_uv: (0.0, 0.0),
+            stroke_width: 0.0,
         }
     }
 }
@@ -230,6 +239,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         self.atlas_height = value.get_lu16(offset) as usize;
         offset += 2;
         // padding
+        self.stroke_width = value.get_u8(offset) as f32; // stroke_width使用padding位置
         value.get_lu16(offset) as f32;
         value.get_lu16(offset) as f32;
         value.get_lu16(offset) as f32;

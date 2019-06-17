@@ -99,6 +99,7 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
         set_clip(event.id, i, &read, write)
       }
     }
+    write.get_notify().modify_event(0, "", 0)
   }
 }
 

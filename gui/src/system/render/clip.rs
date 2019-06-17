@@ -185,7 +185,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             &(Arc::new(viewport) as Arc<dyn AsRef<RenderBeginDesc>>)
         );
 
-        debug_println!("overflow:{:?}", **overflow);
+        println!("overflow:{:?}", **overflow);
 
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));

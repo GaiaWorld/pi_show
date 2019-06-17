@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::{ TypedArray, CanvasRenderingContext2d };
+use stdweb::web::html_element::CanvasElement;
 use stdweb::{Object, UnsafeTypedArray};
 
 use atom::Atom;
@@ -413,20 +414,23 @@ fn look_text(world_id: u32, node: usize, text: &str){
 }
 
 // 生成canvas字体
-fn gen_canvas_text() {
-    
+fn gen_canvas_text(font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+    let canvas: CanvasElement = js!{document.createElement("canvas")}.try_into().unwrap();
+
+
+    // canvas.width = 16;
+	// 	canvas.height = 16;
 }
 
 fn calc_canvas_text(
     ctx: &CanvasRenderingContext2d,
     font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>,
     chars: &Vec<u32>,
-    stroke_width: f32,
 ){
     let max_width = font.atlas_width() as f32;
     let max_height = font.atlas_width() as f32;
+    let stroke_width = font.stroke_width() * 2.0;
     let (mut u, mut v) = font.curr_uv();
-    let stroke_width = stroke_width * 2.0;
     let font_size = font.font_size() + stroke_width;
 
     for c in chars.iter() {
