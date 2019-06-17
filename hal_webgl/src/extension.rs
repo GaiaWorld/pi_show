@@ -311,3 +311,204 @@ impl TryFrom<Value> for GLOESStandardDerivatives{
 impl Extension for GLOESStandardDerivatives{
     const NAME:&'static str = "GL_OES_standard_derivatives";
 }
+
+
+pub struct CompressedTextureAstc;
+
+impl TryFrom<Value> for CompressedTextureAstc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTextureAstc),
+        }
+    }
+}
+
+impl Extension for CompressedTextureAstc {
+    const NAME:&'static str = "WEBGL_compressed_texture_astc";
+}
+
+// ===========================================
+
+pub struct WebkitCompressedTextureAstc;
+
+impl TryFrom<Value> for WebkitCompressedTextureAstc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(WebkitCompressedTextureAstc),
+        }
+    }
+}
+
+impl Extension for WebkitCompressedTextureAstc {
+    const NAME:&'static str = "WEBKIT_WEBGL_compressed_texture_astc";
+}
+
+// ===========================================
+
+// 
+pub struct CompressedTextureS3tc;
+
+impl TryFrom<Value> for CompressedTextureS3tc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTextureS3tc),
+        }
+    }
+}
+
+impl Extension for CompressedTextureS3tc {
+    const NAME:&'static str = "WEBGL_compressed_texture_s3tc";
+}
+
+pub struct WebkitCompressedTextureS3tc;
+
+impl TryFrom<Value> for WebkitCompressedTextureS3tc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(WebkitCompressedTextureS3tc),
+        }
+    }
+}
+
+impl Extension for WebkitCompressedTextureS3tc {
+    const NAME:&'static str = "WEBKIT_WEBGL_compressed_texture_s3tc";
+}
+
+
+// ===========================================
+
+pub struct CompressedTexturePvrtc;
+
+impl TryFrom<Value> for CompressedTexturePvrtc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTexturePvrtc),
+        }
+    }
+}
+
+impl Extension for CompressedTexturePvrtc {
+    const NAME:&'static str = "WEBGL_compressed_texture_pvrtc";
+}
+
+pub struct WebkitCompressedTexturePvrtc;
+
+impl TryFrom<Value> for WebkitCompressedTexturePvrtc {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(WebkitCompressedTexturePvrtc),
+        }
+    }
+}
+
+impl Extension for WebkitCompressedTexturePvrtc {
+    const NAME:&'static str = "WEBKIT_WEBGL_compressed_texture_pvrtc";
+}
+
+
+// ===========================================
+
+pub struct CompressedTextureEtc1;
+
+impl TryFrom<Value> for CompressedTextureEtc1 {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTextureEtc1),
+        }
+    }
+}
+
+impl Extension for CompressedTextureEtc1 {
+    const NAME:&'static str = "WEBGL_compressed_texture_etc1";
+}
+
+pub struct WebkitCompressedTextureEtc1;
+
+impl TryFrom<Value> for WebkitCompressedTextureEtc1 {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(WebkitCompressedTextureEtc1),
+        }
+    }
+}
+
+impl Extension for WebkitCompressedTextureEtc1 {
+    const NAME:&'static str = "WEBKIT_WEBGL_compressed_texture_etc1";
+}
+
+// ===========================================
+
+pub struct CompressedTextureEtc2;
+
+impl TryFrom<Value> for CompressedTextureEtc2 {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTextureEtc2),
+        }
+    }
+}
+
+impl Extension for CompressedTextureEtc2 {
+    const NAME:&'static str = "WEBGL_compressed_texture_etc";
+}
+
+pub struct WebkitCompressedTextureEtc2;
+
+impl TryFrom<Value> for WebkitCompressedTextureEtc2 {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(WebkitCompressedTextureEtc2),
+        }
+    }
+}
+
+impl Extension for WebkitCompressedTextureEtc2 {
+    const NAME:&'static str = "WEBKIT_WEBGL_compressed_texture_etc";
+}
+
+pub struct CompressedTextureEs3;
+
+impl TryFrom<Value> for CompressedTextureEs3 {
+    type Error = String;
+    fn try_from(v: Value) ->  Result<Self, Self::Error>{
+        match v {
+            Value::Undefined => Err(String::from("Undefined")),
+            Value::Null => Err(String::from("Null")),
+            _ => Ok(CompressedTextureEs3),
+        }
+    }
+}
+
+impl Extension for CompressedTextureEs3 {
+    const NAME:&'static str = "WEBGL_compressed_texture_es3_0";
+}
