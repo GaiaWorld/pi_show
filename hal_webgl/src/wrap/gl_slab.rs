@@ -1,182 +1,79 @@
-use std::sync::{Arc, Weak};
 use slab::{Slab};
-use wrap::context::{WebGLContextWrap};
-use wrap::buffer::{WebGLBufferWrap};
-use wrap::geometry::{WebGLGeometryWrap};
-use wrap::program::{WebGLProgramWrap};
-use wrap::render_target::{WebGLRenderTargetWrap, WebGLRenderBufferWrap};
-use wrap::sampler::{WebGLSamplerWrap};
-use wrap::state::{WebGLRasterStateWrap, WebGLDepthStateWrap, WebGLStencilStateWrap, WebGLBlendStateWrap};
-use wrap::texture::{WebGLTextureWrap};
 
+use wrap::context::{WebGLContextWrap};
+use implement::{WebGLBufferImpl};
+use implement::{WebGLGeometryImpl};
+use implement::{WebGLProgramImpl};
+use implement::{WebGLRenderTargetImpl, WebGLRenderBufferImpl};
+use implement::{WebGLSamplerImpl};
+use implement::{WebGLRasterStateImpl, WebGLDepthStateImpl, WebGLStencilStateImpl, WebGLBlendStateImpl};
+use implement::{WebGLTextureImpl};
+
+/**
+ * 将不可变引用变为可变引用
+ */
+pub fn convert_to_mut<T>(obj: &T) -> &mut T {
+    let mut_obj = obj as *const T as usize as *mut T;
+	let mut_obj = unsafe { &mut *mut_obj };
+    mut_obj
+}
+	
 /**
  * Slab槽
  */
 #[derive(Clone)]
 pub struct GLSlot {
-    context: Weak<WebGLContextWrap>,
-    
-    slab_index: usize,    // 槽的索引
-    current_count: usize, // 当前复用的次数
-
-    // id，唯一的标志，高32位是current_count, 低32位是slab_index
-    id: u64,
+    pub context: WebGLContextWrap,
+    pub index: usize,    // 槽的索引
 }
 
 
 pub struct GLSlab {
-    // usize: 该slot复用的次数。
-    slab_buffer: Slab<(WebGLBufferWrap, usize)>,
-    slab_geometry: Slab<(WebGLGeometryWrap, usize)>,
-    slab_texture: Slab<(WebGLTextureWrap, usize)>,
-    slab_sampler: Slab<(WebGLSamplerWrap, usize)>,
-    slab_render_target: Slab<(WebGLRenderTargetWrap, usize)>,
-    slab_render_buffer: Slab<(WebGLRenderBufferWrap, usize)>,
-    slab_blend_state: Slab<(WebGLBlendStateWrap, usize)>,
-    slab_depth_state: Slab<(WebGLDepthStateWrap, usize)>,
-    slab_raster_state: Slab<(WebGLRasterStateWrap, usize)>,
-    slab_stencil_state: Slab<(WebGLStencilStateWrap, usize)>,
-    slab_program: Slab<(WebGLProgramWrap, usize)>,
-}
-
-impl GLSlot {
-
-    pub fn new(context: &Weak<WebGLContextWrap>, index: usize, count: usize) -> Self {
-        let id = count << 32 | index;
-        Self {
-            context: context.clone(),
-            slab_index: index,
-            current_count: count,
-            id: id as u64,
-        }
-    }
+    pub buffer: Slab<WebGLBufferImpl>,
+    pub geometry: Slab<WebGLGeometryImpl>,
+    pub texture: Slab<WebGLTextureImpl>,
+    pub sampler: Slab<WebGLSamplerImpl>,
+    pub render_target: Slab<WebGLRenderTargetImpl>,
+    pub render_buffer: Slab<WebGLRenderBufferImpl>,
+    pub blend_state: Slab<WebGLBlendStateImpl>,
+    pub depth_state: Slab<WebGLDepthStateImpl>,
+    pub raster_state: Slab<WebGLRasterStateImpl>,
+    pub stencil_state: Slab<WebGLStencilStateImpl>,
+    pub program: Slab<WebGLProgramImpl>,
 }
 
 impl GLSlab {
 
     pub fn new() -> Self {
         Self {
-            slab_buffer: Slab::new(),
-            slab_geometry: Slab::new(),
-            slab_texture: Slab::new(),
-            slab_sampler: Slab::new(),
-            slab_render_target: Slab::new(),
-            slab_render_buffer: Slab::new(),
-            slab_blend_state: Slab::new(),
-            slab_depth_state: Slab::new(),
-            slab_raster_state: Slab::new(),
-            slab_stencil_state: Slab::new(),
-            slab_program: Slab::new(),
+            buffer: Slab::new(),
+            geometry: Slab::new(),
+            texture: Slab::new(),
+            sampler: Slab::new(),
+            render_target: Slab::new(),
+            render_buffer: Slab::new(),
+            blend_state: Slab::new(),
+            depth_state: Slab::new(),
+            raster_state: Slab::new(),
+            stencil_state: Slab::new(),
+            program: Slab::new(),
         }
     }
 
-    pub fn get_buffer_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLBufferWrap> {
-        match self.slab_buffer.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
+    pub fn new_slice<T>(context: &WebGLContextWrap, slab: &Slab<T>, obj: T) -> GLSlot {
+        let index = slab.insert(obj);
+        
+        GLSlot {
+            context: context.clone(),
+            index: index,
         }
     }
-    
-    pub fn get_geometry_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLGeometryWrap> {
-        match self.slab_geometry.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
+
+    pub fn get_mut_slice<'a, T>(slab: &'a Slab<T>, slot: &GLSlot) -> Option<&'a mut T> {
+        slab.get_mut(slot.index)
     }
     
-    pub fn get_texture_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLTextureWrap> {
-        match self.slab_texture.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_sampler_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLSamplerWrap> {
-        match self.slab_sampler.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_render_target_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLRenderTargetWrap> {
-        match self.slab_render_target.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_render_buffer_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLRenderBufferWrap> {
-        match self.slab_render_buffer.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_blend_state_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLBlendStateWrap> {
-        match self.slab_blend_state.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_depth_state_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLDepthStateWrap> {
-        match self.slab_depth_state.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_raster_state_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLRasterStateWrap> {
-        match self.slab_raster_state.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_stencil_state_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLStencilStateWrap> {
-        match self.slab_stencil_state.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
-    }
-    
-    pub fn get_program_slice(&mut self, index: usize, count: usize) -> Option<&mut WebGLProgramWrap> {
-        match self.slab_program.get_mut(index) {
-            None => None,
-            Some((r, c)) => {
-                debug_assert!(*c == count, "c != count");
-                Some(r)
-            }
-        }
+    pub fn delete_slice<T>(slab: &Slab<T>, slot: &GLSlot) -> T {
+        slab.remove(slot.index)
     }
 }
