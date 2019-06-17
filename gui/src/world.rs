@@ -43,6 +43,7 @@ lazy_static! {
     pub static ref CHAR_BLOCK_SHADOW_N: Atom = Atom::from("charblock_shadow_sys");
     pub static ref NODE_ATTR_N: Atom = Atom::from("node_attr_sys");
     pub static ref FILTER_N: Atom = Atom::from("filter_sys");
+    pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
 }
 
 pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
@@ -93,6 +94,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, YgNode>();
     world.register_multi::<Node, HSV>();
+    world.register_multi::<Node, WorldMatrixRender>();
     
     //single
     world.register_single::<ClipUbo<C>>(ClipUbo(Arc::new(engine.gl.create_uniforms())));
@@ -128,10 +130,11 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
+    world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::<C>::new()));
     
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();

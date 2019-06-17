@@ -76,6 +76,14 @@ function render_texture(gl, texture, width, height) {
     render(gl, texture, buf, program, width, height);
 }
 
+function render_fram(){
+    Module._set_render_dirty(gui); 
+    Module._render(gui); 
+    requestAnimationFrame(() => {
+        render_fram();
+    });
+}
+
 function render(gl, texture, buf, program, width, height) {
 
     var impl = function () {

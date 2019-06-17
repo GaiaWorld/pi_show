@@ -202,9 +202,10 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
 }
 
 fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
-    if obj.geometry.get_vertex_count() == 0 {
-        return;
-    }
+    let geometry = match &obj.geometry {
+        None => return,
+        Some(g) => g,
+    };
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
     // println! ("draw-------------------------------------id: {}, key: {}, ds: {:?}", obj.context, obj.pipeline.key, &obj.pipeline.ds);
     let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
@@ -212,7 +213,7 @@ fn render<C: Context + Share>(gl: &mut C, obj: &RenderObj<C>){
         ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
     }
     // debug_println!("draw-------------------------------------{}", obj.context);
-    gl.draw(&(obj.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
+    gl.draw(&(geometry.value.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 
 struct OpacityOrd<'a, C: Context + Share>(&'a RenderObj<C>, usize);

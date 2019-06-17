@@ -17,7 +17,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys{
       write.0.insert(event.id, Layout::default());
 			let yoga = YgNode::default();
 			yoga.set_context(event.id as *mut c_void);
-			yoga.set_overflow(YGOverflow::YGOverflowScroll);
+			yoga.set_overflow(YGOverflow::YGOverflowVisible);
             yoga.set_align_items(YGAlign::YGAlignFlexStart);
       write.1.insert(event.id, yoga);
     }

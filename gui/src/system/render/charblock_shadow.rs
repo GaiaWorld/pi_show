@@ -12,10 +12,11 @@ use atom::Atom;
 
 use component::user::*;
 use single::*;
-use component::calc::{Opacity, ZDepth, CharBlock};
+use component::calc::{Opacity, ZDepth, CharBlock, WorldMatrixRender};
 use entity::{Node};
 use render::engine::{ Engine , PipelineInfo};
 use render::res::{ SamplerRes};
+use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
@@ -31,7 +32,7 @@ lazy_static! {
 }
 
 pub struct CharBlockShadowSys<C: Context + Share>{
-    charblock_render_map: VecMap<Item>,
+    render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
     rs: Arc<RasterState>,
@@ -49,7 +50,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         ds.set_write_enable(false);
         CharBlockShadowSys {
-            charblock_render_map: VecMap::default(),
+            render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
             rs: Arc::new(RasterState::new()),
@@ -95,7 +96,6 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         let font = get_or_default(id, fonts, default_table);
         let mut defines = Vec::new();
 
-        let geometry = create_geometry(&mut engine.gl);
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();  
@@ -140,7 +140,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             visibility: false,
             is_opacity: false,
             ubos: ubos,
-            geometry: geometry,
+            geometry: None,
             pipeline: pipeline.clone(),
             context: id,
             defines: defines,
@@ -148,7 +148,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        self.charblock_render_map.insert(id, Item{index: index, position_change: true});
+        self.render_map.insert(id, Item{index: index, position_change: true});
         self.geometry_dirtys.push(id);
     }
 }
@@ -165,9 +165,9 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let map = &mut self.charblock_render_map;
+        let map = &mut self.render_map;
         let (z_depths, text_shadows, charblocks, fonts, font_sheet, default_table) = read;
-        let (render_objs, _) = write;
+        let (render_objs, engine) = write;
         for id in  self.geometry_dirtys.iter() {
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
@@ -185,21 +185,17 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
             let (positions, uvs, indices) = get_geo_flow(charblock, &first_font, z_depth + 0.2, (text_shadow.h, text_shadow.v));
 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let geometry = unsafe {&mut *(render_obj.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-            
+            if positions.len() == 0 {
+                render_obj.geometry = None;
+            } else {
+                let mut geometry = create_geometry(&mut engine.gl);
+                geometry.set_vertex_count((positions.len()/3) as u32);
+                geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+                geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
+                geometry.set_indices_short(indices.as_slice(), false).unwrap();
+                render_obj.geometry = Some(Res::new(0, Arc::new(GeometryRes{name: 0, bind: geometry})));
+            };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
-
-            let vertex_count: u32 = (positions.len()/3) as u32;
-            if  vertex_count == 0 {
-                geometry.set_vertex_count(vertex_count);
-                continue;
-            }
-            if vertex_count != geometry.get_vertex_count() {
-                geometry.set_vertex_count(vertex_count);
-            }
-            geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-            geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
-            geometry.set_indices_short(indices.as_slice(), false).unwrap();
         }
         self.geometry_dirtys.clear();
     }
@@ -244,7 +240,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        if let Some(item) = self.charblock_render_map.get_mut(event.id){
+        if let Some(item) = self.render_map.get_mut(event.id){
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
@@ -259,7 +255,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = self.charblock_render_map.remove(event.id){
+        if let Some(item) = self.render_map.remove(event.id){
             let notify = write.get_notify();
             write.remove(item.index, Some(notify));
             if item.position_change == true {
@@ -278,7 +274,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (font_sheet, fonts) = read;
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let font = unsafe { fonts.get_unchecked(event.id) };
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
@@ -329,7 +325,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = self.charblock_render_map.remove(event.id){
+        if let Some(item) = self.render_map.remove(event.id){
             let notify = write.get_notify();
             write.remove(item.index, Some(notify));
             if item.position_change == true {
@@ -348,7 +344,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (_opacitys, text_shadows) = read;   
-        if let Some(item) = self.charblock_render_map.get_mut(event.id) {
+        if let Some(item) = self.render_map.get_mut(event.id) {
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
             
             match event.field {
@@ -364,6 +360,51 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent
                 },
                 _ => return,
             }
+        }
+    }
+}
+
+type MatrixRead<'a> = (
+    &'a MultiCaseImpl<Node, WorldMatrixRender>,
+    &'a MultiCaseImpl<Node, TextShadow>
+);
+
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockShadowSys<C>{
+    type ReadData = MatrixRead<'a>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        self.modify_matrix(event.id, read.0, read.1, render_objs);
+    }
+}
+
+impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockShadowSys<C>{
+    type ReadData = MatrixRead<'a>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        self.modify_matrix(event.id, read.0, read.1, render_objs);
+    }
+}
+
+impl<'a, C: Context + Share> CharBlockShadowSys<C>{
+    fn modify_matrix(
+        &self,
+        id: usize,
+        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
+        text_shadows: &MultiCaseImpl<Node, TextShadow>,
+        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
+    ){
+        if let Some(item) = self.render_map.get(id) {
+            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
+            let text_shadow = unsafe { text_shadows.get_unchecked(id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+
+            let world_matrix = world_matrix.0 * Matrix4::from_translation(Vector3::new(text_shadow.h, text_shadow.v, 1.0));
+            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
+            let ubos = &mut render_obj.ubos;
+            let slice: &[f32; 16] = world_matrix.as_ref();
+            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            debug_println!("charblock_shadow, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+            render_objs.get_notify().modify_event(item.index, "ubos", 0);
         }
     }
 }
@@ -388,14 +429,14 @@ fn get_geo_flow<C: Context + Share>(
     char_block: &CharBlock,
     sdf_font: &Arc<dyn SdfFont<Ctx = C>>,
     z_depth: f32,
-    offset: (f32, f32)
+    mut offset: (f32, f32)
 ) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let mut positions: Vec<f32> = Vec::new();
     let mut uvs: Vec<f32> = Vec::new();
     let mut indices: Vec<u16> = Vec::new();
     let font_size = char_block.font_size;
     let mut i = 0;
-    // let line_height = sdf_font.line_height;
+    offset.1 += (char_block.line_height - font_size)/2.0;
 
     if char_block.chars.len() > 0 {
         for c in char_block.chars.iter() {
@@ -453,5 +494,7 @@ impl_system!{
         MultiCaseListener<Node, TextShadow, ModifyEvent>
         MultiCaseListener<Node, TextShadow, DeleteEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
+        MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
+        MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
     }
 }

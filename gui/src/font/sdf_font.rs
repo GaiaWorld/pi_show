@@ -22,6 +22,8 @@ pub trait SdfFont {
     fn atlas_width(&self) -> usize;
 
     fn atlas_height(&self) -> usize;
+
+    fn font_size(&self) -> f32;
     
     fn texture(&self) -> &Res<TextureRes<Self::Ctx>>;
 
@@ -32,6 +34,10 @@ pub trait SdfFont {
     fn add_glyph(&self, c: char, glyph: Glyph);
 
     fn get_dyn_type(&self) -> usize;
+
+    fn curr_uv(&self) -> (f32, f32);
+
+    fn set_curr_uv(&self, value: (f32, f32));
 }
 
 // // 字体生成器
@@ -62,6 +68,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     pub glyph_table: FnvHashMap<char, Glyph>,
     texture: Res<TextureRes<C>>,
     dyn_type: usize,
+    curr_uv: (f32, f32),
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
@@ -131,8 +138,21 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         let ratio = font_size/self.line_height;
         0.5/(ratio * self.padding)
     }
+
     fn get_dyn_type(&self) -> usize {
         self.dyn_type
+    }
+
+    fn font_size(&self) -> f32 {
+        self.line_height
+    }
+
+    fn curr_uv(&self) -> (f32, f32) {
+        (self.curr_uv.0, self.curr_uv.1)
+    }
+
+    fn set_curr_uv(&self, value: (f32, f32)) {
+        unsafe {&mut *(self as *const Self as usize as *mut Self)}.curr_uv = value
     }
 
 
@@ -153,6 +173,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             glyph_table: FnvHashMap::default(),
             texture: texture,
             dyn_type: dyn_type,
+            curr_uv: (0.0, 0.0),
         }
     }
 
@@ -174,6 +195,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             glyph_table,
             texture,
             dyn_type: 0,
+            curr_uv: (0.0, 0.0),
         }
     }
 }

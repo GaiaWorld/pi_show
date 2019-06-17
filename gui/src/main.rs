@@ -57,6 +57,7 @@ extern crate polygon;
 extern crate hashmap;
 #[cfg(feature = "web")]
 extern crate hal_webgl;
+extern crate ordered_float;
 
 pub mod system;
 pub mod component;
@@ -81,17 +82,17 @@ pub const ROOT: usize = 1;
 pub type HashMap<T> = hashmap::HashMap<usize, T>;
 
 #[cfg(not(feature = "web"))]
-pub fn set_timeout(ms: usize, f: Box<FnBox()>) -> usize{
-
+pub fn set_timeout(_ms: usize, _f: Box<dyn FnOnce()>) -> usize{
+    unimplemented!()
 }
 
 #[cfg(not(feature = "web"))]
 pub fn now_time() -> u64 {
-
+    unimplemented!()
 }
 
 #[cfg(not(feature = "web"))]
-pub fn cancel_timeout(id: usize) {
+pub fn cancel_timeout(_id: usize) {
 
 }
 

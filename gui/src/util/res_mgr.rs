@@ -46,6 +46,15 @@ pub struct Res<T: ResTrait>{
     pub value: Arc<T>,
 }
 
+impl<T: ResTrait> Res<T> {
+    pub fn new(timeout: u32, value: Arc<T>) -> Res<T>{
+        Res {
+            timeout,
+            value
+        }
+    }
+}
+
 impl<T: ResTrait> Clone for Res<T> {
     fn clone(&self) -> Self {
         Self{

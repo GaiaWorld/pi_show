@@ -35,7 +35,7 @@ pub fn clear_transform(world: u32, node_id: u32) {
     let world = unsafe {&mut *(world as usize as *mut World)};
     let attr = world.fetch_multi::<Node, Transform>().unwrap();
     let attr = attr.lend_mut();
-    match unsafe { attr.get_write(node_id) } {
+    match attr.get_write(node_id) {
         Some(mut r) => {
             r.modify(|transform: &mut Transform| {
                 if transform.funcs.len() > 0 {

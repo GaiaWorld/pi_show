@@ -9,7 +9,7 @@ use hal_core::*;
 use atom::Atom;
 
 use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ZDepth, HSV};
+use component::calc::{Visibility, WorldMatrix, WorldMatrixRender, Opacity, ZDepth, HSV};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
@@ -227,22 +227,32 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
 
 //世界矩阵变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>, &'a SingleCaseImpl<DefaultTable>);
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    type ReadData = (
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, Transform>,
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a SingleCaseImpl<DefaultTable>,
+    );
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs<C>>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+        &'a mut MultiCaseImpl<Node, WorldMatrixRender>
+    );
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
         // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
-        let (render_objs, node_render_map) = write;
-        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+        let (_render_objs, _node_render_map, world_matrix_render) = write;
+        world_matrix_render.insert(event.id, WorldMatrixRender(world_matrix)); //插入渲染使用的世界矩阵
+        // let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        for id in obj_ids.iter() {
-            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(*id, "ubos", 0);
-        }
+        // for id in obj_ids.iter() {
+        //     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+        //     let ubos = &mut render_obj.ubos;
+        //     let slice: &[f32; 16] = world_matrix.as_ref();
+        //     Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+        //     debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+        //     render_objs.get_notify().modify_event(*id, "ubos", 0);
+        // }
     }
 }
 

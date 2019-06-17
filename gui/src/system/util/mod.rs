@@ -5,6 +5,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 use std::mem::transmute;
 
+use ordered_float::NotNan;
+
 use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share};
 use hal_core::{ RasterState, BlendState, StencilState, DepthState, Context, Geometry, SamplerDesc, AttributeName};
 use atom::Atom;
@@ -16,6 +18,7 @@ use system::util::constant::{WORLD_MATRIX, CLIP_INDICES, CLIP};
 use render::engine::Engine;
 use single::{ RenderObjs, DefaultTable };
 use entity::Node;
+use system::util::constant::*;
 
 lazy_static! {
     // 四边形集合体的hash值
@@ -69,9 +72,9 @@ pub fn color_is_opaque(color: &Color) -> bool{
     }
 }
 
-pub fn create_geometry<C: Context>(gl: &mut C) -> Arc<<C as Context>::ContextGeometry> {
+pub fn create_geometry<C: Context>(gl: &mut C) -> <C as Context>::ContextGeometry {
     match gl.create_geometry() {
-        Ok(r) => Arc::new(r),
+        Ok(r) => r,
         Err(_) => panic!("create_geometry error"),
     }
 }
@@ -212,9 +215,25 @@ pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>
     }
 }
 
-// pub fn quad_geo_hash() -> u64 {
-//     QUAD_GEO_HASH
-// }
+
+pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
+    RADIUS_QUAD_POSITION_INDEX.hash(hasher);
+    unsafe { NotNan::unchecked_new(radius).hash(hasher) };
+    unsafe { NotNan::unchecked_new(width).hash(hasher) };
+    unsafe { NotNan::unchecked_new(height).hash(hasher) };
+}
+
+pub fn create_quad_geo() -> (Vec<f32>, Vec<u16>) {
+    return (
+        vec![
+            0.0, 0.0, 0.0, // left_top
+            0.0, 1.0, 0.0, // left_bootom
+            1.0, 1.0, 0.0, // right_bootom
+            1.0, 0.0, 0.0, // right_top
+        ],
+        vec![0, 1, 2, 3],
+    );
+}
 
 // pub fn quad_geo_hash() -> u64 {
 //     QUAD_GEO_HASH
