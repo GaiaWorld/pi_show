@@ -188,6 +188,8 @@ impl WebGLContextImpl {
             None
         };
 
+        println!("~~~~~~~~~~~~~ WebGLRenderingContext, gpu capabilities: {:?}", &caps);
+
         WebGLContextImpl {
             gl: gl,
             caps: Arc::new(caps),

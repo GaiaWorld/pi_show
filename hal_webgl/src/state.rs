@@ -20,6 +20,8 @@ pub struct State {
     clear_stencil: u8,
 
     gl: Arc<WebGLRenderingContext>, 
+    
+    real_depth_mask: bool, // 实际的深度写入的开关
 
     pub pipeline: Arc<dyn AsRef<Pipeline>>,
 
@@ -145,7 +147,7 @@ impl State {
         let tex_caches = TextureCache::new(gl, max_tex_unit_num as usize);
         let mut state = State {
             gl: gl.clone(),
-
+            real_depth_mask: false,
             clear_color: (1.0, 1.0, 1.0, 1.0), 
             clear_depth: 1.0, 
             clear_stencil: 0,
@@ -217,7 +219,11 @@ impl State {
 
         if let Some(depth) = depth {
             flag |= WebGLRenderingContext::DEPTH_BUFFER_BIT;
-
+            
+            // 清除深度的时候，必须打开深度写。
+            self.real_depth_mask = true;
+            self.gl.depth_mask(true);
+            
             if *depth != self.clear_depth {
                 // debug_println!("State::set_clear, depth = {:?}", depth);
                 self.gl.clear_depth(*depth);
@@ -256,7 +262,7 @@ impl State {
             Self::set_raster_state(&self.gl, Some(old.raster_state.as_ref().as_ref()), curr.raster_state.as_ref().as_ref());
         }
         if !Arc::ptr_eq(&old.depth_state, &curr.depth_state) {
-            Self::set_depth_state(&self.gl, Some(old.depth_state.as_ref().as_ref()), curr.depth_state.as_ref().as_ref());
+            Self::set_depth_state(&self.gl, Some(old.depth_state.as_ref().as_ref()), curr.depth_state.as_ref().as_ref(), &mut self.real_depth_mask);
         }
         if !Arc::ptr_eq(&old.stencil_state, &curr.stencil_state) {
             Self::set_stencil_state(&self.gl, Some(old.stencil_state.as_ref().as_ref()), curr.stencil_state.as_ref().as_ref());
@@ -356,7 +362,7 @@ impl State {
         }
     }
 
-    fn set_depth_state(gl: &WebGLRenderingContext, old: Option<&DepthState>, curr: &DepthState) {
+    fn set_depth_state(gl: &WebGLRenderingContext, old: Option<&DepthState>, curr: &DepthState, real_depth_write: &mut bool) {
         match old {
             None => {
                 Self::set_depth_test(gl, curr);
@@ -367,9 +373,16 @@ impl State {
                 if old.is_depth_test_enable != curr.is_depth_test_enable {
                     Self::set_depth_test(gl, curr);
                 }
-                if old.is_depth_write_enable != curr.is_depth_write_enable {
+                
+                if old.is_depth_write_enable == curr.is_depth_write_enable {
+                    if curr.is_depth_write_enable != *real_depth_write {
+                        *real_depth_write = curr.is_depth_write_enable;
+                        Self::set_depth_write(gl, curr);
+                    }
+                } else if old.is_depth_write_enable != curr.is_depth_write_enable {
                     Self::set_depth_write(gl, curr);
                 }
+
                 if old.depth_test_func != curr.depth_test_func {
                     Self::set_depth_test_func(gl, curr);
                 }
@@ -445,12 +458,13 @@ impl State {
 		gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
 
         gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
+        
         gl.clear_depth(state.clear_depth);
         gl.clear_stencil(state.clear_stencil as i32);
 
         let p = state.pipeline.as_ref().as_ref();
         Self::set_raster_state(gl.as_ref(), None, p.raster_state.as_ref().as_ref());
-        Self::set_depth_state(gl.as_ref(), None, p.depth_state.as_ref().as_ref());
+        Self::set_depth_state(gl.as_ref(), None, p.depth_state.as_ref().as_ref(), &mut state.real_depth_mask);
         Self::set_blend_state(gl.as_ref(), None, p.blend_state.as_ref().as_ref());
         Self::set_stencil_state(gl.as_ref(), None, p.stencil_state.as_ref().as_ref());
 

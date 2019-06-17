@@ -216,7 +216,7 @@ pub fn set_font_family(world: u32, node_id: u32){
 //__jsObj: uv cfg, __jsObj1: image | canvas, __jsObj2: name(String)
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn add_sdf_font_res(world: u32) {
+pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     // println!("sdf_font parse start");
     let world = unsafe {&mut *(world as usize as *mut World)};
     let name: String = js!(return __jsObj2;).try_into().unwrap();
@@ -238,10 +238,10 @@ pub fn add_sdf_font_res(world: u32) {
     let texture_res = TextureRes::<WebGLContextImpl>::new(name.clone(), width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
     let texture_res = engine.res_mgr.create(texture_res);
     // new_width_data
-    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone());
-    println!("sdf_font parse start");
+    let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone(), dyn_type as usize);
+    // println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
-    println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
+    // println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
     font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
 }

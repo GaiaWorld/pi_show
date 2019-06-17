@@ -30,6 +30,8 @@ pub trait SdfFont {
     fn get_glyph(&self, c: &char) -> Option<&Glyph>;
 
     fn add_glyph(&self, c: char, glyph: Glyph);
+
+    fn get_dyn_type(&self) -> usize;
 }
 
 // // 字体生成器
@@ -59,6 +61,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
     texture: Res<TextureRes<C>>,
+    dyn_type: usize,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
@@ -128,6 +131,10 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         let ratio = font_size/self.line_height;
         0.5/(ratio * self.padding)
     }
+    fn get_dyn_type(&self) -> usize {
+        self.dyn_type
+    }
+
 
     #[inline]
     fn texture(&self) -> &Res<TextureRes<C>> {
@@ -136,7 +143,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
 }
 
 impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
-    pub fn new(texture: Res<TextureRes<C>>) -> Self{
+    pub fn new(texture: Res<TextureRes<C>>, dyn_type: usize) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -145,6 +152,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             padding: 0.0,
             glyph_table: FnvHashMap::default(),
             texture: texture,
+            dyn_type: dyn_type,
         }
     }
 
@@ -165,6 +173,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             padding,
             glyph_table,
             texture,
+            dyn_type: 0,
         }
     }
 }
