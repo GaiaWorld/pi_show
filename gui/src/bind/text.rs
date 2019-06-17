@@ -2,7 +2,7 @@ use std::mem::{transmute};
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
-use stdweb::web::TypedArray;
+use stdweb::web::{ TypedArray, CanvasRenderingContext2d };
 use stdweb::{Object, UnsafeTypedArray};
 
 use atom::Atom;
@@ -410,4 +410,47 @@ fn look_text(world_id: u32, node: usize, text: &str){
         },
         None => ()
     }
+}
+
+// 生成canvas字体
+fn gen_canvas_text() {
+    
+}
+
+fn calc_canvas_text(
+    ctx: &CanvasRenderingContext2d,
+    font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>,
+    chars: &Vec<u32>,
+    stroke_width: f32,
+){
+    let max_width = font.atlas_width() as f32;
+    let max_height = font.atlas_width() as f32;
+    let (mut u, mut v) = font.curr_uv();
+    let stroke_width = stroke_width * 2.0;
+    let font_size = font.font_size() + stroke_width;
+
+    for c in chars.iter() {
+        let w = TryInto::<u32>::try_into(js! { return @{ctx}.measureText(String.fromCharCode(@{c})).width; }).unwrap() as f32;
+
+        // 换行
+        if w > max_width - u {
+            u = 0.0;
+            v += font_size;
+            if v + font_size > max_height {
+                break;
+            }
+        }
+
+        font.add_glyph(unsafe{transmute(*c)}, Glyph{
+            id: unsafe{transmute(*c)},
+            x: u,
+            y: v,
+            ox: 0.0, 
+            oy: 0.0,
+            width: w, 
+            height: font_size,
+            advance: w,
+        });
+        u += w;
+    } 
 }

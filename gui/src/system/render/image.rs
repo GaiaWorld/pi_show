@@ -25,6 +25,17 @@ use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 use util::res_mgr::Res;
 
+lazy_static! {
+    static ref STROKE: Atom = Atom::from("STROKE");
+    static ref UCOLOR: Atom = Atom::from("UCOLOR");
+    static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
+
+    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
+
+    static ref IMAGE: Atom = Atom::from("image");
+}
+
 pub struct ImageSys<C: Context + Share>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
@@ -84,6 +95,7 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
                     Some(geometry) => {
                         render_obj.geometry = Some(geometry);
                         render_objs.get_notify().modify_event(item.index, "geometry", 0);
+                        self.modify_matrix(*id, world_matrixs, layouts, border_radiuss, image_clips, object_fits, render_objs);
                         continue;
                     },
                     None => (),
@@ -102,7 +114,6 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
                 render_obj.geometry = Some(Res::new(0, Arc::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
-
             self.modify_matrix(*id, world_matrixs, layouts, border_radiuss, image_clips, object_fits, render_objs);
         }
         self.geometry_dirtys.clear();
@@ -164,7 +175,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         }else {
             false
         };
-        debug_println!("xxxxxxxxxxxxxxxxxcreate image{}， is_opacity: {}", event.id, is_opacity);
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth,
             depth_diff: 0.0,
@@ -182,17 +192,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Image<C>, CreateEvent> 
         self.render_map.insert(event.id, Item{index: index, position_change: true});
         self.geometry_dirtys.push(event.id);
     }
-}
-
-fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
-    let radius = cal_border_radius(radius, layout);
-    let mut hasher = DefaultHasher::new();
-    if radius.x == 0.0 {
-        QUAD_POSITION_INDEX.hash(&mut hasher);           
-    } else {
-        radius_quad_hash(&mut hasher, radius.x, layout.width - layout.border_right - layout.border_left, layout.height - layout.border_top - layout.border_bottom);
-    }
-    return hasher.finish();
 }
 
 // 修改渲染对象
@@ -302,7 +301,6 @@ impl<'a, C: Context + Share> ImageSys<C> {
         }else {
             false
         };
-        debug_println!("set_is_opacity color{}， is_opacity: {}", _id, is_opacity);
         let notify = render_objs.get_notify();
         unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
     }
@@ -327,14 +325,13 @@ impl<'a, C: Context + Share> ImageSys<C> {
 
             if clip.is_none() && object_fit.is_none() && border_radius.x == 0.0{
                 let world_matrix = world_matrix.0 * Matrix4::from_nonuniform_scale(
-                    layout.width - layout.border_right - layout.left,
+                    layout.width - layout.border_right - layout.border_left,
                     layout.height - layout.border_top - layout.border_bottom,
                     1.0
                 );
                 let ubos = &mut render_obj.ubos;
                 let slice: &[f32; 16] = world_matrix.as_ref();
                 Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-                debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
                 render_objs.get_notify().modify_event(item.index, "ubos", 0);
                 return;
             }
@@ -343,7 +340,6 @@ impl<'a, C: Context + Share> ImageSys<C> {
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.0.as_ref();
             Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("image, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
             
         }
@@ -353,6 +349,18 @@ impl<'a, C: Context + Share> ImageSys<C> {
 struct Item {
     index: usize,
     position_change: bool,
+}
+
+fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
+    let radius = cal_border_radius(radius, layout);
+    let mut hasher = DefaultHasher::new();
+    IMAGE.hash(&mut hasher); 
+    if radius.x == 0.0 {
+        QUAD_POSITION_INDEX.hash(&mut hasher);           
+    } else {
+        radius_quad_hash(&mut hasher, radius.x, layout.width - layout.border_right - layout.border_left, layout.height - layout.border_top - layout.border_bottom);
+    }
+    return hasher.finish();
 }
 
 //取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
@@ -365,7 +373,7 @@ fn get_geo_flow<C: Context + Share>(radius: &BorderRadius, layout: &Layout, z_de
             0.0, 1.0,
             1.0, 1.0, 
             1.0, 0.0,
-        ], r.1);
+        ], to_triangle(&r.1, Vec::new()));
     }
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
     if radius.x <= layout.border_left  {
