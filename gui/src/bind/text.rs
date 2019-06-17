@@ -239,9 +239,9 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     let texture_res = engine.res_mgr.create(texture_res);
     // new_width_data
     let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone(), dyn_type as usize);
-    println!("sdf_font parse start");
+    // println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
-    println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
+    // println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
     font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
 }
