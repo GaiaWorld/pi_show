@@ -188,7 +188,7 @@ impl WebGLContextImpl {
             None
         };
 
-        println!("~~~~~~~~~~~~~ WebGLRenderingContext, gpu capabilities: {:?}", &caps);
+        println!("~~~~~~~~~~~~~ WebGLRenderingContext, caps {:?}", &caps);
 
         WebGLContextImpl {
             gl: gl,
@@ -237,7 +237,40 @@ impl WebGLContextImpl {
         let vertex_array_object = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         let instanced_arrays = gl.get_extension::<ANGLEInstancedArrays>().map_or(false, |_v| true);
         
+        let mut astc = gl.get_extension::<CompressedTextureAstc>().map_or(false, |_v| true);
+        if !astc {
+            astc = gl.get_extension::<WebkitCompressedTextureAstc>().map_or(false, |_v| true);
+        }
+
+        let mut s3tc = gl.get_extension::<CompressedTextureS3tc>().map_or(false, |_v| true);
+        if !s3tc {
+            s3tc = gl.get_extension::<WebkitCompressedTextureS3tc>().map_or(false, |_v| true);
+        }
+
+        let mut pvrtc = gl.get_extension::<CompressedTexturePvrtc>().map_or(false, |_v| true);
+        if !pvrtc {
+            pvrtc = gl.get_extension::<WebkitCompressedTexturePvrtc>().map_or(false, |_v| true);
+        }
+
+        let mut etc1 = gl.get_extension::<CompressedTextureEtc1>().map_or(false, |_v| true);
+        if !etc1 {
+            etc1 = gl.get_extension::<WebkitCompressedTextureEtc1>().map_or(false, |_v| true);
+        }
+
+        let mut etc2 = gl.get_extension::<CompressedTextureEtc2>().map_or(false, |_v| true);
+        if !etc2 {
+            etc2 = gl.get_extension::<WebkitCompressedTextureEtc2>().map_or(false, |_v| true);
+        }
+        if !etc2 {
+            etc2 = gl.get_extension::<CompressedTextureEs3>().map_or(false, |_v| true);
+        }
+        
         Capabilities {
+            astc: astc,
+            s3tc: s3tc,
+            pvrtc: pvrtc,
+            etc1: etc1,
+            etc2: etc2,
             max_textures_image_units: max_textures_image_units,
             max_vertex_texture_image_units: max_vertex_texture_image_units,
             max_combined_textures_image_units: max_combined_textures_image_units,
