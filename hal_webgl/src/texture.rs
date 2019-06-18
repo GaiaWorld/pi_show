@@ -118,7 +118,11 @@ impl WebGLTextureImpl {
                 let d = get_data_format(dformat);
                 gl.active_texture(WebGLRenderingContext::TEXTURE0);
                 gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
-                
+
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
                 js! {
                     @{gl.as_ref()}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{level}, @{p}, @{p}, @{d}, @{data}.wrap);
                 }
@@ -153,6 +157,13 @@ impl WebGLTextureImpl {
     pub fn update_webgl(&self, x: u32, y: u32, w: u32, h: u32, data: &Object) {
         let p = get_pixel_format(&self.pixel_format);
         let d = get_data_format(&self.data_format);
+        
+        self.gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
+
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
 
         js! {
             @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data}.wrap);
