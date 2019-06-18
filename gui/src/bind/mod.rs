@@ -153,7 +153,7 @@ pub fn cancel_timeout(id: usize){
 pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
     let (x, y): (usize, usize) = unsafe { transmute(f) };
     js!{
-        return set_timeout(function(){
+        return setTimeout(function(){
             Module._notify_timeout(@{x as u32}, @{y as u32});
         }, @{ms as u32});
     }
