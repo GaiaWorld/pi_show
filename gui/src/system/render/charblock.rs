@@ -112,7 +112,7 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockSys<C>{
                     Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
                     None => ()
                 };
-                render_obj.geometry = Some(Res::new(0, Arc::new(GeometryRes{name: 0, bind: geometry})));
+                render_obj.geometry = Some(Res::new(500, Arc::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }

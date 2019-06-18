@@ -72,6 +72,7 @@ impl<T: ResTrait> Deref for Res<T> {
 }
 
 fn timeout_release(timeout: usize){   
+    println!("timeout: {}", timeout);
     unsafe { TIMER_REF = set_timeout(timeout, Box::new(|| {
         let mut list = RELEASE_ARRAY.0.borrow_mut();
         let now = now_time();
@@ -86,7 +87,7 @@ fn timeout_release(timeout: usize){
                         TIMER_TIME = timeout;
                     }
                     list.swap_remove(i); 
-                    len -= 0;
+                    len -= 1;
                 } else {
                     i += 1;
                 }

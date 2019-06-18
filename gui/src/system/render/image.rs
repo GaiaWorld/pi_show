@@ -111,7 +111,7 @@ impl<'a, C: Context + Share> Runner<'a> for ImageSys<C>{
                 geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
                 geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
                 geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                render_obj.geometry = Some(Res::new(0, Arc::new(GeometryRes{name: 0, bind: geometry})));
+                render_obj.geometry = Some(Res::new(500, Arc::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
             self.modify_matrix(*id, world_matrixs, layouts, border_radiuss, image_clips, object_fits, render_objs);
