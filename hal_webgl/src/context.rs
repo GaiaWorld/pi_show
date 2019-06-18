@@ -187,7 +187,8 @@ impl WebGLContextImpl {
         } else {
             None
         };
-
+        
+        println!("~~~~~~~~~~~~~ WebGLRenderingContext, All extensions: {:?}", gl.get_supported_extensions());
         println!("~~~~~~~~~~~~~ WebGLRenderingContext, caps {:?}", &caps);
 
         WebGLContextImpl {
