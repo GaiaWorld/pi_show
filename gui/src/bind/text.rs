@@ -413,13 +413,88 @@ fn look_text(world_id: u32, node: usize, text: &str){
     }
 }
 
-// 生成canvas字体
-fn gen_canvas_text(font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
-    let canvas: CanvasElement = js!{document.createElement("canvas")}.try_into().unwrap();
 
+// // 生成canvas字体
+// fn gen_canvas_text(font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+//     let font_name = font.name().as_ref();
+//     let canvas: CanvasElement = js!{
+//         var c = document.createElement("canvas");
+//         c.font = @{font_name};
+//         return c;
+//     }.try_into().unwrap();
+//     let ctx: CanvasRenderingContext2d = js! {
+//         return @{canvas}.getContext("'2d'");
+//     }.try_into().unwrap();
+//     calc_canvas_text(&ctx, font, chars);
 
-    // canvas.width = 16;
-	// 	canvas.height = 16;
+//     draw_canvas_text(ctx, font, chars);
+//     // canvas.width = 16;
+// 	// 	canvas.height = 16;
+// }
+
+fn draw_canvas_text(ctx: &CanvasRenderingContext2d, font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+
+	// calcText(cfg);
+
+	// canvas.width = cfg.width;
+	// canvas.height = cfg.height;
+	// const ctx = canvas.getContext('2d');
+	// ctx.font = cfg.fontCfg.font;
+	// ctx.textBaseline = 'top';
+	// if (cfg.background) {
+	// 	ctx.fillStyle = getStyle(ctx, cfg.background, 0, 0, cfg.width, cfg.height);
+	// 	ctx.fillRect(0, 0, cfg.width, cfg.height);
+	// }
+	// if (cfg.strokeColor) {
+	// 	ctx.save();
+	// 	setShadow(ctx, cfg.shadow);
+	// 	ctx.lineWidth = cfg.strokeWidth;
+	// 	ctx.strokeStyle = getStyle(ctx, cfg.strokeColor, 0, 0, cfg.width, cfg.height);
+	// 	if (isErgodicDraw(cfg)) {
+	// 		const arr = cfg.chars;
+	// 		if (isString(ctx.strokeStyle)) {
+	// 			for (let i = 0; i < arr.length; i++) {
+	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
+	// 				ctx.strokeText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
+	// 			}
+	// 		} else {
+	// 			for (let i = 0; i < arr.length; i++) {
+	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
+	// 				ctx.strokeStyle = getStyle(ctx, cfg.strokeColor, uv.u1, uv.v1, uv.u2 - uv.u1, uv.v2 - uv.v1);
+	// 				ctx.strokeText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
+	// 			}
+	// 		}
+	// 	} else {
+	// 		ctx.strokeText(cfg.text, cfg.offsetX, cfg.offsetY);
+	// 	}
+	// }
+	// if (cfg.color) {
+	// 	if (!cfg.strokeColor) {
+	// 		setShadow(ctx, cfg.shadow);
+	// 	} else {
+	// 		ctx.restore();
+	// 	}
+	// 	ctx.fillStyle = getStyle(ctx, cfg.color, 0, 0, cfg.width, cfg.height);
+	// 	if (isErgodicDraw(cfg)) {
+	// 		const arr = cfg.chars;
+	// 		if (isString(ctx.fillStyle)) {
+	// 			for (let i = 0; i < arr.length; i++) {
+	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
+	// 				ctx.fillText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
+	// 			}
+	// 		} else {
+	// 			for (let i = 0; i < arr.length; i++) {
+	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
+	// 				ctx.fillStyle = getStyle(ctx, cfg.color, uv.u1, uv.v1, uv.u2 - uv.u1, uv.v2 - uv.v1);
+	// 				ctx.fillText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
+	// 			}
+	// 		}
+	// 	} else {
+	// 		ctx.fillText(cfg.text, cfg.offsetX, cfg.offsetY);
+	// 	}
+    // }
+
+	// return [canvas, ctx.getImageData(0, 0, cfg.width, cfg.height).data.buffer, cfg];
 }
 
 fn calc_canvas_text(

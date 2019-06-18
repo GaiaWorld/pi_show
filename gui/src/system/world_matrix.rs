@@ -33,8 +33,8 @@ impl WorldMatrixSys{
     }
 
     fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
-        if unsafe {self.dirty_mark_list.remove_unchecked(id)} {
-            self.dirty.mark(id, node.layer)
+        if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
+            self.dirty.delete(id, node.layer)
         }
 
         let first = unsafe { id_tree.get_unchecked(id).children.head };

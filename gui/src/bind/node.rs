@@ -104,14 +104,18 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn remove_child(world: u32, node: u32){
+pub fn remove_child(world: u32, node_id: u32){
     let world = unsafe {&mut *(world as usize as *mut World)};
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = idtree.lend_mut();
     let notify = idtree.get_notify();
-    idtree.remove(node as usize, Some(&notify));
+    let node = world.fetch_entity::<Node>().unwrap();
+    let node = node.lend_mut();
+    // idtree.remove(node as usize, Some(&notify));
+    idtree.destroy(node_id as usize, true, Some(&notify));
+    node.delete(node_id as usize);
     // println!("xxxxxxxxxxxxxxxxx, remove: {}", node);
-    debug_println!("remove_child");  
+    debug_println!("remove_child: {}", node_id);  
 }
 
 // __jsObj: image, __jsObj1: image_name(String)
