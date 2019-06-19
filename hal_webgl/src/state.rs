@@ -453,10 +453,7 @@ impl State {
         gl.enable(WebGLRenderingContext::SCISSOR_TEST);
 
         // debug_println!("State::apply_all_state");
-		gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
-		gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
-		gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
-
+		
         gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
         
         gl.clear_depth(state.clear_depth);
