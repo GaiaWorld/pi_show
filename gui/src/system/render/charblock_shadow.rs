@@ -14,12 +14,13 @@ use component::user::*;
 use single::*;
 use component::calc::{Opacity, ZDepth, CharBlock, WorldMatrixRender};
 use entity::{Node};
-use render::engine::{ Engine , PipelineInfo};
+use render::engine::{ Engine };
 use render::res::{ SamplerRes};
 use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
+use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TEXT_FS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use util::res_mgr::Res;
@@ -27,6 +28,7 @@ use util::res_mgr::Res;
 
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
+    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
 
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
@@ -39,7 +41,6 @@ pub struct CharBlockShadowSys<C: Context + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
-    pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
@@ -57,7 +58,6 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(ds),
-            pipelines: FnvHashMap::default(),
             default_sampler: None,
         }
     }
@@ -99,41 +99,52 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();  
-        match font_sheet.get_first_font(&font.family) {
+        let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
                 common_ubo.set_sampler(
                     &TEXTURE,
                     &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
                     &(r.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
+                r.get_dyn_type()
             },
-            None => debug_println!("font is not exist: {}", font.family.as_str()),
+            None => { debug_println!("font is not exist: {}", font.family.as_str()); 0 },
         };
         ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
-
         let c = &text_shadow.color;
         let mut ucolor_ubo = engine.gl.create_uniforms();
+        
+        let pipeline;
+        if dyn_type == 0 {
+            pipeline = engine.create_pipeline(
+                1,
+                &TEXT_VS_SHADER_NAME.clone(),
+                &TEXT_FS_SHADER_NAME.clone(),
+                defines.as_slice(),
+                self.rs.clone(),
+                self.bs.clone(),
+                self.ss.clone(),
+                self.ds.clone()
+            );
+        } else {
+            ucolor_ubo.set_float_4(&STROKE_COLOR, c.r, c.g, c.b, c.a);
+            pipeline = engine.create_pipeline(
+                1,
+                &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+                &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                defines.as_slice(),
+                self.rs.clone(),
+                self.bs.clone(),
+                self.ss.clone(),
+                self.ds.clone()
+            );
+        }
+
         ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
         ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
         defines.push(UCOLOR.clone());
         debug_println!("text_shadow, id: {}, color: {:?}", id, c);
-
-        let pipeline = engine.create_pipeline(
-            1,
-            &TEXT_VS_SHADER_NAME.clone(),
-            &TEXT_FS_SHADER_NAME.clone(),
-            defines.as_slice(),
-            self.rs.clone(),
-            self.bs.clone(),
-            self.ss.clone(),
-            self.ds.clone()
-        );
         
-        // let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
-        //     false
-        // }else {
-        //     true
-        // };
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth + 0.1,
             depth_diff: 0.1,
@@ -416,9 +427,14 @@ struct Item {
 
 fn modify_color<C: Context + Share>(item: &mut Item, id: usize, text_shadow: &TextShadow, render_objs: &mut SingleCaseImpl<RenderObjs<C>>) {
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    // 设置ubo
     let c = &text_shadow.color;
     let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+
+    if &render_obj.pipeline.vs == &CANVAS_TEXT_VS_SHADER_NAME.clone() {
+        ucolor_ubo.set_float_4(&STROKE_COLOR, c.r, c.g, c.b, c.a);
+    }
+    // 设置ubo
+   
     debug_println!("text_shadow_color, id: {}, color: {:?}", id, c);
     ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
     render_objs.get_notify().modify_event(item.index, "", 0);

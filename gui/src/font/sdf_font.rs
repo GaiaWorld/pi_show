@@ -43,6 +43,8 @@ pub trait SdfFont {
     fn set_curr_uv(&self, value: (f32, f32));
 
     fn stroke_width(&self) -> f32;
+
+    fn weight(&self) -> f32;
 }
 
 // // 字体生成器
@@ -76,16 +78,15 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     curr_uv: (f32, f32),
     stroke_width: f32,
     font_size: f32,
+    weight: f32,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
     type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
-        println!("measure: {:?}", c);
         match self.glyph_table.get(&c) {
             Some(glyph) => {
-                println!("font_size: {}, self.font_size: {}, glyph.advance: {}", font_size, self.font_size, glyph.advance);
                 font_size/self.font_size*glyph.advance
             },
             None => {
@@ -114,7 +115,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     }
 
     fn glyph_info(&self, c: char, font_size: f32) -> Option<GlyphInfo> {
-        let ratio = font_size/self.line_height;
+        let ratio = font_size/self.font_size;
         match self.glyph_table.get(&c) {
             Some(glyph) => {
                 let (min_u, min_v) = (glyph.x, glyph.y); //左上角
@@ -174,6 +175,10 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         self.stroke_width
     }
 
+    fn weight(&self) -> f32 {
+        self.weight
+    }
+
 
     #[inline]
     fn texture(&self) -> &Res<TextureRes<C>> {
@@ -195,6 +200,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             curr_uv: (0.0, 0.0),
             stroke_width: 0.0,
             font_size: 0.0,
+            weight: 0.0,
         }
     }
 
@@ -219,6 +225,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             curr_uv: (0.0, 0.0),
             stroke_width: 0.0,
             font_size: 0.0,
+            weight: 0.0
         }
     }
 }
@@ -248,7 +255,6 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         
         self.line_height = value.get_u8(offset) as f32;
         offset += 1;
-        println!("line_height{:?}", self.line_height);
 
         self.atlas_width = value.get_lu16(offset) as usize;
         offset += 2;
@@ -257,17 +263,17 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         // padding
         self.font_size = value.get_u8(offset) as f32;
         self.stroke_width = value.get_u8(offset + 2) as f32; // stroke_width使用padding位置
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
+        // self.weight = value.get_u8(offset + 4) as f32; // stroke_width使用padding位置
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
         offset += 8;
 
         if self.font_size == 0.0 {
             self.font_size = self.line_height;
         }
 
-        println!("offsetxxx: {:?}, stroke_width: {}, font_size: {},", offset, self.stroke_width, self.font_size);
         //字符uv表
         loop {
 

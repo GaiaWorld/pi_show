@@ -81,11 +81,9 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
             let key = geometry_hash(border_radius, layout);
             match engine.res_mgr.get::<GeometryRes<C>>(&key) {
                 Some(geometry) => {
-                    println!("box_shadow1--------------------------------------------");
                     render_obj.geometry = Some(geometry);
                 },
                 None => {
-                    println!("box_shadow--------------------------------------------");
                     let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.3, box_shadow);
                     if positions.len() == 0 {
                         render_obj.geometry = None;

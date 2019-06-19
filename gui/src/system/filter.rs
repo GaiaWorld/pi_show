@@ -82,7 +82,6 @@ fn recursive_cal_hsv(
                 s: cal_s_from_grayscale(filter.gray_scale - parent_hsv.s),
                 v: cal_v_from_brightness(filter.bright_ness) * parent_hsv.v,
             };
-            println!("filter: {:?}, hsv:{:?}, parent_hsv: {:?}", filter, hsv, parent_hsv);
             hsvs.insert(id, hsv.clone());   
             hsv
         },

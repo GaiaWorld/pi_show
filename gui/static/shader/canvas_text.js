@@ -1,7 +1,7 @@
-let text_vs_shader_name = "canvas_text_vs";
-let text_fs_shader_name = "canvas_text_fs";
+let canvas_text_vs_shader_name = "canvas_text_vs";
+let canvas_text_fs_shader_name = "canvas_text_fs";
 
-let text_vs_code = `
+let canvas_text_vs_code = `
     precision highp float;
 
     // Attributes
@@ -32,7 +32,7 @@ let text_vs_code = `
         vUV = uv0;
     }
 `;
-let text_fs_code = `
+let canvas_text_fs_code = `
     #extension GL_OES_standard_derivatives : enable
 
     precision highp float;
@@ -55,14 +55,9 @@ let text_fs_code = `
     varying vec2 vUV;
 
     // Uniforms
-    // uniform float uPxRange;
-
     uniform float alpha;
     uniform sampler2D texture;
-    #ifdef STROKE
-    // uniform float strokeSize;
     uniform vec4 strokeColor;
-    #endif
     #ifdef UCOLOR
     uniform vec4 uColor;
     #endif
@@ -118,10 +113,6 @@ let text_fs_code = `
         }
     #endif
 
-    float median(float r, float g, float b) {
-        return max(min(r, g), min(max(r, g), b));
-    }
-
     void main() {
 
     #ifdef CLIP
@@ -151,18 +142,8 @@ let text_fs_code = `
         c = c * uColor;
     #endif
     
-    vec3 sample = texture2D(texture, vUV).rgb;
-        float dist = median(sample.r, sample.g, sample.b);
-
-        // float a = (dist - 0.5) * uPxRange + 0.5;
-        // float a = clamp( (dist - 0.5) / fwidth(dist - 0.5) + 0.5, 0.0, 1.0);
-
-        float d = fwidth(dist);
-        float a = smoothstep(-d, d, dist - 0.5);
-    #ifdef STROKE
-        c = mix(strokeColor, c, a);
-        a = smoothstep(-d, d, dist - (0.5 - strokeSize));
-    #endif
+    vec2 sample = texture2D(texture, vUV).rg;
+    c = sample.r * strokeColor + sample.g * c;
 
     #ifdef HSV
         vec3 hsv = rgb2hsv(c.rgb);
@@ -174,7 +155,7 @@ let text_fs_code = `
         c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
     #endif
         
-        gl_FragColor = vec4(c.rgb, a * c.a * alpha);
+        gl_FragColor = vec4(c.rgb, c.a * alpha);
         if (gl_FragColor.a < 0.02) discard;
     }
 `;

@@ -125,8 +125,7 @@ impl<C: Context + Share> ClipSys<C>{
                 ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
                 Arc::new(ubo)
             });
-            
-            // println!("clip--------------------------------{:?}", render_obj.context);
+
             // 重新创建渲染管线
             let pipeline = engine.create_pipeline(
                 render_obj.pipeline.start_hash,
@@ -184,8 +183,6 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             &(self.render_target.clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
             &(Arc::new(viewport) as Arc<dyn AsRef<RenderBeginDesc>>)
         );
-
-        println!("overflow:{:?}", **overflow);
 
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
@@ -287,7 +284,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
                     //移除宏
                     render_obj.defines.remove_item(&CLIP);
                     
-                    println!("clip--------------------------------{:?}", render_obj.context);
                     // 重新创建渲染管线
                     let pipeline = engine.create_pipeline(
                         render_obj.pipeline.start_hash,

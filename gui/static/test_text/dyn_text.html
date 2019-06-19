@@ -90,10 +90,11 @@
             var ce = Module._create_text_node(gui);
             window.__jsObj = "common";
             Module._set_font_family(gui, ce);
+            
             Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
             window.__jsObj = "逋逋";
             Module._set_text_content(gui, ce); // 文字内容
-            Module._set_letter_spacing(gui, ce, 5); // 字符间距
+            // Module._set_letter_spacing(gui, ce, 5); // 字符间距
             Module._append_child(gui, ce, body);
             
 

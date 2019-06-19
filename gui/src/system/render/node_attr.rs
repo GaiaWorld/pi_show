@@ -141,7 +141,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
             start_hash = 1;
         }
 
-        // println!("render_obj is_opacity id: {}, is_opacity: {:?}", render_obj.context, render_obj.is_opacity);
         if !render_obj.is_opacity || defines_change {   
             let pipeline = &render_obj.pipeline;
             let mut bs = pipeline.bs.clone();
@@ -179,7 +178,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                 if render_obj.is_opacity == false {
                     Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
                     Arc::make_mut(&mut ds).set_write_enable(false);
-                    // println!("is_opacity false---------------------{}", render_obj.context);
                     let pipeline = engine.create_pipeline(
                         1,
                         &pipeline.vs,
@@ -194,7 +192,6 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                 } else {
                     Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
                     Arc::make_mut(&mut ds).set_write_enable(true);
-                    // println!("is_opacity true---------------------{}", render_obj.context);
                     let pipeline = engine.create_pipeline(
                         0,
                         &pipeline.vs,
@@ -271,7 +268,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             let ubos = &mut render_obj.ubos;
             Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
             debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
-            // println!("xxxxxxxxxxx, z_depth: {:?}, id: {}", render_obj.depth + render_obj.depth_diff, render_obj.context);
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }
     }
@@ -323,7 +319,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, HSV, ModifyEvent> for N
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        println!("HSV modify------------------------------{:?}", hsv);
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 1.0) {
             for id in obj_ids.iter() {
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
@@ -370,10 +365,8 @@ fn add_or_modify_hsv<C: Context + Share>(hsv: &HSV, render_obj: &mut RenderObj<C
     // 插入裁剪ubo 插入裁剪宏
     ubos.entry(HSV_MACRO.clone()).and_modify(|hsv_ubo: &mut Arc<Uniforms<C>>|{
         Arc::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, cal_hue(hsv.h), hsv.s, hsv.v - 1.0);
-        println!("HSV modify1------------------------------{:?}", hsv);
         debug_println!("id: {}, hsv: {:?}", id, hsv);
     }).or_insert_with(||{
-        println!("HSV modify2------------------------------{:?}", hsv);
         defines.push(HSV_MACRO.clone());
         define_change = true;
         let mut hsv_ubo = engine.gl.create_uniforms();

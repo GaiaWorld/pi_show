@@ -21,6 +21,7 @@ use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
+use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TEXT_FS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use util::res_mgr::Res;
@@ -159,17 +160,32 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
         let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
-        match font_sheet.get_first_font(&font.family) {
+        let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
+                let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
+                    let mut s = SamplerDesc::default();
+                    s.min_filter = TextureFilterMode::Nearest;
+                    s.mag_filter = TextureFilterMode::Nearest;
+                    let hash = sampler_desc_hash(&s);
+                    match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
+                        Some(r) => r.clone(),
+                        None => {
+                            let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                            engine.res_mgr.create::<SamplerRes<C>>(res)
+                        }
+                    }
+                } else {
+                    self.default_sampler.clone().unwrap()
+                };
                 common_ubo.set_sampler(
                     &TEXTURE,
-                    &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                    &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
                     &(r.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
+                r.get_dyn_type()
             },
-            None => debug_println!("font is not exist: {}", font.family.as_str())
-        };
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+            None => { debug_println!("font is not exist: {}", font.family.as_str()); 0 }
+        }; 
 
         match &text_style.color {
             Color::RGBA(c) => {
@@ -184,22 +200,34 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
             },
         }
 
-        let pipeline = engine.create_pipeline(
-            1,
-            &TEXT_VS_SHADER_NAME.clone(),
-            &TEXT_FS_SHADER_NAME.clone(),
-            defines.as_slice(),
-            self.rs.clone(),
-            self.bs.clone(),
-            self.ss.clone(),
-            self.ds.clone()
-        );
-        
-        // let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
-        //     false
-        // }else {
-        //     true
-        // };
+        let pipeline;
+        if dyn_type == 0 {
+            pipeline = engine.create_pipeline(
+                1,
+                &TEXT_VS_SHADER_NAME.clone(),
+                &TEXT_FS_SHADER_NAME.clone(),
+                defines.as_slice(),
+                self.rs.clone(),
+                self.bs.clone(),
+                self.ss.clone(),
+                self.ds.clone()
+            );
+        }else {
+            common_ubo.set_float_4(&STROKE_COLOR, 1.0, 1.0, 1.0, 1.0);
+            pipeline = engine.create_pipeline(
+                1,
+                &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+                &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                defines.as_slice(),
+                self.rs.clone(),
+                self.bs.clone(),
+                self.ss.clone(),
+                self.ds.clone()
+            );
+        }
+
+        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+
         let render_obj: RenderObj<C> = RenderObj {
             depth: z_depth + 0.2,
             depth_diff: 0.2,
@@ -253,11 +281,12 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
-        &'a MultiCaseImpl<Node, Font>,
+        &'a MultiCaseImpl<Node, Font>
     );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (font_sheet, fonts) = read;
+        let (render_objs, engine) = write;
         if let Some(item) = self.render_map.get_mut(event.id) {
             let font = unsafe { fonts.get_unchecked(event.id) };
             let first_font = match font_sheet.get_first_font(&font.family) {
@@ -271,9 +300,24 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
             let common_ubo = Arc::make_mut(common_ubo);
+            let sampler = if render_obj.pipeline.vs == CANVAS_TEXT_VS_SHADER_NAME.clone() && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
+                let mut s = SamplerDesc::default();
+                s.min_filter = TextureFilterMode::Nearest;
+                s.mag_filter = TextureFilterMode::Nearest;
+                let hash = sampler_desc_hash(&s);
+                match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
+                    Some(r) => r.clone(),
+                    None => {
+                        let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                        engine.res_mgr.create::<SamplerRes<C>>(res)
+                    }
+                }
+            } else {
+                self.default_sampler.clone().unwrap()
+            };
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
                 &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
             );
 
@@ -431,6 +475,12 @@ struct Item {
 
 fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>) {
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    if &render_obj.pipeline.vs == &CANVAS_TEXT_VS_SHADER_NAME.clone() {
+        let mut common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+        let color = &text_style.stroke.color;
+        Arc::make_mut(&mut common_ubo).set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
+        return;
+    }
     if text_style.stroke.width == 0.0 {
         //  删除边框的宏
         match render_obj.defines.remove_item(&STROKE) {

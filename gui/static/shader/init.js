@@ -34,7 +34,17 @@ var __jsObj = text_fs_shader_name;
 var __jsObj1 = text_fs_code;
 Module._set_shader(engine);
 
-// 设置文字shader
+// 设置Canvas文字shader
+var __jsObj = canvas_text_vs_shader_name;
+var __jsObj1 = canvas_text_vs_code;
+Module._set_shader(engine);
+
+var __jsObj = canvas_text_fs_shader_name;
+var __jsObj1 = canvas_text_fs_code;
+Module._set_shader(engine);
+
+
+// 设置裁剪shader
 var __jsObj = clip_vs_shader_name;
 var __jsObj1 = clip_vs_code;
 Module._set_shader(engine);
