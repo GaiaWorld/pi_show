@@ -9,7 +9,7 @@ use atom::Atom;
 use render::res::TextureRes;
 use util::res_mgr::Res;
 // use font::FontMeasure;
-pub const FONT_FACTOR: f32 = 1.3198;
+// pub const FONT_FACTOR: f32 = 1.3198;
 
 pub trait SdfFont {
     type Ctx: Context + 'static;
@@ -82,9 +82,12 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
-        let font_size = (font_size * FONT_FACTOR).round();
+        println!("measure: {:?}", c);
         match self.glyph_table.get(&c) {
-            Some(glyph) => font_size/self.font_size*glyph.advance,
+            Some(glyph) => {
+                println!("font_size: {}, self.font_size: {}, glyph.advance: {}", font_size, self.font_size, glyph.advance);
+                font_size/self.font_size*glyph.advance
+            },
             None => {
                 0.0
                 // let glyph = self.generator.gen(self.name.as_ref(), c);
@@ -261,7 +264,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         offset += 8;
 
         if self.font_size == 0.0 {
-            self.line_height;
+            self.font_size = self.line_height;
         }
 
         println!("offsetxxx: {:?}, stroke_width: {}, font_size: {},", offset, self.stroke_width, self.font_size);
