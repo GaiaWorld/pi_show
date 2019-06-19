@@ -447,7 +447,6 @@ fn look_text(world_id: u32, node: usize, text: &str){
             let chars: Vec<u32> = unsafe {transmute(chars)};
         
             if r.get_dyn_type() == 0 {
-                println!("r.get_dyn_type() == 0 ---------------------------");
                 let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
                 for v in gl.into_iter() {
                     r.add_glyph(v.id, v);
