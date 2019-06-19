@@ -9,6 +9,7 @@ use atom::Atom;
 use render::res::TextureRes;
 use util::res_mgr::Res;
 // use font::FontMeasure;
+pub const FONT_FACTOR: f32 = 1.3198;
 
 pub trait SdfFont {
     type Ctx: Context + 'static;
@@ -22,6 +23,8 @@ pub trait SdfFont {
     fn atlas_width(&self) -> usize;
 
     fn atlas_height(&self) -> usize;
+
+    fn line_height(&self) -> f32;
 
     fn font_size(&self) -> f32;
     
@@ -72,14 +75,16 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     dyn_type: usize,
     curr_uv: (f32, f32),
     stroke_width: f32,
+    font_size: f32,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
     type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
+        let font_size = (font_size * FONT_FACTOR).round();
         match self.glyph_table.get(&c) {
-            Some(glyph) => font_size/self.line_height*glyph.advance,
+            Some(glyph) => font_size/self.font_size*glyph.advance,
             None => {
                 0.0
                 // let glyph = self.generator.gen(self.name.as_ref(), c);
@@ -146,8 +151,12 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         self.dyn_type
     }
 
-    fn font_size(&self) -> f32 {
+    fn line_height(&self) -> f32 {
         self.line_height
+    }
+
+    fn font_size(&self) -> f32 {
+        self.font_size
     }
 
     fn curr_uv(&self) -> (f32, f32) {
@@ -182,6 +191,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             dyn_type: dyn_type,
             curr_uv: (0.0, 0.0),
             stroke_width: 0.0,
+            font_size: 0.0,
         }
     }
 
@@ -205,6 +215,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             dyn_type: 0,
             curr_uv: (0.0, 0.0),
             stroke_width: 0.0,
+            font_size: 0.0,
         }
     }
 }
@@ -231,22 +242,29 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         // }
         self.name = Atom::from(name_str);
 
+        
         self.line_height = value.get_u8(offset) as f32;
         offset += 1;
+        println!("line_height{:?}", self.line_height);
 
         self.atlas_width = value.get_lu16(offset) as usize;
         offset += 2;
         self.atlas_height = value.get_lu16(offset) as usize;
         offset += 2;
         // padding
-        self.stroke_width = value.get_u8(offset) as f32; // stroke_width使用padding位置
+        self.font_size = value.get_u8(offset) as f32;
+        self.stroke_width = value.get_u8(offset + 2) as f32; // stroke_width使用padding位置
         value.get_lu16(offset) as f32;
         value.get_lu16(offset) as f32;
         value.get_lu16(offset) as f32;
         value.get_lu16(offset) as f32;
         offset += 8;
 
-        // println!("value: {:?}", value);
+        if self.font_size == 0.0 {
+            self.line_height;
+        }
+
+        println!("offsetxxx: {:?}, stroke_width: {}, font_size: {},", offset, self.stroke_width, self.font_size);
         //字符uv表
         loop {
 

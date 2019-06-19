@@ -2,8 +2,7 @@ use std::mem::{transmute};
 use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
-use stdweb::web::{ TypedArray, CanvasRenderingContext2d };
-use stdweb::web::html_element::CanvasElement;
+use stdweb::web::{ TypedArray };
 use stdweb::{Object, UnsafeTypedArray};
 
 use atom::Atom;
@@ -16,8 +15,9 @@ use single::{ RenderObjs, DefaultTable };
 use entity::Node;
 use render::res::{ TextureRes, Opacity };
 use render::engine::Engine;
-use font::sdf_font::{DefaultSdfFont, Glyph, SdfFont};
+use font::sdf_font::{DefaultSdfFont, Glyph, SdfFont, FONT_FACTOR};
 use font::font_sheet::FontSheet;
+use system::util::find_item_from_vec;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
 #[macro_use()]
@@ -242,7 +242,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     let mut sdf_font = DefaultSdfFont::<WebGLContextImpl>::new(texture_res.clone(), dyn_type as usize);
     // println!("sdf_font parse start");
     sdf_font.parse(cfg.as_slice()).unwrap();
-    // println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
+    println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
     font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
 }
@@ -338,6 +338,35 @@ pub fn update_font_texture(world: u32){
     };
 }
 
+// __jsObj: canvas
+fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32, v: u32, width: u32, height: u32) {
+    let world = unsafe {&mut *(world as usize as *mut World)};
+    let font_name = Atom::from(font_name);
+    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
+    let font_sheet = font_sheet.lend_mut();
+    // println!("update_font_texture, font_name: {:?}", font_name);
+    let src = match font_sheet.get_src(&font_name) {
+        Some(r) => r,
+        None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
+    };
+
+    if chars.len() == 0 {
+        return;
+    }
+
+    // 优化， getImageData性能不好， 应该直接更新canvas， TODO
+    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u}, @{v}, @{width}, @{height}).data.buffer);} ) {
+        Ok(data) => {
+            let data = data.to_vec();
+            src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
+            let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
+            let render_objs = render_objs.lend_mut();
+            render_objs.get_notify().modify_event(1, "", 0);
+        },
+        Err(_) => panic!("update_font_texture error"),
+    };
+}
+
 // pub struct FontGenerator;
 
 // impl MSdfGenerator for FontGenerator{
@@ -385,6 +414,7 @@ fn look_text(world_id: u32, node: usize, text: &str){
     let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
     let font_sheet = font_sheet.lend_mut();
 
+    println!("look_text-----------------------{:?}", &font.family);
     match font_sheet.get_first_font(&font.family) {
         Some(r) => {
             let mut chars: Vec<char> = text.chars().collect();
@@ -396,129 +426,173 @@ fn look_text(world_id: u32, node: usize, text: &str){
 
                 match r.get_glyph(&chars[i]) {
                     Some(_g) => {chars.swap_remove(i);},
-                    None => i += 1,
+                    None => {
+                        let mut is_remove = false;
+                        for j in 0..i {
+                            if chars[j] == chars[i] {
+                                chars.swap_remove(i);
+                                is_remove = true;
+                                break;
+                            }
+                        }
+                        if !is_remove {
+                            i += 1;
+                        }
+                    },
                 }
             }
             if chars.len() == 0 {
                 return;
             }
             let chars: Vec<u32> = unsafe {transmute(chars)};
-            let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
-
-            for v in gl.into_iter() {
-                r.add_glyph(v.id, v);
-            }
+        
+            if r.get_dyn_type() == 0 {
+                let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
+                for v in gl.into_iter() {
+                    r.add_glyph(v.id, v);
+                }
+            } else {
+                println!("gen_canvas_text-----------------------");
+                gen_canvas_text(world_id, &r, &chars)
+            } 
         },
         None => ()
     }
 }
 
 
-// // 生成canvas字体
-// fn gen_canvas_text(font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
-//     let font_name = font.name().as_ref();
-//     let canvas: CanvasElement = js!{
-//         var c = document.createElement("canvas");
-//         c.font = @{font_name};
-//         return c;
-//     }.try_into().unwrap();
-//     let ctx: CanvasRenderingContext2d = js! {
-//         return @{canvas}.getContext("'2d'");
-//     }.try_into().unwrap();
-//     calc_canvas_text(&ctx, font, chars);
+// 生成canvas字体
+fn gen_canvas_text(world: u32, font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+    println!("gen_canvas_text1-----------------------");
+    let name = font.name();
+    let font_name = name.as_ref();
+    let c: Object = js!{
+        var c = document.createElement("canvas");
+        var ctx = c.getContext("2d");
+        ctx.font = @{font_name};
+        return {canvas: c, ctx: ctx};
+    }.try_into().unwrap();
+    let info = calc_canvas_text(&c, font, chars);
 
-//     draw_canvas_text(ctx, font, chars);
-//     // canvas.width = 16;
-// 	// 	canvas.height = 16;
-// }
+    draw_canvas_text(world, font_name, font.stroke_width(), font.line_height(), chars, info);
+}
 
-fn draw_canvas_text(ctx: &CanvasRenderingContext2d, font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height: f32, chars: &Vec<u32>, info: Vec<TextInfo>) {
+    println!("draw_canvas_text-----------------------");
+    let mut i = 0;
+    for text_info in info.iter() {
+        let c: Object = js!{
+            var canvas = document.createElement("canvas");
+            canvas.width = @{text_info.end.u - text_info.start.u};
+            canvas.height = @{text_info.end.v - text_info.start.v};
+            var ctx = canvas.getContext("2d");
+            ctx.font = @{font_name};       
+            return {canvas: canvas, ctx: ctx};
+        }.try_into().unwrap();
 
-	// calcText(cfg);
-
-	// canvas.width = cfg.width;
-	// canvas.height = cfg.height;
-	// const ctx = canvas.getContext('2d');
-	// ctx.font = cfg.fontCfg.font;
-	// ctx.textBaseline = 'top';
-	// if (cfg.background) {
-	// 	ctx.fillStyle = getStyle(ctx, cfg.background, 0, 0, cfg.width, cfg.height);
-	// 	ctx.fillRect(0, 0, cfg.width, cfg.height);
-	// }
-	// if (cfg.strokeColor) {
-	// 	ctx.save();
-	// 	setShadow(ctx, cfg.shadow);
-	// 	ctx.lineWidth = cfg.strokeWidth;
-	// 	ctx.strokeStyle = getStyle(ctx, cfg.strokeColor, 0, 0, cfg.width, cfg.height);
-	// 	if (isErgodicDraw(cfg)) {
-	// 		const arr = cfg.chars;
-	// 		if (isString(ctx.strokeStyle)) {
-	// 			for (let i = 0; i < arr.length; i++) {
-	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
-	// 				ctx.strokeText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
-	// 			}
-	// 		} else {
-	// 			for (let i = 0; i < arr.length; i++) {
-	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
-	// 				ctx.strokeStyle = getStyle(ctx, cfg.strokeColor, uv.u1, uv.v1, uv.u2 - uv.u1, uv.v2 - uv.v1);
-	// 				ctx.strokeText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
-	// 			}
-	// 		}
-	// 	} else {
-	// 		ctx.strokeText(cfg.text, cfg.offsetX, cfg.offsetY);
-	// 	}
-	// }
-	// if (cfg.color) {
-	// 	if (!cfg.strokeColor) {
-	// 		setShadow(ctx, cfg.shadow);
-	// 	} else {
-	// 		ctx.restore();
-	// 	}
-	// 	ctx.fillStyle = getStyle(ctx, cfg.color, 0, 0, cfg.width, cfg.height);
-	// 	if (isErgodicDraw(cfg)) {
-	// 		const arr = cfg.chars;
-	// 		if (isString(ctx.fillStyle)) {
-	// 			for (let i = 0; i < arr.length; i++) {
-	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
-	// 				ctx.fillText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
-	// 			}
-	// 		} else {
-	// 			for (let i = 0; i < arr.length; i++) {
-	// 				const uv = cfg.charUV[cfg.isCommon ? arr[i] : i];
-	// 				ctx.fillStyle = getStyle(ctx, cfg.color, uv.u1, uv.v1, uv.u2 - uv.u1, uv.v2 - uv.v1);
-	// 				ctx.fillText(arr[i], cfg.offsetX + uv.u1, cfg.offsetY + uv.v1);
-	// 			}
-	// 		}
-	// 	} else {
-	// 		ctx.fillText(cfg.text, cfg.offsetX, cfg.offsetY);
-	// 	}
-    // }
-
-	// return [canvas, ctx.getImageData(0, 0, cfg.width, cfg.height).data.buffer, cfg];
+        js!{
+            var ctx = @{&c}.ctx;
+            ctx.fillStyle = "#000";
+		    ctx.fillRect(0, 0, @{text_info.end.u - text_info.start.u}, @{text_info.end.v - text_info.start.v});
+        }
+        if stroke_width > 0.0 {
+            js!{
+                var ctx = @{&c}.ctx;
+                ctx.lineWidth = @{ stroke_width };
+                ctx.strokeStyle = "#ff0000";
+                ctx.fillStyle = "#00ff00";
+                ctx.textBaseline = "bottom";
+            }
+            for uv in text_info.list.iter() {
+                js!{
+                    console.log("draw------------------------", @{uv.u}, @{uv.v + line_height});
+                    @{&c}.ctx.strokeText(String.fromCharCode(@{&chars[i]}), @{uv.u}, @{uv.v + line_height});
+                    @{&c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u}, @{uv.v + line_height});
+                }
+                i += 1;
+            }
+        } else {
+            js!{
+                var ctx = @{&c}.ctx;
+                ctx.lineWidth = @{ stroke_width };
+                ctx.fillStyle = "#00ff00";
+                ctx.textBaseline = "bottom";
+            }
+            for uv in text_info.list.iter() {
+                js!{
+                    console.log("draw------------------------", @{uv.u}, @{uv.v + line_height});
+                    @{&c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u}, @{uv.v + line_height});
+                }
+                i += 1;
+            }
+        }
+        
+        js!{
+            window.__jsObj = @{&c}.canvas;
+            console.log("appendChild----------------------");
+            document.body.append(@{&c}.canvas);// 查看效果 
+        }
+        update_font_texture1(
+            world,
+            font_name.to_string(),
+            chars,
+            text_info.start.u as u32,
+            text_info.start.v as u32,
+            (text_info.end.u - text_info.start.u) as u32,
+            (text_info.end.v - text_info.start.v) as u32
+        );
+    }
 }
 
 fn calc_canvas_text(
-    ctx: &CanvasRenderingContext2d,
+    cc: &Object,
     font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>,
     chars: &Vec<u32>,
-){
+) -> Vec<TextInfo>{
     let max_width = font.atlas_width() as f32;
     let max_height = font.atlas_width() as f32;
     let stroke_width = font.stroke_width() * 2.0;
     let (mut u, mut v) = font.curr_uv();
-    let font_size = font.font_size() + stroke_width;
+    let line_height = font.line_height() + stroke_width;
+    let mut arr = Vec::new();
 
+    let mut info = TextInfo{
+        list: Vec::new(),
+        start: UV{u: u, v: v},
+        end: UV{u: u, v: v + line_height},
+    };
+
+    println!("len----------------------{}", chars.len());
     for c in chars.iter() {
-        let w = TryInto::<u32>::try_into(js! { return @{ctx}.measureText(String.fromCharCode(@{c})).width; }).unwrap() as f32;
-
+        let w = TryInto::<u32>::try_into(js! { return @{cc}.ctx.measureText(String.fromCharCode(@{c})).width + @{stroke_width}; }).unwrap() as f32;
+        
+        println!("w----------------------w: {}, max_width: {}, u: {}", w, max_width, u);
         // 换行
         if w > max_width - u {
             u = 0.0;
-            v += font_size;
-            if v + font_size > max_height {
+            v += line_height;
+            if v + line_height > max_height {
+                println!("w----------------------v: {}, line_height: {}, max_height: {}", v, line_height, max_height);
                 break;
             }
+            
+            if info.start.u != 0.0 && info.list.len() > 0 {
+                arr.push(info);
+                info = TextInfo{
+                    list: Vec::new(),
+                    start: UV{u: u, v: v},
+                    end: UV{u: u, v :v + line_height},
+                };
+            } else {
+                info.end.v += line_height;
+            }
         }
+
+        if info.end.u < u + w {
+            info.end.u = u + w;
+        }
+        println!("info.list.push----------------------{:?}", UV{u, v});
+        info.list.push(UV{u, v});
 
         font.add_glyph(unsafe{transmute(*c)}, Glyph{
             id: unsafe{transmute(*c)},
@@ -527,9 +601,27 @@ fn calc_canvas_text(
             ox: 0.0, 
             oy: 0.0,
             width: w, 
-            height: font_size,
+            height: line_height,
             advance: w,
         });
         u += w;
-    } 
+    }
+    if info.list.len() > 0 {
+        println!("info.list----------------------{:?}", UV{u, v});
+        arr.push(info);
+    }
+    arr
+}
+
+
+struct TextInfo {
+    list: Vec<UV>,
+    start: UV,
+    end: UV,
+}
+
+#[derive(Debug)]
+struct UV {
+    u: f32,
+    v: f32,
 }

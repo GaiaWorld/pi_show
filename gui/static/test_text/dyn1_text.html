@@ -20,122 +20,63 @@
     <script src="../shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
-        var cfg = new Map(), write = {start_x: 1, start_y: 1, width: 512, step: 16}, canvas, cfg_u8;
+        var offset = 0;
+
+        var version = "GLYPL_TABLE";
+        var font = "normal 400 32px arial";
+
+        var cfg_u8 = new Uint8Array(53);
+        for (var i = 0; i < version.length; i++) {
+            cfg_u8[offset++] = version.charCodeAt(i);
+        }
+        offset++;
+
+        cfg_u8[offset++] = font.length;    
+        for (var i = 0; i < font.length; i++) {
+            cfg_u8[offset++] = font.charCodeAt(i);
+        }
+        cfg_u8[offset++] = 36; // lineheight
+        
+        console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxx", cfg_u8);
+
+        var buffer1 = new ArrayBuffer(12);
+        var u16 = new Uint16Array(buffer1);
+        u16[0] = 512; //width
+        u16[1] = 512; //height
+        u16[2] = 32; // font_size
+        u16[3] = 3; //stroke_width 
+        u16[4] = 0; 
+        u16[5] = 0; 
+        cfg_u8.set(new Uint8Array(buffer1), offset);
+        console.log("yyyyyyyyyyyyyyyyyyyyyyyy", cfg_u8, offset);
 
         var body = Module._create_node(gui);
         Module._set_width(gui, body, 1000);
         Module._set_height(gui, body, 700);
         Module._append_child(gui, body, 1);
+
+        window.__jsObj = cfg_u8;
+        window.__jsObj2 = "36779_37232.png";
+        window.__jsObj1 = document.createElement("canvas");
+        window.__jsObj1.width = 512;
+        window.__jsObj1.height = 512;
+        var sdf_font = Module._add_sdf_font_res(gui, 16); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
+
+        window.__jsObj = "common"; //font_face_name
+        window.__jsObj1 = "normal 400 32px arial";
+        Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
+
+        var ce = Module._create_text_node(gui);
+        window.__jsObj = "common";
+        Module._set_font_family(gui, ce);
+        Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        window.__jsObj = "逋逋";
+        Module._set_text_content(gui, ce); // 文字内容
+        Module._set_letter_spacing(gui, ce, 5); // 字符间距
+        Module._append_child(gui, ce, body);
         
-        window.__gen_font = function (world, name, chars) {
-            
-            var buffer = new ArrayBuffer(12 * chars.length);
-            var draw_chars = new Array();
-            var ctx = canvas.getContext("2d");
-            for (var i = 0; i < chars.length; i++) {
-                let code = chars[i];
-                var glyph = cfg.get(code);
-                if (!glyph) {
-                    glyph = {
-                        id: code,
-                        x: write.start_x,
-                        y: write.start_y,
-                        xoffset: 0,
-                        yoffset: 0,
-                        width: write.step,
-                        height: write.step,
-                        xadvance: 0,
-                    }
-                    cfg.set(code, glyph);
-                    ctx.fillText(String.fromCharCode(code), glyph.x, glyph.y);
-                    write.start_x += write.step;
-                    if(write.start_x >= write.width) {
-                        write.start_x = 1;
-                        write.start_y += write.step;
-                    }
-                }
-                var u16 = new Uint16Array(buffer, 12*i);
-                var u8 = new Uint8Array(buffer, 12*i);
-                u16[0] = glyph.id;
-                u16[1] = glyph.x;
-                u16[2] = glyph.y;
-                u8[6] = glyph.xoffset;
-                u8[7] = glyph.yoffset;
-                u8[8] = glyph.width;
-                u8[9] = glyph.height;
-                u8[10] = glyph.xadvance;
-                draw_chars.push(code);
-            }
-            var u8 = new Uint8Array(buffer);
-            var chars1 = new Uint32Array(draw_chars);
-            setTimeout(() => {
-                window.__jsObj = canvas;
-                window.__jsObj1 = name;
-                window.__jsObj2 = chars1;
-                Module._update_font_texture(gui);
-                Module._render(gui);   
-            }, 0);
-            return u8;
-        }
 
-        function load_ok() {
-
-            window.__jsObj = cfg_u8;
-            window.__jsObj2 = "36779_37232.png";
-            window.__jsObj1 = document.createElement("canvas");
-            window.__jsObj1.width = 512;
-            window.__jsObj1.height = 512;
-            canvas = window.__jsObj1;
-            var ctx = canvas.getContext("2d");
-            ctx.font = "16px 宋体";
-            ctx.textBaseline = 'top';
-            // canvas.getContext("2d").drawImage(image, 0, 0, 512, 512, 0, 0, 512, 512);
-            var sdf_font = Module._add_sdf_font_res(gui, 16); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
-
-            window.__jsObj = "common"; //font_face_name
-            window.__jsObj1 = "simhei";
-            Module._add_font_face(gui, 0, 32, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
-
-            var ce = Module._create_text_node(gui);
-            window.__jsObj = "common";
-            Module._set_font_family(gui, ce);
-            Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-            window.__jsObj = "逋逋";
-            Module._set_text_content(gui, ce); // 文字内容
-            Module._set_letter_spacing(gui, ce, 5); // 字符间距
-            Module._append_child(gui, ce, body);
-            
-
-            Module._render(gui);   
-        }
-            
-
-        function newXMLHttpRequest() {
-            var xmlhttp;
-            if (window.XMLHttpRequest)
-            {
-                //  IE7+, Firefox, Chrome, Opera, Safari 浏览器执行代码
-                xmlhttp=new XMLHttpRequest();
-            }
-            else
-            {
-                // IE6, IE5 浏览器执行代码
-                xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
-            }
-            return xmlhttp;
-        }
-
-        var xmlhttp1 = newXMLHttpRequest();
-        xmlhttp1.open("GET","36779_37232.json.bin",true);
-        xmlhttp1.onreadystatechange=function(){
-            if (xmlhttp1.readyState==4 && xmlhttp1.status==200){
-                cfg_u8 = new Uint8Array(xmlhttp1.response, 0, 32);
-                load_ok()
-            }
-        }
-        xmlhttp1.responseType = 'arraybuffer';
-        xmlhttp1.send();
-            
+        // Module._render(gui);          
     </script> 
 </body>
 </html>
