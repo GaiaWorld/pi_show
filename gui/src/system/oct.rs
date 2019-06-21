@@ -43,8 +43,9 @@ impl OctSys {
         let origin = transform.origin.to_value(layout.width, layout.height);
         let aabb = cal_bound_box((layout.width, layout.height), world_matrix, &origin);
         
-        let notify = octree.get_notify();
-        octree.update(id, aabb, Some(notify));
+        // println!("aabb------------------------{:?}", aabb);
+        // let notify = octree.get_notify();
+        // octree.update(id, aabb, Some(notify));
     }
 }
 

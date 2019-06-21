@@ -47,7 +47,7 @@ opt-level = "z"
 panic = 'abort'
 codegen-units = 1
 
-[features]
-default = ["web"]
-web = []
-print = []
+# [features]
+# default = ["web"]
+# web = []
+# print = []

@@ -72,7 +72,7 @@ pub mod render;
 pub mod bind;
 pub mod util;
 pub mod world;
-// pub mod ordered_float;
+pub mod test_effect;
 
 pub mod entity{
     pub struct Node;

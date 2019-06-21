@@ -112,36 +112,36 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
+    world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
     world.register_system(LYOUT_N.clone(), CellLayoutSys::new(LayoutSys));
     world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<C>::new()));
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
-    world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
-    world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
-    world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
-    world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
-    world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C>::new(CharBlockSys::new()));
-    world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<C>::new(CharBlockShadowSys::new()));
-    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
-    world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
-    world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));
-    world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::<C>::new()));
-    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
-    world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
-    world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::<C>::new()));
+    // world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
+    // world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
+    // world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
+    // world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C>::new(CharBlockSys::new()));
+    // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<C>::new(CharBlockShadowSys::new()));
+    // world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
+    // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
+    // world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));
+    // world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::<C>::new()));
+    // world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
+    // world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
+    // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::<C>::new()));
     
-    // let mut dispatch = SeqDispatcher::default();
-    // dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
-    // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
-
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
-    let mut dispatch = SeqDispatcher::default();
-    dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
-    world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
+
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
+    // world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
     // dispatch.build("z_index_sys, layout_sys, world_matrix_sys ".to_string(), &world);
@@ -149,6 +149,8 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world
 }
 
+// rust 世界矩阵run， 10000节点， 980微秒
+// rust cal_oct， 10000节点， 980微秒
 #[test]
 fn test1(){
     test_time();
@@ -215,13 +217,13 @@ fn test_time() {
     println!("---------------------------------------------");
     let node4 = create(&world);
     let now = now_microsecond();
-    for _ in 1..100 {
+    for _ in 1..10000 {
         create(&world);
     }
     println!("create node------------: {}", now_microsecond() - now);
 
     let now = now_microsecond();
-    for i in 1..100 {
+    for i in 1..10000 {
         append_child(&world, i + 100, node3 as u32);
     }
     println!("append node------------: {}", now_microsecond() - now);
