@@ -5,6 +5,7 @@
 
 extern crate atom;
 extern crate hal_core;
+extern crate fnv;
 
 mod context;
 mod geometry;
@@ -12,7 +13,11 @@ mod render_target;
 mod sampler;
 mod texture;
 
-use self::context::{NullContextImpl};
+pub use context::*;
+pub use geometry::*;
+pub use render_target::*;
+pub use sampler::*;
+pub use texture::*;
 
 pub fn create_hal_null() -> NullContextImpl {
     NullContextImpl::new()

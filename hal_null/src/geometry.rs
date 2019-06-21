@@ -25,7 +25,7 @@ impl Geometry for NullGeometryImpl {
     }
 
     fn set_attribute(&mut self, _name: &AttributeName, _item_count: u32, _data: Option<&[f32]>, _is_updatable: bool) -> Result<(), String> {
-        Err("not impl".to_string())
+        Ok(())
     }
      
     fn remove_attribute(&mut self, _name: &AttributeName) {
@@ -33,7 +33,7 @@ impl Geometry for NullGeometryImpl {
     }
 
     fn set_indices_short(&mut self, _data: &[u16], _is_updatable: bool) -> Result<(), String> {
-        Err("not impl".to_string())
+        Ok(())
     }
 
     fn remove_indices(&mut self) {

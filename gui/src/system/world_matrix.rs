@@ -7,13 +7,14 @@ use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, ZDepth };
+use component::calc::{ WorldMatrix };
 use single::DefaultTable;
 use system::util::get_or_default;
 use map::vecmap::{VecMap};
 
 use component::user::*;
 use entity::{Node};
+// use time::now_microsecond;
 
 #[derive(Default)]
 pub struct WorldMatrixSys{
@@ -50,7 +51,9 @@ impl WorldMatrixSys{
         layout: &MultiCaseImpl<Node, Layout>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
         default_table: &SingleCaseImpl<DefaultTable>,
-    ){
+    ){  
+        let mut count = 0;
+        // let time = now_microsecond();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
@@ -62,8 +65,11 @@ impl WorldMatrixSys{
 
             let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             let transform_value = get_or_default(parent_id, transform, default_table);
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table);
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table, &mut count);
         }
+        // if count > 0 {
+        //     println!("worldmatrix cal, count: {}, time: {}", count, now_microsecond() - time);
+        // }
         self.dirty.clear();
     }
 }
@@ -110,13 +116,13 @@ impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for WorldMatrixSys{
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for WorldMatrixSys{
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
-        self.marked_dirty(event.id, read);
-    }
-}
+// impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for WorldMatrixSys{
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+//         self.marked_dirty(event.id, read);
+//     }
+// }
 
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
@@ -157,7 +163,9 @@ fn recursive_cal_matrix(
     layout: &MultiCaseImpl<Node, Layout>,
     world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
     default_table: &SingleCaseImpl<DefaultTable>,
+    count: &mut usize,
 ){
+    *count = 1 + *count;
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
@@ -169,7 +177,6 @@ fn recursive_cal_matrix(
         let parent_layout = unsafe { layout.get_unchecked(parent) };
         let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };
         let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
-
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
@@ -178,7 +185,7 @@ fn recursive_cal_matrix(
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
-        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_table);
+        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_table, count);
     }
 }
 
@@ -190,7 +197,7 @@ impl_system!{
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, ZDepth, ModifyEvent>
+        // MultiCaseListener<Node, ZDepth, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }
@@ -203,6 +210,9 @@ use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 use atom::Atom;
 #[cfg(test)]
 use component::user::{TransformWrite, TransformFunc};
+#[cfg(test)]
+use component::calc::ZDepth;
+
 
 #[test]
 fn test(){

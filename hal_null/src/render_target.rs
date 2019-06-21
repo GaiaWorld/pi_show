@@ -1,6 +1,7 @@
 use std::sync::{Arc};
 use hal_core::{Context, RenderTarget, RenderBuffer};
 use context::{NullContextImpl};
+use texture::NullTextureImpl;
 
 pub struct NullRenderBufferImpl {
     
@@ -36,7 +37,7 @@ impl RenderTarget for NullRenderTargetImpl {
     }
 
     fn get_color_texture(&self, _index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
-        None
+        Some(Arc::new(NullTextureImpl{}))
     }
 }
 

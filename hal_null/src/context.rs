@@ -1,5 +1,5 @@
 use std::sync::{Arc};
-use std::collections::{HashMap};
+use fnv::{FnvHashMap as HashMap};
 
 use atom::{Atom};
 
@@ -47,13 +47,17 @@ impl Context for NullContextImpl {
 
     }
 
+    fn restore_state(&mut self){
+
+    }
+
     fn compile_shader(&mut self, _shader_type: ShaderType, _name: &Atom, _defines: &[Atom]) -> Result<u64, String> {
         Ok(0)
     }
 
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
-            values: HashMap::new(),
+            values: HashMap::default(),
             dirty_count: 0,
             has_texture: false,
         }

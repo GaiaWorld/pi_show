@@ -27,128 +27,128 @@ impl YgNode {
         true
     }
     pub fn set_position_type(&self, _value: YGPositionType) { 
-        unimplemented!()
+        
     }
     pub fn set_position(&self, _edge: YGEdge, _position: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_position_percent(&self, _edge: YGEdge, _position: f32) {
-        unimplemented!()
+        
     }
 
     pub fn set_align_content(&self, _value: YGAlign) {
-        unimplemented!()
+        
     }
 
     pub fn set_align_items(&self, _value: YGAlign) { 
-        unimplemented!()
+        
     }
 
     pub fn set_align_self(&self, _value: YGAlign) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_direction(&self, _value: YGFlexDirection) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_wrap(&self, _value: YGWrap) { 
-        unimplemented!()
+        
     }
     pub fn set_justify_content(&self, _value: YGJustify) {
-        unimplemented!()
+        
     }
     pub fn set_margin(&self, _edge: YGEdge, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_margin_percent(&self, _edge: YGEdge, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_margin_auto(&self, _edge: YGEdge) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_basis_auto(&self) { 
-        unimplemented!()
+        
     }
     pub fn set_overflow(&self, _value: YGOverflow) { 
-        unimplemented!()
+        
     }
 
     pub fn set_display(&self, _value: YGDisplay) { 
-        unimplemented!()
+        
     }
 
     pub fn set_flex(&self, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_basis(&self, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_basis_percent(&self, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_grow(&self, _value: f32) { 
-        unimplemented!()
+        
     }
     pub fn set_flex_shrink(&self, _value: f32) { 
-        unimplemented!()
+        
     }
 
     pub fn set_width(&self, _value: f32) { 
-        unimplemented!()
+        
     }
 
     pub fn set_width_percent(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_width_auto(&self){ 
-        unimplemented!()
+        
     }
     pub fn set_height(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_height_percent(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_height_auto(&self){ 
-        unimplemented!()
+        
     }
 
     pub fn set_min_width(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_min_width_percent(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_min_height(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_min_height_percent(&self, _value: f32){
-        unimplemented!()
+        
     }
 
     pub fn set_max_width(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_max_width_percent(&self, _value: f32){
-        unimplemented!()
+        
     }
     pub fn set_max_height(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_max_height_percent(&self, _value: f32){
-        unimplemented!()
+        
     }
 
     pub fn set_aspect_ratio(&self, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_border(&self, _edge: YGEdge, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_padding(&self, _edge: YGEdge, _value: f32){ 
-        unimplemented!()
+        
     }
     pub fn set_padding_percent(&self, _edge: YGEdge, _value: f32){
-        unimplemented!()
+        
     }
 
     pub fn set_context(&self, _context: *mut c_void){
@@ -165,58 +165,58 @@ impl YgNode {
     }
 
     pub fn get_child(&self, _index: u32) -> YgNode {
-        unimplemented!()
+        YgNode::default()
     }
 
     pub fn get_parent(&self) -> YgNode {
-        unimplemented!()
+        YgNode::default()
     }
 
     pub fn get_child_count(&self) -> u32 {
-        unimplemented!()
+        0
     }
     pub fn get_context(&self) -> *mut c_void {
-        unimplemented!()
+        1 as *mut c_void
     }
     pub fn get_bind(&self) -> *mut c_void {
-        unimplemented!()
+        1 as *mut c_void
     }
     pub fn mark_dirty(&self) { 
-        unimplemented!()
+        
     }
     pub fn is_dirty(&self) -> bool { 
-        unimplemented!()
+        false
     }
 
     pub fn calculate_layout(&self, _width: f32, _height:f32, _direction: YGDirection){
-        unimplemented!()
+        
     }
 
     pub fn calculate_layout_by_callback(&self, _width: f32, _height:f32, _direction: YGDirection, _callback: YGCalcCallbackFunc, _callback_args: *const c_void) {
-        unimplemented!()
+        
     }
 
 
     pub fn get_layout(&self) -> Layout {
-        unimplemented!()
+        Layout::default()
     }
 
     pub fn get_layout_margin(&self, _edge: YGEdge) -> f32 { 
-        unimplemented!()
+        0.0
     }
     pub fn get_layout_border(&self, _edge: YGEdge) -> f32 { 
-        unimplemented!()
+        0.0
     }
     pub fn get_layout_padding(&self, _edge: YGEdge) -> f32 { 
-        unimplemented!()
+        0.0
     }
 
     pub fn free(&self){ 
-        unimplemented!()
+        
     }
 
     pub fn free_recursive(&self) {
-        unimplemented!()
+        
     }
 }
 

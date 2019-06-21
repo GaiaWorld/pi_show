@@ -426,7 +426,6 @@ impl Transform {
         //     0.0, 0.0, 1.0, 0.0,
         //     0.0, 0.0, 0.0, 1.0,
         // );
-
         let value = self.origin.to_value(width, height);
         let mut m = Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
 
@@ -558,9 +557,7 @@ impl Show {
 
     #[inline]
     pub fn set_enable(&mut self, enable: EnableType){
-        // println!("enable1--------------------{}, {:?}, {}", self.0, ShowType::Enable as usize, enable as usize);
         self.0 = self.0 & !(ShowType::Enable as usize) | ((enable as usize) << 2);
-        println!("enable2--------------------{}", self.0);
     }
 }
 

@@ -17,8 +17,8 @@ pub struct OctSys;
 impl<'a> Runner<'a> for OctSys{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, _read: Self::ReadData, _write: Self::WriteData){
-        // write.collect(); TODO
+    fn run(&mut self, _read: Self::ReadData, oct: Self::WriteData){
+        oct.collect();
     }
 }
 

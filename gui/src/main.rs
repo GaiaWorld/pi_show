@@ -59,6 +59,9 @@ extern crate hashmap;
 extern crate hal_webgl;
 extern crate ordered_float;
 
+extern crate hal_null;
+extern crate time;
+
 pub mod system;
 pub mod component;
 pub mod single;

@@ -28,6 +28,8 @@ dirty = {path="../../pi_lib/dirty"}
 hal_core = {path="../hal_core"}
 hal_webgl = {path="../hal_webgl"}
 polygon = {path="../../pi_math/polygon"}
+time = {path="../../pi_lib/time"}
+hal_null = {path="../hal_null"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
@@ -48,3 +50,4 @@ codegen-units = 1
 [features]
 default = ["web"]
 web = []
+print = []
