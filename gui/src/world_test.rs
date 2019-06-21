@@ -130,14 +130,127 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
     world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::<C>::new()));
-
+    
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("world_matrix_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
-    let mut dispatch = SeqDispatcher::default();
-    dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
-    world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
+    // world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("z_index_sys, layout_sys, world_matrix_sys ".to_string(), &world);
+    // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
     world
+}
+
+// rust 世界矩阵run， 10000节点， 980微秒
+// rust cal_oct， 10000节点， 980微秒
+#[test]
+fn test1(){
+    test_time();
+}
+
+use hal_null::*;
+use ecs::*;
+use time::{now_microsecond, now_nanosecond};
+use std::usize::MAX as UMAX;
+use layout::YGAlign;
+
+#[allow(unused_attributes)]
+#[no_mangle]
+fn test_time() {
+    let engine = Engine::new(NullContextImpl::new());
+    let world = create_world(engine, 1000.0, 100.0);
+
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = idtree.lend_mut();
+    let node = world.create_entity::<Node>();
+    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
+    let border_radius = border_radius.lend_mut();
+    border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
+
+    let visibilitys = world.fetch_multi::<Node, Visibility>().unwrap();
+    let visibilitys = visibilitys.lend_mut();
+    visibilitys.insert(node, Visibility(true));
+
+    let ygnode = world.fetch_multi::<Node, YgNode>().unwrap();
+    let ygnode = ygnode.lend_mut();
+    let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
+    ygnode.set_width(1000.0);
+    ygnode.set_height(100.0);
+    ygnode.set_align_items(YGAlign::YGAlignFlexStart);
+
+    idtree.create(node);
+    idtree.insert_child(node, 0, 0, None);
+
+
+    let node2 = create(&world);
+    append_child(&world, node2 as u32, 1);
+    let node3 = create(&world);
+
+    let now = now_microsecond();
+    for i in 4..100 {
+        create(&world);
+    }
+    println!("create node: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    for i in 4..100 {
+        append_child(&world, i, node3 as u32);
+    }
+    println!("append node: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    append_child(&world, node3 as u32, node2 as u32);
+    println!("append node3: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    world.run(&RENDER_DISPATCH);
+    println!("run: {}", now_microsecond() - now);
+
+    println!("---------------------------------------------");
+    let node4 = create(&world);
+    let now = now_microsecond();
+    for _ in 1..10000 {
+        create(&world);
+    }
+    println!("create node------------: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    for i in 1..10000 {
+        append_child(&world, i + 100, node3 as u32);
+    }
+    println!("append node------------: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    append_child(&world, node4 as u32, node2 as u32);
+    println!("append node4------------: {}", now_microsecond() - now);
+
+    let now = now_microsecond();
+    world.run(&RENDER_DISPATCH);
+    println!("run------------: {}", now_microsecond() - now);
+}
+
+fn create(world: &World) -> usize {
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = idtree.lend_mut();
+    let node = world.create_entity::<Node>();
+    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
+    let border_radius = border_radius.lend_mut();
+    border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
+    idtree.create(node);
+    node
+}
+
+fn append_child(world: &World, child: u32, parent: u32){
+    let idtree = world.fetch_single::<IdTree>().unwrap();
+    let idtree = idtree.lend_mut();
+    let notify = idtree.get_notify();
+    idtree.insert_child(child as usize, parent as usize, 0, Some(&notify));
 }

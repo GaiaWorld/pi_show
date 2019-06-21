@@ -231,7 +231,7 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         }
         
         let geometry = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_vertex_count(32);
+        geometry.set_vertex_count(64);
         let _ = geometry.set_attribute(&AttributeName::SkinIndex, 1, Some(indexs.as_slice()), false);
         geometry.set_indices_short(indices.as_slice(), false).unwrap();
 

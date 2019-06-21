@@ -73,6 +73,7 @@ pub mod bind;
 pub mod util;
 pub mod world;
 pub mod test_effect;
+pub mod world_test;
 
 pub mod entity{
     pub struct Node;

@@ -199,3 +199,84 @@ gui.js:1 run------0
 gui.js:1 run------0
 gui.js:1 run------4
 gui.js:1 run------------: 5200
+
+
+
+// asm 10000节点
+create node------------: 45720
+gui.js:1 append node------------: 323960
+gui.js:1 append node4------------: 10
+gui.js:1 run------2240
+gui.js:1 run------100720
+gui.js:1 run------18355
+gui.js:1 run------------: 122215
+
+// asm 100节点
+create node------------: 815
+gui.js:1 append node------------: 355
+gui.js:1 append node4------------: 5
+gui.js:1 run------50
+gui.js:1 run------1439
+gui.js:1 run------381
+gui.js:1 run------------: 2599
+
+// 
+create node------------: 1190
+gui.js:1 append node------------: 770
+gui.js:1 append node4------------: 10
+gui.js:1 run------50
+gui.js:1 run------1360
+gui.js:1 run------675
+gui.js:1 run------70
+gui.js:1 run------------: 2950
+
+// asm 尺寸优先
+create node------------: 1105
+gui.js:1 append node------------: 771
+gui.js:1 append node4------------: 15
+gui.js:1 run------65
+gui.js:1 run------1390
+gui.js:1 run------610
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------4
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------10
+gui.js:1 run------5
+gui.js:1 run------4
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------------: 4670
+
+
+// asm 性能优先， 100节点
+create node------------: 575
+gui.js:1 append node------------: 320
+gui.js:1 append node4------------: 5
+gui.js:1 run------40
+gui.js:1 run------1380
+gui.js:1 run------330
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------0
+gui.js:1 run------------: 5015
+
+
+
+create node------------: 8873
+append node------------: 8925
+append node4------------: 4
+run------8840
+run------------: 8905

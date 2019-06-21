@@ -14,7 +14,7 @@ use map::vecmap::{VecMap};
 
 use component::user::*;
 use entity::{Node};
-// use time::now_microsecond;
+use time::now_microsecond;
 
 #[derive(Default)]
 pub struct WorldMatrixSys{
@@ -53,7 +53,7 @@ impl WorldMatrixSys{
         default_table: &SingleCaseImpl<DefaultTable>,
     ){  
         let mut count = 0;
-        // let time = now_microsecond();
+        let time = now_microsecond();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
@@ -67,9 +67,9 @@ impl WorldMatrixSys{
             let transform_value = get_or_default(parent_id, transform, default_table);
             recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table, &mut count);
         }
-        // if count > 0 {
-        //     println!("worldmatrix cal, count: {}, time: {}", count, now_microsecond() - time);
-        // }
+        if count > 0 {
+            println!("worldmatrix cal, count: {}, time: {}", count, now_microsecond() - time);
+        }
         self.dirty.clear();
     }
 }
@@ -169,7 +169,9 @@ fn recursive_cal_matrix(
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
-    let transform_value = get_or_default(id, transform, default_table);
+    // let transform_value = get_or_default(id, transform, default_table);
+    let transform_value = Transform::default();
+    let transform_value = &transform_value;
 
     let matrix = if parent == 0 {
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
@@ -181,6 +183,9 @@ fn recursive_cal_matrix(
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
+    let a = WorldMatrix(matrix);
+
+    *count += ((a.0).x.x) as usize;
     world_matrix.insert(id, WorldMatrix(matrix));
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
