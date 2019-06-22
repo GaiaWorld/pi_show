@@ -17,6 +17,7 @@ use ecs::{
     monitor::{CreateEvent, DeleteEvent, ModifyEvent},
     component::MultiCaseImpl,
     single::SingleCaseImpl,
+    Share,
 };
 
 use ROOT;
@@ -25,20 +26,20 @@ use component::{
     user::*,
     calc::*,
 };
-use layout::{YGDirection, YGFlexDirection, YgNode,  YGAlign, YGWrap};
+use layout::{YGDirection, YGFlexDirection, FlexNode,  YGAlign, YGWrap};
 use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
-type Read<'a, C> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, YgNode>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
-type Write<'a> = (&'a mut MultiCaseImpl<Node, CharBlock>, &'a mut MultiCaseImpl<Node, Layout>);
+type Read<'a, C, L> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, L>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
+type Write<'a, L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>);
 
-pub struct LayoutImpl<C: Context + 'static + Send + Sync> {
+pub struct LayoutImpl<C: Context + Share, L: FlexNode + Share> {
     dirty: Vec<usize>, 
     temp: Vec<usize>,
     write: usize,
-    mark: PhantomData<C>,
+    mark: PhantomData<(C, L)>,
 }
 
-impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> LayoutImpl< C, L> {
     pub fn new() -> Self{
         LayoutImpl {
             dirty: Vec::new(), 
@@ -47,7 +48,7 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
             mark: PhantomData,
         }
     }
-    fn set_dirty(&mut self, id: usize, write: &'a mut MultiCaseImpl<Node, CharBlock>) {
+    fn set_dirty(&mut self, id: usize, write: &'a mut MultiCaseImpl<Node, CharBlock<L>>) {
         match write.get_mut(id) {
         Some(node) => {
             if !node.dirty {
@@ -71,9 +72,9 @@ impl<'a, C: Context + 'static + Send + Sync> LayoutImpl< C> {
         }
     }
 }
-impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
-  type ReadData = Read<'a, C>;
-  type WriteData = Write<'a>;
+impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for LayoutImpl< C, L> {
+  type ReadData = Read<'a, C, L>;
+  type WriteData = Write<'a, L>;
 
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
         for id in self.dirty.iter() {
@@ -92,16 +93,16 @@ impl<'a, C: Context + 'static + Send + Sync> Runner<'a> for LayoutImpl< C> {
             let layout = unsafe{ write.1.get_unchecked(ROOT)};
             (layout.width, layout.height)
         };
-        self.write= &mut write as *mut Write<'a> as usize;
+        self.write= &mut write as *mut Write<'a, L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C>, self as *const LayoutImpl<C> as *const c_void);
+        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C, L>, self as *const LayoutImpl<C, L> as *const c_void);
   }
 }
 
 // 监听text属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         // println!("listen dirty------------------------{}", event.id);
@@ -109,45 +110,45 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, C
     }
 }
 // 监听text属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         self.set_dirty(event.id, write)
     }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         self.set_dirty(event.id, write)
     }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         self.set_dirty(event.id, write)
     }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         self.set_dirty(event.id, write)
     }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         self.set_dirty(event.id, write)
@@ -155,9 +156,9 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, Font, M
 }
 
 // 监听CharBlock的删除
-impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for LayoutImpl< C> {
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock>;
+    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
         // 删除脏列表中的CharBlock
@@ -172,12 +173,12 @@ impl<'a, C: Context + 'static + Send + Sync> MultiCaseListener<'a, Node, CharBlo
 
 //================================ 内部静态方法
 //回调函数
-extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callback_args: *const c_void) {
+extern "C" fn callback<C: Context + Share, L: FlexNode + Share>(node: L, callback_args: *const c_void) {
     //更新布局
     let b = node.get_bind() as usize;
     let c = node.get_context() as usize;
-    let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C>) };
-    let write = unsafe{ &mut *(layout_impl.write as *mut Write) };
+    let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C, L>) };
+    let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
     if b == 0 {   
         // println!("update1111111111------------------------layout: {:?}", node.get_layout());
         // println!("update333333333333333------------------------style: {:?}", node.get_style());
@@ -200,7 +201,7 @@ extern "C" fn callback<C: Context + 'static + Send + Sync>(node: YgNode, callbac
 }
 
 // 文字布局更新
-fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write) {
+fn update<'a, L: FlexNode + Share>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
     // println!("update text layout------------------------id: {}b{}, node_width: {:?}, top: {:?}", id, char_index, node.get_width(), node.get_top());
     let layout = node.get_layout();
     let mut pos = Point2{x: layout.left, y: layout.top};
@@ -225,8 +226,8 @@ fn update<'a>(mut node: YgNode, id: usize, char_index: usize, write: &mut Write)
     //   }) };
     // }
 }
-// 计算节点的YgNode的布局参数， 返回是否保留在脏列表中
-fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write: &mut Write) -> bool {
+// 计算节点的L的布局参数， 返回是否保留在脏列表中
+fn calc<'a, C: Context + Share, L: FlexNode + Share>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {
     // println!("textlayout calc-----------------------------------");
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
     let yoga = unsafe { read.1.get_unchecked(id).clone() };
@@ -278,7 +279,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
         parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
     let mut index = 0;
-    let mut word = YgNode::new_null();
+    let mut word = L::new_null();
     let mut word_index = 0;
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
     for cr in split(text, true, style.white_space.preserve_spaces()) {
@@ -308,7 +309,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
             },
             SplitResult::WordEnd =>{
                 // println!("WordEnd----------------------------");
-                    word = YgNode::new_null();
+                    word = L::new_null();
                     word_index = 0;
             },
         }
@@ -335,7 +336,7 @@ fn calc<'a, C: Context + 'static + Send + Sync>(id: usize, read: &Read<C>, write
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<C: Context + 'static + Send + Sync>(id: usize, cb: &mut CharBlock, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &YgNode, yg_index: &mut usize) -> YgNode {
+fn update_char<C: Context + Share, L: FlexNode + Share>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
     let i = *index;
     if i < cb.chars.len() {
         let cn = &cb.chars[i];
@@ -350,7 +351,7 @@ fn update_char<C: Context + 'static + Send + Sync>(id: usize, cb: &mut CharBlock
         }
         unsafe {cb.chars.set_len(i)};
     }
-    let node = set_node(cb, c, w, font, YgNode::new());
+    let node = set_node(cb, c, w, font, L::new());
     let cn = CharNode {
         ch: c,
         width: w,
@@ -366,7 +367,7 @@ fn update_char<C: Context + 'static + Send + Sync>(id: usize, cb: &mut CharBlock
     node
 }
 // 设置节点的宽高
-fn set_node<C: Context + 'static + Send + Sync>(cb: &CharBlock, c: char, mut w: f32, font: &FontSheet<C>, node: YgNode) -> YgNode {
+fn set_node<C: Context + Share, L: FlexNode + Share>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>, node: L) -> L {
     if c > ' ' {
         w = font.measure(&cb.family, cb.font_size, c);
         node.set_width(w + cb.letter_spacing);
@@ -390,7 +391,7 @@ fn set_node<C: Context + 'static + Send + Sync>(cb: &CharBlock, c: char, mut w: 
 
 
 impl_system!{
-    LayoutImpl<C> where [C: 'static + Context + Send + Sync],
+    LayoutImpl<C, L> where [C: Context + Share, L: FlexNode + Share],
     true,
     {
         MultiCaseListener<Node, Text, CreateEvent>
@@ -399,6 +400,6 @@ impl_system!{
         MultiCaseListener<Node, TextStyle, ModifyEvent>
         MultiCaseListener<Node, Font, CreateEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, CharBlock, DeleteEvent>
+        MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
     }
 }

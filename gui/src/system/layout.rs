@@ -1,21 +1,29 @@
 use std::os::raw::{c_void};
+use std::marker::PhantomData;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{IdTree};
+use ecs::Share;
 
 use component::user::*;
-use layout::{YgNode, YGOverflow, YGAlign};
+use layout::{FlexNode, YGOverflow, YGAlign};
 use entity::{Node};
 
-pub struct LayoutSys;
+pub struct LayoutSys<L: FlexNode>(PhantomData<L>);
 
-//插入Layout 和 YgNode 组件
-impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys{
+impl<L: FlexNode> LayoutSys<L> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+//插入Layout 和 L 组件
+impl<'a, L: FlexNode + Share> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
     type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, YgNode>);
+    type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
       write.0.insert(event.id, Layout::default());
-			let yoga = YgNode::default();
+			let yoga = L::default();
 			yoga.set_context(event.id as *mut c_void);
 			yoga.set_overflow(YGOverflow::YGOverflowVisible);
             yoga.set_align_items(YGAlign::YGAlignFlexStart);
@@ -23,8 +31,8 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, YgNode>);
+impl<'a, L: FlexNode + Share> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
 			if event.index > 0 {
@@ -38,16 +46,16 @@ impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, YgNode>);
+impl<'a, L: FlexNode + Share> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys<L>{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
 			add_yoga(event.id, read.0, read.1);
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, YgNode>);
+impl<'a, L: FlexNode + Share> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys<L>{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
 		let node = unsafe { read.0.get_unchecked(event.id) };
@@ -58,7 +66,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys{
     }
 }
 
-fn add_yoga(id: usize, idtree: &SingleCaseImpl<IdTree>, yogas: &MultiCaseImpl<Node, YgNode>){
+fn add_yoga<L: FlexNode + Share>(id: usize, idtree: &SingleCaseImpl<IdTree>, yogas: &MultiCaseImpl<Node, L>){
 	let node = unsafe { idtree.get_unchecked(id) };
 	let yoga = unsafe { yogas.get_unchecked(id) };
 	if node.parent > 0 {
@@ -78,7 +86,7 @@ fn add_yoga(id: usize, idtree: &SingleCaseImpl<IdTree>, yogas: &MultiCaseImpl<No
 
 
 impl_system!{
-    LayoutSys,
+    LayoutSys<L> where [L: FlexNode + Share],
     false,
     {
 				EntityListener<Node, CreateEvent>

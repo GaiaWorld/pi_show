@@ -7,11 +7,12 @@ use cgmath::One;
 
 use ecs::{World, SeqDispatcher, Dispatcher};
 use ecs::idtree::IdTree;
+use ecs::Share;
 use component::user::*;
 use component::calc::*;
 use component::calc;
 use component::user;
-use layout::YgNode;
+use layout::FlexNode;
 use single::*;
 use entity::Node;
 use render::engine::Engine;
@@ -46,7 +47,7 @@ lazy_static! {
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
 }
 
-pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
+pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -72,7 +73,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, BorderImageClip>();
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
-    world.register_multi::<Node, CharBlock>();
+    world.register_multi::<Node, CharBlock<L>>();
     world.register_multi::<Node, Text>(); 
     world.register_multi::<Node, TextStyle>();
     world.register_multi::<Node, TextShadow>();
@@ -92,7 +93,7 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_multi::<Node, ByOverflow>();
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, Layout>();
-    world.register_multi::<Node, YgNode>();
+    world.register_multi::<Node, L>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, WorldMatrixRender>();
     
@@ -114,15 +115,15 @@ pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, w
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
-    world.register_system(LYOUT_N.clone(), CellLayoutSys::new(LayoutSys));
-    world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<C>::new()));
+    world.register_system(LYOUT_N.clone(), CellLayoutSys::<L>::new(LayoutSys::new()));
+    world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<C, L>::new()));
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
     world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
-    world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C>::new(CharBlockSys::new()));
-    world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<C>::new(CharBlockShadowSys::new()));
+    world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C, L>::new(CharBlockSys::new()));
+    world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<C, L>::new(CharBlockShadowSys::new()));
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
     world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
     world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));

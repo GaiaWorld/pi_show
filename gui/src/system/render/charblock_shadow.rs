@@ -24,7 +24,7 @@ use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TE
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use util::res_mgr::Res;
-
+use layout::FlexNode;
 
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
@@ -33,10 +33,10 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct CharBlockShadowSys<C: Context + Share>{
+pub struct CharBlockShadowSys<C: Context + Share, L: FlexNode + Share>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
-    mark: PhantomData<C>,
+    mark: PhantomData<(C, L)>,
     rs: Arc<RasterState>,
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
@@ -44,7 +44,7 @@ pub struct CharBlockShadowSys<C: Context + Share>{
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + Share> CharBlockShadowSys<C> {
+impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
         let mut ds = DepthState::new();
@@ -70,7 +70,7 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
             & MultiCaseImpl<Node, Font>,
             & MultiCaseImpl<Node, ZDepth>,
             & MultiCaseImpl<Node, Opacity>,
-            & MultiCaseImpl<Node, CharBlock>,
+            & MultiCaseImpl<Node, CharBlock<L>>,
             & SingleCaseImpl<FontSheet<C>>,
             & SingleCaseImpl<DefaultTable>,
         ),
@@ -165,11 +165,11 @@ impl<C: Context + Share> CharBlockShadowSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, TextShadow>,
-        &'a MultiCaseImpl<Node, CharBlock>,
+        &'a MultiCaseImpl<Node, CharBlock<L>>,
         &'a MultiCaseImpl<Node, Font>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
@@ -226,13 +226,13 @@ impl<'a, C: Context + Share> Runner<'a> for CharBlockShadowSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, CharBlock>,
+        &'a MultiCaseImpl<Node, CharBlock<L>>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
     );
@@ -247,7 +247,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, CreateEvent>
 
 
 // 字体修改， 设置顶点数据脏
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -262,7 +262,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, ModifyEvent>
 
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -277,7 +277,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, CharBlock, DeleteEvent>
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
@@ -313,13 +313,13 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for 
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, CharBlock>,
+        &'a MultiCaseImpl<Node, CharBlock<L>>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
     );
@@ -332,7 +332,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent
     }
 }
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -347,7 +347,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent
 }
 
 // TextShadow修改， 设置对应的ubo和宏
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
@@ -380,7 +380,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, TextShadow>
 );
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -388,7 +388,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Modi
     }
 }
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -396,7 +396,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Crea
     }
 }
 
-impl<'a, C: Context + Share> CharBlockShadowSys<C>{
+impl<'a, C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L>{
     fn modify_matrix(
         &self,
         id: usize,
@@ -441,8 +441,8 @@ fn modify_color<C: Context + Share>(item: &mut Item, id: usize, text_shadow: &Te
 }
 
 // 返回position， uv， color， index
-fn get_geo_flow<C: Context + Share>(
-    char_block: &CharBlock,
+fn get_geo_flow<C: Context + Share, L: FlexNode + Share>(
+    char_block: &CharBlock<L>,
     sdf_font: &Arc<dyn SdfFont<Ctx = C>>,
     z_depth: f32,
     mut offset: (f32, f32)
@@ -489,23 +489,23 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 }
 
 // //取几何体的顶点流、 颜色流和属性流
-// fn get_geo_flow(char_block: &CharBlock, color: &Color, layout: &Layout, z_depth: f32) -> (Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
+// fn get_geo_flow(char_block: &CharBlock<L>, color: &Color, layout: &Layout, z_depth: f32) -> (Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
 //     unimplemented!()
     
 
 //     // (positions, uvs, indices)
 // }
 
-unsafe impl<C: Context + Share> Sync for CharBlockShadowSys<C>{}
-unsafe impl<C: Context + Share> Send for CharBlockShadowSys<C>{}
+unsafe impl<C: Context + Share, L: FlexNode + Share> Sync for CharBlockShadowSys<C, L>{}
+unsafe impl<C: Context + Share, L: FlexNode + Share> Send for CharBlockShadowSys<C, L>{}
 
 impl_system!{
-    CharBlockShadowSys<C> where [C: Context + Share],
+    CharBlockShadowSys<C, L> where [C: Context + Share, L: FlexNode + Share],
     true,
     {
-        MultiCaseListener<Node, CharBlock, CreateEvent>
-        MultiCaseListener<Node, CharBlock, ModifyEvent>
-        MultiCaseListener<Node, CharBlock, DeleteEvent>
+        MultiCaseListener<Node, CharBlock<L>, CreateEvent>
+        MultiCaseListener<Node, CharBlock<L>, ModifyEvent>
+        MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
         MultiCaseListener<Node, TextShadow, CreateEvent>
         MultiCaseListener<Node, TextShadow, ModifyEvent>
         MultiCaseListener<Node, TextShadow, DeleteEvent>

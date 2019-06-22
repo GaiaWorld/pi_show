@@ -1,0 +1,12 @@
+[package]
+name = "gui_test_performan"
+version = "0.1.0"
+authors = ["moyy <moyy@yineng.com>"]
+
+[dependencies]
+atom = {path="../../pi_lib/atom"}
+ecs = {path="../../pi_lib/ecs"}
+cgmath = {path="../../pi_math/cgmath"}
+hal_null = {path="../hal_null"}
+gui = {path="../gui"}
+fnv = "1.0.6"

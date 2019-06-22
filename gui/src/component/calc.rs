@@ -3,9 +3,10 @@
 use atom::Atom;
 use map::{vecmap::VecMap};
 use ecs::component::Component;
+use ecs::Share;
 
 use super::user::*;
-use layout::YgNode;
+use layout::FlexNode;
 
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ZDepth(pub f32);
@@ -66,22 +67,22 @@ impl Default for HSV {
 // }
 
 #[derive(Component, Debug)]
-pub struct CharBlock {
+pub struct CharBlock<L: FlexNode + Share> {
   pub family: Atom,
   pub font_size: f32, // 字体高度
   pub line_height: f32,
   pub letter_spacing: f32,
   pub vertical_align: VerticalAlign,
   pub indent: f32,
-  pub chars: Vec<CharNode>, // 字符集合
+  pub chars: Vec<CharNode<L>>, // 字符集合
   pub dirty: bool,
 }
 #[derive(Debug)]
-pub struct CharNode {
+pub struct CharNode<L: FlexNode + Share> {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置
-  pub node: YgNode, // 对应的yoga节点
+  pub node: L, // 对应的yoga节点
 }
 
 impl Default for Enable {
