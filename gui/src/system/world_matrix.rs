@@ -14,7 +14,6 @@ use map::vecmap::{VecMap};
 
 use component::user::*;
 use entity::{Node};
-use time::now_microsecond;
 
 #[derive(Default)]
 pub struct WorldMatrixSys{
@@ -53,7 +52,7 @@ impl WorldMatrixSys{
         default_table: &SingleCaseImpl<DefaultTable>,
     ){  
         let mut count = 0;
-        let time = now_microsecond();
+        let time = std::time::Instant::now();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
@@ -65,10 +64,10 @@ impl WorldMatrixSys{
 
             let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             let transform_value = get_or_default(parent_id, transform, default_table);
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table, &mut count);
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
         }
         if count > 0 {
-            println!("worldmatrix cal, count: {}, time: {}", count, now_microsecond() - time);
+            println!("worldmatrix cal, count: {}, time: {:?}", count, std::time::Instant::now() - time);
         }
         self.dirty.clear();
     }
@@ -162,16 +161,17 @@ fn recursive_cal_matrix(
     transform: &MultiCaseImpl<Node, Transform>,
     layout: &MultiCaseImpl<Node, Layout>,
     world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
-    default_table: &SingleCaseImpl<DefaultTable>,
+    default_transform: &Transform,
     count: &mut usize,
 ){
     *count = 1 + *count;
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
-    // let transform_value = get_or_default(id, transform, default_table);
-    let transform_value = Transform::default();
-    let transform_value = &transform_value;
+    let transform_value = match transform.get(id) {
+        Some(r) => r,
+        None => default_transform,
+    };
 
     let matrix = if parent == 0 {
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
@@ -183,14 +183,11 @@ fn recursive_cal_matrix(
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
-    let a = WorldMatrix(matrix);
-
-    *count += ((a.0).x.x) as usize;
     world_matrix.insert(id, WorldMatrix(matrix));
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
-        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_table, count);
+        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_transform, count);
     }
 }
 
@@ -202,7 +199,6 @@ impl_system!{
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
-        // MultiCaseListener<Node, ZDepth, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }

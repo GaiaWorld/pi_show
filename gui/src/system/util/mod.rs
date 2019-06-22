@@ -216,6 +216,14 @@ pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>
 }
 
 
+// pub fn get_or_default_value<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>, value: &'a T) -> &'a T{
+//     match c.get(id) {
+//         Some(r) => r,
+//         None => value,
+//     }
+// }
+
+
 pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
     RADIUS_QUAD_POSITION_INDEX.hash(hasher);
     unsafe { NotNan::unchecked_new(radius).hash(hasher) };

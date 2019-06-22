@@ -280,3 +280,12 @@ append node------------: 8925
 append node4------------: 4
 run------8840
 run------------: 8905
+
+
+// rust 10000 节点
+idtree迭代耗时： 200ms
+计算世界矩阵： 200ms
+世界矩阵插入： 200ms
+hash_map_get: 200ms
+
+borrow数据: 500ms(5个数据)
