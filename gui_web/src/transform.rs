@@ -1,19 +1,18 @@
 use std::mem::transmute;
 
 
-use ecs::{World, LendMut};
+use ecs::{LendMut};
 
 use gui::component::user::*;
-use gui::entity::Node;
+use GuiWorld;
 
 
 #[macro_use()]
 macro_rules! push_func {
     ($world:ident, $node_id:ident, $value:expr) => {
         let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut World)};
-        let attr = world.fetch_multi::<Node, Transform>().unwrap();
-        let attr = attr.lend_mut();
+        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+        let attr = world.transform.lend_mut();
         match attr.get_write(node_id) {
             Some(mut r) => r.modify(|transform: &mut Transform| {
                 transform.funcs.push($value);
@@ -32,9 +31,8 @@ macro_rules! push_func {
 #[no_mangle]
 pub fn clear_transform(world: u32, node_id: u32) {
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    let attr = attr.lend_mut();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let attr = world.transform.lend_mut();
     match attr.get_write(node_id) {
         Some(mut r) => {
             r.modify(|transform: &mut Transform| {
@@ -117,9 +115,8 @@ pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
 #[no_mangle]
 pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.transform.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         if transform.funcs.len() > 0 {
             transform.funcs.clear();
             true
@@ -143,9 +140,8 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
         LengthUnitType::Percent => LengthUnit::Percent(y/100.0),
     };
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let attr = world.fetch_multi::<Node, Transform>().unwrap();
-    unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.transform.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         transform.origin = TransformOrigin::XY(x_value, y_value);
         true
     });

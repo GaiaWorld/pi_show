@@ -6,26 +6,22 @@ use stdweb::web::{ TypedArray };
 use stdweb::{Object, UnsafeTypedArray};
 
 use atom::Atom;
-use ecs::{World, LendMut};
+use ecs::{LendMut};
 use hal_core::*;
 use hal_webgl::*;
 
 use gui::component::user::*;
-use gui::single::{ RenderObjs, DefaultTable };
-use gui::entity::Node;
 use gui::render::res::{ TextureRes, Opacity };
-use gui::render::engine::Engine;
 use gui::font::sdf_font::{DefaultSdfFont, Glyph, SdfFont};
-use gui::font::font_sheet::FontSheet;
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
+use GuiWorld;
 
 #[macro_use()]
 macro_rules! set_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr) => {
+    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key: ident) => {
         let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut World)};
-        let attr = world.fetch_multi::<Node, $tt>().unwrap();
-        let attr = attr.lend_mut();
+        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+        let attr = world.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
             match attr.get_write(node_id) {
@@ -45,14 +41,14 @@ macro_rules! set_attr {
 #[no_mangle]
 pub fn set_letter_spacing(world: u32, node_id: u32, value: f32){
     let letter_spacing = 0;
-    set_attr!(world, node_id, TextStyle, letter_spacing, value);
+    set_attr!(world, node_id, TextStyle, letter_spacing, value, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
     let color = 0;
-    set_attr!(world, node_id, TextStyle, color, Color::RGBA(CgColor::new(r, g, b, a)));
+    set_attr!(world, node_id, TextStyle, color, Color::RGBA(CgColor::new(r, g, b, a)), text_style);
 }
 
 // __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
@@ -62,7 +58,7 @@ pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions.to_vec(), direction));
     let color = 0;
-    set_attr!(world, node_id, TextStyle, color, value);
+    set_attr!(world, node_id, TextStyle, color, value, text_style);
 }
 
 
@@ -70,28 +66,28 @@ pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
 #[no_mangle]
 pub fn set_line_height_normal(world: u32, node_id: u32){
     let line_height = 0;
-    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Normal);
+    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Normal, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height(world: u32, node_id: u32, value: f32){
     let line_height = 0;
-    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Length(value));
+    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Length(value), text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height_percent(world: u32, node_id: u32, value: f32){
     let line_height = 0;
-    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Percent(value));
+    set_attr!(world, node_id, TextStyle, line_height, LineHeight::Percent(value), text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_indent(world: u32, node_id: u32, value: f32){
     let indent = 0;
-    set_attr!(world, node_id, TextStyle, indent, value);
+    set_attr!(world, node_id, TextStyle, indent, value, text_style);
 }
 
 #[allow(unused_attributes)]
@@ -101,28 +97,28 @@ pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: 
     set_attr!(world, node_id, TextStyle, stroke, Stroke {
         width,
         color: CgColor::new(r, g, b, a),
-    });
+    }, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_white_space(world: u32, node_id: u32, value: u8){
     let white_space = 0;
-    set_attr!(world, node_id, TextStyle, white_space, unsafe {transmute(value)});
+    set_attr!(world, node_id, TextStyle, white_space, unsafe {transmute(value)}, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_shadow_h(world: u32, node_id: u32, value: f32){
     let h = 0;
-    set_attr!(world, node_id, TextShadow, h, value);
+    set_attr!(world, node_id, TextShadow, h, value, text_shadow);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_shadow_v(world: u32, node_id: u32, value: f32){
     let v = 0;
-    set_attr!(world, node_id, TextShadow, v, value);
+    set_attr!(world, node_id, TextShadow, v, value, text_shadow);
  
 }
 
@@ -130,14 +126,14 @@ pub fn set_text_shadow_v(world: u32, node_id: u32, value: f32){
 #[no_mangle]
 pub fn set_text_shadow_blur(world: u32, node_id: u32, value: f32){
     let blur = 0;
-    set_attr!(world, node_id, TextShadow, blur, value);
+    set_attr!(world, node_id, TextShadow, blur, value, text_shadow);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_shadow_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
     let color = 0;
-    set_attr!(world, node_id, TextShadow, color, CgColor::new(r, g, b, a));
+    set_attr!(world, node_id, TextShadow, color, CgColor::new(r, g, b, a), text_shadow);
 }
 
 #[allow(unused_attributes)]
@@ -150,9 +146,8 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
         color: CgColor::new(r, g, b, a),
     };
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let attr = world.fetch_multi::<Node, TextShadow>().unwrap();
-    attr.lend_mut().insert(node_id, value);
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    world.text_shadow.lend_mut().insert(node_id, value);
     debug_println!("set_text_shadow"); 
 }
 
@@ -160,35 +155,35 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
 #[no_mangle]
 pub fn set_font_style(world: u32, node_id: u32, value: u8){
     let style = 0;
-    set_attr!(world, node_id, Font, style, unsafe {transmute(value)});
+    set_attr!(world, node_id, Font, style, unsafe {transmute(value)}, font);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_weight(world: u32, node_id: u32, value: f32){
     let weight = 0;
-    set_attr!(world, node_id, Font, weight, value);
+    set_attr!(world, node_id, Font, weight, value, font);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_none(world: u32, node_id: u32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::None);
+    set_attr!(world, node_id, Font, size, FontSize::None, font);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::Length(value + 2.0));
+    set_attr!(world, node_id, Font, size, FontSize::Length(value + 2.0), font);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::Percent(value));
+    set_attr!(world, node_id, Font, size, FontSize::Percent(value), font);
 }
 
 // __jsObj: family name
@@ -198,17 +193,16 @@ pub fn set_font_family(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
 
     // 生成不存在的字体
-    let world1 = unsafe {&mut *(world as usize as *mut World)};
+    let world1 = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = node_id as usize;
-    let texts = world1.fetch_multi::<Node, Text>().unwrap();
-    let texts = texts.lend_mut();
+    let texts = world1.text.lend_mut();
     match texts.get(node) {
         Some(t) => look_text(world, node, t.0.as_str()),
         None => (),
     };
     
     let family = 0;
-    set_attr!(world, node_id, Font, family, Atom::from(value));
+    set_attr!(world, node_id, Font, family, Atom::from(value), font);
     debug_println!("set_font_family"); 
 }
 
@@ -217,17 +211,15 @@ pub fn set_font_family(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
     let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
     let cfg = cfg.to_vec();
     let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
     let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
-    let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
-    let engine = engine.lend_mut();
-    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
-    let font_sheet = font_sheet.lend_mut();
+    let engine = world.engine.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
 
     let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
         Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
@@ -249,11 +241,10 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let family: String = js!(return __jsObj;).try_into().unwrap();
     let src: String = js!(return __jsObj1;).try_into().unwrap();
-    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
-    let font_sheet = font_sheet.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
     
     font_sheet.set_face(Atom::from(family), oblique, size, weight, src);
 }
@@ -264,13 +255,12 @@ pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
 pub fn set_text_content(world_id: u32, node: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
     let node = node as usize;
-    let world = unsafe {&mut *(world_id as usize as *mut World)};
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
 
     // 生成不存在的字体
     look_text(world_id, node, value.as_str());
 
-    let text = world.fetch_multi::<Node, Text>().unwrap();
-    text.lend_mut().insert(node as usize, Text(Arc::new(value)));
+    world.text.lend_mut().insert(node as usize, Text(Arc::new(value)));
     debug_println!("set_text_content");  
 }
 
@@ -279,11 +269,10 @@ pub fn set_text_content(world_id: u32, node: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn update_font_texture(world: u32){
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let font_name: String = js!(return __jsObj1;).try_into().unwrap();
     let font_name = Atom::from(font_name);
-    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
-    let font_sheet = font_sheet.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
     let src = match font_sheet.get_src(&font_name) {
         Some(r) => r,
         None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
@@ -324,8 +313,7 @@ pub fn update_font_texture(world: u32){
         Ok(data) => {
             let data = data.to_vec();
             src.texture().bind.update(u1 as u32, v1 as u32, width, height, &TextureData::U8(data.as_slice()));
-            let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
-            let render_objs = render_objs.lend_mut();
+            let render_objs = world.render_objs.lend_mut();
             render_objs.get_notify().modify_event(1, "", 0);
         },
         Err(_) => panic!("update_font_texture error"),
@@ -334,10 +322,9 @@ pub fn update_font_texture(world: u32){
 
 // __jsObj: canvas
 fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32, v: u32, width: u32, height: u32) {
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let font_name = Atom::from(font_name);
-    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
-    let font_sheet = font_sheet.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
     let src = match font_sheet.get_src(&font_name) {
         Some(r) => r,
         None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
@@ -352,8 +339,7 @@ fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32,
         Ok(data) => {
             let data = data.to_vec();
             src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
-            let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
-            let render_objs = render_objs.lend_mut();
+            let render_objs = world.render_objs.lend_mut();
             render_objs.get_notify().modify_event(1, "", 0);
         },
         Err(_) => panic!("update_font_texture error"),
@@ -392,19 +378,16 @@ pub fn gen_font(world: u32, name: &str, chars: &[u32]) -> Vec<Glyph> {
 }
 
 fn look_text(world_id: u32, node: usize, text: &str){
-    let world = unsafe {&mut *(world_id as usize as *mut World)};
-    let fonts = world.fetch_multi::<Node, Font>().unwrap();
-    let fonts = fonts.lend_mut();
-    let default_table = world.fetch_single::<DefaultTable>().unwrap();
-    let default_table = default_table.lend_mut();
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+    let fonts = world.font.lend_mut();
+    let default_table = world.default_table.lend_mut();
 
     let font = match fonts.get(node) {
         Some(r) => r,
         None => default_table.get_unchecked::<Font>(),
     };
 
-    let font_sheet = world.fetch_single::<FontSheet<WebGLContextImpl>>().unwrap();
-    let font_sheet = font_sheet.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
 
     match font_sheet.get_first_font(&font.family) {
         Some(r) => {

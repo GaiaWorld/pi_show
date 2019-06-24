@@ -7,8 +7,8 @@ use std::{
 use stdweb::unstable::TryInto;
 use stdweb::Object;
 
-use ecs::{World, Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
-use ecs::idtree::{IdTree, InsertType};
+use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
+use ecs::idtree::{InsertType};
 use hal_core::*;
 use hal_webgl::*;
 use atom::Atom;
@@ -17,25 +17,21 @@ use cg2d::{include_quad2, InnOuter};
 
 use gui::component::user::*;
 use gui::component::calc::*;
-use gui::single::oct::Oct;
-use gui::single::{ OverflowClip, DefaultTable};
+use gui::single::{ OverflowClip};
 use gui::entity::Node;
 use gui::system::util::get_or_default;
-use gui::render::engine::Engine;
 use gui::render::res::{TextureRes};
 use gui::layout::*;
 use gui::Z_MAX;
 
-use bc::YgNode;
+use GuiWorld;
 use yoga as yoga1;
 
 
-fn create(world: &World) -> usize {
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.lend_mut();
-    let node = world.create_entity::<Node>();
-    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
-    let border_radius = border_radius.lend_mut();
+fn create(world: &GuiWorld) -> usize {
+    let idtree = world.idtree.lend_mut();
+    let node = world.node.lend_mut().create();
+    let border_radius = world.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
     idtree.create(node);
     node
@@ -44,9 +40,8 @@ fn create(world: &World) -> usize {
 #[allow(unused_attributes)]
 #[no_mangle]
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.lend_mut();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, index, Some(&notify));
 }
@@ -55,7 +50,7 @@ fn insert_child(world: u32, child: u32, parent: u32, index: usize){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_node(world: u32) -> u32{
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     debug_println!("create_node, node:{}", node);
     node as u32
@@ -64,7 +59,7 @@ pub fn create_node(world: u32) -> u32{
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_text_node(world: u32) -> u32 {
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     debug_println!("create_text_node, node:{}", node);
     node as u32
@@ -74,7 +69,7 @@ pub fn create_text_node(world: u32) -> u32 {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_image_node(world: u32) -> u32{
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     debug_println!("create_image_node, node:{}", node);
     node as u32
@@ -84,9 +79,8 @@ pub fn create_image_node(world: u32) -> u32{
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.lend_mut();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
     // println!("xxxxxxxxxxxxxxxxx, append_child, child: {}, parent: {}", child, parent);
@@ -96,9 +90,8 @@ pub fn append_child(world: u32, child: u32, parent: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.lend_mut();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
     // println!("xxxxxxxxxxxxxxxxx, insert_before, child: {}, brother: {}", child, brother);
@@ -108,12 +101,10 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn remove_child(world: u32, node_id: u32){
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.lend_mut();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
-    let node = world.fetch_entity::<Node>().unwrap();
-    let node = node.lend_mut();
+    let node = world.node.lend_mut();
     // idtree.remove(node as usize, Some(&notify));
     idtree.destroy(node_id as usize, true, Some(&notify));
     node.delete(node_id as usize);
@@ -129,9 +120,8 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
   let name: String = js!{return __jsObj1}.try_into().unwrap();
   let name = Atom::from(name);
   let node = node as usize;
-  let world = unsafe {&mut *(world as usize as *mut World)};
-  let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
-  let engine = engine.lend_mut();
+  let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+  let engine = world.engine.lend_mut();
   let (width, height, texture) = match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&name) {
       Some(res) => {
         (res.width as u32, res.height as u32, res.clone())
@@ -160,8 +150,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
   };
 
   
-  let yg_nodes = world.fetch_multi::<Node, YgNode>().unwrap();
-  let yg_nodes = yg_nodes.lend_mut();
+  let yg_nodes = world.yoga.lend_mut();
   let yoga = unsafe {yg_nodes.get_unchecked(node)};
   match yoga.get_width().unit {
     yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(width as f32),
@@ -172,8 +161,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
       _ => (),
   };
   
-  let images = world.fetch_multi::<Node, Image<WebGLContextImpl>>().unwrap();
-  let image = images.lend_mut();
+  let image = world.image.lend_mut();
   image.insert(node, Image{src: texture});
 
   debug_println!("set_src"); 
@@ -188,9 +176,8 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
   let name: String = js!{return __jsObj1}.try_into().unwrap();
   let name = Atom::from(name);
   let node = node as usize;
-  let world = unsafe {&mut *(world as usize as *mut World)};
-  let engine = world.fetch_single::<Engine<WebGLContextImpl>>().unwrap();
-  let engine = engine.lend_mut();
+  let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+  let engine = world.engine.lend_mut();
   let texture = match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&name) {
       Some(res) => {
         res.clone()
@@ -218,8 +205,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
       },
   };
   
-  let images = world.fetch_multi::<Node, BorderImage<WebGLContextImpl>>().unwrap();
-  let image = images.lend_mut();
+  let image = world.border_image.lend_mut();
   image.insert(node, BorderImage{src: texture});
 
   debug_println!("set_border_src"); 
@@ -228,47 +214,39 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_top(world: u32, node: u32) -> f32 {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.lend().get_unchecked(node as usize)}.top
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.layout.lend().get_unchecked(node as usize)}.top
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.lend().get_unchecked(node as usize)}.left
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.layout.lend().get_unchecked(node as usize)}.left
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.lend().get_unchecked(node as usize)}.width
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.layout.lend().get_unchecked(node as usize)}.width
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    unsafe {layout.lend().get_unchecked(node as usize)}.height
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    unsafe {world.layout.lend().get_unchecked(node as usize)}.height
 }
 
 #[no_mangle]
 pub fn offset_document(world: u32, node_id: u32) {
   let node_id = node_id as usize;
-  let world = unsafe {&mut *(world as usize as *mut World)};
-  let layouts = world.fetch_multi::<Node, Layout>().unwrap();
-  let layouts = layouts.lend();
-  let world_matrixs = world.fetch_multi::<Node, WorldMatrix>().unwrap();
-  let world_matrixs = world_matrixs.lend();
-  let transforms = world.fetch_multi::<Node, Transform>().unwrap();
-  let transforms = transforms.lend();
-  let default_table = world.fetch_single::<DefaultTable>().unwrap();
-  let default_table = default_table.lend();
+  let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+  let layouts = world.layout.lend();
+  let world_matrixs = world.world_matrix.lend();
+  let transforms = world.transform.lend();
+  let default_table = world.default_table.lend();
 
   let transform = get_or_default(node_id, transforms, default_table);
   let layout = unsafe {layouts.get_unchecked(node_id)};
@@ -289,7 +267,7 @@ pub fn offset_document(world: u32, node_id: u32) {
 // #[no_mangle]
 // pub fn offset_document(world: u32, node_id: u32) {
 //   let mut node_id = node_id as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
+//   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 //   let idtree = world.fetch_single::<IdTree>().unwrap();
 //   let idtree = idtree.lend();
 //   let layouts = world.fetch_multi::<Node, Layout>().unwrap();
@@ -323,7 +301,7 @@ pub fn offset_document(world: u32, node_id: u32) {
 // #[no_mangle]
 // pub fn set_event_type(world: u32, node: u32, ty: u8) {
 //   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut World)};
+//   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 //   let node_ref = world.component_mgr.get_node_mut(node);
 //   node_ref.set_event_type(ty);
 // }
@@ -332,11 +310,9 @@ pub fn offset_document(world: u32, node_id: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn content_box(world: u32, node: u32) {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    let layout = layout.lend();
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = idtree.borrow();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let layout = world.layout.lend();
+    let idtree = world.idtree.borrow();
     let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
     for (id, _) in idtree.iter(unsafe {idtree.get_unchecked(node as usize)}.children.head) {
       let l = unsafe {layout.get_unchecked(id)};
@@ -364,18 +340,13 @@ pub fn content_box(world: u32, node: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32)-> u32{
-    let world = unsafe {&mut *(world as usize as *mut World)};    
-    let octree = world.fetch_single::<Oct>().unwrap();
-    let enables = world.fetch_multi::<Node, Enable>().unwrap();
-    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
-    let by_overflows = world.fetch_multi::<Node, ByOverflow>().unwrap();
-    let z_depths = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};    
 
-    let octree = octree.lend();
-    let enables = enables.lend();
-    let overflow_clip = overflow_clip.lend();
-    let by_overflows = by_overflows.lend();
-    let z_depths = z_depths.lend();
+    let octree = world.oct.lend();
+    let enables = world.enable.lend();
+    let overflow_clip = world.overflow_clip.lend();
+    let by_overflows = world.by_overflow.lend();
+    let z_depths = world.z_depth.lend();
 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
     let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
@@ -386,20 +357,14 @@ pub fn query(world: u32, x: f32, y: f32)-> u32{
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let entitys = world.fetch_entity::<Node>().unwrap();
-    let octree = world.fetch_single::<Oct>().unwrap();
-    let enables = world.fetch_multi::<Node, Enable>().unwrap();
-    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
-    let by_overflows = world.fetch_multi::<Node, ByOverflow>().unwrap();
-    let z_depths = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 
-    let entitys = entitys.lend();
-    let octree = octree.lend();
-    let enables = enables.lend();
-    let overflow_clip = overflow_clip.lend();
-    let by_overflows = by_overflows.lend();
-    let z_depths = z_depths.lend();
+    let entitys = world.node.lend();
+    let octree = world.oct.lend();
+    let enables = world.enable.lend();
+    let overflow_clip = world.overflow_clip.lend();
+    let by_overflows = world.by_overflow.lend();
+    let z_depths = world.z_depth.lend();
 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
     let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);

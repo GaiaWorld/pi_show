@@ -1,0 +1,19 @@
+// background 优化前
+run------6.414999ms
+gui.js:1 run------84.26ms
+gui.js:1 worldmatrix cal, count: 11, time: 19.045001ms
+gui.js:1 run------19.365ms
+gui.js:1 run------0ns
+gui.js:1 run------24.820001ms
+gui.js:1 run------284.999µs
+gui.js:1 run------21.655ms
+gui.js:1 run------10µs
+gui.js:1 run------0ns
+gui.js:1 run------10µs
+gui.js:1 run------4.999µs
+gui.js:1 run------10µs
+gui.js:1 run------5.001µs
+gui.js:1 run------5µs
+gui.js:1 run------3.215001ms
+
+// background trucell fecth 优化后
