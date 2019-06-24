@@ -1,10 +1,10 @@
 use std::mem::transmute;
 
-use ecs::{World, LendMut};
+use ecs::{LendMut};
 use bc::*;
 
-use gui::entity::Node;
 use gui::layout::*;
+use GuiWorld;
 
 
 #[macro_use()]
@@ -15,9 +15,8 @@ macro_rules! func_enum {
         pub fn $func(world: u32, node_id: u32, value: u32){
             let value = unsafe{transmute(value)};
             let node_id = node_id as usize;
-            let world = unsafe {&mut *(world as usize as *mut World)};
-            let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
+            let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+            unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
             });
@@ -31,9 +30,8 @@ macro_rules! func_value {
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32, value: f32){
             let node_id = node_id as usize;
-            let world = unsafe {&mut *(world as usize as *mut World)};
-            let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
+            let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+            unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
             });
@@ -48,9 +46,8 @@ macro_rules! func_enum_value {
         pub fn $func(world: u32, node_id: u32, edge: u32, value: f32){
             let edge = unsafe{transmute(edge)};
             let node_id = node_id as usize;
-            let world = unsafe {&mut *(world as usize as *mut World)};
-            let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
+            let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+            unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(edge, value);
                 true
             });
@@ -64,9 +61,8 @@ macro_rules! func_auto {
         #[no_mangle]
         pub fn $func(world: u32, node_id: u32){
             let node_id = node_id as usize;
-            let world = unsafe {&mut *(world as usize as *mut World)};
-            let attr = world.fetch_multi::<Node, YgNode>().unwrap();
-            unsafe {attr.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
+            let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+            unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func();
                 true
             });

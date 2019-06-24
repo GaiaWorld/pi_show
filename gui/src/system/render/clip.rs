@@ -317,6 +317,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, OverflowClip, ModifyEvent> f
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        // println!("OverflowClip------------------------");
         self.dirty = true;
     }
 }

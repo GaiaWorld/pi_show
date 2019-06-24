@@ -2,51 +2,35 @@ use std::mem::transmute;
 
 use serde::{Serialize};
 
-use hal_webgl::*;
-
-use ecs::{World, Lend};
+use ecs::{Lend};
 use gui::component::user::*;
-use gui::component::calc::*;
-use gui::component::calc::Opacity as COpacity;
-use gui::single::{ OverflowClip, RenderObjs, DefaultTable};
-// use gui::single::oct::Oct;
-use gui::entity::Node;
 use gui::system::util::cal_matrix;
 // use gui::layout::YgNode;
+use GuiWorld;
 
 // 打印节点信息
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn node_info(world: u32, node: u32) {
     let node = node as usize;
-    let world = unsafe {&mut *(world as usize as *mut World)};
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 
-    let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
-    let z_depth = unsafe { z_depth.lend().get_unchecked(node) }.0;
+    let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
 
-    let enable = world.fetch_multi::<Node, Enable>().unwrap();
-    let enable = unsafe { enable.lend().get_unchecked(node) }.0;
+    let enable = unsafe { world.enable.lend().get_unchecked(node) }.0;
+    let visibility = unsafe { world.visibility.lend().get_unchecked(node) }.0;
 
-    let visibility = world.fetch_multi::<Node, Visibility>().unwrap();
-    let visibility = unsafe { visibility.lend().get_unchecked(node) }.0;
+    let by_overflow = unsafe { world.by_overflow.lend().get_unchecked(node) }.0;
 
-    let by_overflow = world.fetch_multi::<Node, ByOverflow>().unwrap();
-    let by_overflow = unsafe { by_overflow.lend().get_unchecked(node) }.0;
+    let opacity = unsafe { world.opacity.lend().get_unchecked(node) }.0;
 
-    let opacity = world.fetch_multi::<Node, COpacity>().unwrap();
-    let opacity = unsafe { opacity.lend().get_unchecked(node) }.0;
+    let layout = world.layout.lend();
 
-    let layout = world.fetch_multi::<Node, Layout>().unwrap();
-    let layout = layout.lend();
+    let world_matrix = world.world_matrix.lend();
 
-    let world_matrix = world.fetch_multi::<Node, WorldMatrix>().unwrap();
-    let world_matrix = world_matrix.lend();
+    let transform = world.transform.lend();
 
-    let transform = world.fetch_multi::<Node, Transform>().unwrap();
-    let transform = transform.lend();
-
-    let default_table = world.fetch_single::<DefaultTable>().unwrap();
-    let default_table = default_table.lend();
+    let default_table = world.default_table.lend();
 
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, default_table);
     let layout = unsafe { layout.get_unchecked(node) };
@@ -125,9 +109,8 @@ pub fn node_info(world: u32, node: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn overflow_clip(world: u32) {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
-    let overflow_clip = overflow_clip.lend();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let overflow_clip = world.overflow_clip.lend();
     js!{
         console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
     }
@@ -137,9 +120,8 @@ pub fn overflow_clip(world: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_render_dirty(world: u32) {
-    let world = unsafe {&mut *(world as usize as *mut World)};
-    let render_objs = world.fetch_single::<RenderObjs<WebGLContextImpl>>().unwrap();
-    let render_objs = render_objs.lend();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let render_objs = world.render_objs.lend();
     
     render_objs.get_notify().modify_event(1, "", 0); 
 }
@@ -148,7 +130,7 @@ pub fn set_render_dirty(world: u32) {
 // #[no_mangle]
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
-//     let world = unsafe {&mut *(world as usize as *mut World)};
+//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 //     let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
 //     js!{
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
