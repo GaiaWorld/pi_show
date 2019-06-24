@@ -98,10 +98,10 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
     if overflow {
       let i = get_index(write, event.id);
       if i > 0 {
-        set_clip(event.id, i, &read, write)
+        set_clip(event.id, i, &read, write);
+        write.get_notify().modify_event(0, "", 0)
       }
     }
-    write.get_notify().modify_event(0, "", 0)
   }
 }
 

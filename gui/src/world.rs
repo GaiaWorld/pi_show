@@ -5,7 +5,7 @@ use hal_core::{Context, RenderBeginDesc};
 use atom::Atom;
 use cgmath::One;
 
-use ecs::{World, SeqDispatcher, Dispatcher};
+use ecs::*;
 use ecs::idtree::IdTree;
 use ecs::Share;
 use component::user::*;
@@ -141,4 +141,102 @@ pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, widt
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     world
+}
+
+pub struct GuiWorld<C: Context + Share, L: FlexNode> {
+    pub node: Arc<CellEntity<Node>>,
+    pub transform: Arc<CellMultiCase<Node, Transform>>,
+    pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
+    pub overflow: Arc<CellMultiCase<Node, Overflow>>,
+    pub show: Arc<CellMultiCase<Node, Show>>,
+    pub opacity: Arc<CellMultiCase<Node, user::Opacity>>,
+    pub background_color: Arc<CellMultiCase<Node, BackgroundColor>>,
+    pub box_shadow: Arc<CellMultiCase<Node, BoxShadow>>,
+    pub border_color: Arc<CellMultiCase<Node, BorderColor>>,
+    pub border_image: Arc<CellMultiCase<Node, BorderImage<C>>>,
+    pub border_image_clip: Arc<CellMultiCase<Node, BorderImageClip>>,
+    pub border_image_slice: Arc<CellMultiCase<Node, BorderImageSlice>>,
+    pub border_image_repeat: Arc<CellMultiCase<Node, BorderImageRepeat>>,
+    pub text: Arc<CellMultiCase<Node, Text>>,
+    pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
+    pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
+    pub font: Arc<CellMultiCase<Node, Font>>,
+    pub border_radius: Arc<CellMultiCase<Node, BorderRadius>>,
+    pub image: Arc<CellMultiCase<Node, Image<C>>>,
+    pub image_clip: Arc<CellMultiCase<Node, ImageClip>>,
+    pub object_fit: Arc<CellMultiCase<Node, ObjectFit>>,
+    pub filter: Arc<CellMultiCase<Node, Filter>>,
+    pub yoga: Arc<CellMultiCase<Node, L>>,
+
+    //calc
+    pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
+    pub enable: Arc<CellMultiCase<Node, Enable>>,
+    pub visibility: Arc<CellMultiCase<Node, Visibility>>,
+    pub world_matrix: Arc<CellMultiCase<Node, WorldMatrix>>,
+    pub by_overflow: Arc<CellMultiCase<Node, ByOverflow>>,
+    pub copacity: Arc<CellMultiCase<Node, calc::Opacity>>,
+    pub layout: Arc<CellMultiCase<Node, Layout>>,
+    pub hsv: Arc<CellMultiCase<Node, HSV>>,
+    
+    //single
+    pub idtree: Arc<CellSingleCase<IdTree>>,
+    pub oct: Arc<CellSingleCase<Oct>>,
+    pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
+    pub engine: Arc<CellSingleCase<Engine<C>>>,
+    pub render_objs: Arc<CellSingleCase<RenderObjs<C>>>,
+    pub font_sheet: Arc<CellSingleCase<FontSheet<C>>>,
+    pub default_table: Arc<CellSingleCase<DefaultTable>>,
+
+    pub world: World,
+}
+
+impl<C: Context + Share, L: FlexNode> GuiWorld<C, L> {
+    pub fn new(world: World) -> GuiWorld<C, L>{
+        GuiWorld{
+            node: world.fetch_entity::<Node>().unwrap(),
+            transform: world.fetch_multi::<Node, Transform>().unwrap(),
+            z_index: world.fetch_multi::<Node, user::ZIndex>().unwrap(),
+            overflow: world.fetch_multi::<Node, Overflow>().unwrap(),
+            show: world.fetch_multi::<Node, Show>().unwrap(),
+            opacity: world.fetch_multi::<Node, user::Opacity>().unwrap(),
+            background_color: world.fetch_multi::<Node, BackgroundColor>().unwrap(),
+            box_shadow: world.fetch_multi::<Node, BoxShadow>().unwrap(),
+            border_color: world.fetch_multi::<Node, BorderColor>().unwrap(),
+            border_image: world.fetch_multi::<Node, BorderImage<C>>().unwrap(),
+            border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
+            border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
+            border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
+            text: world.fetch_multi::<Node, Text>().unwrap(),
+            text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
+            text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
+            font: world.fetch_multi::<Node, Font>().unwrap(),
+            border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
+            image: world.fetch_multi::<Node, Image<C>>().unwrap(),
+            image_clip: world.fetch_multi::<Node, ImageClip>().unwrap(),
+            object_fit: world.fetch_multi::<Node, ObjectFit>().unwrap(),
+            filter: world.fetch_multi::<Node, Filter>().unwrap(),
+            yoga: world.fetch_multi::<Node, L>().unwrap(),
+
+            //calc
+            z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
+            enable: world.fetch_multi::<Node, Enable>().unwrap(),
+            visibility: world.fetch_multi::<Node, Visibility>().unwrap(),
+            world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
+            by_overflow: world.fetch_multi::<Node, ByOverflow>().unwrap(),
+            copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
+            layout: world.fetch_multi::<Node, Layout>().unwrap(),
+            hsv: world.fetch_multi::<Node, HSV>().unwrap(),
+            
+            //single
+            idtree: world.fetch_single::<IdTree>().unwrap(),
+            oct: world.fetch_single::<Oct>().unwrap(),
+            overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
+            engine: world.fetch_single::<Engine<C>>().unwrap(),
+            render_objs: world.fetch_single::<RenderObjs<C>>().unwrap(),
+            font_sheet: world.fetch_single::<FontSheet<C>>().unwrap(),
+            default_table: world.fetch_single::<DefaultTable>().unwrap(),
+
+            world: world,
+        }
+    }
 }
