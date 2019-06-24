@@ -100,7 +100,7 @@ let image_fs_code = `
             vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
 
             int index = int(clipIndices);
-            int mask = int(clipColor.r * 256.0) + 64 * int(clipColor.g * 256.0) + 64 * 64 * int(clipColor.b * 256.0);
+            int mask = int(clipColor.r * 256.0) + 128 * int(clipColor.g * 256.0) + 128 * 128 * int(clipColor.b * 256.0);
             
             bvec4 m1, m2, i1, i2;
             toBit(mask, m1, m2);
