@@ -26,7 +26,6 @@ data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
 dirty = {path="../../pi_lib/dirty"}
 hal_core = {path="../hal_core"}
-hal_webgl = {path="../hal_webgl"}
 polygon = {path="../../pi_math/polygon"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
@@ -42,8 +41,3 @@ lto = true
 opt-level ="z"
 panic = 'abort'
 codegen-units = 1
-
-[features]
-default = ["web"]
-web = []
-print = []

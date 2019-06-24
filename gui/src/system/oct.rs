@@ -10,6 +10,7 @@ use single::oct::Oct;
 use single::DefaultTable;
 use entity::{Node};
 use system::util::get_or_default;
+use Z_MAX;
 
 #[derive(Default)]
 pub struct OctSys;
@@ -54,7 +55,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys{
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         let notify = write.get_notify();
-        write.add(event.id, Aabb3::empty(), event.id, Some(notify));
+        write.add(event.id, Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), event.id, Some(notify));
     }
 }
 

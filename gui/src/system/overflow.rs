@@ -110,10 +110,12 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
   type WriteData = Write<'a>;
 
   fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
+    //   println!("IdTree ---------");
     let node = unsafe{ read.0.get_unchecked(event.id)};
     // 获得父节点的ByOverflow
     let mut by = **unsafe{ write.1.get_unchecked(node.parent)};
     let overflow = match read.1.get(node.parent){Some(r) => **r, _ => false};
+    // println!("overflow ---------");
     if overflow {
       let i = get_index(write.0, node.parent);
       if i > 0 {
@@ -172,6 +174,7 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
   if overflow {
     // 添加根上的overflow的裁剪矩形
     let i = set_index(&mut *write.0, 0, id);
+    // println!("set_overflow ---------i: {}", i);
     if i > 0 {
       set_clip(id, i, read, write.0);
       by = add_index(by, 1<<(i - 1));

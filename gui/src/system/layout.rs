@@ -73,12 +73,12 @@ fn add_yoga<L: FlexNode + Share>(id: usize, idtree: &SingleCaseImpl<IdTree>, yog
 		let parent_yoga = unsafe { yogas.get_unchecked(node.parent)};
 		let child_count = parent_yoga.get_child_count();
 		let mut index = child_count;
-		if node.next > 0 {
-		index -= 1;
-		let next_yoga = unsafe { yogas.get_unchecked(node.next)}.clone();
-		while parent_yoga.get_child(index) != next_yoga {
-			index-=1;
-		}
+        if node.next > 0 {
+            index -= 1;
+            let next_yoga = unsafe { yogas.get_unchecked(node.next)}.clone();
+            while parent_yoga.get_child(index) != next_yoga {
+                index-=1;
+            }
 		}
 		parent_yoga.insert_child(yoga.clone(), index);
 	}

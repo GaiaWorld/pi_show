@@ -48,6 +48,7 @@ extern crate hal_core;
 extern crate polygon;
 extern crate hashmap;
 extern crate ordered_float;
+#[cfg(feature = "web")]
 #[macro_use]
 extern crate stdweb;
 
@@ -61,6 +62,7 @@ pub mod util;
 pub mod world;
 
 use std::mem::transmute;
+#[cfg(feature = "web")]
 use stdweb::unstable::TryInto;
 
 pub mod entity{
@@ -73,12 +75,14 @@ pub const Z_MAX: f32 = 419430.0;
 pub const ROOT: usize = 1;
 pub type HashMap<T> = hashmap::HashMap<usize, T>;
 
+#[cfg(feature = "web")]
 pub fn cancel_timeout(id: usize){
     js!{
         clearTimeout(@{id as u32});
     }
 }
 
+#[cfg(feature = "web")]
 pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
     let (x, y): (usize, usize) = unsafe { transmute(f) };
     js!{
@@ -89,8 +93,23 @@ pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
     0
 }
 
+#[cfg(feature = "web")]
 pub fn now_time() -> u64{
     TryInto::<u64>::try_into(js!{
         return Date.now();
     }).unwrap()
+}
+
+#[cfg(not(feature = "web"))]
+pub fn cancel_timeout(id: usize){
+}
+
+#[cfg(not(feature = "web"))]
+pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
+    0
+}
+
+#[cfg(not(feature = "web"))]
+pub fn now_time() -> u64{
+    0
 }
