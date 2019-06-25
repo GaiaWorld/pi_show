@@ -61,7 +61,6 @@ pub mod render;
 pub mod util;
 pub mod world;
 
-use std::mem::transmute;
 #[cfg(feature = "web")]
 use stdweb::unstable::TryInto;
 
@@ -101,11 +100,11 @@ pub fn now_time() -> u64{
 }
 
 #[cfg(not(feature = "web"))]
-pub fn cancel_timeout(id: usize){
+pub fn cancel_timeout(_id: usize){
 }
 
 #[cfg(not(feature = "web"))]
-pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
+pub fn set_timeout(_ms: usize, _f: Box<dyn FnOnce()>) -> usize{
     0
 }
 

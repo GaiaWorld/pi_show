@@ -8,12 +8,10 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use hal_core::*;
 use atom::Atom;
 
-use component::user::*;
-use component::calc::{Visibility, WorldMatrix, WorldMatrixRender, Opacity, ZDepth, HSV};
+use component::calc::{Visibility, Opacity, ZDepth, HSV};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
-use system::util::*;
 use system::util::constant::*;
 use Z_MAX;
 
@@ -84,17 +82,13 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for NodeAttrS
 //创建索引
 impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, HSV>,
-        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (world_matrixs, opacitys, visibilitys, transforms, layouts, hsvs, default_table) = read;
+        let (opacitys, visibilitys, hsvs) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
@@ -103,12 +97,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         
         let ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
-        let mut world_matrix_ubo = engine.gl.create_uniforms();
-        let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts, default_table);
-        let slice: &[f32; 16] = world_matrix.as_ref();
-        world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+        let world_matrix_ubo = engine.gl.create_uniforms();
         ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
-        debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
 
         let mut z_depth_ubo = engine.gl.create_uniforms();
         z_depth_ubo.set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
@@ -222,36 +212,36 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
     }
 }
 
-//世界矩阵变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = (
-        &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<NodeRenderMap>,
-        &'a mut MultiCaseImpl<Node, WorldMatrixRender>
-    );
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
-        // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
-        let (_render_objs, _node_render_map, world_matrix_render) = write;
-        world_matrix_render.insert(event.id, WorldMatrixRender(world_matrix)); //插入渲染使用的世界矩阵
-        // let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+// //世界矩阵变化， 设置ubo
+// impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
+//     type ReadData = (
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//         &'a SingleCaseImpl<DefaultTable>,
+//     );
+//     type WriteData = (
+//         &'a mut SingleCaseImpl<RenderObjs<C>>,
+//         &'a mut SingleCaseImpl<NodeRenderMap>,
+//         &'a mut MultiCaseImpl<Node, WorldMatrixRender>
+//     );
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+//         let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
+//         // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
+//         let (_render_objs, _node_render_map, world_matrix_render) = write;
+//         world_matrix_render.insert(event.id, WorldMatrixRender(world_matrix)); //插入渲染使用的世界矩阵
+//         // let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        // for id in obj_ids.iter() {
-        //     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-        //     let ubos = &mut render_obj.ubos;
-        //     let slice: &[f32; 16] = world_matrix.as_ref();
-        //     Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-        //     debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-        //     render_objs.get_notify().modify_event(*id, "ubos", 0);
-        // }
-    }
-}
+//         // for id in obj_ids.iter() {
+//         //     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+//         //     let ubos = &mut render_obj.ubos;
+//         //     let slice: &[f32; 16] = world_matrix.as_ref();
+//         //     Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+//         //     debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+//         //     render_objs.get_notify().modify_event(*id, "ubos", 0);
+//         // }
+//     }
+// }
 
 //世界矩阵变化， 设置ubo
 impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
@@ -266,7 +256,8 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             render_obj.depth = z_depth + render_obj.depth_diff;
             let ubos = &mut render_obj.ubos;
-            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
+            let ubo = ubos.get_mut(&Z_DEPTH).unwrap();
+            Arc::make_mut(ubo).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
             debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }
@@ -414,7 +405,7 @@ impl_system!{
         SingleCaseListener<RenderObjs<C>, CreateEvent>
         SingleCaseListener<RenderObjs<C>, ModifyEvent>
         SingleCaseListener<RenderObjs<C>, DeleteEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+        // MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>

@@ -25,7 +25,7 @@ use gui::render::engine::Engine;
 use gui::system::*;
 use gui::font::font_sheet::FontSheet;
 use gui::Z_MAX;
-use yoga::YgNode;
+use layout::YgNode;
 
 lazy_static! {
 

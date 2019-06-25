@@ -40,10 +40,11 @@ impl<'a, C: Context + Share> Runner<'a> for RenderMatrixSys<C>{
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrixRender>;
     fn run(&mut self, read: Self::ReadData, world_matrix_render: Self::WriteData){
         let (world_matrixs, transforms, layouts, default_table, node_render_map) = read;
+        let default_transform = default_table.get_unchecked::<Transform>();
         for i in self.dirtys.iter() {
             unsafe { *(self.dirty_mark.get_unchecked_mut(*i)) = false; }
             if unsafe { node_render_map.get_unchecked(*i) }.len() > 0 {
-                let r = cal_matrix(*i, world_matrixs, transforms, layouts, default_table);
+                let r = cal_matrix(*i, world_matrixs, transforms, layouts, default_transform);
                 world_matrix_render.insert(*i, WorldMatrixRender(r));
             }
         }

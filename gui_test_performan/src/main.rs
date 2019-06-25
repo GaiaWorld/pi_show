@@ -1,24 +1,9 @@
-extern crate atom;
-extern crate hal_null;
-extern crate fnv;
-extern crate gui;
-#[macro_use]
-extern crate lazy_static;
-extern crate hal_core;
-extern crate ecs;
-#[macro_use]
-extern crate ecs_derive;
+#![feature(custom_attribute)]
+
 extern crate cgmath;
-extern crate map;
 
-pub mod yoga;
-
-// pub mod fetch;
-// use fetch::test_time;
-
-pub mod trucell;
-use trucell::test_time;
+pub mod test_matrix;
 
 fn main() {
-    test_time();
+    test_matrix::test_cal_martix4();
 }

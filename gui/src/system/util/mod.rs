@@ -30,11 +30,14 @@ pub fn cal_matrix(
     world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
     transforms: &MultiCaseImpl<Node, Transform>,
     layouts: &MultiCaseImpl<Node, Layout>,
-    default_table: &SingleCaseImpl<DefaultTable>,
+    transform: &Transform,
 ) -> Matrix4 {
     let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-    let transform = get_or_default(id, transforms, default_table);
     let layout = unsafe { layouts.get_unchecked(id) };
+    let transform = match transforms.get(id) {
+        Some(r) => r,
+        None => transform,
+    };
 
     let origin = transform.origin.to_value(layout.width, layout.height);
 

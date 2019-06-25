@@ -18,7 +18,7 @@ use gui::render::engine::Engine;
 use gui::system::*;
 use gui::font::font_sheet::FontSheet;
 use gui::Z_MAX;
-use yoga::YgNode;
+use layout::YgNode;
 
 lazy_static! {
 
@@ -255,6 +255,7 @@ use hal_null::*;
 use ecs::*;
 use std::usize::MAX as UMAX;
 use gui::layout::YGAlign;
+use gui::layout::FlexNode;
 
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -273,8 +274,8 @@ pub fn test_time() {
 
     let ygnode = world.yoga.lend_mut();
     let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
-    // ygnode.set_width(width);
-    // ygnode.set_height(height);
+    ygnode.set_width(1000.0);
+    ygnode.set_height(100.0);
     // ygnode.set_align_items(YGAlign::YGAlignFlexStart);
 
     idtree.create(node);
@@ -340,7 +341,7 @@ fn create(world: &GuiWorld) -> usize {
 fn append_child(world: &GuiWorld, child: u32, parent: u32){
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
-    idtree.insert_child(child as usize, parent as usize, 0, Some(&notify));
+    idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
 }
 
 

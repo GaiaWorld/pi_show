@@ -1,6 +1,4 @@
 //八叉树系统
-
-use collision::Bound;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 

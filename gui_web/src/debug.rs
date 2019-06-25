@@ -30,9 +30,7 @@ pub fn node_info(world: u32, node: u32) {
 
     let transform = world.transform.lend();
 
-    let default_table = world.default_table.lend();
-
-    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, default_table);
+    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
     let layout = unsafe { layout.get_unchecked(node) };
     
     // border box

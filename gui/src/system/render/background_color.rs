@@ -316,8 +316,9 @@ impl<'a, C: Context + Share> BackgroundColorSys<C> {
             let is_opacity = background_is_opacity(opacity, background_color);
             
             let notify = render_objs.get_notify();
+            // unsafe { render_objs.get_unchecked_mut(item.index)}.is_opacity = is_opacity;
             // debug_println!("set_is_opacity color{}， is_opacity: {}", id, is_opacity);
-            unsafe { render_objs.get_unchecked_write(item.index, &notify).set_is_opacity(is_opacity)};
+            unsafe { render_objs.get_unchecked_write(item.index, &notify)}.set_is_opacity(is_opacity);
         }
     }
 

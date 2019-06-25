@@ -1,4 +1,11 @@
 <!--
+    渲染类组件使用hashMap作为容器
+    time:  3.1899999994493555
+    worldmatrix cal, count: 100, time: 695µs
+    time----------6.185001ms
+    time:  9.750000001076842
+
+
     time:  3.2749999991210643 创建和插入时间
     run------355µs
     run------470µs
@@ -124,7 +131,7 @@
         Module._set_margin(gui, node6, YGEdgeLeft, 10);
         Module._set_border_radius(gui, node6, 50, 50);
         window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node6, 0);
+        // Module._set_background_linear_gradient_color(gui, node6, 0);
 
         // 测试三点线性渐变颜色(非0度渐变角) + border_radius
         var node6 = Module._create_node(gui);
@@ -134,7 +141,7 @@
         Module._set_margin(gui, node6, YGEdgeLeft, 10);
         Module._set_border_radius(gui, node6, 50, 50);
         window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node6, 30);
+        // Module._set_background_linear_gradient_color(gui, node6, 30);
 
         // 
         var node7 = Module._create_node(gui);
@@ -244,6 +251,11 @@
         console.log("time: ",  performance.now() - time);
         Module._render(gui);
         console.log("time: ",  performance.now() - time);
+
+        Module._set_render_dirty(gui);
+        var time = performance.now();
+        Module._render(gui);
+        console.log("render: time: ",  performance.now() - time);
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

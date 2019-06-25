@@ -1,20 +1,16 @@
 // rust 测试100个世界矩阵的计算， 时间： 80微秒
 // asm 测试100个世界矩阵的计算， 时间： 950微秒
 
-use component::user::Matrix4;
+use cgmath::Matrix4 as _Matrix4;
 use cgmath::Zero;
-use map::vecmap::VecMap;
 
-#[test]
-pub fn test() {
-    test_cal_martix4();
-}
+pub type Matrix4 = _Matrix4<f32>;
 
 #[allow(unused_attributes)]
-#[no_mangle]
+#[js_export]
 pub fn test_cal_martix4() {
-    let mut mats = VecMap::new();
-    let mut dirty_mark = VecMap::new();
+    let mut mats = Vec::new();
+    let mut dirty_mark = Vec::new();
     let mut dirty = Vec::new();
     for i in 1..10000 {
         dirty.push(i);
@@ -27,7 +23,7 @@ pub fn test_cal_martix4() {
         ));
     }
 
-    let now = now_microsecond();
+    let now = std::time::Instant::now();
     let mut total = 0.0;
     let mut z = Matrix4::zero();
     for i in 1..10000 {
@@ -39,6 +35,6 @@ pub fn test_cal_martix4() {
         }
        
     }
-    println!("cal matrix4: {}", now_microsecond() - now);
+    println!("cal matrix4: {:?}", std::time::Instant::now() - now);
     println!("total: {}, z: {:?}", total, z);
 }

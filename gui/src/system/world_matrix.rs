@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix };
+use component::calc::{ WorldMatrix, WorldMatrixWrite };
 use single::DefaultTable;
 use system::util::get_or_default;
 use map::vecmap::{VecMap};
@@ -183,7 +183,10 @@ fn recursive_cal_matrix(
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
-    world_matrix.insert(id, WorldMatrix(matrix));
+    unsafe { world_matrix.get_unchecked_write(id).modify(|w: &mut WorldMatrix| {
+        *w = WorldMatrix(matrix);
+        true
+    })};
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
