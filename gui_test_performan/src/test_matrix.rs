@@ -7,7 +7,7 @@ use cgmath::Zero;
 pub type Matrix4 = _Matrix4<f32>;
 
 #[allow(unused_attributes)]
-#[js_export]
+#[no_mangle]
 pub fn test_cal_martix4() {
     let mut mats = Vec::new();
     let mut dirty_mark = Vec::new();

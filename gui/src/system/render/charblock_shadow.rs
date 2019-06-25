@@ -286,24 +286,26 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (font_sheet, fonts) = read;
         if let Some(item) = self.render_map.get_mut(event.id) {
-            let font = unsafe { fonts.get_unchecked(event.id) };
-            let first_font = match font_sheet.get_first_font(&font.family) {
-                Some(r) => r,
-                None => {
-                    debug_println!("font is not exist: {}", font.family.as_ref());
-                    return;
-                }
-            };
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs);
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        }
+    }
+}
 
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-            let common_ubo = Arc::make_mut(common_ubo);
-            common_ubo.set_sampler(
-                &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
-            );
-
+// 字体修改， 重新设置字体纹理
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockShadowSys<C, L>{
+    type ReadData = (
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a MultiCaseImpl<Node, Font>,
+    );
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
+        let (font_sheet, fonts) = read;
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
@@ -423,6 +425,33 @@ impl<'a, C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L>{
 struct Item {
     index: usize,
     position_change: bool,
+}
+
+fn modify_font<C: Context + Share> (
+    id: usize,
+    item: &mut Item,
+    default_sampler: Res<SamplerRes<C>>,
+    font_sheet: &SingleCaseImpl<FontSheet<C>>,
+    fonts: &MultiCaseImpl<Node, Font>,
+    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+) {
+    let font = unsafe { fonts.get_unchecked(id) };
+    let first_font = match font_sheet.get_first_font(&font.family) {
+        Some(r) => r,
+        None => {
+            debug_println!("font is not exist: {}", font.family.as_ref());
+            return;
+        }
+    };
+
+    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+    let common_ubo = Arc::make_mut(common_ubo);
+    common_ubo.set_sampler(
+        &TEXTURE,
+        &(default_sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+        &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+    );
 }
 
 fn modify_color<C: Context + Share>(item: &mut Item, id: usize, text_shadow: &TextShadow, render_objs: &mut SingleCaseImpl<RenderObjs<C>>) {

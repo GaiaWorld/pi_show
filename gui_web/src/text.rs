@@ -386,7 +386,6 @@ fn look_text(world_id: u32, node: usize, text: &str){
         Some(r) => r,
         None => default_table.get_unchecked::<Font>(),
     };
-
     let font_sheet = world.font_sheet.lend_mut();
 
     match font_sheet.get_first_font(&font.family) {

@@ -54,7 +54,7 @@ pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, widt
     default_table.set::<TextStyle>(TextStyle::default());
     default_table.set::<Transform>(Transform::default());
     let mut font = Font::default();
-    font.family = Atom::from("common");
+    font.family = Atom::from("__$common");
     default_table.set::<Font>(font);
 
     let clip_sys = ClipSys::<C>::new(&mut engine, width as u32, height as u32);

@@ -164,6 +164,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
         let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
                 let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
+                    println!("Nearest2------------------------------{:?}", font.family);
                     let mut s = SamplerDesc::default();
                     s.min_filter = TextureFilterMode::Nearest;
                     s.mag_filter = TextureFilterMode::Nearest;
@@ -194,7 +195,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
                 ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
                 ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
                 defines.push(UCOLOR.clone());
-                debug_println!("text, id: {}, color: {:?}", event.id, c);
+                println!("text, id: {}, color: {:?}", event.id, c);
             },
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
@@ -286,42 +287,30 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (font_sheet, fonts) = read;
-        let (render_objs, engine) = write;
         if let Some(item) = self.render_map.get_mut(event.id) {
-            let font = unsafe { fonts.get_unchecked(event.id) };
-            let first_font = match font_sheet.get_first_font(&font.family) {
-                Some(r) => r,
-                None => {
-                    debug_println!("font is not exist: {}", font.family.as_ref());
-                    return;
-                }
-            };
+            let (font_sheet, fonts) = read;
+            let (render_objs, engine) = write;
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine);
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        }
+    }
+}
 
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-            let common_ubo = Arc::make_mut(common_ubo);
-            let sampler = if render_obj.pipeline.vs == CANVAS_TEXT_VS_SHADER_NAME.clone() && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
-                let mut s = SamplerDesc::default();
-                s.min_filter = TextureFilterMode::Nearest;
-                s.mag_filter = TextureFilterMode::Nearest;
-                let hash = sampler_desc_hash(&s);
-                match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-                    Some(r) => r.clone(),
-                    None => {
-                        let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
-                        engine.res_mgr.create::<SamplerRes<C>>(res)
-                    }
-                }
-            } else {
-                self.default_sampler.clone().unwrap()
-            };
-            common_ubo.set_sampler(
-                &TEXTURE,
-                &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
-            );
-
+// 字体修改， 重新设置字体纹理
+impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockSys<C, L>{
+    type ReadData = (
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a MultiCaseImpl<Node, Font>
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            let (font_sheet, fonts) = read;
+            let (render_objs, engine) = write;
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
@@ -566,6 +555,50 @@ fn modify_color<C: Context + Share>(geometry_dirtys: &mut Vec<usize>, item: &mut
             }
         },
     }
+}
+
+fn modify_font<C: Context + Share> (
+    id: usize,
+    item: &mut Item,
+    default_sampler: Res<SamplerRes<C>>,
+    font_sheet: &SingleCaseImpl<FontSheet<C>>,
+    fonts: &MultiCaseImpl<Node, Font>,
+    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+    engine:  &mut SingleCaseImpl<Engine<C>>
+) {
+    let font = unsafe { fonts.get_unchecked(id) };
+    let first_font = match font_sheet.get_first_font(&font.family) {
+        Some(r) => r,
+        None => {
+            debug_println!("font is not exist: {}", font.family.as_ref());
+            return;
+        }
+    };
+
+    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+    let common_ubo = Arc::make_mut(common_ubo);
+    let sampler = if render_obj.pipeline.vs == CANVAS_TEXT_VS_SHADER_NAME.clone() && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
+        println!("Nearest1------------------------------{:?}", font.family);
+        let mut s = SamplerDesc::default();
+        s.min_filter = TextureFilterMode::Nearest;
+        s.mag_filter = TextureFilterMode::Nearest;
+        let hash = sampler_desc_hash(&s);
+        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
+            Some(r) => r.clone(),
+            None => {
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                engine.res_mgr.create::<SamplerRes<C>>(res)
+            }
+        }
+    } else {
+        default_sampler
+    };
+    common_ubo.set_sampler(
+        &TEXTURE,
+        &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
+        &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+    );
 }
 
 // 返回position， uv， color， index
