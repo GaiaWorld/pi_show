@@ -14,13 +14,24 @@ let clip_vs_code = `
     uniform mat4 projectMatrix;
 
     // Varyings
-    varying float vPlaneIndex;
-
+    varying vec3 vPlaneIndex;
+    
     void main(void) {
         
-        vPlaneIndex = pow(2.0, skinIndex);
-        
-        vec4 pos;
+        if (skinIndex < 7.0) {
+            vPlaneIndex.r = pow(2.0, skinIndex);
+            vPlaneIndex.g = 0.0;
+            vPlaneIndex.b = 0.0;
+        } else if (skinIndex < 14.0) {
+            vPlaneIndex.r = 0.0;
+            vPlaneIndex.g = pow(2.0, skinIndex - 7.0);
+            vPlaneIndex.b = 0.0;
+        } else {
+            vPlaneIndex.r = 0.0;
+            vPlaneIndex.g = 0.0;
+            vPlaneIndex.b = pow(2.0, skinIndex - 14.0);
+        }
+
         if (skinIndex < meshNum) {
             pos = projectMatrix * viewMatrix * vec4(position, 1.0);
         } else {
@@ -34,10 +45,9 @@ let clip_fs_code = `
     precision highp float;
 
     // Varyings
-    varying float vPlaneIndex;
+    varying vec3 vPlaneIndex;
 
     void main(void) {
-        float p = vPlaneIndex / 256.0;
-        gl_FragColor = vec4(p);        
+        gl_FragColor = vec4(vPlaneIndex.xyz / 256.0, 1.0);        
     }
 `;
