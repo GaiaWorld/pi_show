@@ -32,6 +32,7 @@ let clip_vs_code = `
             vPlaneIndex.b = pow(2.0, skinIndex - 14.0);
         }
 
+        vec4 pos;
         if (skinIndex < meshNum) {
             pos = projectMatrix * viewMatrix * vec4(position, 1.0);
         } else {
