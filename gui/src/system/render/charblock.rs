@@ -164,7 +164,6 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
         let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
                 let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
-                    println!("Nearest2------------------------------{:?}", font.family);
                     let mut s = SamplerDesc::default();
                     s.min_filter = TextureFilterMode::Nearest;
                     s.mag_filter = TextureFilterMode::Nearest;
@@ -195,7 +194,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
                 ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
                 ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
                 defines.push(UCOLOR.clone());
-                println!("text, id: {}, color: {:?}", event.id, c);
+                debug_println!("text, id: {}, color: {:?}", event.id, c);
             },
             Color::LinearGradient(_) => {
                 defines.push(VERTEX_COLOR.clone());
@@ -579,7 +578,6 @@ fn modify_font<C: Context + Share> (
     let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
     let common_ubo = Arc::make_mut(common_ubo);
     let sampler = if render_obj.pipeline.vs == CANVAS_TEXT_VS_SHADER_NAME.clone() && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
-        println!("Nearest1------------------------------{:?}", font.family);
         let mut s = SamplerDesc::default();
         s.min_filter = TextureFilterMode::Nearest;
         s.mag_filter = TextureFilterMode::Nearest;

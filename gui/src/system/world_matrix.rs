@@ -52,7 +52,7 @@ impl WorldMatrixSys{
         default_table: &SingleCaseImpl<DefaultTable>,
     ){  
         let mut count = 0;
-        let time = std::time::Instant::now();
+        // let time = std::time::Instant::now();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
@@ -66,9 +66,9 @@ impl WorldMatrixSys{
             let transform_value = get_or_default(parent_id, transform, default_table);
             recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
         }
-        if count > 0 {
-            println!("worldmatrix cal, count: {}, time: {:?}", count, std::time::Instant::now() - time);
-        }
+        // if count > 0 {
+        //     println!("worldmatrix cal, count: {}, time: {:?}", count, std::time::Instant::now() - time);
+        // }
         self.dirty.clear();
     }
 }
