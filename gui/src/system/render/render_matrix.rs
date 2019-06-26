@@ -43,10 +43,10 @@ impl<'a, C: Context + Share> Runner<'a> for RenderMatrixSys<C>{
         let default_transform = default_table.get_unchecked::<Transform>();
         for i in self.dirtys.iter() {
             unsafe { *(self.dirty_mark.get_unchecked_mut(*i)) = false; }
-            if unsafe { node_render_map.get_unchecked(*i) }.len() > 0 {
+            // if unsafe { node_render_map.get_unchecked(*i) }.len() > 0 {
                 let r = cal_matrix(*i, world_matrixs, transforms, layouts, default_transform);
                 world_matrix_render.insert(*i, WorldMatrixRender(r));
-            }
+            // }
         }
         self.dirtys.clear();
     }

@@ -208,6 +208,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> 
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, node_render_map: Self::WriteData){
         let render_obj = unsafe { read.get_unchecked(event.id) };
         let notify = node_render_map.get_notify();
+        println!("RenderObjs delete {}", render_obj.context);
         unsafe{ node_render_map.remove_unchecked(render_obj.context, event.id, &notify) };
     }
 }
