@@ -62,6 +62,8 @@ pub mod util;
 pub mod world;
 
 #[cfg(feature = "web")]
+use std::mem::transmute;
+#[cfg(feature = "web")]
 use stdweb::unstable::TryInto;
 
 pub mod entity{

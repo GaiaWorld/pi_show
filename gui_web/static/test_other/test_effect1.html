@@ -35,6 +35,7 @@
     <script src="../shader/canvas_text.js"></script>
     <script src="../shader/init.js"></script>
     <script>
+        window.__p = {};
         var gui = Module._create_gui(engine, 1000, 700);
 
         var body = Module._create_node(gui);
@@ -127,12 +128,12 @@
         Module._render(gui);
 
 
-        console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        //console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
         var time = performance.now();
         for (var i = 12; i <= 112; i++) {
             var node1 = Module._create_node(gui);
         }
-        console.log("create time:", performance.now() - time);
+       console.log("create time:" , performance.now() - time);
 
         var time1 = performance.now();
         for (var i = 12; i < 103; ) {
@@ -217,27 +218,29 @@
 
             i += i ;
         }
-        console.log("set time:", performance.now() - time1);
+       console.log("set time:" , performance.now() - time);
 
         var time1 = performance.now();
         var nodex = Module._create_node(gui);
         for (var i = 12; i <= 112; i++) {
             Module._append_child(gui, i, nodex);
         }
-        console.log("append time:", performance.now() - time1);
+       console.log("append time:" , performance.now() - time);
 
         var time1 = performance.now();
         Module._append_child(gui, nodex, body);
-        console.log("append root time:", performance.now() - time1);
+       console.log("append root time:" , performance.now() - time);
 
         var time1 = performance.now();
         Module._render(gui);
-        console.log("render time: ",  performance.now() - time1);
+       console.log("render time: " +  (performance.now() - time1));
+       console.log("__p: ", __p);
 
         Module._set_render_dirty(gui);
         var time1 = performance.now();
         Module._render(gui);
-        console.log("render1 time: ",  performance.now() - time1);
+       console.log("render1 time: " +  (performance.now() - time1));
+       console.log("__p: ", __p);
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

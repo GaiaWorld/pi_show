@@ -17,7 +17,7 @@ cg2d = { path = "../../pi_math/cg2d" }
 color = { path = "../../pi_math/color" }
 cgmath = { path = "../../pi_math/cgmath" }
 octree = { path = "../../pi_math/octree" }
-gui = {path="../gui"}
+gui = {path="../gui", features = ["performance"]}
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
@@ -29,8 +29,3 @@ lto = true
 opt-level ="z"
 panic = 'abort'
 codegen-units = 1
-
-[features]
-default = ["web"]
-web = []
-print = []

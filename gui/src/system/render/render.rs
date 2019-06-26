@@ -56,6 +56,10 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
         }
         self.dirty = false;
         
+        #[cfg(feature = "performance")]
+        js!{
+            __time = performance.now();
+        }
         if self.transparent_dirty && self.opacity_dirty {
             self.opacity_list.clear();
             self.transparent_list.clear();
@@ -108,7 +112,12 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
             });
         }
 
-
+        #[cfg(feature = "performance")]
+        js!{
+            if (__p) {
+                __p.rendersys_run_sort = performance.now() - __time;
+            }
+        }
         // let mut transparent_list = Vec::new();
         // let mut opacity_list = Vec::new();
         // for item in render_objs.iter() {
@@ -125,6 +134,10 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
         // transparent_list.sort();
         // opacity_list.sort();
 
+        #[cfg(feature = "performance")]
+        js!{
+            __time = performance.now();
+        }
         let gl = &mut engine.gl;
         gl.begin_render(
             &(gl.get_default_render_target().clone() as Share<dyn AsRef<C::ContextRenderTarget>>), 
@@ -143,6 +156,13 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
         }
 
         gl.end_render();
+
+        #[cfg(feature = "performance")]
+        js!{
+            if (__p) {
+                __p.rendersys_run_render = performance.now() - __time;
+            }
+        }
     }
 }
 
