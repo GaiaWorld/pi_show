@@ -2,10 +2,10 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
@@ -33,19 +33,19 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct CharBlockShadowSys<C: Context + Share, L: FlexNode + Share>{
+pub struct CharBlockShadowSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<(C, L)>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
-    canvas_bs: Arc<BlendState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
+    canvas_bs: Share<BlendState>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
+impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockShadowSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
         let mut canvas_bs = BlendState::new();
@@ -57,11 +57,11 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Arc::new(RasterState::new()),
-            bs: Arc::new(bs),
-            ss: Arc::new(StencilState::new()),
-            ds: Arc::new(ds),
-            canvas_bs: Arc::new(canvas_bs),
+            rs: Share::new(RasterState::new()),
+            bs: Share::new(bs),
+            ss: Share::new(StencilState::new()),
+            ds: Share::new(ds),
+            canvas_bs: Share::new(canvas_bs),
             default_sampler: None,
         }
     }
@@ -100,21 +100,21 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
         let font = get_or_default(id, fonts, default_table);
         let mut defines = Vec::new();
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
 
         let mut common_ubo = engine.gl.create_uniforms();  
         let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
                 common_ubo.set_sampler(
                     &TEXTURE,
-                    &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                    &(r.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+                    &(self.default_sampler.as_ref().unwrap().value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
+                    &(r.texture().value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
                 );
                 r.get_dyn_type()
             },
             None => { debug_println!("font is not exist: {}", font.family.as_str()); 0 },
         };
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
         let c = &text_shadow.color;
         let mut ucolor_ubo = engine.gl.create_uniforms();
         
@@ -145,7 +145,7 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
         }
 
         ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-        ubos.insert(UCOLOR.clone(), Arc::new(ucolor_ubo));
+        ubos.insert(UCOLOR.clone(), Share::new(ucolor_ubo));
         defines.push(UCOLOR.clone());
         debug_println!("text_shadow, id: {}, color: {:?}", id, c);
         
@@ -169,7 +169,7 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, TextShadow>,
@@ -208,7 +208,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for CharBlockShadow
                 geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
                 geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
                 geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                render_obj.geometry = Some(Res::new(500, Arc::new(GeometryRes{name: 0, bind: geometry})));
+                render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
@@ -222,7 +222,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for CharBlockShadow
         match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => self.default_sampler = Some(r.clone()),
             None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
                 self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
             }
         }
@@ -230,7 +230,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for CharBlockShadow
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
@@ -251,7 +251,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
 
 
 // 字体修改， 设置顶点数据脏
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -266,7 +266,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
 
 
 // 删除渲染对象
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -281,7 +281,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
@@ -301,7 +301,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
@@ -321,7 +321,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
@@ -340,7 +340,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     }
 }
 // 删除渲染对象
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, DeleteEvent> for CharBlockShadowSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -355,7 +355,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
 }
 
 // TextShadow修改， 设置对应的ubo和宏
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
@@ -392,7 +392,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, TextShadow>
 );
 
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockShadowSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -400,7 +400,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Wo
     }
 }
 
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockShadowSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -408,7 +408,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Wo
     }
 }
 
-impl<'a, C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L>{
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockShadowSys<C, L>{
     fn modify_matrix(
         &self,
         id: usize,
@@ -425,7 +425,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L>{
             // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("charblock_shadow, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
         }
@@ -437,7 +437,7 @@ struct Item {
     position_change: bool,
 }
 
-fn modify_font<C: Context + Share> (
+fn modify_font<C: Context + ShareTrait> (
     id: usize,
     item: &mut Item,
     default_sampler: Res<SamplerRes<C>>,
@@ -445,11 +445,11 @@ fn modify_font<C: Context + Share> (
     fonts: &MultiCaseImpl<Node, Font>,
     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
     engine:  &mut SingleCaseImpl<Engine<C>>,
-    rs: &Arc<RasterState>,
-    bs: &Arc<BlendState>,
-    ss: &Arc<StencilState>,
-    ds: &Arc<DepthState>,
-    canvas_bs: &Arc<BlendState>,
+    rs: &Share<RasterState>,
+    bs: &Share<BlendState>,
+    ss: &Share<StencilState>,
+    ds: &Share<DepthState>,
+    canvas_bs: &Share<BlendState>,
 ) {
     let font = unsafe { fonts.get_unchecked(id) };
     let first_font = match font_sheet.get_first_font(&font.family) {
@@ -462,11 +462,11 @@ fn modify_font<C: Context + Share> (
 
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
     let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-    let common_ubo = Arc::make_mut(common_ubo);
+    let common_ubo = Share::make_mut(common_ubo);
     common_ubo.set_sampler(
         &TEXTURE,
-        &(default_sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-        &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+        &(default_sampler.value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
+        &(first_font.texture().value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
     );
 
     if first_font.get_dyn_type() == 0 {
@@ -494,7 +494,7 @@ fn modify_font<C: Context + Share> (
     }
 }
 
-fn modify_color<C: Context + Share>(
+fn modify_color<C: Context + ShareTrait>(
     item: &mut Item,
     id: usize,
     text_shadow: &TextShadow,
@@ -504,7 +504,7 @@ fn modify_color<C: Context + Share>(
 ) {
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
     let c = &text_shadow.color;
-    let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+    let ucolor_ubo = Share::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
 
     let first_font = match font_sheet.get_first_font(&font.family) {
         Some(r) => r,
@@ -525,9 +525,9 @@ fn modify_color<C: Context + Share>(
 }
 
 // 返回position， uv， color， index
-fn get_geo_flow<C: Context + Share, L: FlexNode + Share>(
+fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
     char_block: &CharBlock<L>,
-    sdf_font: &Arc<dyn SdfFont<Ctx = C>>,
+    sdf_font: &Share<dyn SdfFont<Ctx = C>>,
     z_depth: f32,
     mut offset: (f32, f32)
 ) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
@@ -580,11 +580,11 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 //     // (positions, uvs, indices)
 // }
 
-unsafe impl<C: Context + Share, L: FlexNode + Share> Sync for CharBlockShadowSys<C, L>{}
-unsafe impl<C: Context + Share, L: FlexNode + Share> Send for CharBlockShadowSys<C, L>{}
+unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Sync for CharBlockShadowSys<C, L>{}
+unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Send for CharBlockShadowSys<C, L>{}
 
 impl_system!{
-    CharBlockShadowSys<C, L> where [C: Context + Share, L: FlexNode + Share],
+    CharBlockShadowSys<C, L> where [C: Context + ShareTrait, L: FlexNode + ShareTrait],
     true,
     {
         MultiCaseListener<Node, CharBlock<L>, CreateEvent>

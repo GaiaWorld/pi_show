@@ -5,6 +5,7 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom = {path="../../pi_lib/atom"}
+share = {path="../../pi_lib/share"}
 ecs = {path="../../pi_lib/ecs"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }

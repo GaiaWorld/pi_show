@@ -3,10 +3,10 @@
  */
 use std::marker::PhantomData;
 // use std::mem::transmute;
-use std::sync::Arc;
+use share::Share;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap };
 use hal_core::*;
 use atom::Atom;
@@ -34,34 +34,34 @@ lazy_static! {
     static ref REPEAT: Atom = Atom::from("repeat");
 }
 
-pub struct BorderImageSys<C: Context + Share>{
+pub struct BorderImageSys<C: Context + ShareTrait>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + Share> BorderImageSys<C> {
+impl<C: Context + ShareTrait> BorderImageSys<C> {
     pub fn new() -> Self{
         BorderImageSys {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Arc::new(RasterState::new()),
-            bs: Arc::new(BlendState::new()),
-            ss: Arc::new(StencilState::new()),
-            ds: Arc::new(DepthState::new()),
+            rs: Share::new(RasterState::new()),
+            bs: Share::new(BlendState::new()),
+            ss: Share::new(StencilState::new()),
+            ds: Share::new(DepthState::new()),
             default_sampler: None,
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -96,7 +96,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
                 geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
                 geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
                 geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                render_obj.geometry = Some(Res::new(500, Arc::new(GeometryRes{name: 0, bind: geometry})));
+                render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
         }
@@ -110,7 +110,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
         match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => self.default_sampler = Some(r.clone()),
             None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
                 self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
             }
         };
@@ -118,7 +118,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderImageSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderImage<C>>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -137,16 +137,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
         let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_sampler(
             &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-            &(image.src.value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+            &(self.default_sampler.as_ref().unwrap().value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(image.src.value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
         );
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
 
         let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
@@ -177,7 +177,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, CreateE
 }
 
 // 修改渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, ModifyEvent> for BorderImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -189,11 +189,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
             // 图片改变， 更新common_ubo中的纹理
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-            let common_ubo = Arc::make_mut(common_ubo);
+            let common_ubo = Share::make_mut(common_ubo);
             common_ubo.set_sampler(
                 &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(image.src.value.clone() as Arc<dyn  AsRef<<C as Context>::ContextTexture>>)
+                &(self.default_sampler.as_ref().unwrap().value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
+                &(image.src.value.clone() as Share<dyn  AsRef<<C as Context>::ContextTexture>>)
             );
 
             if item.position_change == false {
@@ -210,7 +210,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, ModifyE
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, DeleteEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, DeleteEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -224,7 +224,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderImage<C>, DeleteE
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -238,7 +238,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
 }
 
 //不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -254,7 +254,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 
 type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -262,7 +262,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Modi
     }
 }
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -270,7 +270,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Crea
     }
 }
 
-impl<'a, C: Context + Share> BorderImageSys<C> {
+impl<'a, C: Context + ShareTrait> BorderImageSys<C> {
     fn change_is_opacity(&mut self, _id: usize, opacity: f32, image: &BorderImage<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
@@ -297,7 +297,7 @@ impl<'a, C: Context + Share> BorderImageSys<C> {
             // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("border_image, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
         }
@@ -309,8 +309,8 @@ struct Item {
     position_change: bool,
 }
 
-unsafe impl<C: Context + Share> Sync for BorderImageSys<C>{}
-unsafe impl<C: Context + Share> Send for BorderImageSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for BorderImageSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for BorderImageSys<C>{}
 
 
 pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
@@ -423,7 +423,7 @@ fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16){
     index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]);
 }
  
-// fn border_image_geo_hash<C: Context + Share>(
+// fn border_image_geo_hash<C: Context + ShareTrait>(
 //     img: &BorderImage<C>,
 //     clip: Option<&BorderImageClip>,
 //     slice: Option<&BorderImageSlice>,
@@ -528,7 +528,7 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 
 
 impl_system!{
-    BorderImageSys<C> where [C: Context + Share],
+    BorderImageSys<C> where [C: Context + ShareTrait],
     true,
     {
         MultiCaseListener<Node, BorderImage<C>, CreateEvent>

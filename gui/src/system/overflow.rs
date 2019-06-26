@@ -267,7 +267,7 @@ impl_system!{
 // fn test(){
 //     let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
 //     let _zz = OverflowSys::init(&mut world.component_mgr);
-//     let systems: Vec<Arc<System<(), WorldDocMgr>>> = vec![];
+//     let systems: Vec<Share<System<(), WorldDocMgr>>> = vec![];
 //     world.set_systems(systems);
 //     test_world_overflow(&mut world);
 // }

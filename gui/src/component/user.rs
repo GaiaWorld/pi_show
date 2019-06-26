@@ -2,11 +2,11 @@
 
 
 use std::{
-  sync::Arc,
   mem::transmute,
 //   ops::{ Deref, Mul},
 };
 
+use share::Share;
 use map::{vecmap::VecMap};
 use hal_core::Context;
 
@@ -150,7 +150,10 @@ pub struct TextStyle{
 
 #[derive(Debug, Clone, Component, Default)]
 #[storage(HashMap)]
-pub struct Text(pub Arc<String>);
+pub struct Text(pub Share<String>);
+
+unsafe impl Sync for Text{}
+unsafe impl Send for Text{}
 
 #[derive(Debug, Clone, Component, Default)]
 #[storage(HashMap)]

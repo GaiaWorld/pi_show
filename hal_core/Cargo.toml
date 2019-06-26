@@ -7,4 +7,5 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+share={path="../../pi_lib/share"}
 fnv="*"

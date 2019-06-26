@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use share::{Share};
 use common::{CullMode, CompareFunc, BlendFunc, BlendFactor, StencilOp};
 use ShareRef;
 
@@ -20,10 +20,10 @@ impl Pipeline {
         Pipeline {
             vs_hash: 0,
             fs_hash: 0,
-            raster_state: Arc::new(RasterState::new()),
-            depth_state: Arc::new(DepthState::new()),
-            blend_state: Arc::new(BlendState::new()),
-            stencil_state: Arc::new(StencilState::new()),
+            raster_state: Share::new(RasterState::new()),
+            depth_state: Share::new(DepthState::new()),
+            blend_state: Share::new(BlendState::new()),
+            stencil_state: Share::new(StencilState::new()),
         }
     }
 }

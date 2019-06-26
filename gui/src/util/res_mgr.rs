@@ -1,5 +1,5 @@
 // 显卡资源管理器
-use std::sync::{Arc};
+use share::Share;
 use std::hash::Hash;
 use std::any::{ TypeId, Any };
 use std::ops::{ Deref };
@@ -24,13 +24,13 @@ lazy_static! {
     pub static ref RELEASE_ARRAY: ReleaseArray = ReleaseArray(RefCell::new(Vec::new()));
 }
 
-pub struct ReleaseArray(RefCell<Vec<(Arc<dyn Release>, u64)>>);
+pub struct ReleaseArray(RefCell<Vec<(Share<dyn Release>, u64)>>);
 
 unsafe impl Send for ReleaseArray{}
 unsafe impl Sync for ReleaseArray{}
 //资源接口
 pub trait ResTrait: Release {
-    type Key: Hash + Eq + Clone + Send + 'static + Sync;
+    type Key: Hash + Eq + Clone + 'static;
 	// 获得资源的唯一名称
 	fn name(&self) -> &Self::Key;
 	// 判断是否存活
@@ -39,15 +39,15 @@ pub trait ResTrait: Release {
 	//fn create(&mut self) -> bool;
 }
 
-pub trait Release: Send + 'static + Sync {}
+pub trait Release: 'static {}
 
 pub struct Res<T: ResTrait>{
     timeout: u32,
-    pub value: Arc<T>,
+    pub value: Share<T>,
 }
 
 impl<T: ResTrait> Res<T> {
-    pub fn new(timeout: u32, value: Arc<T>) -> Res<T>{
+    pub fn new(timeout: u32, value: Share<T>) -> Res<T>{
         Res {
             timeout,
             value
@@ -103,7 +103,7 @@ fn timeout_release(timeout: usize){
 
 impl<T: ResTrait> Drop for Res<T> {
     fn drop(&mut self) {
-        if Arc::strong_count(&self.value) == 1 {
+        if Share::strong_count(&self.value) == 1 {
             let r = self.value.clone();
             let now = now_time();
             let release_point = now + (self.timeout as u64);
@@ -119,8 +119,11 @@ impl<T: ResTrait> Drop for Res<T> {
     }
 }
 
+unsafe impl<T: ResTrait> Sync for Res<T> {}
+unsafe impl<T: ResTrait> Send for Res<T> {}
+
 pub struct ResMgr{
-    tables: FnvHashMap<TypeId, Arc<dyn Any + Send + Sync>>,
+    tables: FnvHashMap<TypeId, Share<dyn Any>>,
     pub timeout: u32,
 }
 
@@ -145,12 +148,12 @@ impl ResMgr {
     }
 
     pub fn create<T: ResTrait>(&mut self, value: T) -> Res<T>{
-        self.tables.entry(TypeId::of::<T>()).or_insert(Arc::new(ResMap::<T>::new())).clone().downcast::<ResMap<T>>().unwrap().create(value, self.timeout)
+        self.tables.entry(TypeId::of::<T>()).or_insert(Share::new(ResMap::<T>::new())).clone().downcast::<ResMap<T>>().unwrap().create(value, self.timeout)
     }
 }
 
 //资源表
-pub struct ResMap<T: ResTrait> (FnvHashMap<<T as ResTrait>::Key, (Arc<T>, u32)>);
+pub struct ResMap<T: ResTrait> (FnvHashMap<<T as ResTrait>::Key, (Share<T>, u32)>);
 
 impl<T:ResTrait> ResMap<T> {
     pub fn new() -> ResMap<T>{
@@ -169,7 +172,7 @@ impl<T:ResTrait> ResMap<T> {
 	// 创建资源
 	pub fn create(&self, res: T, timeout: u32) -> Res<T> {
         let name = res.name().clone();
-        let r = Arc::new(res);
+        let r = Share::new(res);
         unsafe{&mut *(self as *const Self as usize as *mut Self)}.0.insert(name, (r.clone(), 0));
         Res{
             timeout,
@@ -182,16 +185,16 @@ impl<T:ResTrait> ResMap<T> {
         //             Some(r) => r,
         //             None =>{
         //                 res.create();
-        //                 let r = Arc::new(res);
-        //                 swap(&mut Arc::downgrade(&r), v);
+        //                 let r = Share::new(res);
+        //                 swap(&mut Share::downgrade(&r), v);
         //                 r
         //             }
         //         }
         //     },
         //     Entry::Vacant(e) => {
         //         res.create();
-        //         let r = Arc::new(res);
-        //         e.insert(Arc::downgrade(&r));
+        //         let r = Share::new(res);
+        //         e.insert(Share::downgrade(&r));
         //         r
         //     }
         // }

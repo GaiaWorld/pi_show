@@ -2,14 +2,14 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 use std::hash::{ Hasher, Hash };
 use std::collections::hash_map::DefaultHasher;
 
 use fnv::FnvHashMap;
 use ordered_float::NotNan;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
@@ -34,26 +34,26 @@ lazy_static! {
     static ref GRADUAL: Atom = Atom::from("gradual_change");
 }
 
-pub struct BackgroundColorSys<C: Context + Share>{
+pub struct BackgroundColorSys<C: Context + ShareTrait>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
 }
 
-impl<C: Context + Share> BackgroundColorSys<C> {
+impl<C: Context + ShareTrait> BackgroundColorSys<C> {
     pub fn new() -> Self{
         BackgroundColorSys {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Arc::new(RasterState::new()),
-            bs: Arc::new(BlendState::new()),
-            ss: Arc::new(StencilState::new()),
-            ds: Arc::new(DepthState::new()),
+            rs: Share::new(RasterState::new()),
+            bs: Share::new(BlendState::new()),
+            ss: Share::new(StencilState::new()),
+            ds: Share::new(DepthState::new()),
         }
     }
 
@@ -68,7 +68,7 @@ impl<C: Context + Share> BackgroundColorSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
-impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -123,7 +123,7 @@ impl<'a, C: Context + Share> Runner<'a> for BackgroundColorSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for BackgroundColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BackgroundColor>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -144,7 +144,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
         let mut defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();
@@ -159,7 +159,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
                 defines.push(VERTEX_COLOR.clone());
             },
         }
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
 
         // println!("ds----------------{:?}", self.ds);
         let pipeline = engine.create_pipeline(
@@ -195,7 +195,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Create
 }
 
 // 修改渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, BackgroundColor>, &'a MultiCaseImpl<Node, Opacity>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -207,7 +207,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
         match &background_color.0 {
             Color::RGBA(c) => {
                 // 设置ubo
-                let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
+                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
                 // debug_println!("bg_color, id: {}, color: {:?}", event.id, c);
                 common_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
 
@@ -243,7 +243,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Modify
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -257,7 +257,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BackgroundColor, Delete
 }
 
 //圆角修改， 需要重新计算世界矩阵和顶点流
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -266,7 +266,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
 }
 
 //圆角修改， 需要重新计算世界矩阵和顶点流
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -275,7 +275,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderRadius, ModifyEve
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BackgroundColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -291,7 +291,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, BorderRadius>,
 );
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -299,7 +299,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Modi
     }
 }
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BackgroundColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -307,7 +307,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Crea
     }
 }
 
-impl<'a, C: Context + Share> BackgroundColorSys<C> {
+impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BackgroundColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         if let Some(item) = self.render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
@@ -347,7 +347,7 @@ impl<'a, C: Context + Share> BackgroundColorSys<C> {
                     );
                     let ubos = &mut render_obj.ubos;
                     let slice: &[f32; 16] = world_matrix.as_ref();
-                    Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+                    Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
                     debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
                     render_objs.get_notify().modify_event(item.index, "ubos", 0);
                     return;
@@ -358,7 +358,7 @@ impl<'a, C: Context + Share> BackgroundColorSys<C> {
             // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("background_color, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
             
@@ -487,11 +487,11 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
     return true;
 }
 
-unsafe impl<C: Context + Share> Sync for BackgroundColorSys<C>{}
-unsafe impl<C: Context + Share> Send for BackgroundColorSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for BackgroundColorSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for BackgroundColorSys<C>{}
 
 impl_system!{
-    BackgroundColorSys<C> where [C: Context + Share],
+    BackgroundColorSys<C> where [C: Context + ShareTrait],
     true,
     {
         MultiCaseListener<Node, BackgroundColor, CreateEvent>

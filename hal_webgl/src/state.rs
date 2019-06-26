@@ -2,7 +2,7 @@
  * WebGL 状态设置
  */
 
-use std::sync::{Arc, Weak};
+use share::{Share, ShareWeak};
 use hal_core::*;
 use convert::*;
 use extension::*;
@@ -19,14 +19,14 @@ pub struct State {
     clear_depth: f32, 
     clear_stencil: u8,
 
-    gl: Arc<WebGLRenderingContext>, 
+    gl: Share<WebGLRenderingContext>, 
     
     real_depth_mask: bool, // 实际的深度写入的开关
 
-    pub pipeline: Arc<dyn AsRef<Pipeline>>,
+    pub pipeline: Share<dyn AsRef<Pipeline>>,
 
-    geometry: Option<Arc<dyn AsRef<WebGLGeometryImpl>>>,
-    target: Arc<dyn AsRef<WebGLRenderTargetImpl>>,
+    geometry: Option<Share<dyn AsRef<WebGLGeometryImpl>>>,
+    target: Share<dyn AsRef<WebGLRenderTargetImpl>>,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     enable_attrib_indices: Vec<bool>,
 
@@ -36,8 +36,8 @@ pub struct State {
 struct TextureSlot {
     unit: usize,
     count: usize, // 等于0代表没用过
-    texture: Weak<dyn AsRef<WebGLTextureImpl>>,
-    sampler: Weak<dyn AsRef<WebGLSamplerImpl>>,
+    texture: ShareWeak<dyn AsRef<WebGLTextureImpl>>,
+    sampler: ShareWeak<dyn AsRef<WebGLSamplerImpl>>,
 }
 
 impl TextureSlot {
@@ -45,20 +45,20 @@ impl TextureSlot {
         TextureSlot {
             unit: unit,
             count: 0,
-            texture: Weak::<WebGLTextureImpl>::new(),
-            sampler: Weak::<WebGLSamplerImpl>::new(),
+            texture: ShareWeak::<WebGLTextureImpl>::new(),
+            sampler: ShareWeak::<WebGLSamplerImpl>::new(),
         }
     }
 }
 
 struct TextureCache {
-    gl: Arc<WebGLRenderingContext>,
+    gl: Share<WebGLRenderingContext>,
     tex_use_count: usize,
     values: Vec<TextureSlot>,
 }
 
 impl TextureCache {
-    fn new(gl: &Arc<WebGLRenderingContext>, max_tex_unit_num: usize) -> Self {
+    fn new(gl: &Share<WebGLRenderingContext>, max_tex_unit_num: usize) -> Self {
         // 第0个纹理通道内部使用
         let mut cache = Vec::with_capacity(max_tex_unit_num - 1);
         for i in 1..max_tex_unit_num {
@@ -81,7 +81,7 @@ impl TextureCache {
     }
 
     // 缓存策略：当槽不够的时候，移除最远的槽。
-    pub fn use_texture(&mut self, texture: &Weak<dyn AsRef<WebGLTextureImpl>>, sampler: &Weak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &ShareWeak<dyn AsRef<WebGLTextureImpl>>, sampler: &ShareWeak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         let mut min_index = 0;
         let mut min_count = usize::max_value();
 
@@ -90,11 +90,11 @@ impl TextureCache {
                 min_count = v.count;
                 min_index = i;
             }
-            if Weak::ptr_eq(texture, &v.texture) {
+            if ShareWeak::ptr_eq(texture, &v.texture) {
                 v.count = self.tex_use_count;
                 self.tex_use_count += 1;
 
-                if !Weak::ptr_eq(sampler, &v.sampler) {
+                if !ShareWeak::ptr_eq(sampler, &v.sampler) {
                     match (texture.upgrade(), sampler.upgrade()) {
                         (Some(texture), Some(sampler)) => {
                             texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
@@ -133,15 +133,15 @@ impl TextureCache {
 
 impl State {
 
-    pub fn new(gl: &Arc<WebGLRenderingContext>, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
+    pub fn new(gl: &Share<WebGLRenderingContext>, rt: &Share<dyn AsRef<WebGLRenderTargetImpl>>, max_attributes: u32, max_tex_unit_num: u32) -> State {
         
         let pipeline = Pipeline {
             vs_hash: 0,
             fs_hash: 0,
-            raster_state: Arc::new(RasterState::new()),
-            stencil_state: Arc::new(StencilState::new()),
-            blend_state: Arc::new(BlendState::new()),
-            depth_state: Arc::new(DepthState::new()),
+            raster_state: Share::new(RasterState::new()),
+            stencil_state: Share::new(StencilState::new()),
+            blend_state: Share::new(BlendState::new()),
+            depth_state: Share::new(DepthState::new()),
         };
         
         let tex_caches = TextureCache::new(gl, max_tex_unit_num as usize);
@@ -151,7 +151,7 @@ impl State {
             clear_color: (1.0, 1.0, 1.0, 1.0), 
             clear_depth: 1.0, 
             clear_stencil: 0,
-            pipeline: Arc::new(pipeline),
+            pipeline: Share::new(pipeline),
             
             geometry: None,
             target: rt.clone(),
@@ -166,18 +166,18 @@ impl State {
         state
     }
 
-    pub fn use_texture(&mut self, texture: &Weak<dyn AsRef<WebGLTextureImpl>>, sampler: &Weak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &ShareWeak<dyn AsRef<WebGLTextureImpl>>, sampler: &ShareWeak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         self.tex_caches.use_texture(texture, sampler)
     }
 
-    pub fn set_render_target(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
-        if !Arc::ptr_eq(&self.target, rt) {
+    pub fn set_render_target(&mut self, rt: &Share<dyn AsRef<WebGLRenderTargetImpl>>) {
+        if !Share::ptr_eq(&self.target, rt) {
             self.set_render_target_impl(rt);
             self.target = rt.clone();
         }
     }
 
-    fn set_render_target_impl(&mut self, rt: &Arc<dyn AsRef<WebGLRenderTargetImpl>>) {
+    fn set_render_target_impl(&mut self, rt: &Share<dyn AsRef<WebGLRenderTargetImpl>>) {
         let fbo = &rt.as_ref().as_ref().frame_buffer;
         if fbo.is_none() {
             js! {
@@ -250,24 +250,24 @@ impl State {
     /** 
      * 如果program相同，返回true
      */
-    pub fn set_pipeline(&mut self, pipeline: &Arc<dyn AsRef<Pipeline>>) -> bool {
-        if Arc::ptr_eq(&self.pipeline, pipeline) {
+    pub fn set_pipeline(&mut self, pipeline: &Share<dyn AsRef<Pipeline>>) -> bool {
+        if Share::ptr_eq(&self.pipeline, pipeline) {
             return true;
         }
         
         let curr = pipeline.as_ref().as_ref();
         let old = self.pipeline.as_ref().as_ref();
         
-        if !Arc::ptr_eq(&old.raster_state, &curr.raster_state) {
+        if !Share::ptr_eq(&old.raster_state, &curr.raster_state) {
             Self::set_raster_state(&self.gl, Some(old.raster_state.as_ref().as_ref()), curr.raster_state.as_ref().as_ref());
         }
-        if !Arc::ptr_eq(&old.depth_state, &curr.depth_state) {
+        if !Share::ptr_eq(&old.depth_state, &curr.depth_state) {
             Self::set_depth_state(&self.gl, Some(old.depth_state.as_ref().as_ref()), curr.depth_state.as_ref().as_ref(), &mut self.real_depth_mask);
         }
-        if !Arc::ptr_eq(&old.stencil_state, &curr.stencil_state) {
+        if !Share::ptr_eq(&old.stencil_state, &curr.stencil_state) {
             Self::set_stencil_state(&self.gl, Some(old.stencil_state.as_ref().as_ref()), curr.stencil_state.as_ref().as_ref());
         }
-        if !Arc::ptr_eq(&old.blend_state, &curr.blend_state) {
+        if !Share::ptr_eq(&old.blend_state, &curr.blend_state) {
             Self::set_blend_state(&self.gl, Some(old.blend_state.as_ref().as_ref()), curr.blend_state.as_ref().as_ref());
         }
 
@@ -281,11 +281,11 @@ impl State {
         mgr.get_program(p.vs_hash, p.fs_hash)
     }
 
-    pub fn draw(&mut self, geometry: &Arc<dyn AsRef<WebGLGeometryImpl>>) {
+    pub fn draw(&mut self, geometry: &Share<dyn AsRef<WebGLGeometryImpl>>) {
 
         let need_set_geometry = match &self.geometry {
             None => true,
-            Some(g) => !Arc::ptr_eq(g, geometry),
+            Some(g) => !Share::ptr_eq(g, geometry),
         };
 
         if need_set_geometry {            
@@ -447,7 +447,7 @@ impl State {
     /** 
      * 全状态设置，仅用于创建State时候
      */
-    pub fn apply_all_state(gl: &Arc<WebGLRenderingContext>, state: &mut State) {
+    pub fn apply_all_state(gl: &Share<WebGLRenderingContext>, state: &mut State) {
 
         gl.enable(WebGLRenderingContext::BLEND);
         gl.enable(WebGLRenderingContext::SCISSOR_TEST);

@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use share::{Share};
 use hal_core::{Texture, TextureData, PixelFormat, DataFormat};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 use stdweb::{Object};
@@ -8,7 +8,7 @@ use sampler::{WebGLSamplerImpl};
 
 #[derive(Debug)]
 pub struct WebGLTextureImpl {
-    pub gl: Arc<WebGLRenderingContext>,
+    pub gl: Share<WebGLRenderingContext>,
     pub width: u32,
     pub height: u32,
     pub level: u32,
@@ -67,7 +67,7 @@ impl AsRef<Self> for WebGLTextureImpl {
 
 impl WebGLTextureImpl {
     
-    pub fn new_2d(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
+    pub fn new_2d(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);
@@ -114,7 +114,7 @@ impl WebGLTextureImpl {
     /** 
      * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
      */
-    pub fn new_2d_webgl(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
+    pub fn new_2d_webgl(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);

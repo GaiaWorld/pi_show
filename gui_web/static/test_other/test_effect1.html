@@ -234,6 +234,11 @@
         Module._render(gui);
         console.log("render time: ",  performance.now() - time1);
 
+        Module._set_render_dirty(gui);
+        var time1 = performance.now();
+        Module._render(gui);
+        console.log("render1 time: ",  performance.now() - time1);
+
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);
         //     Module._append_child(gui, node2, node1); // 接口已修改， node和parent顺序颠倒

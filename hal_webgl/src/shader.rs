@@ -1,5 +1,5 @@
 
-use std::sync::{Weak, Arc};
+use share::{Share, ShareWeak};
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 
@@ -35,14 +35,14 @@ pub struct Shader {
  */
 pub struct Program {
     handle: WebGLProgram,
-    gl: Weak<WebGLRenderingContext>,
+    gl: ShareWeak<WebGLRenderingContext>,
     
     _attributes: FnvHashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
 
     all_uniforms: FnvHashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
 
     // u32是上一次设置时候的 dirty_count
-    last_uniforms: FnvHashMap<Atom, (u32, Arc<dyn AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
+    last_uniforms: FnvHashMap<Atom, (u32, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
 }
 
 pub struct WebGLUniformImpl {
@@ -58,7 +58,7 @@ pub struct WebGLUniformImpl {
  */
 pub struct ProgramManager {
     
-    gl: Weak<WebGLRenderingContext>,
+    gl: ShareWeak<WebGLRenderingContext>,
 
     // 代码缓存
     code_caches: FnvHashMap<Atom, String>,
@@ -78,9 +78,9 @@ impl ProgramManager {
      * 创建一个管理器
      * 注：一个App可能存在多个gl环境，因此ProgramManager不能是单例
      */
-    pub fn new(gl: &Arc<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
+    pub fn new(gl: &Share<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
         ProgramManager {
-            gl: Arc::downgrade(gl),
+            gl: Share::downgrade(gl),
             code_caches: FnvHashMap::default(),
             shader_caches: FnvHashMap::default(),
             program_caches: FnvHashMap::default(),
@@ -384,7 +384,7 @@ impl ProgramManager {
                     value = UniformValue::<WebGLContextImpl>::MatrixV(4, vec![0.0; size]);
                 }
                 WebGLRenderingContext::SAMPLER_2D => {
-                    value = UniformValue::<WebGLContextImpl>::Sampler(Weak::<WebGLSamplerImpl>::new(), Weak::<WebGLTextureImpl>::new());
+                    value = UniformValue::<WebGLContextImpl>::Sampler(ShareWeak::<WebGLSamplerImpl>::new(), ShareWeak::<WebGLTextureImpl>::new());
                 }
                 _ => {
                     panic!("Invalid Uniform");
@@ -449,7 +449,7 @@ impl Program {
         }
     }
 
-    pub fn set_uniforms(&mut self, state: &mut State, values: &FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<WebGLContextImpl>>>>) {
+    pub fn set_uniforms(&mut self, state: &mut State, values: &FnvHashMap<Atom, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>>) {
         
         for (name, curr) in values.iter() {
             let is_old_same = match self.last_uniforms.get_mut(name) {
@@ -461,7 +461,7 @@ impl Program {
                     let c = curr.as_ref().as_ref();
                     // 含有纹理的必须每帧更新，调用use_texture才行。
                     // 高层设置脏的，必须更新。
-                    if c.has_texture || *last_dirty_count != c.dirty_count || !Arc::ptr_eq(old, curr) {
+                    if c.has_texture || *last_dirty_count != c.dirty_count || !Share::ptr_eq(old, curr) {
                         self.set_uniforms_impl(state, &c.values);
                         false
                     } else {

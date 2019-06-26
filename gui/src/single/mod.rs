@@ -1,6 +1,6 @@
 pub mod oct;
 
-use std::sync::Arc;
+use share::Share;
 use std::any::{TypeId, Any};
 
 use fnv::FnvHashMap;
@@ -77,9 +77,9 @@ pub struct RenderObj<C: Context + 'static>{
     pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+    pub ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
     pub geometry: Option<Res<GeometryRes<C>>>,
-    pub pipeline: Arc<PipelineInfo>,
+    pub pipeline: Share<PipelineInfo>,
     pub context: usize,
     pub defines: Vec<Atom>,
     
@@ -88,7 +88,7 @@ pub struct RenderObj<C: Context + 'static>{
 
 // pub struct SharderAttr<C: Context>{
 //     pub geometry: <C as Context>::ContextGeometry, //geometry 对象
-//     pub pipeline: Arc<Pipeline>,
+//     pub pipeline: Share<Pipeline>,
 // }
 
 // impl<C: Context + Debug> fmt::Debug for RenderObj<C> {
@@ -177,10 +177,10 @@ impl NodeRenderMap {
     }
 }
 
-pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct RenderBegin(pub Arc<RenderBeginDesc>);
+pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct RenderBegin(pub Share<RenderBeginDesc>);
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
@@ -190,6 +190,9 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
+
+unsafe impl Sync for RenderBegin {}
+unsafe impl Send for RenderBegin {}
 
 pub struct DefaultTable(FnvHashMap<TypeId, Box<dyn Any>>);
 

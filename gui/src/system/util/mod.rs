@@ -1,13 +1,13 @@
 pub mod constant;
 
-use std::sync::Arc;
+use share::Share;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 use std::mem::transmute;
 
 use ordered_float::NotNan;
 
-use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share};
+use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait};
 use hal_core::{ RasterState, BlendState, StencilState, DepthState, Context, Geometry, SamplerDesc, AttributeName};
 use atom::Atom;
 
@@ -82,7 +82,7 @@ pub fn create_geometry<C: Context>(gl: &mut C) -> <C as Context>::ContextGeometr
     }
 }
 
-pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32), geometry: &mut Arc<<C as Context>::ContextGeometry>){
+pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32), geometry: &mut Share<<C as Context>::ContextGeometry>){
     let (start_x, start_y, end_x, end_y) = (offset.0, offset.1, layout.width + offset.0, layout.height + offset.1);
     let buffer = [
         start_x, start_y, z_depth, // left_top
@@ -90,7 +90,7 @@ pub fn set_atrribute<C: Context>(layout: &Layout, z_depth: f32, offset:(f32, f32
         end_x,   end_y,   z_depth, // right_bootom
         end_x,   start_y, z_depth, // right_top
     ];
-    Arc::get_mut(geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false).unwrap();
+    Share::get_mut(geometry).unwrap().set_attribute(&AttributeName::Position, 3, Some(&buffer[0..12]), false).unwrap();
 }
 
 pub fn set_world_matrix_ubo<C: Context + 'static>(
@@ -101,17 +101,17 @@ pub fn set_world_matrix_ubo<C: Context + 'static>(
 ){
     let ubos = &mut unsafe { render_objs.get_unchecked_mut(index) }.ubos;
     let slice: &[f32; 16] = world_matrix.as_ref();
-    Arc::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+    Share::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
 }
 
-pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
+pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + ShareTrait>(
     by_overflow: usize,
     index: usize,
     defines: &mut D,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
     start_hash: u64,
     vs: &Atom,
     fs: &Atom,
@@ -129,11 +129,11 @@ pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + Share>(
         return;
     }
     ubos.entry(CLIP.clone()).and_modify(|by_overflow_ubo|{
-        Arc::make_mut(by_overflow_ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);//裁剪属性
+        Share::make_mut(by_overflow_ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);//裁剪属性
     }).or_insert_with(||{
         let mut by_overflow_ubo = engine.gl.create_uniforms();
         by_overflow_ubo.set_float_1(&CLIP_INDICES, by_overflow as f32); //裁剪属性
-        Arc::new(by_overflow_ubo)
+        Share::new(by_overflow_ubo)
     });
     if defines.get_clip() == false {
         defines.set_clip(true);

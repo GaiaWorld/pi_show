@@ -17,7 +17,7 @@ use ecs::{
     monitor::{CreateEvent, DeleteEvent, ModifyEvent},
     component::MultiCaseImpl,
     single::SingleCaseImpl,
-    Share,
+    Share as ShareTrait,
 };
 
 use ROOT;
@@ -32,14 +32,14 @@ use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 type Read<'a, C, L> = (&'a SingleCaseImpl<FontSheet<C>>, &'a MultiCaseImpl<Node, L>, &'a MultiCaseImpl<Node, Text>, &'a MultiCaseImpl<Node, TextStyle>, &'a MultiCaseImpl<Node, Font>);
 type Write<'a, L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>);
 
-pub struct LayoutImpl<C: Context + Share, L: FlexNode + Share> {
+pub struct LayoutImpl<C: Context + ShareTrait, L: FlexNode + ShareTrait> {
     dirty: Vec<usize>, 
     temp: Vec<usize>,
     write: usize,
     mark: PhantomData<(C, L)>,
 }
 
-impl<'a, C: Context + Share, L: FlexNode + Share> LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
     pub fn new() -> Self{
         LayoutImpl {
             dirty: Vec::new(), 
@@ -72,7 +72,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> LayoutImpl< C, L> {
         }
     }
 }
-impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for LayoutImpl< C, L> {
   type ReadData = Read<'a, C, L>;
   type WriteData = Write<'a, L>;
 
@@ -100,7 +100,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> Runner<'a> for LayoutImpl< C, 
 }
 
 // 监听text属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -110,7 +110,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     }
 }
 // 监听text属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -119,7 +119,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -128,7 +128,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     }
 }
 // 监听TextStyle属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -137,7 +137,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -146,7 +146,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
     }
 }
 // 监听Font属性的改变
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -156,7 +156,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
 }
 
 // 监听CharBlock的删除
-impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -173,7 +173,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
 
 //================================ 内部静态方法
 //回调函数
-extern "C" fn callback<C: Context + Share, L: FlexNode + Share>(node: L, callback_args: *const c_void) {
+extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: L, callback_args: *const c_void) {
     //更新布局
     let b = node.get_bind() as usize;
     let c = node.get_context() as usize;
@@ -201,7 +201,7 @@ extern "C" fn callback<C: Context + Share, L: FlexNode + Share>(node: L, callbac
 }
 
 // 文字布局更新
-fn update<'a, L: FlexNode + Share>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
+fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
     // println!("update text layout------------------------id: {}b{}, node_width: {:?}, top: {:?}", id, char_index, node.get_width(), node.get_top());
     let layout = node.get_layout();
     let mut pos = Point2{x: layout.left, y: layout.top};
@@ -227,7 +227,7 @@ fn update<'a, L: FlexNode + Share>(mut node: L, id: usize, char_index: usize, wr
     // }
 }
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, C: Context + Share, L: FlexNode + Share>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {
+fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {
     // println!("textlayout calc-----------------------------------");
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
     let yoga = unsafe { read.1.get_unchecked(id).clone() };
@@ -336,7 +336,7 @@ fn calc<'a, C: Context + Share, L: FlexNode + Share>(id: usize, read: &Read<C, L
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<C: Context + Share, L: FlexNode + Share>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
+fn update_char<C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
     let i = *index;
     if i < cb.chars.len() {
         let cn = &cb.chars[i];
@@ -367,7 +367,7 @@ fn update_char<C: Context + Share, L: FlexNode + Share>(id: usize, cb: &mut Char
     node
 }
 // 设置节点的宽高
-fn set_node<C: Context + Share, L: FlexNode + Share>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>, node: L) -> L {
+fn set_node<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>, node: L) -> L {
     if c > ' ' {
         w = font.measure(&cb.family, cb.font_size, c);
         node.set_width(w + cb.letter_spacing);
@@ -391,7 +391,7 @@ fn set_node<C: Context + Share, L: FlexNode + Share>(cb: &CharBlock<L>, c: char,
 
 
 impl_system!{
-    LayoutImpl<C, L> where [C: Context + Share, L: FlexNode + Share],
+    LayoutImpl<C, L> where [C: Context + ShareTrait, L: FlexNode + ShareTrait],
     true,
     {
         MultiCaseListener<Node, Text, CreateEvent>

@@ -3,7 +3,7 @@
 use atom::Atom;
 use map::{vecmap::VecMap};
 use ecs::component::Component;
-use ecs::Share;
+use ecs::Share as ShareTrait;
 
 use super::user::*;
 use layout::FlexNode;
@@ -67,7 +67,7 @@ impl Default for HSV {
 // }
 
 #[derive(Component, Debug)]
-pub struct CharBlock<L: FlexNode + Share> {
+pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub family: Atom,
   pub font_size: f32, // 字体高度
   pub line_height: f32,
@@ -78,7 +78,7 @@ pub struct CharBlock<L: FlexNode + Share> {
   pub dirty: bool,
 }
 #[derive(Debug)]
-pub struct CharNode<L: FlexNode + Share> {
+pub struct CharNode<L: FlexNode + ShareTrait> {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置

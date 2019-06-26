@@ -458,7 +458,7 @@ impl_system!{
 //     let mut world: World<WorldDocMgr, ()> = World::new(WorldDocMgr::new());
 //     let _nc = NodeCountSys::init(&mut world.component_mgr);
 //     let zz = ZIndexSys::init(&mut world.component_mgr);
-//     let systems: Vec<Arc<System<(), WorldDocMgr>>> = vec![zz.clone()];
+//     let systems: Vec<Share<System<(), WorldDocMgr>>> = vec![zz.clone()];
 //     world.set_systems(systems);
 //     test_world_zz(&mut world, zz);
 // }
@@ -471,7 +471,7 @@ impl_system!{
 // }
 // #[cfg(not(feature = "web"))]
 // #[cfg(test)]
-// fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Arc<ZIndexSys>){
+// fn test_world_zz(world: &mut World<WorldDocMgr, ()>, zz: Share<ZIndexSys>){
 //     let mgr = &mut world.component_mgr;
 //     let body_id = new_node(mgr, 1);
 //     world.run(());
@@ -526,7 +526,7 @@ impl_system!{
 // }
 // #[cfg(not(feature = "web"))]
 // #[cfg(test)]
-// fn test_world_z(world: &mut World<WorldDocMgr, ()>, zz: Arc<ZIndexSys>){
+// fn test_world_z(world: &mut World<WorldDocMgr, ()>, zz: Share<ZIndexSys>){
 //     let (root, node1, node2, node3, node4, node5) = {
 //         let component_mgr = &mut world.component_mgr;
 //         {
@@ -590,7 +590,7 @@ impl_system!{
 
 // #[cfg(not(feature = "web"))]
 // #[cfg(test)]
-// fn print_node(mgr: &WorldDocMgr, zz: Arc<ZIndexSys>, id: usize) {
+// fn print_node(mgr: &WorldDocMgr, zz: Share<ZIndexSys>, id: usize) {
 //     let node = mgr.node._group.get(id);
 //     let zimpl = zz.0.borrow_mut();
 //     let zi = unsafe{zimpl.map.get_unchecked(id)};

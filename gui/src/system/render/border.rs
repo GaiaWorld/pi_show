@@ -2,12 +2,12 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 use std::hash::{ Hasher, Hash };
 use std::collections::hash_map::DefaultHasher;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
@@ -33,32 +33,32 @@ lazy_static! {
     static ref BORDER_COLOR: Atom = Atom::from("border_color");
 }
 
-pub struct BorderColorSys<C: Context + Share>{
+pub struct BorderColorSys<C: Context + ShareTrait>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
 }
 
-impl<C: Context + Share> BorderColorSys<C> {
+impl<C: Context + ShareTrait> BorderColorSys<C> {
     pub fn new() -> Self{
         BorderColorSys {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Arc::new(RasterState::new()),
-            bs: Arc::new(BlendState::new()),
-            ss: Arc::new(StencilState::new()),
-            ds: Arc::new(DepthState::new()),
+            rs: Share::new(RasterState::new()),
+            bs: Share::new(BlendState::new()),
+            ss: Share::new(StencilState::new()),
+            ds: Share::new(DepthState::new()),
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + Share> Runner<'a> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for BorderColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Layout>, &'a MultiCaseImpl<Node, BorderRadius>, &'a MultiCaseImpl<Node, ZDepth>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
@@ -97,7 +97,7 @@ impl<'a, C: Context + Share> Runner<'a> for BorderColorSys<C>{
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for BorderColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -106,7 +106,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, ModifyEven
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for BorderColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderColor>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -127,14 +127,14 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
         let mut defines = Vec::new();
         defines.push(UCOLOR.clone());
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, 1.0);
         common_ubo.set_float_4(&U_COLOR, border_color.0.r, border_color.0.g, border_color.0.b,border_color.0.a);
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
 
         let pipeline = engine.create_pipeline(0, &COLOR_VS_SHADER_NAME.clone(), &COLOR_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
         
@@ -163,7 +163,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, CreateEven
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for BorderColorSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -177,7 +177,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BorderColor, DeleteEven
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderColorSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -191,7 +191,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> fo
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -201,7 +201,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 
 type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -209,7 +209,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Modi
     }
 }
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderColorSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -217,7 +217,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Crea
     }
 }
 
-impl<'a, C: Context + Share> BorderColorSys<C> {
+impl<'a, C: Context + ShareTrait> BorderColorSys<C> {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BorderColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         if let Some(item) = self.render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
@@ -247,7 +247,7 @@ impl<'a, C: Context + Share> BorderColorSys<C> {
             // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("border, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
         }
@@ -311,11 +311,11 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f3
     }
 }
 
-unsafe impl<C: Context + Share> Sync for BorderColorSys<C>{}
-unsafe impl<C: Context + Share> Send for BorderColorSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for BorderColorSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for BorderColorSys<C>{}
 
 impl_system!{
-    BorderColorSys<C> where [C: Context + Share],
+    BorderColorSys<C> where [C: Context + ShareTrait],
     true,
     {
         MultiCaseListener<Node, BorderColor, CreateEvent>

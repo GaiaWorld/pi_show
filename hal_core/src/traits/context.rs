@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use share::{Share};
 use atom::Atom;
 use std::convert::{AsRef};
 
@@ -70,12 +70,12 @@ pub trait Context: Sized {
     /**
      * 取特性
      */
-    fn get_caps(&self) -> Arc<Capabilities>;
+    fn get_caps(&self) -> Share<Capabilities>;
 
     /**
      * 取默认的渲染目标
      */
-    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget>;
+    fn get_default_render_target(&self) -> Share<Self::ContextRenderTarget>;
 
     /** 
      * 设置shader代码

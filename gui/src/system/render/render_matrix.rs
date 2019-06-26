@@ -3,7 +3,7 @@
  */
 use std::marker::PhantomData;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use hal_core::*;
 use map::vecmap::VecMap;
 
@@ -13,13 +13,13 @@ use entity::{Node};
 use single::*;
 use system::util::*;
 
-pub struct RenderMatrixSys<C: Context + Share>{
+pub struct RenderMatrixSys<C: Context + ShareTrait>{
     dirtys: Vec<usize>,
     dirty_mark: VecMap<bool>,
     marker: PhantomData<C>,
 }
 
-impl<'a, C: Context + Share> RenderMatrixSys<C> {
+impl<'a, C: Context + ShareTrait> RenderMatrixSys<C> {
     pub fn new() -> Self{
         RenderMatrixSys {
             dirty_mark: VecMap::default(),
@@ -29,7 +29,7 @@ impl<'a, C: Context + Share> RenderMatrixSys<C> {
     }
 }
 
-impl<'a, C: Context + Share> Runner<'a> for RenderMatrixSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for RenderMatrixSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -39,7 +39,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderMatrixSys<C>{
     );
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrixRender>;
     fn run(&mut self, read: Self::ReadData, world_matrix_render: Self::WriteData){
-        let (world_matrixs, transforms, layouts, default_table, node_render_map) = read;
+        let (world_matrixs, transforms, layouts, default_table, _node_render_map) = read;
         let default_transform = default_table.get_unchecked::<Transform>();
         for i in self.dirtys.iter() {
             unsafe { *(self.dirty_mark.get_unchecked_mut(*i)) = false; }
@@ -53,7 +53,7 @@ impl<'a, C: Context + Share> Runner<'a> for RenderMatrixSys<C>{
 }
 
 //Node创建 设脏
-impl<'a, C: Context + Share> EntityListener<'a, Node, CreateEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, CreateEvent> for RenderMatrixSys<C>{
     type ReadData = ();
     type WriteData = () ;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, _: Self::WriteData){
@@ -63,7 +63,7 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, CreateEvent> for RenderMat
 }
 
 //Node删除 设脏
-impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, DeleteEvent> for RenderMatrixSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _: Self::WriteData){
@@ -74,7 +74,7 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for RenderMat
 }
 
 //世界矩阵变化， 设脏
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for RenderMatrixSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -86,11 +86,11 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEven
     }
 }
 
-unsafe impl<'a, C: Context + Share> Sync for RenderMatrixSys<C>{}
-unsafe impl<'a, C: Context + Share> Send for RenderMatrixSys<C>{}
+unsafe impl<'a, C: Context + ShareTrait> Sync for RenderMatrixSys<C>{}
+unsafe impl<'a, C: Context + ShareTrait> Send for RenderMatrixSys<C>{}
 
 impl_system!{
-    RenderMatrixSys<C> where [C: Context + Share],
+    RenderMatrixSys<C> where [C: Context + ShareTrait],
     true,
     {
         EntityListener<Node, CreateEvent>

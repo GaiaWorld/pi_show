@@ -27,7 +27,7 @@ extern crate debug_info;
 pub extern crate paste;
 extern crate serde;
  
-
+extern crate share;
 extern crate deque;
 extern crate cg2d;
 extern crate cgmath;

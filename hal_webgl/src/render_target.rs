@@ -1,4 +1,4 @@
-use std::sync::{Arc, Weak};
+use share::{Share, ShareWeak};
 use hal_core::*;
 use texture::{WebGLTextureImpl};
 use context::{WebGLContextImpl};
@@ -10,7 +10,7 @@ use convert::*;
 
 #[derive(Debug)]
 pub struct WebGLRenderBufferImpl {
-    gl: Weak<WebGLRenderingContext>,
+    gl: ShareWeak<WebGLRenderingContext>,
     width: u32, 
     height: u32,
     format: PixelFormat,
@@ -19,14 +19,14 @@ pub struct WebGLRenderBufferImpl {
 
 #[derive(Debug)]
 pub enum RenderTargetAttach {
-    Texture(Arc<WebGLTextureImpl>),
-    Buffer(Arc<WebGLRenderBufferImpl>),
+    Texture(Share<WebGLTextureImpl>),
+    Buffer(Share<WebGLRenderBufferImpl>),
 }
 
 #[derive(Debug)]
 pub struct WebGLRenderTargetImpl {
 
-    gl: Weak<WebGLRenderingContext>,
+    gl: ShareWeak<WebGLRenderingContext>,
 
     pub is_default: bool, // 注：不能从默认的渲染目标上取color depth
     pub frame_buffer: Option<Object>,
@@ -57,7 +57,7 @@ impl AsRef<Self> for WebGLRenderBufferImpl {
 }
 
 impl WebGLRenderBufferImpl {
-    pub fn new(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat) -> Option<Self> {
+    pub fn new(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat) -> Option<Self> {
     
         let r = gl.create_renderbuffer();
         if r.is_none() {
@@ -70,7 +70,7 @@ impl WebGLRenderBufferImpl {
         gl.renderbuffer_storage(WebGLRenderingContext::RENDERBUFFER, format, w as i32, h as i32);
 
         Some(WebGLRenderBufferImpl {
-            gl: Arc::downgrade(gl),
+            gl: Share::downgrade(gl),
             width: w,
             height: h,
             format: *pformat,
@@ -84,10 +84,10 @@ impl WebGLRenderTargetImpl {
     /** 
      * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
      */
-    pub fn new_default(gl: &Arc<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
+    pub fn new_default(gl: &Share<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
 
         WebGLRenderTargetImpl {
-            gl: Arc::downgrade(gl),
+            gl: Share::downgrade(gl),
             is_default: true,
             frame_buffer: fbo,
             color: None,    
@@ -97,7 +97,7 @@ impl WebGLRenderTargetImpl {
         }
     }
 
-    pub fn new(gl: &Arc<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
+    pub fn new(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
         
         match TryInto::<Object>::try_into(js! {
             var fbo = @{gl.as_ref()}.createFramebuffer();
@@ -117,7 +117,7 @@ impl WebGLRenderTargetImpl {
                 let color = match WebGLTextureImpl::new_2d(gl, w, h, 0, pformat, dformat, false, &TextureData::None) {
                     Ok(texture) => {
                         gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&texture.handle), 0);
-                        Some(RenderTargetAttach::Texture(Arc::new(texture)))
+                        Some(RenderTargetAttach::Texture(Share::new(texture)))
                     }
                     Err(_) => None,
                 };
@@ -128,7 +128,7 @@ impl WebGLRenderTargetImpl {
                     match WebGLRenderBufferImpl::new(gl, w, h, &PixelFormat::DEPTH16) {
                         Some(rb) => {
                             gl.framebuffer_renderbuffer(fb_type, depth_attachment, rb_type, Some(&rb.handle));
-                            Some(RenderTargetAttach::Buffer(Arc::new(rb)))
+                            Some(RenderTargetAttach::Buffer(Share::new(rb)))
                         }
                         None => None,
                     }
@@ -137,7 +137,7 @@ impl WebGLRenderTargetImpl {
                 };
                 
                 Ok(WebGLRenderTargetImpl {
-                    gl: Arc::downgrade(gl),
+                    gl: Share::downgrade(gl),
                     is_default: false,
                     frame_buffer: Some(fb),
                     color: color,
@@ -160,7 +160,7 @@ impl RenderTarget for WebGLRenderTargetImpl {
         (self.width, self.height)
     }
 
-    fn get_color_texture(&self, _index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
+    fn get_color_texture(&self, _index: u32) -> Option<Share<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
         match &self.color {
             &Some(RenderTargetAttach::Texture(ref v)) => Some(v.clone()),
             _ => None,

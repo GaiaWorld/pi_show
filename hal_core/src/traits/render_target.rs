@@ -11,7 +11,7 @@
  *         模板缓冲区一般是RenderBuffer，不需要取出来
  */
 
-use std::sync::{Arc};
+use share::{Share};
 
 use traits::context::{Context};
 
@@ -37,5 +37,5 @@ pub trait RenderTarget: Drop + AsRef<Self> {
     /**
      * 取渲染目标中特定通道的纹理
      */
-    fn get_color_texture(&self, index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>>;
+    fn get_color_texture(&self, index: u32) -> Option<Share<<<Self as RenderTarget>::RContext as Context>::ContextTexture>>;
 }

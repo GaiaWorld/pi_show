@@ -1,10 +1,10 @@
 // 监听Overflow， 绘制裁剪纹理
 
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 
 use fnv::FnvHashMap;
-use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use hal_core::*;
 use atom::Atom;
 
@@ -30,31 +30,31 @@ lazy_static! {
     static ref CLIP_TEXTURE_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
-pub struct ClipSys<C: Context + Share>{
+pub struct ClipSys<C: Context + ShareTrait>{
     mark: PhantomData<C>,
     dirty: bool,
-    render_target: Arc<<C as Context>::ContextRenderTarget>,
-    by_ubo: Arc<Uniforms<C>>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
-    pipeline: Arc<PipelineInfo>,
-    geometry: Arc<<C as Context>::ContextGeometry>,
-    ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
+    render_target: Share<<C as Context>::ContextRenderTarget>,
+    by_ubo: Share<Uniforms<C>>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
+    pipeline: Share<PipelineInfo>,
+    geometry: Share<<C as Context>::ContextGeometry>,
+    ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
     sampler: Res<SamplerRes<C>>,
 }
 
-impl<C: Context + Share> ClipSys<C>{
+impl<C: Context + ShareTrait> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
-        let (rs, mut bs, ss, mut ds) = (Arc::new(RasterState::new()), BlendState::new(), Arc::new(StencilState::new()), DepthState::new());
+        let (rs, mut bs, ss, mut ds) = (Share::new(RasterState::new()), BlendState::new(), Share::new(StencilState::new()), DepthState::new());
         
         bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
-        let bs = Arc::new(bs);
+        let bs = Share::new(bs);
 
         ds.set_test_enable(false);
         ds.set_write_enable(false);
-        let ds = Arc::new(ds);
+        let ds = Share::new(ds);
 
         let defines = Vec::new();
         let pipeline = engine.create_pipeline(
@@ -72,7 +72,7 @@ impl<C: Context + Share> ClipSys<C>{
         let sampler = match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
             Some(r) => r.clone(),
             None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Arc::new(s)).unwrap());
+                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
                 engine.res_mgr.create::<SamplerRes<C>>(res)
             },          
         };
@@ -81,24 +81,24 @@ impl<C: Context + Share> ClipSys<C>{
         let mut by_ubo = engine.gl.create_uniforms();
         by_ubo.set_sampler(
             &CLIP_TEXTURE,
-            &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
-            &(target.get_color_texture(0).unwrap().clone() as  Arc<dyn AsRef<<C as Context>::ContextTexture>>)
+            &(sampler.value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
+            &(target.get_color_texture(0).unwrap().clone() as  Share<dyn AsRef<<C as Context>::ContextTexture>>)
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
 
-        let ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
 
         Self {
             mark: PhantomData,
             dirty: true,
-            render_target: Arc::new(target),
-            by_ubo: Arc::new(by_ubo),
+            render_target: Share::new(target),
+            by_ubo: Share::new(by_ubo),
             rs: rs,
             bs: bs,
             ss: ss,
             ds: ds,
             pipeline: pipeline,
-            geometry: Arc::new(engine.gl.create_geometry().unwrap()),
+            geometry: Share::new(engine.gl.create_geometry().unwrap()),
             ubos: ubos,
             sampler: sampler,
         }
@@ -116,14 +116,14 @@ impl<C: Context + Share> ClipSys<C>{
 
         if is_change {
             // 设置 by_clip_index
-            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Arc<Uniforms<C>>|{
+            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Share<Uniforms<C>>|{
                 debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
-                Arc::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
+                Share::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
             }).or_insert_with(||{
                 debug_println!("add clip ubo, by_overflow: {}", by_overflow);
                 let mut ubo = engine.gl.create_uniforms();
                 ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
-                Arc::new(ubo)
+                Share::new(ubo)
             });
 
             // 重新创建渲染管线
@@ -143,7 +143,7 @@ impl<C: Context + Share> ClipSys<C>{
     }
 }
 
-impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -175,19 +175,19 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             clear_stencil: None,
         };
         // gl.begin_render(
-        //     &(gl.get_default_render_target().clone() as Arc<AsRef<C::ContextRenderTarget>>), 
-        //     &(Arc::new(viewport) as Arc<AsRef<RenderBeginDesc>>)
+        //     &(gl.get_default_render_target().clone() as Share<AsRef<C::ContextRenderTarget>>), 
+        //     &(Share::new(viewport) as Share<AsRef<RenderBeginDesc>>)
         // );
 
         gl.begin_render(
-            &(self.render_target.clone() as Arc<dyn AsRef<C::ContextRenderTarget>>), 
-            &(Arc::new(viewport) as Arc<dyn AsRef<RenderBeginDesc>>)
+            &(self.render_target.clone() as Share<dyn AsRef<C::ContextRenderTarget>>), 
+            &(Share::new(viewport) as Share<dyn AsRef<RenderBeginDesc>>)
         );
 
         // println!("overflow1: {:?}, id_vec: {:?}", overflow.clip, overflow.id_vec);
 
         // set_pipeline
-        gl.set_pipeline(&(self.pipeline.pipeline.clone() as Arc<dyn AsRef<Pipeline>>));
+        gl.set_pipeline(&(self.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
         {
             let geometry_ref = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
@@ -213,12 +213,12 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
         }
-        let mut ubos: FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
         for (k, v) in self.ubos.iter() {
-            ubos.insert(k.clone(), v.clone() as Arc<dyn AsRef<Uniforms<C>>>);
+            ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
         }
         //draw
-        gl.draw(&(self.geometry.clone() as Arc<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
+        gl.draw(&(self.geometry.clone() as Share<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 
         gl.end_render();
     }
@@ -244,14 +244,14 @@ impl<'a, C: Context + Share> Runner<'a> for ClipSys<C>{
         ubo.set_mat_4v(&VIEW_MATRIX, &view[0..16]);   
         ubo.set_mat_4v(&PROJECT_MATRIX, &projection[0..16]);
         ubo.set_float_1(&MESH_NUM, 8.0);
-        self.ubos.insert(COMMON.clone(), Arc::new(ubo));
+        self.ubos.insert(COMMON.clone(), Share::new(ubo));
     
         self.dirty = true;
     }
 }
 
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
+impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
@@ -268,7 +268,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
 }
 
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -313,7 +313,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent
 }
 
 
-impl<'a, C: Context + Share> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -322,8 +322,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, OverflowClip, ModifyEvent> f
     }
 }
 
-unsafe impl<C: Context + Share> Sync for ClipSys<C>{}
-unsafe impl<C: Context + Share> Send for ClipSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for ClipSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for ClipSys<C>{}
 
 
 
@@ -339,7 +339,7 @@ fn next_power_of_two(value: u32) -> u32 {
 }
 
 impl_system!{
-    ClipSys<C> where [C: Context + Share],
+    ClipSys<C> where [C: Context + ShareTrait],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>

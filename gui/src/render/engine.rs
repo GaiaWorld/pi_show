@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use share::Share;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 
@@ -9,21 +9,21 @@ use hal_core::{Context, Pipeline, RasterState, BlendState, StencilState, DepthSt
 use util::res_mgr::ResMgr;
 
 pub struct PipelineInfo {
-    pub pipeline: Arc<Pipeline>,
+    pub pipeline: Share<Pipeline>,
     pub vs: Atom,
     pub fs: Atom,
     pub defines: Vec<Atom>,
-    pub rs: Arc<RasterState>,
-    pub bs: Arc<BlendState>,
-    pub ss: Arc<StencilState>,
-    pub ds: Arc<DepthState>,
+    pub rs: Share<RasterState>,
+    pub bs: Share<BlendState>,
+    pub ss: Share<StencilState>,
+    pub ds: Share<DepthState>,
     pub start_hash: u64,
 }
 
 pub struct Engine<C: Context>{
     pub gl: C,
     pub res_mgr: ResMgr,
-    pub pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
+    pub pipelines: FnvHashMap<u64, Share<PipelineInfo>>,
 }
 
 impl<C: Context> Engine<C> {
@@ -35,7 +35,7 @@ impl<C: Context> Engine<C> {
         }
     }
 
-    pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Arc<RasterState>, bs: Arc<BlendState>, ss: Arc<StencilState>, ds: Arc<DepthState>) -> Arc<PipelineInfo> {
+    pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Share<RasterState>, bs: Share<BlendState>, ss: Share<StencilState>, ds: Share<DepthState>) -> Share<PipelineInfo> {
         let vs = match self.gl.compile_shader(ShaderType::Vertex, vs_name, defines) {
             Ok(r) => r,
             Err(s) => panic!("compile_vs_shader error: {:?}", s),
@@ -58,9 +58,9 @@ impl<C: Context> Engine<C> {
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
                     let defines = Vec::from(defines);
-                    Arc::new(PipelineInfo{
+                    Share::new(PipelineInfo{
                         start_hash: start_hash,
-                        pipeline: Arc::new(r),
+                        pipeline: Share::new(r),
                         vs: vs_name.clone(),
                         fs: fs_name.clone(),
                         defines: defines,

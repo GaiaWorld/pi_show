@@ -7,6 +7,7 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+share={path="../../pi_lib/share"}
 hal_core={path="../hal_core"}
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"

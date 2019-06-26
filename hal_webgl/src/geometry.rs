@@ -1,4 +1,4 @@
-use std::sync::{Arc, Weak};
+use share::{Share, ShareWeak};
 use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::{UnsafeTypedArray, Object};
@@ -25,17 +25,17 @@ pub struct Indices {
 
 #[derive(Debug)]
 pub struct WebGLGeometryImpl {
-    gl: Weak<WebGLRenderingContext>,
+    gl: ShareWeak<WebGLRenderingContext>,
     pub vertex_count: u32,
     pub indices: Option<Indices>,
     pub attributes: FnvHashMap<AttributeName, Attribute>,
     pub vao: Option<Object>,
-    pub vao_extension: Option<Arc<Object>>,
+    pub vao_extension: Option<Share<Object>>,
 }
 
 impl WebGLGeometryImpl {
     
-    pub fn new(gl: &Arc<WebGLRenderingContext>, vao_extension: Option<Arc<Object>>) -> Self {
+    pub fn new(gl: &Share<WebGLRenderingContext>, vao_extension: Option<Share<Object>>) -> Self {
 
         let vao = match &vao_extension {
             None => None,
@@ -54,7 +54,7 @@ impl WebGLGeometryImpl {
         };
         
         WebGLGeometryImpl {
-            gl: Arc::downgrade(gl),
+            gl: Share::downgrade(gl),
             vertex_count: 0,
             indices: None,
             vao: vao,
@@ -95,7 +95,7 @@ impl Geometry for WebGLGeometryImpl {
         }
         
         let gl = self.gl.upgrade();
-        let gl: Option<&Arc<WebGLRenderingContext>> = gl.as_ref();
+        let gl: Option<&Share<WebGLRenderingContext>> = gl.as_ref();
         if gl.is_none() {
             return Err("WebGLGeometryImpl set_attribute failed, gl han't exist".to_string());
         }
@@ -206,7 +206,7 @@ impl Geometry for WebGLGeometryImpl {
 
         assert!(self.vertex_count > 0 && data.len() > 0, "WebGLGeometryImpl set_indices_short failed, data.len invalid");
 
-        let gl: Option<Arc<WebGLRenderingContext>> = self.gl.upgrade();
+        let gl: Option<Share<WebGLRenderingContext>> = self.gl.upgrade();
         
         if gl.is_none() {
             return Err("WebGLGeometryImpl set_indices_short failed, gl han't exist".to_string());

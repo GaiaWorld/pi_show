@@ -30,16 +30,15 @@ extern crate hal_webgl;
 extern crate atom;
 extern crate octree;
 extern crate cg2d;
+extern crate share;
 
-
-
-use std::sync::Arc;
 use std::mem::transmute;
 
 use stdweb::unstable::TryInto;
 use stdweb::Object;
 use webgl_rendering_context::{WebGLRenderingContext};
 
+use share::Share;
 use atom::Atom;
 use hal_webgl::*;
 use hal_core::*;
@@ -73,7 +72,7 @@ pub fn create_engine() -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
-    let gl = WebGLContextImpl::new(Arc::new(gl), fbo);
+    let gl = WebGLContextImpl::new(Share::new(gl), fbo);
 
     // let gl = WebGLContextImpl::new(Arc::new(gl), None);
     let engine = Engine::new(gl);
@@ -111,7 +110,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
     let render_begin = render_begin.lend_mut();
-    Arc::make_mut(&mut render_begin.0).clear_color = Some((r, g, b, a)); 
+    Share::make_mut(&mut render_begin.0).clear_color = Some((r, g, b, a)); 
 }
 
 // 渲染gui

@@ -1,10 +1,10 @@
 use std::mem::{transmute};
-use std::sync::Arc;
 
 use stdweb::unstable::TryInto;
 use stdweb::web::{ TypedArray };
 use stdweb::{Object, UnsafeTypedArray};
 
+use share::Share;
 use atom::Atom;
 use ecs::{LendMut};
 use hal_core::*;
@@ -233,7 +233,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     sdf_font.parse(cfg.as_slice()).unwrap();
     // _println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
-    font_sheet.set_src(sdf_font.name(), Arc::new(sdf_font));
+    font_sheet.set_src(sdf_font.name(), Share::new(sdf_font));
 }
 
 //          字体族名称                        字体名称（逗号分隔）     
@@ -260,7 +260,7 @@ pub fn set_text_content(world_id: u32, node: u32){
     // 生成不存在的字体
     look_text(world_id, node, value.as_str());
 
-    world.text.lend_mut().insert(node as usize, Text(Arc::new(value)));
+    world.text.lend_mut().insert(node as usize, Text(Share::new(value)));
     debug_println!("set_text_content");  
 }
 
@@ -434,7 +434,7 @@ fn look_text(world_id: u32, node: usize, text: &str){
 
 
 // 生成canvas字体
-fn gen_canvas_text(world: u32, font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+fn gen_canvas_text(world: u32, font: &Share<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
     let name = font.name();
     let font_name = name.as_ref();
     let c: Object = js!{
@@ -513,7 +513,7 @@ fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height:
 
 fn calc_canvas_text(
     cc: &Object,
-    font: &Arc<dyn SdfFont<Ctx = WebGLContextImpl>>,
+    font: &Share<dyn SdfFont<Ctx = WebGLContextImpl>>,
     chars: &Vec<u32>,
 ) -> Vec<TextInfo>{
     let max_width = font.atlas_width() as f32;

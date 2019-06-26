@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
+share = { path = "../../pi_lib/share" }
 ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
@@ -35,9 +36,3 @@ derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 ordered-float = { version = "1.0", default-features = false }
-
-[profile.release]
-lto = true
-opt-level ="z"
-panic = 'abort'
-codegen-units = 1

@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use share::{Share};
 
 use atom::{Atom};
 use webgl_rendering_context::{WebGLRenderingContext};
@@ -19,11 +19,11 @@ use shader::{ProgramManager};
 use debug_info::*;
 
 pub struct WebGLContextImpl {
-    gl: Arc<WebGLRenderingContext>,
-    caps: Arc<Capabilities>,
-    default_rt: Arc<WebGLRenderTargetImpl>,
+    gl: Share<WebGLRenderingContext>,
+    caps: Share<Capabilities>,
+    default_rt: Share<WebGLRenderTargetImpl>,
     state: State,
-    vao_extension: Option<Arc<Object>>,
+    vao_extension: Option<Share<Object>>,
     program_mgr: ProgramManager,
 }
 
@@ -38,11 +38,11 @@ impl Context for WebGLContextImpl {
     type ContextRenderTarget = WebGLRenderTargetImpl;
     type ContextRenderBuffer = WebGLRenderBufferImpl;
 
-    fn get_caps(&self) -> Arc<Capabilities> {
+    fn get_caps(&self) -> Share<Capabilities> {
         self.caps.clone()
     }
 
-    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget> {
+    fn get_default_render_target(&self) -> Share<Self::ContextRenderTarget> {
         self.default_rt.clone()
     }
 
@@ -62,7 +62,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Arc<dyn AsRef<RasterState>>, bs: Arc<dyn AsRef<BlendState>>, ss: Arc<dyn AsRef<StencilState>>, ds: Arc<dyn AsRef<DepthState>>) -> Result<Pipeline, String> {
+    fn create_pipeline(&mut self, vs_hash: u64, fs_hash: u64, rs: Share<dyn AsRef<RasterState>>, bs: Share<dyn AsRef<BlendState>>, ss: Share<dyn AsRef<StencilState>>, ds: Share<dyn AsRef<DepthState>>) -> Result<Pipeline, String> {
         
         // 链接Shader成Program
         if let Err(s) = self.program_mgr.get_program(vs_hash, fs_hash) {
@@ -91,7 +91,7 @@ impl Context for WebGLContextImpl {
         WebGLTextureImpl::new_2d(&self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
-    fn create_sampler(&mut self, desc: Arc<dyn AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, desc: Share<dyn AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
         let desc = desc.as_ref().as_ref();
         Ok(WebGLSamplerImpl {
             min_filter: desc.min_filter,
@@ -114,7 +114,7 @@ impl Context for WebGLContextImpl {
         State::apply_all_state(&self.gl, &mut self.state);
     }
 
-    fn begin_render(&mut self, render_target: &Arc<dyn AsRef<Self::ContextRenderTarget>>, data: &Arc<dyn AsRef<RenderBeginDesc>>) {
+    fn begin_render(&mut self, render_target: &Share<dyn AsRef<Self::ContextRenderTarget>>, data: &Share<dyn AsRef<RenderBeginDesc>>) {
 
         // 注：暂时在这里重置所有状态
         self.restore_state();
@@ -138,7 +138,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn set_pipeline(&mut self, pipeline: &Arc<dyn AsRef<Pipeline>>) {
+    fn set_pipeline(&mut self, pipeline: &Share<dyn AsRef<Pipeline>>) {
         
         if !self.state.set_pipeline(pipeline) {
             let p = pipeline.as_ref().as_ref();
@@ -150,7 +150,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn draw(&mut self, geometry: &Arc<dyn AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Arc<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
+    fn draw(&mut self, geometry: &Share<dyn AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Share<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
             program.set_uniforms(&mut self.state, values);
             self.state.draw(geometry);
@@ -163,12 +163,12 @@ impl WebGLContextImpl {
     /** 
      * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
      */
-    pub fn new(gl: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
+    pub fn new(gl: Share<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
         
         let caps = Self::create_caps(gl.as_ref());
-        let rt = Arc::new(WebGLRenderTargetImpl::new_default(&gl, fbo, 0, 0));
+        let rt = Share::new(WebGLRenderTargetImpl::new_default(&gl, fbo, 0, 0));
 
-        let state = State::new(&gl, &(rt.clone() as Arc<dyn AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
+        let state = State::new(&gl, &(rt.clone() as Share<dyn AsRef<WebGLRenderTargetImpl>>), caps.max_vertex_attribs, caps.max_textures_image_units);
 
         let mgr = ProgramManager::new(&gl, caps.max_vertex_attribs);
 
@@ -181,7 +181,7 @@ impl WebGLContextImpl {
                 };
                 return vaoExtensionWrap;
             }) {
-                Ok(object) => Some(Arc::new(object)),
+                Ok(object) => Some(Share::new(object)),
                 Err(_) => None,
             }
         } else {
@@ -193,7 +193,7 @@ impl WebGLContextImpl {
 
         WebGLContextImpl {
             gl: gl,
-            caps: Arc::new(caps),
+            caps: Share::new(caps),
             default_rt: rt,
             state: state,
             vao_extension: vao_extension,

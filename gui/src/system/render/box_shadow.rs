@@ -2,12 +2,12 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 use std::hash::{ Hasher, Hash };
 use std::collections::hash_map::DefaultHasher;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
@@ -31,32 +31,32 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct BoxShadowSys<C: Context + Share>{
+pub struct BoxShadowSys<C: Context + ShareTrait>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
-    rs: Arc<RasterState>,
-    bs: Arc<BlendState>,
-    ss: Arc<StencilState>,
-    ds: Arc<DepthState>,
+    rs: Share<RasterState>,
+    bs: Share<BlendState>,
+    ss: Share<StencilState>,
+    ds: Share<DepthState>,
 }
 
-impl<C: Context + Share> BoxShadowSys<C> {
+impl<C: Context + ShareTrait> BoxShadowSys<C> {
     pub fn new() -> Self{
         BoxShadowSys {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Arc::new(RasterState::new()),
-            bs: Arc::new(BlendState::new()),
-            ss: Arc::new(StencilState::new()),
-            ds: Arc::new(DepthState::new()),
+            rs: Share::new(RasterState::new()),
+            bs: Share::new(BlendState::new()),
+            ss: Share::new(StencilState::new()),
+            ds: Share::new(DepthState::new()),
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
-impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for BoxShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -103,7 +103,7 @@ impl<'a, C: Context + Share> Runner<'a> for BoxShadowSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -124,14 +124,14 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Arc<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
         let mut defines = Vec::new();
         defines.push(UCOLOR.clone());
 
         let mut common_ubo = engine.gl.create_uniforms();
         common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
         common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
-        ubos.insert(COMMON.clone(), Arc::new(common_ubo)); // COMMON
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
 
         let pipeline = engine.create_pipeline(
             0,
@@ -164,7 +164,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, CreateEvent>
 }
 
 // 修改渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, BoxShadow>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, box_shadows: Self::ReadData, render_objs: Self::WriteData){
@@ -174,13 +174,13 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent>
         let box_shadow = unsafe { box_shadows.get_unchecked(event.id) };
         match event.field {
             "color" => {
-                let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
+                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
                 debug_println!("box_shadow, id: {}, color: {:?}", event.id, box_shadow.color);
                 common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
                 return;
             },
             "blur" => {
-                let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
+                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
                 debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
                 common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
                 return;
@@ -193,7 +193,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent>
                 }
             },
             "" => {
-                let common_ubo = Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
+                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
                 debug_println!("box_shadow, id: {}, color: {:?}", event.id, box_shadow.color);
                 common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
                 debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
@@ -210,7 +210,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent>
 }
 
 // 删除渲染对象
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -224,7 +224,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent>
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -244,7 +244,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, BorderRadius>,
 );
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -252,7 +252,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Modi
     }
 }
 
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BoxShadowSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -260,7 +260,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrixRender, Crea
     }
 }
 
-impl<'a, C: Context + Share> BoxShadowSys<C>{
+impl<'a, C: Context + ShareTrait> BoxShadowSys<C>{
     fn modify_matrix(
         &self,
         id: usize,
@@ -288,7 +288,7 @@ impl<'a, C: Context + Share> BoxShadowSys<C>{
             }
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("box_shadow, id: {}, world_matrix_shadow: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
         }
@@ -340,11 +340,11 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow
     (positions, to_triangle(indices.as_slice(), Vec::new()))
 }
 
-unsafe impl<C: Context + Share> Sync for BoxShadowSys<C>{}
-unsafe impl<C: Context + Share> Send for BoxShadowSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for BoxShadowSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for BoxShadowSys<C>{}
 
 impl_system!{
-    BoxShadowSys<C> where [C: Context + Share],
+    BoxShadowSys<C> where [C: Context + ShareTrait],
     true,
     {
         MultiCaseListener<Node, BoxShadow, CreateEvent>

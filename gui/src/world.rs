@@ -5,9 +5,10 @@ use hal_core::{Context, RenderBeginDesc};
 use atom::Atom;
 use cgmath::One;
 
+use share::Share;
 use ecs::*;
 use ecs::idtree::IdTree;
-use ecs::Share;
+use ecs::Share as ShareTrait;
 use component::user::*;
 use component::calc::*;
 use component::calc;
@@ -47,7 +48,7 @@ lazy_static! {
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
 }
 
-pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
+pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -98,7 +99,7 @@ pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, widt
     world.register_multi::<Node, WorldMatrixRender>();
     
     //single
-    world.register_single::<ClipUbo<C>>(ClipUbo(Arc::new(engine.gl.create_uniforms())));
+    world.register_single::<ClipUbo<C>>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());
@@ -107,7 +108,7 @@ pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, widt
     world.register_single::<FontSheet<C>>(FontSheet::<C>::default());
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
-    world.register_single::<RenderBegin>(RenderBegin(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
+    world.register_single::<RenderBegin>(RenderBegin(Share::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
     world.register_single::<DefaultTable>(default_table);
     
@@ -143,7 +144,7 @@ pub fn create_world<C: Context + Share, L: FlexNode>(mut engine: Engine<C>, widt
     world
 }
 
-pub struct GuiWorld<C: Context + Share, L: FlexNode> {
+pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -190,7 +191,7 @@ pub struct GuiWorld<C: Context + Share, L: FlexNode> {
     pub world: World,
 }
 
-impl<C: Context + Share, L: FlexNode> GuiWorld<C, L> {
+impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
     pub fn new(world: World) -> GuiWorld<C, L>{
         GuiWorld{
             node: world.fetch_entity::<Node>().unwrap(),
