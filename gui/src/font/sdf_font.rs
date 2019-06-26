@@ -90,7 +90,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
                 font_size/self.font_size*glyph.advance
             },
             None => {
-                0.0
+                font_size
                 // let glyph = self.generator.gen(self.name.as_ref(), c);
                 // let advance = glyph.advance;
                 // unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);

@@ -142,9 +142,9 @@ let canvas_text_fs_code = `
         c = c * uColor;
     #endif
     
-    vec2 sample = texture2D(texture, vUV).rg;
+    vec3 sample = texture2D(texture, vUV).rgb;
     c = sample.r * strokeColor + sample.g * c;
-
+    c.a = 1.0 - sample.b; 
     #ifdef HSV
         vec3 hsv = rgb2hsv(c.rgb);
         hsv += hsvValue;

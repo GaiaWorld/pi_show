@@ -37,6 +37,9 @@ impl Texture for WebGLTextureImpl {
         let p = get_pixel_format(&self.pixel_format);
         let d = get_data_format(&self.data_format);
 
+        self.gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
+
         match data {
             TextureData::None => {
                 self.gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, self.level as i32, x as i32, y as i32, width as i32, height as i32, p, d, Option::<&[u8]>::None);

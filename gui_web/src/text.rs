@@ -176,7 +176,7 @@ pub fn set_font_size_none(world: u32, node_id: u32){
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
     let size = 0;
-    set_attr!(world, node_id, Font, size, FontSize::Length(value + 2.0), font);
+    set_attr!(world, node_id, Font, size, FontSize::Length(value), font);
 }
 
 #[allow(unused_attributes)]

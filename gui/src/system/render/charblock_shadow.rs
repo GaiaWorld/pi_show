@@ -41,14 +41,17 @@ pub struct CharBlockShadowSys<C: Context + Share, L: FlexNode + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
+    canvas_bs: Arc<BlendState>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
 impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
+        let mut canvas_bs = BlendState::new();
         let mut ds = DepthState::new();
         bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         ds.set_write_enable(false);
         CharBlockShadowSys {
             render_map: VecMap::default(),
@@ -58,6 +61,7 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockShadowSys<C, L> {
             bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(ds),
+            canvas_bs: Arc::new(canvas_bs),
             default_sampler: None,
         }
     }
@@ -282,15 +286,16 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
     );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (font_sheet, fonts) = read;
         if let Some(item) = self.render_map.get_mut(event.id) {
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs);
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, write.0, write.1, &self.rs,  &self.bs,  &self.ss,  &self.ds, &self.canvas_bs);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
             }
+            write.0.get_notify().modify_event(event.id, "pipeline", 0);
         }
     }
 }
@@ -301,15 +306,16 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
     );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (font_sheet, fonts) = read;
         if let Some(item) = self.render_map.get_mut(event.id) {
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs);
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, write.0, write.1, &self.rs,  &self.bs,  &self.ss,  &self.ds,  &self.canvas_bs);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
             }
+            write.0.get_notify().modify_event(event.id, "pipeline", 0);
         }
     }
 }
@@ -353,16 +359,20 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
+        &'a MultiCaseImpl<Node, Font>,
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (_opacitys, text_shadows) = read;   
+        let (_opacitys, text_shadows, fonts, font_sheet, default_table) = read;   
         if let Some(item) = self.render_map.get_mut(event.id) {
             let text_shadow = unsafe { text_shadows.get_unchecked(event.id) };
             
             match event.field {
                 "color" => {
-                    modify_color(item, event.id, text_shadow, render_objs);
+                    let font = get_or_default(event.id, fonts, default_table);
+                    modify_color(item, event.id, text_shadow, render_objs, font, font_sheet);
                 },
                 "blur" => (),
                 "h" | "v" => {
@@ -434,6 +444,12 @@ fn modify_font<C: Context + Share> (
     font_sheet: &SingleCaseImpl<FontSheet<C>>,
     fonts: &MultiCaseImpl<Node, Font>,
     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+    engine:  &mut SingleCaseImpl<Engine<C>>,
+    rs: &Arc<RasterState>,
+    bs: &Arc<BlendState>,
+    ss: &Arc<StencilState>,
+    ds: &Arc<DepthState>,
+    canvas_bs: &Arc<BlendState>,
 ) {
     let font = unsafe { fonts.get_unchecked(id) };
     let first_font = match font_sheet.get_first_font(&font.family) {
@@ -452,14 +468,53 @@ fn modify_font<C: Context + Share> (
         &(default_sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
         &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
     );
+
+    if first_font.get_dyn_type() == 0 {
+        render_obj.pipeline = engine.create_pipeline(
+            1,
+            &TEXT_VS_SHADER_NAME.clone(),
+            &TEXT_FS_SHADER_NAME.clone(),
+            render_obj.defines.as_slice(),
+            rs.clone(),
+            bs.clone(),
+            ss.clone(),
+            ds.clone()
+        );
+    } else {
+        render_obj.pipeline = engine.create_pipeline(
+            3,
+            &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+            &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+            render_obj.defines.as_slice(),
+            rs.clone(),
+            canvas_bs.clone(),
+            ss.clone(),
+            ds.clone()
+        );
+    }
 }
 
-fn modify_color<C: Context + Share>(item: &mut Item, id: usize, text_shadow: &TextShadow, render_objs: &mut SingleCaseImpl<RenderObjs<C>>) {
+fn modify_color<C: Context + Share>(
+    item: &mut Item,
+    id: usize,
+    text_shadow: &TextShadow,
+    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+    font: &Font,
+    font_sheet: &SingleCaseImpl<FontSheet<C>>,
+) {
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
     let c = &text_shadow.color;
     let ucolor_ubo = Arc::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
 
-    if &render_obj.pipeline.vs == &CANVAS_TEXT_VS_SHADER_NAME.clone() {
+    let first_font = match font_sheet.get_first_font(&font.family) {
+        Some(r) => r,
+        None => {
+            debug_println!("font is not exist: {}", font.family.as_ref());
+            return;
+        }
+    };
+
+    if first_font.get_dyn_type() > 0 {
         ucolor_ubo.set_float_4(&STROKE_COLOR, c.r, c.g, c.b, c.a);
     }
     // 设置ubo

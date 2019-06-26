@@ -97,6 +97,13 @@ impl<C: Context> Clone for UniformValue<C> {
 
 impl<C: Context> Uniforms<C> {
 
+    pub fn remove(&mut self, name: &Atom) {
+        match self.values.remove(name) {
+            Some(_) => self.dirty_count = self.dirty_count.wrapping_add(1),
+            None => (),
+        }
+    }
+
     pub fn set_int_1(&mut self, name: &Atom, v: i32) {
         self.dirty_count = self.dirty_count.wrapping_add(1);
         self.values.entry(name.clone())

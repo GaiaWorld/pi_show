@@ -46,6 +46,9 @@ pub struct CharBlockSys<C: Context + Share, L: FlexNode + Share>{
     bs: Arc<BlendState>,
     ss: Arc<StencilState>,
     ds: Arc<DepthState>,
+
+    canvas_bs: Arc<BlendState>,
+
     pipelines: FnvHashMap<u64, Arc<PipelineInfo>>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
@@ -54,7 +57,9 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
         let mut ds = DepthState::new();
+        let mut canvas_bs = BlendState::new();
         bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         ds.set_write_enable(false);
         CharBlockSys {
             render_map: VecMap::default(),
@@ -64,6 +69,7 @@ impl<C: Context + Share, L: FlexNode + Share> CharBlockSys<C, L> {
             bs: Arc::new(bs),
             ss: Arc::new(StencilState::new()),
             ds: Arc::new(ds),
+            canvas_bs:  Arc::new(canvas_bs),
             pipelines: FnvHashMap::default(),
             default_sampler: None,
         }
@@ -163,6 +169,7 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
         let mut common_ubo = engine.gl.create_uniforms();
         let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
+                println!("name1: {:?}, font_size: {}, font_sheet.get_size(&font.family, &font.size): {}", r.name(), r.font_size(), font_sheet.get_size(&font.family, &font.size));
                 let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
                     let mut s = SamplerDesc::default();
                     s.min_filter = TextureFilterMode::Nearest;
@@ -216,14 +223,14 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Ch
         }else {
             common_ubo.set_float_4(&STROKE_COLOR, 1.0, 1.0, 1.0, 1.0);
             pipeline = engine.create_pipeline(
-                1,
+                3,
                 &CANVAS_TEXT_VS_SHADER_NAME.clone(),
                 &CANVAS_TEXT_FS_SHADER_NAME.clone(),
                 defines.as_slice(),
                 self.rs.clone(),
-                self.bs.clone(),
+                self.canvas_bs.clone(),
                 self.ss.clone(),
-                self.ds.clone()
+                self.ds.clone(),
             );
         }
 
@@ -289,11 +296,12 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
         if let Some(item) = self.render_map.get_mut(event.id) {
             let (font_sheet, fonts) = read;
             let (render_objs, engine) = write;
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine);
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine, &self.rs,  &self.bs,  &self.ss,  &self.ds, &self.canvas_bs);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
             }
+            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
         }
     }
 }
@@ -309,11 +317,12 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Fo
         if let Some(item) = self.render_map.get_mut(event.id) {
             let (font_sheet, fonts) = read;
             let (render_objs, engine) = write;
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine);
+            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine, &self.rs,  &self.bs,  &self.ss,  &self.ds, &self.canvas_bs);
             if item.position_change == false {
                 item.position_change = true;
                 self.geometry_dirtys.push(event.id);
             }
+            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
         }
     }
 }
@@ -323,16 +332,20 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
+        &'a MultiCaseImpl<Node, Font>,
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles) = read;   
+        let (opacitys, text_styles, fonts, font_sheet, default_table) = read;   
         let (render_objs, engine) = write;
         if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
-            modify_stroke(item, text_style, render_objs, engine);
+            let font = get_or_default(event.id, fonts, default_table);
+            modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
             // let index = item.index;
             // self.change_is_opacity(opacity, text_style, index, render_objs);
         }
@@ -344,16 +357,20 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
+        &'a MultiCaseImpl<Node, Font>,
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles) = read;   
+        let (opacitys, text_styles, fonts, font_sheet, default_table) = read;   
         let (render_objs, engine) = write;
         if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
             modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
-            modify_stroke(item, text_style, render_objs, engine);
+            let font = get_or_default(event.id, fonts, default_table);
+            modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
             // let index = item.index;
             // self.change_is_opacity(opacity, text_style, index, render_objs);
         }
@@ -365,10 +382,13 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
+        &'a MultiCaseImpl<Node, Font>,
+        &'a SingleCaseImpl<FontSheet<C>>,
+        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (_opacitys, text_styles) = read;   
+        let (_opacitys, text_styles, fonts, font_sheet, default_table) = read;   
         let (render_objs, engine) = write;
         if let Some(item) = self.render_map.get_mut(event.id) {
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
@@ -378,7 +398,8 @@ impl<'a, C: Context + Share, L: FlexNode + Share> MultiCaseListener<'a, Node, Te
                     modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
                 },
                 "stroke" => {
-                    modify_stroke(item, text_style, render_objs, engine);
+                    let font = get_or_default(event.id, fonts, default_table);
+                    modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
                 },
                 _ => return,
             }
@@ -462,9 +483,23 @@ struct Item {
     position_change: bool,
 }
 
-fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>) {
+fn modify_stroke<C: Context + Share>(
+    item: &mut Item,
+    text_style: &TextStyle,
+    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+    engine: &mut SingleCaseImpl<Engine<C>>,
+    font: &Font,
+    font_sheet: &SingleCaseImpl<FontSheet<C>>,
+) {
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    if &render_obj.pipeline.vs == &CANVAS_TEXT_VS_SHADER_NAME.clone() {
+    let first_font = match font_sheet.get_first_font(&font.family) {
+        Some(r) => r,
+        None => {
+            debug_println!("font is not exist: {}", font.family.as_ref());
+            return;
+        }
+    };
+    if first_font.get_dyn_type() > 0 {
         let mut common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
         let color = &text_style.stroke.color;
         Arc::make_mut(&mut common_ubo).set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
@@ -513,6 +548,12 @@ fn modify_stroke<C: Context + Share>(item: &mut Item, text_style: &TextStyle, re
                 old_pipeline.ds.clone()
             );
             render_objs.get_notify().modify_event(item.index, "pipeline", 0);
+        }else {
+            let stroke_ubo = render_obj.ubos.get_mut(&STROKE).unwrap();
+            let color = &text_style.stroke.color;
+            let stroke_ubo = Arc::make_mut(stroke_ubo);
+            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
+            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
         }
     }   
 }
@@ -563,7 +604,12 @@ fn modify_font<C: Context + Share> (
     font_sheet: &SingleCaseImpl<FontSheet<C>>,
     fonts: &MultiCaseImpl<Node, Font>,
     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
-    engine:  &mut SingleCaseImpl<Engine<C>>
+    engine:  &mut SingleCaseImpl<Engine<C>>,
+    rs: &Arc<RasterState>,
+    bs: &Arc<BlendState>,
+    ss: &Arc<StencilState>,
+    ds: &Arc<DepthState>,
+    canvas_bs: &Arc<BlendState>,
 ) {
     let font = unsafe { fonts.get_unchecked(id) };
     let first_font = match font_sheet.get_first_font(&font.family) {
@@ -577,7 +623,8 @@ fn modify_font<C: Context + Share> (
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
     let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
     let common_ubo = Arc::make_mut(common_ubo);
-    let sampler = if render_obj.pipeline.vs == CANVAS_TEXT_VS_SHADER_NAME.clone() && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
+    println!("name: {:?}, font_size: {}, font_sheet.get_size(&font.family, &font.size): {}", first_font.name(), first_font.font_size(), font_sheet.get_size(&font.family, &font.size));
+    let sampler = if first_font.get_dyn_type() > 0 && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
         let mut s = SamplerDesc::default();
         s.min_filter = TextureFilterMode::Nearest;
         s.mag_filter = TextureFilterMode::Nearest;
@@ -597,6 +644,34 @@ fn modify_font<C: Context + Share> (
         &(sampler.value.clone() as Arc<dyn AsRef<<C as Context>::ContextSampler>>),
         &(first_font.texture().value.clone() as Arc<dyn AsRef<<C as Context>::ContextTexture>>)
     );
+
+    if first_font.get_dyn_type() == 0 {
+        if find_item_from_vec(&render_obj.defines, &STROKE) > 0 {
+            render_obj.ubos.remove(&STROKE);
+        }
+        Arc::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap()).remove(&STROKE_COLOR);
+        render_obj.pipeline = engine.create_pipeline(
+            1,
+            &TEXT_VS_SHADER_NAME.clone(),
+            &TEXT_FS_SHADER_NAME.clone(),
+            render_obj.defines.as_slice(),
+            rs.clone(),
+            bs.clone(),
+            ss.clone(),
+            ds.clone()
+        );
+    } else {
+        render_obj.pipeline = engine.create_pipeline(
+            3,
+            &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+            &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+            render_obj.defines.as_slice(),
+            rs.clone(),
+            canvas_bs.clone(),
+            ss.clone(),
+            ds.clone(),
+        );
+    } 
 }
 
 // 返回position， uv， color， index
