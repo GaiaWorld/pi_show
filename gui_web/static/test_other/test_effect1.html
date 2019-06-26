@@ -129,11 +129,11 @@
 
 
         //console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-        var time = performance.now();
+        var time1 = performance.now();
         for (var i = 12; i <= 112; i++) {
             var node1 = Module._create_node(gui);
         }
-       console.log("create time:" , performance.now() - time);
+       console.log("create time:" , performance.now() - time1);
 
         var time1 = performance.now();
         for (var i = 12; i < 103; ) {
@@ -218,18 +218,18 @@
 
             i += i ;
         }
-       console.log("set time:" , performance.now() - time);
+       console.log("set time:" , performance.now() - time1);
 
         var time1 = performance.now();
         var nodex = Module._create_node(gui);
         for (var i = 12; i <= 112; i++) {
             Module._append_child(gui, i, nodex);
         }
-       console.log("append time:" , performance.now() - time);
+       console.log("append time:" , performance.now() - time1);
 
         var time1 = performance.now();
         Module._append_child(gui, nodex, body);
-       console.log("append root time:" , performance.now() - time);
+       console.log("append root time:" , performance.now() - time1);
 
         var time1 = performance.now();
         Module._render(gui);
