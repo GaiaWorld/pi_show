@@ -1,6 +1,4 @@
 //八叉树系统
-
-use collision::Bound;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 
@@ -10,6 +8,7 @@ use single::oct::Oct;
 use single::DefaultTable;
 use entity::{Node};
 use system::util::get_or_default;
+use Z_MAX;
 
 #[derive(Default)]
 pub struct OctSys;
@@ -17,8 +16,8 @@ pub struct OctSys;
 impl<'a> Runner<'a> for OctSys{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, _read: Self::ReadData, _write: Self::WriteData){
-        // write.collect(); TODO
+    fn run(&mut self, _read: Self::ReadData, oct: Self::WriteData){
+        oct.collect();
     }
 }
 
@@ -43,6 +42,7 @@ impl OctSys {
         let origin = transform.origin.to_value(layout.width, layout.height);
         let aabb = cal_bound_box((layout.width, layout.height), world_matrix, &origin);
         
+        // println!("aabb------------------------{:?}", aabb);
         let notify = octree.get_notify();
         octree.update(id, aabb, Some(notify));
     }
@@ -53,7 +53,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys{
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         let notify = write.get_notify();
-        write.add(event.id, Aabb3::empty(), event.id, Some(notify));
+        write.add(event.id, Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), event.id, Some(notify));
     }
 }
 

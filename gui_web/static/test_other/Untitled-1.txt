@@ -1,0 +1,291 @@
+no system
+
+append_child time:  28 node:  2 parent 1
+_create_node 19
+_append_child 24
+append_child time:  0 node:  3 parent 1
+_append_child node3 1
+
+yoga
+
+append_child time:  39 node:  2 parent 1
+_create_node 22
+_append_child 30
+append_child time:  0 node:  3 parent 1
+_append_child node3 2
+
+
+create node: 549110
+gui.js:1 append node: 131165
+gui.js:1 append node3: 4025
+
+// chrome 有asm加速 -z 6倍降速
+create node: 1684555
+gui.js:1 append node: 406126
+gui.js:1 append node3: 5430
+
+// chrome 有asm加速 -z
+create node: 252105
+gui.js:1 append node: 60565
+gui.js:1 append node3: 785
+
+// chrome 无asm加速 -z
+create node: 147730
+gui.js:1 append node: 49295
+gui.js:1 append node3: 4795
+
+// firfox 无asm加速 -z
+create node: 181000
+append node: 46000 
+append node3: 1000
+
+// rust 无system
+create node: 23622
+append node: 7312
+append node3: 854
+
+// rust zindex
+create node: 35813
+append node: 7713
+append node3: 533
+
+// rust show
+create node: 34149
+append node: 9165
+append node3: 6415
+
+// rust opacity
+create node: 33676
+append node: 7620
+append node3: 4135
+
+// rust layout
+create node: 35640
+append node: 14098
+append node3: 583
+
+// rust world_matrix
+create node: 34406
+append node: 9029
+append node3: 539
+
+// rust layout + world_matrix + oct
+create node: 66289
+append node: 13941
+append node3: 537
+
+// rust zindex + show + opacity + layout + world_matrix + oct
+create node: 102027
+append node: 12822
+append node3: 10122
+
+// rust layout + world_matrix + oct + overflow
+create node: 72018
+append node: 13836
+append node3: 1864
+
+// rust filter
+create node: 28101
+append node: 7335
+append node3: 5234
+
+// rust systems
+create node: 123554
+append node: 13745
+append node3: 15794
+
+// chrom asm加速 -z systems
+create node: 498039
+append node: 72185
+append node3: 57245
+
+// asm 1000节点
+create node: 6655
+append node: 4835
+append node3: 1034
+z_index run------5435
+text_layout run------90659
+worldmatrix run------24380
+run: 166979
+
+// asm  200节点
+create node: 1665
+gui.js:1 append node: 975
+gui.js:1 append node3: 240
+gui.js:1 run------5250
+gui.js:1 run------89125
+gui.js:1 worldmatrix cal, count: 199, time: 19830
+gui.js:1 run------20595
+gui.js:1 run------8190
+gui.js:1 run------1235
+gui.js:1 run------15
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------10
+gui.js:1 run------15
+gui.js:1 run------10
+gui.js:1 run------0
+gui.js:1 run------15
+gui.js:1 run: 170505
+
+// 100节点
+create node: 940
+gui.js:1 append node: 790
+gui.js:1 append node3: 135
+gui.js:1 run------5220
+gui.js:1 run------87785
+gui.js:1 worldmatrix cal, count: 99, time: 19090
+gui.js:1 run------19870
+gui.js:1 run------7760
+gui.js:1 run------1230
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------10
+gui.js:1 run------10
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run: 167050
+
+
+
+
+
+
+
+create node: 944
+gui.js:1 append node: 795
+gui.js:1 append node3: 130
+gui.js:1 run------5150
+gui.js:1 run------90031
+gui.js:1 worldmatrix cal, count: 99, time: 19150
+gui.js:1 run------19980
+gui.js:1 run------8526
+gui.js:1 run------1234
+gui.js:1 run------10
+gui.js:1 run------5
+gui.js:1 run------4
+gui.js:1 run------10
+gui.js:1 run------14
+gui.js:1 run------4
+gui.js:1 run------11
+gui.js:1 run------9
+gui.js:1 run------6
+gui.js:1 run------15
+gui.js:1 run: 172450
+gui.js:1 ---------------------------------------------
+gui.js:1 create node------------: 1060
+gui.js:1 append node------------: 855
+gui.js:1 append node4------------: 21
+gui.js:1 run------79
+gui.js:1 run------1474
+gui.js:1 worldmatrix cal, count: 100, time: 606
+gui.js:1 run------795
+gui.js:1 run------6
+gui.js:1 run------10
+gui.js:1 run------4
+gui.js:1 run------4
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------4
+gui.js:1 run------9
+gui.js:1 run------6
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------4
+gui.js:1 run------------: 5200
+
+
+
+// asm 10000节点
+create node------------: 45720
+gui.js:1 append node------------: 323960
+gui.js:1 append node4------------: 10
+gui.js:1 run------2240
+gui.js:1 run------100720
+gui.js:1 run------18355
+gui.js:1 run------------: 122215
+
+// asm 100节点
+create node------------: 815
+gui.js:1 append node------------: 355
+gui.js:1 append node4------------: 5
+gui.js:1 run------50
+gui.js:1 run------1439
+gui.js:1 run------381
+gui.js:1 run------------: 2599
+
+// 
+create node------------: 1190
+gui.js:1 append node------------: 770
+gui.js:1 append node4------------: 10
+gui.js:1 run------50
+gui.js:1 run------1360
+gui.js:1 run------675
+gui.js:1 run------70
+gui.js:1 run------------: 2950
+
+// asm 尺寸优先
+create node------------: 1105
+gui.js:1 append node------------: 771
+gui.js:1 append node4------------: 15
+gui.js:1 run------65
+gui.js:1 run------1390
+gui.js:1 run------610
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------4
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------10
+gui.js:1 run------5
+gui.js:1 run------4
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------------: 4670
+
+
+// asm 性能优先， 100节点
+create node------------: 575
+gui.js:1 append node------------: 320
+gui.js:1 append node4------------: 5
+gui.js:1 run------40
+gui.js:1 run------1380
+gui.js:1 run------330
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------5
+gui.js:1 run------0
+gui.js:1 run------0
+gui.js:1 run------5
+gui.js:1 run------10
+gui.js:1 run------0
+gui.js:1 run------------: 5015
+
+
+
+create node------------: 8873
+append node------------: 8925
+append node4------------: 4
+run------8840
+run------------: 8905
+
+
+// rust 10000 节点
+idtree迭代耗时： 200ms
+计算世界矩阵： 200ms
+世界矩阵插入： 200ms
+hash_map_get: 200ms
+
+borrow数据: 500ms(5个数据)

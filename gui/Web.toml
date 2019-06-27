@@ -1,9 +1,0 @@
-# [target.emscripten]
-# link-args = ["-Oz", 
-#             "-s", "TOTAL_MEMORY=16777216", 
-#             "-s", "ALLOW_MEMORY_GROWTH=0", 
-#             "-s", "MALLOC=emmalloc", 
-#             "-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1",
-#             "-s", "ENVIRONMENT=web",
-#             "-s", "INLINING_LIMIT=1",
-#             ]

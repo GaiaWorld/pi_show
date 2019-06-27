@@ -1,5 +1,5 @@
 use std::mem::transmute;
-use std::sync::Arc;
+use share::Share;
 
 use fnv::FnvHashMap;
 
@@ -23,7 +23,7 @@ pub trait SdfFont {
 
     fn atlas_height(&self) -> usize;
     
-    fn texture(&self) -> &Arc<TextureRes<Self::Ctx>>;
+    fn texture(&self) -> &Share<TextureRes<Self::Ctx>>;
 
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 }
@@ -48,7 +48,7 @@ pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
     // base: f32,
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
-    texture: Arc<TextureRes<C>>,
+    texture: Share<TextureRes<C>>,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> { 
@@ -105,13 +105,13 @@ impl<C: Context + 'static + Send + Sync> SdfFont for StaticSdfFont<C> {
     }
 
     #[inline]
-    fn texture(&self) -> &Arc<TextureRes<C>> {
+    fn texture(&self) -> &Share<TextureRes<C>> {
         &self.texture
     }
 }
 
 impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
-    pub fn new(texture: Arc<TextureRes<C>>) -> Self{
+    pub fn new(texture: Share<TextureRes<C>>) -> Self{
         StaticSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -130,7 +130,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
         atlas_height: usize,
         padding: f32,
         glyph_table: FnvHashMap<char, Glyph>,
-        texture: Arc<TextureRes<C>>,
+        texture: Share<TextureRes<C>>,
     ) -> Self{
         StaticSdfFont {
             name,

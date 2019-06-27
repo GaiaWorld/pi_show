@@ -1,0 +1,133 @@
+
+// js TruCell
+create node------------: 88.375ms
+append node------------: 39.354999ms
+append node4------------: 15µs
+run------3.565ms
+run------10µs
+worldmatrix cal, count: 10000, time: 50.749999ms
+run------51.135ms
+run------5µs
+run------15µs
+run------100µs
+run------0ns
+run------0ns
+run------5µs
+run------0ns
+run------5.001µs
+run------0ns
+run------0ns
+run------0ns
+run------0ns
+run------------: 58.25ms
+
+// js no TruCell
+create node------------: 85.17ms
+append node------------: 33.839999ms
+append node4------------: 15µs
+run------2.83ms
+run------10µs
+worldmatrix cal, count: 10000, time: 46.53ms
+run------46.93ms
+run------0ns
+run------10µs
+run------100µs
+run------5µs
+run------5µs
+run------5.001µs
+run------0ns
+run------5µs
+run------4.999µs
+run------0ns
+run------0ns
+run------0ns
+run------------: 53.665ms
+
+// js RefCell
+create node------------: 85.740001ms
+append node------------: 36.879999ms
+append node4------------: 10µs
+run------3.485ms
+run------5µs
+worldmatrix cal, count: 10000, time: 49.575ms
+run------49.94ms
+run------0ns
+run------10.001µs
+run------100µs
+run------0ns
+run------0ns
+run------5µs
+run------0ns
+run------0ns
+run------5µs
+run------5µs
+run------5µs
+run------5µs
+run------------: 57.035ms
+
+// rust TruCell
+create node------------: 31.062601ms
+append node------------: 13.247229ms
+append node4------------: 3.321µs
+run------2.827898ms
+run------830ns
+worldmatrix cal, count: 10000, time: 12.968535ms
+run------13.022779ms
+run------831ns
+run------5.258µs
+run------41.513µs
+run------277ns
+run------553ns
+run------276ns
+run------553ns
+run------553ns
+run------553ns
+run------277ns
+run------277ns
+run------276ns
+run------------: 16.343305ms
+
+// rust no TruCell
+create node------------: 29.721439ms
+append node------------: 9.75207ms
+append node4------------: 2.768µs
+run------2.627803ms
+run------277ns
+worldmatrix cal, count: 10000, time: 8.503068ms
+run------8.55842ms
+run------554ns
+run------4.428µs
+run------39.023µs
+run------277ns
+run------553ns
+run------277ns
+run------277ns
+run------277ns
+run------276ns
+run------277ns
+run------0ns
+run------0ns
+run------------: 11.826084ms
+
+// rust RefCell
+create node------------: 32.233004ms
+append node------------: 12.901836ms
+append node4------------: 5.259µs
+run------2.690903ms
+run------1.107µs
+worldmatrix cal, count: 10000, time: 10.641289ms
+run------10.680589ms
+run------554ns
+run------3.598µs
+run------47.603µs
+run------554ns
+run------553ns
+run------554ns
+run------1.107µs
+run------554ns
+run------830ns
+run------553ns
+run------0ns
+run------553ns
+run------------: 13.8846ms
+

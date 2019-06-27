@@ -1,6 +1,6 @@
 pub mod oct;
 
-use std::sync::Arc;
+use share::Share;
 use std::any::{TypeId, Any};
 
 use fnv::FnvHashMap;
@@ -15,6 +15,8 @@ use map::vecmap::VecMap;
 
 use component::user::{Point2, Matrix4};
 use render::engine::{ PipelineInfo};
+use render::res::GeometryRes;
+use util::res_mgr::Res;
 
 pub use single::oct::Oct;
 
@@ -70,14 +72,14 @@ impl ProjectionMatrix {
 }
 
 #[derive(Write)]
-pub struct RenderObj<C: Context>{
+pub struct RenderObj<C: Context + 'static>{
     pub depth: f32,
     pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Arc<Uniforms<C>>>,
-    pub geometry: Arc<<C as Context>::ContextGeometry>,
-    pub pipeline: Arc<PipelineInfo>,
+    pub ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
+    pub geometry: Option<Res<GeometryRes<C>>>,
+    pub pipeline: Share<PipelineInfo>,
     pub context: usize,
     pub defines: Vec<Atom>,
     
@@ -86,7 +88,7 @@ pub struct RenderObj<C: Context>{
 
 // pub struct SharderAttr<C: Context>{
 //     pub geometry: <C as Context>::ContextGeometry, //geometry 对象
-//     pub pipeline: Arc<Pipeline>,
+//     pub pipeline: Share<Pipeline>,
 // }
 
 // impl<C: Context + Debug> fmt::Debug for RenderObj<C> {
@@ -98,7 +100,7 @@ pub struct RenderObj<C: Context>{
 // }
 
 #[derive(Deref, DerefMut)]
-pub struct RenderObjs<C: Context>(pub Slab<RenderObj<C>>);
+pub struct RenderObjs<C: Context + 'static>(pub Slab<RenderObj<C>>);
 
 impl<C: Context> Default for RenderObjs<C> {
     fn default() -> Self {
@@ -106,10 +108,10 @@ impl<C: Context> Default for RenderObjs<C> {
     }
 }
 
-unsafe impl<C: Context> Sync for RenderObj<C> {}
-unsafe impl<C: Context> Send for RenderObj<C> {}
+unsafe impl<C: Context + 'static> Sync for RenderObj<C> {}
+unsafe impl<C: Context + 'static> Send for RenderObj<C> {}
 
-impl<C: Context> RenderObjs<C> {
+impl<C: Context + 'static> RenderObjs<C> {
     pub fn insert(&mut self, value: RenderObj<C>, notify: Option<NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {
@@ -175,10 +177,10 @@ impl NodeRenderMap {
     }
 }
 
-pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Arc<Uniforms<C>>);
-pub struct RenderBegin(pub Arc<RenderBeginDesc>);
+pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct RenderBegin(pub Share<RenderBeginDesc>);
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
@@ -188,6 +190,9 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
 
 unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
 unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
+
+unsafe impl Sync for RenderBegin {}
+unsafe impl Send for RenderBegin {}
 
 pub struct DefaultTable(FnvHashMap<TypeId, Box<dyn Any>>);
 

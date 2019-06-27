@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
+share = { path = "../../pi_lib/share" }
 ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
@@ -26,25 +27,17 @@ data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
 dirty = {path="../../pi_lib/dirty"}
 hal_core = {path="../hal_core"}
-hal_webgl = {path="../hal_webgl"}
 polygon = {path="../../pi_math/polygon"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
 stdweb = "0.4.15"
-stdweb-derive = "0.5.1"
-webgl-rendering-context = "0.1.0"
 derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }
-# ordered-float = { version = "1.0", default-features = false }
-
-[profile.release]
-lto = true
-opt-level = "z"
-panic = 'abort'
-codegen-units = 1
+ordered-float = { version = "1.0", default-features = false }
 
 [features]
-default = ["web"]
+default = []
+performance=["web"]
 web = []

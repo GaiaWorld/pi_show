@@ -2,18 +2,16 @@
  *  
  */
 use std::marker::PhantomData;
-use std::sync::Arc;
+use share::Share;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use hal_core::*;
 use atom::Atom;
 
-use component::user::*;
-use component::calc::{Visibility, WorldMatrix, Opacity, ZDepth, HSV};
+use component::calc::{Visibility, Opacity, ZDepth, HSV};
 use entity::{Node};
 use single::*;
 use render::engine::Engine;
-use system::util::*;
 use system::util::constant::*;
 use Z_MAX;
 
@@ -23,13 +21,13 @@ lazy_static! {
     static ref HSV_ATTR: Atom = Atom::from("hsvValue");
 }
 
-pub struct NodeAttrSys<C: Context + Share>{
-    view_matrix_ubo: Option<Arc<Uniforms<C>>>,
-    project_matrix_ubo: Option<Arc<Uniforms<C>>>,
+pub struct NodeAttrSys<C: Context + ShareTrait>{
+    view_matrix_ubo: Option<Share<Uniforms<C>>>,
+    project_matrix_ubo: Option<Share<Uniforms<C>>>,
     marker: PhantomData<C>,
 }
 
-impl<C: Context + Share> NodeAttrSys<C> {
+impl<C: Context + ShareTrait> NodeAttrSys<C> {
     pub fn new() -> Self{
         NodeAttrSys {
             view_matrix_ubo: None,
@@ -39,7 +37,7 @@ impl<C: Context + Share> NodeAttrSys<C> {
     }
 }
 
-impl<'a, C: Context + Share> Runner<'a> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> Runner<'a> for NodeAttrSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -60,12 +58,12 @@ impl<'a, C: Context + Share> Runner<'a> for NodeAttrSys<C>{
         project_matrix_ubo.set_mat_4v(&PROJECT_MATRIX, &slice[0..16]);
         debug_println!("projection_matrix: {:?}", &slice[0..16]);
 
-        self.view_matrix_ubo = Some(Arc::new(view_matrix_ubo));
-        self.project_matrix_ubo = Some(Arc::new(project_matrix_ubo));
+        self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
+        self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
     }
 }
 
-impl<'a, C: Context + Share> EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -73,7 +71,7 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, CreateEvent> for NodeAttrS
     }
 }
 
-impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -82,19 +80,15 @@ impl<'a, C: Context + Share> EntityListener<'a, Node, DeleteEvent> for NodeAttrS
 }
 
 //创建索引
-impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, HSV>,
-        &'a SingleCaseImpl<DefaultTable>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (world_matrixs, opacitys, visibilitys, transforms, layouts, hsvs, default_table) = read;
+        let (opacitys, visibilitys, hsvs) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
@@ -103,16 +97,12 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
         
         let ubos = &mut render_obj.ubos;
         // 插入世界矩阵ubo
-        let mut world_matrix_ubo = engine.gl.create_uniforms();
-        let world_matrix = cal_matrix(render_obj.context, world_matrixs, transforms, layouts, default_table);
-        let slice: &[f32; 16] = world_matrix.as_ref();
-        world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-        ubos.insert(WORLD.clone(), Arc::new(world_matrix_ubo)); // WORLD_MATRIX
-        debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+        let world_matrix_ubo = engine.gl.create_uniforms();
+        ubos.insert(WORLD.clone(), Share::new(world_matrix_ubo)); // WORLD_MATRIX
 
         let mut z_depth_ubo = engine.gl.create_uniforms();
         z_depth_ubo.set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
-        ubos.insert(Z_DEPTH.clone(), Arc::new(z_depth_ubo)); // Z_DEPTH
+        ubos.insert(Z_DEPTH.clone(), Share::new(z_depth_ubo)); // Z_DEPTH
         debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
 
         ubos.insert(VIEW.clone(), self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
@@ -121,7 +111,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
-        Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
+        Share::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
@@ -133,7 +123,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
             render_obj.defines.push(HSV_MACRO.clone());
             let mut hsv_ubo = engine.gl.create_uniforms();
             hsv_ubo.set_float_3(&HSV_ATTR, cal_hue(hsv.h), hsv.s, hsv.v - 1.0);
-            render_obj.ubos.insert(HSV_MACRO.clone(), Arc::new(hsv_ubo));
+            render_obj.ubos.insert(HSV_MACRO.clone(), Share::new(hsv_ubo));
         }
         
         let mut start_hash = 0;
@@ -141,13 +131,12 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
             start_hash = 1;
         }
 
-        // println!("render_obj is_opacity id: {}, is_opacity: {:?}", render_obj.context, render_obj.is_opacity);
         if !render_obj.is_opacity || defines_change {   
             let pipeline = &render_obj.pipeline;
             let mut bs = pipeline.bs.clone();
             let mut ds = pipeline.ds.clone();
-            Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-            Arc::make_mut(&mut ds).set_write_enable(false);
+            Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+            Share::make_mut(&mut ds).set_write_enable(false);
             let pipeline = engine.create_pipeline(
                 start_hash,
                 &pipeline.vs,
@@ -165,7 +154,7 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> 
 }
 
 // 监听is_opacity的修改，修改渲染状态， 创建新的渲染管线
-impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = ( &'a mut SingleCaseImpl<RenderObjs<C>>,  &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -177,9 +166,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                 let mut bs = pipeline.bs.clone();
                 let mut ds = pipeline.ds.clone();
                 if render_obj.is_opacity == false {
-                    Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-                    Arc::make_mut(&mut ds).set_write_enable(false);
-                    // println!("is_opacity false---------------------{}", render_obj.context);
+                    Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+                    Share::make_mut(&mut ds).set_write_enable(false);
                     let pipeline = engine.create_pipeline(
                         1,
                         &pipeline.vs,
@@ -192,9 +180,8 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
                     );
                     render_obj.pipeline = pipeline;
                 } else {
-                    Arc::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
-                    Arc::make_mut(&mut ds).set_write_enable(true);
-                    // println!("is_opacity true---------------------{}", render_obj.context);
+                    Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
+                    Share::make_mut(&mut ds).set_write_enable(true);
                     let pipeline = engine.create_pipeline(
                         0,
                         &pipeline.vs,
@@ -215,39 +202,50 @@ impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> 
 }
 
 // 删除索引
-impl<'a, C: Context + Share> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, node_render_map: Self::WriteData){
         let render_obj = unsafe { read.get_unchecked(event.id) };
         let notify = node_render_map.get_notify();
+        println!("RenderObjs delete {}", render_obj.context);
         unsafe{ node_render_map.remove_unchecked(render_obj.context, event.id, &notify) };
     }
 }
 
-//世界矩阵变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, WorldMatrix>, &'a MultiCaseImpl<Node, Transform>, &'a MultiCaseImpl<Node, Layout>, &'a SingleCaseImpl<DefaultTable>);
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
-        // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
-        let (render_objs, node_render_map) = write;
-        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+// //世界矩阵变化， 设置ubo
+// impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
+//     type ReadData = (
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//         &'a SingleCaseImpl<DefaultTable>,
+//     );
+//     type WriteData = (
+//         &'a mut SingleCaseImpl<RenderObjs<C>>,
+//         &'a mut SingleCaseImpl<NodeRenderMap>,
+//         &'a mut MultiCaseImpl<Node, WorldMatrixRender>
+//     );
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+//         let world_matrix = cal_matrix(event.id, read.0, read.1, read.2, read.3);
+//         // let world_matrix = unsafe { read.0.get_unchecked(event.id) };
+//         let (_render_objs, _node_render_map, world_matrix_render) = write;
+//         world_matrix_render.insert(event.id, WorldMatrixRender(world_matrix)); //插入渲染使用的世界矩阵
+//         // let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        for id in obj_ids.iter() {
-            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.as_ref();
-            Arc::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(*id, "ubos", 0);
-        }
-    }
-}
+//         // for id in obj_ids.iter() {
+//         //     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+//         //     let ubos = &mut render_obj.ubos;
+//         //     let slice: &[f32; 16] = world_matrix.as_ref();
+//         //     Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+//         //     debug_println!("id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+//         //     render_objs.get_notify().modify_event(*id, "ubos", 0);
+//         // }
+//     }
+// }
 
 //世界矩阵变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
@@ -259,16 +257,16 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> fo
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             render_obj.depth = z_depth + render_obj.depth_diff;
             let ubos = &mut render_obj.ubos;
-            Arc::make_mut(ubos.get_mut(&Z_DEPTH).unwrap()).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
+            let ubo = ubos.get_mut(&Z_DEPTH).unwrap();
+            Share::make_mut(ubo).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
             debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
-            // println!("xxxxxxxxxxx, z_depth: {:?}, id: {}", render_obj.depth + render_obj.depth_diff, render_obj.context);
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }
     }
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData){
@@ -279,7 +277,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             let ubos = &mut render_obj.ubos;
-            Arc::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
+            Share::make_mut(ubos.get_mut(&COMMON).unwrap()).set_float_1(&ALPHA, opacity);
             debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
             render_objs.get_notify().modify_event(*id, "ubos", 0);
         }
@@ -287,7 +285,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Opacity, ModifyEvent> f
 }
 
 // 设置visibility
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, write: Self::WriteData){
@@ -305,7 +303,7 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, Visibility, ModifyEvent
 }
 
 // 设置hsv
-impl<'a, C: Context + Share> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, HSV>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
@@ -313,7 +311,6 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, HSV, ModifyEvent> for N
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        println!("HSV modify------------------------------{:?}", hsv);
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 1.0) {
             for id in obj_ids.iter() {
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
@@ -352,24 +349,22 @@ impl<'a, C: Context + Share> MultiCaseListener<'a, Node, HSV, ModifyEvent> for N
 }
 
 // 修改或添加hsv， 如果是添加， 返回true
-fn add_or_modify_hsv<C: Context + Share>(hsv: &HSV, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
+fn add_or_modify_hsv<C: Context + ShareTrait>(hsv: &HSV, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
     let defines = &mut render_obj.defines;
     let ubos = &mut render_obj.ubos;
     let id = render_obj.context;
     let mut define_change = false;
     // 插入裁剪ubo 插入裁剪宏
-    ubos.entry(HSV_MACRO.clone()).and_modify(|hsv_ubo: &mut Arc<Uniforms<C>>|{
-        Arc::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, cal_hue(hsv.h), hsv.s, hsv.v - 1.0);
-        println!("HSV modify1------------------------------{:?}", hsv);
+    ubos.entry(HSV_MACRO.clone()).and_modify(|hsv_ubo: &mut Share<Uniforms<C>>|{
+        Share::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, cal_hue(hsv.h), hsv.s, hsv.v - 1.0);
         debug_println!("id: {}, hsv: {:?}", id, hsv);
     }).or_insert_with(||{
-        println!("HSV modify2------------------------------{:?}", hsv);
         defines.push(HSV_MACRO.clone());
         define_change = true;
         let mut hsv_ubo = engine.gl.create_uniforms();
         hsv_ubo.set_float_3(&HSV_ATTR, cal_hue(hsv.h), hsv.s, hsv.v - 1.0);
         debug_println!("id: {}, hsv: {:?}", id, hsv);
-        Arc::new(hsv_ubo)
+        Share::new(hsv_ubo)
     });
 
     if define_change {
@@ -399,11 +394,11 @@ fn cal_hue(value : f32) -> f32{
     }
 }
 
-unsafe impl<C: Context + Share> Sync for NodeAttrSys<C>{}
-unsafe impl<C: Context + Share> Send for NodeAttrSys<C>{}
+unsafe impl<C: Context + ShareTrait> Sync for NodeAttrSys<C>{}
+unsafe impl<C: Context + ShareTrait> Send for NodeAttrSys<C>{}
 
 impl_system!{
-    NodeAttrSys<C> where [C: Context + Share],
+    NodeAttrSys<C> where [C: Context + ShareTrait],
     true,
     {
         EntityListener<Node, CreateEvent>
@@ -411,7 +406,7 @@ impl_system!{
         SingleCaseListener<RenderObjs<C>, CreateEvent>
         SingleCaseListener<RenderObjs<C>, ModifyEvent>
         SingleCaseListener<RenderObjs<C>, DeleteEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+        // MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>

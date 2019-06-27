@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree, Node as IdTreeNode};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, ZDepth };
+use component::calc::{ WorldMatrix, WorldMatrixWrite };
 use single::DefaultTable;
 use system::util::get_or_default;
 use map::vecmap::{VecMap};
@@ -33,8 +33,8 @@ impl WorldMatrixSys{
     }
 
     fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
-        if unsafe {self.dirty_mark_list.remove_unchecked(id)} {
-            self.dirty.mark(id, node.layer)
+        if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
+            self.dirty.delete(id, node.layer)
         }
 
         let first = unsafe { id_tree.get_unchecked(id).children.head };
@@ -50,7 +50,9 @@ impl WorldMatrixSys{
         layout: &MultiCaseImpl<Node, Layout>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
         default_table: &SingleCaseImpl<DefaultTable>,
-    ){
+    ){  
+        let mut count = 0;
+        // let time = std::time::Instant::now();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
@@ -62,8 +64,11 @@ impl WorldMatrixSys{
 
             let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             let transform_value = get_or_default(parent_id, transform, default_table);
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table);
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
         }
+        // if count > 0 {
+        //     println!("worldmatrix cal, count: {}, time: {:?}", count, std::time::Instant::now() - time);
+        // }
         self.dirty.clear();
     }
 }
@@ -110,13 +115,13 @@ impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for WorldMatrixSys{
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for WorldMatrixSys{
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
-        self.marked_dirty(event.id, read);
-    }
-}
+// impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for WorldMatrixSys{
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+//         self.marked_dirty(event.id, read);
+//     }
+// }
 
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
@@ -156,12 +161,17 @@ fn recursive_cal_matrix(
     transform: &MultiCaseImpl<Node, Transform>,
     layout: &MultiCaseImpl<Node, Layout>,
     world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
-    default_table: &SingleCaseImpl<DefaultTable>,
+    default_transform: &Transform,
+    count: &mut usize,
 ){
+    *count = 1 + *count;
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
-    let transform_value = get_or_default(id, transform, default_table);
+    let transform_value = match transform.get(id) {
+        Some(r) => r,
+        None => default_transform,
+    };
 
     let matrix = if parent == 0 {
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
@@ -169,16 +179,18 @@ fn recursive_cal_matrix(
         let parent_layout = unsafe { layout.get_unchecked(parent) };
         let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };
         let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
-
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
-    world_matrix.insert(id, WorldMatrix(matrix));
+    unsafe { world_matrix.get_unchecked_write(id).modify(|w: &mut WorldMatrix| {
+        *w = WorldMatrix(matrix);
+        true
+    })};
 
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
-        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_table);
+        recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_transform, count);
     }
 }
 
@@ -190,7 +202,6 @@ impl_system!{
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, ZDepth, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }
@@ -203,6 +214,9 @@ use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 use atom::Atom;
 #[cfg(test)]
 use component::user::{TransformWrite, TransformFunc};
+#[cfg(test)]
+use component::calc::ZDepth;
+
 
 #[test]
 fn test(){

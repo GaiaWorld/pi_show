@@ -75,6 +75,7 @@ fn recursive_cal_hsv(
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ){
+    let old_hsv = unsafe { hsvs.get_unchecked(id) }.clone();
     let hsv = match filters.get(id){
         Some(filter) => {
             let hsv = HSV {
@@ -82,11 +83,17 @@ fn recursive_cal_hsv(
                 s: cal_s_from_grayscale(filter.gray_scale - parent_hsv.s),
                 v: cal_v_from_brightness(filter.bright_ness) * parent_hsv.v,
             };
-            println!("filter: {:?}, hsv:{:?}, parent_hsv: {:?}", filter, hsv, parent_hsv);
-            hsvs.insert(id, hsv.clone());   
+            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+                hsvs.insert(id, hsv.clone());
+            }  
             hsv
         },
-        None => {hsvs.insert(id, parent_hsv.clone()); parent_hsv.clone()},
+        None => {
+            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+                hsvs.insert(id, parent_hsv.clone());
+            }
+            parent_hsv.clone()
+        },
     };
 
     let first = unsafe { idtree.get_unchecked(id).children.head };

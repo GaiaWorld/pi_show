@@ -27,6 +27,9 @@ lazy_static! {
     pub static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
     pub static ref CLIP_INDICES_SIZE: Atom = Atom::from("clipTextureSize");
 
-    // 四边形集合体的hash值
-    pub static ref QUAD_GEO_HASH: u64 = 0;
+    // 四边形顶点流
+    pub static ref QUAD_POSITION_INDEX: Atom = Atom::from("quad_position_index");
+
+    pub static ref RADIUS_QUAD_POSITION_INDEX: Atom = Atom::from("radius_quad_position_index");
+    pub static ref RADIUS: Atom = Atom::from("radius");
 }

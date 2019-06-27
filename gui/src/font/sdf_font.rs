@@ -9,6 +9,7 @@ use atom::Atom;
 use render::res::TextureRes;
 use util::res_mgr::Res;
 // use font::FontMeasure;
+// pub const FONT_FACTOR: f32 = 1.3198;
 
 pub trait SdfFont {
     type Ctx: Context + 'static;
@@ -22,6 +23,10 @@ pub trait SdfFont {
     fn atlas_width(&self) -> usize;
 
     fn atlas_height(&self) -> usize;
+
+    fn line_height(&self) -> f32;
+
+    fn font_size(&self) -> f32;
     
     fn texture(&self) -> &Res<TextureRes<Self::Ctx>>;
 
@@ -30,6 +35,16 @@ pub trait SdfFont {
     fn get_glyph(&self, c: &char) -> Option<&Glyph>;
 
     fn add_glyph(&self, c: char, glyph: Glyph);
+
+    fn get_dyn_type(&self) -> usize;
+
+    fn curr_uv(&self) -> (f32, f32);
+
+    fn set_curr_uv(&self, value: (f32, f32));
+
+    fn stroke_width(&self) -> f32;
+
+    fn weight(&self) -> f32;
 }
 
 // // 字体生成器
@@ -59,6 +74,11 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
     texture: Res<TextureRes<C>>,
+    dyn_type: usize,
+    curr_uv: (f32, f32),
+    stroke_width: f32,
+    font_size: f32,
+    weight: f32,
 }
 
 impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
@@ -66,9 +86,11 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
         match self.glyph_table.get(&c) {
-            Some(glyph) => font_size/self.line_height*glyph.advance,
+            Some(glyph) => {
+                font_size/self.font_size*glyph.advance
+            },
             None => {
-                0.0
+                font_size
                 // let glyph = self.generator.gen(self.name.as_ref(), c);
                 // let advance = glyph.advance;
                 // unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
@@ -93,7 +115,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     }
 
     fn glyph_info(&self, c: char, font_size: f32) -> Option<GlyphInfo> {
-        let ratio = font_size/self.line_height;
+        let ratio = font_size/self.font_size;
         match self.glyph_table.get(&c) {
             Some(glyph) => {
                 let (min_u, min_v) = (glyph.x, glyph.y); //左上角
@@ -129,6 +151,35 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
         0.5/(ratio * self.padding)
     }
 
+    fn get_dyn_type(&self) -> usize {
+        self.dyn_type
+    }
+
+    fn line_height(&self) -> f32 {
+        self.line_height
+    }
+
+    fn font_size(&self) -> f32 {
+        self.font_size
+    }
+
+    fn curr_uv(&self) -> (f32, f32) {
+        (self.curr_uv.0, self.curr_uv.1)
+    }
+
+    fn set_curr_uv(&self, value: (f32, f32)) {
+        unsafe {&mut *(self as *const Self as usize as *mut Self)}.curr_uv = value
+    }
+
+    fn stroke_width(&self) -> f32 {
+        self.stroke_width
+    }
+
+    fn weight(&self) -> f32 {
+        self.weight
+    }
+
+
     #[inline]
     fn texture(&self) -> &Res<TextureRes<C>> {
         &self.texture
@@ -136,7 +187,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
 }
 
 impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
-    pub fn new(texture: Res<TextureRes<C>>) -> Self{
+    pub fn new(texture: Res<TextureRes<C>>, dyn_type: usize) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -145,6 +196,11 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             padding: 0.0,
             glyph_table: FnvHashMap::default(),
             texture: texture,
+            dyn_type: dyn_type,
+            curr_uv: (0.0, 0.0),
+            stroke_width: 0.0,
+            font_size: 0.0,
+            weight: 0.0,
         }
     }
 
@@ -165,6 +221,11 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             padding,
             glyph_table,
             texture,
+            dyn_type: 0,
+            curr_uv: (0.0, 0.0),
+            stroke_width: 0.0,
+            font_size: 0.0,
+            weight: 0.0
         }
     }
 }
@@ -191,6 +252,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         // }
         self.name = Atom::from(name_str);
 
+        
         self.line_height = value.get_u8(offset) as f32;
         offset += 1;
 
@@ -199,13 +261,19 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         self.atlas_height = value.get_lu16(offset) as usize;
         offset += 2;
         // padding
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
-        value.get_lu16(offset) as f32;
+        self.font_size = value.get_u8(offset) as f32;
+        self.stroke_width = value.get_u8(offset + 2) as f32; // stroke_width使用padding位置
+        // self.weight = value.get_u8(offset + 4) as f32; // stroke_width使用padding位置
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
+        // value.get_lu16(offset) as f32;
         offset += 8;
 
-        // println!("value: {:?}", value);
+        if self.font_size == 0.0 {
+            self.font_size = self.line_height;
+        }
+
         //字符uv表
         loop {
 
