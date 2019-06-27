@@ -162,11 +162,6 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
         }
         ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
 
-        let mut world_matrix_ubo = engine.gl.create_uniforms();
-        let slice: &[f32; 16] = unsafe { world_matrix.get_unchecked(event.id) }.0.as_ref();
-        world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-        ubos.insert(WORLD.clone(), Share::new(world_matrix_ubo)); // WORLD_MATRIX
-
         // println!("ds----------------{:?}", self.ds);
         let pipeline = engine.create_pipeline(
             0,
