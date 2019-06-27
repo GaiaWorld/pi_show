@@ -285,6 +285,9 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, Modify
                 if let Some(_) = render_obj.ubos.remove(&CLIP) {
                     //移除宏
                     render_obj.defines.remove_item(&CLIP);
+
+                    //移除ubo
+                    render_obj.ubos.remove(&CLIP_INDICES);
                     
                     // 重新创建渲染管线
                     let pipeline = engine.create_pipeline(
