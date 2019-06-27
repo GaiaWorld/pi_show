@@ -130,14 +130,13 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (background_colors, border_radius, z_depths, layouts, opacitys, world_matrix) = read;
+        let (background_colors, border_radius, z_depths, layouts, opacitys) = read;
         let (render_objs, engine) = write;
         let background_color = unsafe { background_colors.get_unchecked(event.id) };
         let _border_radius = unsafe { border_radius.get_unchecked(event.id) };

@@ -497,7 +497,7 @@ fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height:
         
         js!{
             window.__jsObj = @{&c}.canvas;
-            document.body.append(@{&c}.canvas);// 查看效果 
+            // document.body.append(@{&c}.canvas);// 查看效果 
         }
         update_font_texture1(
             world,
