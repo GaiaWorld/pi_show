@@ -38,6 +38,21 @@
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
+        // Module._set_clear_color(gui, 0, 0, 0, 0);
+
+        // var root = Module._create_node(gui);
+        // Module._append_child(gui, root, 1);
+        // Module._set_width(gui, root, 1000);
+        // Module._set_height(gui, root, 700);
+
+        // var node = Module._create_node(gui);
+        // Module._append_child(gui, node, 1);
+        // Module._set_width(gui, node, 500);
+        // Module._set_height(gui, node, 500);
+        // Module._set_border(gui, node, YGEdgeAll, 20);
+        // Module._set_border_image_clip(gui, node, 0, 0, 0.609375, 0.609375);
+        // Module._set_border_image_slice(gui, node, 0.333, 0.333, 0.333, 0.333, true);
+        // Module._set_border_image_repeat(gui, node, BorderImageRepeatType_Stretch, BorderImageRepeatType_Stretch);
 
         var node = Module._create_node(gui);
         Module._append_child(gui, node, 1);
@@ -45,25 +60,26 @@
         Module._set_height(gui, node, 500);
         Module._set_border(gui, node, YGEdgeAll, 20);
         Module._set_border_image_clip(gui, node, 0, 0, 0.609375, 0.609375);
-        Module._set_border_image_slice(gui, node, 0.333, 0.333, 0.333, 0.333, true);
+        // Module._set_border_image_slice(gui, node, 0.333, 0.333, 0.333, 0.333, true);
         Module._set_border_image_repeat(gui, node, BorderImageRepeatType_Stretch, BorderImageRepeatType_Stretch);
-        // var root = Module._create_node(gui);
-        // Module._append_child(gui, body, root);
-        // Module._set_width(gui, node, 512);
-        // Module._set_height(gui, node, 512);
-        // Module._set_backgroud_rgba_color(gui, root, 0.5, 0.5, 0.5, 1.0);
+        
+        
 
-        // Module._run(gui);
-        // Module._render(gui);
+        // 设置 border_src，border_image_slice前进行一次渲染
+        Module._render(gui);
+        
         var image = new Image();
 
         image.onload = () => {
             window.__jsObj = image;
             window.__jsObj1 = "./border.png";
-            Module._set_border_src(gui, node, 0, 0);
+            
+            // Module._set_border_image_clip(gui, node, 0, 0, 0.609375, 0.609375);
+            Module._set_border_image_slice(gui, node, 0.1, 0.1, 0.1, 0.1, true);
 
-            // Module._render(gui);
-            render_fram();
+            Module._set_border_src(gui, node, 1, 0);
+
+            Module._render(gui);
             
             // //修改图片
             // setTimeout(() => {

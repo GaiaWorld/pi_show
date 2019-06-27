@@ -130,13 +130,14 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (background_colors, border_radius, z_depths, layouts, opacitys) = read;
+        let (background_colors, border_radius, z_depths, layouts, opacitys, world_matrix) = read;
         let (render_objs, engine) = write;
         let background_color = unsafe { background_colors.get_unchecked(event.id) };
         let _border_radius = unsafe { border_radius.get_unchecked(event.id) };
@@ -160,6 +161,11 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
             },
         }
         ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
+
+        let mut world_matrix_ubo = engine.gl.create_uniforms();
+        let slice: &[f32; 16] = unsafe { world_matrix.get_unchecked(event.id) }.0.as_ref();
+        world_matrix_ubo.set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+        ubos.insert(WORLD.clone(), Share::new(world_matrix_ubo)); // WORLD_MATRIX
 
         // println!("ds----------------{:?}", self.ds);
         let pipeline = engine.create_pipeline(

@@ -177,13 +177,14 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
         &'a MultiCaseImpl<Node, Font>,
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a SingleCaseImpl<DefaultTable>,
+        &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let map = &mut self.render_map;
-        let (z_depths, text_shadows, charblocks, fonts, font_sheet, default_table) = read;
+        let (z_depths, text_shadows, charblocks, fonts, font_sheet, default_table, world_matrixs, ) = read;
         let (render_objs, engine) = write;
         for id in  self.geometry_dirtys.iter() {
+            let map = &mut self.render_map;
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
@@ -211,6 +212,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
                 render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
+
+            self.modify_matrix(*id, world_matrixs, text_shadows, render_objs);
         }
         self.geometry_dirtys.clear();
     }

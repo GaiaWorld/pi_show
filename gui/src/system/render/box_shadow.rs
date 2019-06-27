@@ -62,16 +62,17 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BoxShadowSys<C>{
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, BoxShadow>,
+        &'a MultiCaseImpl<Node, WorldMatrixRender>
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let map = &mut self.render_map;
-        let (layouts, border_radius, z_depths, box_shadows) = read;
+        let (layouts, border_radiuss, z_depths, box_shadows, world_matrixs) = read;
         let (render_objs, engine) = write;
         for id in  self.geometry_dirtys.iter() {
+            let map = &mut self.render_map;
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
-            let border_radius = unsafe { border_radius.get_unchecked(*id) };
+            let border_radius = unsafe { border_radiuss.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
             let layout = unsafe { layouts.get_unchecked(*id) };
             let box_shadow = unsafe { box_shadows.get_unchecked(*id) };
@@ -97,6 +98,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BoxShadowSys<C>{
                 },
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
+
+            self.modify_matrix(*id, world_matrixs, box_shadows, layouts, border_radiuss, render_objs)
         }
         self.geometry_dirtys.clear();
     }

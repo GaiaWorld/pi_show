@@ -340,8 +340,7 @@ impl<'a, C: Context + ShareTrait> ImageSys<C> {
             let ubos = &mut render_obj.ubos;
             let slice: &[f32; 16] = world_matrix.0.as_ref();
             Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            render_objs.get_notify().modify_event(item.index, "ubos", 0);
-            
+            render_objs.get_notify().modify_event(item.index, "ubos", 0); 
         }
     }
 }

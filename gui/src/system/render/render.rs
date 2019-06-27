@@ -142,16 +142,14 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
         gl.begin_render(
             &(gl.get_default_render_target().clone() as Share<dyn AsRef<C::ContextRenderTarget>>), 
             &(render_begin.0.clone() as Share<dyn AsRef<RenderBeginDesc>>));
-        
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            // debug_println!("draw opacity-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj); 
         }
 
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            // debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
             render(gl, obj);
         }
 
@@ -227,12 +225,10 @@ fn render<C: Context + ShareTrait>(gl: &mut C, obj: &RenderObj<C>){
         Some(g) => g,
     };
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
-    // println! ("draw-------------------------------------id: {}, key: {}, ds: {:?}", obj.context, obj.pipeline.key, &obj.pipeline.ds);
     let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
     for (k, v) in obj.ubos.iter() {
         ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
     }
-    // debug_println!("draw-------------------------------------{}", obj.context);
     gl.draw(&(geometry.value.clone() as Share<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 }
 

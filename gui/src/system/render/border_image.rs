@@ -69,13 +69,14 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
         &'a MultiCaseImpl<Node, BorderImageSlice>,
         &'a MultiCaseImpl<Node, BorderImageRepeat>,
         &'a MultiCaseImpl<Node, BorderImage<C>>,
+        &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let map = &mut self.render_map;
-        let (layouts, z_depths, clips, slices, repeats, images) = read;
+        let (layouts, z_depths, clips, slices, repeats, images, world_matrixs) = read;
         let (render_objs, engine) = write;
         for id in  self.geometry_dirtys.iter() {
+            let map = &mut self.render_map;
             let item = unsafe { map.get_unchecked_mut(*id) };
             item.position_change = false;
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
@@ -86,7 +87,6 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
             let clip = clips.get(*id);
 
             let (positions, uvs, indices) = get_border_image_stream(image, clip, slice, repeat, layout, z_depth - 0.1, Vec::new(), Vec::new(), Vec::new());
-
             let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
             if positions.len() == 0 {
                 render_obj.geometry = None;
@@ -99,6 +99,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
                 render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
             };
             render_objs.get_notify().modify_event(item.index, "geometry", 0);
+
+            self.modify_matrix(*id, world_matrixs, render_objs);
         }
         self.geometry_dirtys.clear();
     }
