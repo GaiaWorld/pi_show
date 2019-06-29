@@ -137,7 +137,12 @@ let color_fs_code = `
         #ifdef HSV
             vec3 hsv = rgb2hsv(c.rgb);
             hsv.r += hsvValue.r;
-            hsv.g *= hsvValue.g;
+            c.rgb = hsv2rgb(hsv);
+
+            float gray = dot(c.rgb, vec3(0.21, 0.71, 0.07));
+            c.rgb = mix(vec3(gray), c.rgb, hsvValue.g);
+
+            hsv = rgb2hsv(c.rgb);
             hsv.b *= hsvValue.b;
             c.rgb = hsv2rgb(hsv);
         #endif
