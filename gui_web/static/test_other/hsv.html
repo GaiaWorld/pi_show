@@ -52,10 +52,11 @@
         function load_ok() {
             var body = Module._create_node(gui);
             Module._append_child(gui, body, 100);
-            Module._set_filter_grayscale(gui, body, 0);
-            // Module._set_filter_hue_rotate(gui, body, 180);
-            // Module._set_filter_bright_ness(gui, body, 50);
-            // Module._set_filter_saturate(gui, body, 500);
+            // Module._set_filter_grayscale(gui, body, 0); // 变灰，  0%~100%
+            // Module._set_filter_hue_rotate(gui, body, 180); // 变色相， 0~360， 与ps的-180~180效果一致， 但与css的0~360效果有差异
+            // Module._set_filter_bright_ness(gui, body, 50); // 明暗度， 100%表示不变， 0%表示全黑， 大于100%表示更亮， 与css效果一致
+            // Module._set_filter_saturate(gui, body, 500); // 饱和度， 100%表示不变， 0%表示完全不饱和， 与设置grayscale为100%效果一致， 大于100%表示更饱和， 与css效果一致
+            // 注意： css的各种颜色过滤函数可以以不同的顺序叠加多次， 在gui中， 过滤函数的顺序不会影响最终效果， 其本质就是hsl 
 
             var node_color = Module._create_node(gui);
             Module._append_child(gui, node_color, body); // 接口已修改， node和parent顺序颠倒
