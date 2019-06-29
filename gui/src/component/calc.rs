@@ -30,7 +30,7 @@ pub struct Opacity(pub f32);
 
 impl Default for Opacity {
 	fn default() -> Opacity{
-	Opacity(1.0)
+	    Opacity(1.0)
 	}
 }
 

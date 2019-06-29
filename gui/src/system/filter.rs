@@ -60,7 +60,10 @@ fn cal_hsv(
         None => return,
     };
     let hsv = match hsvs.get(parent_id){
-        Some(hsv) => hsv.clone(),
+        Some(hsv) => {
+            println!("cal_hsv parent_id--------{}, {:?}", parent_id, hsv);
+            hsv.clone()
+        },
         None => HSV::default(),
     };;
 
@@ -83,19 +86,18 @@ fn recursive_cal_hsv(
                 s: cal_s_from_grayscale(filter.gray_scale - parent_hsv.s),
                 v: cal_v_from_brightness(filter.bright_ness) * parent_hsv.v,
             };
-            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+            if hsv.h != old_hsv.h || hsv.s != old_hsv.s || hsv.v != old_hsv.v {
                 hsvs.insert(id, hsv.clone());
-            }  
+            }
             hsv
         },
         None => {
-            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+            if parent_hsv.h != old_hsv.h || parent_hsv.s != old_hsv.s || parent_hsv.v != old_hsv.v {
                 hsvs.insert(id, parent_hsv.clone());
             }
             parent_hsv.clone()
         },
     };
-
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
         recursive_cal_hsv(child_id.0, idtree, &hsv, filters, hsvs);

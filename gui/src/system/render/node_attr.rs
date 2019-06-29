@@ -384,11 +384,11 @@ fn add_or_modify_hsv<C: Context + ShareTrait>(hsv: &HSV, render_obj: &mut Render
     return define_change;
 }
 
-// 参数0-360， 返回-1~1
+// 参数0-360， 返回-0.5~0.5
 fn cal_hue(value : f32) -> f32{
-    let v = value/180.0;
-    if v > 1.0 {
-        -(2.0 - v)
+    let v = value/360.0;
+    if v > 0.5 {
+        -(1.0 - v)
     } else {
         v
     }

@@ -22,14 +22,22 @@ impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, CreateEvent> for Lay
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-      write.0.insert(event.id, Layout::default());
-			let yoga = L::default();
-			yoga.set_context(event.id as *mut c_void);
-			yoga.set_overflow(YGOverflow::YGOverflowVisible);
-            yoga.set_align_items(YGAlign::YGAlignFlexStart);
-      write.1.insert(event.id, yoga);
+        write.0.insert(event.id, Layout::default());
+        let yoga = L::default();
+        yoga.set_context(event.id as *mut c_void);
+        yoga.set_overflow(YGOverflow::YGOverflowVisible);
+        yoga.set_align_items(YGAlign::YGAlignFlexStart);
+        write.1.insert(event.id, yoga);
     }
 }
+
+// impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, DeleteEvent> for LayoutSys<L>{
+//     type ReadData = ();
+//     type WriteData = ();
+//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData){
+//         println!("!!!!!!delete yoga: {}", event.id);
+//     }
+// }
 
 impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
@@ -50,7 +58,7 @@ impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, CreateEvent> f
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
-			add_yoga(event.id, read.0, read.1);
+		add_yoga(event.id, read.0, read.1);
     }
 }
 
@@ -89,9 +97,10 @@ impl_system!{
     LayoutSys<L> where [L: FlexNode + ShareTrait],
     false,
     {
-				EntityListener<Node, CreateEvent>
+		EntityListener<Node, CreateEvent>
+        // EntityListener<Node, DeleteEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
-				SingleCaseListener<IdTree, ModifyEvent>
+		SingleCaseListener<IdTree, ModifyEvent>
     }
 }

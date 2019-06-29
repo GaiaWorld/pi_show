@@ -173,7 +173,12 @@ pub fn set_overflow(world: u32, node: u32, value: bool){
 //设置不透明度
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_opacity(world: u32, node: u32, value: f32) {
+pub fn set_opacity(world: u32, node: u32, mut value: f32) {
+    if value > 1.0 {
+        value = 1.0;
+    } else if value < 0.0{
+        value = 0.0;
+    }
     insert_value!(world, node, Opacity, value, opacity);
 }
 
@@ -192,7 +197,7 @@ pub fn set_visibility(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_visibility, value);
 }
 
-//设置visibility, true: visible, false: hidden,	默认true
+//enable
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_enable(world: u32, node: u32, value: u32) {

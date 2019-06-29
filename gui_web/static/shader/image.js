@@ -44,6 +44,14 @@ let image_fs_code = `
     varying vec2 vuv;
 
     #ifdef HSV
+
+        float Luminance(vec3 color)
+        {
+            float fmin = min(min(color.r, color.g), color.b);
+            float fmax = max(max(color.r, color.g), color.b);
+            return (fmax + fmin) / 2.0;
+        }
+
         vec3 rgb2hcv(vec3 RGB)
         {
             // Based on work by Sam Hocevar and Emil Persson
@@ -120,7 +128,7 @@ let image_fs_code = `
             hsv += hsvValue;
             c.rgb = hsv2rgb(hsv);
         #endif
-
+ 
         #ifdef GRAY
             c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
         #endif
