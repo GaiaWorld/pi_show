@@ -35,6 +35,7 @@ pub trait Geometry : Sized + Clone {
      * count：该属性的一个元素占用Buffer的几个单位
      */
     fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String>;
+
     fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String>;
       
     /**
@@ -48,6 +49,7 @@ pub trait Geometry : Sized + Clone {
      * count：该索引占用了buffer的多少个单位
      */
     fn set_indices_short(&self, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String>;
+    
     fn set_indices_short_with_offset(&self, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize) -> Result<(), String>;
 
     /**

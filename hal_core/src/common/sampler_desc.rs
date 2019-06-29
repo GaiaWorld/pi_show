@@ -26,12 +26,23 @@ impl SamplerDesc {
         }
     }
 
+    /** 
+     * 设置过滤模式：
+     *    mag：当纹理被放大采样的时候，默认：线性过滤
+     *    min：当纹理被缩小采样的时候，默认：线性过滤
+     *    mip：当纹理又mipmap，被缩小采样的时候，默认：不用mipmap
+     */
     pub fn set_filter_mode(&mut self, mag: TextureFilterMode, min: TextureFilterMode, mip: Option<TextureFilterMode>) {
         self.min_filter = min;
         self.mag_filter = mag;
         self.mip_filter = mip;
     }
 
+    /** 
+     * 设置环绕模式：当uv坐标大于1或者小于0的时候，如何采样纹理
+     *    u：u方向的环绕，默认：重复平铺
+     *    v：v方向的环绕，默认：重复平铺
+     */
     pub fn set_wrap_mode(&mut self, u_wrap: TextureWrapMode, v_wrap: TextureWrapMode) {
         self.u_wrap = u_wrap;
         self.v_wrap = v_wrap;

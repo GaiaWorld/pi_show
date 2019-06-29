@@ -3,7 +3,7 @@
  */
 
 extern crate atom;
-extern crate fnv;
+extern crate share;
 extern crate ordered_float;
 
 mod traits;

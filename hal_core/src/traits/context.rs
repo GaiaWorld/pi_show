@@ -1,8 +1,7 @@
 use atom::Atom;
+use share::Share;
 
-use fnv::FnvHashMap;
-
-use common::{Uniforms, Capabilities, RenderBeginDesc};
+use common::{Capabilities, RenderBeginDesc};
 use traits::buffer::{Buffer};
 use traits::geometry::{Geometry};
 use traits::program::{Program};
@@ -10,6 +9,7 @@ use traits::render_target::{RenderTarget, RenderBuffer};
 use traits::sampler::{Sampler};
 use traits::state::{RasterState, DepthState, StencilState, BlendState};
 use traits::texture::{Texture};
+use traits::uniform_buffer::{ProgramParamter};
 
 /**
  * 渲染上下文，负责如下功能
@@ -84,5 +84,5 @@ pub trait Context: Sized + Clone {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &FnvHashMap<Atom, (Self::ContextSampler, Self::ContextTexture)>);
+    fn draw(&self, geometry: &Self::ContextGeometry, parameter: &Share<ProgramParamter<Self::ContextSelf>>);
 }
