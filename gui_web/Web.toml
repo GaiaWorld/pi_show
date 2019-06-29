@@ -7,4 +7,5 @@ link-args = ["-Oz",
             "-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1",
             "-s", "ENVIRONMENT=web",
             "-s", "INLINING_LIMIT=1",
+            "-s", "NO_FILESYSTEM=1"
             ]

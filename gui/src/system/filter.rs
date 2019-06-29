@@ -60,7 +60,9 @@ fn cal_hsv(
         None => return,
     };
     let hsv = match hsvs.get(parent_id){
-        Some(hsv) => hsv.clone(),
+        Some(hsv) => {
+            hsv.clone()
+        },
         None => HSV::default(),
     };;
 
@@ -80,22 +82,21 @@ fn recursive_cal_hsv(
         Some(filter) => {
             let hsv = HSV {
                 h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
-                s: cal_s_from_grayscale(filter.gray_scale - parent_hsv.s),
-                v: cal_v_from_brightness(filter.bright_ness) * parent_hsv.v,
+                s: filter.saturate * parent_hsv.s,
+                v: filter.bright_ness * parent_hsv.v,
             };
-            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+            if hsv.h != old_hsv.h || hsv.s != old_hsv.s || hsv.v != old_hsv.v {
                 hsvs.insert(id, hsv.clone());
-            }  
+            }
             hsv
         },
         None => {
-            if !(parent_hsv.h == old_hsv.h && parent_hsv.s == old_hsv.s && parent_hsv.v == old_hsv.v) {
+            if parent_hsv.h != old_hsv.h || parent_hsv.s != old_hsv.s || parent_hsv.v != old_hsv.v {
                 hsvs.insert(id, parent_hsv.clone());
             }
             parent_hsv.clone()
         },
     };
-
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
         recursive_cal_hsv(child_id.0, idtree, &hsv, filters, hsvs);
@@ -121,27 +122,27 @@ fn cal_h_from_hue(mut hue_rotate: f32) -> f32{
     }
 }
 
-// 计算grayscale， hue的值在0~1度范围内， 大于1.0， 取1.0的值，小于0.0 取0.0
-fn cal_s_from_grayscale(grayscale: f32) -> f32{
-    if grayscale > 1.0 {
-        -1.0
-    }else if grayscale < 0.0{
-        0.0
-    } else {
-        -grayscale
-    }
-}
+// // 计算grayscale， hue的值在0~1度范围内， 大于1.0， 取1.0的值，小于0.0 取0.0
+// fn cal_s_from_saturate(saturate: f32) -> f32{
+//     if saturate  1.0 {
+//         -1.0
+//     }else if grayscale < 0.0{
+//         0.0
+//     } else {
+//         -grayscale
+//     }
+// }
 
-// 计算明亮度， 值为0-2， 小于0是取0， 如果值是0，会全黑。值是1， 无变化， 大于1会更亮
-fn cal_v_from_brightness(brightness: f32) -> f32{
-    if brightness < 0.0 {
-        0.0
-    }else if brightness > 2.0 {
-        2.0
-    }else {
-        brightness
-    }
-}
+// // 计算明亮度， 值为0-2， 小于0是取0， 如果值是0，会全黑。值是1， 无变化， 大于1会更亮
+// fn cal_v_from_brightness(brightness: f32) -> f32{
+//     if brightness < 0.0 {
+//         0.0
+//     }else if brightness > 2.0 {
+//         2.0
+//     }else {
+//         brightness
+//     }
+// }
 
 impl_system!{
     FilterSys,
@@ -179,7 +180,7 @@ fn test(){
     let filter = Filter{
         hue_rotate: 380.0,
         bright_ness: 0.5,
-        gray_scale: 0.3,
+        saturate: 0.3,
     };
     filters.insert(e0, filter.clone());
 

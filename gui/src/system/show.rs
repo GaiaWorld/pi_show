@@ -122,7 +122,6 @@ fn modify_show(
         EnableType::None => false,
     };
     let c_enable = c_visibility && c_enable;
-    // println!("modify_show--------------------------id: {}, c_visibility: {}, enable_value: {}, parent_c_enable{}, display_value: {}, show_value: {:?}",id, c_visibility, c_enable, parent_c_enable, display_value, show_value);
     let mut visibility_write = unsafe { visibility.get_unchecked_write(id) };
     let mut enable_write = unsafe { enable.get_unchecked_write(id) };
     if c_visibility == **visibility_write.value && c_enable == **enable_write.value {

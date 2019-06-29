@@ -29,7 +29,7 @@
         var FitType_ScaleDown = 4;
     </script>
     
-    <script src="../../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -52,7 +52,10 @@
         function load_ok() {
             var body = Module._create_node(gui);
             Module._append_child(gui, body, 1);
-            Module._set_filter_grayscale(gui, body, 1);
+            // Module._set_filter_grayscale(gui, body, 1);
+            // Module._set_filter_hue_rotate(gui, body, -90);
+            // Module._set_filter_bright_ness(gui, body, 200);
+            Module._set_filter_saturate(gui, body, 100);
 
             var node_color = Module._create_node(gui);
             Module._append_child(gui, node_color, body); // 接口已修改， node和parent顺序颠倒
@@ -63,12 +66,12 @@
             var node_image = Module._create_image_node(gui);
             Module._append_child(gui, node_image, body); // 接口已修改， node和parent顺序颠倒
             window.__jsObj = image1;
-            window.__jsObj1 = "../test_image/02.png";
+            window.__jsObj1 = "../test_image/border.png";
             Module._set_src(gui, node_image, 0, 0);
-            Module._set_image_clip(gui, node_image, 0, 0, 0.5, 0.5);
-            Module._set_object_fit(gui, node_image, FitType_Fill);
-            Module._set_width(gui, node_image, 300);
-            Module._set_height(gui, node_image, 100);
+            // Module._set_image_clip(gui, node_image, 0, 0, 0.5, 0.5);
+            // Module._set_object_fit(gui, node_image, FitType_Fill);
+            // Module._set_width(gui, node_image, 300);
+            // Module._set_height(gui, node_image, 100);
 
             window.__jsObj = cfg;
             window.__jsObj1 = image;
@@ -95,7 +98,7 @@
                 load_ok()
             }         
         };
-        image1.src = "../test_image/02.png";
+        image1.src = "../test_image/border.png";
 
         function newXMLHttpRequest() {
             var xmlhttp;
