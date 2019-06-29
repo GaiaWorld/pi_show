@@ -184,8 +184,6 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
             &(Share::new(viewport) as Share<dyn AsRef<RenderBeginDesc>>)
         );
 
-        // println!("overflow1: {:?}, id_vec: {:?}", overflow.clip, overflow.id_vec);
-
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
         {
@@ -320,7 +318,6 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEve
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        // println!("OverflowClip------------------------");
         self.dirty = true;
     }
 }

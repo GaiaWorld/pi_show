@@ -54,7 +54,8 @@
             Module._append_child(gui, body, 1);
             // Module._set_filter_grayscale(gui, body, 1);
             // Module._set_filter_hue_rotate(gui, body, -90);
-            Module._set_filter_bright_ness(gui, body, 0.5);
+            // Module._set_filter_bright_ness(gui, body, 200);
+            Module._set_filter_saturate(gui, body, 100);
 
             var node_color = Module._create_node(gui);
             Module._append_child(gui, node_color, body); // 接口已修改， node和parent顺序颠倒

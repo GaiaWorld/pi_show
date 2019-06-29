@@ -31,14 +31,6 @@ impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, CreateEvent> for Lay
     }
 }
 
-// impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, DeleteEvent> for LayoutSys<L>{
-//     type ReadData = ();
-//     type WriteData = ();
-//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData){
-//         println!("!!!!!!delete yoga: {}", event.id);
-//     }
-// }
-
 impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
