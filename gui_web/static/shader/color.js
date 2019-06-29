@@ -38,6 +38,13 @@ let color_fs_code = `
     uniform float alpha;
 
     #ifdef HSV
+        /**
+         * h: hue，色相，对应css filter的hue-rotate，范围[0, 1]，按比例对应 [0, 360度]
+         *    + 比如：0.5对应css的180度，0.7对应CSS的360*0.7=252度
+         * s：saturate，饱和度，对应CSS filter的saturate，乘法关系，1.0表示保持包和度不变，0.4对应css filter的40%，2.0对应css filter的200%，等
+         *    + 注：如果是css filter的grayscale(x%)，则s要设置的值应为：1 - x/100，比如grayscale(70%)，则s=0.3；
+         * v：brightness，明度，对应CSS filter的brightness，乘法关系，1.0表示保持不变，0.4对应css filter的40%，2.0对应css filter的200% 等
+         */
         uniform vec3 hsvValue;
     #endif
 
@@ -56,30 +63,22 @@ let color_fs_code = `
     #endif
 
     #ifdef HSV
-
-        vec3 rgb2hcv(vec3 RGB)
+        vec3 rgb2hsv(vec3 c)
         {
-            // Based on work by Sam Hocevar and Emil Persson
-            vec4 P = mix(vec4(RGB.bg, -1.0, 2.0/3.0), vec4(RGB.gb, 0.0, -1.0/3.0), step(RGB.b, RGB.g));
-            vec4 Q = mix(vec4(P.xyw, RGB.r), vec4(RGB.r, P.yzx), step(P.x, RGB.r));
-            float C = Q.x - min(Q.w, Q.y);
-            float H = abs((Q.w - Q.y) / (6.0 * C + 1e-10) + Q.z);
-            return vec3(H, C, Q.x);
+            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        
+            float d = q.x - min(q.w, q.y);
+            float e = 1.0e-10;
+            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
         }
-
-        vec3 rgb2hsv(vec3 RGB)
-        {
-            vec3 HCV = rgb2hcv(RGB);
-            float L = HCV.z - HCV.y * 0.5;
-            float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + 1e-10);
-            return vec3(HCV.x, S, L);
-        }
-
+        
         vec3 hsv2rgb(vec3 c)
         {
-            c = vec3(fract(c.x), clamp(c.yz, 0.0, 1.0));
-            vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-            return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
         }
     #endif
 
@@ -137,7 +136,9 @@ let color_fs_code = `
             
         #ifdef HSV
             vec3 hsv = rgb2hsv(c.rgb);
-            hsv += hsvValue;
+            hsv.r += hsvValue.r;
+            hsv.g *= hsvValue.g;
+            hsv.b *= hsvValue.b;
             c.rgb = hsv2rgb(hsv);
         #endif
         

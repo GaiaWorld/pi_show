@@ -50,7 +50,7 @@ let image_fs_code = `
     // Varyings
     varying vec2 vuv;
     
-    // #ifdef HSV
+    #ifdef HSV
         vec3 rgb2hsv(vec3 c)
         {
             vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -68,7 +68,7 @@ let image_fs_code = `
             vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
             return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
         }
-        // #endif
+    #endif
 
     #ifdef CLIP 
         // 8位int型变二进制数组
