@@ -172,7 +172,6 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
         let mut common_ubo = engine.gl.create_uniforms();
         let dyn_type = match font_sheet.get_first_font(&font.family) {
             Some(r) => {
-                println!("name1: {:?}, font_size: {}, font_sheet.get_size(&font.family, &font.size): {}", r.name(), r.font_size(), font_sheet.get_size(&font.family, &font.size));
                 let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
                     let mut s = SamplerDesc::default();
                     s.min_filter = TextureFilterMode::Nearest;
@@ -346,8 +345,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
         if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
             let font = get_or_default(event.id, fonts, default_table);
+            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet); 
             modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
             // let index = item.index;
             // self.change_is_opacity(opacity, text_style, index, render_objs);
@@ -371,8 +370,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
         if let Some(item) = self.render_map.get_mut(event.id) {
             let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
             let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
             let font = get_or_default(event.id, fonts, default_table);
+            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet);
             modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
             // let index = item.index;
             // self.change_is_opacity(opacity, text_style, index, render_objs);
@@ -398,7 +397,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
             
             match event.field {
                 "color" => {
-                    modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine);
+                    let font = get_or_default(event.id, fonts, default_table);
+                    modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet);
                 },
                 "stroke" => {
                     let font = get_or_default(event.id, fonts, default_table);
@@ -536,7 +536,7 @@ fn modify_stroke<C: Context + ShareTrait>(
             render_obj.defines.push(STROKE.clone());
             let mut stroke_ubo = engine.gl.create_uniforms();
             let color = &text_style.stroke.color;
-            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
+            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width / 10.0);
             stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
             render_obj.ubos.insert(STROKE.clone(), Share::new(stroke_ubo));
             let old_pipeline = render_obj.pipeline.clone();
@@ -555,14 +555,25 @@ fn modify_stroke<C: Context + ShareTrait>(
             let stroke_ubo = render_obj.ubos.get_mut(&STROKE).unwrap();
             let color = &text_style.stroke.color;
             let stroke_ubo = Share::make_mut(stroke_ubo);
-            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width);
+            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width / 10.0);
             stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
         }
     }   
 }
 
-fn modify_color<C: Context + ShareTrait>(geometry_dirtys: &mut Vec<usize>, item: &mut Item, id: usize, text_style: &TextStyle, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>) {
+fn modify_color<C: Context + ShareTrait>(
+    geometry_dirtys: &mut Vec<usize>,
+    item: &mut Item,
+    id: usize,
+    text_style: &TextStyle,
+    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+    engine: &mut SingleCaseImpl<Engine<C>>,
+    font: &Font,
+    font_sheet: &SingleCaseImpl<FontSheet<C>>,
+) {
+    let notify = render_objs.get_notify();
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+    let mut change = false;
     match &text_style.color {
         Color::RGBA(c) => {
             // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
@@ -577,13 +588,14 @@ fn modify_color<C: Context + ShareTrait>(geometry_dirtys: &mut Vec<usize>, item:
                     item.position_change = true;
                     geometry_dirtys.push(id);
                 }
+                change = true;
             }
             // 设置ubo
             let ucolor_ubo = Share::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
             debug_println!("text_color, id: {}, color: {:?}", id, c);
             ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
 
-            render_objs.get_notify().modify_event(item.index, "", 0);
+            notify.modify_event(item.index, "", 0);
         },
         Color::LinearGradient(_) => {
             // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
@@ -595,8 +607,44 @@ fn modify_color<C: Context + ShareTrait>(geometry_dirtys: &mut Vec<usize>, item:
                     item.position_change = true;
                     geometry_dirtys.push(id);
                 }
+                change = true
             }
         },
+    }
+
+    if change {
+        let first_font = match font_sheet.get_first_font(&font.family) {
+            Some(r) => r,
+            None => {
+                debug_println!("font is not exist: {}", font.family.as_ref());
+                return;
+            }
+        };
+        let old_pipeline = render_obj.pipeline.clone();
+        if first_font.get_dyn_type() == 0 {
+            render_obj.pipeline = engine.create_pipeline(
+                old_pipeline.start_hash,
+                &TEXT_VS_SHADER_NAME.clone(),
+                &TEXT_FS_SHADER_NAME.clone(),
+                render_obj.defines.as_slice(),
+                old_pipeline.rs.clone(),
+                old_pipeline.bs.clone(),
+                old_pipeline.ss.clone(),
+                old_pipeline.ds.clone()
+            );
+        } else {
+            render_obj.pipeline = engine.create_pipeline(
+                old_pipeline.start_hash,
+                &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+                &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                render_obj.defines.as_slice(),
+                old_pipeline.rs.clone(),
+                old_pipeline.bs.clone(),
+                old_pipeline.ss.clone(),
+                old_pipeline.ds.clone()
+            );
+        }
+        notify.modify_event(item.index, "pipeline", 0);
     }
 }
 
@@ -626,7 +674,6 @@ fn modify_font<C: Context + ShareTrait> (
     let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
     let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
     let common_ubo = Share::make_mut(common_ubo);
-    println!("name: {:?}, font_size: {}, font_sheet.get_size(&font.family, &font.size): {}", first_font.name(), first_font.font_size(), font_sheet.get_size(&font.family, &font.size));
     let sampler = if first_font.get_dyn_type() > 0 && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
         let mut s = SamplerDesc::default();
         s.min_filter = TextureFilterMode::Nearest;
@@ -712,10 +759,10 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
                 let (start, end) = cal_all_size(char_block, font_size, sdf_font); // 渐变范围
                 //渐变端点
                 let endp = find_lg_endp(&[
-                    start.x, start.y,
-                    start.x, end.y,
-                    end.x, end.y,
-                    end.x, start.y,
+                    start.x, start.y + offset.1,
+                    start.x, end.y +  offset.1 ,
+                    end.x, end.y + offset.1,
+                    end.x, start.y + offset.1,
                 ], color.direction);
 
                 let mut lg_pos = Vec::with_capacity(color.list.len());
@@ -731,6 +778,7 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
                         Some(r) => r,
                         None => continue,
                     };
+
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
                     
                     let (ps, indices_arr) = split_by_lg(
@@ -741,7 +789,7 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
                         endp.1.clone(),
                     );
                     positions = ps;
-
+                    
                     // 尝试为新增的点计算uv
                     fill_uv(&mut positions, &mut uvs, i as usize);
 
@@ -830,17 +878,16 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
             uvs[uvi + 5]
         ),
     );
-
     debug_println!("p1: {}, {}, p4: {}, {}, u1: {},{}, u4: {}, {}", p1.0, p1.1, p4.0, p4.1, u1.0, u1.1, u4.0, u4.1);
     if len > 12 {
         let mut i = pi + 12;
         for _j in 0..(len - 12)/3 {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
-            debug_println!("pos_x: {}, pos_x: {}, i:derive_deref{}", pos_x, pos_y, i);
+            debug_println!("pos_x: {}, pos_y: {}, i:derive_deref{}", pos_x, pos_y, i);
             let uv;
-            if pos_x - p1.0 < 0.001 || p1.0 - pos_x < 0.001 {
-                debug_println!("pos_x == p1.0, i: {}", i);
+            if (pos_x - p1.0).abs() < 0.001{
+                debug_println!("pos_x == p1.0, i: {}, pos_x: {}, p1.0: {}", i, pos_x, p1.0);
                 let base = p4.1 - p1.1;
                 let ratio = if base == 0.0 {
                     0.0
@@ -848,8 +895,8 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
                     (pos_y - p1.1)/(p4.1 - p1.1)
                 };
                 uv = (u1.0, u1.1 * (1.0 - ratio) + u4.1 * ratio );
-            }else if pos_x - p4.0 < 0.001 || p4.0 - pos_x < 0.001{
-                debug_println!("pos_x == p4.0, i: {}", i);
+            }else if (pos_x - p4.0).abs() < 0.001{
+                debug_println!("pos_x == p4.0, i: {}, pos_x: {}, p4.0:{}", i, pos_x, p4.0);
                 let base = p4.1 - p1.1;
                 let ratio = if base == 0.0 {
                     0.0
@@ -857,7 +904,7 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
                     (pos_y - p1.1)/(p4.1 - p1.1)
                 };
                 uv = (u4.0, u1.1  * (1.0 - ratio) + u4.1 * ratio );
-            }else if pos_y - p1.1 < 0.001 || p1.1 - pos_y < 0.001 {
+            }else if (pos_y - p1.1).abs() < 0.001 {
                 let base = p4.0 - p1.0;
                 let ratio = if base == 0.0 {
                     0.0

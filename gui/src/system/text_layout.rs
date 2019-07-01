@@ -78,7 +78,6 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for Layou
 
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
         for id in self.dirty.iter() {
-            // println!("dirty------------------------{}", id);
             if calc(*id, &read, &mut write) {
                 self.temp.push(*id)
             }
@@ -105,7 +104,6 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        // println!("listen dirty------------------------{}", event.id);
         self.set_dirty(event.id, write)
     }
 }
@@ -180,8 +178,6 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
     let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C, L>) };
     let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
     if b == 0 {   
-        // println!("update1111111111------------------------layout: {:?}", node.get_layout());
-        // println!("update333333333333333------------------------style: {:?}", node.get_style());
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
         let layout = node.get_layout();
         if let Some(_) = write.0.get(c) {
@@ -194,22 +190,17 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
         // 节点布局更新
         write.1.insert(c, layout);
     }else if c > 0 {
-        // println!("update2222222222222------------------------layout: {:?}", node.get_layout());
-        // println!("update4444444444444444-----------------------style: {:?}", node.get_style());
         update(node, c, b - 1, write);
     }
 }
 
 // 文字布局更新
 fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
-    // println!("update text layout------------------------id: {}b{}, node_width: {:?}, top: {:?}", id, char_index, node.get_width(), node.get_top());
     let layout = node.get_layout();
     let mut pos = Point2{x: layout.left, y: layout.top};
     node = node.get_parent();
     let node_id = node.get_context() as usize;
-    // println!("pos-----------------------{:?}, p", pos);
     if node_id == 0 {
-        // println!("11111111-----------------------");
         let layout = node.get_layout();
         pos.x += layout.left;
         pos.y += layout.top;
@@ -217,8 +208,6 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     let cb = unsafe {write.0.get_unchecked_mut(id)};
     let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
     cn.pos = pos;
-    // println!("update text layout1------------------------cb.layout_dirty:{}, pos:{:?},parent:{:?}", cb.layout_dirty, pos, node.get_layout());
-    // println!("update text layout2------------------------pcount: {}, layout: {:?}", node.get_child_count(), layout);
     // if !cb.layout_dirty {
     //   cb.layout_dirty = true;
     //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
@@ -227,12 +216,12 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     // }
 }
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {
-    // println!("textlayout calc-----------------------------------");
+fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {;
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
     let yoga = unsafe { read.1.get_unchecked(id).clone() };
     let parent_yoga = yoga.get_parent();
     if parent_yoga.is_null() {
+        #[cfg(feature = "warning")]
         println!("parent_yoga.is_null");
         return true
     }
@@ -251,8 +240,8 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     cb.family = font.family.clone();
     // 获得字体高度
     cb.font_size = read.0.get_size(&font.family, &font.size);
-    // println!("read.0---------------------- {:?}", font.family);
     if cb.font_size == 0.0 {
+        #[cfg(feature = "warning")]
         println!("font_size==0.0");
         return true
     }
@@ -285,30 +274,24 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     for cr in split(text, true, style.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
-                // println!("SplitResult::Newline----------------------------");
                 update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
                 update_char(id, cb, '\t', cb.indent, read.0, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Whitespace =>{
-                // println!("Whitespace----------------------------");
                 // 设置成宽度为半高, 高度0
                 update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Word(c) => {
-                // println!("Word----------------------------{:?}, index: {}", c, index);
                 update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::WordStart(c) => {
-                // println!("WordStart----------------------------{:?}", c);
                 word = update_char(0, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
                 update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
             },
             SplitResult::WordNext(c) =>{
-                // println!("WordNext----------------------------{:?}", c);
                 update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
             },
             SplitResult::WordEnd =>{
-                // println!("WordEnd----------------------------");
                     word = L::new_null();
                     word_index = 0;
             },
@@ -318,7 +301,6 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
             cb.chars[i].node.get_parent().remove_child(cb.chars[i].node.clone());
-            // println!("ptr----------------{}", (cb.chars[i].node.0 as usize));
             // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};

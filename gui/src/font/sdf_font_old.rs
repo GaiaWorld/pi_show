@@ -180,7 +180,6 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
         value.get_lu16(offset) as f32;
         offset += 8;
 
-        // println!("value: {:?}", value);
         //字符uv表
         loop {
             if offset >= value.len() {

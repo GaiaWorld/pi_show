@@ -38,6 +38,19 @@ let canvas_text_fs_code = `
     precision highp float;
 
     #ifdef HSV
+        /**
+         * h: hue，色相，取值范围[-0.5, 0.5]，对应Photoshop的[-180, 180]
+         *    + 注：最好不要越界，越界效果没有测试过，不保证正确性；
+         *    + 注：基本能模拟PS的效果，最多只有1个像素值的误差
+         *    + 比如：-0.3对应PS的 2 * -0.3 * 180 = -54度，PS的144度 对应 h的 144 * 0.5 / 180 = 0.4
+         * 
+         * s：saturate，饱和度，取值范围[-1, 1]，对应Photoshop的[-100, 100]
+         *    + 注：当PS中的s>0的时候，公式比较复杂，判断特别多，所以这里用了近似公式。不能完全模拟饱和度
+         *    + 注：但是，当s<0的时候（变灰），基本能模拟PS的效果，最多只有1个像素值的误差
+         *
+         * v：brightness，明度，取值范围[-1, 1]，对应Photoshop的[-100, 100]
+         *    + 比如：-0.3对应PS的-30，PS的60对应v=0.6
+         */
         uniform vec3 hsvValue;
     #endif
 
@@ -63,29 +76,22 @@ let canvas_text_fs_code = `
     #endif
 
     #ifdef HSV
-        vec3 rgb2hcv(vec3 RGB)
+        vec3 rgb2hsv(vec3 c)
         {
-            // Based on work by Sam Hocevar and Emil Persson
-            vec4 P = mix(vec4(RGB.bg, -1.0, 2.0/3.0), vec4(RGB.gb, 0.0, -1.0/3.0), step(RGB.b, RGB.g));
-            vec4 Q = mix(vec4(P.xyw, RGB.r), vec4(RGB.r, P.yzx), step(P.x, RGB.r));
-            float C = Q.x - min(Q.w, Q.y);
-            float H = abs((Q.w - Q.y) / (6.0 * C + 1e-10) + Q.z);
-            return vec3(H, C, Q.x);
+            vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+            vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+            vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        
+            float d = q.x - min(q.w, q.y);
+            float e = 1.0e-10;
+            return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
         }
-
-        vec3 rgb2hsv(vec3 RGB)
-        {
-            vec3 HCV = rgb2hcv(RGB);
-            float L = HCV.z - HCV.y * 0.5;
-            float S = HCV.y / (1.0 - abs(L * 2.0 - 1.0) + 1e-10);
-            return vec3(HCV.x, S, L);
-        }
-
+        
         vec3 hsv2rgb(vec3 c)
         {
-            c = vec3(fract(c.x), clamp(c.yz, 0.0, 1.0));
-            vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-            return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));
+            vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+            vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+            return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
         }
     #endif
 
@@ -145,12 +151,23 @@ let canvas_text_fs_code = `
     vec3 sample = texture2D(texture, vUV).rgb;
     c = sample.r * strokeColor + sample.g * c;
     c.a = 1.0 - sample.b; 
+    
     #ifdef HSV
         vec3 hsv = rgb2hsv(c.rgb);
-        hsv += hsvValue;
+        hsv.r += hsvValue.r;
         c.rgb = hsv2rgb(hsv);
-    #endif
 
+        // 注：saturate大于0时，公式和PS不大一样
+        float gray = max(c.r, max(c.g, c.b)) + min(c.r, min(c.g, c.b));
+        c.rgb = mix(c.rgb, vec3(0.5 * gray), -hsvValue.g);
+
+        if (hsvValue.b >= 0.0) {
+            c.rgb = mix(c.rgb, vec3(1.0), hsvValue.b);
+        } else {
+            c.rgb *= 1.0 + hsvValue.b;
+        }
+    #endif
+    
     #ifdef GRAY
         c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
     #endif

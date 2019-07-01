@@ -47,17 +47,28 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     }
 }
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
+impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ZIndexImpl {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
 
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-      match read.get(event.id) {
-        Some(r) => self.delete_dirty(event.id, r.layer),
-        _ => ()
-      }
+        let r = unsafe { read.get_unchecked(event.id) }; 
+        self.delete_dirty(event.id, r.layer);
     }
 }
+
+// impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
+
+//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
+//       match read.get(event.id) {
+//         Some(r) => self.delete_dirty(event.id, r.layer),
+//         _ => ()
+//       }
+//     }
+// }
+
 impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
     type WriteData = ();
@@ -433,9 +444,10 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
+        // EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, ZI, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
+        SingleCaseListener<IdTree, DeleteEvent>
     }
 }
 

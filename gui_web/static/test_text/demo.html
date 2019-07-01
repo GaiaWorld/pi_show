@@ -12,7 +12,7 @@
 </head>
 <body>
     <canvas id="canvas" width = "1000px" height="700px"></canvas>
-    <script src="../../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -52,8 +52,8 @@
 
             var ce = Module._create_text_node(gui);
             window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-            // Module._set_text_linear_gradient_color(gui, ce, -30); //, direction: 0~360度
-            Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            Module._set_text_linear_gradient_color(gui, ce, 90); //, direction: 0~360度
+            // Module._set_text_rgba_color(gui, ce, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
             // window.__jsObj = "测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下测试一下";
             window.__jsObj = "逋逋";
             Module._set_text_content(gui, ce); // 文字内容
@@ -61,7 +61,7 @@
             Module._set_line_height(gui, ce, 100); // 行高， 该函数设置行高的像素值
             window.__jsObj = "common";
             Module._set_font_family(gui, ce);
-            Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
+            // Module._set_text_shadow(gui, ce, 5, 5, 1.0, 0.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, blur似乎暂时还没有效果
             Module._set_text_stroke(gui, ce, 0.1, 0.0, 0.0, 1.0, 1.0);
             // Module._set_font_weight(gui, ce, 100); // 100 - 900, 500表示正常粗细， 小于500更细， 大于500更粗
             // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
@@ -71,29 +71,29 @@
             // Module._set_font_size(gui, ce, );
             Module._append_child(gui, ce, div);
 
-            var toke = Module._create_text_node(gui);
-            Module._set_text_rgba_color(gui, toke, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-            window.__jsObj = "迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨";
-            Module._set_text_content(gui, toke); // 文字内容
-            Module._set_letter_spacing(gui, toke, 5); // 字符间距
-            window.__jsObj = "common";
-            Module._set_font_family(gui, toke);
-            Module._set_text_stroke(gui, toke, 0.1, 0.0, 0.0, 1.0, 1.0);
-            Module._append_child(gui, toke, div);
+            // var toke = Module._create_text_node(gui);
+            // Module._set_text_rgba_color(gui, toke, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            // window.__jsObj = "迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨迨";
+            // Module._set_text_content(gui, toke); // 文字内容
+            // Module._set_letter_spacing(gui, toke, 5); // 字符间距
+            // window.__jsObj = "common";
+            // Module._set_font_family(gui, toke);
+            // Module._set_text_stroke(gui, toke, 0.1, 0.0, 0.0, 1.0, 1.0);
+            // Module._append_child(gui, toke, div);
             
             render_fram();
              
 
-            setTimeout(() => {
-                window.__jsObj = "逋";
-                Module._set_text_content(gui, ce); // 文字内容
-                Module._render(gui);
-                setTimeout(() => {
-                    window.__jsObj = "";
-                    Module._set_text_content(gui, ce); // 文字内容
-                    Module._render(gui);   
-                }, 1000);
-            }, 1000);
+            // setTimeout(() => {
+            //     window.__jsObj = "逋";
+            //     Module._set_text_content(gui, ce); // 文字内容
+            //     Module._render(gui);
+            //     setTimeout(() => {
+            //         window.__jsObj = "";
+            //         Module._set_text_content(gui, ce); // 文字内容
+            //         Module._render(gui);   
+            //     }, 1000);
+            // }, 1000);
         }
             
 

@@ -396,7 +396,6 @@ fn get_geo_flow<C: Context + ShareTrait>(radius: &BorderRadius, layout: &Layout,
     // let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
     // let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
     // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
-    // println!("v u {:?}, {:?}", v, u);
     // let mut uvs = Vec::with_capacity(u[0].len());
     // for i in 0..u[0].len() {
     //     uvs.push(u[0][i]);
@@ -464,7 +463,6 @@ fn use_layout_pos(uv: Aabb2, layout: &Layout, radius: &Point2, z_depth: f32) -> 
     let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], &[0.0, 1.0], (0.0, 0.0), (layout.width, 0.0));
     let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], &[0.0, 1.0], (0.0, 0.0), (0.0, layout.height));
     // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, 0.0, 0.0, 0.0, layout.height);
-    // println!("v u {:?}, {:?}", v, u);
     let mut uvs = Vec::with_capacity(u[0].len());
     for i in 0..u[0].len() {
         uvs.push(u[0][i]);

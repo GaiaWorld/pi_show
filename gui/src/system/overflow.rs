@@ -49,7 +49,6 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
   type WriteData = Write<'a>;
 
   fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-    // println!("OverflowImpl ---------listen: {:?}", event.id);
     let node = unsafe{ read.0.get_unchecked(event.id)};
     if node.layer == 0 {
       return
@@ -110,12 +109,10 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
   type WriteData = Write<'a>;
 
   fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
-    //   println!("IdTree ---------");
     let node = unsafe{ read.0.get_unchecked(event.id)};
     // 获得父节点的ByOverflow
     let mut by = **unsafe{ write.1.get_unchecked(node.parent)};
     let overflow = match read.1.get(node.parent){Some(r) => **r, _ => false};
-    // println!("overflow ---------");
     if overflow {
       let i = get_index(write.0, node.parent);
       if i > 0 {
@@ -166,7 +163,6 @@ fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<Overflow
 }
 // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
 fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify: &mut bool) {
-    // println!("set_overflow ---------id: {:?}  {:?}", id, by);
   if by > 0 {
     unsafe {write.1.get_unchecked_write(id)}.set_0(by);
   }
@@ -174,13 +170,11 @@ fn set_overflow(id: usize, mut by: usize, read: &Read, write: &mut Write, modify
   if overflow {
     // 添加根上的overflow的裁剪矩形
     let i = set_index(&mut *write.0, 0, id);
-    // println!("set_overflow ---------i: {}", i);
     if i > 0 {
       set_clip(id, i, read, write.0);
       by = add_index(by, 1<<(i - 1));
       *modify = true;
     }
-    // println!("overflow--------------id:{}, i: {}, by: {}", id, i, by);
   }
   let node = unsafe{ read.0.get_unchecked(id)};
   for (id, _n) in read.0.iter(node.children.head) {
@@ -201,11 +195,14 @@ fn get_index(overflow: &OverflowClip, cur: usize) -> usize {
 // 寻找指定当前值cur的偏移量, 设置成指定的值. 返回偏移量, 0表示没找到
 #[inline]
 fn set_index(overflow: &mut OverflowClip, cur: usize, value: usize) -> usize {
-  let i = get_index(overflow, cur);
-  if i > 0 {
-    overflow.id_vec[i-1] = value;
-  }
-  i
+    let i = get_index(overflow, cur);
+    if i > 0 {
+        overflow.id_vec[i-1] = value;
+    } else {
+        #[cfg(feature = "warning")]
+        println!("!!!!!!!!!!!!!!!!!!!Overflow reaches the upper limit");
+    }
+    i
 }
 #[inline]
 fn add_index(by: usize, index: usize) ->usize {
@@ -281,7 +278,6 @@ impl_system!{
             
 //             let (root, node1, node2, node3, node4, node5) = {
 //                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
-//                 println!("root element: {:?}", root.element);
 //                 let root_id = component_mgr.node._group.insert(root, 0);// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
 //                 let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
 //                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
@@ -313,9 +309,7 @@ impl_system!{
 //     };
 //     world.component_mgr.get_node_mut(node1).set_overflow(true);
 
-//     println!("modify run-----------------------------------------");
 //     world.run(());
-//     println!("ooo:{:?}", world.component_mgr.world_2d.component_mgr.overflow.deref());
 //     print_node(&world.component_mgr, root);
 //     print_node(&world.component_mgr, node1);
 //     print_node(&world.component_mgr, node2);
@@ -329,5 +323,4 @@ impl_system!{
 // fn print_node(mgr: &WorldDocMgr, id: usize) {
 //     let node = mgr.node._group.get(id);
 
-//     println!("nodeid: {}, ov:{:?}, byov: {}", id, node.overflow, node.by_overflow);
 // }

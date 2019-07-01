@@ -173,7 +173,12 @@ pub fn set_overflow(world: u32, node: u32, value: bool){
 //设置不透明度
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_opacity(world: u32, node: u32, value: f32) {
+pub fn set_opacity(world: u32, node: u32, mut value: f32) {
+    if value > 1.0 {
+        value = 1.0;
+    } else if value < 0.0{
+        value = 0.0;
+    }
     insert_value!(world, node, Opacity, value, opacity);
 }
 
@@ -192,7 +197,7 @@ pub fn set_visibility(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_visibility, value);
 }
 
-//设置visibility, true: visible, false: hidden,	默认true
+//enable
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_enable(world: u32, node: u32, value: u32) {
@@ -206,26 +211,65 @@ pub fn set_zindex(world: u32, node: u32, value: i32) {
     insert_value!(world, node, ZIndex, value, z_index);
 }
 
-//将图像转换为灰度图像。值定义转换的比例, 值为100%则完全转为灰度图像，值为0%图像无变化。值在0%到100%之间，则是效果的线性乘子。若未设置，值默认是0；
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_filter_grayscale(world: u32, node: u32, value: f32) {
-    let gray_scale = 0;
-    set_attr!(world, node, Filter, gray_scale, value, filter);
-}
+// //将图像转换为灰度图像。值定义转换的比例, 值为100%则完全转为灰度图像，值为0%图像无变化。值在0%到100%之间，则是效果的线性乘子。若未设置，值默认是0；
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_filter_grayscale(world: u32, node: u32, mut value: f32) {
+//     if value < 0.0 {
+//         value = 0.0;
+//     } else if value > 100.0 {
+//         value = 1.0;
+//     }
+//     value = 100.0 - value;
+//     let saturate = 0;
+//     set_attr!(world, node, Filter, saturate, value/100.0, filter);
+// }
 
-//给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化。若值未设置，默认值是0deg。该值虽然没有最大值，超过360deg的值相当于又绕一圈。
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_filter_hue_rotate(world: u32, node: u32, value: f32) {
-    let hue_rotate = 0;
-    set_attr!(world, node, Filter, hue_rotate, value, filter);
-}
+// //给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化。若值未设置，默认值是0deg。该值虽然没有最大值，超过360deg的值相当于又绕一圈。
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_filter_hue_rotate(world: u32, node: u32, value: f32) {
+//     let hue_rotate = 0;
+//     set_attr!(world, node, Filter, hue_rotate, value, filter);
+// }
 
-//给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化。其他的值对应线性乘数效果。值超过100%也是可以的，图像会比原来更亮。如果没有设定值，默认是1。
+// //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化。其他的值对应线性乘数效果。值超过100%也是可以的，图像会比原来更亮。如果没有设定值，默认是1。
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_filter_bright_ness(world: u32, node: u32, value: f32) {
+//     let bright_ness = 0;
+//     set_attr!(world, node, Filter, bright_ness, value/100.0, filter);
+// }
+
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_filter_saturate(world: u32, node: u32, mut value: f32) {
+//     if value < 0.0 {
+//         value = 0.0;
+//     }
+//     let saturate = 0;
+//     set_attr!(world, node, Filter, saturate, value/100.0, filter);
+// }
+
+// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_filter_bright_ness(world: u32, node: u32, value: f32) {
-    let bright_ness = 0;
-    set_attr!(world, node, Filter, bright_ness, value, filter);
+pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32) {
+    if h > 180.0 {
+        h = 180.0;
+    }else if h < -180.0 {
+        h = -180.0  
+    }
+    if s > 100.0 {
+        s = 100.0;
+    }else if s < -100.0 {
+        s = -100.0  
+    }
+    if i > 100.0 {
+        i = 100.0;
+    }else if i < -100.0 {
+        i = -100.0  
+    }
+    let value = Filter{hue_rotate: h/360.0, saturate: s/100.0, bright_ness: i/100.0};
+    insert_attr!(world, node, Filter, value, filter);
 }
