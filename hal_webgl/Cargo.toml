@@ -7,6 +7,7 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+share={path="../../pi_lib/share"}
 slab={path="../../pi_lib/slab"}
 hal_core={path="../hal_core"}
 ordered-float = "1.0"

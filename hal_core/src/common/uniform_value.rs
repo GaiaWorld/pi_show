@@ -1,6 +1,4 @@
 use std::fmt;
-use atom::Atom;
-use share::Share;
 
 /** 
  * Uniform的值，包含各种Uniform枚举

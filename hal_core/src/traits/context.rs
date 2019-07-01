@@ -1,4 +1,3 @@
-use atom::Atom;
 use share::Share;
 
 use common::{Capabilities, RenderBeginDesc};
@@ -46,7 +45,7 @@ pub trait Context: Sized + Clone {
     /** 
      * 设置shader代码
      */
-    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C);
+    fn set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
 
     /**
      * 将渲染库底层的状态还原成状态机的状态

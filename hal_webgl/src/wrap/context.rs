@@ -1,12 +1,11 @@
 use atom::Atom;
-
-use std::sync::{Arc};
+use share::Share;
+use std::rc::{Rc};
+use std::cell::{RefCell};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 
-use fnv::FnvHashMap;
-
-use hal_core::{Context, Uniforms, Capabilities, RenderBeginDesc};
+use hal_core::{Context, ProgramParamter, Capabilities, RenderBeginDesc};
 use wrap::buffer::{WebGLBufferWrap};
 use wrap::geometry::{WebGLGeometryWrap};
 use wrap::program::{WebGLProgramWrap};
@@ -18,12 +17,12 @@ use wrap::gl_slab::{GLSlab};
 
 pub struct WebGLContextWrapImpl {
     pub caps: Capabilities,
-    pub default_rt: WebGLRenderTargetWrap,
+    pub default_rt: Option<WebGLRenderTargetWrap>,
     pub slab: GLSlab,
 }
 
 #[derive(Clone)]
-pub struct WebGLContextWrap(pub Arc<WebGLContextWrapImpl>);
+pub struct WebGLContextWrap(pub Rc<RefCell<WebGLContextWrapImpl>>);
 
 impl Context for WebGLContextWrap {
     type ContextSelf = WebGLContextWrap;
@@ -41,11 +40,11 @@ impl Context for WebGLContextWrap {
     type ContextProgram = WebGLProgramWrap;
 
     fn get_caps(&self) -> &Capabilities {
-        &self.0.caps
+        &self.0.try_borrow().unwrap().caps
     }
 
     fn get_default_target(&self) -> &Self::ContextRenderTarget {
-        &self.0.default_rt
+        &self.0.try_borrow().unwrap().default_rt.as_ref().unwrap()
     }
 
     fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C) {
@@ -72,19 +71,19 @@ impl Context for WebGLContextWrap {
 
     }
 
-    fn draw(&self, geometry: &Self::ContextGeometry, values: &FnvHashMap<Atom, Uniforms>, samplers: &FnvHashMap<Atom, (Self::ContextSampler, Self::ContextTexture)>) {
+    fn draw(&self, geometry: &Self::ContextGeometry, parameter: &Share<ProgramParamter<Self::ContextSelf>>) {
 
     }
 }
 
 impl WebGLContextWrap {
-    pub fn new(context: Arc<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
+    pub fn new(context: WebGLRenderingContext, fbo: Option<Object>) -> Self {
         let slab = GLSlab::new();
 
-        Self(Arc::new(WebGLContextWrapImpl {
+        Self(Rc::new(RefCell::new(WebGLContextWrapImpl {
             caps: Capabilities::new(),
-            default_rt: default_rt,
+            default_rt: None,
             slab: slab,    
-        }))
+        })))
     }
 }

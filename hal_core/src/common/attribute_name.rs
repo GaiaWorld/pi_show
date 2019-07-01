@@ -1,4 +1,3 @@
-use atom::{Atom};
 
 /** 
  * Attribute的名字，类型可以更改，
@@ -22,12 +21,12 @@ pub enum AttributeName {
     UV6,        // shader attribute：uv6，一般是vec2
     UV7,        // shader attribute：uv7，一般是vec2
     UV8,        // shader attribute：uv8，一般是vec2
-    Custom(Atom), // 自定义名字，无非必要，最好不用,
+    Custom(String), // 自定义名字，无非必要，最好不用,
 }
 
-impl From<Atom> for AttributeName {
-    fn from(name: Atom) -> AttributeName {
-        match name.as_ref() {
+impl From<&str> for AttributeName {
+    fn from(name: &str) -> AttributeName {
+        match name {
             "position" => AttributeName::Position,
             "normal" => AttributeName::Normal,
             "color" => AttributeName::Color,
@@ -44,32 +43,32 @@ impl From<Atom> for AttributeName {
             "uv6" => AttributeName::UV6,
             "uv7" => AttributeName::UV7,
             "uv8" => AttributeName::UV8,
-            n @ _  => AttributeName::Custom(Atom::from(n)),
+            n @ _  => AttributeName::Custom(n.to_string()),
         }
     }
 }
 
-impl Into<Atom> for AttributeName {
-    fn into(self) -> Atom {
+impl Into<String> for AttributeName {
+    fn into(self) -> String {
         match self {
-            AttributeName::Position => Atom::from("position"),
-            AttributeName::Normal => Atom::from("normal"),
-            AttributeName::Color => Atom::from("color"),
-            AttributeName::UV0 => Atom::from("uv0"),
-            AttributeName::UV1 => Atom::from("uv1"),
-            AttributeName::SkinIndex => Atom::from("skinIndex"),
-            AttributeName::SkinWeight => Atom::from("skinWeight"),
-            AttributeName::Tangent => Atom::from("tangent"),
-            AttributeName::BiNormal => Atom::from("binormal"),
-            AttributeName::UV2 => Atom::from("uv2"),
-            AttributeName::UV3 => Atom::from("uv3"),
-            AttributeName::UV4 => Atom::from("uv4"),
-            AttributeName::UV5 => Atom::from("uv5"),
-            AttributeName::UV6 => Atom::from("uv6"),
-            AttributeName::UV7 => Atom::from("uv7"),
-            AttributeName::UV8 => Atom::from("uv8"),
+            AttributeName::Position => "position".to_string(),
+            AttributeName::Normal => "normal".to_string(),
+            AttributeName::Color => "color".to_string(),
+            AttributeName::UV0 => "uv0".to_string(),
+            AttributeName::UV1 => "uv1".to_string(),
+            AttributeName::SkinIndex => "skinIndex".to_string(),
+            AttributeName::SkinWeight => "skinWeight".to_string(),
+            AttributeName::Tangent => "tangent".to_string(),
+            AttributeName::BiNormal => "binormal".to_string(),
+            AttributeName::UV2 => "uv2".to_string(),
+            AttributeName::UV3 => "uv3".to_string(),
+            AttributeName::UV4 => "uv4".to_string(),
+            AttributeName::UV5 => "uv5".to_string(),
+            AttributeName::UV6 => "uv6".to_string(),
+            AttributeName::UV7 => "uv7".to_string(),
+            AttributeName::UV8 => "uv8".to_string(),
             AttributeName::Custom(n) => n.clone(),
-        }       
+        }
     }
 }
 

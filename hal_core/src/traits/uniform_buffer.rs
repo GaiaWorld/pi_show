@@ -1,4 +1,3 @@
-use atom::{Atom};
 use share::{Share};
 use common::{UniformValue};
 use traits::context::{Context};
@@ -12,21 +11,20 @@ pub trait UniformBuffer {
      * UniformBuffer的布局
      * 返回切片的索引表示高层约定uniform的槽
      */
-    fn get_layout(&self) -> &[Atom];
+    fn get_layout(&self) -> &[&str];
 
     /** 
      * 按布局顺序返回UniformValue数组
      */
     fn get_values(&self) -> &[UniformValue];
 
-    fn set_value(&mut self, name: &Atom, value: &UniformValue);
+    fn set_value(&mut self, name: &str, value: &UniformValue);
 }
 
 /** 
  * Texture的Uniform和普通的Uniform要分开设置
  */
 pub struct UniformTexture<RContext: Context> {
-    pub name: Atom,
     pub texture: RContext::ContextTexture,
     pub sampler: RContext::ContextSampler,
 }
@@ -38,15 +36,15 @@ pub struct UniformTexture<RContext: Context> {
  */
 pub trait ProgramParamter<RContext: Context> {
 
-    fn get_layout(&self) -> &[Atom];
-    fn get_texture_layout(&self) -> &[Atom];
+    fn get_layout(&self) -> &[&str];
+    fn get_texture_layout(&self) -> &[&str];
 
     fn get_values(&self) -> &[Share<UniformBuffer>];
     fn get_textures(&self) -> &[Share<UniformTexture<RContext>>];
 
-    fn set_value(&mut self, name: &Atom, value: &Share<UniformBuffer>) -> bool;
-    fn set_texture(&mut self, name: &Atom, value: &Share<UniformTexture<RContext>>) -> bool;
+    fn set_value(&mut self, name: &str, value: &Share<UniformBuffer>) -> bool;
+    fn set_texture(&mut self, name: &str, value: &Share<UniformTexture<RContext>>) -> bool;
 
-    fn get_value(&mut self, name: &Atom) -> Option<&Share<UniformBuffer>>;
-    fn get_texture(&mut self, name: &Atom) -> Option<&Share<UniformTexture<RContext>>>;
+    fn get_value(&mut self, name: &str) -> Option<&Share<UniformBuffer>>;
+    fn get_texture(&mut self, name: &str) -> Option<&Share<UniformTexture<RContext>>>;
 }

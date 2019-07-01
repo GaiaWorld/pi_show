@@ -60,7 +60,7 @@ impl GLSlab {
         }
     }
 
-    pub fn new_slice<T>(context: &WebGLContextWrap, slab: &Slab<T>, obj: T) -> GLSlot {
+    pub fn new_slice<T>(context: &WebGLContextWrap, slab: &mut Slab<T>, obj: T) -> GLSlot {
         let index = slab.insert(obj);
         
         GLSlot {
@@ -69,11 +69,11 @@ impl GLSlab {
         }
     }
 
-    pub fn get_mut_slice<'a, T>(slab: &'a Slab<T>, slot: &GLSlot) -> Option<&'a mut T> {
+    pub fn get_mut_slice<'a, T>(slab: &'a mut Slab<T>, slot: &GLSlot) -> Option<&'a mut T> {
         slab.get_mut(slot.index)
     }
     
-    pub fn delete_slice<T>(slab: &Slab<T>, slot: &GLSlot) -> T {
+    pub fn delete_slice<T>(slab: &mut Slab<T>, slot: &GLSlot) -> T {
         slab.remove(slot.index)
     }
 }
