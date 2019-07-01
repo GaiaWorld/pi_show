@@ -15,7 +15,12 @@ pub struct ShowSys;
 impl ShowSys {
     fn modify_show(id: usize, idtree: &SingleCaseImpl<IdTree>, show: &MultiCaseImpl<Node, Show>, visibility: &mut MultiCaseImpl<Node, CVisibility>, enable: &mut MultiCaseImpl<Node, CEnable>){
         let parent_id = match idtree.get(id) {
-            Some(node) => node.parent,
+            Some(node) => {
+                if node.layer == 0 {
+                    return;
+                }
+                node.parent
+            },
             None => return,
         };
         if parent_id > 0 {
@@ -107,7 +112,14 @@ fn modify_show(
     visibility: &mut MultiCaseImpl<Node,CVisibility>,
     enable: &mut MultiCaseImpl<Node,CEnable>,
 ) {
-    let show_value = unsafe { show.get_unchecked(id) };
+    let show_value = match show.get(id) {
+        Some(r) => r, 
+        None => {
+            println!("!!!!!!! get_unchecked none: {}", id);
+            panic!("xxxxxxxxxxxxxxxxxxxxxxxxxx");
+        }
+    };
+    // let show_value = unsafe { show.get_unchecked(id) };
     let display_value = match show_value.get_display() {
         Display::Flex => true,
         Display::None => false,
@@ -124,9 +136,10 @@ fn modify_show(
     let c_enable = c_visibility && c_enable;
     let mut visibility_write = unsafe { visibility.get_unchecked_write(id) };
     let mut enable_write = unsafe { enable.get_unchecked_write(id) };
-    if c_visibility == **visibility_write.value && c_enable == **enable_write.value {
-        return;
-    }
+    // if c_visibility == **visibility_write.value && c_enable == **enable_write.value {
+    //     println!("c_visibility1-------------------{}, {}, {}, {}", c_visibility, **visibility_write.value, c_enable, **enable_write.value);
+    //     return;
+    // }
 
     visibility_write.set_0(c_visibility);
     enable_write.set_0(c_enable);
