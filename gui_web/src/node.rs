@@ -31,6 +31,7 @@ use yoga as yoga1;
 fn create(world: &GuiWorld) -> usize {
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
+    // println!("!!!!!!create----{}", node);
     let border_radius = world.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
     idtree.create(node);
@@ -79,6 +80,7 @@ pub fn create_image_node(world: u32) -> u32{
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
+    // println!("!!!!!!append----parent: {}, child:{}", parent, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
@@ -90,6 +92,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
+    // println!("!!!!!!insert before----brother: {}, child:{}", brother, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
@@ -101,6 +104,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn remove_child(world: u32, node_id: u32){
+    // println!("!!!!!!remove_child----{}", node_id);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
@@ -117,6 +121,7 @@ pub fn remove_child(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
+    // println!("set_src----{}", node);
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let yg_nodes = world.yoga.lend_mut();
