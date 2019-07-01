@@ -142,9 +142,6 @@ let image_fs_code = `
         #ifdef GRAY
             c.rgb = dot(c.rgb, vec3(0.21, 0.71, 0.07));
         #endif
-        
-        float gray = max(c.r, max(c.g, c.b)) + min(c.r, min(c.g, c.b));
-        c.rgb = mix(c.rgb, vec3(0.5 * gray), -1.9);
 
         gl_FragColor = vec4(c.rgb, c.a * alpha);        
     }

@@ -82,8 +82,8 @@ fn recursive_cal_hsv(
         Some(filter) => {
             let hsv = HSV {
                 h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
-                s: filter.saturate * parent_hsv.s,
-                v: filter.bright_ness * parent_hsv.v,
+                s: cal_range(filter.saturate + parent_hsv.s, -1.0, 1.0),
+                v: cal_range(filter.bright_ness + parent_hsv.v, -1.0, 1.0),
             };
             if hsv.h != old_hsv.h || hsv.s != old_hsv.s || hsv.v != old_hsv.v {
                 hsvs.insert(id, hsv.clone());
@@ -103,24 +103,36 @@ fn recursive_cal_hsv(
     }
 }
 
-// 计算hue， hue的值在0~360度范围内
+// 计算hue， hue的值在-180 ~ 180 度范围内
 fn cal_h_from_hue(mut hue_rotate: f32) -> f32{
-    if hue_rotate > 0.0 {
+    if hue_rotate > 0.5 {
         loop {
-            if hue_rotate <= 360.0 {
+            if hue_rotate <= 0.5 {
                 return hue_rotate;
             }
-            hue_rotate -= 360.0;
+            hue_rotate -= 1.0;
         } 
     }else {
         loop {
-            if hue_rotate >= 0.0 {
+            if hue_rotate >= -0.5 {
                 return hue_rotate;
             }
-            hue_rotate += 360.0;
+            hue_rotate += 1.0;
         } 
     }
 }
+
+fn cal_range(value: f32, min: f32, max: f32) -> f32{
+    if value >= max {
+        return max;
+    }else if value <= min{
+        return min;
+    }else {
+        return value;
+    }
+}
+
+
 
 // // 计算grayscale， hue的值在0~1度范围内， 大于1.0， 取1.0的值，小于0.0 取0.0
 // fn cal_s_from_saturate(saturate: f32) -> f32{

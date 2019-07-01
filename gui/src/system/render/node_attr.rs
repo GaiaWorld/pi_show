@@ -118,11 +118,11 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEv
         debug_println!("id: {}, visibility: {:?}", render_obj.context, visibility);
 
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
-        if !(hsv.h == 0.0 && hsv.s == 1.0 && hsv.v == 1.0) {
+        if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             defines_change = true;
             render_obj.defines.push(HSV_MACRO.clone());
             let mut hsv_ubo = engine.gl.create_uniforms();
-            hsv_ubo.set_float_3(&HSV_ATTR, hsv.h/360.0, hsv.s, hsv.v );
+            hsv_ubo.set_float_3(&HSV_ATTR, hsv.h, hsv.s, hsv.v );
             render_obj.ubos.insert(HSV_MACRO.clone(), Share::new(hsv_ubo));
         }
         
@@ -310,7 +310,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
-        if !(hsv.h == 0.0 && hsv.s == 1.0 && hsv.v == 1.0) {
+        if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             for id in obj_ids.iter() {
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
                 if add_or_modify_hsv(hsv, render_obj, engine) {
@@ -355,13 +355,13 @@ fn add_or_modify_hsv<C: Context + ShareTrait>(hsv: &HSV, render_obj: &mut Render
     let mut define_change = false;
     // 插入裁剪ubo 插入裁剪宏
     ubos.entry(HSV_MACRO.clone()).and_modify(|hsv_ubo: &mut Share<Uniforms<C>>|{
-        Share::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, hsv.h/360.0, hsv.s, hsv.v );
+        Share::make_mut(hsv_ubo).set_float_3(&HSV_ATTR, hsv.h, hsv.s, hsv.v );
         debug_println!("id: {}, hsv: {:?}", id, hsv);
     }).or_insert_with(||{
         defines.push(HSV_MACRO.clone());
         define_change = true;
         let mut hsv_ubo = engine.gl.create_uniforms();
-        hsv_ubo.set_float_3(&HSV_ATTR, hsv.h/360.0, hsv.s, hsv.v );
+        hsv_ubo.set_float_3(&HSV_ATTR, hsv.h, hsv.s, hsv.v );
         debug_println!("id: {}, hsv: {:?}", id, hsv);
         Share::new(hsv_ubo)
     });

@@ -39,21 +39,11 @@ impl Default for Opacity {
 pub struct Enable(pub bool);
 
 // HSV
-#[derive(Clone, Debug, Component)]
+#[derive(Clone, Debug, Component, Default)]
 pub struct HSV {
   pub h: f32, // 0-360 
   pub s: f32, // 0 ~ 正无穷  0表示变灰， 1表示不变， 2表示更饱和
   pub v: f32, // 0 ~ 正无穷 0表示黑色， 1表示不变， 2表示更亮
-}
-
-impl Default for HSV {
-    fn default() -> Self {
-        Self {
-            h: 0.0,
-            s: 1.0,
-            v: 1.0,
-        }
-    }
 }
 
 // #[derive(Component, Debug, Default)]
