@@ -32,11 +32,17 @@ let image_fs_code = `
 
     #ifdef HSV
         /**
-         * h: hue，色相，对应css filter的hue-rotate，范围[0, 1]，按比例对应 [0, 360度]
-         *    + 比如：0.5对应css的180度，0.7对应CSS的360*0.7=252度
-         * s：saturate，饱和度，对应CSS filter的saturate，乘法关系，1.0表示保持包和度不变，0.4对应css filter的40%，2.0对应css filter的200%，等
-         *    + 注：如果是css filter的grayscale(x%)，则s要设置的值应为：1 - x/100，比如grayscale(70%)，则s=0.3；
-         * v：brightness，明度，对应CSS filter的brightness，乘法关系，1.0表示保持不变，0.4对应css filter的40%，2.0对应css filter的200% 等
+         * h: hue，色相，取值范围[-0.5, 0.5]，对应Photoshop的[-180, 180]
+         *    + 注：最好不要越界，越界效果没有测试过，不保证正确性；
+         *    + 注：基本能模拟PS的效果，最多只有1个像素值的误差
+         *    + 比如：-0.3对应PS的 2 * -0.3 * 180 = -54度，PS的144度 对应 h的 144 * 0.5 / 180 = 0.4
+         * 
+         * s：saturate，饱和度，取值范围[-1, 1]，对应Photoshop的[-100, 100]
+         *    + 注：当PS中的s>0的时候，公式比较复杂，判断特别多，所以这里用了近似公式。不能完全模拟饱和度
+         *    + 注：但是，当s<0的时候（变灰），基本能模拟PS的效果，最多只有1个像素值的误差
+         *
+         * v：brightness，明度，取值范围[-1, 1]，对应Photoshop的[-100, 100]
+         *    + 比如：-0.3对应PS的-30，PS的60对应v=0.6
          */
         uniform vec3 hsvValue;
     #endif
@@ -51,6 +57,7 @@ let image_fs_code = `
     varying vec2 vuv;
     
     #ifdef HSV
+
     vec3 rgb2hsv(vec3 c)
     {
         vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -64,11 +71,11 @@ let image_fs_code = `
     
     vec3 hsv2rgb(vec3 c)
     {
-          vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
-          vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-          return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
+        vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, vec3(0.0), vec3(1.0)), c.y);
     }
-
+  
     #endif
 
     #ifdef CLIP 
@@ -121,17 +128,23 @@ let image_fs_code = `
             hsv.r += hsvValue.r;
             c.rgb = hsv2rgb(hsv);
 
-            float gray = dot(c.rgb, vec3(0.21, 0.71, 0.07));
-            c.rgb = mix(vec3(gray), c.rgb, hsvValue.g);
+            // 注：saturate大于0时，公式和PS不大一样
+            float gray = max(c.r, max(c.g, c.b)) + min(c.r, min(c.g, c.b));
+            c.rgb = mix(c.rgb, vec3(0.5 * gray), -hsvValue.g);
 
-            hsv = rgb2hsv(c.rgb);
-            hsv.b *= hsvValue.b;
-            c.rgb = hsv2rgb(hsv);
+            if (hsvValue.b >= 0.0) {
+                c.rgb = mix(c.rgb, vec3(1.0), hsvValue.b);
+            } else {
+                c.rgb *= 1.0 + hsvValue.b;
+            }
         #endif
 
         #ifdef GRAY
             c.rgb = dot(c.rgb, vec3(0.21, 0.71, 0.07));
         #endif
+        
+        float gray = max(c.r, max(c.g, c.b)) + min(c.r, min(c.g, c.b));
+        c.rgb = mix(c.rgb, vec3(0.5 * gray), -1.9);
 
         gl_FragColor = vec4(c.rgb, c.a * alpha);        
     }
