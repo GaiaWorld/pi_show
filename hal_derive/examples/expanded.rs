@@ -10,6 +10,30 @@ use share::Share;
 pub struct BgColor {
     values: [UniformValue; 2],
 }
+#[automatically_derived]
+#[allow(unused_qualifications)]
+impl ::std::fmt::Debug for BgColor {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        match *self {
+            BgColor { values: ref __self_0_0 } => {
+                let mut debug_trait_builder = f.debug_struct("BgColor");
+                let _ = debug_trait_builder.field("values", &&(*__self_0_0));
+                debug_trait_builder.finish()
+            }
+        }
+    }
+}
+#[automatically_derived]
+#[allow(unused_qualifications)]
+impl ::std::clone::Clone for BgColor {
+    #[inline]
+    fn clone(&self) -> BgColor {
+        match *self {
+            BgColor { values: ref __self_0_0 } =>
+            BgColor{values: ::std::clone::Clone::clone(&(*__self_0_0)),},
+        }
+    }
+}
 impl BgColor {
     pub const
     FIELDS:

@@ -1,7 +1,7 @@
 #![feature(proc_macro_hygiene)]
 #![recursion_limit="512"]
 
-///一个基本的例子， 定义组件， 实体， 系统， 已经如何实例化World并运行（TODO）
+///一个基本的例子， 演示如何使用 uniform_buffer! 和 program_paramter! 定义UniformBuffer 和 ProgramParamter
 
 
 extern crate hal_core;
@@ -13,6 +13,8 @@ use hal_core::*;
 use share::Share;
 
 uniform_buffer! {
+    #[derive(Debug)]
+    #[derive(Clone)]
     struct BgColor {
         color: UniformValue,
         depth: UniformValue,
@@ -32,6 +34,7 @@ program_paramter! {
         texture: UniformTexture<C>,
     }
 }
+
 fn main() { 
     
 }

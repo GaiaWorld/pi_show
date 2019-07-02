@@ -51,8 +51,10 @@ fn impl_uniform_buffer(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let fields_names = FieldNamesArray(fields);
     let set_value_match = SetValueMatch(fields);
     let get_value_match = GetValueMatch(fields);
+    let attrs = &ast.attrs;
 
     quote! {
+        #(#attrs)*
         pub struct #name {
             values: [UniformValue; #count],
         }
@@ -107,8 +109,10 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let texture_set_value_match = TextureSetValueMatch(fields);
     let uniform_get_value_match = UniformGetValueMatch(fields);
     let texture_get_value_match = TextureGetValueMatch(fields);
+    let attrs = &ast.attrs;
 
     quote! {
+        #(#attrs)*
         pub struct #name<C: Context> {
             uniforms: [Share<dyn UniformBuffer>; #uniform_count],
             textures: [Share<UniformTexture<C>>; #textrue_count],
@@ -312,19 +316,3 @@ fn textrue_and_uniform_count(fields: &syn::punctuated::Punctuated<syn::Field, sy
     }
     (syn::Index::from(textrue_count), syn::Index::from(uniform_count))
 }
-
-
-// pub trait ProgramParamter<RContext: Context> {
-
-//     fn get_layout(&self) -> &[&str];
-//     fn get_texture_layout(&self) -> &[&str];
-
-//     fn get_values(&self) -> &[Share<UniformBuffer>];
-//     fn get_textures(&self) -> &[Share<UniformTexture<RContext>>];
-
-//     fn set_value(&mut self, name: &str, value: &Share<UniformBuffer>) -> bool;
-//     fn set_texture(&mut self, name: &str, value: &Share<UniformTexture<RContext>>) -> bool;
-
-//     fn get_value(&mut self, name: &str) -> Option<&Share<UniformBuffer>>;
-//     fn get_texture(&mut self, name: &str) -> Option<&Share<UniformTexture<RContext>>>;
-// }
