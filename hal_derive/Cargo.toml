@@ -1,0 +1,21 @@
+[package]
+name = "hal_derive"
+version = "0.4.0"
+authors = ["zmythleo <zmythleo@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "0.4"
+syn = "0.15"
+quote = "0.6"
+hal_core = {path="../hal_core"}
+share = {path="../../pi_lib/share"}
+
+[[example]]
+name = "basic"
+
+[[example]]
+name = "expanded"
+
