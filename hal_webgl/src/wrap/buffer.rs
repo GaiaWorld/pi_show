@@ -4,7 +4,7 @@ use wrap::gl_slab::{GLSlab, GLSlot, convert_to_mut};
 use implement::{WebGLBufferImpl};
 
 #[derive(Clone)]
-pub struct WebGLBufferWrap(GLSlot);
+pub struct WebGLBufferWrap(pub GLSlot);
 
 impl Buffer for WebGLBufferWrap {
     type RContext = WebGLContextWrap;
@@ -22,16 +22,12 @@ impl Buffer for WebGLBufferWrap {
 
     fn delete(&self) {
         let slab = convert_to_mut(&self.0.context.slabs.buffer);
-        let buffer = GLSlab::delete_slice(slab, &self.0);
+        let mut buffer = GLSlab::delete_slice(slab, &self.0);
         buffer.delete();
     }
 
     fn get_id(&self) -> u64 {
-        let slab = convert_to_mut(&self.0.context.slabs.buffer);
-        match GLSlab::get_mut_slice(slab, &self.0) {
-            None => u64::max_value(),
-            Some(buffer) => buffer.get_id()
-        }
+        self.0.index as u64
     }
 
     fn update(&self, offset: usize, data: BufferData) {

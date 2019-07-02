@@ -6,19 +6,15 @@ pub struct WebGLRenderBufferImpl {
 
 impl WebGLRenderBufferImpl  {
 
-    fn new(context: &Arc<WebGLContextWrap>) -> Result<Self, String> {
+    pub fn new(context: &Arc<WebGLContextWrap>) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     
-    fn delete(&self) {
+    pub fn delete(&self) {
 
     }
 
-    fn get_id(&self) -> u64 {
-        0
-    }
-
-    fn get_size(&self) -> (u32, u32) {
+    pub fn get_size(&self) -> (u32, u32) {
         (0, 0)
     }
 }
@@ -28,19 +24,15 @@ pub struct WebGLRenderTargetImpl {
 
 impl WebGLRenderTargetImpl {
 
-    fn new(context: &Arc<WebGLContextWrap>) -> Result<Self, String> {
+    pub fn new(context: &Arc<WebGLContextWrap>) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     
-    fn delete(&self) {
+    pub fn delete(&self) {
 
     }
 
-    fn get_id(&self) -> u64 {
-        0
-    }
-
-    fn get_size(&self) -> (u32, u32) {
+    pub fn get_size(&self) -> (u32, u32) {
         (0, 0)
     }
 }

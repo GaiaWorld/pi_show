@@ -1,7 +1,7 @@
 use hal_core::{Context, RenderBuffer, RenderTarget};
 use wrap::context::{WebGLContextWrap};
 use wrap::texture::{WebGLTextureWrap};
-use wrap::gl_slab::{GLSlot};
+use wrap::gl_slab::{GLSlab, GLSlot, convert_to_mut};
 use implement::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 
 #[derive(Clone)]
@@ -19,7 +19,7 @@ impl RenderBuffer for WebGLRenderBufferWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.0.index as u64
     }
 
     fn get_size(&self) -> (u32, u32) {
@@ -48,7 +48,7 @@ impl RenderTarget for WebGLRenderTargetWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.0.index as u64
     }
 
     fn get_size(&self) -> (u32, u32) {

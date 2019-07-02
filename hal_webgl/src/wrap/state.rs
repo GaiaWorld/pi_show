@@ -1,6 +1,6 @@
 use hal_core::{Context, BlendState, DepthState, RasterState, StencilState, BlendStateDesc, DepthStateDesc, RasterStateDesc, StencilStateDesc};
 use wrap::context::{WebGLContextWrap};
-use wrap::gl_slab::{GLSlot};
+use wrap::gl_slab::{GLSlab, GLSlot, convert_to_mut};
 use implement::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLRasterStateImpl, WebGLStencilStateImpl};
 
 #[derive(Clone)]
@@ -14,7 +14,17 @@ impl BlendState for WebGLBlendStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &BlendStateDesc) -> Result<<Self::RContext as Context>::ContextBlendState, String> {
-        Err("not implmentation".to_string())
+        match WebGLBlendStateImpl::new(context, desc) {
+            Err(s) => Err(s),
+            Ok(state) => {
+                let slab = convert_to_mut(&context.slabs.blend_state);
+                let slot = GLSlab::new_slice(context, slab, state);
+                Ok(Self {
+                    slot: slot,
+                    desc: desc.clone(),
+                })
+            }
+        }
     }
     
     fn delete(&self) {
@@ -22,7 +32,7 @@ impl BlendState for WebGLBlendStateWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.slot.index as u64
     }
 
     fn get_desc(&self) -> &BlendStateDesc {
@@ -43,7 +53,17 @@ impl DepthState for WebGLDepthStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &DepthStateDesc) -> Result<<Self::RContext as Context>::ContextDepthState, String> {
-        Err("not implmentation".to_string())
+        match WebGLDepthStateImpl::new(context, desc) {
+            Err(s) => Err(s),
+            Ok(state) => {
+                let slab = convert_to_mut(&context.slabs.depth_state);
+                let slot = GLSlab::new_slice(context, slab, state);
+                Ok(Self {
+                    slot: slot,
+                    desc: desc.clone(),
+                })
+            }
+        }
     }
     
     fn delete(&self) {
@@ -51,7 +71,7 @@ impl DepthState for WebGLDepthStateWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.slot.index as u64
     }
 
     fn get_desc(&self) -> &DepthStateDesc {
@@ -72,7 +92,17 @@ impl RasterState for WebGLRasterStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &RasterStateDesc) -> Result<<Self::RContext as Context>::ContextRasterState, String> {
-        Err("not implmentation".to_string())
+        match WebGLRasterStateImpl::new(context, desc) {
+            Err(s) => Err(s),
+            Ok(state) => {
+                let slab = convert_to_mut(&context.slabs.raster_state);
+                let slot = GLSlab::new_slice(context, slab, state);
+                Ok(Self {
+                    slot: slot,
+                    desc: desc.clone(),
+                })
+            }
+        }
     }
     
     fn delete(&self) {
@@ -80,7 +110,7 @@ impl RasterState for WebGLRasterStateWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.slot.index as u64
     }
 
     fn get_desc(&self) -> &RasterStateDesc {
@@ -101,7 +131,17 @@ impl StencilState for WebGLStencilStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &StencilStateDesc) -> Result<<Self::RContext as Context>::ContextStencilState, String> {
-        Err("not implmentation".to_string())
+        match WebGLStencilStateImpl::new(context, desc) {
+            Err(s) => Err(s),
+            Ok(state) => {
+                let slab = convert_to_mut(&context.slabs.stencil_state);
+                let slot = GLSlab::new_slice(context, slab, state);
+                Ok(Self {
+                    slot: slot,
+                    desc: desc.clone(),
+                })
+            }
+        }
     }
     
     fn delete(&self) {
@@ -109,7 +149,7 @@ impl StencilState for WebGLStencilStateWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.slot.index as u64
     }
 
     fn get_desc(&self) -> &StencilStateDesc {

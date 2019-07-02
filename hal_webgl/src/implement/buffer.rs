@@ -10,15 +10,11 @@ impl WebGLBufferImpl {
         Err("not implmentation".to_string())
     }
 
-    pub fn delete(&self) {
+    pub fn delete(&mut self) {
 
     }
 
-    pub fn get_id(&self) -> u64 {
-        0
-    }
-
-    pub fn update(&self, offset: usize, data: BufferData) {
+    pub fn update(&mut self, offset: usize, data: BufferData) {
 
     }
 }

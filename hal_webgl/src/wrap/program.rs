@@ -1,6 +1,6 @@
 use hal_core::{Context, ShaderType, Program, UniformLayout};
 use wrap::context::{WebGLContextWrap};
-use wrap::gl_slab::{GLSlot};
+use wrap::gl_slab::{GLSlab, GLSlot, convert_to_mut};
 use implement::{WebGLProgramImpl};
 
 #[derive(Clone)]
@@ -18,7 +18,7 @@ impl Program for WebGLProgramWrap {
     }
 
     fn get_id(&self) -> u64 {
-        0
+        self.0.index as u64
     }
 
     fn get_shader_info(&self, stype: ShaderType) -> Option<(&str, &[&str])> {

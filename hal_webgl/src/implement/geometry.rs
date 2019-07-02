@@ -1,4 +1,3 @@
-use std::sync::{Arc};
 use hal_core::{AttributeName};
 use wrap::{WebGLContextWrap};
 use implement::buffer::{WebGLBufferImpl};
@@ -8,39 +7,43 @@ pub struct WebGLGeometryImpl {
 
 impl WebGLGeometryImpl  {
 
-    fn new(context: &Arc<WebGLContextWrap>) -> Result<Self, String> {
+    pub fn new(context: &WebGLContextWrap) -> Result<WebGLGeometryImpl, String> {
         Err("not implmentation".to_string())
     }
 
-    fn delete(&self) {
+    pub fn delete(&mut self) {
 
     }
 
-    fn get_id(&self) -> u64 {
+    pub fn get_vertex_count(&self) -> u32 {
         0
     }
 
-    fn get_vertex_count(&self) -> u32 {
-        0
-    }
-
-    fn set_vertex_count(&self, count: u32) {
+    pub fn set_vertex_count(&mut self, count: u32) {
 
     }
 
-    fn set_attribute(&self, name: &AttributeName, buffer: &WebGLBufferImpl, offset: usize, count: usize, stride: usize) -> Result<(), String> {
+    pub fn set_attribute(&mut self, name: &AttributeName, buffer: &WebGLBufferImpl) -> Result<(), String> {
         Err("not implmentation".to_string())
     }
-     
-    fn remove_attribute(&self, name: &AttributeName) {
-
-    }
-
-    fn set_indices_short(&self, buffer: &WebGLBufferImpl, offset: usize, count: usize) -> Result<(), String> {
+    
+    pub fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &WebGLBufferImpl, offset: usize, count: usize, stride: usize) -> Result<(), String> {
         Err("not implmentation".to_string())
     }
 
-    fn remove_indices(&self) {
+    pub fn remove_attribute(&mut self, name: &AttributeName) {
+
+    }
+
+    pub fn set_indices_short(&mut self, buffer: &WebGLBufferImpl) -> Result<(), String> {
+        Err("not implmentation".to_string())
+    }
+
+    pub fn set_indices_short_with_offset(&self, buffer: &WebGLBufferImpl, offset: usize, count: usize) -> Result<(), String> {
+        Err("not implmentation".to_string())
+    }
+    
+    pub fn remove_indices(&mut self) {
 
     }
 }

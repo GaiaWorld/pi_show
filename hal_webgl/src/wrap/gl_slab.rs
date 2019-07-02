@@ -69,6 +69,10 @@ impl GLSlab {
         }
     }
 
+    pub fn get_slice<'a, T>(slab: &'a Slab<T>, slot: &GLSlot) -> Option<&'a T> {
+        slab.get(slot.index)
+    }
+
     pub fn get_mut_slice<'a, T>(slab: &'a mut Slab<T>, slot: &GLSlot) -> Option<&'a mut T> {
         slab.get_mut(slot.index)
     }
