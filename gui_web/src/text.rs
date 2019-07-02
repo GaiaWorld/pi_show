@@ -211,6 +211,14 @@ pub fn set_font_family(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
+    if dyn_type > 0 {
+        js!{
+            var ctx = __jsObj1.getContext("2d");
+            ctx.fillStyle = "#00f";
+		    ctx.fillRect(0, 0, __jsObj1.width, __jsObj1.height);
+        }
+    }
+
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
@@ -335,7 +343,7 @@ fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32,
     }
 
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
-    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u}, @{v}, @{width}, @{height}).data.buffer);} ) {
+    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
         Ok(data) => {
             let data = data.to_vec();
             src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
@@ -528,6 +536,7 @@ fn calc_canvas_text(
         start: UV{u: u, v: v},
         end: UV{u: u, v: v + line_height},
     };
+    let mut start_uv = UV{u: u, v: v};
 
     for c in chars.iter() {
         let w = TryInto::<u32>::try_into(js! { return @{cc}.ctx.measureText(String.fromCharCode(@{c})).width + @{stroke_width}; }).unwrap() as f32;
@@ -547,6 +556,7 @@ fn calc_canvas_text(
                     start: UV{u: u, v: v},
                     end: UV{u: u, v :v + line_height},
                 };
+                start_uv = UV{u: u, v: v};
             } else {
                 info.end.v += line_height;
             }
@@ -555,8 +565,8 @@ fn calc_canvas_text(
         if info.end.u < u + w {
             info.end.u = u + w;
         }
-
-        info.list.push(UV{u, v});
+    
+        info.list.push(UV{u: u - start_uv.u , v: v - start_uv.v});
 
         font.add_glyph(unsafe{transmute(*c)}, Glyph{
             id: unsafe{transmute(*c)},
@@ -573,10 +583,11 @@ fn calc_canvas_text(
     if info.list.len() > 0 {
         arr.push(info);
     }
+    font.set_curr_uv((u, v));
     arr
 }
 
-
+#[derive(Debug)]
 struct TextInfo {
     list: Vec<UV>,
     start: UV,
