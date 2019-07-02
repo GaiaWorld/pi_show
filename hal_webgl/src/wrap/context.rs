@@ -1,7 +1,4 @@
-use atom::Atom;
 use share::Share;
-use std::rc::{Rc};
-use std::cell::{RefCell};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 
@@ -15,14 +12,12 @@ use wrap::state::{WebGLRasterStateWrap, WebGLDepthStateWrap, WebGLStencilStateWr
 use wrap::texture::{WebGLTextureWrap};
 use wrap::gl_slab::{GLSlab};
 
-pub struct WebGLContextWrapImpl {
-    pub caps: Capabilities,
-    pub default_rt: Option<WebGLRenderTargetWrap>,
-    pub slab: GLSlab,
-}
-
 #[derive(Clone)]
-pub struct WebGLContextWrap(pub Rc<RefCell<WebGLContextWrapImpl>>);
+pub struct WebGLContextWrap {
+    pub slabs: Share<GLSlab>,
+    caps: Share<Capabilities>,
+    default_rt: Option<Share<WebGLRenderTargetWrap>>,
+}
 
 impl Context for WebGLContextWrap {
     type ContextSelf = WebGLContextWrap;
@@ -40,14 +35,14 @@ impl Context for WebGLContextWrap {
     type ContextProgram = WebGLProgramWrap;
 
     fn get_caps(&self) -> &Capabilities {
-        &self.0.try_borrow().unwrap().caps
+        &self.caps
     }
 
     fn get_default_target(&self) -> &Self::ContextRenderTarget {
-        &self.0.try_borrow().unwrap().default_rt.as_ref().unwrap()
+        self.default_rt.as_ref().unwrap()
     }
 
-    fn set_shader_code<C: AsRef<str>>(&self, name: &Atom, code: &C) {
+    fn set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C) {
 
     }
 
@@ -78,12 +73,10 @@ impl Context for WebGLContextWrap {
 
 impl WebGLContextWrap {
     pub fn new(context: WebGLRenderingContext, fbo: Option<Object>) -> Self {
-        let slab = GLSlab::new();
-
-        Self(Rc::new(RefCell::new(WebGLContextWrapImpl {
-            caps: Capabilities::new(),
+        Self {
+            slabs: Share::new(GLSlab::new()),
+            caps: Share::new(Capabilities::new()),
             default_rt: None,
-            slab: slab,    
-        })))
+        }
     }
 }
