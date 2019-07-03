@@ -37,4 +37,9 @@ impl<T> GLSlot<T> {
             index: index,
         }
     }
+
+    pub fn get_mut(&self) -> Option<&mut T> {
+        let slab = convert_to_mut(self.slab.as_ref());
+        slab.get_mut(self.index)
+    }
 }

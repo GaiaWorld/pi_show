@@ -5,8 +5,8 @@ use implement::{WebGLSamplerImpl};
 
 #[derive(Clone)]
 pub struct WebGLSamplerWrap {
-    slot: GLSlot<WebGLSamplerImpl>,
-    desc: SamplerDesc,
+    pub slot: GLSlot<WebGLSamplerImpl>,
+    pub desc: SamplerDesc,
 }
 
 impl Sampler for WebGLSamplerWrap {

@@ -12,7 +12,7 @@ use wrap::sampler::{WebGLSamplerWrap};
 use wrap::state::{WebGLRasterStateWrap, WebGLDepthStateWrap, WebGLStencilStateWrap, WebGLBlendStateWrap};
 use wrap::texture::{WebGLTextureWrap};
 
-use wrap::gl_slab::{GLSlot};
+use wrap::gl_slab::{GLSlot, convert_to_mut};
 use implement::{
     WebGLBufferImpl, 
     WebGLContextImpl,
@@ -66,31 +66,65 @@ impl Context for WebGLContextWrap {
     }
 
     fn set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C) {
-
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.set_shader_code(name, code)
     }
 
     fn restore_state(&self) {
-
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.restore_state()
     }
 
     fn begin_render(&self, render_target: &Self::ContextRenderTarget, data: &RenderBeginDesc) {
-
+        let rt = render_target.0.get_mut();
+        debug_assert!(rt.is_some(), "begin_render failed, rt can't found");
+        let rt = rt.unwrap();
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.begin_render(rt, data)
     }
 
     fn end_render(&self) {
-
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.end_render();
     }
 
     fn set_program(&self, program: &Self::ContextProgram) {
-
+        let program = program.0.get_mut();
+        debug_assert!(program.is_some(), "set_program failed, program can't found");
+        let program = program.unwrap();
+        
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.set_program(program)
     }
 
     fn set_state(&self, bs: &Self::ContextBlendState, ds: &Self::ContextDepthState, rs: &Self::ContextRasterState, ss: &Self::ContextStencilState) {
+        let bs = bs.slot.get_mut();
+        debug_assert!(bs.is_some(), "set_state failed, bs can't found");
+        let bs = bs.unwrap();
+        
+        let ds = ds.slot.get_mut();
+        debug_assert!(ds.is_some(), "set_state failed, ds can't found");
+        let ds = ds.unwrap();
 
+        let ss = ss.slot.get_mut();
+        debug_assert!(ss.is_some(), "set_state failed, ss can't found");
+        let ss = ss.unwrap();
+
+        let rs = rs.slot.get_mut();
+        debug_assert!(rs.is_some(), "set_state failed, rs can't found");
+        let rs = rs.unwrap();
+
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.set_state(bs, ds, rs, ss)
     }
 
     fn draw(&self, geometry: &Self::ContextGeometry, parameter: &Share<ProgramParamter<Self::ContextSelf>>) {
+        let geometry = geometry.0.get_mut();
+        debug_assert!(geometry.is_some(), "draw failed, geometry can't found");
+        let geometry = geometry.unwrap();
 
+        let context = convert_to_mut(self.rimpl.as_ref());
+        context.draw(geometry, parameter)
     }
 }
 
@@ -133,3 +167,4 @@ impl WebGLContextWrap {
         }
     }
 }
+

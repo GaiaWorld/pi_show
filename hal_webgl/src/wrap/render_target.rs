@@ -36,7 +36,7 @@ impl RenderBuffer for WebGLRenderBufferWrap {
 }
 
 #[derive(Clone)]
-pub struct WebGLRenderTargetWrap(GLSlot<WebGLRenderTargetImpl>);
+pub struct WebGLRenderTargetWrap(pub GLSlot<WebGLRenderTargetImpl>);
 
 impl WebGLRenderTargetWrap {
     pub fn new(slot: GLSlot<WebGLRenderTargetImpl>) -> Self {

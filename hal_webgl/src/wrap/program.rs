@@ -4,7 +4,7 @@ use wrap::gl_slab::{GLSlot, convert_to_mut};
 use implement::{WebGLProgramImpl};
 
 #[derive(Clone)]
-pub struct WebGLProgramWrap(GLSlot<WebGLProgramImpl>);
+pub struct WebGLProgramWrap(pub GLSlot<WebGLProgramImpl>);
 
 impl Program for WebGLProgramWrap {
     type RContext = WebGLContextWrap;

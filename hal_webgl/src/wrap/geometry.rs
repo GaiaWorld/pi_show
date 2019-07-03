@@ -4,7 +4,7 @@ use wrap::gl_slab::{GLSlot, convert_to_mut};
 use implement::{WebGLGeometryImpl};
 
 #[derive(Clone)]
-pub struct WebGLGeometryWrap(GLSlot<WebGLGeometryImpl>);
+pub struct WebGLGeometryWrap(pub GLSlot<WebGLGeometryImpl>);
 
 impl Geometry for WebGLGeometryWrap {
 

@@ -4,7 +4,7 @@ use wrap::gl_slab::{GLSlot, convert_to_mut};
 use implement::{WebGLTextureImpl};
 
 #[derive(Clone)]
-pub struct WebGLTextureWrap(GLSlot<WebGLTextureImpl>);
+pub struct WebGLTextureWrap(pub GLSlot<WebGLTextureImpl>);
 
 impl Texture for WebGLTextureWrap {
     type RContext = WebGLContextWrap;

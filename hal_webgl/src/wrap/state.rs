@@ -5,8 +5,8 @@ use implement::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLRasterStateImpl, 
 
 #[derive(Clone)]
 pub struct WebGLBlendStateWrap {
-    desc: BlendStateDesc,
-    slot: GLSlot<WebGLBlendStateImpl>,
+    pub desc: BlendStateDesc,
+    pub slot: GLSlot<WebGLBlendStateImpl>,
 }
 
 impl BlendState for WebGLBlendStateWrap {
@@ -44,8 +44,8 @@ impl BlendState for WebGLBlendStateWrap {
 
 #[derive(Clone)]
 pub struct WebGLDepthStateWrap {
-    desc: DepthStateDesc,
-    slot: GLSlot<WebGLDepthStateImpl>,
+    pub desc: DepthStateDesc,
+    pub slot: GLSlot<WebGLDepthStateImpl>,
 }
 
 impl DepthState for WebGLDepthStateWrap {
@@ -83,8 +83,8 @@ impl DepthState for WebGLDepthStateWrap {
 
 #[derive(Clone)]
 pub struct WebGLRasterStateWrap {
-    desc: RasterStateDesc,
-    slot: GLSlot<WebGLRasterStateImpl>,
+    pub desc: RasterStateDesc,
+    pub slot: GLSlot<WebGLRasterStateImpl>,
 }
 
 impl RasterState for WebGLRasterStateWrap {
@@ -122,8 +122,8 @@ impl RasterState for WebGLRasterStateWrap {
 
 #[derive(Clone)]
 pub struct WebGLStencilStateWrap {
-    desc: StencilStateDesc,
-    slot: GLSlot<WebGLStencilStateImpl>,
+    pub desc: StencilStateDesc,
+    pub slot: GLSlot<WebGLStencilStateImpl>,
 }
 
 impl StencilState for WebGLStencilStateWrap {
