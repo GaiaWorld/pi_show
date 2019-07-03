@@ -531,6 +531,7 @@ fn calc_canvas_text(
     let line_height = font.line_height() + stroke_width;
     let mut arr = Vec::new();
 
+    let start_u = u;
     let mut info = TextInfo{
         list: Vec::new(),
         start: UV{u: u, v: v},
@@ -548,9 +549,10 @@ fn calc_canvas_text(
             if v + line_height > max_height {
                 break;
             }
-            
-            if info.start.u != 0.0 && info.list.len() > 0 {
-                arr.push(info);
+            if info.start.u == start_u {
+                if info.list.len() > 0 {
+                    arr.push(info);
+                }
                 info = TextInfo{
                     list: Vec::new(),
                     start: UV{u: u, v: v},
@@ -562,10 +564,10 @@ fn calc_canvas_text(
             }
         }
 
-        if info.end.u < u + w {
-            info.end.u = u + w;
+        let w1 = u + w;
+        if info.end.u < w1 {
+            info.end.u = w1;
         }
-    
         info.list.push(UV{u: u - start_uv.u , v: v - start_uv.v});
 
         font.add_glyph(unsafe{transmute(*c)}, Glyph{

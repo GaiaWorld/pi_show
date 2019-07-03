@@ -58,7 +58,6 @@ pub struct BoxColor{
 }
 
 #[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct BackgroundColor(pub Color);
 
 #[derive(Debug, Clone, Component, Default)]
@@ -66,7 +65,6 @@ pub struct BackgroundColor(pub Color);
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
-#[storage(HashMap)]
 pub struct Image<C: Context + 'static + Send + Sync>{
   pub src: Res<TextureRes<C>>
 }
@@ -82,7 +80,6 @@ pub struct Filter {
 
 //ObjectFit
 #[derive(Deref, DerefMut, Component, Default)]
-#[storage(HashMap)]
 pub struct ObjectFit(pub FitType);
 
 #[derive(Deref, DerefMut, Component)]
@@ -109,7 +106,6 @@ pub struct BorderImageSlice{
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 #[derive(Debug, Clone, Component)]
-#[storage(HashMap)]
 pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
@@ -167,7 +163,6 @@ pub struct Font{
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
-
 
 //================================== 枚举
 

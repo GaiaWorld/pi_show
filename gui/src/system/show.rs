@@ -115,6 +115,7 @@ fn modify_show(
     let show_value = match show.get(id) {
         Some(r) => r, 
         None => {
+            #[cfg(feature = "warning")]
             println!("!!!!!!! get_unchecked none: {}", id);
             panic!("xxxxxxxxxxxxxxxxxxxxxxxxxx");
         }
