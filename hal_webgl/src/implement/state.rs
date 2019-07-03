@@ -1,12 +1,14 @@
 use hal_core::{BlendStateDesc, DepthStateDesc, RasterStateDesc, StencilStateDesc};
-use wrap::{WebGLContextWrap};
+use share::{Share};
+use implement::context::{WebGLContextImpl}; 
 
 pub struct WebGLBlendStateImpl {
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLBlendStateImpl {
     
-    pub fn new(context: &WebGLContextWrap, desc: &BlendStateDesc) -> Result<Self, String> {
+    pub fn new(context: &Share<WebGLContextImpl>, desc: &BlendStateDesc) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     
@@ -18,11 +20,12 @@ impl WebGLBlendStateImpl {
 // ================================== 
 
 pub struct WebGLDepthStateImpl {
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLDepthStateImpl {
 
-    pub fn new(context: &WebGLContextWrap, desc: &DepthStateDesc) -> Result<Self, String> {
+    pub fn new(context: &Share<WebGLContextImpl>, desc: &DepthStateDesc) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     
@@ -34,11 +37,12 @@ impl WebGLDepthStateImpl {
 // ================================== 
 
 pub struct WebGLRasterStateImpl {
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLRasterStateImpl {
     
-    pub fn new(context: &WebGLContextWrap, desc: &RasterStateDesc) -> Result<Self, String> {
+    pub fn new(context: &Share<WebGLContextImpl>, desc: &RasterStateDesc) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     
@@ -50,11 +54,12 @@ impl WebGLRasterStateImpl {
 // ================================== 
 
 pub struct WebGLStencilStateImpl {
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLStencilStateImpl {
 
-    pub fn new(context: &WebGLContextWrap, desc: &StencilStateDesc) -> Result<Self, String> {
+    pub fn new(context: &Share<WebGLContextImpl>, desc: &StencilStateDesc) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
     

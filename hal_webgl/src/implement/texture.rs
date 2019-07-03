@@ -1,13 +1,14 @@
-use std::sync::{Arc};
 use hal_core::{PixelFormat, DataFormat, TextureData};
+use share::{Share};
+use implement::context::{WebGLContextImpl}; 
 use wrap::{WebGLContextWrap};
 
 pub struct WebGLTextureImpl {
-
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLTextureImpl {
-    pub fn new_2d(context: &Arc<WebGLContextWrap>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<WebGLContextWrap>>) -> Result<Self, String> {
+    pub fn new_2d(context: &Share<WebGLContextImpl>, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<WebGLContextWrap>>) -> Result<Self, String> {
         Err("not implmentation".to_string())
     }
 

@@ -1,3 +1,4 @@
+use common::{PixelFormat, DataFormat};
 use traits::context::{Context};
 
 /** 
@@ -19,7 +20,7 @@ use traits::context::{Context};
 pub trait RenderBuffer : Sized + Clone {
     type RContext: Context;
 
-    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
+    fn new(context: &Self::RContext, w: u32, h: u32, pformat: PixelFormat) -> Result<<Self::RContext as Context>::ContextRenderBuffer, String>;
     
     fn delete(&self);
 
@@ -28,17 +29,17 @@ pub trait RenderBuffer : Sized + Clone {
      */
     fn get_id(&self) -> u64;
 
-    fn get_size(&self) -> (u32, u32);
+    fn get_size(&self) -> Option<(u32, u32)>;
 }
 
 /** 
  * 渲染目标
  */
-pub trait RenderTarget : Clone {
+pub trait RenderTarget : Sized + Clone {
 
     type RContext: Context;
 
-    fn new(context: &Self::RContext) -> Result<<Self::RContext as Context>::ContextRenderTarget, String>;
+    fn new(context: &Self::RContext, w: u32, h: u32, pformat: PixelFormat, dformat: DataFormat, has_depth: bool) -> Result<<Self::RContext as Context>::ContextRenderTarget, String>;
     
     fn delete(&self);
 
@@ -50,7 +51,7 @@ pub trait RenderTarget : Clone {
     /** 
      * 取大小
      */
-    fn get_size(&self) -> (u32, u32);
+    fn get_size(&self) -> Option<(u32, u32)>;
 
     /**
      * 取渲染目标中特定通道的纹理

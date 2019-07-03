@@ -1,12 +1,12 @@
 use hal_core::{Context, BlendState, DepthState, RasterState, StencilState, BlendStateDesc, DepthStateDesc, RasterStateDesc, StencilStateDesc};
 use wrap::context::{WebGLContextWrap};
-use wrap::gl_slab::{GLSlab, GLSlot, convert_to_mut};
+use wrap::gl_slab::{GLSlot, convert_to_mut};
 use implement::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLRasterStateImpl, WebGLStencilStateImpl};
 
 #[derive(Clone)]
 pub struct WebGLBlendStateWrap {
     desc: BlendStateDesc,
-    slot: GLSlot,
+    slot: GLSlot<WebGLBlendStateImpl>,
 }
 
 impl BlendState for WebGLBlendStateWrap {
@@ -14,13 +14,11 @@ impl BlendState for WebGLBlendStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &BlendStateDesc) -> Result<<Self::RContext as Context>::ContextBlendState, String> {
-        match WebGLBlendStateImpl::new(context, desc) {
+        match WebGLBlendStateImpl::new(&context.rimpl, desc) {
             Err(s) => Err(s),
             Ok(state) => {
-                let slab = convert_to_mut(&context.slabs.blend_state);
-                let slot = GLSlab::new_slice(context, slab, state);
                 Ok(Self {
-                    slot: slot,
+                    slot: GLSlot::new(&context.blend_state, state),
                     desc: desc.clone(),
                 })
             }
@@ -28,7 +26,9 @@ impl BlendState for WebGLBlendStateWrap {
     }
     
     fn delete(&self) {
-
+        let slab = convert_to_mut(self.slot.slab.as_ref());
+        let mut state = slab.remove(self.slot.index);
+        state.delete();
     }
 
     fn get_id(&self) -> u64 {
@@ -45,7 +45,7 @@ impl BlendState for WebGLBlendStateWrap {
 #[derive(Clone)]
 pub struct WebGLDepthStateWrap {
     desc: DepthStateDesc,
-    slot: GLSlot,
+    slot: GLSlot<WebGLDepthStateImpl>,
 }
 
 impl DepthState for WebGLDepthStateWrap {
@@ -53,13 +53,11 @@ impl DepthState for WebGLDepthStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &DepthStateDesc) -> Result<<Self::RContext as Context>::ContextDepthState, String> {
-        match WebGLDepthStateImpl::new(context, desc) {
+        match WebGLDepthStateImpl::new(&context.rimpl, desc) {
             Err(s) => Err(s),
             Ok(state) => {
-                let slab = convert_to_mut(&context.slabs.depth_state);
-                let slot = GLSlab::new_slice(context, slab, state);
                 Ok(Self {
-                    slot: slot,
+                    slot: GLSlot::new(&context.depth_state, state),
                     desc: desc.clone(),
                 })
             }
@@ -67,7 +65,9 @@ impl DepthState for WebGLDepthStateWrap {
     }
     
     fn delete(&self) {
-
+        let slab = convert_to_mut(self.slot.slab.as_ref());
+        let mut state = slab.remove(self.slot.index);
+        state.delete();
     }
 
     fn get_id(&self) -> u64 {
@@ -84,7 +84,7 @@ impl DepthState for WebGLDepthStateWrap {
 #[derive(Clone)]
 pub struct WebGLRasterStateWrap {
     desc: RasterStateDesc,
-    slot: GLSlot,
+    slot: GLSlot<WebGLRasterStateImpl>,
 }
 
 impl RasterState for WebGLRasterStateWrap {
@@ -92,13 +92,11 @@ impl RasterState for WebGLRasterStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &RasterStateDesc) -> Result<<Self::RContext as Context>::ContextRasterState, String> {
-        match WebGLRasterStateImpl::new(context, desc) {
+        match WebGLRasterStateImpl::new(&context.rimpl, desc) {
             Err(s) => Err(s),
             Ok(state) => {
-                let slab = convert_to_mut(&context.slabs.raster_state);
-                let slot = GLSlab::new_slice(context, slab, state);
-                Ok(Self {
-                    slot: slot,
+               Ok(Self {
+                    slot: GLSlot::new(&context.raster_state, state),
                     desc: desc.clone(),
                 })
             }
@@ -106,7 +104,9 @@ impl RasterState for WebGLRasterStateWrap {
     }
     
     fn delete(&self) {
-
+        let slab = convert_to_mut(self.slot.slab.as_ref());
+        let mut state = slab.remove(self.slot.index);
+        state.delete();
     }
 
     fn get_id(&self) -> u64 {
@@ -123,7 +123,7 @@ impl RasterState for WebGLRasterStateWrap {
 #[derive(Clone)]
 pub struct WebGLStencilStateWrap {
     desc: StencilStateDesc,
-    slot: GLSlot,
+    slot: GLSlot<WebGLStencilStateImpl>,
 }
 
 impl StencilState for WebGLStencilStateWrap {
@@ -131,13 +131,11 @@ impl StencilState for WebGLStencilStateWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &StencilStateDesc) -> Result<<Self::RContext as Context>::ContextStencilState, String> {
-        match WebGLStencilStateImpl::new(context, desc) {
+        match WebGLStencilStateImpl::new(&context.rimpl, desc) {
             Err(s) => Err(s),
             Ok(state) => {
-                let slab = convert_to_mut(&context.slabs.stencil_state);
-                let slot = GLSlab::new_slice(context, slab, state);
                 Ok(Self {
-                    slot: slot,
+                    slot: GLSlot::new(&context.stencil_state, state),
                     desc: desc.clone(),
                 })
             }
@@ -145,7 +143,9 @@ impl StencilState for WebGLStencilStateWrap {
     }
     
     fn delete(&self) {
-
+        let slab = convert_to_mut(self.slot.slab.as_ref());
+        let mut state = slab.remove(self.slot.index);
+        state.delete();
     }
 
     fn get_id(&self) -> u64 {

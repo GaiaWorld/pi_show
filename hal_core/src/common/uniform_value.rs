@@ -20,7 +20,6 @@ impl fmt::Debug for UniformValue {
             UniformValue::IntV(r0, r1) => write!(f, " UniformValue::IntV({}, {:?})", r0, r1),
             UniformValue::MatrixV(r0, r1) => write!(f, " UniformValue::MatrixV({}, {:?})", r0, r1),
         }
-        
     }
 }
 

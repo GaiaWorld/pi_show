@@ -52,7 +52,7 @@ pub trait Context: Sized + Clone {
      * 目的：因为我们会和别的渲染引擎使用同一个底层渲染库，每个引擎的状态机，会导致底层状态机不一致，所以要有这个方法。
      * 保证一帧开始调用begin之前调用一次。
      */
-    fn restore_state(&mut self);
+    fn restore_state(&self);
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略

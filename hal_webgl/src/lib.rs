@@ -20,7 +20,6 @@ extern crate fnv;
 mod wrap;
 mod implement;
 
-use std::sync::{Arc};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 

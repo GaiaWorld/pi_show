@@ -25,9 +25,9 @@ pub trait Texture : Sized + Clone {
      */
     fn get_id(&self) -> u64;
 
-    fn get_size(&self) -> (u32, u32);
+    fn get_size(&self) -> Option<(u32, u32)>;
 
-    fn get_render_format(&self) -> PixelFormat;
+    fn get_render_format(&self) -> Option<PixelFormat>;
 
     fn is_gen_mipmap(&self) -> bool;
 

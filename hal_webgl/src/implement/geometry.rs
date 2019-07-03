@@ -1,13 +1,15 @@
 use hal_core::{AttributeName};
-use wrap::{WebGLContextWrap};
+use share::{Share};
+use implement::context::{WebGLContextImpl}; 
 use implement::buffer::{WebGLBufferImpl};
 
 pub struct WebGLGeometryImpl {
+    context: Share<WebGLContextImpl>,
 }
 
 impl WebGLGeometryImpl  {
 
-    pub fn new(context: &WebGLContextWrap) -> Result<WebGLGeometryImpl, String> {
+    pub fn new(context: &Share<WebGLContextImpl>) -> Result<WebGLGeometryImpl, String> {
         Err("not implmentation".to_string())
     }
 
