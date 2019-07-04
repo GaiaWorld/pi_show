@@ -409,9 +409,9 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let start_y = layout.border_top;
     let end_x = layout.width - layout.border_right;
     let end_y = layout.height - layout.border_bottom;
-    // if end_x - start_x == 0.0 && end_y - start_y == 0.0 {
-    //     return (Vec::new(), Vec::new(), None);
-    // }
+    if end_x - start_x == 0.0 && end_y - start_y == 0.0 {
+        return (Vec::new(), Vec::new(), None);
+    }
     let mut positions;
     let mut indices;
     debug_println!("radius:{:?}", radius);
