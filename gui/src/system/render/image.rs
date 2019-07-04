@@ -225,6 +225,58 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, ModifyEv
     }
 }
 
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for ImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for ImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for ImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for ImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
 // 删除渲染对象
 impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> for ImageSys<C>{
     type ReadData = ();
@@ -383,26 +435,7 @@ fn get_geo_flow<C: Context + ShareTrait>(radius: &BorderRadius, layout: &Layout,
         }else {
             use_image_pos_uv(pos, uv, z_depth)
         }
-    }
-
-    // debug_println!("indices: {:?}", indices);
-    // let (top_percent, bottom_percent, left_percent, right_percent) = (pos.0.y/layout.height, pos.1.y/layout.height, pos.0.x/layout.width, pos.3.x/layout.width);
-    // debug_println!("split_by_lg,  positions:{:?}, indices:{:?}, top_percent: {}, bottom_percent: {}, start: ({}, {}) , end: ({}, {})", positions, indices, 0.0, 1.0, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
-    // let (positions, indices_arr) = split_by_lg(positions, indices, &[top_percent, bottom_percent], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    // debug_println!("split_mult_by_lg, positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
-    // let (positions, indices_arr) = split_mult_by_lg(positions, indices_arr, &[0.0, 1.0, right_percent], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
-    // let indices = mult_to_triangle(&indices_arr, Vec::new());
-    // debug_println!("u positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.3.x, pos.3.y);
-    // let u = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.3.x, pos.3.y));
-    // let v = interp_mult_by_lg(&positions, &indices_arr, vec![Vec::new()], vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], &[0.0, 1.0], (pos.0.x, pos.0.y), (pos.1.x, pos.1.y));
-    // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, pos.0.x, pos.0.y, pos.1.x, pos.1.y);
-    // let mut uvs = Vec::with_capacity(u[0].len());
-    // for i in 0..u[0].len() {
-    //     uvs.push(u[0][i]);
-    //     uvs.push(v[0][i]);
-    // }
-
-    
+    }   
 }
 
 fn use_image_pos_uv(pos: Aabb2, uv: Aabb2, z_depth: f32) -> (Vec<f32>, Vec<f32>, Vec<u16>){
@@ -575,5 +608,9 @@ impl_system!{
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
         MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
+        MultiCaseListener<Node, ImageClip, CreateEvent>
+        MultiCaseListener<Node, ImageClip, ModifyEvent>
+        MultiCaseListener<Node, ObjectFit, CreateEvent>
+        MultiCaseListener<Node, ObjectFit, ModifyEvent>
     }
 }

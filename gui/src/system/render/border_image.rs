@@ -119,6 +119,84 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
     }
 }
 
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
+impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for BorderImageSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        if let Some(item) = self.render_map.get_mut(event.id) {
+            if item.position_change == false {
+                item.position_change = true;
+                self.geometry_dirtys.push(event.id);
+            }
+        };
+    }
+}
+
 // 插入渲染对象
 impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
     type ReadData = (
@@ -540,5 +618,11 @@ impl_system!{
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
         MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
+        MultiCaseListener<Node, BorderImageClip, CreateEvent>
+        MultiCaseListener<Node, BorderImageClip, ModifyEvent>
+        MultiCaseListener<Node, BorderImageSlice, CreateEvent>
+        MultiCaseListener<Node, BorderImageSlice, ModifyEvent>
+        MultiCaseListener<Node, BorderImageRepeat, CreateEvent>
+        MultiCaseListener<Node, BorderImageRepeat, ModifyEvent>
     }
 }
