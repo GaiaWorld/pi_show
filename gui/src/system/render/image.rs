@@ -416,6 +416,9 @@ fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
 
 //取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
 fn get_geo_flow<C: Context + ShareTrait>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+    if layout.width - layout.border_left - layout.border_right == 0.0 && layout.height - layout.border_top - layout.border_bottom == 0.0 {
+        return (Vec::new(), Vec::new(), Vec::new());
+    }
     let radius = cal_border_radius(radius, layout);
     if image_clip.is_none() && object_fit.is_none() && radius.x == 0.0{
         let r = create_quad_geo();

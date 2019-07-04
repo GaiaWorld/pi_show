@@ -103,7 +103,16 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
                         let mut geometry = create_geometry(&mut engine.gl);
                         geometry.set_vertex_count((positions.len()/3) as u32);
                         geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-                        geometry.set_indices_short(indices.as_slice(), false).unwrap();
+                        if geometry.set_indices_short(indices.as_slice(), false).is_err(){
+                            panic!("set_indices_short fail, id: {}, positions: {:?}, indices_short: {:?}, border_radius: {:?}, layout: {:?}, background_color: {:?},", 
+                                *id,
+                                positions, 
+                                indices, 
+                                border_radius,
+                                layout,
+                                background_color,
+                            );
+                        }
                         match colors {
                             Some(colors) => {
                                 geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false).unwrap()
@@ -400,6 +409,9 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let start_y = layout.border_top;
     let end_x = layout.width - layout.border_right;
     let end_y = layout.height - layout.border_bottom;
+    // if end_x - start_x == 0.0 && end_y - start_y == 0.0 {
+    //     return (Vec::new(), Vec::new(), None);
+    // }
     let mut positions;
     let mut indices;
     debug_println!("radius:{:?}", radius);

@@ -5,7 +5,7 @@ use serde::{Serialize};
 use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
-// use gui::layout::YgNode;
+// use gui::layout::FlexNode;
 use GuiWorld;
 
 // 打印节点信息
@@ -86,8 +86,7 @@ pub fn node_info(world: u32, node: u32) {
     };
 
 
-    // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
-    // let yogas = yogas.lend();
+    // let yogas = world.yoga.lend();
     // let yoga = unsafe { yogas.get_unchecked(node) };
 
     // let octs = world.fetch_single::<Oct>().unwrap();

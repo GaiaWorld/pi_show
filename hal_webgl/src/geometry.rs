@@ -204,7 +204,10 @@ impl Geometry for WebGLGeometryImpl {
     fn set_indices_short(&mut self, data: &[u16], is_updatable: bool) -> Result<(), String> {
         debug_println!("Geometry, set_indices_short, data = {:?}", data);
 
-        assert!(self.vertex_count > 0 && data.len() > 0, "WebGLGeometryImpl set_indices_short failed, data.len invalid");
+        if !(self.vertex_count > 0 && data.len() > 0) {
+            return Err("WebGLGeometryImpl set_indices_short failed, data.len invalid".to_string());
+        }
+        // assert!(self.vertex_count > 0 && data.len() > 0, );
 
         let gl: Option<Share<WebGLRenderingContext>> = self.gl.upgrade();
         
