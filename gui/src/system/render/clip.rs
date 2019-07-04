@@ -189,8 +189,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         {
             let geometry_ref = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
-            let mut positions = [0.0; 96];
-            for i in 0..8 {
+            let mut positions = [0.0; 192];
+            for i in 0..16 {
                 let p = &overflow.clip[i];
 
                 positions[i * 12 + 0] = p[0].x;
@@ -209,7 +209,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
                 positions[i * 12 + 10] = p[3].y;
                 positions[i * 12 + 11] = 0.0;
             }
-            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
+            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..192]), true).unwrap();
         }
         let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
         for (k, v) in self.ubos.iter() {
@@ -225,13 +225,13 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         let mut indexs: Vec<f32> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
 
-        for i in 0..8 {
+        for i in 0..16 {
             indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
             indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
         }
         
         let geometry = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_vertex_count(32);
+        geometry.set_vertex_count(64);
         let _ = geometry.set_attribute(&AttributeName::SkinIndex, 1, Some(indexs.as_slice()), false);
         geometry.set_indices_short(indices.as_slice(), false).unwrap();
 
@@ -241,7 +241,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         let mut ubo = engine.gl.create_uniforms();
         ubo.set_mat_4v(&VIEW_MATRIX, &view[0..16]);   
         ubo.set_mat_4v(&PROJECT_MATRIX, &projection[0..16]);
-        ubo.set_float_1(&MESH_NUM, 8.0);
+        ubo.set_float_1(&MESH_NUM, 16.0);
         self.ubos.insert(COMMON.clone(), Share::new(ubo));
     
         self.dirty = true;

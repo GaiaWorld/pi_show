@@ -55,9 +55,9 @@ let canvas_text_fs_code = `
     #endif
 
     #ifdef CLIP
-    uniform float clipIndices;
-    uniform sampler2D clipTexture;
-    uniform float clipTextureSize;
+        uniform float clipIndices;
+        uniform sampler2D clipTexture;
+        uniform float clipTextureSize;
     #endif
 
     // Varyings
@@ -95,7 +95,7 @@ let canvas_text_fs_code = `
         }
     #endif
 
-    #ifdef CLIP 
+    #ifdef CLIP
         // 8位int型变二进制数组
         void toBit(int num, out bvec4 r1, out bvec4 r2) {
             for (int i = 0; i < 4; ++i) {
@@ -126,7 +126,7 @@ let canvas_text_fs_code = `
         vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
 
         int index = int(clipIndices);
-        int mask = int(clipColor.r * 256.0);
+        int mask = int(clipColor.r * 256.0) + 128 * int(clipColor.g * 256.0) + 128 * 128 * int(clipColor.b * 256.0);
         
         bvec4 m1, m2, i1, i2;
         toBit(mask, m1, m2);
@@ -138,9 +138,8 @@ let canvas_text_fs_code = `
             discard;
         }
     #endif
-
         vec4 c = vec4(1.0);
-    #ifdef VERTEX_COLOR        
+    #ifdef VERTEX_COLOR
         c = c * vColor;
     #endif
 
