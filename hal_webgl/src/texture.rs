@@ -40,6 +40,10 @@ impl Texture for WebGLTextureImpl {
         self.gl.active_texture(WebGLRenderingContext::TEXTURE0);
         self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
 
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
         match data {
             TextureData::None => {
                 self.gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, self.level as i32, x as i32, y as i32, width as i32, height as i32, p, d, Option::<&[u8]>::None);
@@ -74,6 +78,10 @@ impl WebGLTextureImpl {
                 let d = get_data_format(dformat);
                 gl.active_texture(WebGLRenderingContext::TEXTURE0);
                 gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture));
+
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+                gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
 
                 match data {
                     TextureData::None => {
