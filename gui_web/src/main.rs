@@ -67,14 +67,17 @@ use bc::YgNode;
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn create_engine() -> u32{
+pub fn create_engine(mut res_cush_time: u32) -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
     let gl = WebGLContextImpl::new(Share::new(gl), fbo);
 
+    if res_cush_time < 500 {
+        res_cush_time = 500;
+    }
     // let gl = WebGLContextImpl::new(Arc::new(gl), None);
-    let engine = Engine::new(gl);
+    let engine = Engine::new(gl, res_cush_time);
     Box::into_raw(Box::new(engine)) as u32
 }
 #[allow(unused_attributes)]

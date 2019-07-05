@@ -28,10 +28,10 @@ pub struct Engine<C: Context>{
 }
 
 impl<C: Context> Engine<C> {
-    pub fn new(gl: C) -> Self {
+    pub fn new(gl: C, time: u32) -> Self {
         Engine{
             gl: gl,
-            res_mgr: ResMgr::new(3000),
+            res_mgr: ResMgr::new(time),
             pipelines: FnvHashMap::default(),
         }
     }
