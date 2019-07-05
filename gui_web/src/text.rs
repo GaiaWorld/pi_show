@@ -218,7 +218,6 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
 		    ctx.fillRect(0, 0, __jsObj1.width, __jsObj1.height);
         }
     }
-
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
@@ -229,6 +228,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     let engine = world.engine.lend_mut();
     let font_sheet = world.font_sheet.lend_mut();
 
+    println!("----------add_sdf_font_res{:?}", name);
     let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
         Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
         Err(_) => panic!("set_src error"),

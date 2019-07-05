@@ -46,7 +46,7 @@ pub struct TextureRes<C: Context> {
 //     }
 // }
 
-impl<C: Context + 'static> TextureRes<C> {
+impl<C: Context> TextureRes<C> {
     // 创建资源
 	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: Compress, bind: C::ContextTexture) -> Self{
         TextureRes {

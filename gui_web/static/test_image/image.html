@@ -56,12 +56,16 @@
 
             Module._render(gui);
 
+            // setTimeout(() => {
+            //     Module._set_image_clip(gui, node, 0, 0, 0.5, 0.5);
+            //     Module._render(gui);
+            // }, 2000);
+
             setTimeout(() => {
-                Module._set_image_clip(gui, node, 0, 0, 0.5, 0.5);
+                Module._remove_child(gui, node);
                 Module._render(gui);
             }, 2000);
 
-            
             
             // //修改图片
             // setTimeout(() => {

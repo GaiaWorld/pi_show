@@ -146,6 +146,15 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        // let mut hasher = DefaultHasher::new();
+        // 10.hash(&mut hasher);
+        // // 20.hash(&mut hasher);
+        // // 30.hash(&mut hasher);
+        // // for d in defines.iter() {
+        // //     d.hash(&mut hasher);
+        // // }
+        // let key = hasher.finish();
+
         let (background_colors, border_radius, z_depths, layouts, opacitys) = read;
         let (render_objs, engine) = write;
         let background_color = unsafe { background_colors.get_unchecked(event.id) };

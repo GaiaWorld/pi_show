@@ -30,7 +30,7 @@ impl<C: Context> Engine<C> {
     pub fn new(gl: C) -> Self {
         Engine{
             gl: gl,
-            res_mgr: ResMgr::new(36000),
+            res_mgr: ResMgr::new(3000),
             pipelines: FnvHashMap::default(),
         }
     }
@@ -56,6 +56,7 @@ impl<C: Context> Engine<C> {
                 Ok(r) => r,
                 Err(s) => panic!("compile_fs_shader error: {:?}", s),
             };
+           
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
                     let defines = Vec::from(defines);

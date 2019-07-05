@@ -1,5 +1,5 @@
 // 显卡资源管理器
-use share::Share;
+use share::{Share, ShareWeak};
 use std::hash::Hash;
 use std::any::{ TypeId, Any };
 use std::ops::{ Deref };
@@ -71,7 +71,7 @@ impl<T: ResTrait> Deref for Res<T> {
     }
 }
 
-fn timeout_release(timeout: usize){   
+fn timeout_release(timeout: usize){  
     unsafe { TIMER_REF = set_timeout(timeout, Box::new(|| {
         let mut list = RELEASE_ARRAY.0.borrow_mut();
         let now = now_time();
@@ -82,12 +82,12 @@ fn timeout_release(timeout: usize){
             if i < len {
                 let timeout = list[i].1;
                 if timeout <= now {
-                    if timeout < TIMER_TIME {
-                        TIMER_TIME = timeout;
-                    }
                     list.swap_remove(i); 
                     len -= 1;
                 } else {
+                    if timeout < TIMER_TIME {
+                        TIMER_TIME = timeout;
+                    }
                     i += 1;
                 }
             } else {
@@ -95,7 +95,11 @@ fn timeout_release(timeout: usize){
             }
         }
         if len > 0 {
-            timeout_release((TIMER_TIME - now) as usize);
+            let mut t = (TIMER_TIME as i64) - (now as i64);
+            if t < 500 {
+                t = 500;
+            }
+            timeout_release(t as usize);
         }
     }))};
 }
@@ -152,7 +156,7 @@ impl ResMgr {
 }
 
 //资源表
-pub struct ResMap<T: ResTrait> (FnvHashMap<<T as ResTrait>::Key, (Share<T>, u32)>);
+pub struct ResMap<T: ResTrait> (FnvHashMap<<T as ResTrait>::Key, (ShareWeak<T>, u32)>);
 
 impl<T:ResTrait> ResMap<T> {
     pub fn new() -> ResMap<T>{
@@ -161,10 +165,13 @@ impl<T:ResTrait> ResMap<T> {
 	// 获得指定键的资源
 	pub fn get(&self, name: &<T as ResTrait>::Key) -> Option<Res<T>> {
         if let Some(v) = self.0.get(name) {
-            return Some(Res{
-                timeout: v.1,
-                value: v.0.clone(),
-            });
+            match v.0.upgrade() {
+                Some(r) => return Some(Res{
+                    timeout: v.1,
+                    value:  r,
+                }),
+                None => (),
+            }
         }
         None
     }
@@ -172,7 +179,7 @@ impl<T:ResTrait> ResMap<T> {
 	pub fn create(&self, res: T, timeout: u32) -> Res<T> {
         let name = res.name().clone();
         let r = Share::new(res);
-        unsafe{&mut *(self as *const Self as usize as *mut Self)}.0.insert(name, (r.clone(), 0));
+        unsafe{&mut *(self as *const Self as usize as *mut Self)}.0.insert(name, (Share::downgrade(&r), 0));
         Res{
             timeout,
             value: r,

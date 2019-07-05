@@ -1,9 +1,50 @@
 #![feature(custom_attribute)]
 
-extern crate cgmath;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
-pub mod test_matrix;
+#[use_macro]
+extern crate stdweb;
+#[use_macro]
+extern crate stdweb_derive;
 
-fn main() {
-    test_matrix::test_cal_martix4();
+// extern crate cgmath;
+
+// pub mod test_matrix;
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn xx()  {
+     let time = std::time::Instant::now();
+    let mut a = 0;
+    for i in 0..300 {
+        let mut hasher = DefaultHasher::new();
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        a = hasher.finish();
+    }
+    println!("{:?}, {}",  std::time::Instant::now() - time, a);
+    
+    // js! {
+    //     console.log(format!("{:?}, {}",  std::time::Instant::now() - time, a));
+    // }
 }
+
+
+fn main() { 
+    xx();
+    // let time = std::time::Instant::now();
+    // let mut a = 0;
+    // for i in 0..300 {
+    //     let mut hasher = DefaultHasher::new();
+    //     i.hash(&mut hasher);
+    //     i.hash(&mut hasher);
+    //     i.hash(&mut hasher);
+    //     a = hasher.finish();
+    // }
+    // println!("{:?}, {}",  std::time::Instant::now() - time, a);
+}
+
+// fn main() {
+//     test_matrix::test_cal_martix4();
+// }

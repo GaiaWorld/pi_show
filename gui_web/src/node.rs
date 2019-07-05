@@ -121,7 +121,6 @@ pub fn remove_child(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
-    // println!("set_src----{}", node);
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let yg_nodes = world.yoga.lend_mut();
@@ -152,7 +151,6 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
             //     Err(s) => panic!("set_src error, {:?}", s),
             //   },
             // };
-
             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
             let res = engine.res_mgr.create::<TextureRes<WebGLContextImpl>>(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
@@ -209,7 +207,6 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
             //     Err(s) => panic!("set_src error, {:?}", s),
             //   },
             // };
-
             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
             let res = engine.res_mgr.create::<TextureRes<WebGLContextImpl>>(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
