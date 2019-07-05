@@ -5,7 +5,11 @@ use stdweb::{UnsafeTypedArray, Object};
 use stdweb::unstable::TryInto;
 use fnv::FnvHashMap;
 
+use std::rc::{Rc};
+use std::cell::{RefCell};
+
 use convert::{get_attribute_location};
+use context::{RenderStats};
 
 #[derive(Debug)]
 pub struct Attribute {
@@ -31,11 +35,12 @@ pub struct WebGLGeometryImpl {
     pub attributes: FnvHashMap<AttributeName, Attribute>,
     pub vao: Option<Object>,
     pub vao_extension: Option<Share<Object>>,
+    pub stats: Rc<RefCell<RenderStats>>,
 }
 
 impl WebGLGeometryImpl {
     
-    pub fn new(gl: &Share<WebGLRenderingContext>, vao_extension: Option<Share<Object>>) -> Self {
+    pub fn new(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, vao_extension: Option<Share<Object>>) -> Self {
 
         let vao = match &vao_extension {
             None => None,
@@ -59,7 +64,8 @@ impl WebGLGeometryImpl {
             indices: None,
             vao: vao,
             vao_extension: vao_extension,
-            attributes: FnvHashMap::default(),            
+            attributes: FnvHashMap::default(),  
+            stats: stats.clone(),          
         }
     }
 }
@@ -321,9 +327,10 @@ impl Geometry for WebGLGeometryImpl {
 
 impl Drop for WebGLGeometryImpl {
     fn drop(&mut self) {
+        self.stats.borrow_mut().geometry_count -= 1;
         println!("================= WebGLGeometryImpl Drop");
         if let Some(gl) = &self.gl.upgrade() {
-            println!("================= WebGLGeometryImpl Drop impl");
+            println!("================= WebGLGeometryImpl Drop impl, stats = {:?}", self.stats.borrow());
             if let Some(vao) = &self.vao {
                 let extension = self.vao_extension.as_ref().unwrap().as_ref();
                 js! {

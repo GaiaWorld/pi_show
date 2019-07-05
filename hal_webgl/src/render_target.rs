@@ -8,6 +8,10 @@ use stdweb::unstable::TryInto;
 use webgl_rendering_context::{WebGLRenderingContext, WebGLRenderbuffer};
 use convert::*;
 
+use std::rc::{Rc};
+use std::cell::{RefCell};
+use context::{RenderStats};
+
 #[derive(Debug)]
 pub struct WebGLRenderBufferImpl {
     gl: ShareWeak<WebGLRenderingContext>,
@@ -34,6 +38,7 @@ pub struct WebGLRenderTargetImpl {
     depth: Option<RenderTargetAttach>,
     width: u32,
     height: u32,
+    stats: Rc<RefCell<RenderStats>>,
 }
 
 impl RenderBuffer for WebGLRenderBufferImpl {
@@ -77,6 +82,7 @@ impl WebGLRenderBufferImpl {
             height: h,
             format: *pformat,
             handle: r,
+            
         })
     }
 }
@@ -86,7 +92,7 @@ impl WebGLRenderTargetImpl {
     /** 
      * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
      */
-    pub fn new_default(gl: &Share<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
+    pub fn new_default(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, fbo: Option<Object>, w: u32, h: u32) -> Self {
 
         WebGLRenderTargetImpl {
             gl: Share::downgrade(gl),
@@ -96,10 +102,11 @@ impl WebGLRenderTargetImpl {
             depth: None,
             width: w,
             height: h,
+            stats: stats.clone(),
         }
     }
 
-    pub fn new(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
+    pub fn new(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
         
         match TryInto::<Object>::try_into(js! {
             var fbo = @{gl.as_ref()}.createFramebuffer();
@@ -116,7 +123,7 @@ impl WebGLRenderTargetImpl {
                 let fb_type = WebGLRenderingContext::FRAMEBUFFER;
                 let tex_target = WebGLRenderingContext::TEXTURE_2D;
                 let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
-                let color = match WebGLTextureImpl::new_2d(gl, w, h, 0, pformat, dformat, false, &TextureData::None) {
+                let color = match WebGLTextureImpl::new_2d(stats, gl, w, h, 0, pformat, dformat, false, &TextureData::None) {
                     Ok(texture) => {
                         gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&texture.handle), 0);
                         Some(RenderTargetAttach::Texture(Share::new(texture)))
@@ -146,6 +153,7 @@ impl WebGLRenderTargetImpl {
                     depth: depth,
                     width: w,
                     height: h,
+                    stats: stats.clone(),
                 })            
             }
             Err(_) => {
@@ -174,7 +182,8 @@ impl Drop for WebGLRenderTargetImpl {
     fn drop(&mut self) {
         println!("================= WebGLRenderTargetImpl Drop");
         if let Some(gl) = &self.gl.upgrade() {
-            println!("================= WebGLRenderTargetImpl Drop impl");
+            self.stats.borrow_mut().render_target_count -= 1;
+            println!("================= WebGLRenderTargetImpl Drop impl, stats = {:?}", self.stats.borrow());
             if self.frame_buffer.is_some() {
                 js! {
                     @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer}.wrap);

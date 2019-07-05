@@ -20,6 +20,10 @@ use sampler::{WebGLSamplerImpl};
 use state::{State};
 use debug_info::*;
 
+use std::rc::{Rc};
+use std::cell::{RefCell};
+use context::{RenderStats};
+
 /**
  * GPU Shader
  */
@@ -70,6 +74,7 @@ pub struct ProgramManager {
     program_caches: FnvHashMap<u64, Program>,
 
     max_vertex_attribs: u32,
+    stats: Rc<RefCell<RenderStats>>,
 }
 
 impl ProgramManager {
@@ -78,13 +83,14 @@ impl ProgramManager {
      * 创建一个管理器
      * 注：一个App可能存在多个gl环境，因此ProgramManager不能是单例
      */
-    pub fn new(gl: &Share<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
+    pub fn new(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
         ProgramManager {
             gl: Share::downgrade(gl),
             code_caches: FnvHashMap::default(),
             shader_caches: FnvHashMap::default(),
             program_caches: FnvHashMap::default(),
             max_vertex_attribs: max_vertex_attribs,
+            stats: stats.clone(),
         }
     }
 
@@ -252,6 +258,9 @@ impl ProgramManager {
 
         self.program_caches.insert(program_hash, program);
 
+        self.stats.borrow_mut().program_count += 1;
+        println!("!!!!!!!!!!!!!!!!! WebGLProgramImpl Create, stats = {:?} !", self.stats.borrow());
+        
         Ok(())
     }
 

@@ -6,6 +6,10 @@ use stdweb::{Object};
 use convert::*;
 use sampler::{WebGLSamplerImpl};
 
+use std::rc::{Rc};
+use std::cell::{RefCell};
+use context::{RenderStats};
+
 #[derive(Debug)]
 pub struct WebGLTextureImpl {
     pub gl: Share<WebGLRenderingContext>,
@@ -17,6 +21,7 @@ pub struct WebGLTextureImpl {
     pub is_gen_mipmap: bool,
     pub handle: WebGLTexture,
     pub sampler: WebGLSamplerImpl,
+    pub stats: Rc<RefCell<RenderStats>>,
 }
 
 impl Texture for WebGLTextureImpl {
@@ -60,6 +65,8 @@ impl Texture for WebGLTextureImpl {
 
 impl Drop for WebGLTextureImpl {
     fn drop(&mut self) {
+        self.stats.borrow_mut().texture_count -= 1;
+        println!("================= WebGLTextureImpl Drop, stats = {:?}", self.stats.borrow());
         self.gl.delete_texture(Some(&self.handle));
     }
 }
@@ -72,7 +79,7 @@ impl AsRef<Self> for WebGLTextureImpl {
 
 impl WebGLTextureImpl {
     
-    pub fn new_2d(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
+    pub fn new_2d(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);
@@ -109,10 +116,11 @@ impl WebGLTextureImpl {
                     data_format: *dformat,
                     is_gen_mipmap: is_gen_mipmap,
                     handle: texture,
-                    sampler: WebGLSamplerImpl::new(),
+                    sampler: WebGLSamplerImpl::new(stats),
+                    stats: stats.clone(),
                 };
 
-                t.apply_sampler(&WebGLSamplerImpl::new());
+                t.apply_sampler(&t.sampler);
 
                 Ok(t)
             }
@@ -123,7 +131,7 @@ impl WebGLTextureImpl {
     /** 
      * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
      */
-    pub fn new_2d_webgl(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
+    pub fn new_2d_webgl(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);
@@ -152,10 +160,11 @@ impl WebGLTextureImpl {
                     data_format: *dformat,
                     is_gen_mipmap: is_gen_mipmap,
                     handle: texture,
-                    sampler: WebGLSamplerImpl::new(),
+                    sampler: WebGLSamplerImpl::new(&stats),
+                    stats: stats.clone(),
                 };
 
-                t.apply_sampler(&WebGLSamplerImpl::new());
+                t.apply_sampler(&t.sampler);
 
                 Ok(t)
             }

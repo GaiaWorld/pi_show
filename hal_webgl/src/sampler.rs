@@ -1,5 +1,9 @@
 use hal_core::*;
 
+use std::rc::{Rc};
+use std::cell::{RefCell};
+use context::{RenderStats};
+
 #[derive(Debug)]
 pub struct WebGLSamplerImpl {
     pub min_filter: TextureFilterMode,
@@ -8,6 +12,8 @@ pub struct WebGLSamplerImpl {
 
     pub u_wrap: TextureWrapMode,
     pub v_wrap: TextureWrapMode,
+
+    pub stats: Rc<RefCell<RenderStats>>,
 }
 
 impl Sampler for WebGLSamplerImpl {
@@ -15,7 +21,8 @@ impl Sampler for WebGLSamplerImpl {
 
 impl Drop for WebGLSamplerImpl {
     fn drop(&mut self) {
-        println!("================= WebGLSamplerImpl Drop");
+        self.stats.borrow_mut().sampler_count -= 1;
+        println!("================= WebGLSamplerImpl Drop, stats = {:?}", self.stats.borrow());
     }
 }
 
@@ -26,7 +33,7 @@ impl AsRef<Self> for WebGLSamplerImpl {
 }
 
 impl WebGLSamplerImpl {
-    pub fn new() -> Self {
+    pub fn new(stats: &Rc<RefCell<RenderStats>>) -> Self {
         WebGLSamplerImpl {
             min_filter: TextureFilterMode::Linear,
             mag_filter: TextureFilterMode::Linear,
@@ -34,6 +41,7 @@ impl WebGLSamplerImpl {
 
             u_wrap: TextureWrapMode::Repeat,
             v_wrap: TextureWrapMode::Repeat,
+            stats: stats.clone(),
         }
     }
 }
