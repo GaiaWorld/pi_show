@@ -44,7 +44,9 @@ impl RenderBuffer for WebGLRenderBufferImpl {
 
 impl Drop for WebGLRenderBufferImpl {
     fn drop(&mut self) {
-         if let Some(gl) = &self.gl.upgrade() {
+        println!("================= WebGLRenderBufferImpl Drop");
+        if let Some(gl) = &self.gl.upgrade() {
+            println!("================= WebGLRenderBufferImpl Drop impl");
             gl.delete_renderbuffer(Some(&self.handle));
         }
     }
@@ -170,7 +172,9 @@ impl RenderTarget for WebGLRenderTargetImpl {
 
 impl Drop for WebGLRenderTargetImpl {
     fn drop(&mut self) {
+        println!("================= WebGLRenderTargetImpl Drop");
         if let Some(gl) = &self.gl.upgrade() {
+            println!("================= WebGLRenderTargetImpl Drop impl");
             if self.frame_buffer.is_some() {
                 js! {
                     @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer}.wrap);

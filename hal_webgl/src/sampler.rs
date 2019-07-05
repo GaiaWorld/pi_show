@@ -15,6 +15,7 @@ impl Sampler for WebGLSamplerImpl {
 
 impl Drop for WebGLSamplerImpl {
     fn drop(&mut self) {
+        println!("================= WebGLSamplerImpl Drop");
     }
 }
 

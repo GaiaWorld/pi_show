@@ -321,7 +321,9 @@ impl Geometry for WebGLGeometryImpl {
 
 impl Drop for WebGLGeometryImpl {
     fn drop(&mut self) {
+        println!("================= WebGLGeometryImpl Drop");
         if let Some(gl) = &self.gl.upgrade() {
+            println!("================= WebGLGeometryImpl Drop impl");
             if let Some(vao) = &self.vao {
                 let extension = self.vao_extension.as_ref().unwrap().as_ref();
                 js! {
