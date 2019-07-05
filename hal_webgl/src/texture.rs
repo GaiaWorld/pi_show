@@ -66,7 +66,7 @@ impl Texture for WebGLTextureImpl {
 impl Drop for WebGLTextureImpl {
     fn drop(&mut self) {
         self.stats.borrow_mut().texture_count -= 1;
-        println!("================= WebGLTextureImpl Drop, stats = {:?}", self.stats.borrow());
+        //println!("================= WebGLTextureImpl Drop, stats = {:?}", self.stats.borrow());
         self.gl.delete_texture(Some(&self.handle));
     }
 }

@@ -1,11 +1,11 @@
 pub mod constant;
 
 use share::Share;
-use std::collections::hash_map::DefaultHasher;
 use std::hash::{ Hasher, Hash };
 use std::mem::transmute;
 
 use ordered_float::NotNan;
+use fnv::FnvHasher;
 
 use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait};
 use hal_core::{ RasterState, BlendState, StencilState, DepthState, Context, Geometry, SamplerDesc, AttributeName};
@@ -151,7 +151,7 @@ pub trait DefinesClip{
 }
 
 pub fn sampler_desc_hash(s: &SamplerDesc) -> u64{
-    let mut h = DefaultHasher::new();
+    let mut h = FnvHasher::default();
     unsafe { transmute::<hal_core::TextureFilterMode, u8>(s.mag_filter).hash(&mut h) };
     unsafe {  transmute::<hal_core::TextureFilterMode, u8>(s.min_filter).hash(&mut h) };
     if let Some(mip_filter) = &s.mip_filter {
@@ -227,7 +227,7 @@ pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>
 // }
 
 
-pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
+pub fn radius_quad_hash(hasher: &mut FnvHasher, radius: f32, width: f32, height: f32) {
     RADIUS_QUAD_POSITION_INDEX.hash(hasher);
     unsafe { NotNan::unchecked_new(radius).hash(hasher) };
     unsafe { NotNan::unchecked_new(width).hash(hasher) };

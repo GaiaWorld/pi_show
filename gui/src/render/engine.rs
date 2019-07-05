@@ -1,6 +1,7 @@
 use share::Share;
-use std::collections::hash_map::DefaultHasher;
+// use std::collections::hash_map::FnvHasher;
 use std::hash::{ Hasher, Hash };
+use fnv::FnvHasher;
 
 use fnv::FnvHashMap;
 
@@ -37,7 +38,7 @@ impl<C: Context> Engine<C> {
 
     pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Share<RasterState>, bs: Share<BlendState>, ss: Share<StencilState>, ds: Share<DepthState>) -> Share<PipelineInfo> {
         // pipeline hash
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = FnvHasher::default();
         start_hash.hash(&mut hasher);
         vs_name.hash(&mut hasher);
         fs_name.hash(&mut hasher);

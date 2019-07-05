@@ -10,7 +10,6 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseIm
 use map::{ vecmap::VecMap };
 use hal_core::*;
 use atom::Atom;
-// use std::collections::hash_map::DefaultHasher;
 // use std::hash::{ Hasher, Hash };
 
 // use ordered_float::NotNan;

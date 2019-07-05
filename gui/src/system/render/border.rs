@@ -4,9 +4,8 @@
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
-use std::collections::hash_map::DefaultHasher;
 
-use fnv::FnvHashMap;
+use fnv::{ FnvHashMap, FnvHasher};
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
@@ -268,7 +267,7 @@ struct Item {
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
     let radius = cal_border_radius(radius, layout);
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = FnvHasher::default();
     BORDER_COLOR.hash(&mut hasher);
     unsafe { NotNan::unchecked_new(radius.x).hash(&mut hasher) };
     unsafe { NotNan::unchecked_new(layout.width).hash(&mut hasher) };

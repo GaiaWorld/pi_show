@@ -3,10 +3,15 @@
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-#[use_macro]
-extern crate stdweb;
-#[use_macro]
-extern crate stdweb_derive;
+// #[use_macro]
+// extern crate stdweb;
+// #[use_macro]
+// extern crate stdweb_derive;
+extern crate rustc_hash;
+extern crate fnv;
+
+use rustc_hash::FxHasher;
+use fnv::FnvHasher;
 
 // extern crate cgmath;
 
@@ -14,7 +19,7 @@ extern crate stdweb_derive;
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn xx()  {
-     let time = std::time::Instant::now();
+    let time = std::time::Instant::now();
     let mut a = 0;
     for i in 0..300 {
         let mut hasher = DefaultHasher::new();
@@ -30,9 +35,37 @@ pub fn xx()  {
     // }
 }
 
+fn yy() {
+    let time = std::time::Instant::now();
+    let mut a = 0;
+    for i in 0..300 {
+        let mut hasher = FxHasher::default();
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        a = hasher.finish();
+    }
+    println!("{:?}, {}",  std::time::Instant::now() - time, a);
+}
+
+fn zz() {
+    let time = std::time::Instant::now();
+    let mut a = 0;
+    for i in 0..300 {
+        let mut hasher = FnvHasher::default();
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        i.hash(&mut hasher);
+        a = hasher.finish();
+    }
+    println!("{:?}, {}",  std::time::Instant::now() - time, a);
+}
+
 
 fn main() { 
-    xx();
+    // zz();
+    yy();
+    // xx();
     // let time = std::time::Instant::now();
     // let mut a = 0;
     // for i in 0..300 {

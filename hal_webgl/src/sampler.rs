@@ -22,7 +22,7 @@ impl Sampler for WebGLSamplerImpl {
 impl Drop for WebGLSamplerImpl {
     fn drop(&mut self) {
         self.stats.borrow_mut().sampler_count -= 1;
-        println!("================= WebGLSamplerImpl Drop, stats = {:?}", self.stats.borrow());
+        //println!("================= WebGLSamplerImpl Drop, stats = {:?}", self.stats.borrow());
     }
 }
 

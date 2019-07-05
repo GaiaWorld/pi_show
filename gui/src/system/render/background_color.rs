@@ -4,9 +4,8 @@
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
-use std::collections::hash_map::DefaultHasher;
 
-use fnv::FnvHashMap;
+use fnv::{FnvHashMap, FnvHasher};
 use ordered_float::NotNan;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
@@ -146,10 +145,10 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        // let mut hasher = DefaultHasher::new();
+        // let mut hasher = FnvHasher::default();
         // 10.hash(&mut hasher);
-        // // 20.hash(&mut hasher);
-        // // 30.hash(&mut hasher);
+        // 20.hash(&mut hasher);
+        // 30.hash(&mut hasher);
         // // for d in defines.iter() {
         // //     d.hash(&mut hasher);
         // // }
@@ -384,7 +383,7 @@ impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout, color: &BackgroundColor) -> u64{
     let radius = cal_border_radius(radius, layout);
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = FnvHasher::default();
     match &color.0 {
         Color::RGBA(_) => {
             if radius.x == 0.0 {

@@ -94,7 +94,7 @@ impl Context for WebGLContextImpl {
     fn create_geometry(&self) -> Result<Self::ContextGeometry, String> {
         
         self.stats.borrow_mut().geometry_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLGeometryImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLGeometryImpl Create, stats = {:?} !", self.stats.borrow());
         
         let vao_extension = match &self.vao_extension {
             None => None,
@@ -106,7 +106,7 @@ impl Context for WebGLContextImpl {
     fn create_texture_2d(&mut self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self::ContextTexture, String> {
 
         self.stats.borrow_mut().texture_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
         
         WebGLTextureImpl::new_2d(&self.stats, &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
@@ -115,7 +115,7 @@ impl Context for WebGLContextImpl {
         let desc = desc.as_ref().as_ref();
         
         self.stats.borrow_mut().sampler_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLSamplerImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLSamplerImpl Create, stats = {:?} !", self.stats.borrow());
         
         Ok(WebGLSamplerImpl {
             stats: self.stats.clone(),
@@ -129,7 +129,7 @@ impl Context for WebGLContextImpl {
 
     fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
         self.stats.borrow_mut().render_target_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLRenderTargetImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLRenderTargetImpl Create, stats = {:?} !", self.stats.borrow());
         WebGLRenderTargetImpl::new(&self.stats, &self.gl, w, h, pformat, dformat, has_depth)
     }
 
@@ -226,8 +226,8 @@ impl WebGLContextImpl {
             None
         };
         
-        println!("~~~~~~~~~~~~~ WebGLRenderingContext, All extensions: {:?}", gl.get_supported_extensions());
-        println!("~~~~~~~~~~~~~ WebGLRenderingContext, caps {:?}", &caps);
+        //println!("~~~~~~~~~~~~~ WebGLRenderingContext, All extensions: {:?}", gl.get_supported_extensions());
+        //println!("~~~~~~~~~~~~~ WebGLRenderingContext, caps {:?}", &caps);
 
         WebGLContextImpl {
             gl: gl,
@@ -246,7 +246,7 @@ impl WebGLContextImpl {
      */
     pub fn create_texture_2d_webgl(&self, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         self.stats.borrow_mut().texture_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
 
         WebGLTextureImpl::new_2d_webgl(&self.stats, &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }

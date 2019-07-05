@@ -18,8 +18,10 @@ authors = ["moyy <moyy@yineng.com>"]
 # cgmath = { path = "../../pi_math/cgmath" }
 # octree = { path = "../../pi_math/octree" }
 # # gui = {path="../gui"}
-stdweb = "0.4.15"
-stdweb-derive = "0.5.1"
+# stdweb = "0.4.15"
+# stdweb-derive = "0.5.1"
+rustc-hash = "1.0.1"
+fnv = "1.0.6"
 # webgl-rendering-context = "0.1.0"
 # lazy_static = "*"
 # paste = "0.1"

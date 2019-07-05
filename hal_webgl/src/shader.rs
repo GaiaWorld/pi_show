@@ -259,7 +259,7 @@ impl ProgramManager {
         self.program_caches.insert(program_hash, program);
 
         self.stats.borrow_mut().program_count += 1;
-        println!("!!!!!!!!!!!!!!!!! WebGLProgramImpl Create, stats = {:?} !", self.stats.borrow());
+        //println!("!!!!!!!!!!!!!!!!! WebGLProgramImpl Create, stats = {:?} !", self.stats.borrow());
         
         Ok(())
     }
