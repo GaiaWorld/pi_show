@@ -10,6 +10,7 @@ mod charblock;
 mod charblock_shadow;
 mod clip;
 mod render_matrix;
+pub mod util;
 
 
 pub use system::render::clip::*;

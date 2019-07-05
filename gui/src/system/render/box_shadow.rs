@@ -316,6 +316,9 @@ fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
 
 //取几何体的顶点流和索引流和color属性流
 fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow: &BoxShadow) -> (Vec<f32>, Vec<u16>) {
+    if layout.width == 0.0 && layout.height == 0.0 {
+        return (Vec::new(), Vec::new());
+    }
     let radius = cal_border_radius(radius, layout);
     let start_x = box_shadow.h;
     let start_y = box_shadow.v;

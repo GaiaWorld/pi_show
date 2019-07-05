@@ -10,7 +10,6 @@ use fnv::FnvHashMap;
 use ordered_float::NotNan;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
-use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
 use polygon::*;
@@ -19,11 +18,12 @@ use component::user::*;
 use component::calc::{Opacity, ZDepth, WorldMatrixRender};
 use entity::{Node};
 use single::*;
-use render::engine::{ Engine};
+use render::engine::{ Engine, PipelineInfo};
 use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use system::render::util::*;
 
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
@@ -35,36 +35,37 @@ lazy_static! {
 }
 
 pub struct BackgroundColorSys<C: Context + ShareTrait>{
-    render_map: VecMap<Item>,
-    geometry_dirtys: Vec<usize>,
+    items: Items,
     mark: PhantomData<C>,
     rs: Share<RasterState>,
     bs: Share<BlendState>,
     ss: Share<StencilState>,
     ds: Share<DepthState>,
+    default_pipeline: Option<Share<PipelineInfo>>,
 }
 
 impl<C: Context + ShareTrait> BackgroundColorSys<C> {
     pub fn new() -> Self{
         BackgroundColorSys {
-            render_map: VecMap::default(),
-            geometry_dirtys: Vec::new(),
+            items: Items::new(),
             mark: PhantomData,
             rs: Share::new(RasterState::new()),
             bs: Share::new(BlendState::new()),
             ss: Share::new(StencilState::new()),
             ds: Share::new(DepthState::new()),
+            default_pipeline: None,
         }
     }
 
-    fn set_geometry_dirty(&mut self, id: usize) {
-        if let Some(item) = self.render_map.get_mut(id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(id);
-            }
-        }
-    }
+    // fn handle_pipeline_dirty(&mut self, render_objs: &mut SingleCaseImpl<RenderObjs<C>>, engine: &mut SingleCaseImpl<Engine<C>>){
+    //     for id in self.items.pipeline_dirtys.iter() {
+    //         let item = unsafe { self.items.render_map.get_unchecked_mut(*id) };
+    //         item.pipeline_change = false;
+
+
+    //     }
+    //     self.items.pipeline_dirtys.clear();
+    // }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
@@ -80,8 +81,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, border_radiuss, z_depths, background_colors, world_matrixs) = read;
         let (render_objs, engine) = write;
-        for id in  self.geometry_dirtys.iter() {
-            let item = unsafe { self.render_map.get_unchecked_mut(*id) };
+        for id in  self.items.geometry_dirtys.iter() {
+            let item = unsafe { self.items.render_map.get_unchecked_mut(*id) };
             item.position_change = false;
             let border_radius = unsafe { border_radiuss.get_unchecked(*id) };
             let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
@@ -102,7 +103,16 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
                         let mut geometry = create_geometry(&mut engine.gl);
                         geometry.set_vertex_count((positions.len()/3) as u32);
                         geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-                        geometry.set_indices_short(indices.as_slice(), false).unwrap();
+                        if geometry.set_indices_short(indices.as_slice(), false).is_err(){
+                            panic!("set_indices_short fail, id: {}, positions: {:?}, indices_short: {:?}, border_radius: {:?}, layout: {:?}, background_color: {:?},", 
+                                *id,
+                                positions, 
+                                indices, 
+                                border_radius,
+                                layout,
+                                background_color,
+                            );
+                        }
                         match colors {
                             Some(colors) => {
                                 geometry.set_attribute(&AttributeName::Color, 4, Some(colors.as_slice()), false).unwrap()
@@ -118,7 +128,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
 
             self.modify_matrix(*id, world_matrixs, layouts, background_colors, border_radiuss, render_objs);
         }
-        self.geometry_dirtys.clear();
+        self.items.geometry_dirtys.clear();
     }
 }
 
@@ -160,7 +170,6 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
             },
         }
         ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
-
         let pipeline = engine.create_pipeline(
             0,
             &COLOR_VS_SHADER_NAME.clone(),
@@ -188,8 +197,8 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        self.render_map.insert(event.id, Item{index: index, position_change: true});
-        self.geometry_dirtys.push(event.id);
+        self.items.render_map.insert(event.id, Item::new(index));
+        self.items.geometry_dirtys.push(event.id);
     }
 }
 
@@ -199,7 +208,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, M
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (background_colors, opacitys) = read;
-        let item = unsafe { self.render_map.get_unchecked_mut(event.id) };
+        let item = unsafe { self.items.render_map.get_unchecked_mut(event.id) };
         let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
    
         let background_color = unsafe { background_colors.get_unchecked(event.id) };
@@ -216,7 +225,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, M
                     render_obj.defines.push(UCOLOR.clone());
                     if item.position_change == false {
                         item.position_change = true;
-                        self.geometry_dirtys.push(event.id);
+                        self.items.geometry_dirtys.push(event.id);
                     }
                 }
                 render_objs.get_notify().modify_event(item.index, "", 0);
@@ -228,7 +237,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, M
                     render_obj.defines.push(VERTEX_COLOR.clone());      
                     if item.position_change == false {
                         item.position_change = true;
-                        self.geometry_dirtys.push(event.id);
+                        self.items.geometry_dirtys.push(event.id);
                     }
                 }
             },
@@ -246,11 +255,11 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, D
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
-        let item = self.render_map.remove(event.id).unwrap();
+        let item = self.items.render_map.remove(event.id).unwrap();
         let notify = render_objs.get_notify();
         render_objs.remove(item.index, Some(notify));
         if item.position_change == true {
-            self.geometry_dirtys.remove_item(&event.id);
+            self.items.geometry_dirtys.remove_item(&event.id);
         }
     }
 }
@@ -260,7 +269,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEven
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        self.set_geometry_dirty(event.id);
+        self.items.set_geometry_dirty(event.id);
     }
 }
 
@@ -269,7 +278,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderRadius, Modi
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        self.set_geometry_dirty(event.id);
+        self.items.set_geometry_dirty(event.id);
     }
 }
 
@@ -308,7 +317,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
 
 impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BackgroundColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-        if let Some(item) = self.render_map.get_mut(id) {
+        if let Some(item) = self.items.render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
             let background_color = unsafe { colors.get_unchecked(id) };
 
@@ -330,7 +339,7 @@ impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
         border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
         render_objs: &mut SingleCaseImpl<RenderObjs<C>>
     ){
-        if let Some(item) = self.render_map.get(id) {
+        if let Some(item) = self.items.render_map.get(id) {
             let background_color = unsafe { background_colors.get_unchecked(id) };
             let layout = unsafe { layouts.get_unchecked(id) };
             let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
@@ -360,14 +369,8 @@ impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
             Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
             debug_println!("background_color, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
             render_objs.get_notify().modify_event(item.index, "ubos", 0);
-            
         }
     }
-}
-
-struct Item {
-    index: usize,
-    position_change: bool,
 }
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout, color: &BackgroundColor) -> u64{
@@ -406,6 +409,9 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, color: &Ba
     let start_y = layout.border_top;
     let end_x = layout.width - layout.border_right;
     let end_y = layout.height - layout.border_bottom;
+    if end_x - start_x == 0.0 && end_y - start_y == 0.0 {
+        return (Vec::new(), Vec::new(), None);
+    }
     let mut positions;
     let mut indices;
     debug_println!("radius:{:?}", radius);

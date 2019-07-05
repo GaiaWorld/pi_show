@@ -36,25 +36,26 @@ impl<C: Context> Engine<C> {
     }
 
     pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Share<RasterState>, bs: Share<BlendState>, ss: Share<StencilState>, ds: Share<DepthState>) -> Share<PipelineInfo> {
-        let vs = match self.gl.compile_shader(ShaderType::Vertex, vs_name, defines) {
-            Ok(r) => r,
-            Err(s) => panic!("compile_vs_shader error: {:?}", s),
-        };
-        let fs = match self.gl.compile_shader(ShaderType::Fragment, fs_name, defines) {
-            Ok(r) => r,
-            Err(s) => panic!("compile_fs_shader error: {:?}", s),
-        };
-    
+        // pipeline hash
         let mut hasher = DefaultHasher::new();
         start_hash.hash(&mut hasher);
-        vs.hash(&mut hasher);
-        fs.hash(&mut hasher);
+        vs_name.hash(&mut hasher);
+        fs_name.hash(&mut hasher);
         for d in defines.iter() {
             d.hash(&mut hasher);
         }
         let key = hasher.finish();
+
         let gl = &mut self.gl;
         let r = self.pipelines.entry(key).or_insert_with(|| {
+            let vs = match gl.compile_shader(ShaderType::Vertex, vs_name, defines) {
+                Ok(r) => r,
+                Err(s) => panic!("compile_vs_shader error: {:?}", s),
+            };
+            let fs = match gl.compile_shader(ShaderType::Fragment, fs_name, defines) {
+                Ok(r) => r,
+                Err(s) => panic!("compile_fs_shader error: {:?}", s),
+            };
             match gl.create_pipeline(vs, fs, rs.clone(), bs.clone(), ss.clone(), ds.clone()){
                 Ok(r) => {
                     let defines = Vec::from(defines);

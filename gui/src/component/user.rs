@@ -32,14 +32,14 @@ pub struct Layout{
     pub padding_right: f32,
     pub padding_bottom: f32,
 }
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct Overflow(pub bool);
 //不透明度
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Clone, Component, Debug)]
 pub struct Opacity(pub f32);
 
 #[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
@@ -52,13 +52,6 @@ pub struct Transform {
 }
 
 #[derive(Debug, Clone, Component, Default)]
-pub struct BoxColor{
-	pub background: Color,
-	pub border: CgColor,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct BackgroundColor(pub Color);
 
 #[derive(Debug, Clone, Component, Default)]
@@ -66,7 +59,6 @@ pub struct BackgroundColor(pub Color);
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
-#[storage(HashMap)]
 pub struct Image<C: Context + 'static + Send + Sync>{
   pub src: Res<TextureRes<C>>
 }
@@ -81,11 +73,10 @@ pub struct Filter {
 }
 
 //ObjectFit
-#[derive(Deref, DerefMut, Component, Default)]
-#[storage(HashMap)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct ObjectFit(pub FitType);
 
-#[derive(Deref, DerefMut, Component)]
+#[derive(Deref, DerefMut, Clone, Component)]
 #[storage(HashMap)]
 pub struct ImageClip(pub Aabb2);
 
@@ -95,7 +86,7 @@ pub struct BorderImage<C: Context + 'static + Send + Sync>{
   pub src: Res<TextureRes<C>>
 }
 
-#[derive(Deref, DerefMut, Component)]
+#[derive(Deref, DerefMut, Clone, Component)]
 #[storage(HashMap)]
 pub struct BorderImageClip(pub Aabb2);
 
@@ -109,7 +100,6 @@ pub struct BorderImageSlice{
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 #[derive(Debug, Clone, Component)]
-#[storage(HashMap)]
 pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
@@ -152,12 +142,6 @@ pub struct TextShadow{
     pub blur: f32, //	可选。模糊的距离。	测试
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
-#[derive(Component, Default)]
-#[storage(HashMap)]
-pub struct SrcClip{
-  pub uv: (Point2, Point2),
-  pub size: Vector2,
-}
 
 #[derive(Component, Debug, Clone, Default)]
 #[storage(HashMap)]
@@ -167,7 +151,6 @@ pub struct Font{
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
-
 
 //================================== 枚举
 
@@ -180,117 +163,6 @@ pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
-
-// #[derive(Default)]
-// pub struct Matrix42d {
-//     pub has_rotate: bool,
-//     pub value: Matrix4,
-// }
-
-// impl Matrix42d {
-//     /// Create a homogeneous transformation matrix from a translation vector.
-//     #[inline]
-//     pub fn from_translation(v: Vector3) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_translation(v),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a scale value.
-//     #[inline]
-//     pub fn from_scale(value: f32) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_scale(value),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a set of scale values.
-//     #[inline]
-//     pub fn from_nonuniform_scale(x: f32, y: f32, z: f32) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_nonuniform_scale(x, y, z),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a rotation around the `x` axis (pitch).
-//     pub fn from_angle_x<A: Into<cgmath::Rad<f32>>>(theta: A) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_x(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_angle_y<A: Into<cgmath::Rad<f32>>>(theta: A) ->Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_y(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_angle_z<A: Into<cgmath::Rad<f32>>>(theta: A) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_y(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_axis_angle<A: Into<cgmath::Rad<f32>>>(axis: Vector3, angle: A) -> Matrix42d{
-//         Matrix42d{
-//             value: Matrix4::from_axis_angle(axis, angle),
-//             has_rotate: true,
-//         }
-//     }
-// }
-
-// impl Deref for Matrix42d {
-//     type Target = Matrix4;
-//     fn deref(&self) -> &Matrix4{
-//         &self.value
-//     }
-// }
-
-// impl Mul<Vector4> for Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a> Mul<&'a Vector4> for Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a> Mul<Vector4> for &'a Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other:  Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a, 'b> Mul<&'a Vector4> for &'b Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl Mul<Matrix42d> for Matrix42d {
-//     type Output = Matrix42d;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
 
 
 #[derive(Debug)]
