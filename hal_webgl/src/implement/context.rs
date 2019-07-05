@@ -7,10 +7,13 @@ use implement::program::{WebGLProgramImpl};
 use implement::state::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLRasterStateImpl, WebGLStencilStateImpl};
 use implement::geometry::{WebGLGeometryImpl};
 
+use stdweb::{Object};
 use wrap::{WebGLContextWrap};
 
+#[derive(Debug)]
 pub struct WebGLContextImpl {
     pub caps: Capabilities,
+    pub vao_extension: Option<Object>,
     pub context: WebGLRenderingContext,
 }
 
@@ -19,6 +22,7 @@ impl WebGLContextImpl {
         let caps = Capabilities::new();
         Self {
             caps: caps,
+            vao_extension: None,
             context: context,
         }
     }

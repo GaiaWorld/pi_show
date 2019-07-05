@@ -9,8 +9,8 @@ pub struct WebGLBufferWrap(pub GLSlot<WebGLBufferImpl>);
 impl Buffer for WebGLBufferWrap {
     type RContext = WebGLContextWrap;
 
-    fn new(context: &Self::RContext, btype: BufferType, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String> {
-        match WebGLBufferImpl::new(&context.rimpl, btype, data, is_updatable) {
+    fn new(context: &Self::RContext, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String> {
+        match WebGLBufferImpl::new(&context.rimpl, btype, count, data, is_updatable) {
             Err(s) => Err(s),
             Ok(buffer) => {
                 let slot = GLSlot::new(&context.buffer, buffer);

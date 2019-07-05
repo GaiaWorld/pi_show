@@ -4,12 +4,16 @@ use implement::context::{WebGLContextImpl};
 
 pub struct WebGLSamplerImpl {
     context: Share<WebGLContextImpl>,
+    desc: SamplerDesc,
 }
 
 impl WebGLSamplerImpl {
 
     pub fn new(context: &Share<WebGLContextImpl>, desc: &SamplerDesc) -> Result<Self, String> {
-        Err("not implmentation".to_string())
+        Ok(Self {
+            context: context.clone(),
+            desc: desc.clone(),
+        })
     }
 
     pub fn delete(&mut self) {

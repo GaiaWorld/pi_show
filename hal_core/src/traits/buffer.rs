@@ -9,7 +9,6 @@ pub enum BufferType {
 pub enum BufferData<'a> {
     Float(&'a[f32]),
     Short(&'a[u16]),
-    Int(&'a[i32]),
 }
 
 /** 
@@ -20,9 +19,13 @@ pub trait Buffer : Sized + Clone {
     type RContext: Context;
 
     /** 
+     * count: data中有多少个具体的元素项(float/short/int)
      * is_updatable表示是否需要更新，根据这个来让显卡决定将该buffer放到不同的地方，以便显卡优化性能。
+     * 
+     * 注：Attribute --> float
+     * 注：Indeices --> short
      */
-    fn new(context: &Self::RContext, btype: BufferType, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String>;
+    fn new(context: &Self::RContext, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<<Self::RContext as Context>::ContextBuffer, String>;
 
     fn delete(&self);
 
@@ -33,6 +36,10 @@ pub trait Buffer : Sized + Clone {
 
     /**
      * 更新数据
+     * 
+     * 注：Attribute --> float
+     * 注：Indeices --> short
+     * 
      * offset：单位是BufferData对应的类型单位。
      *    如果BufferData是Float，那么offet的单位就是1个float
      * 注：如果一开始就要更新数据，那么new的时候，尽量使用 is_updatable = true 来创建buffer。

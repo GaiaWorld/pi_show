@@ -34,9 +34,9 @@ pub trait Geometry : Sized + Clone {
      * stride：该属性需要相隔多远才能取到下一个值，默认：0
      * count：该属性的一个元素占用Buffer的几个单位
      */
-    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String>;
+    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, item_count: usize) -> Result<(), String>;
 
-    fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String>;
+    fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String>;
       
     /**
      * 删除属性

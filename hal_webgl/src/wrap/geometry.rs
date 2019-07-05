@@ -45,20 +45,18 @@ impl Geometry for WebGLGeometryWrap {
         }
     }
 
-    fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize, stride: usize) -> Result<(), String> {
+    fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String> {
         let gslab = convert_to_mut(self.0.slab.as_ref());
-        let bslab = convert_to_mut(buffer.0.slab.as_ref());
-        match (gslab.get_mut(self.0.index), bslab.get_mut(buffer.0.index)) {
-            (Some(geometry), Some(buffer)) => geometry.set_attribute_with_offset(name, buffer, offset, count, stride),
+        match gslab.get_mut(self.0.index) {
+            Some(geometry) => geometry.set_attribute_with_offset(name, &buffer.0, item_count, offset, count, stride),
             _ => Err("not found".to_string()),
         }
     }
 
-    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String> {
+    fn set_attribute(&self, name: &AttributeName, buffer: &<Self::RContext as Context>::ContextBuffer, item_count: usize) -> Result<(), String> {
         let gslab = convert_to_mut(self.0.slab.as_ref());
-        let bslab = convert_to_mut(buffer.0.slab.as_ref());
-        match (gslab.get_mut(self.0.index), bslab.get_mut(buffer.0.index)) {
-            (Some(geometry), Some(buffer)) => geometry.set_attribute(name, buffer),
+        match gslab.get_mut(self.0.index) {
+            Some(geometry) => geometry.set_attribute(name, &buffer.0, item_count),
             _ => Err("not found".to_string()),
         }
     }
@@ -73,18 +71,16 @@ impl Geometry for WebGLGeometryWrap {
 
     fn set_indices_short(&self, buffer: &<Self::RContext as Context>::ContextBuffer) -> Result<(), String> {
         let gslab = convert_to_mut(self.0.slab.as_ref());
-        let bslab = convert_to_mut(buffer.0.slab.as_ref());
-        match (gslab.get_mut(self.0.index), bslab.get_mut(buffer.0.index)) {
-            (Some(geometry), Some(buffer)) => geometry.set_indices_short(buffer),
+        match gslab.get_mut(self.0.index) {
+            Some(geometry) => geometry.set_indices_short(&buffer.0),
             _ => Err("not found".to_string()),
         }
     }
 
     fn set_indices_short_with_offset(&self, buffer: &<Self::RContext as Context>::ContextBuffer, offset: usize, count: usize) -> Result<(), String> {
         let gslab = convert_to_mut(self.0.slab.as_ref());
-        let bslab = convert_to_mut(buffer.0.slab.as_ref());
-        match (gslab.get_mut(self.0.index), bslab.get_mut(buffer.0.index)) {
-            (Some(geometry), Some(buffer)) => geometry.set_indices_short_with_offset(buffer, offset, count),
+        match gslab.get_mut(self.0.index) {
+            Some(geometry) => geometry.set_indices_short_with_offset(&buffer.0, offset, count),
             _ => Err("not found".to_string()),
         }
     }

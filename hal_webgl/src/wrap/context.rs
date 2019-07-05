@@ -76,7 +76,7 @@ impl Context for WebGLContextWrap {
     }
 
     fn begin_render(&self, render_target: &Self::ContextRenderTarget, data: &RenderBeginDesc) {
-        let rt = render_target.0.get_mut();
+        let rt = render_target.slot.get_mut();
         debug_assert!(rt.is_some(), "begin_render failed, rt can't found");
         let rt = rt.unwrap();
         let context = convert_to_mut(self.rimpl.as_ref());
@@ -146,7 +146,7 @@ impl WebGLContextWrap {
         
         let default_rt = WebGLRenderTargetImpl::new_default(&rimpl, fbo, 0, 0);
         let default_rt = GLSlot::new(&render_target, default_rt);
-        let default_rt = WebGLRenderTargetWrap::new(default_rt);
+        let default_rt = WebGLRenderTargetWrap::new_default(default_rt);
         
         Self {
             

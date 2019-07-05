@@ -1,51 +1,200 @@
 use hal_core::{AttributeName};
 use share::{Share};
+use stdweb::{Object};
+use stdweb::unstable::TryInto;
+use webgl_rendering_context::{WebGLRenderingContext};
 use implement::context::{WebGLContextImpl}; 
 use implement::buffer::{WebGLBufferImpl};
+use implement::convert::{get_attribute_location};
+
+use wrap::{GLSlot};
+
+pub struct Attribute {
+    pub offset: usize,      // handle的元素的索引
+    pub count: usize,       // 元素的个数
+    pub item_count: usize,  // 每个元素的个数
+    pub stride: usize,      // 偏移
+    pub handle: GLSlot<WebGLBufferImpl>,
+}
+
+pub struct Indices {
+    pub offset: usize, 
+    pub count: usize,
+    pub handle: GLSlot<WebGLBufferImpl>,
+}
 
 pub struct WebGLGeometryImpl {
     context: Share<WebGLContextImpl>,
+
+    pub vertex_count: u32,
+    pub attributes: [Option<Attribute>; 16],  // 最多16个Attribute
+    pub indices: Option<Indices>,
+    
+    pub vao: Option<Object>,
 }
 
 impl WebGLGeometryImpl  {
 
     pub fn new(context: &Share<WebGLContextImpl>) -> Result<WebGLGeometryImpl, String> {
-        Err("not implmentation".to_string())
+         let vao = match &context.vao_extension {
+            None => None,
+            Some(extension) => {
+                match TryInto::<Object>::try_into(js! {
+                    var vao = @{extension.as_ref()}.wrap.createVertexArrayOES();
+                    // 因为小游戏的WebGL*不是Object，所以要包装一层
+                    var vaoWrap = {
+                        wrap: vao
+                    };
+                    return vaoWrap;
+                }) {
+                    Ok(object) => Some(object),
+                    Err(_) => None,
+                }
+            }
+        };
+
+        let attributes = [
+            None, None, None, None, 
+            None, None, None, None, 
+            None, None, None, None, 
+            None, None, None, None
+        ];
+
+        Ok(Self {
+            vertex_count: 0,
+            context: context.clone(),
+            attributes: attributes,
+            indices: None,
+            vao: vao,
+        })
     }
 
-    pub fn delete(&mut self) {
-
+    pub fn delete(&self) {
+        if let Some(vao) = &self.vao {
+            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            js! {
+                @{&extension}.wrap.deleteVertexArrayOES(@{vao}.wrap);
+            }
+        }
     }
 
     pub fn get_vertex_count(&self) -> u32 {
-        0
+        self.vertex_count
     }
 
     pub fn set_vertex_count(&mut self, count: u32) {
-
+        self.vertex_count = count;
     }
 
-    pub fn set_attribute(&mut self, name: &AttributeName, buffer: &WebGLBufferImpl) -> Result<(), String> {
-        Err("not implmentation".to_string())
+    pub fn set_attribute(&mut self, name: &AttributeName, buffer: &GLSlot<WebGLBufferImpl>, item_count: usize) -> Result<(), String> {
+
+        let count = match buffer.get_mut() {
+            None => return Err("set_attribute failed".to_string()),
+            Some(buffer) => buffer.size / 4,
+        };
+
+        self.set_attribute_with_offset(name, buffer, item_count, 0, count, 0)
     }
     
-    pub fn set_attribute_with_offset(&self, name: &AttributeName, buffer: &WebGLBufferImpl, offset: usize, count: usize, stride: usize) -> Result<(), String> {
-        Err("not implmentation".to_string())
+    pub fn set_attribute_with_offset(&mut self, name: &AttributeName, buffer: &GLSlot<WebGLBufferImpl>, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String> {
+        let location = get_attribute_location(name);
+        self.attributes[location as usize] = Some(Attribute {
+            offset: offset,
+            count: count,
+            item_count: item_count,
+            stride: stride,
+            handle: buffer.clone(),
+        });
+
+         if let Some(vao) = &self.vao {
+            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
+            }
+
+            let buffer = buffer.get_mut().unwrap();
+            let gl = &self.context.context;
+            gl.enable_vertex_attrib_array(location as u32);
+            gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&buffer.handle));
+            gl.vertex_attrib_pointer(location as u32, item_count as i32, WebGLRenderingContext::FLOAT, false, stride as i32, offset as i64);
+
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn remove_attribute(&mut self, name: &AttributeName) {
+        let location = get_attribute_location(name);
+        
+        if let Some(vao) = &self.vao {
+            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
+            }
+            
+            self.context.context.disable_vertex_attrib_array(location as u32);
 
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
+            }
+        }
+        
+        self.attributes[location as usize] = None;
     }
 
-    pub fn set_indices_short(&mut self, buffer: &WebGLBufferImpl) -> Result<(), String> {
-        Err("not implmentation".to_string())
+    pub fn set_indices_short(&mut self, buffer: &GLSlot<WebGLBufferImpl>) -> Result<(), String> {
+
+         let count = match buffer.get_mut() {
+            None => return Err("set_indices_short failed".to_string()),
+            Some(buffer) => buffer.size / 2,
+        };
+
+        self.set_indices_short_with_offset(buffer, 0, count)
     }
 
-    pub fn set_indices_short_with_offset(&self, buffer: &WebGLBufferImpl, offset: usize, count: usize) -> Result<(), String> {
-        Err("not implmentation".to_string())
+    pub fn set_indices_short_with_offset(&mut self, buffer: &GLSlot<WebGLBufferImpl>, offset: usize, count: usize) -> Result<(), String> {
+        self.indices = Some(Indices {
+            offset: offset,
+            count: count,
+            handle: buffer.clone(),
+        });
+
+        if let Some(vao) = &self.vao {
+            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
+            }
+            
+            let buffer = buffer.get_mut().unwrap();
+            self.context.context.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer.handle));
+            
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
+            }
+        }
+
+        Ok(())
     }
-    
+
+    // FIXME, TODO 
+    // 注：有文章说，opengl无法在vao移除indices。
+    // 出处：http://www.photoneray.com/opengl-vao-vbo/
     pub fn remove_indices(&mut self) {
-
+        if let Some(vao) = &self.vao {
+            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
+            }
+            
+            self.context.context.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, None);
+            
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
+            }
+        }
+        self.indices = None;
     }
 }
