@@ -208,6 +208,9 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     let cb = unsafe {write.0.get_unchecked_mut(id)};
     let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
     cn.pos = pos;
+    unsafe { write.0.get_unchecked_write(id).modify(|_|{
+        return true;
+    }) };
     // if !cb.layout_dirty {
     //   cb.layout_dirty = true;
     //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
@@ -306,9 +309,9 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         unsafe{cb.chars.set_len(index)};
         
     }
-    unsafe { write.0.get_unchecked_write(id).modify(|_|{
-        return true;
-    }) };
+    // unsafe { write.0.get_unchecked_write(id).modify(|_|{
+    //     return true;
+    // }) };
     // if !cb.layout_dirty {
     //   cb.layout_dirty = true;
     //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
