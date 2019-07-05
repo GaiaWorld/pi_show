@@ -64,6 +64,8 @@ impl WebGLTextureImpl {
         };
 
         t.apply_sampler(&t.sampler);
+
+        Ok(t)
     }
 
     pub fn delete(&self) {
@@ -89,7 +91,6 @@ impl WebGLTextureImpl {
     pub fn apply_sampler(&self, sampler: &SamplerDesc) {
 
         let gl = &self.context.context;
-        let sampler = &sampler.desc;
 
         let u_wrap = get_texture_wrap_mode(&sampler.u_wrap);
         let v_wrap = get_texture_wrap_mode(&sampler.v_wrap);
