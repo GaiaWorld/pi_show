@@ -56,6 +56,7 @@ impl Texture for WebGLTextureImpl {
 
 impl Drop for WebGLTextureImpl {
     fn drop(&mut self) {
+        self.gl.delete_texture(Some(&self.handle));
     }
 }
 

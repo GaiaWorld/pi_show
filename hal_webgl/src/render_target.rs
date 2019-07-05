@@ -171,8 +171,10 @@ impl RenderTarget for WebGLRenderTargetImpl {
 impl Drop for WebGLRenderTargetImpl {
     fn drop(&mut self) {
         if let Some(gl) = &self.gl.upgrade() {
-            js! {
-                @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer}.wrap);
+            if self.frame_buffer.is_some() {
+                js! {
+                    @{gl.as_ref()}.deleteFramebuffer(@{&self.frame_buffer}.wrap);
+                }
             }
         }
     }
