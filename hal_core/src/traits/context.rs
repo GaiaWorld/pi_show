@@ -5,27 +5,27 @@ use common::*;
 use traits::uniform_buffer::{ProgramParamter};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalBuffer(pub u64);
+pub struct HalBuffer(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalGeometry(pub u64);
+pub struct HalGeometry(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalProgram(pub u64);
+pub struct HalProgram(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRenderTarget(pub u64);
+pub struct HalRenderTarget(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRenderBuffer(pub u64);
+pub struct HalRenderBuffer(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRasterState(pub u64);
+pub struct HalRasterState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalDepthState(pub u64);
+pub struct HalDepthState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalStencilState(pub u64);
+pub struct HalStencilState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalBlendState(pub u64);
+pub struct HalBlendState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalSampler(pub u64);
+pub struct HalSampler(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalTexture(pub u64);
+pub struct HalTexture(pub u32, pub u32);
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
 pub enum BufferType {
