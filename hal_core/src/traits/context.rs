@@ -235,53 +235,53 @@ pub trait HalContext: Sized + Clone {
     /**
      * 取特性
      */
-    fn get_caps(&self) -> &Capabilities;
+    fn render_get_caps(&self) -> &Capabilities;
 
     /**
      * 取默认的渲染目标
      */
-    fn get_default_target(&self) -> &HalRenderTarget;
+    fn render_get_default_target(&self) -> &HalRenderTarget;
 
     /** 
      * 设置shader代码
      */
-    fn set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
+    fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
 
     /**
      * 将渲染库底层的状态还原成状态机的状态
      * 目的：因为我们会和别的渲染引擎使用同一个底层渲染库，每个引擎的状态机，会导致底层状态机不一致，所以要有这个方法。
      * 保证一帧开始调用begin之前调用一次。
      */
-    fn restore_state(&self);
+    fn render_restore_state(&self);
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 注：begin-end之间，只能调用下面的几个方法，不能再调用任何创建和更新方法。
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn begin_render(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc);
+    fn render_begin(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc);
 
     /** 
      * 结束渲染
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn end_render(&self);
+    fn render_end(&self);
 
     /** 
      * 设置Program
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_program(&self, program: &HalProgram);
+    fn render_set_program(&self, program: &HalProgram);
 
     /** 
      * 设置State
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState);
+    fn render_set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState);
 
     /** 
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
+    fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
 }
