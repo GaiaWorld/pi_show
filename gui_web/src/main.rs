@@ -42,7 +42,7 @@ use share::Share;
 use atom::Atom;
 use hal_webgl::*;
 use hal_core::*;
-use ecs::{ LendMut};
+use ecs::{ LendMut, Lend};
 use gui::layout::{ YGAlign, FlexNode };
 use gui::world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::{ BorderRadius, LengthUnit };
@@ -50,6 +50,7 @@ use gui::component::calc::Visibility;
 use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
+use gui::render::engine::res::TextureRes;
 
 
 pub mod style;
@@ -144,17 +145,27 @@ pub fn set_shader(engine: u32){
     engine.gl.set_shader_code(&Atom::from(shader_name), &shader_code);
 }
 
+#[no_mangle]
+pub fn has_texture_res(world: u32, key: String) -> bool{
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let engine = world.engine.lend();
+    let key = Atom::from(key);
+    match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
+        Some(res) => true,
+        None => false,
+    }
+}
 
-// #[no_mangle]
-// pub fn get_texture_res(world: u32, key: String) -> u32{
-//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-//     let engine = world.engine.lend();
-//     let key = Atom::from(key);
-//     match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
-//         Some(res) => Box::into_raw(Box::new(res)) as u32,
-//         None => 0,
-//     }
-// }
+#[no_mangle]
+pub fn get_texture_res(world: u32, key: String) -> u32{
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let engine = world.engine.lend();
+    let key = Atom::from(key);
+    match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
+        Some(res) => Box::into_raw(Box::new(res)) as u32,
+        None => 0,
+    }
+}
 
 // #[no_mangle]
 // pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opacity: u8, compress: u32) -> u32{
