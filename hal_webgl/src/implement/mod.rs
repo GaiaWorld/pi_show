@@ -7,7 +7,9 @@ mod sampler;
 mod state;
 mod texture;
 
+mod extension;
 mod convert;
+mod shader_cache;
 
 pub use self::buffer::{WebGLBufferImpl};
 pub use self::context::{WebGLContextImpl};

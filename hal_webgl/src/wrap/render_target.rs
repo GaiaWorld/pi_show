@@ -60,7 +60,7 @@ impl RenderTarget for WebGLRenderTargetWrap {
 
     fn new(context: &Self::RContext, w: u32, h: u32, pformat: PixelFormat, dformat: DataFormat, has_depth: bool) -> Result<<Self::RContext as Context>::ContextRenderTarget, String> {
 
-        let texture = WebGLTextureWrap::new_2d(context, w, h, pformat, dformat, false, None);
+        let texture = WebGLTextureWrap::new_2d(context, 0, w, h, pformat, dformat, false, None);
         if let Err(s) = texture {
             return Err(s.to_string());
         }

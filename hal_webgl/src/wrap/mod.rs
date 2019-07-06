@@ -9,7 +9,7 @@ mod texture;
 
 mod gl_slab;
 
-pub use self::gl_slab::{GLSlot};
+pub use self::gl_slab::{GLSlot, convert_to_mut};
 pub use self::buffer::{WebGLBufferWrap};
 pub use self::context::{WebGLContextWrap};
 pub use self::geometry::{WebGLGeometryWrap};

@@ -1,40 +1,28 @@
 use hal_core::{Context, Sampler, SamplerDesc};
 use wrap::context::{WebGLContextWrap};
-use wrap::gl_slab::{GLSlot, convert_to_mut};
+use wrap::gl_slab::{GLSlot};
 use implement::{WebGLSamplerImpl};
 
 #[derive(Clone)]
-pub struct WebGLSamplerWrap {
-    pub slot: GLSlot<WebGLSamplerImpl>,
-    pub desc: SamplerDesc,
-}
+pub struct WebGLSamplerWrap(pub GLSlot<WebGLSamplerImpl>);
 
 impl Sampler for WebGLSamplerWrap {
     type RContext = WebGLContextWrap;
 
     fn new(context: &Self::RContext, desc: &SamplerDesc) -> Result<<Self::RContext as Context>::ContextSampler, String> {
-         match WebGLSamplerImpl::new(&context.rimpl, desc) {
-            Err(s) => Err(s),
-            Ok(sampler) => {
-                Ok(Self {
-                    slot: GLSlot::new(&context.sampler, sampler),
-                    desc: desc.clone(),
-                })
-            }
-        }
+        let rimpl = WebGLSamplerImpl(desc.clone());
+        Ok(Self(GLSlot::new(&context.sampler, rimpl)))
     }
 
     fn delete(&self) {
-        let slab = convert_to_mut(self.slot.slab.as_ref());
-        let mut sampler = slab.remove(self.slot.index);
-        sampler.delete();
     }
 
     fn get_id(&self) -> u64 {
-        self.slot.index as u64
+        self.0.index as u64
     }
 
     fn get_desc(&self) -> &SamplerDesc {
-        &self.desc
+        let s = self.0.slab.get(self.0.index).unwrap();
+        &s.0
     }
 }

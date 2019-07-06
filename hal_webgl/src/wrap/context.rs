@@ -98,19 +98,19 @@ impl Context for WebGLContextWrap {
     }
 
     fn set_state(&self, bs: &Self::ContextBlendState, ds: &Self::ContextDepthState, rs: &Self::ContextRasterState, ss: &Self::ContextStencilState) {
-        let bs = bs.slot.get_mut();
+        let bs = bs.0.get_mut();
         debug_assert!(bs.is_some(), "set_state failed, bs can't found");
         let bs = bs.unwrap();
         
-        let ds = ds.slot.get_mut();
+        let ds = ds.0.get_mut();
         debug_assert!(ds.is_some(), "set_state failed, ds can't found");
         let ds = ds.unwrap();
 
-        let ss = ss.slot.get_mut();
+        let ss = ss.0.get_mut();
         debug_assert!(ss.is_some(), "set_state failed, ss can't found");
         let ss = ss.unwrap();
 
-        let rs = rs.slot.get_mut();
+        let rs = rs.0.get_mut();
         debug_assert!(rs.is_some(), "set_state failed, rs can't found");
         let rs = rs.unwrap();
 
@@ -118,7 +118,7 @@ impl Context for WebGLContextWrap {
         context.set_state(bs, ds, rs, ss)
     }
 
-    fn draw(&self, geometry: &Self::ContextGeometry, parameter: &Share<ProgramParamter<Self::ContextSelf>>) {
+    fn draw(&self, geometry: &Self::ContextGeometry, parameter: &Share<dyn ProgramParamter<Self::ContextSelf>>) {
         let geometry = geometry.0.get_mut();
         debug_assert!(geometry.is_some(), "draw failed, geometry can't found");
         let geometry = geometry.unwrap();
@@ -142,7 +142,7 @@ impl WebGLContextWrap {
         let stencil_state = Share::new(Slab::new());
         let program = Share::new(Slab::new());
         
-        let rimpl = Share::new(WebGLContextImpl::new(context));
+        let rimpl = WebGLContextImpl::new(context);
         
         let default_rt = WebGLRenderTargetImpl::new_default(&rimpl, fbo, 0, 0);
         let default_rt = GLSlot::new(&render_target, default_rt);

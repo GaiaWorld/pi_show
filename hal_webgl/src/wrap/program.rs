@@ -1,3 +1,4 @@
+use atom::{Atom};
 use hal_core::{Context, ShaderType, Program, UniformLayout};
 use wrap::context::{WebGLContextWrap};
 use wrap::gl_slab::{GLSlot, convert_to_mut};
@@ -9,7 +10,7 @@ pub struct WebGLProgramWrap(pub GLSlot<WebGLProgramImpl>);
 impl Program for WebGLProgramWrap {
     type RContext = WebGLContextWrap;
 
-    fn new_with_vs_fs(context: &Self::RContext, vs_name: &str, vs_defines: &[&str], fs_name: &str, fs_defines: &[&str], uniform_layout: &UniformLayout) -> Result<<Self::RContext as Context>::ContextProgram, String> {
+    fn new_with_vs_fs(context: &Self::RContext, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<<Self::RContext as Context>::ContextProgram, String> {
         match WebGLProgramImpl::new_with_vs_fs(&context.rimpl, vs_name, vs_defines, fs_name, fs_defines, uniform_layout) {
             Err(s) => Err(s),
             Ok(program) => Ok(Self(GLSlot::new(&context.program, program))),
@@ -27,7 +28,7 @@ impl Program for WebGLProgramWrap {
     }
 
     // TODO
-    fn get_shader_info(&self, stype: ShaderType) -> Option<(&str, &[&str])> {
+    fn get_shader_info(&self, stype: ShaderType) -> Option<(Atom, &[Atom])> {
         None
     }
 }
