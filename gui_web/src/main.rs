@@ -50,7 +50,7 @@ use gui::component::calc::Visibility;
 use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
-use gui::render::engine::res::TextureRes;
+use gui::render::res::TextureRes;
 
 
 pub mod style;
