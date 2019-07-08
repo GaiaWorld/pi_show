@@ -142,7 +142,7 @@ pub trait HalContext {
      * uniforms_layouts: 该Program的Uniform的布局约定，里面索引就是该str的槽
      * 注：compile，link内部有缓存表，已经编译过的shader和program不会再次编译
      */
-    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
+    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
     fn program_destroy(&self, program: &HalProgram);
 
@@ -196,7 +196,7 @@ pub trait HalContext {
 
     fn sampler_destroy(&self, sampler: &HalSampler);
 
-    fn sampler_get_desc(&self, sampler: &HalSampler) -> &SamplerDesc;
+    fn sampler_get_desc(&self, sampler: &HalSampler) -> Option<&SamplerDesc>;
 
     // ==================== HalRasterState
 
@@ -204,7 +204,7 @@ pub trait HalContext {
     
     fn rs_destroy(&self, state: &HalRasterState);
 
-    fn rs_get_desc(&self, state: &HalRasterState) -> &RasterStateDesc;
+    fn rs_get_desc(&self, state: &HalRasterState) -> Option<&RasterStateDesc>;
 
     // ==================== HalDepthState
 
@@ -212,7 +212,7 @@ pub trait HalContext {
     
     fn ds_destroy(&self, state: &HalDepthState);
 
-    fn ds_get_desc(&self, state: &HalDepthState) -> &DepthStateDesc;
+    fn ds_get_desc(&self, state: &HalDepthState) -> Option<&DepthStateDesc>;
 
     // ==================== HalStencilState
 
@@ -220,7 +220,7 @@ pub trait HalContext {
     
     fn ss_destroy(&self, state: &HalStencilState);
 
-    fn ss_get_desc(&self, state: &HalStencilState) -> &StencilStateDesc;
+    fn ss_get_desc(&self, state: &HalStencilState) -> Option<&StencilStateDesc>;
 
     // ==================== HalBlendState
     
@@ -228,7 +228,7 @@ pub trait HalContext {
     
     fn bs_destroy(&self, state: &HalBlendState);
 
-    fn bs_get_desc(&self, state: &HalBlendState) -> &BlendStateDesc;
+    fn bs_get_desc(&self, state: &HalBlendState) -> Option<&BlendStateDesc>;
 
     // ==================== 上下文相关
 
@@ -246,13 +246,6 @@ pub trait HalContext {
      * 设置shader代码
      */
     fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
-
-    /**
-     * 将渲染库底层的状态还原成状态机的状态
-     * 目的：因为我们会和别的渲染引擎使用同一个底层渲染库，每个引擎的状态机，会导致底层状态机不一致，所以要有这个方法。
-     * 保证一帧开始调用begin之前调用一次。
-     */
-    fn render_restore_state(&self);
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略

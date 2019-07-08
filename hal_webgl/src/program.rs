@@ -1,11 +1,10 @@
+use share::{Share};
 use atom::{Atom};
 use hal_core::{HalTexture, HalSampler, ShaderType, UniformLayout, UniformValue, ProgramParamter, AttributeName};
 use webgl_rendering_context::{WebGLProgram, WebGLUniformLocation, WebGLRenderingContext};
 use stdweb::unstable::TryInto;
 
 use shader_cache::{ShaderCache};
-
-use fnv::FnvHashMap;
 
 pub struct SamplerUniform {
     location: WebGLUniformLocation,
@@ -24,7 +23,7 @@ pub struct WebGLProgramImpl {
     pub active_uniforms: Vec<(usize, Vec<(usize, CommonUniform)>)>,
     pub active_textures: Vec<(usize, SamplerUniform)>,
     
-    pub last_ubos: Option<Share<dyn ProgramParamter<WebGLContextImpl>>>, // 上次设置的Uniforms，对应接口的概念
+    pub last_ubos: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
 }
 
 impl WebGLProgramImpl {
@@ -109,8 +108,7 @@ impl WebGLProgramImpl {
 
     ////////////////////////////// 
 
-    pub fn use_me(&mut self) {
-        let gl = &self.context.context;
+    pub fn use_me(&mut self, gl: &WebGLRenderingContext) {
         gl.use_program(Some(&self.handle));
     }
 
@@ -139,7 +137,7 @@ impl WebGLProgramImpl {
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &FnvHashMap<Atom, (usize, usize)) -> Option<(Vec<Vec<Option<CommonUniform>>>, Vec<Option<SamplerUniform>>)> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &FxHashmap<Atom, (usize, usize)) -> Option<(Vec<Vec<Option<CommonUniform>>>, Vec<Option<SamplerUniform>>)> {
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)

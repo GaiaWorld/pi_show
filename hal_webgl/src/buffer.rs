@@ -51,7 +51,6 @@ impl WebGLBufferImpl {
         };
 
         Ok(Self {
-            context: context.clone(),
             btype: btype,
             size: size,
             is_updatable: is_updatable,

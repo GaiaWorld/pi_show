@@ -1,14 +1,9 @@
 use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc};
-use share::{Share};
-use implement::context::{WebGLContextImpl}; 
-use wrap::{WebGLContextWrap};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
 
-use implement::convert::*;
+use convert::*;
 
 pub struct WebGLTextureImpl {
-    context: Share<WebGLContextImpl>,
- 
     pub width: u32,
     pub height: u32,
     pub mipmap_level: u32,
@@ -21,8 +16,7 @@ pub struct WebGLTextureImpl {
 }
 
 impl WebGLTextureImpl {
-    pub fn new_2d(context: &Share<WebGLContextImpl>, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<WebGLContextWrap>>) -> Result<Self, String> {
-        let gl = &context.context;
+    pub fn new_2d(gl: &WebGLRenderingContext, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<Self, String> {
         let texture = gl.create_texture();
         if texture.is_none() {
             return Err("new_2d failed, not found".to_string());
@@ -56,7 +50,6 @@ impl WebGLTextureImpl {
         }
         
         let t = WebGLTextureImpl {
-            context: context.clone(),
             width: width,
             height: height,
             mipmap_level: mipmap_level,
@@ -67,13 +60,13 @@ impl WebGLTextureImpl {
             sampler: SamplerDesc::new(),
         };
 
-        t.apply_sampler(&t.sampler);
+        t.apply_sampler(gl, &t.sampler);
 
         Ok(t)
     }
 
-    pub fn delete(&self) {
-        self.context.context.delete_texture(Some(&self.handle));
+    pub fn delete(&self, gl: &WebGLRenderingContext) {
+        gl.delete_texture(Some(&self.handle));
     }
 
     pub fn get_size(&self) -> (u32, u32) {
@@ -88,12 +81,10 @@ impl WebGLTextureImpl {
         self.is_gen_mipmap
     }
 
-    pub fn update(&self, mipmap_level: u32, data: &TextureData<WebGLContextWrap>) {
+    pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: &TextureData) {
         
         let p = get_pixel_format(self.pixel_format);
         let d = get_data_format(self.data_format);
-        
-        let gl = &self.context.context;
         
         gl.active_texture(WebGLRenderingContext::TEXTURE0);
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
@@ -115,9 +106,7 @@ impl WebGLTextureImpl {
         }
     }
 
-    pub fn apply_sampler(&self, sampler: &SamplerDesc) {
-
-        let gl = &self.context.context;
+    pub fn apply_sampler(&self, gl: &WebGLRenderingContext, sampler: &SamplerDesc) {
 
         let u_wrap = get_texture_wrap_mode(sampler.u_wrap);
         let v_wrap = get_texture_wrap_mode(sampler.v_wrap);

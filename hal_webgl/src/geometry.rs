@@ -2,10 +2,8 @@ use hal_core::{AttributeName, HalBuffer};
 use stdweb::{Object};
 use stdweb::unstable::TryInto;
 use webgl_rendering_context::{WebGLRenderingContext};
-use context::{WebGLContextImpl}; 
 use buffer::{WebGLBufferImpl};
 use convert::{get_attribute_location};
-
 
 pub struct Attribute {
     pub offset: usize,      // handle的元素的索引
@@ -81,16 +79,11 @@ impl WebGLGeometryImpl  {
         self.vertex_count = count;
     }
     pub fn set_attribute(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, name: &AttributeName, buffer: &WebGLBufferImpl, wrap: &HalBuffer, item_count: usize) -> Result<(), String> {
-
-        let count = match buffer.get_mut() {
-            None => return Err("set_attribute failed".to_string()),
-            Some(buffer) => buffer.size / 4,
-        };
-
+        let count = buffer.size / 4;
         self.set_attribute_with_offset(gl, vao_extension, name, buffer, wrap, item_count, 0, count, 0)
     }
     
-    pub fn set_attribute_with_offset(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, name: &AttributeName, buffer: &WebGLBufferImpl>, wrap: &HalBuffer, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String> {
+    pub fn set_attribute_with_offset(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, name: &AttributeName, buffer: &WebGLBufferImpl, wrap: &HalBuffer, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String> {
         let location = get_attribute_location(name);
         self.attributes[location as usize] = Some(Attribute {
             offset: offset,
@@ -101,13 +94,13 @@ impl WebGLGeometryImpl  {
         });
 
          if let Some(vao) = &self.vao {
-            let extension = self.context.vao_extension.as_ref().unwrap().as_ref();
+            let extension = vao_extension.as_ref().unwrap().as_ref();
             js! {
                 @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
             }
 
             gl.enable_vertex_attrib_array(location as u32);
-            gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(buffer));
+            gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&buffer.handle));
             gl.vertex_attrib_pointer(location as u32, item_count as i32, WebGLRenderingContext::FLOAT, false, stride as i32, offset as i64);
 
             js! {
@@ -137,17 +130,13 @@ impl WebGLGeometryImpl  {
         self.attributes[location as usize] = None;
     }
 
-    pub fn set_indices_short(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, buffer: &WebGLBufferImpl>, wrap: &HalBuffer) -> Result<(), String> {
+    pub fn set_indices_short(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, buffer: &WebGLBufferImpl, wrap: &HalBuffer) -> Result<(), String> {
 
-         let count = match buffer.get_mut() {
-            None => return Err("set_indices_short failed".to_string()),
-            Some(buffer) => buffer.size / 2,
-        };
-
+        let count = buffer.size / 2;
         self.set_indices_short_with_offset(gl, vao_extension, buffer, wrap, 0, count)
     }
 
-    pub fn set_indices_short_with_offset(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, buffer: &WebGLBufferImpl>, wrap: &HalBuffer, offset: usize, count: usize) -> Result<(), String> {
+    pub fn set_indices_short_with_offset(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, buffer: &WebGLBufferImpl, wrap: &HalBuffer, offset: usize, count: usize) -> Result<(), String> {
         self.indices = Some(Indices {
             offset: offset,
             count: count,
@@ -160,7 +149,7 @@ impl WebGLGeometryImpl  {
                 @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
             }
             
-            gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(buffer));
+            gl.bind_buffer(WebGLRenderingContext::ELEMENT_ARRAY_BUFFER, Some(&buffer.handle));
             
             js! {
                 @{&extension}.wrap.bindVertexArrayOES(null);

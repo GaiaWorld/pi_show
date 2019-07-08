@@ -1,15 +1,11 @@
 
-use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
-
 use stdweb::unstable::TryInto;
 use webgl_rendering_context::{
     WebGLShader,
     WebGLRenderingContext,
 };
-use fnv::FnvHashMap;
+use fx_hashmap::{FxHashMap32};
 
-use share::{Share};
 use atom::{Atom};
 use hal_core::*;
 use context::{WebglHalContext};
@@ -32,10 +28,9 @@ pub struct Shader {
 pub struct ShaderCache {
     
     // 代码缓存
-    code_caches: FnvHashMap<Atom, String>,
+    code_caches: FxHashMap32<Atom, String>,
 
-    // Shader缓存的键是：hash[shader名 + defines]
-    shader_caches: FnvHashMap<u64, Shader>,
+    shader_caches: FxHashMap32<u32, Shader>,
 }
 
 impl ShaderCache {
@@ -46,33 +41,28 @@ impl ShaderCache {
      */
     pub fn new() -> ShaderCache {
         ShaderCache {
-            code_caches: FnvHashMap::default(),
-            shader_caches: FnvHashMap::default(),
+            code_caches: FxHashMap32::default(),
+            shader_caches: FxHashMap32::default(),
         }
     }
 
     /** 
      * 设置shader代码
      */
-    pub fn set_shader_code<C: AsRef<str>>(&mut self, name: &Atom, code: &C) {
-        self.code_caches.insert(name.clone(), code.as_ref().to_string());
+    pub fn set_shader_code<C: AsRef<str>>(&mut self, name: &str, code: &C) {
+        self.code_caches.insert(Atom::from(name), code.as_ref().to_string());
     }
     
     /**
      * 编译shader，返回shader对应的hash
      */
-    pub fn compile_shader(&mut self, context: &WebglHalContext, shader_type: ShaderType, name: &Atom, defines: &[Atom]) -> Result<u64, String> {
+    pub fn compile_shader(&mut self, gl: &WebGLRenderingContext, shader_type: ShaderType, id: u32, name: &Atom, defines: &[Atom]) -> Result<(), String> {
         
-        // 计算shader的哈希值，[名字+宏].hash
-        let shader_hash = Self::get_hash(name, defines);
-
         // 如果能找到，返回
-        if let Some(_) = self.shader_caches.get(&shader_hash) {
-            return Ok(shader_hash);
+        if let Some(_) = self.shader_caches.get(&id) {
+            return Ok(());
         }
 
-        let gl = self.gl.upgrade().unwrap();
-        
         let shader = gl.create_shader(match shader_type {
             ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
             ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
@@ -105,11 +95,11 @@ impl ShaderCache {
         };
 
         if is_compile_ok {
-            self.shader_caches.insert(shader_hash, Shader {
+            self.shader_caches.insert(id, Shader {
                 shader_type: shader_type,
                 handle: shader,
             });
-            Ok(shader_hash)
+            Ok(())
         } else {
             let err = gl.get_shader_info_log(&shader)
                 .unwrap_or_else(|| "Unknown error creating shader".into());

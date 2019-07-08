@@ -15,6 +15,7 @@ use state::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLStencilStateImpl, Web
 use texture::{WebGLTextureImpl};
 use util::{convert_to_mut};
 use shader_cache::{ShaderCache};
+use extension::*;
 
 pub struct WebglHalContext {
     pub default_rt: HalRenderTarget,
@@ -39,8 +40,8 @@ pub struct WebglHalContext {
     pub program_slab: Slab<(WebGLProgramImpl, u32)>,
 }
 
-impl HalContext {
-    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>) -> HalContext {
+impl WebglHalContext {
+    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
         let texture_slab = Slab::new();
@@ -53,7 +54,7 @@ impl HalContext {
         let ss_slab = Slab::new();
         let program_slab = Slab::new();
         
-        let caps = HalContext::create_caps(&gl);
+        let caps = WebglHalContext::create_caps(&gl);
         let vao_extension = if caps.vertex_array_object {
             match TryInto::<Object>::try_into(js! {
                 var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
@@ -63,22 +64,37 @@ impl HalContext {
                 };
                 return vaoExtensionWrap;
             }) {
-                Ok(object) => Some(Share::new(object)),
+                Ok(object) => Some(object),
                 Err(_) => None,
             }
         } else {
             None
         };
-        
-        let default_rt = WebGLRenderTargetImpl::new_default(&gl, fbo, 0, 0);
+
+        let default_rt = WebGLRenderTargetImpl::new_default(fbo, 0, 0);
+        let default_rt = create_new_slot(&mut rt_slab, default_rt);
+        let default_rt = HalRenderTarget(default_rt.0, default_rt.1);
+
         let shader_cache = ShaderCache::new();
         
-        let context = HalConntext {
+        let context = WebglHalContext {
             default_rt: default_rt,
             gl: gl,
             caps: caps,
-            vao_extension: vao_extension,
-            shader_cache: shader_cache,
+            vao_extension,
+            shader_cache,
+
+            buffer_slab,
+            geometry_slab,
+            texture_slab,
+            sampler_slab,
+            rt_slab,
+            rb_slab,
+            bs_slab,
+            ds_slab,
+            rs_slab,
+            ss_slab,
+            program_slab,
         };
 
         context
@@ -179,14 +195,15 @@ impl HalContext for WebglHalContext {
             Err(s) => Err(s),
             Ok(buffer) => {
                 let slab = convert_to_mut(&self.buffer_slab);
-                Ok(HalBuffer(create_new_slot(slab, buffer)))
+                let (index, count) = create_new_slot(slab, buffer)
+                Ok(HalBuffer(index, count))
             }
         }
     }
 
     fn buffer_destroy(&self, buffer: &HalBuffer) {
         let slab = convert_to_mut(&self.buffer_slab);
-        let rimpl = slab.remove(buffer.0);
+        let rimpl = slab.remove(buffer.0 as usize);
         rimpl.0.delete(&self.gl);
     }
 
@@ -205,14 +222,15 @@ impl HalContext for WebglHalContext {
             Err(s) => Err(s),
             Ok(geometry) => {
                 let slab = convert_to_mut(&self.geometry_slab);
-                Ok(HalGeometry(create_new_slot(slab, geometry)))
+                let (index, count) = create_new_slot(slab, geometry);
+                Ok(HalGeometry(index, count))
             }
         }
     }
 
     fn geometry_destroy(&self, geometry: &HalGeometry) {
         let slab = convert_to_mut(&self.geometry_slab);
-        let rimpl = slab.remove(geometry.0);
+        let rimpl = slab.remove(geometry.0 as usize);
         rimpl.0.delete(&self.vao_extension);
     }
 
@@ -285,19 +303,20 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalProgram
 
-    fn program_create_with_vs_fs(&self, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<HalProgram, String> {
+    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String> {
         match WebGLProgramImpl::new_with_vs_fs(&self.gl, self.shader_cache, vs_name, vs_defines, fs_name, fs_defines, uniform_layout) {
             Err(s) => Err(s),
             Ok(program) => {
                 let slab = convert_to_mut(&self.program_slab);
-                Ok(HalProgram(create_new_slot(slab, program)))
+                let (index, count) = create_new_slot(slab, program);
+                Ok(HalProgram(index, count))
             }
         }
     }
 
     fn program_destroy(&self, program: &HalProgram) {
         let slab = convert_to_mut(&self.program_slab);
-        let rimpl = slab.remove(program.0);
+        let rimpl = slab.remove(program.0 as usize);
         rimpl.0.delete(&self.gl);
     }
 
@@ -313,18 +332,38 @@ impl HalContext for WebglHalContext {
     // ==================== HalRenderTarget
 
     fn rt_create(&self, w: u32, h: u32, pformat: PixelFormat, dformat: DataFormat, has_depth: bool) -> Result<HalRenderTarget, String> {
-        match WebGLRenderTargetImpl::new(&self.gl, w, h, pformat, dformat, has_depth) {
+
+        let texture = self.texture_create_2d(0, w, h, pformat, dformat, false, None);
+        if Err(e) = &texture {
+            return Err(e.clone());
+        }
+        let texture = texture.unwrap();
+
+        let rb = if has_depth { 
+            match self.rb_create(w, h, PixelFormat::Depth) {
+
+            }
+            if Err(e) = &texture {
+                return Err(e.clone());
+            }
+            rbimpl.unwrap();
+        } else {
+            None
+        };
+
+        match WebGLRenderTargetImpl::new(&self.gl, w, h, pformat, dformat, ) {
             Err(s) => Err(s),
             Ok(rt) => {
                 let slab = convert_to_mut(&self.rt_slab);
-                Ok(HalRenderTarget(create_new_slot(slab, rt)))
+                let (index, count) = create_new_slot(slab, rt)
+                Ok(HalRenderTarget(index, count))
             }
         }
     }
     
     fn rt_destroy(&self, rt: &HalRenderTarget) {
         let slab = convert_to_mut(&self.rt_slab);
-        let rimpl = slab.remove(rt.0);
+        let rimpl = slab.remove(rt.0 as usize);
         rimpl.0.delete(&self.gl);
     }
 
@@ -349,14 +388,15 @@ impl HalContext for WebglHalContext {
             Err(s) => Err(s),
             Ok(rb) => {
                 let slab = convert_to_mut(&self.rb_slab);
-                Ok(HalRenderBuffer(create_new_slot(slab, rb)))
+                let (index, count) = create_new_slot(slab, rb);
+                Ok(HalRenderBuffer(index, count))
             }
         }
     }
     
     fn rb_destroy(&self, rb: &HalRenderBuffer) {
         let slab = convert_to_mut(&self.rb_slab);
-        let rimpl = slab.remove(rb.0);
+        let rimpl = slab.remove(rb.0 as usize);
         rimpl.0.delete(&self.gl);
     }
 
@@ -375,14 +415,15 @@ impl HalContext for WebglHalContext {
             Err(s) => Err(s),
             Ok(texture) => {
                 let slab = convert_to_mut(&self.texture_slab);
-                Ok(HalTexture(create_new_slot(slab, texture)))
+                let (index, count) = create_new_slot(slab, texture);
+                Ok(HalTexture(index, count))
             }
         }
     }
 
     fn texture_destroy(&self, texture: &HalTexture) {
         let slab = convert_to_mut(&self.texture_slab);
-        let rimpl = slab.remove(texture.0);
+        let rimpl = slab.remove(texture.0 as usize);
         rimpl.0.delete(&self.gl);
     }
 
@@ -420,12 +461,13 @@ impl HalContext for WebglHalContext {
     fn sampler_create(&self, desc: &SamplerDesc) -> Result<HalSampler, String> {
         let sampler = WebGLSamplerImpl::new(desc);
         let slab = convert_to_mut(&self.sampler_slab);
-        Ok(HalSampler(create_new_slot(slab, sampler)))
+        let (index, count) = create_new_slot(slab, sampler);
+        Ok(HalSampler(index, count))
     }
 
     fn sampler_destroy(&self, sampler: &HalSampler) {
         let slab = convert_to_mut(&self.sampler_slab);
-        slab.remove(sampler.0);
+        slab.remove(sampler.0 as usize);
     }
 
     fn sampler_get_desc(&self, sampler: &HalSampler) -> Option<&SamplerDesc> {
@@ -440,12 +482,13 @@ impl HalContext for WebglHalContext {
     fn rs_create(&self, desc: &RasterStateDesc) -> Result<HalRasterState, String> {
         let state = WebGLRasterStateImpl::new(desc);
         let slab = convert_to_mut(&self.rs_slab);
-        Ok(HalRasterState(create_new_slot(slab, state)))
+        let (index, count) = create_new_slot(slab, state);
+        Ok(HalRasterState(index, count))
     }
     
     fn rs_destroy(&self, state: &HalRasterState) {
         let slab = convert_to_mut(&context.rs_slab);
-        slab.remove(state.0);
+        slab.remove(state.0 as usize);
     }
 
     fn rs_get_desc(&self, state: &HalRasterState) -> Option<&RasterStateDesc> {
@@ -460,12 +503,13 @@ impl HalContext for WebglHalContext {
     fn ds_create(&self, desc: &DepthStateDesc) -> Result<HalDepthState, String> {
         let state = WebGLDepthStateImpl::new(desc);
         let slab = convert_to_mut(&self.ds_slab);
-        Ok(HalDepthState(create_new_slot(slab, state)))
+        let (index, count) = create_new_slot(slab, state);
+        Ok(HalDepthState(index, count))
     }
     
     fn ds_destroy(&self, state: &HalDepthState) {
         let slab = convert_to_mut(&self.ds_slab);
-        slab.remove(state.0);
+        slab.remove(state.0 as usize);
     }
 
     fn ds_get_desc(&self, state: &HalDepthState) -> Option<&DepthStateDesc> {
@@ -480,12 +524,13 @@ impl HalContext for WebglHalContext {
     fn ss_create(&self, desc: &StencilStateDesc) -> Result<HalStencilState, String> {
         let state = WebGLStencilStateImpl::new(desc);
         let slab = convert_to_mut(&self.ss_slab);
-        Ok(HalStencilState(create_new_slot(slab, state)))
+        let (index, count) = create_new_slot(slab, state);
+        Ok(HalStencilState(index, count))
     }
     
     fn ss_destroy(&self, state: &HalStencilState) {
-        let slab = convert_to_mut(&context.ss_slab);
-        slab.remove(state.0);
+        let slab = convert_to_mut(&self.ss_slab);
+        slab.remove(state.0 as usize);
     }
 
     fn ss_get_desc(&self, state: &HalStencilState) -> Option<&StencilStateDesc> {
@@ -500,12 +545,13 @@ impl HalContext for WebglHalContext {
     fn bs_create(&self, desc: &BlendStateDesc) -> Result<HalBlendState, String> {
         let state = WebGLBlendStateImpl::new(desc);
         let slab = convert_to_mut(&self.bs_slab);
-        Ok(HalBlendState(create_new_slot(slab, state)))
+        let (index, count) = create_new_slot(slab, state);
+        Ok(HalBlendState(index, count))
     }
     
     fn bs_destroy(&self, state: &HalBlendState) {
         let slab = convert_to_mut(&self.bs_slab);
-        slab.remove(state.0);
+        slab.remove(state.0 as usize);
     }
 
     fn bs_get_desc(&self, state: &HalBlendState) -> Option<&BlendStateDesc> {
@@ -556,7 +602,7 @@ impl HalContext for WebglHalContext {
     }
 }
 
-fn create_new_slot<T>(slab: &mut Slab<T>, obj: T) -> (u32, u32) {
+fn create_new_slot<T>(slab: &mut Slab<(T, u32)>, obj: T) -> (u32, u32) {
     let (key, v, is_first) = slab.alloc_with_is_first();
     if is_first {
         v.1 = 0;
@@ -568,14 +614,16 @@ fn create_new_slot<T>(slab: &mut Slab<T>, obj: T) -> (u32, u32) {
     (key as u32, v.1 as u32)
 }
 
-fn get_mut_ref<T>(slab: &mut Slab<T>, key: u32, count: u32) -> Option<&mut T> {
-    match slab.get_mut_ref(key) {
-        Some(v) if v.1 == count => Some(&v.0),
+fn get_mut_ref<T>(slab: &mut Slab<(T, u32)>, key: u32, count: u32) -> Option<&mut T> {
+    let key = key as usize;
+    match slab.get_mut(key) {
+        Some(v) if v.1 == count => Some(&mut v.0),
         _ => None,
     }
 }
 
-fn get_ref<T>(slab: &Slab<T>, key: u32, count: u32) -> Option<&T> {
+fn get_ref<T>(slab: &Slab<(T, u32)>, key: u32, count: u32) -> Option<&T> {
+    let key = key as usize;
     match slab.get(key) {
         Some(v) if v.1 == count => Some(&v.0),
         _ => None,
