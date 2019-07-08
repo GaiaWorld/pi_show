@@ -185,8 +185,6 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
             &(Share::new(viewport) as Share<dyn AsRef<RenderBeginDesc>>)
         );
 
-        println!("overflow--------------{:?}", overflow.id_vec);
-
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
         {
