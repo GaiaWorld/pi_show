@@ -35,6 +35,13 @@ pub fn program_paramter(input: TokenStream) -> TokenStream {
     gen.into()
 }
 
+#[proc_macro]
+pub fn defines(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+    let gen = impl_defines(&ast);
+    gen.into()
+}
+
 fn impl_uniform_buffer(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let name = &ast.ident;
     let fields = match &ast.data {
@@ -113,17 +120,17 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
     quote! {
         #(#attrs)*
-        pub struct #name<C: Context> {
+        pub struct #name {
             uniforms: [Share<dyn UniformBuffer>; #uniform_count],
-            textures: [Share<UniformTexture<C>>; #textrue_count],
+            textures: [(Share<HalTexture>, Share<HalSampler>); #textrue_count],
         }
 
-        impl<C: Context> #name<C> {
+        impl #name {
             pub const FIELDS: [&'static str; #uniform_count] = [#uniform_fields_names];
             pub const TEXTURE_FIELDS: [&'static str; #textrue_count] = [#texture_fields_names];
         }
 
-        impl<C: Context> ProgramParamter<C> for #name<C> {
+        impl ProgramParamter for #name {
             fn get_layout(&self) -> &[&str] {
                 &Self::FIELDS[..]
             }
@@ -136,7 +143,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 &self.uniforms[..]
             }
 
-            fn get_textures(&self) -> &[Share<UniformTexture<C>>] {
+            fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)] {
                 &self.textures[..]
             }
 
@@ -147,7 +154,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn get_texture(&mut self, name: &str) -> Option<&Share<UniformTexture<C>>> {
+            fn get_texture(&mut self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
                 match name {
                     #texture_get_value_match
                     _ => None,
@@ -162,12 +169,63 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 true
             }
 
-            fn set_texture(&mut self, name: &str, value: Share<UniformTexture<C>>) -> bool {
+            fn set_texture(&mut self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool {
                 match name {
                     #texture_set_value_match
                     _ => return false,
                 };
                 true
+            }
+        }
+    }
+}
+
+fn impl_defines(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
+    let name = &ast.ident;
+    let fields = match &ast.data {
+        syn::Data::Struct(s) => {
+            let fields = &s.fields;
+            match fields {
+                syn::Fields::Named(fields) => &fields.named,
+                _ => panic!("UniformBuffer must is a struct, and field have name!"),
+            }
+        },
+        _ => panic!("UniformBuffer must is a struct, and field have name!"),
+    };
+    let count = syn::Index::from(fields.len());
+    let add_match = DefinesAddMatch(fields);
+    let del_match = DefinesDelMatch(fields);
+    let attrs = &ast.attrs;
+
+    quote! {
+        #(#attrs)*
+        #[derive(Default)]
+        pub struct #name {
+            values: [Option<&'static str>; #count],
+            id: u32,
+        }
+
+        impl Defines for #name {
+            fn add(&mut self, value: &'static str) -> Option<&'static str> {
+                match value {
+                    #add_match
+                    _ => None,
+                } 
+            }
+
+            fn remove(&mut self, value: &'static str) -> Option<&'static str> {
+                match value {
+                    #del_match
+                    _ => None,
+                }
+            }
+
+            fn list(&self) -> &[Option<&str>] {
+                &self.values[..]
+            }
+            
+            fn id(&self) -> u32 {
+                self.id
             }
         }
     }
@@ -301,6 +359,42 @@ impl<'a> ToTokens for TextureGetValueMatch<'a> {
                 });
                 i += 1;
             }
+        }          
+    }
+}
+
+struct DefinesAddMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for DefinesAddMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut i = 0;
+        for v in self.0.iter(){
+            let field_name_str = v.ident.clone().unwrap().to_string();
+            let index = syn::Index::from(i);
+            tokens.extend(quote! {
+                #field_name_str => {
+                    self.id += 1 << #index;
+                    std::mem::replace(&mut self.values[#index], Some(#field_name_str))
+                },
+            });
+            i += 1;
+        }          
+    }
+}
+
+struct DefinesDelMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for DefinesDelMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut i = 0;
+        for v in self.0.iter(){
+            let field_name_str = v.ident.clone().unwrap().to_string();
+            let index = syn::Index::from(i);
+            tokens.extend(quote! {
+                #field_name_str => {
+                    self.id -= 1 << #index;
+                    std::mem::replace(&mut self.values[#index], None)
+                },
+            });
+            i += 1;
         }          
     }
 }

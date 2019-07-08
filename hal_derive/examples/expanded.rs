@@ -1,6 +1,9 @@
-
-///  basic 中代码展开的结果
+#![feature(prelude_import)]
+#![no_std]
+#[prelude_import]
+extern crate std;
 extern crate hal_core;
+
 extern crate hal_derive;
 extern crate share;
 
@@ -83,11 +86,11 @@ impl UniformBuffer for Clip {
     }
 }
 
-pub struct Color<C: Context> {
+pub struct Color {
     uniforms: [Share<dyn UniformBuffer>; 2],
-    textures: [Share<UniformTexture<C>>; 1],
+    textures: [(Share<HalTexture>, Share<HalSampler>); 1],
 }
-impl <C: Context> Color<C> {
+impl Color {
     pub const
     FIELDS:
     [&'static str; 2]
@@ -99,11 +102,11 @@ impl <C: Context> Color<C> {
     =
     ["texture"];
 }
-impl <C: Context> ProgramParamter<C> for Color<C> {
+impl ProgramParamter for Color {
     fn get_layout(&self) -> &[&str] { &Self::FIELDS[..] }
     fn get_texture_layout(&self) -> &[&str] { &Self::TEXTURE_FIELDS[..] }
     fn get_values(&self) -> &[Share<dyn UniformBuffer>] { &self.uniforms[..] }
-    fn get_textures(&self) -> &[Share<UniformTexture<C>>] {
+    fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)] {
         &self.textures[..]
     }
     fn get_value(&mut self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
@@ -114,7 +117,7 @@ impl <C: Context> ProgramParamter<C> for Color<C> {
         }
     }
     fn get_texture(&mut self, name: &str)
-     -> Option<&Share<UniformTexture<C>>> {
+     -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
         match name { "texture" => Some(&self.textures[0]), _ => None, }
     }
     fn set_value(&mut self, name: &str, value: Share<dyn UniformBuffer>)
@@ -126,8 +129,8 @@ impl <C: Context> ProgramParamter<C> for Color<C> {
         };
         true
     }
-    fn set_texture(&mut self, name: &str, value: Share<UniformTexture<C>>)
-     -> bool {
+    fn set_texture(&mut self, name: &str,
+                   value: (Share<HalTexture>, Share<HalSampler>)) -> bool {
         match name {
             "texture" => self.textures[0] = value,
             _ => return false,
@@ -135,6 +138,7 @@ impl <C: Context> ProgramParamter<C> for Color<C> {
         true
     }
 }
+
 fn main() {
 
 }

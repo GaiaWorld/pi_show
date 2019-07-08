@@ -33,13 +33,20 @@ pub trait ProgramParamter {
     fn get_layout(&self) -> &[&str];
     fn get_texture_layout(&self) -> &[&str];
 
-    fn get_values(&self) -> &[Share<UniformBuffer>];
+    fn get_values(&self) -> &[Share<dyn UniformBuffer>];
     // 每个元素都是(texture的数字, sampler的数字)
     fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)];
 
-    fn set_value(&mut self, name: &str, value: Share<UniformBuffer>) -> bool;
+    fn set_value(&mut self, name: &str, value: Share<dyn UniformBuffer>) -> bool;
     fn set_texture(&mut self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool;
 
-    fn get_value(&mut self, name: &str) -> Option<&Share<UniformBuffer>>;
+    fn get_value(&mut self, name: &str) -> Option<&Share<dyn UniformBuffer>>;
     fn get_texture(&mut self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)>;
+}
+
+pub trait Defines {
+    fn add(&mut self, value: &'static str) -> Option<&'static str>;
+    fn remove(&mut self, value: &'static str) -> Option<&'static str>;
+    fn list(&self) -> &[Option<&str>];
+    fn id(&self) -> u32;
 }
