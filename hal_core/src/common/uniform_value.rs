@@ -1,4 +1,5 @@
 use std::fmt;
+use std::default::Default;
 
 /** 
  * Uniform的值，包含各种Uniform枚举
@@ -9,6 +10,12 @@ pub enum UniformValue {
     FloatV(u8, Vec<f32>),          // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4
     IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
+}
+
+impl Default for UniformValue {
+    fn default() -> Self {
+        UniformValue::Int(0, 0, 0, 0, 0)
+    }
 }
 
 impl fmt::Debug for UniformValue {

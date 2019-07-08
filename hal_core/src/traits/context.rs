@@ -22,9 +22,9 @@ pub struct HalDepthState(pub u32, pub u32);
 pub struct HalStencilState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalBlendState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HalSampler(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct HalTexture(pub u32, pub u32);
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -142,7 +142,7 @@ pub trait HalContext: Sized + Clone {
      * uniforms_layouts: 该Program的Uniform的布局约定，里面索引就是该str的槽
      * 注：compile，link内部有缓存表，已经编译过的shader和program不会再次编译
      */
-    fn program_create_with_vs_fs(&self, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
+    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
     fn program_destroy(&self, program: &HalProgram);
 

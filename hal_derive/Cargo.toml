@@ -10,8 +10,10 @@ proc-macro = true
 proc-macro2 = "0.4"
 syn = "0.15"
 quote = "0.6"
+lazy_static = "*"
 hal_core = {path="../hal_core"}
 share = {path="../../pi_lib/share"}
+atom = {path="../../pi_lib/atom"}
 
 [[example]]
 name = "basic"
