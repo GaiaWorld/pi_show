@@ -435,10 +435,10 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
     // 取最大z的node
     if z_depth > arg.max_z {
       let by_overflow = unsafe { arg.by_overflows.get_unchecked(*bind) }.0;
-      // debug_println!("by_overflow---------------------------{}",by_overflow);
+    //   println!("by_overflow1---------------------------bind: {},  by: {}, clip: {:?}, id_vec: {:?}, x: {}, y: {}", bind, by_overflow, &arg.overflow_clip.clip, &arg.overflow_clip.id_vec, arg.aabb.min.x, arg.aabb.min.y);
       // 检查是否有裁剪，及是否在裁剪范围内
       if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, arg.aabb.min.x, arg.aabb.min.y) {
-        debug_println!("in_overflow------------------overflow_clip");
+        // println!("in_overflow------------------by: {}, bind: {}, ", by_overflow, bind);
         arg.result = *bind;
         arg.max_z = z_depth;
       }
@@ -463,7 +463,7 @@ fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize,
   for i in 0..overflow_clip.id_vec.len() {
     // debug_println!("i + 1---------------------------{}",i + 1);
     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
-    if by_overflow & (i + 1) != 0 && overflow_clip.id_vec[i] > 0 {
+    if (by_overflow & (1<<i)) != 0 && overflow_clip.id_vec[i] > 0 {
       let p = &overflow_clip.clip[i];
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
