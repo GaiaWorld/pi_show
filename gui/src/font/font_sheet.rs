@@ -2,14 +2,13 @@ use std::default::Default;
 use std::str::Chars;
 use share::Share;
 
-use fnv::FnvHashMap;
-
 use atom::{Atom};
 use ucd::{Codepoint};
 use hal_core::Context;
 
 use component::user::*;
 use font::sdf_font::SdfFont;
+use FxHashMap32;
 
 pub const FONT_SIZE: f32 = 32.0;
 
@@ -18,8 +17,8 @@ pub const FONT_SIZE: f32 = 32.0;
 pub struct FontSheet<C: Context + 'static + Send + Sync> {
     size: f32,
     color: CgColor,
-    src_map: FnvHashMap<Atom, Share<dyn SdfFont<Ctx=C>>>,
-    face_map: FnvHashMap<Atom, FontFace>,
+    src_map: FxHashMap32<Atom, Share<dyn SdfFont<Ctx=C>>>,
+    face_map: FxHashMap32<Atom, FontFace>,
 }
 unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
 unsafe impl<C: Context + 'static + Send + Sync> Send for FontSheet<C>{}
@@ -29,8 +28,8 @@ impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
         FontSheet {
             size: FONT_SIZE,
             color: CgColor::default(),
-            src_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
-            face_map: FnvHashMap::with_capacity_and_hasher(0, Default::default()),
+            src_map: FxHashMap32::default(),
+            face_map: FxHashMap32::default(),
         }
     }
 }

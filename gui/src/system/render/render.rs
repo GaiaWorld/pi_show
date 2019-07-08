@@ -6,14 +6,13 @@ use std::marker::PhantomData;
 use std::default::Default;
 use share::Share;
 
-use fnv::FnvHashMap;
-
 use hal_core::*;
 use ecs::{SingleCaseImpl, Share as ShareTrait, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
 use atom::Atom;
 
 use render::engine::Engine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
+use FxHashMap32;
 
 pub struct RenderSys<C: Context + ShareTrait>{
     transparent_dirty: bool,
@@ -226,7 +225,7 @@ fn render<C: Context + ShareTrait>(gl: &mut C, obj: &RenderObj<C>){
         Some(g) => g,
     };
     gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
-    let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
+    let mut ubos: FxHashMap32<Atom, Share<dyn AsRef<Uniforms<C>>>> = FxHashMap32::default();
     for (k, v) in obj.ubos.iter() {
         ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
     }

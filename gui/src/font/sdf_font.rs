@@ -1,6 +1,6 @@
 use std::mem::transmute;
 
-use fnv::FnvHashMap;
+
 
 use hal_core::{Context};
 use data_view::GetView;
@@ -8,6 +8,7 @@ use atom::Atom;
 
 use render::res::TextureRes;
 use util::res_mgr::Res;
+use FxHashMap32;
 // use font::FontMeasure;
 // pub const FONT_FACTOR: f32 = 1.3198;
 
@@ -72,7 +73,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     atlas_width: usize,
     atlas_height: usize,
     padding: f32,
-    pub glyph_table: FnvHashMap<char, Glyph>,
+    pub glyph_table: FxHashMap32<char, Glyph>,
     texture: Res<TextureRes<C>>,
     dyn_type: usize,
     curr_uv: (f32, f32),
@@ -93,7 +94,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
                 font_size
                 // let glyph = self.generator.gen(self.name.as_ref(), c);
                 // let advance = glyph.advance;
-                // unsafe { &mut *(&self.glyph_table as *const FnvHashMap<char, Glyph> as usize as *mut FnvHashMap<char, Glyph>) }.insert(c, glyph);
+                // unsafe { &mut *(&self.glyph_table as *const FxHashMap32<char, Glyph> as usize as *mut FxHashMap32<char, Glyph>) }.insert(c, glyph);
                 // font_size/self.line_height*advance
             },
         }
@@ -194,7 +195,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
             atlas_width: 0,
             atlas_height: 0,
             padding: 0.0,
-            glyph_table: FnvHashMap::default(),
+            glyph_table: FxHashMap32::default(),
             texture: texture,
             dyn_type: dyn_type,
             curr_uv: (0.0, 0.0),
@@ -210,7 +211,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         atlas_width: usize,
         atlas_height: usize,
         padding: f32,
-        glyph_table: FnvHashMap<char, Glyph>,
+        glyph_table: FxHashMap32<char, Glyph>,
         texture: Res<TextureRes<C>>,
     ) -> Self{
         DefaultSdfFont {

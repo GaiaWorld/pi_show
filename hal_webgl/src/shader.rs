@@ -10,7 +10,7 @@ use webgl_rendering_context::{
     WebGLUniformLocation,
     WebGLRenderingContext,
 };
-use fnv::FnvHashMap;
+use fx_hashmap::FxHashMap32;
 
 use atom::Atom;
 use hal_core::*;
@@ -41,12 +41,12 @@ pub struct Program {
     handle: WebGLProgram,
     gl: ShareWeak<WebGLRenderingContext>,
     
-    _attributes: FnvHashMap<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
+    _attributes: FxHashMap32<AttributeName, u32>,  // 值是WebGL的Attrbitue Location
 
-    all_uniforms: FnvHashMap<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
+    all_uniforms: FxHashMap32<Atom, WebGLUniformImpl>, // Shader对应的所有Uniform，对应WebGL的概念
 
     // u32是上一次设置时候的 dirty_count
-    last_uniforms: FnvHashMap<Atom, (u32, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
+    last_uniforms: FxHashMap32<Atom, (u32, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>)>, // 上次设置的Uniforms，对应接口的概念
 }
 
 pub struct WebGLUniformImpl {
@@ -65,13 +65,13 @@ pub struct ProgramManager {
     gl: ShareWeak<WebGLRenderingContext>,
 
     // 代码缓存
-    code_caches: FnvHashMap<Atom, String>,
+    code_caches: FxHashMap32<Atom, String>,
 
     // Shader缓存的键是：hash[shader名 + defines]
-    shader_caches: FnvHashMap<u64, Shader>,
+    shader_caches: FxHashMap32<u64, Shader>,
     
     // Program缓存的键是：hash[vs名 + fs名 + defines]
-    program_caches: FnvHashMap<u64, Program>,
+    program_caches: FxHashMap32<u64, Program>,
 
     max_vertex_attribs: u32,
     stats: Rc<RefCell<RenderStats>>,
@@ -86,9 +86,9 @@ impl ProgramManager {
     pub fn new(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, max_vertex_attribs: u32) -> ProgramManager {
         ProgramManager {
             gl: Share::downgrade(gl),
-            code_caches: FnvHashMap::default(),
-            shader_caches: FnvHashMap::default(),
-            program_caches: FnvHashMap::default(),
+            code_caches: FxHashMap32::default(),
+            shader_caches: FxHashMap32::default(),
+            program_caches: FxHashMap32::default(),
             max_vertex_attribs: max_vertex_attribs,
             stats: stats.clone(),
         }
@@ -253,7 +253,7 @@ impl ProgramManager {
             handle: program_handle,
             _attributes: attributes,
             all_uniforms: all_uniforms,
-            last_uniforms: FnvHashMap::default(),
+            last_uniforms: FxHashMap32::default(),
         };
 
         self.program_caches.insert(program_hash, program);
@@ -264,11 +264,11 @@ impl ProgramManager {
         Ok(())
     }
 
-    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram) -> FnvHashMap<AttributeName, u32> {
+    fn init_attribute(gl: &WebGLRenderingContext, program: &WebGLProgram) -> FxHashMap32<AttributeName, u32> {
         
         // 为了减少状态切换，限制attribute前16个location必须用下面的名字
 
-        let mut attributes = FnvHashMap::default();
+        let mut attributes = FxHashMap32::default();
         
         let attributes_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_ATTRIBUTES)
@@ -291,9 +291,9 @@ impl ProgramManager {
         return attributes;
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> FnvHashMap<Atom, WebGLUniformImpl> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram) -> FxHashMap32<Atom, WebGLUniformImpl> {
         
-        let mut uniforms = FnvHashMap::default();
+        let mut uniforms = FxHashMap32::default();
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
@@ -458,7 +458,7 @@ impl Program {
         }
     }
 
-    pub fn set_uniforms(&mut self, state: &mut State, values: &FnvHashMap<Atom, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>>) {
+    pub fn set_uniforms(&mut self, state: &mut State, values: &FxHashMap32<Atom, Share<dyn AsRef<Uniforms<WebGLContextImpl>>>>) {
         
         for (name, curr) in values.iter() {
             let is_old_same = match self.last_uniforms.get_mut(name) {
@@ -486,7 +486,7 @@ impl Program {
         }
     }
 
-    fn set_uniforms_impl(&mut self, state: &mut State, values: &FnvHashMap<Atom, UniformValue<WebGLContextImpl>>) {
+    fn set_uniforms_impl(&mut self, state: &mut State, values: &FxHashMap32<Atom, UniformValue<WebGLContextImpl>>) {
 
         let gl = self.gl.upgrade();
         if gl.is_none() {

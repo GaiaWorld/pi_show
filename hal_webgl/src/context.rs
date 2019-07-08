@@ -7,7 +7,7 @@ use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 use stdweb::unstable::TryInto;
 use extension::*;
-use fnv::FnvHashMap;
+use fx_hashmap::FxHashMap32;
 
 use hal_core::*;
 
@@ -69,7 +69,7 @@ impl Context for WebGLContextImpl {
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
             dirty_count: 0,
-            values: FnvHashMap::default(),
+            values: FxHashMap32::default(),
 			has_texture: false,
         }
     }
@@ -177,7 +177,7 @@ impl Context for WebGLContextImpl {
         }
     }
 
-    fn draw(&mut self, geometry: &Share<dyn AsRef<Self::ContextGeometry>>, values: &FnvHashMap<Atom, Share<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
+    fn draw(&mut self, geometry: &Share<dyn AsRef<Self::ContextGeometry>>, values: &FxHashMap32<Atom, Share<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
 
 
 

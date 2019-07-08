@@ -14,7 +14,7 @@ extern crate share;
 #[macro_use]
 extern crate debug_info;
 extern crate hal_core;
-extern crate fnv;
+extern crate fx_hashmap;
 
 mod context;
 mod geometry;

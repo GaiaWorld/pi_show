@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use share::Share;
 
-use fnv::FnvHashMap;
+
 use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use hal_core::*;
 use atom::Atom;
@@ -17,6 +17,7 @@ use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::clip::*;
 use util::res_mgr::Res;
+use FxHashMap32;
 
 lazy_static! {
     static ref MESH_NUM: Atom = Atom::from("meshNum");
@@ -41,7 +42,7 @@ pub struct ClipSys<C: Context + ShareTrait>{
     ds: Share<DepthState>,
     pipeline: Share<PipelineInfo>,
     geometry: Share<<C as Context>::ContextGeometry>,
-    ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
+    ubos: FxHashMap32<Atom, Share<Uniforms<C>>>,
     sampler: Res<SamplerRes<C>>,
 }
 
@@ -86,7 +87,7 @@ impl<C: Context + ShareTrait> ClipSys<C>{
         );
         by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
 
-        let ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
 
         Self {
             mark: PhantomData,
@@ -184,6 +185,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
             &(Share::new(viewport) as Share<dyn AsRef<RenderBeginDesc>>)
         );
 
+        println!("overflow--------------{:?}", overflow.id_vec);
+
         // set_pipeline
         gl.set_pipeline(&(self.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
         {
@@ -211,7 +214,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..192]), true).unwrap();
         }
-        let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<dyn AsRef<Uniforms<C>>>> = FxHashMap32::default();
         for (k, v) in self.ubos.iter() {
             ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
         }

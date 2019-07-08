@@ -3,7 +3,7 @@ use hal_core::{Geometry, AttributeName};
 use webgl_rendering_context::{WebGLRenderingContext, WebGLBuffer};
 use stdweb::{UnsafeTypedArray, Object};
 use stdweb::unstable::TryInto;
-use fnv::FnvHashMap;
+use fx_hashmap::FxHashMap32;
 
 use std::rc::{Rc};
 use std::cell::{RefCell};
@@ -32,7 +32,7 @@ pub struct WebGLGeometryImpl {
     gl: ShareWeak<WebGLRenderingContext>,
     pub vertex_count: u32,
     pub indices: Option<Indices>,
-    pub attributes: FnvHashMap<AttributeName, Attribute>,
+    pub attributes: FxHashMap32<AttributeName, Attribute>,
     pub vao: Option<Object>,
     pub vao_extension: Option<Share<Object>>,
     pub stats: Rc<RefCell<RenderStats>>,
@@ -64,7 +64,7 @@ impl WebGLGeometryImpl {
             indices: None,
             vao: vao,
             vao_extension: vao_extension,
-            attributes: FnvHashMap::default(),  
+            attributes: FxHashMap32::default(),  
             stats: stats.clone(),          
         }
     }

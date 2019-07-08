@@ -1,5 +1,18 @@
 <script src="../target/asmjs-unknown-emscripten/release/gui_test_performan.js"></script>
 <script>
     // _main();
+    var h = new Map();
+    var time = performance.now();
+    for(var i = 0; i < 1000; i++) {
+        h.set(i, i);
+    }
+    console.log("-------------insert", performance.now() -time);
+
+    var time = performance.now();
+    var k = 0;
+    for(var i = 0; i < 1000; i++) {
+        k += h.get(i);
+    }
+    console.log("-------------insert", performance.now() -time, k);
     
 </script>

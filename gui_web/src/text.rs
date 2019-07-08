@@ -316,6 +316,7 @@ pub fn update_font_texture(world: u32){
     
     let width = (u2-u1) as u32;
     let height = (v2-v1) as u32;
+
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
     match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(@{u1 as u32}, @{v1 as u32}, @{width}, @{height}).data.buffer);} ) {
         Ok(data) => {
@@ -342,16 +343,21 @@ fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32,
         return;
     }
 
+    
+    src.texture().bind.update_webgl(u, v, width, height, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap() );
+    let render_objs = world.render_objs.lend_mut();
+    render_objs.get_notify().modify_event(1, "", 0);
+
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
-    match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
-        Ok(data) => {
-            let data = data.to_vec();
-            src.texture().bind.update(u, v, width, height, &TextureData::U8(data.as_slice()));
-            let render_objs = world.render_objs.lend_mut();
-            render_objs.get_notify().modify_event(1, "", 0);
-        },
-        Err(_) => panic!("update_font_texture error"),
-    };
+    // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
+    //     Ok(data) => {
+    //         let data = data.to_vec();
+    //         src.texture().bind.update_webgl(u, v, width, height, &TextureData::U8(data.as_slice()));
+    //         let render_objs = world.render_objs.lend_mut();
+    //         render_objs.get_notify().modify_event(1, "", 0);
+    //     },
+    //     Err(_) => panic!("update_font_texture error"),
+    // };
 }
 
 // pub struct FontGenerator;

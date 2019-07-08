@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 // use std::mem::transmute;
 use share::Share;
 
-use fnv::FnvHashMap;
+
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap };
 use hal_core::*;
@@ -24,6 +24,7 @@ use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 use util::res_mgr::Res;
+use FxHashMap32;
 
 
 lazy_static! {
@@ -216,7 +217,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, Cr
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
         let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();

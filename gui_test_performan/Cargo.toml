@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
+slab = {path="../../pi_lib/slab"}
 # atom = {path="../../pi_lib/atom"}
 # ecs = {path="../../pi_lib/ecs"}
 # ecs_derive = { path = "../../pi_lib/ecs_derive" }
@@ -22,16 +23,17 @@ authors = ["moyy <moyy@yineng.com>"]
 # stdweb-derive = "0.5.1"
 rustc-hash = "1.0.1"
 fnv = "1.0.6"
+fxhash = "0.2.1"
 # webgl-rendering-context = "0.1.0"
 # lazy_static = "*"
 # paste = "0.1"
 # fnv = "1.0.6"
 
-# [profile.release]
-# lto = true
-# opt-level ="z"
-# panic = 'abort'
-# codegen-units = 1
+[profile.release]
+lto = true
+opt-level = "z"
+panic = 'abort'
+codegen-units = 1
 
 # [features]
 # default = ["web"]

@@ -26,6 +26,6 @@ paste = "0.1"
 
 [profile.release]
 lto = true
-opt-level ="z"
+opt-level = "z"
 panic = 'abort'
 codegen-units = 1

@@ -25,17 +25,18 @@ atom = {path="../../pi_lib/atom"}
 ucd = {path="../../pi_lib/ucd"}
 data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
+fx_hashmap = {path="../../pi_lib/fx_hashmap"}
 dirty = {path="../../pi_lib/dirty"}
 hal_core = {path="../hal_core"}
 polygon = {path="../../pi_math/polygon"}
 num-traits = "0.2.6"
-fnv = "1.0.6"
 lazy_static = "*"
 stdweb = "0.4.15"
 derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 ordered-float = { version = "1.0", default-features = false }
+fxhash = "0.2.1"
 
 [features]
 default = ["warning"]

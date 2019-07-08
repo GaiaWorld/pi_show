@@ -37,7 +37,6 @@ extern crate slab;
 extern crate map;
 extern crate num_traits;
 extern crate heap;
-extern crate fnv;
 extern crate atom;
 extern crate ucd;
 extern crate data_view;
@@ -51,6 +50,8 @@ extern crate ordered_float;
 #[cfg(feature = "web")]
 #[macro_use]
 extern crate stdweb;
+extern crate fx_hashmap;
+extern crate fxhash;
 
 pub mod system;
 pub mod component;
@@ -69,6 +70,8 @@ use stdweb::unstable::TryInto;
 pub mod entity{
     pub struct Node;
 }
+
+pub use fx_hashmap::FxHashMap32;
 
 pub type IdBind = usize;
 pub const Z_MAX: f32 = 419430.0;

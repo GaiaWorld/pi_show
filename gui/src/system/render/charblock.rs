@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use share::Share;
 
-use fnv::FnvHashMap;
+
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -26,6 +26,7 @@ use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use util::res_mgr::Res;
 use layout::FlexNode;
+use FxHashMap32;
 
 
 lazy_static! {
@@ -49,7 +50,7 @@ pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
 
     canvas_bs: Share<BlendState>,
 
-    pipelines: FnvHashMap<u64, Share<PipelineInfo>>,
+    pipelines: FxHashMap32<u64, Share<PipelineInfo>>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
@@ -70,7 +71,7 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
             ss: Share::new(StencilState::new()),
             ds: Share::new(ds),
             canvas_bs:  Share::new(canvas_bs),
-            pipelines: FnvHashMap::default(),
+            pipelines: FxHashMap32::default(),
             default_sampler: None,
         }
     }   
@@ -167,7 +168,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
         let font = get_or_default(event.id, fonts, default_table);
         let mut defines = Vec::new();
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
 
         let mut common_ubo = engine.gl.create_uniforms();
         let dyn_type = match font_sheet.get_first_font(&font.family) {

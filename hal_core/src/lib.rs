@@ -4,7 +4,7 @@
 
 extern crate atom;
 extern crate share;
-extern crate fnv;
+extern crate fx_hashmap;
 
 mod traits;
 mod common;

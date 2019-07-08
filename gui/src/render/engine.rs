@@ -1,13 +1,13 @@
 use share::Share;
-// use std::collections::hash_map::FnvHasher;
+// use std::collections::hash_map::FxHashMap32;
 use std::hash::{ Hasher, Hash };
-use fnv::FnvHasher;
 
-use fnv::FnvHashMap;
+use fxhash::FxHasher32;
 
 use atom::Atom;
 use hal_core::{Context, Pipeline, RasterState, BlendState, StencilState, DepthState, ShaderType};
 use util::res_mgr::ResMgr;
+use FxHashMap32;
 
 pub struct PipelineInfo {
     pub pipeline: Share<Pipeline>,
@@ -24,7 +24,7 @@ pub struct PipelineInfo {
 pub struct Engine<C: Context>{
     pub gl: C,
     pub res_mgr: ResMgr,
-    pub pipelines: FnvHashMap<u64, Share<PipelineInfo>>,
+    pub pipelines: FxHashMap32<u64, Share<PipelineInfo>>,
 }
 
 impl<C: Context> Engine<C> {
@@ -32,13 +32,13 @@ impl<C: Context> Engine<C> {
         Engine{
             gl: gl,
             res_mgr: ResMgr::new(time),
-            pipelines: FnvHashMap::default(),
+            pipelines: FxHashMap32::default(),
         }
     }
 
     pub fn create_pipeline(&mut self, start_hash: u64, vs_name: &Atom, fs_name: &Atom, defines: &[Atom], rs: Share<RasterState>, bs: Share<BlendState>, ss: Share<StencilState>, ds: Share<DepthState>) -> Share<PipelineInfo> {
         // pipeline hash
-        let mut hasher = FnvHasher::default();
+        let mut hasher = FxHasher32::default();
         start_hash.hash(&mut hasher);
         vs_name.hash(&mut hasher);
         fs_name.hash(&mut hasher);

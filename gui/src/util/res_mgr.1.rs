@@ -12,7 +12,7 @@ pub trait Timer {
     fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize;
 }
 
-use fnv::FnvHashMap;
+
 
 // 定时的时间
 static mut DEFAULT_TIMEOUT: usize = 1000;
@@ -128,7 +128,7 @@ impl<R: ResTrait, T: Timer> Drop for Res<R, T> {
 }
 
 pub struct ResMgr<T: Timer>{
-    tables: FnvHashMap<TypeId, Share<dyn Any + Send + Sync>>,
+    tables: FxHashMap32<TypeId, Share<dyn Any + Send + Sync>>,
     pub timeout: u32,
 }
 
@@ -136,7 +136,7 @@ impl<T: Timer> ResMgr<T> {
     pub fn new(timeout: u32) -> Self{
         ResMgr{
             timeout,
-            tables: FnvHashMap::default(),
+            tables: FxHashMap32::default(),
         }
     }
 
@@ -158,11 +158,11 @@ impl<T: Timer> ResMgr<T> {
 }
 
 //资源表
-pub struct ResMap<R: ResTrait, T: Timer> (FnvHashMap<<R as ResTrait>::Key, (Share<R>, u32)>);
+pub struct ResMap<R: ResTrait, T: Timer> (FxHashMap32<<R as ResTrait>::Key, (Share<R>, u32)>);
 
 impl<R: ResTrait, T: Timer> ResMap<R, T> {
     pub fn new() -> ResMap<R, T>{
-        ResMap(FnvHashMap::with_capacity_and_hasher(0, Default::default()))
+        ResMap(FxHashMap32::default())
     }
 	// 获得指定键的资源
 	pub fn get(&self, name: &<R as ResTrait>::Key) -> Option<Res<R, T>> {

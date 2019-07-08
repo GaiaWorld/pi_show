@@ -151,7 +151,7 @@ pub fn has_texture_res(world: u32, key: String) -> bool{
     let engine = world.engine.lend();
     let key = Atom::from(key);
     match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
-        Some(res) => true,
+        Some(_res) => true,
         None => false,
     }
 }

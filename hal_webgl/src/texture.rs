@@ -187,7 +187,7 @@ impl WebGLTextureImpl {
         self.gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
 
         js! {
-            @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{w}, @{h}, @{p}, @{d}, @{data}.wrap);
+            @{self.gl.as_ref()}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{self.level}, @{x}, @{y}, @{p}, @{d}, @{data}.wrap);
         }
     }
 

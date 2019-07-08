@@ -1,7 +1,7 @@
 use std::mem::transmute;
 use share::Share;
 
-use fnv::FnvHashMap;
+
 
 use hal_core::{Context};
 use data_view::GetView;
@@ -47,7 +47,7 @@ pub struct StaticSdfFont<C: Context + 'static + Send + Sync> {
     atlas_height: usize,
     // base: f32,
     padding: f32,
-    pub glyph_table: FnvHashMap<char, Glyph>,
+    pub glyph_table: FxHashMap32<char, Glyph>,
     texture: Share<TextureRes<C>>,
 }
 
@@ -118,7 +118,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
             atlas_width: 0,
             atlas_height: 0,
             padding: 0.0,
-            glyph_table: FnvHashMap::default(),
+            glyph_table: FxHashMap32::default(),
             texture: texture,
         }
     }
@@ -129,7 +129,7 @@ impl<C: Context + 'static + Send + Sync> StaticSdfFont<C> {
         atlas_width: usize,
         atlas_height: usize,
         padding: f32,
-        glyph_table: FnvHashMap<char, Glyph>,
+        glyph_table: FxHashMap32<char, Glyph>,
         texture: Share<TextureRes<C>>,
     ) -> Self{
         StaticSdfFont {

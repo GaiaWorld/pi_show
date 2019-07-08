@@ -2,7 +2,7 @@ use share::{Share, ShareWeak};
 use std::convert::AsRef;
 use std::fmt;
 
-use fnv::FnvHashMap;
+use fx_hashmap::FxHashMap32;
 
 use atom::{Atom};
 use traits::{Context};
@@ -43,7 +43,7 @@ use ShareRef;
 pub struct Uniforms<C: Context> {
     pub dirty_count: u32,  // 用于设置脏
     pub has_texture: bool, // 该UBO是否含有纹理，如果含有纹理，需要每次设置。
-    pub values: FnvHashMap<Atom, UniformValue<C>>,
+    pub values: FxHashMap32<Atom, UniformValue<C>>,
 }
 
 impl<C: Context> Clone for Uniforms<C> {

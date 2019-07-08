@@ -3,8 +3,6 @@ pub mod oct;
 use share::Share;
 use std::any::{TypeId, Any};
 
-use fnv::FnvHashMap;
-
 use cgmath::Ortho;
 use slab::Slab;
 use atom::Atom;
@@ -17,6 +15,7 @@ use component::user::{Point2, Matrix4};
 use render::engine::{ PipelineInfo};
 use render::res::GeometryRes;
 use util::res_mgr::Res;
+use FxHashMap32;
 
 pub use single::oct::Oct;
 
@@ -85,7 +84,7 @@ pub struct RenderObj<C: Context + 'static>{
     pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
+    pub ubos: FxHashMap32<Atom, Share<Uniforms<C>>>,
     pub geometry: Option<Res<GeometryRes<C>>>,
     pub pipeline: Share<PipelineInfo>,
     pub context: usize,
@@ -202,11 +201,11 @@ unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
 unsafe impl Sync for RenderBegin {}
 unsafe impl Send for RenderBegin {}
 
-pub struct DefaultTable(FnvHashMap<TypeId, Box<dyn Any>>);
+pub struct DefaultTable(FxHashMap32<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
     pub fn new() -> Self{
-        Self(FnvHashMap::default())
+        Self(FxHashMap32::default())
     }
 
     pub fn set<T: 'static + Any + Sync + Send>(&mut self, value: T){

@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
-use fnv::{ FnvHashMap, FnvHasher};
+use fxhash::{FxHasher32};
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
@@ -22,6 +22,7 @@ use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use FxHashMap32;
 
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
@@ -132,7 +133,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderColor, Creat
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
         let mut defines = Vec::new();
         defines.push(UCOLOR.clone());
 
@@ -267,7 +268,7 @@ struct Item {
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
     let radius = cal_border_radius(radius, layout);
-    let mut hasher = FnvHasher::default();
+    let mut hasher = FxHasher32::default();
     BORDER_COLOR.hash(&mut hasher);
     unsafe { NotNan::unchecked_new(radius.x).hash(&mut hasher) };
     unsafe { NotNan::unchecked_new(layout.width).hash(&mut hasher) };

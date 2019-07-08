@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
-use fnv::{FnvHashMap, FnvHasher};
+use fxhash::FxHasher32;
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -23,6 +23,7 @@ use system::util::*;
 use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 use util::res_mgr::Res;
+use FxHashMap32;
 
 lazy_static! {
     static ref STROKE: Atom = Atom::from("STROKE");
@@ -154,7 +155,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, CreateEv
         let _layout = unsafe { layouts.get_unchecked(event.id) };
         let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
         let defines = Vec::new();
 
         let mut common_ubo = engine.gl.create_uniforms();
@@ -403,7 +404,7 @@ struct Item {
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
     let radius = cal_border_radius(radius, layout);
-    let mut hasher = FnvHasher::default();
+    let mut hasher = FxHasher32::default();
     IMAGE.hash(&mut hasher); 
     if radius.x == 0.0 {
         QUAD_POSITION_INDEX.hash(&mut hasher);           

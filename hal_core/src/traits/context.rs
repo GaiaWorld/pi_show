@@ -2,7 +2,7 @@ use share::{Share};
 use atom::Atom;
 use std::convert::{AsRef};
 
-use fnv::FnvHashMap;
+use fx_hashmap::FxHashMap32;
 
 use common::{Uniforms, ShaderType, Capabilities, Pipeline, RenderBeginDesc, PixelFormat, DataFormat, RasterState, DepthState, StencilState, BlendState};
 use traits::texture::{Texture, TextureData};
@@ -153,5 +153,5 @@ pub trait Context: Sized {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn draw(&mut self, geometry: &ShareRef<Self::ContextGeometry>, values: &FnvHashMap<Atom, ShareRef<Uniforms<Self>>>) where Self: std::marker::Sized;
+    fn draw(&mut self, geometry: &ShareRef<Self::ContextGeometry>, values: &FxHashMap32<Atom, ShareRef<Uniforms<Self>>>) where Self: std::marker::Sized;
 }

@@ -4,8 +4,8 @@ use std::hash::Hash;
 use std::any::{ TypeId, Any };
 use std::ops::{ Deref };
 use std::cell::RefCell;
+use FxHashMap32;
 
-use fnv::FnvHashMap;
 use { set_timeout, now_time, cancel_timeout };
 
 // 定时的时间
@@ -126,7 +126,7 @@ unsafe impl<T: ResTrait> Sync for Res<T> {}
 unsafe impl<T: ResTrait> Send for Res<T> {}
 
 pub struct ResMgr{
-    tables: FnvHashMap<TypeId, Share<dyn Any>>,
+    tables: FxHashMap32<TypeId, Share<dyn Any>>,
     pub timeout: u32,
 }
 
@@ -134,7 +134,7 @@ impl ResMgr {
     pub fn new(timeout: u32) -> Self{
         ResMgr{
             timeout,
-            tables: FnvHashMap::default(),
+            tables: FxHashMap32::default(),
         }
     }
 
@@ -156,11 +156,11 @@ impl ResMgr {
 }
 
 //资源表
-pub struct ResMap<T: ResTrait> (FnvHashMap<<T as ResTrait>::Key, (ShareWeak<T>, u32)>);
+pub struct ResMap<T: ResTrait> (FxHashMap32<<T as ResTrait>::Key, (ShareWeak<T>, u32)>);
 
 impl<T:ResTrait> ResMap<T> {
     pub fn new() -> ResMap<T>{
-        ResMap(FnvHashMap::with_capacity_and_hasher(0, Default::default()))
+        ResMap(FxHashMap32::default())
     }
 	// 获得指定键的资源
 	pub fn get(&self, name: &<T as ResTrait>::Key) -> Option<Res<T>> {

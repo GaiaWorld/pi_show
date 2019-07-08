@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use share::Share;
 
-use fnv::FnvHashMap;
+
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -25,6 +25,7 @@ use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use util::res_mgr::Res;
 use layout::FlexNode;
+use FxHashMap32;
 
 lazy_static! {
     static ref UCOLOR: Atom = Atom::from("UCOLOR");
@@ -100,7 +101,7 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockShadowSys<C, L>
         let font = get_or_default(id, fonts, default_table);
         let mut defines = Vec::new();
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
 
         let mut common_ubo = engine.gl.create_uniforms();  
         let dyn_type = match font_sheet.get_first_font(&font.family) {
