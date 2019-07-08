@@ -30,6 +30,7 @@ mod texture;
 
 mod util;
 mod convert;
+mod shader_cache;
 
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};

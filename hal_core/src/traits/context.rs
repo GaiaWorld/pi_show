@@ -57,7 +57,7 @@ pub enum TextureData<'a> {
     Custom(Box<dyn CustomTextureData>),
 }
 
-pub trait HalContext: Sized + Clone {
+pub trait HalContext {
 
     // ==================== HalBuffer
     

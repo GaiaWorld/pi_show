@@ -1,17 +1,15 @@
 use atom::{Atom};
-use hal_core::{ShaderType, UniformLayout, UniformValue, ProgramParamter, AttributeName};
-use share::{Share};
-use implement::context::{WebGLContextImpl}; 
+use hal_core::{HalTexture, HalSampler, ShaderType, UniformLayout, UniformValue, ProgramParamter, AttributeName};
 use webgl_rendering_context::{WebGLProgram, WebGLUniformLocation, WebGLRenderingContext};
 use stdweb::unstable::TryInto;
 
-use wrap::{WebGLSamplerWrap, WebGLTextureWrap};
+use shader_cache::{ShaderCache};
 
 use fnv::FnvHashMap;
 
 pub struct SamplerUniform {
     location: WebGLUniformLocation,
-    value: Option<(WebGLSamplerWrap, WebGLTextureWrap)>,
+    value: (HalTexture, HalSampler),
 }
 
 pub struct CommonUniform {
@@ -20,8 +18,6 @@ pub struct CommonUniform {
 }
 
 pub struct WebGLProgramImpl {
-    pub context: Share<WebGLContextImpl>,
-
     pub handle: WebGLProgram,
 
     // 这里是所有宏展开后的全局的数据，有很多用不到的，统统填 None
@@ -33,21 +29,19 @@ pub struct WebGLProgramImpl {
 
 impl WebGLProgramImpl {
 
-    pub fn new_with_vs_fs(context: &Share<WebGLContextImpl>, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
+    pub fn new_with_vs_fs(gl: &WebGLRenderingContext, shader_cache: &ShaderCache, caps: &Capabilities, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
         
-        let vs = context.shader_cache.unwrap().get_shader(ShaderType::Vertex, vs_name, vs_defines);
+        let vs = shader_cache.get_shader(ShaderType::Vertex, vs_name, vs_defines);
         if let Err(e) = &vs {
             return Err(e.clone());
         }
         let vs = vs.unwrap();
 
-        let fs = context.shader_cache.unwrap().get_shader(ShaderType::Fragment, fs_name, fs_defines);
+        let fs = shader_cache.get_shader(ShaderType::Fragment, fs_name, fs_defines);
         if let Err(e) = &fs {
             return Err(e.clone());
         }
         let fs = fs.unwrap();
-
-        let gl = &context.context;
         
         // 创建program
         let program_handle = gl.create_program().ok_or_else(|| String::from("unable to create shader object"))?;
@@ -55,7 +49,7 @@ impl WebGLProgramImpl {
         gl.attach_shader(&program_handle, &fs.handle);
 
         // 先绑定属性，再连接
-        let max_attribute_count = std::cmp::min(AttributeName::get_builtin_count(), context.caps.max_vertex_attribs);
+        let max_attribute_count = std::cmp::min(AttributeName::get_builtin_count(), caps.max_vertex_attribs);
         for i in 0..max_attribute_count {
             let (_attrib_name, name) = Self::get_attribute_by_location(i);
             debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
@@ -86,7 +80,7 @@ impl WebGLProgramImpl {
             return Err(e);
         }
 
-        let location_map = context.shader_cache.unwrap().get_location_map(vs_name, fs_name, uniform_layout);
+        let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
         
         // 初始化attribute和uniform
         match Self::init_uniform(gl, &program_handle, location_map) {
@@ -96,7 +90,6 @@ impl WebGLProgramImpl {
             },
             Some((uniforms, textures)) => {
                 Ok(WebGLProgramImpl {
-                    context: context.clone(),
                     handle: program_handle,
                     active_uniforms: uniforms,
                     active_textures: textures,
@@ -106,8 +99,7 @@ impl WebGLProgramImpl {
         }
     }
 
-    pub fn delete(&self) {
-        let gl = &self.context.context;
+    pub fn delete(&self, gl: &WebGLRenderingContext) {
         gl.delete_program(Some(&self.handle));
     }
 
