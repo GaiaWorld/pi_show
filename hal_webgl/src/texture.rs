@@ -1,4 +1,4 @@
-use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc};
+use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc, HalSampler};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
 
 use convert::*;
@@ -11,8 +11,10 @@ pub struct WebGLTextureImpl {
     pub data_format: DataFormat,
     pub is_gen_mipmap: bool,
     pub handle: WebGLTexture,
- 
-    pub sampler: SamplerDesc,
+    
+    // 纹理缓存
+    pub curr_unit: i32,  // 仅当 >= 0 时有意义
+    pub curr_sampler: HalSampler, // 当前作用的Sampler
 }
 
 impl WebGLTextureImpl {
@@ -57,10 +59,12 @@ impl WebGLTextureImpl {
             data_format: dformat,
             is_gen_mipmap: is_gen_mipmap,
             handle: texture,
-            sampler: SamplerDesc::new(),
+            
+            curr_unit: -1,
+            curr_sampler: HalSampler::new(),
         };
 
-        t.apply_sampler(gl, &t.sampler);
+        t.apply_sampler(gl, &SamplerDesc::new());
 
         Ok(t)
     }

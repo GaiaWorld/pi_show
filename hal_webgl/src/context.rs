@@ -14,9 +14,10 @@ use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 use sampler::{WebGLSamplerImpl};
 use state::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLStencilStateImpl, WebGLRasterStateImpl};
 use texture::{WebGLTextureImpl};
-use util::{convert_to_mut};
+
 use shader_cache::{ShaderCache};
 use extension::*;
+use util::*;
 
 pub struct WebglHalContext {
     pub default_rt: HalRenderTarget,
@@ -634,39 +635,5 @@ impl HalContext for WebglHalContext {
     // TODO
     fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>) {
 
-    }
-}
-
-fn create_new_slot<T>(slab: &mut Slab<(T, u32)>, obj: T) -> (u32, u32) {
-    let (key, v, is_first) = slab.alloc_with_is_first();
-    if is_first {
-        v.1 = 0;
-    }
-    
-    v.0 = obj;
-    v.1 += 1;
-
-    (key as u32, v.1 as u32)
-}
-
-fn get_mut_ref<T>(slab: &mut Slab<(T, u32)>, key: u32, count: u32) -> Option<&mut T> {
-    let key = key as usize;
-    match slab.get_mut(key) {
-        Some(v) => {
-            if v.1 == count {
-                Some(&mut v.0)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
-fn get_ref<T>(slab: &Slab<(T, u32)>, key: u32, count: u32) -> Option<&T> {
-    let key = key as usize;
-    match slab.get(key) {
-        Some(v) if v.1 == count => Some(&v.0),
-        _ => None,
     }
 }

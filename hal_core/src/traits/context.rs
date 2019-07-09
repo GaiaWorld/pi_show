@@ -273,3 +273,59 @@ pub trait HalContext {
      */
     fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
 }
+
+impl HalBuffer {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalGeometry {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalProgram {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalRenderTarget {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalRenderBuffer {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalRasterState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalDepthState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalStencilState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalBlendState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalSampler {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl HalTexture {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}

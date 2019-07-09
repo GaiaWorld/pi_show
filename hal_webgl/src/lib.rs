@@ -31,6 +31,7 @@ mod extension;
 mod util;
 mod convert;
 mod shader_cache;
+mod state_machine;
 
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};

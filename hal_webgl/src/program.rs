@@ -117,12 +117,6 @@ impl WebGLProgramImpl {
         gl.delete_program(Some(&self.handle));
     }
 
-    ////////////////////////////// 
-
-    pub fn use_me(&mut self, gl: &WebGLRenderingContext) {
-        gl.use_program(Some(&self.handle));
-    }
-
     fn get_attribute_by_location(index: u32) -> (AttributeName, &'static str) {
         match index {
             0 => (AttributeName::Position, "position"),
@@ -283,7 +277,8 @@ impl WebGLProgramImpl {
                 }
             }
         }
-
+        
+        // TODO: 按ubo和uniform的location排序，查找的时候，就可以连续查找。
         return Some((uniforms, textures));
     }
 }
