@@ -146,11 +146,6 @@ pub trait HalContext {
 
     fn program_destroy(&self, program: &HalProgram);
 
-    /** 
-     * 返回指定类型的shader的名字和宏
-     */
-    fn program_get_shader_info(&self, program: &HalProgram, stype: ShaderType) -> Option<(&Atom, &[Atom])>;
-
 
     // ==================== HalRenderTarget
 

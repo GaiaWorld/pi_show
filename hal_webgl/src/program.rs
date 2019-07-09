@@ -1,17 +1,24 @@
 use share::{Share};
 use atom::{Atom};
-use hal_core::{HalTexture, HalSampler, ShaderType, UniformLayout, UniformValue, ProgramParamter, AttributeName};
+use hal_core::*;
 use webgl_rendering_context::{WebGLProgram, WebGLUniformLocation, WebGLRenderingContext};
 use stdweb::unstable::TryInto;
 
-use shader_cache::{ShaderCache};
+use shader_cache::{ShaderCache, LayoutLocation};
 
 pub struct SamplerUniform {
+    // 针对UniformLayout的紧凑结构
+    slot_uniform: usize,
+
     location: WebGLUniformLocation,
-    value: (HalTexture, HalSampler),
+    value: Option<(HalTexture, HalSampler)>,
 }
 
 pub struct CommonUniform {
+    // 针对UniformLayout的紧凑结构
+    slot_ubo: usize,
+    slot_uniform: usize,
+
     value: UniformValue,
     location: WebGLUniformLocation,
 }
@@ -19,34 +26,39 @@ pub struct CommonUniform {
 pub struct WebGLProgramImpl {
     pub handle: WebGLProgram,
 
-    // 这里是所有宏展开后的全局的数据，有很多用不到的，统统填 None
-    pub active_uniforms: Vec<(usize, Vec<(usize, CommonUniform)>)>,
-    pub active_textures: Vec<(usize, SamplerUniform)>,
+    pub active_uniforms: Vec<CommonUniform>,
+    pub active_textures: Vec<SamplerUniform>,
     
     pub last_ubos: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
 }
 
 impl WebGLProgramImpl {
 
-    pub fn new_with_vs_fs(gl: &WebGLRenderingContext, shader_cache: &ShaderCache, caps: &Capabilities, vs_name: &Atom, vs_defines: &[Atom], fs_name: &Atom, fs_defines: &[Atom], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
-        
-        let vs = shader_cache.get_shader(ShaderType::Vertex, vs_name, vs_defines);
-        if let Err(e) = &vs {
-            return Err(e.clone());
-        }
-        let vs = vs.unwrap();
-
-        let fs = shader_cache.get_shader(ShaderType::Fragment, fs_name, fs_defines);
-        if let Err(e) = &fs {
-            return Err(e.clone());
-        }
-        let fs = fs.unwrap();
+    // TODO: 之后一定要问小燕，数据结构如何用str存储？
+    pub fn new_with_vs_fs(gl: &WebGLRenderingContext, caps: &Capabilities, shader_cache: &mut ShaderCache, vs_id: u64, fs_id: u64, vs_name: &Atom, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
         
         // 创建program
         let program_handle = gl.create_program().ok_or_else(|| String::from("unable to create shader object"))?;
-        gl.attach_shader(&program_handle, &vs.handle);
-        gl.attach_shader(&program_handle, &fs.handle);
-
+        {
+            let vs = shader_cache.compile_shader(gl, ShaderType::Vertex, vs_id, &vs_name, vs_defines);
+            if let Err(e) = &vs {
+                gl.delete_program(Some(&program_handle));
+                return Err(e.clone());
+            }
+            let vs = vs.unwrap();
+            gl.attach_shader(&program_handle, &vs.handle);
+        }
+        
+        {
+            let fs = shader_cache.compile_shader(gl, ShaderType::Fragment, fs_id, &fs_name, fs_defines);
+            if let Err(e) = &fs {
+                gl.delete_program(Some(&program_handle));
+                return Err(e.clone());
+            }
+            let fs = fs.unwrap();
+            gl.attach_shader(&program_handle, &fs.handle);
+        }
+        
         // 先绑定属性，再连接
         let max_attribute_count = std::cmp::min(AttributeName::get_builtin_count(), caps.max_vertex_attribs);
         for i in 0..max_attribute_count {
@@ -76,18 +88,21 @@ impl WebGLProgramImpl {
                 .get_program_info_log(&program_handle)
                 .unwrap_or_else(|| "unkown link error".into());
             debug_println!("Shader, link_program error, link failed, info = {:?}", &e);
+
+            gl.delete_program(Some(&program_handle));
             return Err(e);
         }
 
         let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
         
         // 初始化attribute和uniform
-        match Self::init_uniform(gl, &program_handle, location_map) {
+        match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map, uniform_layout) {
             None => {
                 gl.delete_program(Some(&program_handle));
                 Err("WebGLProgramImpl failed, invalid uniforms".to_string())
             },
             Some((uniforms, textures)) => {
+                
                 Ok(WebGLProgramImpl {
                     handle: program_handle,
                     active_uniforms: uniforms,
@@ -100,10 +115,6 @@ impl WebGLProgramImpl {
 
     pub fn delete(&self, gl: &WebGLRenderingContext) {
         gl.delete_program(Some(&self.handle));
-    }
-
-    pub fn get_shader_info(&self, stype: ShaderType) -> Option<(&Atom, &[Atom])> {
-        None
     }
 
     ////////////////////////////// 
@@ -137,23 +148,21 @@ impl WebGLProgramImpl {
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &FxHashmap<Atom, (usize, usize)) -> Option<(Vec<Vec<Option<CommonUniform>>>, Vec<Option<SamplerUniform>>)> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation, layout: &UniformLayout) -> Option<(Vec<CommonUniform>, Vec<SamplerUniform>)> {
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
             .try_into()
             .unwrap_or(0);
 
-        let mut uniforms = Vec::with_capacity(layout.uniforms.len());
-        let mut textures = Vec::with_capacity(layout.textures.len());
-
-        textures.resize_with(layout.textures.len(), || { None });
+        let mut uniforms = vec![];
+        let mut textures = vec![];
 
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i as u32).unwrap();
             let mut value;
+
             let mut name = uniform.name();
-            
             let is_array = match uniform.name().find('[') {
                 Some(index) => {
                     let n = uniform.name();
@@ -163,8 +172,9 @@ impl WebGLProgramImpl {
                 },
                 None => false
             };
-
-            let mut is_texture = false;
+            let name = Atom::from(name);
+            let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
+            
             match uniform.type_() {
                 WebGLRenderingContext::FLOAT => {
                     if is_array {
@@ -243,50 +253,37 @@ impl WebGLProgramImpl {
                     value = UniformValue::MatrixV(4, vec![0.0; size]);
                 }
                 WebGLRenderingContext::SAMPLER_2D => {
-                    is_texture = true;
+                    match location_map.textures.get(&name) {
+                        None => return None,
+                        Some(i) => {
+                            
+                            textures.push(SamplerUniform {
+                                value: None,
+                                location: loc,
+                                slot_uniform: *i,
+                            });
+                        }
+                    }
+                    continue;
                 }
                 _ => {
                     panic!("Invalid Uniform");
                 }
             }
 
-            let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
-
-            let name = Atom::from(name);
-            if is_texture {
-                let location = Self::get_sampler_location(layout, &name);
-                if location < 0 || location >= textures.len() as i32 {
-                    return None;
-                } else {
-                    textures[location as usize] = Some(SamplerUniform {
-                        value: None,
+            match location_map.uniforms.get(&name) {
+                None => return None,
+                Some((i, j)) => {
+                    uniforms.push(CommonUniform {
+                        value: value,
                         location: loc,
+                        slot_ubo: *i,
+                        slot_uniform: *j,
                     });
-                }
-            } else {
-                match location_map.get(&name) {
-                    None => return None,
-                    Some((i, j)) => {
-                        uniforms[*i][*j] = Some(CommonUniform {
-                            value: value,
-                            location: loc,
-                        });
-                    }
                 }
             }
         }
 
         return Some((uniforms, textures));
-    }
-
-     fn get_sampler_location(layout: &UniformLayout, name: &Atom) -> i32 {
-        let mut location = 0;
-        for t in layout.textures.iter() {
-            if *t == *name {
-                return location;
-            }
-            location += 1;
-        }
-        return -1;
     }
 }

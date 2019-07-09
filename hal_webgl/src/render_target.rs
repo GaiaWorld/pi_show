@@ -5,11 +5,6 @@ use stdweb::unstable::TryInto;
 use webgl_rendering_context::{WebGLRenderingContext, WebGLRenderbuffer};
 use convert::*;
 
-pub enum RenderTargetAttach {
-    Texture(HalTexture),
-    Buffer(HalRenderBuffer),
-}
-
 pub struct WebGLRenderBufferImpl {
     width: u32, 
     height: u32,
@@ -53,9 +48,9 @@ pub struct WebGLRenderTargetImpl {
     pub handle: Option<Object>,
     width: u32,
     height: u32,
-    color: Option<RenderTargetAttach>,
-    depth: Option<RenderTargetAttach>,
-}
+    pub color: Option<HalTexture>,
+    pub depth: Option<HalRenderBuffer>,
+}   
 
 impl WebGLRenderTargetImpl {
     pub fn new(gl: &WebGLRenderingContext, w: u32, h: u32, texture: &WebGLTextureImpl, rb: Option<&WebGLRenderBufferImpl>, texture_wrap: &HalTexture, rb_wrap: Option<&HalRenderBuffer>) -> Result<Self, String> {
@@ -93,8 +88,8 @@ impl WebGLRenderTargetImpl {
             @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
         }
         
-        let color = RenderTargetAttach::Texture(texture_wrap.clone());
-        let depth = if rb.is_none() { None } else { Some(RenderTargetAttach::Buffer( rb_wrap.unwrap().clone() )) };
+        let color = texture_wrap.clone();
+        let depth = if rb.is_none() { None } else { Some(rb_wrap.unwrap().clone()) };
 
         Ok(Self {
             is_default: false,
@@ -127,5 +122,12 @@ impl WebGLRenderTargetImpl {
 
     pub fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    pub fn get_color_texture(&self) -> Option<HalTexture> {
+        match &self.color {
+            Some(t) => Some(t.clone()),
+            _ => None,
+        }
     }
 }
