@@ -1,4 +1,5 @@
 /// 中间计算的组件
+use std::ops::{Deref, DerefMut, Mul};
 
 use atom::Atom;
 use map::{vecmap::VecMap};
@@ -14,8 +15,8 @@ pub struct ZDepth(pub f32);
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ByOverflow(pub usize);
 
-#[derive(Debug, Clone, Component, Default, Deref, DerefMut)]
-pub struct WorldMatrix(pub Matrix4);
+#[derive(Debug, Clone, Component, Default)]
+pub struct WorldMatrix(pub Matrix4, pub bool);
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct WorldMatrixRender(pub Matrix4);
@@ -79,4 +80,134 @@ impl Default for Enable {
   fn default() -> Self{
     Self(true)
   }
+}
+
+impl Deref for WorldMatrix {
+    type Target = Matrix4;
+    fn deref(&self) -> &Self::Target{
+        &self.0
+    }
+}
+
+impl DerefMut for WorldMatrix {
+    fn deref_mut(&mut self) -> &mut Self::Target{
+        &mut self.0
+    }
+}
+
+impl<'a, 'b> Mul<&'a WorldMatrix> for &'b WorldMatrix{
+    type Output = WorldMatrix;
+    fn mul(self, other: &'a WorldMatrix) -> Self::Output {
+        if self.1 == false && other.1 == false {
+            WorldMatrix(
+                Matrix4::new(
+                    self.x.x * other.x.x,             0.0,                              0.0, 0.0,
+                    0.0,                              self.y.y * other.y.y,             0.0, 0.0,
+                    0.0,                              0.0,                              1.0, 0.0,
+                    self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
+                ),
+                false
+            )
+        } else {
+            WorldMatrix(self.0 * other.0, true)
+        }
+    }
+}
+
+impl<'a> Mul<&'a WorldMatrix> for WorldMatrix{
+    type Output = WorldMatrix;
+    #[inline]
+    fn mul(mut self, other: &'a WorldMatrix) -> Self::Output {
+        if self.1 == false && other.1 == false {
+            self.x.x = self.x.x * other.x.x;
+            self.y.y = self.y.y * other.y.y;
+            self.w.x = self.w.x + other.w.x;
+            self.w.y = self.w.y + other.w.y;
+            self
+            // WorldMatrix(
+            //     Matrix4::new(
+            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
+            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
+            //         0.0,                              0.0,                              1.0, 0.0,
+            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
+            //     ),
+            //     false
+            // )
+        } else {
+            WorldMatrix(self.0 * other.0, true)
+        }
+    }
+}
+
+impl<'a> Mul<WorldMatrix> for &'a WorldMatrix{
+    type Output = WorldMatrix;
+    #[inline]
+    fn mul(self, mut other: WorldMatrix) -> Self::Output {
+        if self.1 == false && other.1 == false {
+            other.x.x = self.x.x * other.x.x;
+            other.y.y = self.y.y * other.y.y;
+            other.w.x = self.w.x + other.w.x;
+            other.w.y = self.w.y + other.w.y;
+            other
+            // WorldMatrix(
+            //     Matrix4::new(
+            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
+            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
+            //         0.0,                              0.0,                              1.0, 0.0,
+            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
+            //     ),
+            //     false
+            // )
+        } else {
+            WorldMatrix(self.0 * other.0, true)
+        }
+    }
+}
+
+impl Mul<WorldMatrix> for WorldMatrix{
+    type Output = WorldMatrix;
+    #[inline]
+    fn mul(self, mut other: WorldMatrix) -> Self::Output {
+        if self.1 == false && other.1 == false {
+            other.x.x = self.x.x * other.x.x;
+            other.y.y = self.y.y * other.y.y;
+            other.w.x = self.w.x + other.w.x;
+            other.w.y = self.w.y + other.w.y;
+            // println!("other-----------------------------------");
+            other
+            // WorldMatrix(
+            //     Matrix4::new(
+            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
+            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
+            //         0.0,                              0.0,                              1.0, 0.0,
+            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
+            //     ),
+            //     false
+            // )
+        } else {
+            WorldMatrix(self.0 * other.0, true)
+        }
+    }
+}
+
+impl<'a> Mul<&'a Vector4> for WorldMatrix{
+    type Output = Vector4;
+    fn mul(self, other: &'a Vector4) -> Vector4 {
+        if self.1 == false {
+            Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
+        } else {
+            self * other
+        }
+    }
+}
+
+impl Mul<Vector4> for WorldMatrix{
+    type Output = Vector4;
+    fn mul(self, other: Vector4) -> Vector4 {
+        if self.1 == false {
+            Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
+        } else {
+            self * other
+        }
+    }
 }

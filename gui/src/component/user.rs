@@ -15,6 +15,7 @@ use ecs::component::Component;
 use atom::Atom;
 use HashMap;
 use util::res_mgr::Res;
+use component::calc::WorldMatrix;
 
 //================================== 组件
 #[derive(Clone, Debug, Default, Component, PartialEq)]
@@ -395,7 +396,7 @@ pub enum EnableType{
 }
 
 impl Transform {
-    pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> Matrix4 {
+    pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -404,25 +405,25 @@ impl Transform {
         //     0.0, 0.0, 0.0, 1.0,
         // );
         let value = self.origin.to_value(width, height);
-        let mut m = Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
+        let mut m = WorldMatrix(Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0)), false);
 
         for func in self.funcs.iter() {
             match func {
                 TransformFunc::TranslateX(x) => {
-                    m = m * Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0))
+                    m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0)), false)
                 },
-                TransformFunc::TranslateY(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)),
-                TransformFunc::Translate(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x, *y, 0.0)),
+                TransformFunc::TranslateY(y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)), false),
+                TransformFunc::Translate(x, y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x, *y, 0.0)), false),
 
-                TransformFunc::TranslateXPercent(x) => m = m * Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)),
-                TransformFunc::TranslateYPercent(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)),
-                TransformFunc::TranslatePercent(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)),
+                TransformFunc::TranslateXPercent(x) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)), false),
+                TransformFunc::TranslateYPercent(y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)), false),
+                TransformFunc::TranslatePercent(x, y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)), false),
 
-                TransformFunc::ScaleX(x) => m = m * Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
-                TransformFunc::ScaleY(y) => m = m * Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
-                TransformFunc::Scale(x, y) => m = m * Matrix4::from_nonuniform_scale(*x, *y, 1.0),
+                TransformFunc::ScaleX(x) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, 1.0, 1.0), false),
+                TransformFunc::ScaleY(y) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(1.0, *y, 1.0), false),
+                TransformFunc::Scale(x, y) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, *y, 1.0), false),
                 
-                TransformFunc::RotateZ(z) => m = m * Matrix4::from_angle_z(cgmath::Deg(*z)),
+                TransformFunc::RotateZ(z) => m = m * WorldMatrix(Matrix4::from_angle_z(cgmath::Deg(*z)), true),
             }
         }
         m

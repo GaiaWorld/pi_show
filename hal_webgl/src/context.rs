@@ -114,7 +114,7 @@ impl Context for WebGLContextImpl {
     fn create_sampler(&mut self, desc: Share<dyn AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
         let desc = desc.as_ref().as_ref();
         
-        self.stats.borrow_mut().sampler_count += 1;
+        // self.stats.borrow_mut().sampler_count += 1;
         //println!("!!!!!!!!!!!!!!!!! WebGLSamplerImpl Create, stats = {:?} !", self.stats.borrow());
         
         Ok(WebGLSamplerImpl {
