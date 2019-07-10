@@ -1,4 +1,4 @@
-
+use share::{Share};
 use slab::{Slab};
 use ordered_float::{OrderedFloat};
 use stdweb::{Object};
@@ -16,8 +16,8 @@ use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
 
 pub struct StateMachine {
-    clear_color: (f32, f32, f32, f32), 
-    clear_depth: f32, 
+    clear_color: (OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>), 
+    clear_depth: OrderedFloat<f32>, 
     clear_stencil: u8,
     
     real_depth_mask: bool, // 实际的深度写入的开关
@@ -37,6 +37,8 @@ pub struct StateMachine {
     target: HalRenderTarget,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     tex_caches: TextureCache,
+
+    pp: Option<Share<dyn ProgramParamter>>,
 }
 
 struct TextureCache {
@@ -144,8 +146,8 @@ impl StateMachine {
         let mut state = StateMachine {
             
             real_depth_mask: false,
-            clear_color: (1.0, 1.0, 1.0, 1.0), 
-            clear_depth: 1.0, 
+            clear_color: (OrderedFloat(1.0), OrderedFloat(1.0), OrderedFloat(1.0), OrderedFloat(1.0)), 
+            clear_depth: OrderedFloat(1.0), 
             clear_stencil: 0,
             
             program: HalProgram::new(),
@@ -164,11 +166,17 @@ impl StateMachine {
             ssdesc: StencilStateDesc::new(),
 
             tex_caches: tex_caches,
+            pp: None,
         };  
         
-        Self::apply_all_state(gl, &mut state, texture_slab, rt_slab);
+        state.apply_all_state(gl, texture_slab, rt_slab);
 
         state
+    }
+    
+    #[inline(always)]
+    pub fn get_curr_program(&self) -> &HalProgram {
+        &self.program
     }
 
     #[inline(always)]
@@ -185,19 +193,6 @@ impl StateMachine {
         }
     }
 
-    fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
-        if rt.handle.is_none() {
-            js! {
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
-            }
-        } else {
-            let fbo = rt.handle.as_ref().unwrap();
-            js!{
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
-            }
-        }
-    }
-
     /** 
      * rect: (x, y, width, height)
      */
@@ -209,13 +204,13 @@ impl StateMachine {
         }
     }
 
-    pub fn set_clear(&mut self, gl: &WebGLRenderingContext, color: &Option<(f32, f32, f32, f32)>, depth: &Option<f32>, stencil: &Option<u8>) {
+    pub fn set_clear(&mut self, gl: &WebGLRenderingContext, color: &Option<(OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>)>, depth: &Option<OrderedFloat<f32>>, stencil: &Option<u8>) {
         let mut flag = 0;
         if let Some(color) = color {
             flag |= WebGLRenderingContext::COLOR_BUFFER_BIT;
 
             if *color != self.clear_color {
-                gl.clear_color(color.0, color.1, color.2, color.3);
+                gl.clear_color(*color.0, *color.1, *color.2, *color.3);
                 self.clear_color = *color;
             }
         }
@@ -228,7 +223,7 @@ impl StateMachine {
             gl.depth_mask(true);
             
             if *depth != self.clear_depth {
-                gl.clear_depth(*depth);
+                gl.clear_depth(**depth);
                 self.clear_depth = *depth;
             }
         }
@@ -283,6 +278,18 @@ impl StateMachine {
         }
     }
 
+    pub fn set_uniforms(&mut self, gl: &WebGLRenderingContext, program: &mut WebGLProgramImpl, pp: &Share<dyn ProgramParamter>) {
+        if self.pp.is_some() && Share::ptr_eq(pp, self.pp.as_ref().unwrap()) {
+            return;
+        }
+
+        let curr_ubos = pp.get_values();
+        for last_ubo in &program.active_uniforms {
+            let ubos = &curr_ubos[last_ubo.slot_ubo];
+            // TODO
+        }
+    }
+
     pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) {
 
         let need_set_geometry = geometry.0 != self.geometry.0 || geometry.1 != self.geometry.1;
@@ -321,11 +328,44 @@ impl StateMachine {
                 gl.draw_arrays(WebGLRenderingContext::TRIANGLES, 0, gimpl.vertex_count as i32);
             }
             Some(indices) => {
-                if let Some(i) = get_ref(buffer_slab, indices.handle.0, indices.handle.1) {
-                    gl.draw_elements(WebGLRenderingContext::TRIANGLES, indices.count as i32, WebGLRenderingContext::UNSIGNED_SHORT, indices.offset as i64);
-                }
+                gl.draw_elements(WebGLRenderingContext::TRIANGLES, indices.count as i32, WebGLRenderingContext::UNSIGNED_SHORT, indices.offset as i64);
             }
         }
+    }
+
+    /** 
+     * 全状态设置，仅用于创建State时候
+     */
+    pub fn apply_all_state(&mut self, gl: &WebGLRenderingContext,  
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) {
+        
+        gl.enable(WebGLRenderingContext::BLEND);
+        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
+
+        // debug_println!("State::apply_all_state");
+		
+        gl.clear_color(*self.clear_color.0, *self.clear_color.1, *self.clear_color.2, *self.clear_color.3);
+        
+        gl.clear_depth(*self.clear_depth);
+        gl.clear_stencil(self.clear_stencil as i32);
+
+        Self::set_raster_state(gl, None, &self.rsdesc);
+        Self::set_depth_state(gl, None, &self.dsdesc, &mut self.real_depth_mask);
+        Self::set_blend_state(gl, None, &self.bsdesc);
+        Self::set_stencil_state(gl, None, &self.ssdesc);
+
+        self.geometry = HalGeometry::new();
+        self.program = HalProgram::new();
+        
+        if let Some(rt) = get_ref(rt_slab, self.target.0, self.target.1) {
+            self.set_render_target_impl(gl, &rt);
+        }
+
+        let rect = &self.viewport_rect;
+        gl.viewport(rect.0, rect.1, rect.2, rect.3);
+        gl.scissor(rect.0, rect.1, rect.2, rect.3);
+
+        self.tex_caches.reset(texture_slab);
     }
 
     fn set_raster_state(gl: &WebGLRenderingContext, old: Option<&RasterStateDesc>, curr: &RasterStateDesc) {
@@ -431,39 +471,17 @@ impl StateMachine {
         }
     }
 
-    /** 
-     * 全状态设置，仅用于创建State时候
-     */
-    pub fn apply_all_state(gl: &WebGLRenderingContext, state: &mut StateMachine, 
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) {
-
-        gl.enable(WebGLRenderingContext::BLEND);
-        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
-
-        // debug_println!("State::apply_all_state");
-		
-        gl.clear_color(state.clear_color.0, state.clear_color.1, state.clear_color.2, state.clear_color.3);
-        
-        gl.clear_depth(state.clear_depth);
-        gl.clear_stencil(state.clear_stencil as i32);
-
-        Self::set_raster_state(gl, None, &state.rsdesc);
-        Self::set_depth_state(gl, None, &state.dsdesc, &mut state.real_depth_mask);
-        Self::set_blend_state(gl, None, &state.bsdesc);
-        Self::set_stencil_state(gl, None, &state.ssdesc);
-
-        state.geometry = HalGeometry::new();
-        state.program = HalProgram::new();
-        
-        if let Some(rt) = get_ref(rt_slab, state.target.0, state.target.1) {
-            state.set_render_target_impl(gl, &rt);
+    fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
+        if rt.handle.is_none() {
+            js! {
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
+            }
+        } else {
+            let fbo = rt.handle.as_ref().unwrap();
+            js!{
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
+            }
         }
-
-        let rect = &state.viewport_rect;
-        gl.viewport(rect.0, rect.1, rect.2, rect.3);
-        gl.scissor(rect.0, rect.1, rect.2, rect.3);
-
-        state.tex_caches.reset(texture_slab);
     }
 
     fn set_cull_mode(gl: &WebGLRenderingContext, curr: &RasterStateDesc) {

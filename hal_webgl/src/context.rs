@@ -14,7 +14,7 @@ use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
 use sampler::{WebGLSamplerImpl};
 use state::{WebGLBlendStateImpl, WebGLDepthStateImpl, WebGLStencilStateImpl, WebGLRasterStateImpl};
 use texture::{WebGLTextureImpl};
-
+use state_machine::{StateMachine};
 use shader_cache::{ShaderCache};
 use extension::*;
 use util::*;
@@ -27,6 +27,7 @@ pub struct WebglHalContext {
     pub caps: Capabilities,
     pub vao_extension: Option<Object>,
     pub shader_cache: ShaderCache,
+    pub state_machine: StateMachine,
 
     // u32代表该槽分配的次数
     pub buffer_slab: Slab<(WebGLBufferImpl, u32)>,
@@ -46,7 +47,7 @@ impl WebglHalContext {
     pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
-        let texture_slab = Slab::new();
+        let mut texture_slab = Slab::new();
         let sampler_slab = Slab::new();
         let mut rt_slab = Slab::new();
         let rb_slab = Slab::new();
@@ -78,14 +79,15 @@ impl WebglHalContext {
         let default_rt = HalRenderTarget(default_rt.0, default_rt.1);
 
         let shader_cache = ShaderCache::new();
-        
+        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
+
         let context = WebglHalContext {
             default_rt: default_rt,
             gl: gl,
             caps: caps,
             vao_extension,
             shader_cache,
-
+            state_machine,
             buffer_slab,
             geometry_slab,
             texture_slab,
@@ -612,28 +614,102 @@ impl HalContext for WebglHalContext {
         cache.set_shader_code(name, code)
     }
 
-    // TODO
-    fn render_begin(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc) {
+    fn restore_state(&self) {
+        let context = convert_to_mut(self);
+        context.state_machine.apply_all_state(&context.gl, &mut context.texture_slab, &mut context.rt_slab);
+    }
 
+    fn render_begin(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc) {
+        
+        // 注：暂时在这里重置所有状态
+        self.restore_state();
+        
+        let context = convert_to_mut(self);
+        
+        match get_ref(&context.rt_slab, render_target.0, render_target.1) {
+            None => {
+                panic!("rt param not found");
+            },
+            Some(rt) => {
+                context.state_machine.set_render_target(&context.gl, render_target, rt);
+                context.state_machine.set_viewport(&context.gl, &data.viewport);
+                context.state_machine.set_clear(&context.gl, &data.clear_color, &data.clear_depth, &data.clear_stencil);
+            }
+        }
     }
     
-    // TODO
     fn render_end(&self) {
-
+        if let Some(vao_extension) = &self.vao_extension {
+            let extension = vao_extension.as_ref();
+            js! {
+                @{&extension}.wrap.bindVertexArrayOES(null);
+            }
+        }
     }
 
-    // TODO
     fn render_set_program(&self, program: &HalProgram) {
-
+        let context = convert_to_mut(self);
+        
+        match get_ref(&context.program_slab, program.0, program.1) {
+            None => {
+                panic!("param not found");
+            },
+            Some(p) => {
+                context.state_machine.set_program(&context.gl, program, p);
+            }
+        }
     }
 
-    // TODO
     fn render_set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState) {
+        let context = convert_to_mut(self);
+        let bsdesc = match get_ref(&context.bs_slab, bs.0, bs.1) {
+            None => {
+                panic!("bs param not found");
+            },
+            Some(s) => &s.0
+        };
+        let dsdesc = match get_ref(&context.ds_slab, ds.0, ds.1) {
+            None => {
+                panic!("ds param not found");
+            },
+            Some(s) => &s.0
+        };
+        let ssdesc = match get_ref(&context.ss_slab, ss.0, ss.1) {
+            None => {
+                panic!("ss param not found");
+            },
+            Some(s) => &s.0
+        };
+        let rsdesc = match get_ref(&context.rs_slab, rs.0, rs.1) {
+            None => {
+                panic!("rs param not found");
+            },
+            Some(s) => &s.0
+        };
 
+        context.state_machine.set_state(&context.gl, rs, bs, ss, ds, rsdesc, bsdesc, ssdesc, dsdesc);
     }
 
-    // TODO
-    fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>) {
+    fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) {
+        let context = convert_to_mut(self);
 
+        let program = context.state_machine.get_curr_program();
+        match get_mut_ref(&mut context.program_slab, program.0, program.1) {
+            None => {
+                panic!("curr program not found");
+            }
+            Some(pimpl) => {
+                context.state_machine.set_uniforms(&context.gl, pimpl, pp);
+            }
+        }
+
+        match get_ref(&mut context.geometry_slab, geometry.0, geometry.1) {
+            None => {
+                panic!("geometry not found");
+            }
+            Some(gimpl) => {
+                context.state_machine.draw(&context.gl, &context.vao_extension, geometry, gimpl, &context.buffer_slab);
+            }
+        }
     }
 }

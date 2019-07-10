@@ -1,3 +1,4 @@
+use fx_hashmap::{FxHashMap32};
 use share::{Share};
 use atom::{Atom};
 use hal_core::*;
@@ -15,18 +16,21 @@ pub struct SamplerUniform {
 }
 
 pub struct CommonUniform {
-    // 针对UniformLayout的紧凑结构
-    slot_ubo: usize,
-    slot_uniform: usize,
+    pub slot_uniform: usize,
+    pub value: UniformValue,
+    pub location: WebGLUniformLocation,
+}
 
-    value: UniformValue,
-    location: WebGLUniformLocation,
+pub struct CommonUbo {
+    // 针对UniformLayout的紧凑结构
+    pub slot_ubo: usize,
+    pub values: Vec<CommonUniform>,
 }
 
 pub struct WebGLProgramImpl {
     pub handle: WebGLProgram,
 
-    pub active_uniforms: Vec<CommonUniform>,
+    pub active_uniforms: Vec<CommonUbo>,
     pub active_textures: Vec<SamplerUniform>,
     
     pub last_ubos: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
@@ -142,7 +146,7 @@ impl WebGLProgramImpl {
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation, layout: &UniformLayout) -> Option<(Vec<CommonUniform>, Vec<SamplerUniform>)> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation, layout: &UniformLayout) -> Option<(Vec<CommonUbo>, Vec<SamplerUniform>)> {
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
@@ -151,7 +155,11 @@ impl WebGLProgramImpl {
 
         let mut uniforms = vec![];
         let mut textures = vec![];
-
+        
+        // 用于查找slot_ubo和Vec<CommonUbo>的对应关系的哈希表
+        // 键是slot_ubo的索引，值是Vec<CommonUbo>的索引值
+        let mut slot_map = FxHashMap32::default();
+        
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i as u32).unwrap();
             let mut value;
@@ -268,17 +276,40 @@ impl WebGLProgramImpl {
             match location_map.uniforms.get(&name) {
                 None => return None,
                 Some((i, j)) => {
-                    uniforms.push(CommonUniform {
-                        value: value,
-                        location: loc,
-                        slot_ubo: *i,
-                        slot_uniform: *j,
-                    });
+                    match slot_map.get(i) {
+                        None => {
+                            let mut ubo = CommonUbo {
+                                slot_ubo: *i, 
+                                values: vec![],
+                            };
+                            ubo.values.push(CommonUniform {
+                                slot_uniform: *j,
+                                value,
+                                location: loc,
+                            });
+                            uniforms.push(ubo);
+                            slot_map.insert(*i, uniforms.len() - 1);
+                        }, 
+                        Some(vi) => {
+                            uniforms[*vi].values.push(CommonUniform {
+                                slot_uniform: *j,
+                                value,
+                                location: loc,
+                            });
+                        }
+                    }
                 }
             }
         }
         
-        // TODO: 按ubo和uniform的location排序，查找的时候，就可以连续查找。
+        // 排序，渲染的时候扫描起来更快
+        textures.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
+
+        for ubo in uniforms.iter_mut() {
+            ubo.values.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
+        }
+        uniforms.sort_by(|a, b| a.slot_ubo.partial_cmp(&b.slot_ubo).unwrap());
+        
         return Some((uniforms, textures));
     }
 }
