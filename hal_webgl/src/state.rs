@@ -81,36 +81,25 @@ impl TextureCache {
     }
 
     // 缓存策略：当槽不够的时候，移除最远的槽。
-    pub fn use_texture(&mut self, texture: &ShareWeak<dyn AsRef<WebGLTextureImpl>>, sampler: &ShareWeak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &Share<dyn AsRef<WebGLTextureImpl>>, sampler: &Share<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         let mut min_index = 0;
         let mut min_count = usize::max_value();
-
+        
+        let sw = Share::downgrade(sampler);
+        let tw = Share::downgrade(texture);
         for (i, v) in self.values.iter_mut().enumerate() {
             if v.count < min_count {
                 min_count = v.count;
                 min_index = i;
             }
-            if ShareWeak::ptr_eq(texture, &v.texture) {
+
+            if ShareWeak::ptr_eq(&tw, &v.texture) {
                 v.count = self.tex_use_count;
                 self.tex_use_count += 1;
-
-                if !ShareWeak::ptr_eq(sampler, &v.sampler) {
-                    match (texture.upgrade(), sampler.upgrade()) {
-                        (Some(texture), Some(sampler)) => {
-                            texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
-                        }
-                        (Some(_), None) => {
-                            panic!("use_texture failed, sampler not exist");
-                        },
-                        (None, Some(_)) => {
-                            panic!("use_texture failed, texture not exist");
-                        },
-                        (None, None) => {
-                            panic!("use_texture failed, texture or sampler not exist");
-                        }
-
-                    }
-                    v.sampler = sampler.clone();
+                
+                if !ShareWeak::ptr_eq(&sw, &v.sampler) {
+                    texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
+                    v.sampler = sw.clone();
                 }
                 return v.unit as u32;
             }
@@ -121,26 +110,13 @@ impl TextureCache {
         self.tex_use_count += 1;
         
         let unit = v.unit;
-        v.texture = texture.clone();
-        v.sampler = sampler.clone();
+        v.texture = tw.clone();
+        v.sampler = sw.clone();
 
-        match (texture.upgrade(), sampler.upgrade()) {
-            (Some(texture), Some(sampler)) => {
-                self.gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
-                self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture.as_ref().as_ref().handle));
-                texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
-                return unit as u32;
-            }
-            (Some(_), None) => {
-                panic!("use_texture failed, sampler not exist");
-            },
-            (None, Some(_)) => {
-                panic!("use_texture failed, texture not exist");
-            },
-            (None, None) => {
-                panic!("use_texture failed, texture or sampler not exist");
-            }
-        }
+        self.gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
+        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&texture.as_ref().as_ref().handle));
+        texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
+        return unit as u32;
     }
 }
 
@@ -179,7 +155,7 @@ impl State {
         state
     }
 
-    pub fn use_texture(&mut self, texture: &ShareWeak<dyn AsRef<WebGLTextureImpl>>, sampler: &ShareWeak<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
+    pub fn use_texture(&mut self, texture: &Share<dyn AsRef<WebGLTextureImpl>>, sampler: &Share<dyn AsRef<WebGLSamplerImpl>>) -> u32 {
         self.tex_caches.use_texture(texture, sampler)
     }
 

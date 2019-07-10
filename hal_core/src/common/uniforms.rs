@@ -1,4 +1,4 @@
-use share::{Share, ShareWeak};
+use share::{Share};
 use std::convert::AsRef;
 use std::fmt;
 
@@ -65,7 +65,7 @@ pub enum UniformValue<C: Context> {
     FloatV(u8, Vec<f32>),          // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4
     IntV(u8, Vec<i32>),            // 第一个是vec中的item_count，值只能为: 1, 2, 3, 4   
     MatrixV(u8, Vec<f32>),         // 第一个是vec中的item_count，值只能为: 2, 3, 4 
-    Sampler(ShareWeak<dyn AsRef<C::ContextSampler>>, ShareWeak<dyn AsRef<C::ContextTexture>>),
+    Sampler(Option<Share<dyn AsRef<C::ContextSampler>>>, Option<Share<dyn AsRef<C::ContextTexture>>>),
 }
 
 impl<C: Context> fmt::Debug for UniformValue<C> {
@@ -448,15 +448,15 @@ impl<C: Context> Uniforms<C> {
             .and_modify(|rv| {
                 match rv {
                     UniformValue::Sampler(s, t) => { 
-                        *s = Share::downgrade(sampler);
-                        *t = Share::downgrade(texture);
+                        *s = Some(sampler.clone());
+                        *t = Some(texture.clone());
                     }
                     _ => { 
                         assert!(false, "Uniforms::set_sampler failed, type not match");
                     }
                 }
             })
-            .or_insert(UniformValue::Sampler(Share::downgrade(sampler), Share::downgrade(texture)));
+            .or_insert(UniformValue::Sampler(Some(sampler.clone()), Some(texture.clone())));
     }
 }
 

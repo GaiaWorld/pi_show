@@ -1,4 +1,2 @@
-E:
-cd E:/work/emsdk
-emsdk_env
-cd ../rust/pi_show/gui_web
+../../emsdk/emsdk_env
+

@@ -15,8 +15,6 @@ use fx_hashmap::FxHashMap32;
 use atom::Atom;
 use hal_core::*;
 use context::{WebGLContextImpl};
-use texture::{WebGLTextureImpl};
-use sampler::{WebGLSamplerImpl};
 use state::{State};
 use debug_info::*;
 
@@ -393,7 +391,7 @@ impl ProgramManager {
                     value = UniformValue::<WebGLContextImpl>::MatrixV(4, vec![0.0; size]);
                 }
                 WebGLRenderingContext::SAMPLER_2D => {
-                    value = UniformValue::<WebGLContextImpl>::Sampler(ShareWeak::<WebGLSamplerImpl>::new(), ShareWeak::<WebGLTextureImpl>::new());
+                    value = UniformValue::<WebGLContextImpl>::Sampler(None, None);
                 }
                 _ => {
                     panic!("Invalid Uniform");
@@ -694,6 +692,8 @@ impl Program {
                 }
             }
             UniformValue::<WebGLContextImpl>::Sampler(s, t) => {
+                let s = s.as_ref().unwrap();
+                let t = t.as_ref().unwrap();
                 let unit = state.use_texture(t, s);
                 if unit > 0 {
                     gl.uniform1i(Some(location), unit as i32);

@@ -175,7 +175,7 @@ impl WebGLTextureImpl {
     /** 
      * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
      */
-    pub fn update_webgl(&self, x: u32, y: u32, w: u32, h: u32, data: &Object) {
+    pub fn update_webgl(&self, x: u32, y: u32, _w: u32, _h: u32, data: &Object) {
         let p = get_pixel_format(&self.pixel_format);
         let d = get_data_format(&self.data_format);
         

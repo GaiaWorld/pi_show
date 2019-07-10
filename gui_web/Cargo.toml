@@ -19,10 +19,10 @@ color = { path = "../../pi_math/color" }
 cgmath = { path = "../../pi_math/cgmath" }
 octree = { path = "../../pi_math/octree" }
 gui = {path="../gui", features = ["web"]} #, features = ["performance"]
-stdweb = "0.4.15"
+stdweb = "0.4"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
-lazy_static = "*"
+lazy_static = "1"
 serde_derive = "1"
 paste = "0.1"
 

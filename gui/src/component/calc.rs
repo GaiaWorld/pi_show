@@ -63,9 +63,14 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub font_size: f32, // 字体高度
   pub line_height: f32,
   pub letter_spacing: f32,
+  pub text_align: TextAlign,
   pub vertical_align: VerticalAlign,
   pub indent: f32,
+  pub preserve_spaces: bool,
   pub chars: Vec<CharNode<L>>, // 字符集合
+  pub pos: Point2,
+  pub line_count: usize, // 行数
+  pub fix_width: bool, // 如果有字宽不等于font_size
   pub dirty: bool,
 }
 #[derive(Debug)]
