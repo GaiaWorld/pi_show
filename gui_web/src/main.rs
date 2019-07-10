@@ -9,7 +9,6 @@
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
-#![feature(fnbox)]
 
 extern crate serde;
 extern crate stdweb_derive;
