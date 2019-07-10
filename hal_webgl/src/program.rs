@@ -34,6 +34,13 @@ pub struct WebGLProgramImpl {
     pub last_pp: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
 }
 
+impl SamplerUniform {
+    // TODO: 比较
+    pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, unit: i32) {
+        gl.uniform1i(Some(&self.location), unit);
+    }
+}
+
 impl CommonUniform {
     // TODO: 比较
     pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, value: &UniformValue) {

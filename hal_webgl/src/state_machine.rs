@@ -280,10 +280,10 @@ impl StateMachine {
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(WebGLSamplerImpl, u32)>) {
 
         let texs = pp.get_textures();
-        for loc in &program.active_textures {
+        for loc in program.active_textures.iter_mut() {
             let (t, s) = &texs[loc.slot_uniform];
             let unit = self.use_texture(gl, &t, &s, texture_slab, sampler_slab);
-            gl.uniform1i(Some(&loc.location), unit as i32);
+            loc.set_gl_uniform(gl, unit as i32);
         }
 
         if program.last_pp.is_none() {
