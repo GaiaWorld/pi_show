@@ -47,9 +47,7 @@ pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
     bs: Share<BlendState>,
     ss: Share<StencilState>,
     ds: Share<DepthState>,
-
     canvas_bs: Share<BlendState>,
-
     pipelines: FxHashMap32<u64, Share<PipelineInfo>>,
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
@@ -733,15 +731,16 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
     z_depth: f32,
     mut offset: (f32, f32)
 ) -> (Vec<f32>, Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
-    let mut positions: Vec<f32> = Vec::new();
-    let mut uvs: Vec<f32> = Vec::new();
-    let mut indices: Vec<u16> = Vec::new();
+    let len = char_block.chars.len();
+    let mut positions: Vec<f32> = Vec::with_capacity(12 * len);
+    let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
+    let mut indices: Vec<u16> = Vec::with_capacity(6 * len);
     let font_size = char_block.font_size;
     let mut i = 0;
     offset.1 += (char_block.line_height - font_size)/2.0;
 
     debug_println!("charblock get_geo_flow: {:?}", char_block);
-    if char_block.chars.len() > 0 {
+    if len > 0 {
         match color {
             Color::RGBA(_) => {
                 for c in char_block.chars.iter() {

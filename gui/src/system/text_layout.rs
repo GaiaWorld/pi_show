@@ -76,7 +76,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for Layou
   type ReadData = Read<'a, C, L>;
   type WriteData = Write<'a, L>;
 
-  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
         for id in self.dirty.iter() {
             if calc(*id, &read, &mut write) {
                 self.temp.push(*id)
@@ -95,7 +95,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for Layou
         self.write= &mut write as *mut Write<'a, L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
         unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<C, L>, self as *const LayoutImpl<C, L> as *const c_void);
-    }
+  }
 }
 
 // 监听text属性的改变
