@@ -699,7 +699,7 @@ impl HalContext for WebglHalContext {
                 panic!("curr program not found");
             }
             Some(pimpl) => {
-                context.state_machine.set_uniforms(&context.gl, pimpl, pp);
+                context.state_machine.set_uniforms(&context.gl, pimpl, pp, &mut context.texture_slab, &mut context.sampler_slab);
             }
         }
 

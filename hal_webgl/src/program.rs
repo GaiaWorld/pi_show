@@ -9,10 +9,8 @@ use shader_cache::{ShaderCache, LayoutLocation};
 
 pub struct SamplerUniform {
     // 针对UniformLayout的紧凑结构
-    slot_uniform: usize,
-
-    location: WebGLUniformLocation,
-    value: Option<(HalTexture, HalSampler)>,
+    pub slot_uniform: usize,
+    pub location: WebGLUniformLocation,
 }
 
 pub struct CommonUniform {
@@ -33,7 +31,69 @@ pub struct WebGLProgramImpl {
     pub active_uniforms: Vec<CommonUbo>,
     pub active_textures: Vec<SamplerUniform>,
     
-    pub last_ubos: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
+    pub last_pp: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
+}
+
+impl CommonUniform {
+    // TODO: 比较
+    pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, value: &UniformValue) {
+        match value {
+            UniformValue::Float(count, v0, v1, v2, v3) => {
+                match *count {
+                    1 => gl.uniform1f(Some(&self.location), *v0),
+                    2 => gl.uniform2f(Some(&self.location), *v0, *v1),
+                    3 => gl.uniform3f(Some(&self.location), *v0, *v1, *v2),
+                    4 => gl.uniform4f(Some(&self.location), *v0, *v1, *v2, *v3),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::Int(count, v0, v1, v2, v3) => {
+                match *count {
+                    1 => gl.uniform1i(Some(&self.location), *v0),
+                    2 => gl.uniform2i(Some(&self.location), *v0, *v1),
+                    3 => gl.uniform3i(Some(&self.location), *v0, *v1, *v2),
+                    4 => gl.uniform4i(Some(&self.location), *v0, *v1, *v2, *v3),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::FloatV(count, v) => {
+                match *count {
+                    1 => gl.uniform1fv(Some(&self.location), v.as_slice()),
+                    2 => gl.uniform2fv(Some(&self.location), v.as_slice()),
+                    3 => gl.uniform3fv(Some(&self.location), v.as_slice()),
+                    4 => gl.uniform4fv(Some(&self.location), v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::IntV(count, v) => {
+                match *count {
+                    1 => gl.uniform1iv(Some(&self.location), v.as_slice()),
+                    2 => gl.uniform2iv(Some(&self.location), v.as_slice()),
+                    3 => gl.uniform3iv(Some(&self.location), v.as_slice()),
+                    4 => gl.uniform4iv(Some(&self.location), v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+            UniformValue::MatrixV(count, v) => {
+                match *count {
+                    2 => gl.uniform_matrix2fv(Some(&self.location), false, v.as_slice()),
+                    3 => gl.uniform_matrix3fv(Some(&self.location), false, v.as_slice()),
+                    4 => gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice()),
+                    _ => {
+                        assert!(false, "no support");
+                    }
+                }
+            }
+        }
+    }
 }
 
 impl WebGLProgramImpl {
@@ -111,7 +171,7 @@ impl WebGLProgramImpl {
                     handle: program_handle,
                     active_uniforms: uniforms,
                     active_textures: textures,
-                    last_ubos: None,
+                    last_pp: None,
                 })
             }
         }
@@ -120,7 +180,7 @@ impl WebGLProgramImpl {
     pub fn delete(&self, gl: &WebGLRenderingContext) {
         gl.delete_program(Some(&self.handle));
     }
-
+    
     fn get_attribute_by_location(index: u32) -> (AttributeName, &'static str) {
         match index {
             0 => (AttributeName::Position, "position"),
@@ -260,7 +320,6 @@ impl WebGLProgramImpl {
                         Some(i) => {
                             
                             textures.push(SamplerUniform {
-                                value: None,
                                 location: loc,
                                 slot_uniform: *i,
                             });

@@ -37,8 +37,6 @@ pub struct StateMachine {
     target: HalRenderTarget,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     tex_caches: TextureCache,
-
-    pp: Option<Share<dyn ProgramParamter>>,
 }
 
 struct TextureCache {
@@ -166,7 +164,6 @@ impl StateMachine {
             ssdesc: StencilStateDesc::new(),
 
             tex_caches: tex_caches,
-            pp: None,
         };  
         
         state.apply_all_state(gl, texture_slab, rt_slab);
@@ -278,16 +275,38 @@ impl StateMachine {
         }
     }
 
-    pub fn set_uniforms(&mut self, gl: &WebGLRenderingContext, program: &mut WebGLProgramImpl, pp: &Share<dyn ProgramParamter>) {
-        if self.pp.is_some() && Share::ptr_eq(pp, self.pp.as_ref().unwrap()) {
-            return;
+    pub fn set_uniforms(&mut self, gl: &WebGLRenderingContext, 
+        program: &mut WebGLProgramImpl, pp: &Share<dyn ProgramParamter>, 
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(WebGLSamplerImpl, u32)>) {
+
+        let texs = pp.get_textures();
+        for loc in &program.active_textures {
+            let (t, s) = &texs[loc.slot_uniform];
+            let unit = self.use_texture(gl, &t, &s, texture_slab, sampler_slab);
+            gl.uniform1i(Some(&loc.location), unit as i32);
         }
 
-        let curr_ubos = pp.get_values();
-        for last_ubo in &program.active_uniforms {
-            let ubos = &curr_ubos[last_ubo.slot_ubo];
-            // TODO
+        if program.last_pp.is_none() {
+            let pp = pp.get_values();
+            for ubo_loc in program.active_uniforms.iter_mut() {
+                let uniforms = pp[ubo_loc.slot_ubo].get_values();
+                for u_loc in ubo_loc.values.iter_mut() {
+                    u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
+                }
+            }
+        } else {
+            let last_pp = program.last_pp.as_ref().unwrap().get_values();
+            let pp = pp.get_values();
+            for ubo_loc in program.active_uniforms.iter_mut() {
+                if !Share::ptr_eq(&last_pp[ubo_loc.slot_ubo], &pp[ubo_loc.slot_ubo]) {
+                    let uniforms = pp[ubo_loc.slot_ubo].get_values();
+                    for u_loc in ubo_loc.values.iter_mut() {
+                        u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
+                    }
+                }
+            }
         }
+        program.last_pp = Some(pp.clone());
     }
 
     pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) {
