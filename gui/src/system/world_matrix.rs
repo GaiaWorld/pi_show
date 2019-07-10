@@ -3,7 +3,7 @@
  */
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
-use ecs::idtree::{ IdTree, Node as IdTreeNode};
+use ecs::idtree::{ IdTree};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
@@ -32,16 +32,17 @@ impl WorldMatrixSys{
         };
     }
 
-    fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
-        if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
-            self.dirty.delete(id, node.layer)
-        }
+    // fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
+    //     unsafe { *self.dirty_mark_list.get_unchecked_mut(id) = false };
+    //     // if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
+    //     //     self.dirty.delete(id, node.layer)
+    //     // }
 
-        let first = unsafe { id_tree.get_unchecked(id).children.head };
-        for child in id_tree.iter(first) {
-            self.recursive_delete_dirty(child.0, &child.1, id_tree);
-        }
-    }
+    //     let first = unsafe { id_tree.get_unchecked(id).children.head };
+    //     for child in id_tree.iter(first) {
+    //         self.recursive_delete_dirty(child.0, &child.1, id_tree);
+    //     }
+    // }
 
     fn cal_matrix(
         &mut self,
@@ -55,22 +56,21 @@ impl WorldMatrixSys{
         // let time = std::time::Instant::now();
         for id in self.dirty.iter() {
             {
-                // let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
-                //     Some(r) => r,
-                //     None => continue, //panic!("dirty_mark_list err: {}", *id),
-                // };
-                let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
+                let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
+                    Some(r) => r,
+                    None => continue, //panic!("dirty_mark_list err: {}", *id),
+                };
                 if  *dirty_mark == false {
                     continue;
                 }
                 *dirty_mark = false;
             }
 
-            // let parent_id = match idtree.get(*id) {
-            //     Some(r) => r.parent,
-            //     None => panic!("cal_matrix error, idtree is not exist, id: {}", *id),
-            // }; 
-            let parent_id = unsafe { idtree.get_unchecked(*id).parent };
+            let parent_id = match idtree.get(*id) {
+                Some(r) => r.parent,
+                None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
+            };
+            // let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             let transform_value = get_or_default(parent_id, transform, default_table);
             recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
         }
@@ -99,7 +99,7 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, Layout>);
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData){
-        unsafe { *self.dirty_mark_list.get_unchecked_mut(event.id) = false };
+        unsafe { self.dirty_mark_list.remove_unchecked(event.id) };
     }
 }
 
@@ -135,14 +135,14 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
-        let node = unsafe { read.get_unchecked(event.id) };
-        self.recursive_delete_dirty(event.id, &node, read);
-    }
-}
+// impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
+//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+//         let node = unsafe { read.get_unchecked(event.id) };
+//         self.recursive_delete_dirty(event.id, &node, read);
+//     }
+// }
 
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
@@ -234,7 +234,7 @@ impl_system!{
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
-        SingleCaseListener<IdTree, DeleteEvent>
+        // SingleCaseListener<IdTree, DeleteEvent>
     }
 }
 

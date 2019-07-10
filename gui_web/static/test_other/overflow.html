@@ -21,6 +21,10 @@
         var YGEdgeHorizontal = 6;
         var YGEdgeVertical = 7;
         var YGEdgeAll = 8;
+
+        var YGWrapNoWrap = 0;
+        var YGWrapWrap = 1; 
+        var YGWrapWrapReverse = 2;
     </script>
     
     <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
@@ -32,12 +36,29 @@
     <script src="../shader/init.js"></script>
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
+
+        var body = Module._create_node(gui);
+        Module._set_width(gui, body, 1000.0);
+        Module._set_height(gui, body, 700.0);
+        Module._append_child(gui, body, 1);
+        Module._set_flex_wrap(gui, body, YGWrapWrap);
         
         for (var i = 0; i < 20; i++) {
             var node1 = Module._create_node(gui);
-            Module._append_child(gui, node1, 1); // 接口已修改， node和parent顺序颠倒
+            Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+            Module._set_width(gui, node1, 100.0);
+            Module._set_height(gui, node1, 100.0);
+            Module._set_margin(gui, node1, 0, 10);
+            Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
             Module._set_overflow(gui, node1, true);
+
+            var node2 = Module._create_node(gui);
+            Module._append_child(gui, node2, node1); // 接口已修改， node和parent顺序颠倒
+            Module._set_width(gui, node2, 200.0);
+            Module._set_height(gui, node2, 200.0);
+            Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
         }
+        render_fram();
         
     </script>
 </body>

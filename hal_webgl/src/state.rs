@@ -99,9 +99,16 @@ impl TextureCache {
                         (Some(texture), Some(sampler)) => {
                             texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
                         }
-                        _ => {
+                        (Some(_), None) => {
+                            panic!("use_texture failed, sampler not exist");
+                        },
+                        (None, Some(_)) => {
+                            panic!("use_texture failed, texture not exist");
+                        },
+                        (None, None) => {
                             panic!("use_texture failed, texture or sampler not exist");
                         }
+
                     }
                     v.sampler = sampler.clone();
                 }
@@ -124,7 +131,13 @@ impl TextureCache {
                 texture.as_ref().as_ref().apply_sampler(sampler.as_ref().as_ref());
                 return unit as u32;
             }
-            _ => {
+            (Some(_), None) => {
+                panic!("use_texture failed, sampler not exist");
+            },
+            (None, Some(_)) => {
+                panic!("use_texture failed, texture not exist");
+            },
+            (None, None) => {
                 panic!("use_texture failed, texture or sampler not exist");
             }
         }
