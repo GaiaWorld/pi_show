@@ -229,7 +229,15 @@ impl FlexNode for YgNode {
     fn get_bind(&self) -> *mut c_void {
         yoga::yg_node_get_bind(self.0)
     }
-
+    fn get_style_width_unit(&self) -> YGUnit {
+        unsafe { transmute( yoga::yg_node_style_get_width(self.0).unit ) }
+    }
+    fn get_style_justify(&self) -> YGJustify {
+        unsafe { transmute( yoga::yg_node_style_get_justify_content(self.0) ) }
+    }
+    fn get_style_width_value(&self) -> f32 {
+        yoga::yg_node_style_get_width(self.0).value
+    }
     fn mark_dirty(&self) { 
         yoga::yg_node_mark_dirty(self.0)
     }
