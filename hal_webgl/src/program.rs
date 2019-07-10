@@ -10,12 +10,13 @@ use shader_cache::{ShaderCache, LayoutLocation};
 pub struct SamplerUniform {
     // 针对UniformLayout的紧凑结构
     pub slot_uniform: usize,
+    pub last: i32, // 上一次的值
     pub location: WebGLUniformLocation,
 }
 
 pub struct CommonUniform {
     pub slot_uniform: usize,
-    pub value: UniformValue,
+    pub last: UniformValue, // 上次设置的值
     pub location: WebGLUniformLocation,
 }
 
@@ -35,69 +36,140 @@ pub struct WebGLProgramImpl {
 }
 
 impl SamplerUniform {
-    // TODO: 比较
     pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, unit: i32) {
-        gl.uniform1i(Some(&self.location), unit);
+        if unit != self.last {
+            gl.uniform1i(Some(&self.location), unit);
+            self.last = unit;
+        }
     }
 }
 
 impl CommonUniform {
-    // TODO: 比较
     pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, value: &UniformValue) {
-        match value {
-            UniformValue::Float(count, v0, v1, v2, v3) => {
-                match *count {
-                    1 => gl.uniform1f(Some(&self.location), *v0),
-                    2 => gl.uniform2f(Some(&self.location), *v0, *v1),
-                    3 => gl.uniform3f(Some(&self.location), *v0, *v1, *v2),
-                    4 => gl.uniform4f(Some(&self.location), *v0, *v1, *v2, *v3),
+        match (value, &mut self.last) {
+            (UniformValue::Float(curr_count, curr_v0, curr_v1, curr_v2, curr_v3), UniformValue::Float(last_count, last_v0, last_v1, last_v2, last_v3))  => {
+                if *curr_count != *last_count {
+                    panic!("float uniform: count isn't match");
+                }
+                match *curr_count {
+                    1 => {
+                        if *curr_v0 != *last_v0 {
+                            gl.uniform1f(Some(&self.location), *curr_v0);
+                            *last_v0 = *curr_v0;
+                        }
+                    },
+                    2 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 {
+                            gl.uniform2f(Some(&self.location), *curr_v0, *curr_v1);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                        }
+                    },
+                    3 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 || *curr_v2 != *last_v2 {
+                            gl.uniform3f(Some(&self.location), *curr_v0, *curr_v1, *curr_v2);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                            *last_v2 = *curr_v2;
+                        }
+                    },
+                    4 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 || *curr_v2 != *last_v2 || *curr_v3 != *last_v3 {
+                            gl.uniform4f(Some(&self.location), *curr_v0, *curr_v1, *curr_v2, *curr_v3);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                            *last_v2 = *curr_v2;
+                            *last_v3 = *curr_v3;
+                        }
+                    },
                     _ => {
-                        assert!(false, "no support");
+                        panic!("float Invalid uniform");
                     }
                 }
-            }
-            UniformValue::Int(count, v0, v1, v2, v3) => {
-                match *count {
-                    1 => gl.uniform1i(Some(&self.location), *v0),
-                    2 => gl.uniform2i(Some(&self.location), *v0, *v1),
-                    3 => gl.uniform3i(Some(&self.location), *v0, *v1, *v2),
-                    4 => gl.uniform4i(Some(&self.location), *v0, *v1, *v2, *v3),
+            },
+            (UniformValue::Int(curr_count, curr_v0, curr_v1, curr_v2, curr_v3), UniformValue::Int(last_count, last_v0, last_v1, last_v2, last_v3)) => {
+                if *curr_count != *last_count {
+                    panic!("int uniform: count isn't match");
+                }
+                match *curr_count {
+                    1 => {
+                        if *curr_v0 != *last_v0 {
+                            gl.uniform1i(Some(&self.location), *curr_v0);
+                            *last_v0 = *curr_v0;
+                        }
+                    },
+                    2 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 {
+                            gl.uniform2i(Some(&self.location), *curr_v0, *curr_v1);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                        }
+                    },
+                    3 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 || *curr_v2 != *last_v2 {
+                            gl.uniform3i(Some(&self.location), *curr_v0, *curr_v1, *curr_v2);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                            *last_v2 = *curr_v2;
+                        }
+                    },
+                    4 => {
+                        if *curr_v0 != *last_v0 || *curr_v1 != *last_v1 || *curr_v2 != *last_v2 || *curr_v3 != *last_v3 {
+                            gl.uniform4i(Some(&self.location), *curr_v0, *curr_v1, *curr_v2, *curr_v3);
+                            *last_v0 = *curr_v0;
+                            *last_v1 = *curr_v1;
+                            *last_v2 = *curr_v2;
+                            *last_v3 = *curr_v3;
+                        }
+                    },
                     _ => {
-                        assert!(false, "no support");
+                        panic!("int Invalid uniform");
                     }
                 }
-            }
-            UniformValue::FloatV(count, v) => {
-                match *count {
-                    1 => gl.uniform1fv(Some(&self.location), v.as_slice()),
-                    2 => gl.uniform2fv(Some(&self.location), v.as_slice()),
-                    3 => gl.uniform3fv(Some(&self.location), v.as_slice()),
-                    4 => gl.uniform4fv(Some(&self.location), v.as_slice()),
+            },
+            (UniformValue::FloatV(curr_count, curr_v), UniformValue::FloatV(last_count, _)) => {
+                if *curr_count != *last_count {
+                    panic!("floatv uniform: count isn't match");
+                }
+                match *curr_count {
+                    1 => gl.uniform1fv(Some(&self.location), curr_v.as_slice()),
+                    2 => gl.uniform2fv(Some(&self.location), curr_v.as_slice()),
+                    3 => gl.uniform3fv(Some(&self.location), curr_v.as_slice()),
+                    4 => gl.uniform4fv(Some(&self.location), curr_v.as_slice()),
                     _ => {
-                        assert!(false, "no support");
+                        panic!("floatv Invalid uniform");
                     }
                 }
-            }
-            UniformValue::IntV(count, v) => {
-                match *count {
-                    1 => gl.uniform1iv(Some(&self.location), v.as_slice()),
-                    2 => gl.uniform2iv(Some(&self.location), v.as_slice()),
-                    3 => gl.uniform3iv(Some(&self.location), v.as_slice()),
-                    4 => gl.uniform4iv(Some(&self.location), v.as_slice()),
+            },
+            (UniformValue::IntV(curr_count, curr_v), UniformValue::IntV(last_count, _))  => {
+                if *curr_count != *last_count {
+                    panic!("intv uniform: count isn't match");
+                }
+                match *curr_count {
+                    1 => gl.uniform1iv(Some(&self.location), curr_v.as_slice()),
+                    2 => gl.uniform2iv(Some(&self.location), curr_v.as_slice()),
+                    3 => gl.uniform3iv(Some(&self.location), curr_v.as_slice()),
+                    4 => gl.uniform4iv(Some(&self.location), curr_v.as_slice()),
                     _ => {
-                        assert!(false, "no support");
+                        panic!("intv Invalid uniform");
                     }
                 }
-            }
-            UniformValue::MatrixV(count, v) => {
-                match *count {
-                    2 => gl.uniform_matrix2fv(Some(&self.location), false, v.as_slice()),
-                    3 => gl.uniform_matrix3fv(Some(&self.location), false, v.as_slice()),
-                    4 => gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice()),
+            },
+            (UniformValue::MatrixV(curr_count, curr_v), UniformValue::MatrixV(last_count, _)) => {
+                if *curr_count != *last_count {
+                    panic!("intv uniform: count isn't match");
+                }
+                match *curr_count {
+                    2 => gl.uniform_matrix2fv(Some(&self.location), false, curr_v.as_slice()),
+                    3 => gl.uniform_matrix3fv(Some(&self.location), false, curr_v.as_slice()),
+                    4 => gl.uniform_matrix4fv(Some(&self.location), false, curr_v.as_slice()),
                     _ => {
-                        assert!(false, "no support");
+                        panic!("matrixv Invalid uniform");
                     }
                 }
+            },
+            _ => {
+                panic!("Invalid uniform");
             }
         }
     }
@@ -329,6 +401,7 @@ impl WebGLProgramImpl {
                             textures.push(SamplerUniform {
                                 location: loc,
                                 slot_uniform: *i,
+                                last: 0,
                             });
                         }
                     }
@@ -350,7 +423,7 @@ impl WebGLProgramImpl {
                             };
                             ubo.values.push(CommonUniform {
                                 slot_uniform: *j,
-                                value,
+                                last: value,
                                 location: loc,
                             });
                             uniforms.push(ubo);
@@ -359,7 +432,7 @@ impl WebGLProgramImpl {
                         Some(vi) => {
                             uniforms[*vi].values.push(CommonUniform {
                                 slot_uniform: *j,
-                                value,
+                                last: value,
                                 location: loc,
                             });
                         }
