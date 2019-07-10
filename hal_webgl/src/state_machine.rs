@@ -5,7 +5,6 @@ use stdweb::{Object};
 
 use hal_core::*;
 use convert::*;
-use extension::*;
 use util::*;
 use buffer::{WebGLBufferImpl};
 use program::{WebGLProgramImpl};
@@ -50,7 +49,7 @@ impl TextureCache {
     fn new(max_tex_unit_num: usize) -> Self {
         // 第0个纹理通道内部使用
         let mut cache = Vec::with_capacity(max_tex_unit_num - 1);
-        for i in 1..max_tex_unit_num {
+        for _ in 1..max_tex_unit_num {
             cache.push((usize::max_value(), HalTexture::new()));
         }
 
@@ -138,7 +137,7 @@ impl TextureCache {
 impl StateMachine {
 
     pub fn new(gl: &WebGLRenderingContext, rt: &HalRenderTarget, 
-        max_attributes: u32, max_tex_unit_num: u32, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) -> StateMachine {
+        max_tex_unit_num: u32, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) -> StateMachine {
         
         let tex_caches = TextureCache::new(max_tex_unit_num as usize);
         let mut state = StateMachine {

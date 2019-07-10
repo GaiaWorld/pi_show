@@ -8,6 +8,7 @@ use fx_hashmap::{FxHashMap32};
 
 use atom::{Atom};
 use hal_core::*;
+use convert::{get_shader_type};
 
 /**
  * GPU Shader
@@ -91,11 +92,8 @@ impl ShaderCache {
         
         // 如果能找到，返回
         if self.shader_caches.get(&id).is_none() {
-            
-            let shader = gl.create_shader(match shader_type {
-                ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
-                ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
-            }).ok_or_else(|| String::from("Unable to create shader object"))?;
+            let stype = get_shader_type(shader_type);
+            let shader = gl.create_shader(stype).ok_or_else(|| String::from("Unable to create shader object"))?;
 
             let code = self.code_caches.get(name).ok_or_else(|| String::from("Unkown shader name"))?;
 

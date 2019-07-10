@@ -29,7 +29,7 @@ pub struct WebGLGeometryImpl {
 
 impl WebGLGeometryImpl  {
 
-    pub fn new(gl: &WebGLRenderingContext, vao_extension: &Option<Object>) -> Result<WebGLGeometryImpl, String> {
+    pub fn new(vao_extension: &Option<Object>) -> Result<WebGLGeometryImpl, String> {
          let vao = match vao_extension {
             None => None,
             Some(extension) => {

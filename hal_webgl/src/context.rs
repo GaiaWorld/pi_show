@@ -79,7 +79,7 @@ impl WebglHalContext {
         let default_rt = HalRenderTarget(default_rt.0, default_rt.1);
 
         let shader_cache = ShaderCache::new();
-        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
+        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
         let context = WebglHalContext {
             default_rt: default_rt,
@@ -224,7 +224,7 @@ impl HalContext for WebglHalContext {
     // ==================== HalGeometry
 
     fn geometry_create(&self) -> Result<HalGeometry, String> {
-        match WebGLGeometryImpl::new(&self.gl, &self.vao_extension) {
+        match WebGLGeometryImpl::new(&self.vao_extension) {
             Err(s) => Err(s),
             Ok(geometry) => {
                 let slab = convert_to_mut(&self.geometry_slab);
@@ -398,7 +398,7 @@ impl HalContext for WebglHalContext {
         }
     }
 
-    fn rt_get_color_texture(&self, rt: &HalRenderTarget, index: u32) -> Option<HalTexture> {
+    fn rt_get_color_texture(&self, rt: &HalRenderTarget, _index: u32) -> Option<HalTexture> {
         match get_ref(&self.rt_slab, rt.0, rt.1) {
             Some(rt) => rt.get_color_texture(),
             _ => None,

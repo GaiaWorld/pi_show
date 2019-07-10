@@ -8,7 +8,7 @@ use convert::*;
 pub struct WebGLRenderBufferImpl {
     width: u32, 
     height: u32,
-    format: PixelFormat,
+    _format: PixelFormat,
     handle: WebGLRenderbuffer,
 }
 
@@ -29,7 +29,7 @@ impl WebGLRenderBufferImpl  {
         Ok(WebGLRenderBufferImpl {
             width: w,
             height: h,
-            format: pformat,
+            _format: pformat,
             handle: r,
         })
     }

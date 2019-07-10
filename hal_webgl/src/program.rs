@@ -177,7 +177,6 @@ impl CommonUniform {
 
 impl WebGLProgramImpl {
 
-    // TODO: 之后一定要问小燕，数据结构如何用str存储？
     pub fn new_with_vs_fs(gl: &WebGLRenderingContext, caps: &Capabilities, shader_cache: &mut ShaderCache, vs_id: u64, fs_id: u64, vs_name: &Atom, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
         
         // 创建program
@@ -239,7 +238,7 @@ impl WebGLProgramImpl {
         let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
         
         // 初始化attribute和uniform
-        match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map, uniform_layout) {
+        match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map) {
             None => {
                 gl.delete_program(Some(&program_handle));
                 Err("WebGLProgramImpl failed, invalid uniforms".to_string())
@@ -285,7 +284,7 @@ impl WebGLProgramImpl {
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation, layout: &UniformLayout) -> Option<(Vec<CommonUbo>, Vec<SamplerUniform>)> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation) -> Option<(Vec<CommonUbo>, Vec<SamplerUniform>)> {
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
