@@ -125,6 +125,7 @@ pub struct TextStyle{
     pub white_space: WhiteSpace, //空白处理
     pub color: Color, //颜色
     pub stroke: Stroke,
+    pub text_align: TextAlign,
     pub vertical_align: VerticalAlign,
 }
 

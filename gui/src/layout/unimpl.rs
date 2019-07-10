@@ -210,7 +210,16 @@ impl YgNode {
     pub fn get_layout_padding(&self, _edge: YGEdge) -> f32 { 
         0.0
     }
+    pub fn get_style_width_unit(&self) -> YGUnit{
+        YGUnit::YGUnitUndefined
+    }
+    pub fn get_style_justify(&self) -> YGJustify {
+        YGJustify::YGJustifyCenter
+    }
 
+    pub fn get_style_width_value(&self) -> f32{
+        0
+    }
     pub fn free(&self){ 
         
     }

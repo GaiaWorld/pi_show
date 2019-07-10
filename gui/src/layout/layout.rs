@@ -63,6 +63,9 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn get_layout_margin(&self, edge: YGEdge) -> f32;
     fn get_layout_border(&self, edge: YGEdge) -> f32;
     fn get_layout_padding(&self, edge: YGEdge) -> f32;
+    fn get_style_width_unit(&self) -> YGUnit;
+    fn get_style_justify(&self) -> YGJustify;
+    fn get_style_width_value(&self) -> f32;
     fn free(&self);
     fn free_recursive(&self);
 }
