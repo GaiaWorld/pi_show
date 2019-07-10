@@ -309,7 +309,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Glyph {
     pub id: char,
     pub x: f32,

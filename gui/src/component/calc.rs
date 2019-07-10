@@ -178,7 +178,6 @@ impl Mul<WorldMatrix> for WorldMatrix{
             other.y.y = self.y.y * other.y.y;
             other.w.x = self.w.x + other.w.x;
             other.w.y = self.w.y + other.w.y;
-            // println!("other-----------------------------------");
             other
             // WorldMatrix(
             //     Matrix4::new(

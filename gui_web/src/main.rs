@@ -9,6 +9,7 @@
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
+#![recursion_limit="512"]
 
 extern crate serde;
 extern crate stdweb_derive;
@@ -30,6 +31,9 @@ extern crate atom;
 extern crate octree;
 extern crate cg2d;
 extern crate share;
+extern crate fx_hashmap;
+#[macro_use]
+extern crate serde_derive;
 
 use std::mem::transmute;
 
@@ -50,6 +54,7 @@ use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
+use text::{ DrawTextSys, define_draw_canvas};
 
 
 pub mod style;
@@ -62,8 +67,12 @@ pub mod yoga;
 pub mod bc;
 pub mod world;
 
-pub type GuiWorld = GuiWorld1<WebGLContextImpl, YgNode>;
 use bc::YgNode;
+
+pub struct GuiWorld {
+    pub gui: GuiWorld1<WebGLContextImpl, YgNode>,
+    pub draw_text_sys: DrawTextSys,
+}
 
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -86,7 +95,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     debug_println!("create_gui");
     let engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebGLContextImpl>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
     let world = create_world::<_, YgNode>(engine, width, height);
-    let world = GuiWorld::new(world);
+    let world =  GuiWorld1::<WebGLContextImpl, YgNode>::new(world);
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
     let border_radius = world.border_radius.lend_mut();
@@ -103,6 +112,10 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
 
     idtree.create(node);
     idtree.insert_child(node, 0, 0, None);
+    let world = GuiWorld{
+        gui: world,
+        draw_text_sys: DrawTextSys::new(),
+    };
     Box::into_raw(Box::new(world)) as u32
 }
 
@@ -110,6 +123,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
 #[no_mangle]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
     let render_begin = render_begin.lend_mut();
     Share::make_mut(&mut render_begin.0).clear_color = Some((r, g, b, a)); 
@@ -118,18 +132,26 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
 // 渲染gui
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn render(world: u32){
+pub fn render(world_id: u32){
     // debug_println!("gui render");
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+    // let time = std::time::Instant::now();
+    world.draw_text_sys.run(world_id);
+    // println!("cal text canvas---------------{:?}",  std::time::Instant::now() - time);
+	let world = &mut world.gui;
     world.world.run(&RENDER_DISPATCH);
 }
 
 // 计算布局
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn cal_layout(world: u32){
+pub fn cal_layout(world_id: u32){
     debug_println!("cal_layout");
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+    // let time = std::time::Instant::now();
+    world.draw_text_sys.run(world_id);
+    // println!("cal text canvas1---------------{:?}",  std::time::Instant::now() - time);
+	let world = &mut world.gui;
     world.world.run(&LAYOUT_DISPATCH);
 }
 
@@ -147,6 +169,7 @@ pub fn set_shader(engine: u32){
 #[no_mangle]
 pub fn has_texture_res(world: u32, key: String) -> bool{
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let engine = world.engine.lend();
     let key = Atom::from(key);
     match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
@@ -158,6 +181,7 @@ pub fn has_texture_res(world: u32, key: String) -> bool{
 #[no_mangle]
 pub fn get_texture_res(world: u32, key: String) -> u32{
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let engine = world.engine.lend();
     let key = Atom::from(key);
     match engine.res_mgr.get::<TextureRes<WebGLContextImpl>>(&key) {
@@ -214,5 +238,5 @@ pub fn notify_timeout(f1: u32, f2: u32){
 // }
 
 fn main(){
-    
+    define_draw_canvas();
 }

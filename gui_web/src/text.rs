@@ -9,10 +9,12 @@ use atom::Atom;
 use ecs::{LendMut};
 use hal_core::*;
 use hal_webgl::*;
+use fx_hashmap::FxHashMap32;
 
 use gui::component::user::*;
 use gui::render::res::{ TextureRes, Opacity };
 use gui::font::sdf_font::{DefaultSdfFont, Glyph, SdfFont};
+use gui::font::font_sheet::FontSheet;
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
 
@@ -21,6 +23,7 @@ macro_rules! set_attr {
     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key: ident) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         let attr = world.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
@@ -147,6 +150,7 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
     };
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     world.text_shadow.lend_mut().insert(node_id, value);
     debug_println!("set_text_shadow"); 
 }
@@ -193,13 +197,14 @@ pub fn set_font_family(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
 
     // 生成不存在的字体
-    let world1 = unsafe {&mut *(world as usize as *mut GuiWorld)};
-    let node = node_id as usize;
-    let texts = world1.text.lend_mut();
-    match texts.get(node) {
-        Some(t) => look_text(world, node, t.0.as_str()),
-        None => (),
-    };
+    // let world1 = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    // let world1 = &mut world1.gui;
+    // let node = node_id as usize;
+    // let texts = world1.text.lend_mut();
+    // match texts.get(node) {
+    //     Some(t) => look_text(world, node, t.0.as_str()),
+    //     None => (),
+    // };
     
     let family = 0;
     set_attr!(world, node_id, Font, family, Atom::from(value), font);
@@ -219,6 +224,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
         }
     }
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let name: String = js!(return __jsObj2;).try_into().unwrap();
     let name = Atom::from(name);
     let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
@@ -250,6 +256,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
 #[no_mangle]
 pub fn add_font_face(world: u32, oblique: f32, size: f32, weight: f32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let family: String = js!(return __jsObj;).try_into().unwrap();
     let src: String = js!(return __jsObj1;).try_into().unwrap();
     let font_sheet = world.font_sheet.lend_mut();
@@ -264,9 +271,11 @@ pub fn set_text_content(world_id: u32, node: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
     let node = node as usize;
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+    world.draw_text_sys.text_ids.push(node as usize);
+    // look_text(world_id, node, value.as_str());
+	let world = &mut world.gui;
 
     // 生成不存在的字体
-    look_text(world_id, node, value.as_str());
 
     world.text.lend_mut().insert(node as usize, Text(Share::new(value)));
     debug_println!("set_text_content");  
@@ -278,6 +287,7 @@ pub fn set_text_content(world_id: u32, node: u32){
 #[no_mangle]
 pub fn update_font_texture(world: u32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let font_name: String = js!(return __jsObj1;).try_into().unwrap();
     let font_name = Atom::from(font_name);
     let font_sheet = world.font_sheet.lend_mut();
@@ -330,8 +340,9 @@ pub fn update_font_texture(world: u32){
 }
 
 // __jsObj: canvas
-fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32, v: u32, width: u32, height: u32) {
+fn update_font_texture1(world: u32, font_name: String, chars: &[u32], u: u32, v: u32, width: u32, height: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let font_name = Atom::from(font_name);
     let font_sheet = world.font_sheet.lend_mut();
     let src = match font_sheet.get_src(&font_name) {
@@ -347,6 +358,37 @@ fn update_font_texture1(world: u32, font_name: String, chars: &Vec<u32>, u: u32,
     src.texture().bind.update_webgl(u, v, width, height, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap() );
     let render_objs = world.render_objs.lend_mut();
     render_objs.get_notify().modify_event(1, "", 0);
+
+    // 优化， getImageData性能不好， 应该直接更新canvas， TODO
+    // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
+    //     Ok(data) => {
+    //         let data = data.to_vec();
+    //         src.texture().bind.update_webgl(u, v, width, height, &TextureData::U8(data.as_slice()));
+    //         let render_objs = world.render_objs.lend_mut();
+    //         render_objs.get_notify().modify_event(1, "", 0);
+    //     },
+    //     Err(_) => panic!("update_font_texture error"),
+    // };
+}
+
+// __jsObj: canvas
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn update_font_texture2(world: u32, u: u32, v: u32, width: u32, height: u32) {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let font_name: String = js!(return __jsObj1;).try_into().unwrap();
+    let font_name = Atom::from(font_name);
+    let font_sheet = world.font_sheet.lend_mut();
+    let src = match font_sheet.get_src(&font_name) {
+        Some(r) => r,
+        None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
+    };
+    
+    src.texture().bind.update_webgl(u, v, width, height, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap() );
+    let render_objs = world.render_objs.lend_mut();
+    render_objs.get_notify().modify_event(1, "", 0);
+    println!("ttttttttttttttttttttttttt");
 
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
     // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
@@ -391,119 +433,115 @@ pub fn gen_font(world: u32, name: &str, chars: &[u32]) -> Vec<Glyph> {
     }
 }
 
-fn look_text(world_id: u32, node: usize, text: &str){
-    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
-    let fonts = world.font.lend_mut();
-    let default_table = world.default_table.lend_mut();
+// fn look_text(world_id: u32, node: usize, text: &str){
+//     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+// 	let world = &mut world.gui;
+//     let fonts = world.font.lend_mut();
+//     let default_table = world.default_table.lend_mut();
 
-    let font = match fonts.get(node) {
-        Some(r) => r,
-        None => default_table.get_unchecked::<Font>(),
-    };
-    let font_sheet = world.font_sheet.lend_mut();
+//     let font = match fonts.get(node) {
+//         Some(r) => r,
+//         None => default_table.get_unchecked::<Font>(),
+//     };
+//     let font_sheet = world.font_sheet.lend_mut();
 
-    match font_sheet.get_first_font(&font.family) {
-        Some(r) => {
-            let mut chars: Vec<char> = text.chars().collect();
-            let mut i = 0;
-            loop {
-                if i >= chars.len() {
-                    break;
-                }
+//     match font_sheet.get_first_font(&font.family) {
+//         Some(r) => {
+//             let mut chars: Vec<char> = text.chars().collect();
+//             let mut i = 0;
+//             loop {
+//                 if i >= chars.len() {
+//                     break;
+//                 }
 
-                match r.get_glyph(&chars[i]) {
-                    Some(_g) => {chars.swap_remove(i);},
-                    None => {
-                        let mut is_remove = false;
-                        for j in 0..i {
-                            if chars[j] == chars[i] {
-                                chars.swap_remove(i);
-                                is_remove = true;
-                                break;
-                            }
-                        }
-                        if !is_remove {
-                            i += 1;
-                        }
-                    },
-                }
-            }
-            if chars.len() == 0 {
-                return;
-            }
-            let chars: Vec<u32> = unsafe {transmute(chars)};
+//                 match r.get_glyph(&chars[i]) {
+//                     Some(_g) => {chars.swap_remove(i);},
+//                     None => {
+//                         let mut is_remove = false;
+//                         for j in 0..i {
+//                             if chars[j] == chars[i] {
+//                                 chars.swap_remove(i);
+//                                 is_remove = true;
+//                                 break;
+//                             }
+//                         }
+//                         if !is_remove {
+//                             i += 1;
+//                         }
+//                     },
+//                 }
+//             }
+//             if chars.len() == 0 {
+//                 return;
+//             }
+//             let chars: Vec<u32> = unsafe {transmute(chars)};
         
-            if r.get_dyn_type() == 0 {
-                let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
-                for v in gl.into_iter() {
-                    r.add_glyph(v.id, v);
-                }
-            } else {
-                gen_canvas_text(world_id, &r, &chars)
-            } 
-        },
-        None => ()
-    }
-}
+//             if r.get_dyn_type() == 0 {
+//                 let gl = gen_font(world_id, r.name().as_ref(), chars.as_slice());
+//                 for v in gl.into_iter() {
+//                     r.add_glyph(v.id, v);
+//                 }
+//             } else {
+//                 // gen_canvas_text(world_id, &r, &chars, &self.canvas_obj)
+//             } 
+//         },
+//         None => ()
+//     }
+// }
 
 
 // 生成canvas字体
-fn gen_canvas_text(world: u32, font: &Share<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &Vec<u32>) {
+fn gen_canvas_text(world: u32, font: &Share<dyn SdfFont<Ctx = WebGLContextImpl>>, chars: &[u32], c: &Object) {
     let name = font.name();
     let font_name = name.as_ref();
-    let c: Object = js!{
-        var c = document.createElement("canvas");
-        var ctx = c.getContext("2d");
-        ctx.font = @{font_name};
-        return {canvas: c, ctx: ctx};
-    }.try_into().unwrap();
+    js!{
+        @{c}.ctx.font = @{font_name};
+    }
     let info = calc_canvas_text(&c, font, chars);
-
-    draw_canvas_text(world, font_name, font.stroke_width(), font.line_height(), chars, info);
+    let chars = TypedArray::<u32>::from(chars);
+    js!{
+        setTimeout(function () {
+            window.__draw_text_canvas(@{world}, @{font_name}, @{font.stroke_width()}, @{font.line_height()}, @{chars}, @{info}, @{c});
+        }, 0);
+    }
+    
+    // draw_canvas_text(world, font_name, font.stroke_width(), font.line_height(), chars, info, c);
 }
 
-fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height: f32, chars: &Vec<u32>, info: Vec<TextInfo>) {
+fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height: f32, chars: &[u32], info: Vec<TextInfo>, c: &Object) {
     let mut i = 0;
     for text_info in info.iter() {
-        let c: Object = js!{
-            var canvas = document.createElement("canvas");
-            canvas.width = @{text_info.end.u - text_info.start.u};
-            canvas.height = @{text_info.end.v - text_info.start.v};
-            var ctx = canvas.getContext("2d");
-            ctx.font = @{font_name};       
-            return {canvas: canvas, ctx: ctx};
-        }.try_into().unwrap();
-
         js!{
-            var ctx = @{&c}.ctx;
-            ctx.fillStyle = "#00f";
-		    ctx.fillRect(0, 0, @{text_info.end.u - text_info.start.u}, @{text_info.end.v - text_info.start.v});
+            @{c}.canvas.width = @{text_info.end.u - text_info.start.u};
+            @{c}.canvas.height = @{text_info.end.v - text_info.start.v}; 
+            @{c}.ctx.fillStyle = "#00f"; 
+            @{c}.ctx.font = @{font_name};
+		    @{c}.ctx.fillRect(0, 0, @{text_info.end.u - text_info.start.u}, @{text_info.end.v - text_info.start.v});
         }
         if stroke_width > 0.0 {
             js!{
-                var ctx = @{&c}.ctx;
+                var ctx = @{c}.ctx;
                 ctx.lineWidth = @{ stroke_width };
-                ctx.strokeStyle = "#ff0000";
-                ctx.fillStyle = "#00ff00";
+                ctx.fillStyle = "#0f0";
+                ctx.strokeStyle = "#f00";
                 ctx.textBaseline = "bottom";
             }
             for uv in text_info.list.iter() {
                 js!{
-                    @{&c}.ctx.strokeText(String.fromCharCode(@{&chars[i]}), @{uv.u + stroke_width}, @{uv.v + line_height + stroke_width});
-                    @{&c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u + stroke_width}, @{uv.v + line_height + stroke_width});
+                    @{c}.ctx.strokeText(String.fromCharCode(@{&chars[i]}), @{uv.u + stroke_width}, @{uv.v + line_height + stroke_width});
+                    @{c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u + stroke_width}, @{uv.v + line_height + stroke_width});
                 }
                 i += 1;
             }
         } else {
             js!{
-                var ctx = @{&c}.ctx;
-                ctx.lineWidth = @{ stroke_width };
-                ctx.fillStyle = "#00ff00";
+                var ctx = @{c}.ctx;
+                ctx.fillStyle = "#0f0";
                 ctx.textBaseline = "bottom";
             }
             for uv in text_info.list.iter() {
                 js!{
-                    @{&c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u}, @{uv.v + line_height});
+                    @{c}.ctx.fillText(String.fromCharCode(@{&chars[i]}), @{uv.u}, @{uv.v + line_height});
                 }
                 i += 1;
             }
@@ -528,7 +566,7 @@ fn draw_canvas_text(world: u32, font_name: &str, stroke_width: f32, line_height:
 fn calc_canvas_text(
     cc: &Object,
     font: &Share<dyn SdfFont<Ctx = WebGLContextImpl>>,
-    chars: &Vec<u32>,
+    chars: &[u32],
 ) -> Vec<TextInfo>{
     let max_width = font.atlas_width() as f32;
     let max_height = font.atlas_width() as f32;
@@ -546,7 +584,7 @@ fn calc_canvas_text(
     let mut start_uv = UV{u: u, v: v};
 
     for c in chars.iter() {
-        let w = TryInto::<u32>::try_into(js! { return @{cc}.ctx.measureText(String.fromCharCode(@{c})).width + @{stroke_width}; }).unwrap() as f32;
+        let w = TryInto::<f64>::try_into(js! { return @{cc}.ctx.measureText(String.fromCharCode(@{c})).width + @{stroke_width}; }).unwrap() as f32;
         
         // 换行
         if w > max_width - u {
@@ -595,15 +633,144 @@ fn calc_canvas_text(
     arr
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct TextInfo {
     list: Vec<UV>,
     start: UV,
     end: UV,
 }
 
-#[derive(Debug)]
+js_serializable!( TextInfo );
+
+#[derive(Debug, Serialize)]
 struct UV {
     u: f32,
     v: f32,
+}
+
+js_serializable!( UV );
+
+pub struct DrawTextSys{
+    text_ids: Vec<usize>,
+    canvas: Object,
+}
+
+impl DrawTextSys {
+    pub fn new() -> Self {
+        let obj: Object = TryInto::try_into(js!{
+            var c = document.createElement("canvas");
+            // document.body.append(c);// 查看效果 
+            var ctx = c.getContext("2d");
+            return {canvas: c, ctx: ctx};
+        }).unwrap();
+        DrawTextSys{
+            text_ids: Vec::new(),
+            canvas: obj,
+        }
+    }
+    pub fn run(&mut self, world_id: u32) {
+        if self.text_ids.len() == 0 {
+            return;
+        }
+
+        let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+        let world = &mut world.gui;
+        let fonts = world.font.lend_mut();
+        let texts = world.text.lend_mut();
+        let default_table = world.default_table.lend_mut();
+        let default_font = default_table.get::<Font>();
+        let font_sheet = world.font_sheet.lend_mut();
+
+        let mut chars_catch = FxHashMap32::default();
+        for id in self.text_ids.iter(){
+            let text = match texts.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+            let font = match fonts.get(*id) {
+                Some(r) => r,
+                None => match default_font {
+                    Some(r) => r,
+                    None => continue,
+                },
+            };
+            Self::look_text(font_sheet, text, font, &mut chars_catch);
+        }
+        for cache in chars_catch.into_iter() {
+            if (cache.1).0.len() == 0 {
+                continue;
+            }
+            let cache_char: Vec<u32> = unsafe {transmute((cache.1).0)};
+            if (cache.1).1.get_dyn_type() == 0 {
+                let gl = gen_font(world_id, (cache.1).1.name().as_str(), cache_char.as_slice());
+                for v in gl.into_iter() {
+                    (cache.1).1.add_glyph(v.id, v);
+                }
+            } else {
+                gen_canvas_text(world_id, &(cache.1).1, cache_char.as_slice(), &self.canvas);
+            }
+        }
+        self.text_ids.clear();
+    }
+
+    fn look_text(font_sheet: &FontSheet<WebGLContextImpl>, text: &Text, font: &Font, char_cache: &mut FxHashMap32<Atom, (Vec<char>, Share<dyn SdfFont<Ctx = WebGLContextImpl>>)>){
+        match font_sheet.get_first_font(&font.family) {
+            Some(r) => {
+                let char_cache = char_cache.entry(r.name()).or_insert((Vec::new(), r.clone()));
+                for c in text.0.chars() {
+                    match r.get_glyph(&c) {
+                        Some(_) => continue,
+                        None => (),
+                    };
+
+                    r.add_glyph(c, Glyph::default());
+                    char_cache.0.push(c);
+                }
+            },
+            None => ()
+        }
+    }
+}
+
+pub fn define_draw_canvas(){
+    js!{
+        window.__draw_text_canvas = function(world, font_name, stroke_width, line_height, chars, info, c){
+            var k = 0;
+            var canvas = c.canvas;
+            var ctx = c.ctx;
+            for (var i = 0; i < info.length; i++) {
+                var text_info = info[i];
+                canvas.width = text_info.end.u - text_info.start.u;
+                canvas.height = text_info.end.v - text_info.start.v; 
+                ctx.fillStyle = "#00f"; 
+                ctx.font = font_name;
+                ctx.textBaseline = "bottom";
+                ctx.fillRect(0, 0, text_info.end.u - text_info.start.u, text_info.end.v - text_info.start.v);
+                if (stroke_width > 0.0) {
+                    ctx.lineWidth = stroke_width;
+                    ctx.fillStyle = "#0f0";
+                    ctx.strokeStyle = "#f00";
+
+                    for (var j = 0; j < text_info.list.length; j++) {
+                        var uv = text_info.list[j];
+                        ctx.strokeText(String.fromCharCode(chars[k]), uv.u + stroke_width, uv.v + line_height + stroke_width);
+                        ctx.fillText(String.fromCharCode(chars[k]), uv.u + stroke_width, uv.v + line_height + stroke_width);
+                        k += 1;
+                    }
+                } else {
+                    ctx.fillStyle = "#0f0";
+                    ctx.textBaseline = "bottom";
+                    
+                    for (var j = 0; j < text_info.list.length; j++) {
+                        var uv = text_info.list[j];
+                        ctx.fillText(String.fromCharCode(chars[k]), uv.u, uv.v + line_height);
+                        k += 1;
+                    } 
+                }
+                window.__jsObj = canvas;
+                window.__jsObj1 = font_name;
+                Module._update_font_texture2(world,text_info.start.u,text_info.start.v,text_info.end.u - text_info.start.u,text_info.end.v - text_info.start.v);
+            }
+        };
+    }
 }

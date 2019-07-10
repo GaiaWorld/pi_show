@@ -12,6 +12,7 @@ macro_rules! push_func {
     ($world:ident, $node_id:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         let attr = world.transform.lend_mut();
         match attr.get_write(node_id) {
             Some(mut r) => r.modify(|transform: &mut Transform| {
@@ -32,6 +33,7 @@ macro_rules! push_func {
 pub fn clear_transform(world: u32, node_id: u32) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let attr = world.transform.lend_mut();
     match attr.get_write(node_id) {
         Some(mut r) => {
@@ -116,6 +118,7 @@ pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
 pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.transform.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         if transform.funcs.len() > 0 {
             transform.funcs.clear();
@@ -141,6 +144,7 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
     };
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.transform.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
         transform.origin = TransformOrigin::XY(x_value, y_value);
         true

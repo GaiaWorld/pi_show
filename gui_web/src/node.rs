@@ -29,6 +29,7 @@ use yoga as yoga1;
 
 
 fn create(world: &GuiWorld) -> usize {
+    let world = &world.gui;
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
     // println!("!!!!!!create----{}", node);
@@ -42,6 +43,7 @@ fn create(world: &GuiWorld) -> usize {
 #[no_mangle]
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, index, Some(&notify));
@@ -82,6 +84,7 @@ pub fn create_image_node(world: u32) -> u32{
 pub fn append_child(world: u32, child: u32, parent: u32){
     // println!("!!!!!!append----parent: {}, child:{}", parent, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
@@ -94,6 +97,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
 pub fn insert_before(world: u32, child: u32, brother: u32){
     // println!("!!!!!!insert before----brother: {}, child:{}", brother, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
@@ -106,6 +110,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 pub fn remove_child(world: u32, node_id: u32){
     // println!("!!!!!!remove_child----{}", node_id);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     let node = world.node.lend_mut();
@@ -123,6 +128,7 @@ pub fn remove_child(world: u32, node_id: u32){
 pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let yg_nodes = world.yoga.lend_mut();
     let yoga = match yg_nodes.get(node) {
         Some(r) => r,
@@ -181,6 +187,7 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
 pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     if !world.node.lend().is_exist(node){
         return;
     }
@@ -224,6 +231,7 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
 #[no_mangle]
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.layout.lend().get_unchecked(node as usize)}.top
 }
 
@@ -231,6 +239,7 @@ pub fn offset_top(world: u32, node: u32) -> f32 {
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.layout.lend().get_unchecked(node as usize)}.left
 }
 
@@ -238,6 +247,7 @@ pub fn offset_left(world: u32, node: u32) -> f32 {
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.layout.lend().get_unchecked(node as usize)}.width
 }
 
@@ -245,6 +255,7 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     unsafe {world.layout.lend().get_unchecked(node as usize)}.height
 }
 
@@ -252,6 +263,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 pub fn offset_document(world: u32, node_id: u32) {
   let node_id = node_id as usize;
   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
   let layouts = world.layout.lend();
   let world_matrixs = world.world_matrix.lend();
   let transforms = world.transform.lend();
@@ -277,6 +289,7 @@ pub fn offset_document(world: u32, node_id: u32) {
 // pub fn offset_document(world: u32, node_id: u32) {
 //   let mut node_id = node_id as usize;
 //   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
 //   let idtree = world.fetch_single::<IdTree>().unwrap();
 //   let idtree = idtree.lend();
 //   let layouts = world.fetch_multi::<Node, Layout>().unwrap();
@@ -311,6 +324,7 @@ pub fn offset_document(world: u32, node_id: u32) {
 // pub fn set_event_type(world: u32, node: u32, ty: u8) {
 //   let node = node as usize;
 //   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
 //   let node_ref = world.component_mgr.get_node_mut(node);
 //   node_ref.set_event_type(ty);
 // }
@@ -320,6 +334,7 @@ pub fn offset_document(world: u32, node_id: u32) {
 #[no_mangle]
 pub fn content_box(world: u32, node: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let layout = world.layout.lend();
     let idtree = world.idtree.borrow();
     let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
@@ -349,7 +364,8 @@ pub fn content_box(world: u32, node: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32)-> u32{
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};    
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;    
 
     let octree = world.oct.lend();
     let enables = world.enable.lend();
@@ -367,6 +383,7 @@ pub fn query(world: u32, x: f32, y: f32)-> u32{
 #[no_mangle]
 pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
 
     let entitys = world.node.lend();
     let octree = world.oct.lend();
