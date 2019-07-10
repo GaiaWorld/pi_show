@@ -115,22 +115,52 @@ let color_fs_code = `
     void main(void) {
 
         #ifdef CLIP
+        
             vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
             vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
-
-            int index = int(clipIndices);
-            int mask = int(clipColor.r * 256.0) + 128 * int(clipColor.g * 256.0) + 128 * 128 * int(clipColor.b * 256.0);
             
             bvec4 m1, m2, i1, i2;
+            bvec4 notM1, notM2;
+            
+            float remain = clipIndices;
+            
+            int b = int(remain / 128.0 / 128.0);
+            remain = remain - float(b) * 128.0 * 128.0;
+            int mask = int(clipColor.b * 256.0);
+            
             toBit(mask, m1, m2);
-            toBit(index, i1, i2);
-
-            bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
-            bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            toBit(b, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
             if (!bitAnd(notM1, notM2, i1, i2)) {
                 discard;
             }
+
+            int g = int(remain / 128.0);
+            remain = remain - float(g) * 128.0;
+            mask = int(clipColor.g * 256.0);
+            
+            toBit(mask, m1, m2);
+            toBit(g, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
+            
+            int r = int(remain);
+            mask = int(clipColor.r * 256.0);
+            
+            toBit(mask, m1, m2);
+            toBit(r, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
+        
         #endif
+
             vec4 c = vec4(1.0);
         #ifdef VERTEX_COLOR
             c = c * vColor;
