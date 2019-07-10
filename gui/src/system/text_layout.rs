@@ -197,6 +197,8 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
                     Some(t) => t.0.as_ref(),
                     _ => "",
                 };
+                let node = node.get_parent();
+                let layout = node.get_layout();
                 cb.pos.x = layout.border_left + layout.padding_left;
                 cb.pos.y = layout.border_top + layout.padding_top + (cb.line_height - cb.font_size)/2.0;
                 let w = layout.width - cb.pos.x - layout.border_right - layout.padding_right;
@@ -243,6 +245,8 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     unsafe { write.0.get_unchecked_write(id).modify(|_|{
         return true;
     }) };
+            
+
     // if !cb.layout_dirty {
     //   cb.layout_dirty = true;
     //   unsafe { write.0.get_unchecked_write(id).modify(|_|{
@@ -295,20 +299,20 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if parent_yoga.get_child_count() == 1 {
         match parent_yoga.get_style_width_unit() {
-            YGUnit::YGUnitUndefined => {
-                let text = match read.2.get(id) {
-                    Some(t) => t.0.as_ref(),
-                    _ => "",
-                };
-                let size = calc_text(cb, text, 65535.0, read.0);
-                yoga.set_width(size.x);
-                yoga.set_height(size.y);
-                cb.pos.y = (cb.line_height - cb.font_size)/2.0;
-                cb.dirty = false;
-                return false
-            },
+            YGUnit::YGUnitUndefined => (),
+            YGUnit::YGUnitAuto => (),
             _ => return false
         }
+        let text = match read.2.get(id) {
+            Some(t) => t.0.as_ref(),
+            _ => "",
+        };
+        let size = calc_text(cb, text, 65535.0, read.0);
+        yoga.set_width(size.x);
+        yoga.set_height(size.y);
+        cb.pos.y = (cb.line_height - cb.font_size)/2.0;
+        cb.dirty = false;
+        return false
     }
     let text = match read.2.get(id) {
         Some(t) => t.0.as_ref(),
@@ -431,6 +435,7 @@ fn set_node<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &CharBlock<L>
     node
 }
 
+#[derive(Debug)]
 struct Calc {
     index: usize,
     pos: Point2,
