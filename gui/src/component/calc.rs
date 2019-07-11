@@ -57,8 +57,22 @@ pub struct HSV {
 // }
 pub enum DirtyType{
   Text = 1, // 1表示文字脏
-  LocalStyle = 2, // 2表示局部样式脏
-  StyleClass = 4, // 4表示样式类脏
+  StyleClass = 2, // 表示样式类脏
+  FontStyle = 4, // 表示局部样式脏
+  FontSize = 8, // 表示局部样式脏
+  FontFamily = 16, // 表示局部样式脏
+  LetterSpacing = 32, // 表示局部样式脏
+  WordSpacing = 64, // 表示局部样式脏
+  LineHeight = 128, // 表示局部样式脏
+  Indent = 256, // 表示局部样式脏
+  WhiteSpace = 512, // 表示局部样式脏
+  Color = 1024, // 表示局部样式脏
+  Stroke = 2048, // 表示局部样式脏
+  TextAlign = 0x1000, // 表示局部样式脏
+  VerticalAlign = 0x2000, // 表示局部样式脏
+  ShadowColor = 0x4000, // 表示局部样式脏
+  ShadowHV = 0x8000,
+  ShadowBlur = 0x10000,
 }
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + ShareTrait> {
@@ -73,9 +87,10 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub pos: Point2,
   pub line_count: usize, // 行数，
   pub fix_width: bool, // 如果有字宽不等于font_size
-  pub dirty: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
-  pub local_style: bool, // 是否有局部样式修改，// 以后可以改为usize， 记录间距、字体、字号是否修改
+  pub local_style: usize, // 那些局部样式修改值， 包括间距、字体、字号是否修改
   pub style_class: usize, // 使用的那个样式类
+  pub dirty: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
+  pub modify: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
 }
 #[derive(Debug)]
 pub struct CharNode<L: FlexNode + ShareTrait> {

@@ -82,8 +82,9 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
                 line_count: 1,
                 fix_width: true,
                 dirty: dirty,
-                local_style: false,
+                local_style: 0,
                 style_class: 0,
+                modify: 0,
                 });
                 self.dirty.push(id);
             }
@@ -153,58 +154,59 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
         self.set_dirty(event.id, DirtyType::StyleClass as usize, write)
     }
 }
-// 监听TextStyle属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for LayoutImpl< C, L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
-    }
-}
+
 // 监听TextStyle属性的改变
 impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
+        let r = match event.field {
+            "letter_spacing" => DirtyType::LetterSpacing,
+            "word_spacing" => DirtyType::WordSpacing,
+            "line_height" => DirtyType::LineHeight,
+            "indent" => DirtyType::Indent,
+            "color" => DirtyType::Color,
+            "stroke" => DirtyType::Stroke,
+            "text_align" => DirtyType::TextAlign,
+            "vertical_align" => DirtyType::VerticalAlign,
+            _ => return
+        };
+        self.set_dirty(event.id, r as usize, write)
     }
 }
-// 监听Font属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, CreateEvent> for LayoutImpl< C, L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
-    }
-}
 // 监听Font属性的改变
 impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
+        let r = match event.field {
+            "style" => DirtyType::FontStyle,
+            "size" => DirtyType::FontSize,
+            "family" => DirtyType::FontFamily,
+            _ => return
+        };
+        self.set_dirty(event.id, r as usize, write)
     }
 }
-// 监听TextStyle属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, CreateEvent> for LayoutImpl< C, L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
-    }
-}
-// 监听TextStyle属性的改变
+// 监听TextShadow属性的改变
 impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::LocalStyle as usize, write)
+        let r = match event.field {
+            "h" => DirtyType::ShadowHV as usize,
+            "v" => DirtyType::ShadowHV as usize,
+            "color" => DirtyType::ShadowColor as usize,
+            "blur" => DirtyType::ShadowBlur as usize,
+            _ => DirtyType::ShadowHV as usize + DirtyType::ShadowColor as usize + DirtyType::ShadowBlur as usize,
+        };
+        self.set_dirty(event.id, r, write)
     }
 }
 // 监听CharBlock的删除
@@ -235,11 +237,11 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
         let layout = node.get_layout();
         if let Some(cb) = write.0.get_mut(id) {
-            // 延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+            // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let node = node.get_parent();
             match node.get_style_width_unit() {
-                YGUnit::YGUnitPoint => return,
-                _ => ()
+                YGUnit::YGUnitPercent => (),
+                _ => return
             }
             calc_wrap_align(cb, &node.get_layout());
             return;
@@ -286,25 +288,136 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     if cb.dirty & DirtyType::StyleClass as usize != 0 {
         cb.style_class = read.7.get(id).unwrap().0;
         match (read.1).0.get(&cb.style_class) {
-            Some(c) => cb.clazz = c.clone(),
+            Some(c) if cb.local_style == 0 => cb.clazz = c.clone(),
+            Some(c) => {
+                if cb.local_style & DirtyType::FontStyle as usize == 0 {
+                    cb.clazz.font.style = c.font.style
+                }
+                if cb.local_style & DirtyType::FontSize as usize == 0 {
+                    cb.clazz.font.size = c.font.size
+                }
+                if cb.local_style & DirtyType::FontFamily as usize == 0 {
+                    cb.clazz.font.family = c.font.family.clone()
+                }
+                if cb.local_style & DirtyType::LetterSpacing as usize == 0 {
+                    cb.clazz.style.letter_spacing = c.style.letter_spacing
+                }
+                if cb.local_style & DirtyType::WordSpacing as usize == 0 {
+                    cb.clazz.style.word_spacing = c.style.word_spacing
+                }
+                if cb.local_style & DirtyType::LineHeight as usize == 0 {
+                    cb.clazz.style.line_height = c.style.line_height
+                }
+                if cb.local_style & DirtyType::Indent as usize == 0 {
+                    cb.clazz.style.indent = c.style.indent
+                }
+                if cb.local_style & DirtyType::WhiteSpace as usize == 0 {
+                    cb.clazz.style.white_space = c.style.white_space
+                }
+                if cb.local_style & DirtyType::Color as usize == 0 {
+                    cb.clazz.style.color = c.style.color.clone()
+                }
+                if cb.local_style & DirtyType::Stroke as usize == 0 {
+                    cb.clazz.style.stroke = c.style.stroke.clone()
+                }
+                if cb.local_style & DirtyType::TextAlign as usize == 0 {
+                    cb.clazz.style.text_align = c.style.text_align
+                }
+                if cb.local_style & DirtyType::VerticalAlign as usize == 0 {
+                    cb.clazz.style.vertical_align = c.style.vertical_align
+                }
+                if cb.local_style & DirtyType::ShadowColor as usize == 0 {
+                    cb.clazz.shadow.color = c.shadow.color
+                }
+                if cb.local_style & DirtyType::ShadowHV as usize == 0 {
+                    cb.clazz.shadow.h = c.shadow.h;
+                    cb.clazz.shadow.v = c.shadow.v;
+                }
+                if cb.local_style & DirtyType::ShadowBlur as usize == 0 {
+                     cb.clazz.shadow.blur = c.shadow.blur
+                }
+            },
             _ => (),
         };
     }
-    if cb.dirty & DirtyType::LocalStyle as usize != 0 || cb.local_style {
-        cb.local_style = true;
-        // TODO 改成局部拷贝
-        match read.4.get(id) {
-            Some(r) => cb.clazz.font = r.clone(),
-            _ => ()
-        };
-        match read.5.get(id) {
-            Some(r) => cb.clazz.style = r.clone(),
-            _ => ()
-        };
-        match read.6.get(id) {
-            Some(r) => cb.clazz.shadow = r.clone(),
-            _ => ()
-        };
+    if cb.dirty > DirtyType::StyleClass as usize {
+        cb.local_style |= cb.dirty & (!(DirtyType::Text as usize + DirtyType::StyleClass as usize));
+        if cb.dirty & (DirtyType::FontStyle as usize + DirtyType::FontSize as usize + DirtyType::FontFamily as usize) != 0 {
+            match read.4.get(id) {
+                Some(r) => {
+                    if cb.dirty & DirtyType::FontStyle as usize == 0 {
+                        cb.clazz.font.style = r.style
+                    }
+                    if cb.dirty & DirtyType::FontSize as usize == 0 {
+                        cb.clazz.font.size = r.size
+                    }
+                    if cb.dirty & DirtyType::FontFamily as usize == 0 {
+                        cb.clazz.font.family = r.family.clone()
+                    }
+                },
+                _ => ()
+            };
+        }
+        if cb.dirty & (
+            DirtyType::LetterSpacing as usize +
+            DirtyType::WordSpacing as usize +
+            DirtyType::LineHeight as usize +
+            DirtyType::Indent as usize +
+            DirtyType::WhiteSpace as usize +
+            DirtyType::Color as usize +
+            DirtyType::Stroke as usize +
+            DirtyType::TextAlign as usize +
+            DirtyType::VerticalAlign as usize) != 0 {
+            match read.5.get(id) {
+                Some(r) => {
+                    if cb.dirty & DirtyType::LetterSpacing as usize == 0 {
+                    cb.clazz.style.letter_spacing = r.letter_spacing
+                    }
+                    if cb.dirty & DirtyType::WordSpacing as usize == 0 {
+                        cb.clazz.style.word_spacing = r.word_spacing
+                    }
+                    if cb.dirty & DirtyType::LineHeight as usize == 0 {
+                        cb.clazz.style.line_height = r.line_height
+                    }
+                    if cb.dirty & DirtyType::Indent as usize == 0 {
+                        cb.clazz.style.indent = r.indent
+                    }
+                    if cb.dirty & DirtyType::WhiteSpace as usize == 0 {
+                        cb.clazz.style.white_space = r.white_space
+                    }
+                    if cb.dirty & DirtyType::Color as usize == 0 {
+                        cb.clazz.style.color = r.color.clone()
+                    }
+                    if cb.dirty & DirtyType::Stroke as usize == 0 {
+                        cb.clazz.style.stroke = r.stroke.clone()
+                    }
+                    if cb.dirty & DirtyType::TextAlign as usize == 0 {
+                        cb.clazz.style.text_align = r.text_align
+                    }
+                    if cb.dirty & DirtyType::VerticalAlign as usize == 0 {
+                        cb.clazz.style.vertical_align = r.vertical_align
+                    }
+                },
+                _ => ()
+            };
+        }
+        if cb.dirty & (DirtyType::ShadowColor as usize + DirtyType::ShadowHV as usize + DirtyType::ShadowBlur as usize) != 0 {
+            match read.6.get(id) {
+                Some(r) => {
+                    if cb.dirty & DirtyType::ShadowColor as usize == 0 {
+                        cb.clazz.shadow.color = r.color
+                    }
+                    if cb.dirty & DirtyType::ShadowHV as usize == 0 {
+                        cb.clazz.shadow.h = r.h;
+                        cb.clazz.shadow.v = r.v;
+                    }
+                    if cb.dirty & DirtyType::ShadowBlur as usize == 0 {
+                        cb.clazz.shadow.blur = r.blur
+                    }
+                },
+                _ => ()
+            };
+        }
     }
     // 获得字体高度
     cb.font_size = read.0.get_size(&cb.clazz.font.family, &cb.clazz.font.size);
@@ -321,6 +434,7 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         YGJustify::YGJustifySpaceBetween => cb.clazz.style.text_align = TextAlign::Justify,
         _ => (),
     }
+    cb.modify = cb.dirty;
     cb.dirty = 0;
     let count = parent_yoga.get_child_count() as usize;
     let text = match read.3.get(id) {
@@ -632,10 +746,9 @@ impl_system!{
     {
         MultiCaseListener<Node, Text, CreateEvent>
         MultiCaseListener<Node, Text, ModifyEvent>
-        MultiCaseListener<Node, TextStyle, CreateEvent>
-        MultiCaseListener<Node, TextStyle, ModifyEvent>
-        MultiCaseListener<Node, Font, CreateEvent>
         MultiCaseListener<Node, Font, ModifyEvent>
+        MultiCaseListener<Node, TextStyle, ModifyEvent>
+        MultiCaseListener<Node, TextShadow, ModifyEvent>
         MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
     }
 }
