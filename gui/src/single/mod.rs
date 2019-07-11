@@ -17,7 +17,25 @@ use render::res::GeometryRes;
 use util::res_mgr::Res;
 use FxHashMap32;
 
+use component::{
+    user::*,
+};
+
 pub use single::oct::Oct;
+
+#[derive(Default)]
+pub struct TextStyleClass {
+    pub font: Font,
+    pub style: TextStyle,
+    pub shadow: TextShadow,
+}
+/// 全局文字样式
+#[derive(Default)]
+pub struct TextStyleClassMap (pub FxHashMap32<usize, TextStyleClass>);
+
+/// 全局字符串， 缓冲渲染数据
+#[derive(Default)]
+pub struct StrMap (pub FxHashMap32<u64, (Atom, usize)>);
 
 #[derive(Debug)]
 pub struct OverflowClip{

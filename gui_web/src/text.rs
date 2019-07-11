@@ -157,6 +157,17 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
 
 #[allow(unused_attributes)]
 #[no_mangle]
+pub fn set_text_style_class(world: u32, node_id: u32, class_id: u32){
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    world.text_style_class.lend_mut().insert(node_id, TextStyleClass(class_id as usize));
+    debug_println!("set_text_shadow"); 
+}
+
+
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn set_font_style(world: u32, node_id: u32, value: u8){
     let style = 0;
     set_attr!(world, node_id, Font, style, unsafe {transmute(value)}, font);
