@@ -158,7 +158,7 @@ pub struct Font{
 }
 
 //================================== 枚举
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct TextStyleClazz {
     pub font: Font,
     pub style: TextStyle,

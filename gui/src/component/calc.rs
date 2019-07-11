@@ -1,7 +1,6 @@
 /// 中间计算的组件
 use std::ops::{Deref, DerefMut, Mul};
 
-use atom::Atom;
 use map::{vecmap::VecMap};
 use ecs::component::Component;
 use ecs::Share as ShareTrait;
@@ -63,17 +62,16 @@ pub enum DirtyType{
 }
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + ShareTrait> {
-  pub family: Atom,
+  pub clazz: TextStyleClazz,
   pub font_size: f32, // 字体高度
   pub line_height: f32,
-  pub letter_spacing: f32,
-  pub text_align: TextAlign,
-  pub vertical_align: VerticalAlign,
-  pub indent: f32,
-  pub preserve_spaces: bool,
   pub chars: Vec<CharNode<L>>, // 字符集合
+  pub lines: Vec<(usize, f32)>, // 不折行下的每行的单词数量和总宽度。 自动折行不会影响该值
+  pub last_line: (usize, f32), // 最后一行的单词数量和总宽度
+  pub size: Vector2,
+  pub wrap_size: Vector2,
   pub pos: Point2,
-  pub line_count: usize, // 行数
+  pub line_count: usize, // 行数，
   pub fix_width: bool, // 如果有字宽不等于font_size
   pub dirty: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
   pub local_style: bool, // 是否有局部样式修改，// 以后可以改为usize， 记录间距、字体、字号是否修改

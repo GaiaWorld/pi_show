@@ -15,6 +15,8 @@ use GuiWorld;
 /**
  * 在指定上下文中创建一个 文本样式表
  */
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn create_text_style_class(world: u32, class_id: u32) -> bool {
     let class_id = class_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
