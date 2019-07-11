@@ -59,20 +59,21 @@ pub enum DirtyType{
   Text = 1, // 1表示文字脏
   StyleClass = 2, // 表示样式类脏
   FontStyle = 4, // 表示局部样式脏
-  FontSize = 8, // 表示局部样式脏
-  FontFamily = 16, // 表示局部样式脏
-  LetterSpacing = 32, // 表示局部样式脏
-  WordSpacing = 64, // 表示局部样式脏
-  LineHeight = 128, // 表示局部样式脏
-  Indent = 256, // 表示局部样式脏
-  WhiteSpace = 512, // 表示局部样式脏
-  Color = 1024, // 表示局部样式脏
-  Stroke = 2048, // 表示局部样式脏
-  TextAlign = 0x1000, // 表示局部样式脏
-  VerticalAlign = 0x2000, // 表示局部样式脏
-  ShadowColor = 0x4000, // 表示局部样式脏
-  ShadowHV = 0x8000,
-  ShadowBlur = 0x10000,
+  FontWeight = 8, // 表示局部样式脏
+  FontSize = 0x10, // 表示局部样式脏
+  FontFamily = 0x20, // 表示局部样式脏
+  LetterSpacing = 0x40, // 表示局部样式脏
+  WordSpacing = 0x80, // 表示局部样式脏
+  LineHeight = 0x100, // 表示局部样式脏
+  Indent = 0x200, // 表示局部样式脏
+  WhiteSpace = 0x400, // 表示局部样式脏
+  Color = 0x800, // 表示局部样式脏
+  Stroke = 0x1000, // 表示局部样式脏
+  TextAlign = 0x2000, // 表示局部样式脏
+  VerticalAlign = 0x4000, // 表示局部样式脏
+  ShadowColor = 0x8000, // 表示局部样式脏
+  ShadowHV = 0x10000,
+  ShadowBlur = 0x20000,
 }
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + ShareTrait> {

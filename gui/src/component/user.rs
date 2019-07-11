@@ -441,7 +441,7 @@ impl Transform {
 }
 
 //对齐元素中的文本
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, PartialEq, EnumDefault)]
 pub enum TextAlign{
     Left,	//把文本排列到左边。默认值：由浏览器决定。
     Right,	//把文本排列到右边。

@@ -71,8 +71,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
         _ => {
             write.insert(id, CharBlock{
                 clazz: TextStyleClazz::default(),
-                font_size: 0.0,
-                line_height: 0.0,
+                font_size: 16.0,
+                line_height: 20.0,
                 chars: Vec::new(),
                 lines: Vec::new(),
                 last_line: (0, 0.0),
@@ -185,6 +185,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let r = match event.field {
             "style" => DirtyType::FontStyle,
+            "weight" => DirtyType::FontWeight,
             "size" => DirtyType::FontSize,
             "family" => DirtyType::FontFamily,
             _ => return
@@ -290,50 +291,53 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         match (read.1).0.get(&cb.style_class) {
             Some(c) if cb.local_style == 0 => cb.clazz = c.clone(),
             Some(c) => {
-                if cb.local_style & DirtyType::FontStyle as usize == 0 {
+                if cb.local_style & DirtyType::FontStyle as usize != 0 {
                     cb.clazz.font.style = c.font.style
                 }
-                if cb.local_style & DirtyType::FontSize as usize == 0 {
+                if cb.local_style & DirtyType::FontWeight as usize != 0 {
+                    cb.clazz.font.weight = c.font.weight
+                }
+                if cb.local_style & DirtyType::FontSize as usize != 0 {
                     cb.clazz.font.size = c.font.size
                 }
-                if cb.local_style & DirtyType::FontFamily as usize == 0 {
+                if cb.local_style & DirtyType::FontFamily as usize != 0 {
                     cb.clazz.font.family = c.font.family.clone()
                 }
-                if cb.local_style & DirtyType::LetterSpacing as usize == 0 {
+                if cb.local_style & DirtyType::LetterSpacing as usize != 0 {
                     cb.clazz.style.letter_spacing = c.style.letter_spacing
                 }
-                if cb.local_style & DirtyType::WordSpacing as usize == 0 {
+                if cb.local_style & DirtyType::WordSpacing as usize != 0 {
                     cb.clazz.style.word_spacing = c.style.word_spacing
                 }
-                if cb.local_style & DirtyType::LineHeight as usize == 0 {
+                if cb.local_style & DirtyType::LineHeight as usize != 0 {
                     cb.clazz.style.line_height = c.style.line_height
                 }
-                if cb.local_style & DirtyType::Indent as usize == 0 {
+                if cb.local_style & DirtyType::Indent as usize != 0 {
                     cb.clazz.style.indent = c.style.indent
                 }
-                if cb.local_style & DirtyType::WhiteSpace as usize == 0 {
+                if cb.local_style & DirtyType::WhiteSpace as usize != 0 {
                     cb.clazz.style.white_space = c.style.white_space
                 }
-                if cb.local_style & DirtyType::Color as usize == 0 {
+                if cb.local_style & DirtyType::Color as usize != 0 {
                     cb.clazz.style.color = c.style.color.clone()
                 }
-                if cb.local_style & DirtyType::Stroke as usize == 0 {
+                if cb.local_style & DirtyType::Stroke as usize != 0 {
                     cb.clazz.style.stroke = c.style.stroke.clone()
                 }
-                if cb.local_style & DirtyType::TextAlign as usize == 0 {
+                if cb.local_style & DirtyType::TextAlign as usize != 0 {
                     cb.clazz.style.text_align = c.style.text_align
                 }
-                if cb.local_style & DirtyType::VerticalAlign as usize == 0 {
+                if cb.local_style & DirtyType::VerticalAlign as usize != 0 {
                     cb.clazz.style.vertical_align = c.style.vertical_align
                 }
-                if cb.local_style & DirtyType::ShadowColor as usize == 0 {
+                if cb.local_style & DirtyType::ShadowColor as usize != 0 {
                     cb.clazz.shadow.color = c.shadow.color
                 }
-                if cb.local_style & DirtyType::ShadowHV as usize == 0 {
+                if cb.local_style & DirtyType::ShadowHV as usize != 0 {
                     cb.clazz.shadow.h = c.shadow.h;
                     cb.clazz.shadow.v = c.shadow.v;
                 }
-                if cb.local_style & DirtyType::ShadowBlur as usize == 0 {
+                if cb.local_style & DirtyType::ShadowBlur as usize != 0 {
                      cb.clazz.shadow.blur = c.shadow.blur
                 }
             },
@@ -345,13 +349,16 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         if cb.dirty & (DirtyType::FontStyle as usize + DirtyType::FontSize as usize + DirtyType::FontFamily as usize) != 0 {
             match read.4.get(id) {
                 Some(r) => {
-                    if cb.dirty & DirtyType::FontStyle as usize == 0 {
+                    if cb.dirty & DirtyType::FontStyle as usize != 0 {
                         cb.clazz.font.style = r.style
                     }
-                    if cb.dirty & DirtyType::FontSize as usize == 0 {
+                    if cb.dirty & DirtyType::FontWeight as usize != 0 {
+                        cb.clazz.font.weight = r.weight
+                    }
+                    if cb.dirty & DirtyType::FontSize as usize != 0 {
                         cb.clazz.font.size = r.size
                     }
-                    if cb.dirty & DirtyType::FontFamily as usize == 0 {
+                    if cb.dirty & DirtyType::FontFamily as usize != 0 {
                         cb.clazz.font.family = r.family.clone()
                     }
                 },
@@ -370,31 +377,31 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
             DirtyType::VerticalAlign as usize) != 0 {
             match read.5.get(id) {
                 Some(r) => {
-                    if cb.dirty & DirtyType::LetterSpacing as usize == 0 {
+                    if cb.dirty & DirtyType::LetterSpacing as usize != 0 {
                     cb.clazz.style.letter_spacing = r.letter_spacing
                     }
-                    if cb.dirty & DirtyType::WordSpacing as usize == 0 {
+                    if cb.dirty & DirtyType::WordSpacing as usize != 0 {
                         cb.clazz.style.word_spacing = r.word_spacing
                     }
-                    if cb.dirty & DirtyType::LineHeight as usize == 0 {
+                    if cb.dirty & DirtyType::LineHeight as usize != 0 {
                         cb.clazz.style.line_height = r.line_height
                     }
-                    if cb.dirty & DirtyType::Indent as usize == 0 {
+                    if cb.dirty & DirtyType::Indent as usize != 0 {
                         cb.clazz.style.indent = r.indent
                     }
-                    if cb.dirty & DirtyType::WhiteSpace as usize == 0 {
+                    if cb.dirty & DirtyType::WhiteSpace as usize != 0 {
                         cb.clazz.style.white_space = r.white_space
                     }
-                    if cb.dirty & DirtyType::Color as usize == 0 {
+                    if cb.dirty & DirtyType::Color as usize != 0 {
                         cb.clazz.style.color = r.color.clone()
                     }
-                    if cb.dirty & DirtyType::Stroke as usize == 0 {
+                    if cb.dirty & DirtyType::Stroke as usize != 0 {
                         cb.clazz.style.stroke = r.stroke.clone()
                     }
-                    if cb.dirty & DirtyType::TextAlign as usize == 0 {
+                    if cb.dirty & DirtyType::TextAlign as usize != 0 {
                         cb.clazz.style.text_align = r.text_align
                     }
-                    if cb.dirty & DirtyType::VerticalAlign as usize == 0 {
+                    if cb.dirty & DirtyType::VerticalAlign as usize != 0 {
                         cb.clazz.style.vertical_align = r.vertical_align
                     }
                 },
@@ -404,14 +411,14 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         if cb.dirty & (DirtyType::ShadowColor as usize + DirtyType::ShadowHV as usize + DirtyType::ShadowBlur as usize) != 0 {
             match read.6.get(id) {
                 Some(r) => {
-                    if cb.dirty & DirtyType::ShadowColor as usize == 0 {
+                    if cb.dirty & DirtyType::ShadowColor as usize != 0 {
                         cb.clazz.shadow.color = r.color
                     }
-                    if cb.dirty & DirtyType::ShadowHV as usize == 0 {
+                    if cb.dirty & DirtyType::ShadowHV as usize != 0 {
                         cb.clazz.shadow.h = r.h;
                         cb.clazz.shadow.v = r.v;
                     }
-                    if cb.dirty & DirtyType::ShadowBlur as usize == 0 {
+                    if cb.dirty & DirtyType::ShadowBlur as usize != 0 {
                         cb.clazz.shadow.blur = r.blur
                     }
                 },
@@ -434,6 +441,7 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         YGJustify::YGJustifySpaceBetween => cb.clazz.style.text_align = TextAlign::Justify,
         _ => (),
     }
+    // TODO 如果没有文字变动， 则可以直接返回或计算布局
     cb.modify = cb.dirty;
     cb.dirty = 0;
     let count = parent_yoga.get_child_count() as usize;
@@ -600,12 +608,12 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
                 update_char1(cb, ' ', cb.font_size, font, &mut calc);
-                calc.pos.x += cb.clazz.style.word_spacing;
+                calc.pos.x += cb.clazz.style.letter_spacing;
                 cb.last_line.0 += 1;
             },
             SplitResult::Word(c) => {
                 update_char1(cb, c, 0.0, font, &mut calc);
-                calc.pos.x += cb.clazz.style.word_spacing;
+                calc.pos.x += cb.clazz.style.letter_spacing;
                 cb.last_line.0 += 1;
             },
             SplitResult::WordStart(c) => {
@@ -689,19 +697,25 @@ fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlo
 fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Layout) {
     let x = layout.border_left + layout.padding_left;
     let w = layout.width - x - layout.border_right - layout.padding_right;
-    if cb.clazz.style.white_space.allow_wrap() || cb.size.x < w {
+    let y = layout.border_top + layout.padding_top;
+    let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
+    if cb.clazz.style.white_space.allow_wrap() && cb.size.x > w {
+        // 换行计算， 同时计算对齐
         return;
     }
-    let y = layout.border_top + layout.padding_top;
-    let h = layout.height - cb.pos.y - layout.border_bottom - layout.padding_bottom;
-    if cb.line_count == 1 {
+    cb.pos.x=x;
+    cb.pos.y=y;
+    if cb.clazz.style.text_align == TextAlign::Left {
+        return
+    }
+    if cb.line_count == 1 { // 单行优化
         match cb.clazz.style.text_align {
             TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
             TextAlign::Right => cb.pos.x += w - cb.size.x,
             TextAlign::Justify if cb.size.x > w => justify(cb, w, cb.size.x),
             _ => (),
         };
-        cb.pos.y += (cb.line_height - cb.font_size)/2.0;
+        cb.pos.y = (cb.line_height - cb.font_size)/2.0;
         if h > 0.0 {
             match cb.clazz.style.vertical_align {
                 VerticalAlign::Middle => cb.pos.y += (h - cb.size.y) / 2.0,
@@ -709,10 +723,28 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
                 _ => (),
             }
         }
+        return
     }
-
+    
 }
-
+fn get_fix_pos<L: FlexNode + ShareTrait>(cb: &CharBlock<L>, start: usize, line: usize, limit_width: f32) -> f32 {
+    // let count_width = if line == 0 {
+    //     &cb.last_line
+    // }else {
+    //     cb.lines.get_unchecked(line - 1)
+    // };
+    // let mut w = count_width.1;
+    // if w > limit_width {
+    //     // 计算折行
+    // }
+    // match cb.clazz.style.text_align {
+    //     TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
+    //     TextAlign::Right => cb.pos.x += w - cb.size.x,
+    //     // TextAlign::Justify if cb.size.x > w => justify(cb, w, cb.size.x),
+    //     _ => (),
+    // };
+    0.0
+}
 // if calc.pos.x > 0.0 && limit < w + calc.pos.x {
 //             // 需要换行
 //             calc.pos.y += cb.line_height;
