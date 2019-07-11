@@ -97,7 +97,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
             let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
             let text_style = get_or_default(*id, text_styles, default_table);
             let font = get_or_default(*id, fonts, default_table);
-            charblock.dirty = false;
+            charblock.dirty = 0;
             let first_font = match font_sheet.get_first_font(&font.family) {
                 Some(r) => r,
                 None => {
