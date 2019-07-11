@@ -3,11 +3,11 @@ use std::mem::transmute;
 use stdweb::unstable::TryInto;
 use stdweb::web::{ TypedArray };
 
-
+use atom::Atom;
 use ecs::{LendMut};
 
 use gui::component::user::*;
-use gui::single::{TextStyleClassMap, TextStyleClass};
+use gui::single::{TextStyleClassMap, TextStyleClazz};
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
 
@@ -23,7 +23,7 @@ pub fn create_text_style_class(world: u32, class_id: u32) -> bool {
     match map.0.entry(class_id) {
         std::collections::hash_map::Entry::Occupied(_) => false,
         std::collections::hash_map::Entry::Vacant(e) => {
-            e.insert(TextStyleClass::default());
+            e.insert(TextStyleClazz::default());
             true
         }
     }
@@ -138,45 +138,45 @@ pub fn set_text_style_class_text_shadow(world: u32, class_id: u32, h: f32, v: f3
     debug_println!("set_text_shadow"); 
 }
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_style(world: u32, class_id: u32, value: u8){
-//     let style = 0;
-//     set_attr!(world, class_id, Font, style, unsafe {transmute(value)}, font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_style(world: u32, class_id: u32, value: u8){
+    let style = 0;
+    set_attr!(world, class_id, Font, style, unsafe {transmute(value)}, font);
+}
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_weight(world: u32, class_id: u32, value: f32){
-//     let weight = 0;
-//     set_attr!(world, class_id, Font, weight, value, font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_weight(world: u32, class_id: u32, value: f32){
+    let weight = 0;
+    set_attr!(world, class_id, Font, weight, value, font);
+}
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_size_none(world: u32, class_id: u32){
-//     let size = 0;
-//     set_attr!(world, class_id, Font, size, FontSize::None, font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_size_none(world: u32, class_id: u32){
+    let size = 0;
+    set_attr!(world, class_id, Font, size, FontSize::None, font);
+}
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_size(world: u32, class_id: u32, value: f32){
-//     let size = 0;
-//     set_attr!(world, class_id, Font, size, FontSize::Length(value), font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_size(world: u32, class_id: u32, value: f32){
+    let size = 0;
+    set_attr!(world, class_id, Font, size, FontSize::Length(value), font);
+}
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_size_percent(world: u32, class_id: u32, value: f32){
-//     let size = 0;
-//     set_attr!(world, class_id, Font, size, FontSize::Percent(value), font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_size_percent(world: u32, class_id: u32, value: f32){
+    let size = 0;
+    set_attr!(world, class_id, Font, size, FontSize::Percent(value), font);
+}
 
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_text_style_class_font_family(world: u32, class_id: u32){
-//     let value: String = js!(return __jsObj;).try_into().unwrap();
-//     let family = 0;
-//     set_attr!(world, class_id, Font, family, Atom::from(value), font);
-// }
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_text_style_class_font_family(world: u32, class_id: u32){
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let family = 0;
+    set_attr!(world, class_id, Font, family, Atom::from(value), font);
+}

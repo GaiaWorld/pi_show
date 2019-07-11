@@ -75,7 +75,8 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
     world.register_multi::<Node, CharBlock<L>>();
-    world.register_multi::<Node, Text>(); 
+    world.register_multi::<Node, Text>();
+    world.register_multi::<Node, TextStyleClass>();
     world.register_multi::<Node, TextStyle>();
     world.register_multi::<Node, TextShadow>();
     world.register_multi::<Node, Font>();

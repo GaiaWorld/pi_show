@@ -56,7 +56,11 @@ pub struct HSV {
 //     pub geometry: usize,
 //     pub ubo: usize, //geometry 对象
 // }
-
+enum DirtyType{
+  Text = 1, // 1表示文字脏
+  LocalStyle = 2, // 2表示局部样式脏
+  ClassStyle = 4, // 4表示样式类脏
+}
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub family: Atom,
@@ -71,7 +75,7 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub pos: Point2,
   pub line_count: usize, // 行数
   pub fix_width: bool, // 如果有字宽不等于font_size
-  pub dirty: bool,
+  pub dirty: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
   pub style_class: usize, // 使用的那个样式类， 如果没有使用，或有局部样式修改了，则该值为0
 }
 #[derive(Debug)]

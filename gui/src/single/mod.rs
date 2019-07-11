@@ -24,14 +24,14 @@ use component::{
 pub use single::oct::Oct;
 
 #[derive(Default)]
-pub struct TextStyleClass {
+pub struct TextStyleClazz {
     pub font: Font,
     pub style: TextStyle,
     pub shadow: TextShadow,
 }
 /// 全局文字样式
 #[derive(Default)]
-pub struct TextStyleClassMap (pub FxHashMap32<usize, TextStyleClass>);
+pub struct TextStyleClassMap (pub FxHashMap32<usize, TextStyleClazz>);
 
 /// 全局字符串， 缓冲渲染数据
 #[derive(Default)]
