@@ -540,7 +540,9 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
     let mut indices: Vec<u16> = Vec::new();
     let font_size = char_block.font_size;
     let mut i = 0;
-    offset.1 += (char_block.line_height - font_size)/2.0;
+    // offset.1 += (char_block.line_height - font_size)/2.0;
+    offset.0 += char_block.pos.x;
+    offset.1 += char_block.pos.y;
 
     if char_block.chars.len() > 0 {
         for c in char_block.chars.iter() {
