@@ -30,9 +30,8 @@ macro_rules! set_attr {
             match attr.get_write(node_id) {
                 Some(mut r) => r.[<set_ $name>](value),
                 _ =>{
-                    let mut v = $tt::default();
-                    v.$name = value;
-                    attr.insert(node_id, v);
+                    attr.insert(node_id, $tt::default());
+                    unsafe { attr.get_unchecked_write(node_id).[<set_ $name>](value) };
                 }
             }
         }
@@ -151,7 +150,11 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
-    world.text_shadow.lend_mut().insert(node_id, value);
+    let ts = world.text_shadow.lend_mut();
+    ts.insert(node_id, value);
+    unsafe { ts.get_unchecked_write(node_id).modify(|_|{
+        return true;
+    }) };
     debug_println!("set_text_shadow"); 
 }
 
