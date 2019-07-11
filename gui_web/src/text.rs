@@ -245,7 +245,6 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
     let engine = world.engine.lend_mut();
     let font_sheet = world.font_sheet.lend_mut();
 
-    println!("----------add_sdf_font_res{:?}", name);
     let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
         Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
         Err(_) => panic!("set_src error"),
@@ -399,7 +398,6 @@ pub fn update_font_texture2(world: u32, u: u32, v: u32, width: u32, height: u32)
     src.texture().bind.update_webgl(u, v, width, height, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap() );
     let render_objs = world.render_objs.lend_mut();
     render_objs.get_notify().modify_event(1, "", 0);
-    println!("ttttttttttttttttttttttttt");
 
     // 优化， getImageData性能不好， 应该直接更新canvas， TODO
     // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
