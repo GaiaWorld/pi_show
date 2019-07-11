@@ -57,6 +57,7 @@ use gui::render::res::TextureRes;
 use text::{ DrawTextSys, define_draw_canvas};
 
 
+pub mod text_style;
 pub mod style;
 pub mod node;
 pub mod text;
