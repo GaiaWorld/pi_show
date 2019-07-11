@@ -399,6 +399,7 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
         let oct = unsafe { octree.get_unchecked(e) };
         ab_query_func(&mut args, e, oct.0, &e);
     }
+    println!("result----------{}", args.result);
     args.result as u32
 }
 
@@ -441,6 +442,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
     // debug_println!("bind----------------------------{}", *bind);
     let enable = unsafe { arg.enables.get_unchecked(*bind) }.0;
     // debug_println!("enable----------------------------{}", enable);
+    // println!("enable----------id: {}, enable: {}", bind, enable);
     //如果enable true 表示不接收事件
     match enable {
       true => (),
@@ -448,6 +450,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
     };
 
     let z_depth = unsafe { arg.z_depths.get_unchecked(*bind) }.0;
+    // println!("z_depth----------id: {}, z_depth: {}, arg.max_z:{}", bind, z_depth, arg.max_z);
     // debug_println!("----------------------------z_depth: {}, arg.max_z: {}", z_depth, arg.max_z);
     // 取最大z的node
     if z_depth > arg.max_z {
@@ -456,6 +459,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
       // 检查是否有裁剪，及是否在裁剪范围内
       if by_overflow == 0 || in_overflow(&arg.overflow_clip, by_overflow, arg.aabb.min.x, arg.aabb.min.y) {
         // println!("in_overflow------------------by: {}, bind: {}, ", by_overflow, bind);
+        // println!("result----------id: {}", bind);
         arg.result = *bind;
         arg.max_z = z_depth;
       }
@@ -484,7 +488,10 @@ fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize,
       let p = &overflow_clip.clip[i];
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
-        _ => return false
+        _ => {
+            // println!("overflow----------clip: {:?},x: {}, y: {}", p[0], x, y);
+            return false
+        }
       }
     }
   }
