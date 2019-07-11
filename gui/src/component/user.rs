@@ -158,6 +158,12 @@ pub struct Font{
 }
 
 //================================== 枚举
+#[derive(Default, Clone)]
+pub struct TextStyleClazz {
+    pub font: Font,
+    pub style: TextStyle,
+    pub shadow: TextShadow,
+}
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;

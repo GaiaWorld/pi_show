@@ -7,7 +7,7 @@ use atom::Atom;
 use ecs::{LendMut};
 
 use gui::component::user::*;
-use gui::single::{TextStyleClassMap, TextStyleClazz};
+use gui::single::{TextStyleClassMap};
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
 

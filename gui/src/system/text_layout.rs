@@ -54,9 +54,11 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
     fn set_dirty(&mut self, id: usize, dirty: usize, write: &'a mut MultiCaseImpl<Node, CharBlock<L>>) {
         match write.get_mut(id) {
         Some(node) => {
-            if node.dirty & dirty == 0  {
+            if node.dirty == 0 {
+                self.dirty.push(id);
+                node.dirty = dirty;
+            }else if node.dirty & dirty == 0  {
                 node.dirty |= dirty;
-                self.dirty.push(id)
             }
         },
         _ => {
@@ -74,6 +76,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
                 line_count: 1,
                 fix_width: true,
                 dirty: dirty,
+                local_style: false,
                 style_class: 0,
                 });
                 self.dirty.push(id);
@@ -132,7 +135,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::ClassStyle as usize, write)
+        self.set_dirty(event.id, DirtyType::StyleClass as usize, write)
     }
 }
 // 监听TextStyleClass属性的改变
@@ -141,7 +144,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::ClassStyle as usize, write)
+        self.set_dirty(event.id, DirtyType::StyleClass as usize, write)
     }
 }
 // 监听TextStyle属性的改变
@@ -231,11 +234,13 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
                     _ => (),
                 };
                 cb.pos.y += (cb.line_height - cb.font_size)/2.0;
-                match cb.vertical_align {
-                    VerticalAlign::Middle => cb.pos.y += (h - size.y) / 2.0,
-                    VerticalAlign::Bottom => cb.pos.y += h - size.y,
-                    _ => (),
-                };
+                if h > 0.0 {
+                    match cb.vertical_align {
+                        VerticalAlign::Middle => cb.pos.y += (h - size.y) / 2.0,
+                        VerticalAlign::Bottom => cb.pos.y += h - size.y,
+                        _ => (),
+                    }
+                }
             }
             return;
         }
@@ -278,32 +283,47 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         println!("parent_yoga.is_null");
         return true
     }
-
-    let font = match read.5.get(id) {
-        Some(f) => f.clone(),
-        _ => Font::default()
+    if cb.dirty & DirtyType::StyleClass as usize != 0 {
+        cb.style_class = read.6.get(id).unwrap().0;
+    }
+    let mut clazz = match (read.1).0.get(&cb.style_class) {
+        Some(c) => c.clone(),
+        _ => TextStyleClazz::default(),
     };
-    cb.family = font.family.clone();
+    if cb.dirty & DirtyType::LocalStyle as usize != 0 || cb.local_style {
+        cb.local_style = true;
+        match read.5.get(id) {
+            Some(r) => clazz.font = r.clone(),
+            _ => ()
+        };
+        match read.4.get(id) {
+            Some(r) => clazz.style = r.clone(),
+            _ => ()
+        };
+    }
+    
+    cb.family = clazz.font.family.clone();
     // 获得字体高度
-    cb.font_size = read.0.get_size(&font.family, &font.size);
+    cb.font_size = read.0.get_size(&cb.family, &clazz.font.size);
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
         println!("font_size==0.0");
         return true
     }
-    let style = match read.4.get(id) {
-        Some(f) => f.clone(),
-        _ => TextStyle::default()
-    };
-    cb.line_height = (get_line_height(cb.font_size, &style.line_height) * 100.0).round()/100.0;
-    cb.pos.y = (cb.line_height - cb.font_size)/2.0;
-    cb.letter_spacing = style.letter_spacing;
-    // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
-    if cb.indent != style.indent {
-        yoga.set_width(style.indent);
-        cb.indent = style.indent;
+    if clazz.style.white_space.allow_wrap() {
+        parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
+    }else {
+        parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
-    cb.preserve_spaces = style.white_space.preserve_spaces();
+    cb.line_height = (get_line_height(cb.font_size, &clazz.style.line_height) * 100.0).round()/100.0;
+    cb.pos.y = (cb.line_height - cb.font_size)/2.0;
+    cb.letter_spacing = clazz.style.letter_spacing;
+    cb.preserve_spaces = clazz.style.white_space.preserve_spaces();
+    // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
+    if cb.indent != clazz.style.indent {
+        yoga.set_width(clazz.style.indent);
+        cb.indent = clazz.style.indent;
+    }
     match parent_yoga.get_style_justify() {
         YGJustify::YGJustifyCenter => cb.text_align = TextAlign::Center,
         YGJustify::YGJustifyFlexEnd => cb.text_align = TextAlign::Right,
@@ -316,7 +336,10 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         match parent_yoga.get_style_width_unit() {
             YGUnit::YGUnitUndefined => (),
             YGUnit::YGUnitAuto => (),
-            _ => return false
+            _ => {
+                yoga.set_width(yoga.get_layout().width + 0.00001);
+                return false
+            }
         }
         let text = match read.3.get(id) {
             Some(t) => t.0.as_ref(),
@@ -336,11 +359,7 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         _ => "",
     };
     cb.dirty = 0;
-    if style.white_space.allow_wrap() {
-        parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
-    }else {
-        parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
-    }
+    
     // 计算节点的yoga节点在父节点的yoga节点的位置
     let mut yg_index: usize = 0;
     while yg_index < count && parent_yoga.get_child(yg_index as u32) != yoga {
@@ -351,7 +370,7 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     let mut word = L::new_null();
     let mut word_index = 0;
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-    for cr in split(text, true, style.white_space.preserve_spaces()) {
+    for cr in split(text, true, cb.preserve_spaces) {
         match cr {
             SplitResult::Newline =>{
                 update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);

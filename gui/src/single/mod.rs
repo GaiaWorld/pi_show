@@ -23,12 +23,7 @@ use component::{
 
 pub use single::oct::Oct;
 
-#[derive(Default)]
-pub struct TextStyleClazz {
-    pub font: Font,
-    pub style: TextStyle,
-    pub shadow: TextShadow,
-}
+
 /// 全局文字样式
 #[derive(Default)]
 pub struct TextStyleClassMap (pub FxHashMap32<usize, TextStyleClazz>);
