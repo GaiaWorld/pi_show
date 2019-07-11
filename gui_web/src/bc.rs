@@ -280,7 +280,10 @@ impl FlexNode for YgNode {
         yoga::yg_node_layout_get_padding(self.0, unsafe { transmute(edge) })
     }
 
-    fn free(&self){ 
+    fn free(&self){
+        if (self.0 as usize) == 0 {
+            return;
+        }
         yoga::yg_node_free(self.0)
     }
 

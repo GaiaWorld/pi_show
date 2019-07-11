@@ -364,8 +364,8 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     //清除多余的CharNode
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
-            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node.clone());
-            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            // cb.chars[i].node.get_parent().remove_child(cb.chars[i].node.clone());
+            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};
         
@@ -393,7 +393,7 @@ fn update_char<C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, cb:
         }
         // 字符不同，将当前的，和后面的节点都释放掉
         for j in i..cb.chars.len() {
-        cb.chars[j].node.free()
+            cb.chars[j].node.free()
         }
         unsafe {cb.chars.set_len(i)};
     }
