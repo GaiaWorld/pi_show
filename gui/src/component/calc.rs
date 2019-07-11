@@ -72,6 +72,7 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub line_count: usize, // 行数
   pub fix_width: bool, // 如果有字宽不等于font_size
   pub dirty: bool,
+  pub style_class: usize, // 使用的那个样式类， 如果没有使用，或有局部样式修改了，则该值为0
 }
 #[derive(Debug)]
 pub struct CharNode<L: FlexNode + ShareTrait> {

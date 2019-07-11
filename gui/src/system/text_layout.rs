@@ -73,6 +73,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
                 line_count: 1,
                 fix_width: true,
                 dirty: true,
+                style_class: 0,
                 });
                 self.dirty.push(id);
             }

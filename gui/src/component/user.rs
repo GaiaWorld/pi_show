@@ -115,6 +115,9 @@ pub struct BoxShadow{
     pub color: CgColor,
 }
 
+#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
+pub struct TextStyleClass(pub usize);
+
 #[derive(Debug, Clone, Component, Default)]
 #[storage(HashMap)]
 pub struct TextStyle{

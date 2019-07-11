@@ -102,6 +102,7 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world.register_single::<ClipUbo<C>>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());
     world.register_single::<Oct>(Oct::new());
+    world.register_single::<TextStyleClassMap>(TextStyleClassMap::default());
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs<C>>(RenderObjs::<C>::default());
     world.register_single::<Engine<C>>(engine);
@@ -159,6 +160,7 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub border_image_slice: Arc<CellMultiCase<Node, BorderImageSlice>>,
     pub border_image_repeat: Arc<CellMultiCase<Node, BorderImageRepeat>>,
     pub text: Arc<CellMultiCase<Node, Text>>,
+    pub text_style_class: Arc<CellMultiCase<Node, TextStyleClass>>,
     pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
     pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
     pub font: Arc<CellMultiCase<Node, Font>>,
@@ -208,6 +210,7 @@ impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
             border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
             border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
             text: world.fetch_multi::<Node, Text>().unwrap(),
+            text_style_class: world.fetch_multi::<Node, TextStyleClass>().unwrap(),
             text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
             text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
             font: world.fetch_multi::<Node, Font>().unwrap(),
