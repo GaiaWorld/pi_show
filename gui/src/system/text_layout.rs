@@ -704,6 +704,8 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
         for i in 0..cb.lines.len() + 1 {
             y_fix = wrap_line(cb, i, w, y_fix)
         }
+        cb.wrap_size.y += y_fix;
+        cb.wrap_size.x = w;
     }
     cb.pos.x = x;
     cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
