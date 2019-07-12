@@ -237,6 +237,12 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
     if b == 0 {   
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
         let layout = node.get_layout();
+        match write.0.get_write(id) {
+            Some(mut r) => r.modify(|_|{
+                return true;
+            }),
+            None => ()
+        };
         if let Some(cb) = write.0.get_mut(id) {
             // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let node = node.get_parent();
@@ -245,6 +251,7 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
                 _ => return
             }
             calc_wrap_align(cb, &node.get_layout());
+
             return;
         }
         if &layout == unsafe {write.1.get_unchecked(id)} {
@@ -271,10 +278,9 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     let cb = unsafe {write.0.get_unchecked_mut(id)};
     let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
     cn.pos = pos;
-    unsafe { write.0.get_unchecked_write(id).modify(|_|{
-        return true;
-    }) };
-
+    // unsafe { write.0.get_unchecked_write(id).modify(|_|{
+    //     return true;
+    // }) };
 }
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {;
