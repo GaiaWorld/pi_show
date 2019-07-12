@@ -42,6 +42,7 @@ lazy_static! {
 
 pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
     render_map: VecMap<usize>,
+    shadow_render_map: VecMap<usize>,
     dirtys: Vec<usize>,
     mark: PhantomData<(C, L)>,
     rs: Share<RasterState>,
@@ -64,6 +65,7 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
         ds.set_write_enable(false);
         CharBlockSys {
             render_map: VecMap::default(),
+            shadow_render_map: VecMap::default(),
             dirtys: Vec::new(),
             mark: PhantomData,
             rs: Share::new(RasterState::new()),
@@ -98,6 +100,75 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
         self.modify_matrix(context, world_matrix, render_objs);
         index
     }
+
+    pub fn create_shadow_render(&mut self, context: usize, z_depth: f32, engine: &mut Engine<C>, notify: &NotifyImpl, render_objs: &mut SingleCaseImpl<RenderObjs<C>>) -> usize {
+        let mut ubos: FxHashMap32<Atom, Share<Uniforms<C>>> = FxHashMap32::default();
+        let ucolor_ubo = engine.gl.create_uniforms();
+        ubos.insert(UCOLOR.clone(), Share::new(ucolor_ubo)); // UCOLOR
+
+        let common_ubo = engine.gl.create_uniforms();
+        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
+
+        let render_obj: RenderObj<C> = RenderObj {
+            depth: z_depth + 0.1,
+            depth_diff: 0.1,
+            visibility: false,
+            is_opacity: false,
+            ubos: ubos,
+            geometry: None,
+            pipeline: self.pipeline.as_ref().unwrap().clone(),
+            context: context,
+            defines: vec![UCOLOR.clone()],
+        };   
+        
+        let index = render_objs.insert(render_obj, Some(notify.clone()));
+        self.shadow_render_map.insert(context, index);
+        index
+    }
+
+    fn modify_matrix(
+        &self,
+        id: usize,
+        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
+        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
+    ){
+        if let Some(index) = self.render_map.get(id) {
+            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*index) };
+
+            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
+            let ubos = &mut render_obj.ubos;
+            let slice: &[f32; 16] = world_matrix.0.as_ref();
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            debug_println!("charblock, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
+            render_objs.get_notify().modify_event(*index, "ubos", 0);
+        }
+    }
+
+    fn modify_shadow_matrix(
+        &self,
+        id: usize,
+        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
+        render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+        h: f32,
+        v: f32,
+    ){
+        if let Some(index) = self.shadow_render_map.get(id) {
+            let world_matrix = unsafe { &(world_matrixs.get_unchecked(id).0) } * Matrix4::new (
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                h,   v,   0.0, 1.0
+            );
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*index) };
+
+            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
+            let ubos = &mut render_obj.ubos;
+            let slice: &[f32; 16] = world_matrix.as_ref();
+            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
+            render_objs.get_notify().modify_event(*index, "ubos", 0);
+        }
+    }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -129,6 +200,16 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
                 None =>  unsafe {&mut *( self as *const Self as usize as *mut Self ) }.create_render(*id, z_depth, engine, &notify, render_objs, world_matrix),
             };
 
+            let shadow_index = if charblock.clazz.shadow.color.a == 0.0 {
+                self.shadow_render_map.remove(*id);
+                0
+            } else {
+                match self.shadow_render_map.get(*id) {
+                    Some(r) => *r,
+                    None =>  unsafe {&mut *( self as *const Self as usize as *mut Self ) }.create_shadow_render(*id, z_depth, engine, &notify, render_objs),
+                }
+            };
+
             let first_font = match font_sheet.get_first_font(&charblock.clazz.font.family) {
                 Some(r) => r,
                 None => {
@@ -139,8 +220,9 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
 
             let font_size = font_sheet.get_size(&charblock.clazz.font.family, &charblock.clazz.font.size);
 
-            let render_obj = unsafe { render_objs.get_unchecked_mut(index) };
+            let render_obj = unsafe { &mut *(render_objs.get_unchecked(index) as *const RenderObj<C> as usize as *mut RenderObj<C>) };
             let (mut pipeline_change, mut geometry_change) = (false, false);
+            let mut shadow_geometry_change = false;
 
             // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记pipeline_change 和 geometry_change脏
             if charblock.modify & (DirtyType::Color as usize) != 0 {
@@ -154,16 +236,34 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
                 pipeline_change = pipeline_change | modify_stroke(index, &charblock.clazz.style.stroke, render_obj, engine, &notify, &first_font);
             }
 
-            // 尝试修改字体， 如果发现famly 修改， 需要修改pipeline， geometry_change
-            let change = try_modify_font(charblock.modify, index, render_obj, &first_font, font_size, &notify, self.default_sampler.as_ref().unwrap(), self.point_sampler.as_ref().unwrap());
-            pipeline_change = pipeline_change | change;
-            geometry_change = geometry_change | change;
+            // 阴影颜色脏， 修改ubo
+            if charblock.modify & (DirtyType::ShadowColor as usize) != 0 && shadow_index > 0  {
+                let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(shadow_index) };
+                modify_shadow_color(shadow_index, &charblock.clazz.shadow.color, &notify, shadow_render_obj, &first_font);         
+            };
 
+            // 阴影blur脏， 修改blur ubo
+            if charblock.modify & (DirtyType::ShadowBlur as usize) != 0 {
+                // 设置ubo
+            }
+
+            // 阴影 hv脏， 从新计算世界矩阵
+            if charblock.modify & (DirtyType::ShadowHV as usize) != 0 {
+                self.modify_shadow_matrix(*id, world_matrix, render_objs, charblock.clazz.shadow.h, charblock.clazz.shadow.v);
+            }
+
+            // 尝试修改字体， 如果发现famly 修改， 需要修改pipeline， geometry_change
+            let font_change = try_modify_font(charblock.modify, index, render_obj, &first_font, font_size, &notify, self.default_sampler.as_ref().unwrap(), self.point_sampler.as_ref().unwrap());
+            pipeline_change = pipeline_change | font_change;
+            geometry_change = geometry_change | font_change;
+
+            // 文字内容脏， 这是顶点流脏
             if charblock.modify & (DirtyType::Text as usize) != 0 {
-                pipeline_change = true;
                 geometry_change = true;
+                shadow_geometry_change = true;
             }
             
+            // 如果渲染管线脏， 重新创建渲染管线
             if pipeline_change {
                 let old_pipeline = render_obj.pipeline.clone();
                 let pipeline = if first_font.get_dyn_type() == 0 {
@@ -191,7 +291,8 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
                 };
                 render_obj.pipeline = pipeline;
             }
-
+            
+            // 文字顶点流改变， 重新生成顶点流
             if geometry_change {
                 let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;        
                 let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &charblock.clazz.style.color, z_depth + 0.2, (0.0, 0.0));
@@ -212,6 +313,62 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
                 };
                 render_objs.get_notify().modify_event(index, "geometry", 0);
             }
+
+            if shadow_index > 0 {
+                let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(shadow_index) };
+
+                // 修改阴影的顶点流
+                if shadow_geometry_change  {
+                    match &charblock.clazz.style.color {
+                        Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
+                        Color::LinearGradient(_) => {
+                            let (positions, uvs, indices) = get_shadow_geo_flow(charblock, &first_font, z_depth + 0.2);
+                            if positions.len() == 0 {
+                                shadow_render_obj.geometry = None;
+                            } else {
+                                let mut geometry = create_geometry(&mut engine.gl);
+                                geometry.set_vertex_count((positions.len()/3) as u32);
+                                geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
+                                geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
+                                geometry.set_indices_short(indices.as_slice(), false).unwrap();
+                                shadow_render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
+                            };
+                            notify.modify_event(shadow_index, "geometry", 0);
+                        },
+                    }
+                }
+
+                // 修改阴影的渲染管线
+                if font_change {
+                    let old_pipeline = shadow_render_obj.pipeline.clone();
+                    let pipeline = if first_font.get_dyn_type() == 0 {
+                        engine.create_pipeline(
+                            1,
+                            &TEXT_VS_SHADER_NAME.clone(),
+                            &TEXT_FS_SHADER_NAME.clone(),
+                            shadow_render_obj.defines.as_slice(),
+                            old_pipeline.rs.clone(),
+                            self.bs.clone(),
+                            old_pipeline.ss.clone(),
+                            old_pipeline.ds.clone()
+                        )
+                    }else {
+                        engine.create_pipeline(
+                            3,
+                            &CANVAS_TEXT_VS_SHADER_NAME.clone(),
+                            &CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                            shadow_render_obj.defines.as_slice(),
+                            old_pipeline.rs.clone(),
+                            self.canvas_bs.clone(),
+                            old_pipeline.ss.clone(),
+                            old_pipeline.ds.clone(),
+                        )
+                    };
+                    shadow_render_obj.pipeline = pipeline;
+                    notify.modify_event(shadow_index, "pipeline", 0);
+                }
+            }
+            
 
             charblock.modify = 0;
         }
@@ -275,45 +432,41 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
             }, 
             None => (),
         };
+        match self.shadow_render_map.remove(event.id) {
+            Some(index) => {
+                let notify = write.get_notify();
+                write.remove(index, Some(notify));
+            }, 
+            None => (),
+        };
     }
 }
 
-type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
+type MatrixRead<'a, L> = (&'a MultiCaseImpl<Node, WorldMatrixRender>, &'a MultiCaseImpl<Node, CharBlock<L>>,);
 
 impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = MatrixRead<'a>;
+    type ReadData = MatrixRead<'a, L>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
+        self.modify_matrix(event.id, read.0, render_objs);
+        let charblock = match read.1.get(event.id) {
+            Some(r) => r,
+            None => return,
+        };
+        self.modify_shadow_matrix(event.id, read.0, render_objs, charblock.clazz.shadow.h, charblock.clazz.shadow.v);
     }
 }
 
 impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
-    type ReadData = MatrixRead<'a>;
+    type ReadData = MatrixRead<'a, L>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
-    }
-}
-
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L>{
-    fn modify_matrix(
-        &self,
-        id: usize,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
-        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
-    ){
-        if let Some(index) = self.render_map.get(id) {
-            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(*index) };
-
-            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("charblock, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(*index, "ubos", 0);
-        }
+        self.modify_matrix(event.id, read.0, render_objs);
+        let charblock = match read.1.get(event.id) {
+            Some(r) => r,
+            None => return,
+        };
+        self.modify_shadow_matrix(event.id, read.0, render_objs, charblock.clazz.shadow.h, charblock.clazz.shadow.v);
     }
 }
 
@@ -448,6 +601,22 @@ fn try_modify_font<C: Context + ShareTrait> (
     change
 }
 
+#[inline]
+fn modify_shadow_color<C: Context + ShareTrait>(
+    index: usize,
+    c: &CgColor,
+    notify: &NotifyImpl,
+    render_obj: &mut RenderObj<C>,
+    first_font: &Share<dyn SdfFont<Ctx=C>>,
+) {
+    let ucolor_ubo = Share::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
+    if first_font.get_dyn_type() > 0 {
+        ucolor_ubo.set_float_4(&STROKE_COLOR, c.r, c.g, c.b, c.a);
+    }
+    ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
+    notify.modify_event(index, "", 0);
+}
+
 // 返回position， uv， color， index
 #[inline]
 fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
@@ -539,6 +708,38 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
         }
     } else {
         return (positions, uvs, None, indices);
+    }
+}
+
+// 返回position， uv， color， index
+#[inline]
+fn get_shadow_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
+    char_block: &CharBlock<L>,
+    sdf_font: &Share<dyn SdfFont<Ctx = C>>,
+    z_depth: f32,
+) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+    let len = char_block.chars.len();
+    let mut positions: Vec<f32> = Vec::with_capacity(12 * len);
+    let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
+    let mut indices: Vec<u16> = Vec::with_capacity(6 * len);
+    let font_size = char_block.font_size;
+    let mut i = 0;
+
+    let offset = (char_block.pos.x, char_block.pos.y);
+
+    if char_block.chars.len() > 0 {
+        for c in char_block.chars.iter() {
+            let glyph = match sdf_font.glyph_info(c.ch, font_size) {
+                Some(r) => r,
+                None => continue,
+            };
+            push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
+            indices.extend_from_slice(&[i, i + 1, i + 2, i + 0, i + 2, i + 3]);
+            i += 4;  
+        }
+        return (positions, uvs, indices);
+    } else {
+        return (positions, uvs, indices);
     }
 }
 

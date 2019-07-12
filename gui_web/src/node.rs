@@ -399,7 +399,6 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
         let oct = unsafe { octree.get_unchecked(e) };
         ab_query_func(&mut args, e, oct.0, &e);
     }
-    println!("result----------{}", args.result);
     args.result as u32
 }
 
