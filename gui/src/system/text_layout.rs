@@ -75,7 +75,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
                 line_height: 20.0,
                 chars: Vec::new(),
                 lines: Vec::new(),
-                last_line: (0, 0.0),
+                last_line: (0, 0, 0.0),
                 size: Vector2::default(),
                 wrap_size: Vector2::default(),
                 pos: Point2::default(),
@@ -236,17 +236,19 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
     let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
     if b == 0 {   
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
-        let layout = node.get_layout();
         if let Some(cb) = write.0.get_mut(id) {
             // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let node = node.get_parent();
             match node.get_style_width_unit() {
-                YGUnit::YGUnitPercent => (),
-                _ => return
+                YGUnit::YGUnitPercent => calc_wrap_align(cb, &node.get_layout()),
+                _ => ()
             }
-            calc_wrap_align(cb, &node.get_layout());
+            unsafe { write.0.get_unchecked_write(id).modify(|_|{
+                return true;
+            }) };
             return;
         }
+        let layout = node.get_layout();
         if &layout == unsafe {write.1.get_unchecked(id)} {
             return;
         }
@@ -271,10 +273,6 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     let cb = unsafe {write.0.get_unchecked_mut(id)};
     let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
     cn.pos = pos;
-    unsafe { write.0.get_unchecked_write(id).modify(|_|{
-        return true;
-    }) };
-
 }
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
 fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {;
@@ -597,9 +595,10 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
     for cr in split(text, true, cb.clazz.style.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
-                cb.last_line.1 = calc.pos.x;
+                cb.last_line.2 = calc.pos.x;
+                cb.last_line.0 = cb.chars.len();
                 cb.lines.push(cb.last_line.clone());
-                cb.last_line = (0, 0.0);
+                cb.last_line = (0, 0, 0.0);
                 cb.line_count += 1;
                 update_char1(cb, '\n', 0.0, font, &mut calc);
                 // 行首缩进
@@ -609,12 +608,12 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
                 // 设置成宽度为默认字宽, 高度0
                 update_char1(cb, ' ', cb.font_size, font, &mut calc);
                 calc.pos.x += cb.clazz.style.letter_spacing;
-                cb.last_line.0 += 1;
+                cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
                 update_char1(cb, c, 0.0, font, &mut calc);
                 calc.pos.x += cb.clazz.style.letter_spacing;
-                cb.last_line.0 += 1;
+                cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
                 calc.word = calc.index;
@@ -631,7 +630,7 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
                 node.pos.y = (calc.index - calc.word) as f32;
                 calc.word = 0;
                 calc.pos.x += cb.clazz.style.word_spacing;
-                cb.last_line.0 += 1;
+                cb.last_line.1 += 1;
             },
         }
     }
@@ -660,18 +659,17 @@ fn update_char1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Char
         }
         unsafe {cb.chars.set_len(calc.index)};
     }
-
+    let w = set_node1(cb, c, w, font, calc);
     cb.chars.push(CharNode {
         ch: c,
         width: w,
         pos: calc.pos,
         node: L::new_null(),
     });
-    set_node1(cb, c, w, font, calc);
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) {
+fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
     if c > ' ' {
         w = font.measure(&cb.clazz.font.family, cb.font_size, c);
         if w != cb.font_size && cb.fix_width {
@@ -692,6 +690,7 @@ fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlo
             calc.max_w = calc.pos.x
         }
     }
+    w
 }
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改cb.pos
 fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Layout) {
@@ -700,41 +699,111 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
     let y = layout.border_top + layout.padding_top;
     let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
     if cb.clazz.style.white_space.allow_wrap() && cb.size.x > w {
-        // 换行计算， 同时计算对齐
-        return;
+        // 换行计算
+        //wrap_line()
+        // 如果宽度不够， 则需要计算行对齐
+
     }
-    cb.pos.x=x;
-    cb.pos.y=y;
-    if cb.clazz.style.text_align == TextAlign::Left {
-        return
+    cb.pos.x = x;
+    cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
+    if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
+        match cb.clazz.style.vertical_align {
+            VerticalAlign::Middle => cb.pos.y += (h - cb.size.y) / 2.0,
+            VerticalAlign::Bottom => cb.pos.y += h - cb.size.y,
+            _ => (),
+        }
+    }
+    if cb.wrap_size.y > cb.size.y {
+        // 如果换行则返回
+        return;
     }
     if cb.line_count == 1 { // 单行优化
         match cb.clazz.style.text_align {
             TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
             TextAlign::Right => cb.pos.x += w - cb.size.x,
-            TextAlign::Justify if cb.size.x > w => justify(cb, w, cb.size.x),
+            TextAlign::Justify => justify_line(cb, line_info(cb, 0), w, 0.0, 0.0),
             _ => (),
         };
-        cb.pos.y = (cb.line_height - cb.font_size)/2.0;
-        if h > 0.0 {
-            match cb.clazz.style.vertical_align {
-                VerticalAlign::Middle => cb.pos.y += (h - cb.size.y) / 2.0,
-                VerticalAlign::Bottom => cb.pos.y += h - cb.size.y,
-                _ => (),
-            }
-        }
         return
     }
-    
+    // 多行的3种布局的处理
+    match cb.clazz.style.text_align {
+        TextAlign::Center => {
+            for i in 0..cb.lines.len() + 1 {
+                align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_center_fix)
+            }
+        },
+        TextAlign::Right => {
+            for i in 0..cb.lines.len() + 1 {
+                align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_right_fix)
+            }
+        },
+        TextAlign::Justify =>{
+            for i in 0..cb.lines.len() + 1 {
+                justify_line(cb, line_info(cb, i), w, 0.0, 0.0)
+            }
+        },
+        _ => (),
+    };
 }
-fn get_fix_pos<L: FlexNode + ShareTrait>(cb: &CharBlock<L>, start: usize, line: usize, limit_width: f32) -> f32 {
-    // let count_width = if line == 0 {
-    //     &cb.last_line
-    // }else {
-    //     cb.lines.get_unchecked(line - 1)
-    // };
-    // let mut w = count_width.1;
-    // if w > limit_width {
+fn wrap_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
+    let (end, mut start, mut word_count, line_width) = line_info(cb, line);
+    let mut x_fix = 0.0;
+    while line_width + x_fix > limit_width {
+        let w;
+        loop {//换行计算
+            let n = unsafe {cb.chars.get_unchecked_mut(start)};
+            if n.pos.x + x_fix > limit_width {
+                w = n.pos.x;
+                break
+            }
+            n.pos.x += x_fix;
+            n.pos.y += y_fix;
+            start += 1;
+            if n.ch >= ' ' {
+                word_count -= 1;
+            }else if n.ch == '\n' {
+            }else if n.ch == char::from(0) {
+                if x_fix < 0.0 || y_fix > 0.0 {
+                    let end = start + n.pos.y as usize;
+                    while start < end {
+                        let n = unsafe {cb.chars.get_unchecked_mut(start)};
+                        n.pos.x += x_fix;
+                        n.pos.y += y_fix;
+                        start += 1;
+                    }
+                }else {
+                    start += n.pos.y as usize;
+                }
+                word_count -= 1;
+            }
+        }
+        y_fix += cb.line_height;
+        x_fix = -w;
+    }
+    // 剩余的宽度， 需要计算行对齐
+    match cb.clazz.style.text_align {
+        TextAlign::Center => {
+            align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_center_fix)
+        },
+        TextAlign::Right => {
+            align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_right_fix)
+        },
+        TextAlign::Justify =>{
+            justify_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix)
+        },
+        _ if x_fix < 0.0 || y_fix > 0.0  => { // 如果x或者y需要修正
+            while start < end {
+                let n = unsafe {cb.chars.get_unchecked_mut(start)};
+                n.pos.x += x_fix;
+                n.pos.y += y_fix;
+                start+=1;
+            }
+        },
+        _ => (),
+    };
+    
+    // while w > limit_width {
     //     // 计算折行
     // }
     // match cb.clazz.style.text_align {
@@ -745,31 +814,61 @@ fn get_fix_pos<L: FlexNode + ShareTrait>(cb: &CharBlock<L>, start: usize, line: 
     // };
     0.0
 }
-// if calc.pos.x > 0.0 && limit < w + calc.pos.x {
-//             // 需要换行
-//             calc.pos.y += cb.line_height;
-//             calc.pos.x = 0.0;
-//             cb.line_count += 1;
-//             if calc.word > 0 {
-//                 // 整个单词进行换行
-//                 for i in calc.word .. calc.index {
-//                     cb.chars[i].pos = calc.pos;
-//                     calc.pos.x += cb.chars[i].width + cb.letter_spacing;
-//                 }
-//             }
-//         } 
-// 填充宽度
-fn justify<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, width: f32, box_w: f32) {
-    let len = cb.chars.len();
-    if len < 2 {
+fn align_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start, _, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32, get_x_fix: fn(f32, f32) -> f32) {
+    let fix = get_x_fix(limit_width, line_width) + x_fix;
+    if y_fix > 0.0 {
+        while start < end {
+            let n = unsafe {cb.chars.get_unchecked_mut(start)};
+            n.pos.x += fix;
+            n.pos.y += y_fix;
+            start+=1;
+        }
+    }else{
+        while start < end {
+            unsafe {cb.chars.get_unchecked_mut(start)}.pos.x += fix;
+            start+=1;
+        }
+    }
+}
+fn justify_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start, word_count, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32) {
+    if word_count == 1 {
+        unsafe {cb.chars.get_unchecked_mut(start)}.pos.x += (limit_width - line_width)/2.0;
         return;
     }
-    cb.fix_width = false;
-    // 简单处理， 以后应该支持精确的按行填充和按列填充, 按行填充还需按单词进行处理 TODO
-    let fix = (width - box_w) / (len - 1) as f32;
-    for i in 1..len {
-        cb.chars[i].pos.x += fix;
+    let fix = (limit_width - line_width)/(word_count - 1) as f32;
+    let i = start;
+    if y_fix > 0.0 {
+        while start < end {
+            let n = unsafe {cb.chars.get_unchecked_mut(start)};
+            n.pos.x += (start - i) as f32 * fix + x_fix;
+            n.pos.y += y_fix;
+            start+=1;
+        }
+    }else{
+        while start < end {
+            unsafe {cb.chars.get_unchecked_mut(start)}.pos.x += (start - i) as f32 * fix;
+            start+=1;
+        }
     }
+}
+fn line_info<L: FlexNode + ShareTrait>(cb: &CharBlock<L>, line: usize) -> (usize, usize, usize, f32) {
+    if line >= cb.lines.len() {
+        (cb.chars.len(), cb.last_line.0, cb.last_line.1, cb.last_line.2)
+    }else if line + 1 >= cb.lines.len(){
+        let r = unsafe {cb.lines.get_unchecked(line)};
+        (cb.last_line.0, r.0, r.1, r.2)
+    }else{
+        let r = unsafe {cb.lines.get_unchecked(line)};
+        (unsafe {cb.lines.get_unchecked(line + 1)}.0, r.0, r.1, r.2)
+    }
+}
+#[inline]
+fn get_center_fix(limit_width: f32, line_width: f32) -> f32 {
+    (limit_width - line_width) / 2.0
+}
+#[inline]
+fn get_right_fix(limit_width: f32, line_width: f32) -> f32 {
+    limit_width - line_width
 }
 
 impl_system!{

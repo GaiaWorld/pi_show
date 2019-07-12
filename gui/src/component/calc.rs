@@ -81,8 +81,8 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub font_size: f32, // 字体高度
   pub line_height: f32,
   pub chars: Vec<CharNode<L>>, // 字符集合
-  pub lines: Vec<(usize, f32)>, // 不折行下的每行的单词数量和总宽度。 自动折行不会影响该值
-  pub last_line: (usize, f32), // 最后一行的单词数量和总宽度
+  pub lines: Vec<(usize, usize, f32)>, // 不折行下的每行的起始字符位置、单词数量和总宽度。 自动折行不会影响该值
+  pub last_line: (usize, usize, f32), // 最后一行的起始字符位置、单词数量和总宽度
   pub size: Vector2,
   pub wrap_size: Vector2,
   pub pos: Point2,
