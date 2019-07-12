@@ -9,7 +9,6 @@ use util::*;
 use buffer::{WebGLBufferImpl};
 use program::{WebGLProgramImpl};
 use texture::{WebGLTextureImpl};
-use sampler::{WebGLSamplerImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
 use webgl_rendering_context::{WebGLRenderingContext};
@@ -80,7 +79,7 @@ impl TextureCache {
     // TODO: 换成LRU，可以加快速度
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
         texture: &HalTexture, sampler: &HalSampler,
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(WebGLSamplerImpl, u32)>) -> u32 {
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> u32 {
         
         if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
             if t.curr_unit > 0 {
@@ -89,7 +88,7 @@ impl TextureCache {
                 self.tex_use_count += 1;
 
                 if t.curr_sampler.0 != sampler.0 || t.curr_sampler.1 != sampler.1 {
-                    t.apply_sampler(gl, &s.0);
+                    t.apply_sampler(gl, s);
                     t.curr_sampler = sampler.clone();
                 }
                 return t.curr_unit as u32;
@@ -126,7 +125,7 @@ impl TextureCache {
             
             gl.active_texture(WebGLRenderingContext::TEXTURE0 + (min_index as u32));
             gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
-            t.apply_sampler(gl, &s.0);
+            t.apply_sampler(gl, s);
         }
         
         v.1 = texture.clone();
@@ -178,7 +177,7 @@ impl StateMachine {
     #[inline(always)]
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
         texture: &HalTexture, sampler: &HalSampler,
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(WebGLSamplerImpl, u32)>) -> u32 {
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> u32 {
         self.tex_caches.use_texture(gl, texture, sampler, texture_slab, sampler_slab)
     }
 
@@ -276,7 +275,7 @@ impl StateMachine {
 
     pub fn set_uniforms(&mut self, gl: &WebGLRenderingContext, 
         program: &mut WebGLProgramImpl, pp: &Share<dyn ProgramParamter>, 
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(WebGLSamplerImpl, u32)>) {
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) {
 
         let texs = pp.get_textures();
         for loc in program.active_textures.iter_mut() {

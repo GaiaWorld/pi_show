@@ -23,8 +23,6 @@ mod buffer;
 mod geometry;
 mod program;
 mod render_target;
-mod sampler;
-mod state;
 mod texture;
 
 mod extension;

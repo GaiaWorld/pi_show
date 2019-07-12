@@ -24,24 +24,10 @@ pub fn create_new_slot<T>(slab: &mut Slab<(T, u32)>, obj: T) -> (u32, u32) {
 
 #[inline(always)]
 pub fn get_mut_ref<T>(slab: &mut Slab<(T, u32)>, key: u32, count: u32) -> Option<&mut T> {
-    let key = key as usize;
-    match slab.get_mut(key) {
-        Some(v) => {
-            if v.1 == count {
-                Some(&mut v.0)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
+    slab.get_mut(key as usize).filter(|v| v.1 == count).map(|v| &mut v.0)
 }
 
 #[inline(always)]
 pub fn get_ref<T>(slab: &Slab<(T, u32)>, key: u32, count: u32) -> Option<&T> {
-    let key = key as usize;
-    match slab.get(key) {
-        Some(v) if v.1 == count => Some(&v.0),
-        _ => None,
-    }
+    slab.get(key as usize).filter(|v| v.1 == count).map(|v| &v.0)
 }

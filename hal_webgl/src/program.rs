@@ -303,15 +303,13 @@ impl WebGLProgramImpl {
             let mut value;
 
             let mut name = uniform.name();
-            let is_array = match uniform.name().find('[') {
-                Some(index) => {
-                    let n = uniform.name();
-                    let (n, _v) = n.split_at(index);
-                    name = n.to_string();
-                    true
-                },
-                None => false
-            };
+            let is_array = uniform.name().find('[').map_or(false, |index| {
+                let n = uniform.name();
+                let (n, _v) = n.split_at(index);
+                name = n.to_string();
+                true
+            });
+
             let name = Atom::from(name);
             let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
             

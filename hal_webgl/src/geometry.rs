@@ -30,22 +30,16 @@ pub struct WebGLGeometryImpl {
 impl WebGLGeometryImpl  {
 
     pub fn new(vao_extension: &Option<Object>) -> Result<WebGLGeometryImpl, String> {
-         let vao = match vao_extension {
-            None => None,
-            Some(extension) => {
-                match TryInto::<Object>::try_into(js! {
-                    var vao = @{extension.as_ref()}.wrap.createVertexArrayOES();
-                    // 因为小游戏的WebGL*不是Object，所以要包装一层
-                    var vaoWrap = {
-                        wrap: vao
-                    };
-                    return vaoWrap;
-                }) {
-                    Ok(object) => Some(object),
-                    Err(_) => None,
-                }
-            }
-        };
+         let vao = vao_extension.as_ref().and_then(|extension| {
+            TryInto::<Object>::try_into(js! {
+                var vao = @{extension.as_ref()}.wrap.createVertexArrayOES();
+                // 因为小游戏的WebGL*不是Object，所以要包装一层
+                var vaoWrap = {
+                    wrap: vao
+                };
+                return vaoWrap;
+            }).ok()
+        });
 
         let attributes = [
             None, None, None, None, 

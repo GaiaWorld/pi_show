@@ -125,9 +125,6 @@ impl WebGLRenderTargetImpl {
     }
 
     pub fn get_color_texture(&self) -> Option<HalTexture> {
-        match &self.color {
-            Some(t) => Some(t.clone()),
-            _ => None,
-        }
+        self.color.as_ref().map(|t| t.clone())
     }
 }
