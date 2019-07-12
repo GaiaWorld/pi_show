@@ -700,16 +700,17 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
     let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
     if cb.clazz.style.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
-        //wrap_line()
-        // 如果宽度不够， 则需要计算行对齐
-
+        let mut y_fix = 0.0;
+        for i in 0..cb.lines.len() + 1 {
+            y_fix = wrap_line(cb, i, w, y_fix)
+        }
     }
     cb.pos.x = x;
     cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
         match cb.clazz.style.vertical_align {
-            VerticalAlign::Middle => cb.pos.y += (h - cb.size.y) / 2.0,
-            VerticalAlign::Bottom => cb.pos.y += h - cb.size.y,
+            VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
+            VerticalAlign::Bottom => cb.pos.y += h - cb.wrap_size.y,
             _ => (),
         }
     }
