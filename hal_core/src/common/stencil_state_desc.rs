@@ -16,6 +16,12 @@ pub struct StencilStateDesc {
     pub stencil_zpass_op: StencilOp,
 }
 
+impl Default for StencilStateDesc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StencilStateDesc {
 
     pub fn new() -> Self {

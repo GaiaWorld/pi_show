@@ -10,6 +10,12 @@ pub struct DepthStateDesc {
     pub depth_test_func: CompareFunc,
 }
 
+impl Default for DepthStateDesc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DepthStateDesc {
     pub fn new() -> Self {
         Self {

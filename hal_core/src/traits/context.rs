@@ -22,9 +22,9 @@ pub struct HalDepthState(pub u32, pub u32);
 pub struct HalStencilState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalBlendState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalSampler(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalTexture(pub u32, pub u32);
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -138,9 +138,8 @@ pub trait HalContext {
 
     /** 
      * 方便的构造函数，根据vs，fs创建对应的Program
-     * ubo_layouts: 该Program的UBO的布局约定，索引就是该str
-     * uniforms_layouts: 该Program的Uniform的布局约定，里面索引就是该str的槽
-     * 注：compile，link内部有缓存表，已经编译过的shader和program不会再次编译
+     * uniform_layout: 该Program的Uniform的布局约定，所有的宏全展开之后的布局，内部和外部约定的槽的接口，用于避免渲染时候去找名字
+     * 注：compile有缓存表，已经编译过的shader不会再次编译
      */
     fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
@@ -239,6 +238,7 @@ pub trait HalContext {
 
     /** 
      * 设置shader代码
+     * shader代码不会释放，内部有代码缓存表
      */
     fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
 
@@ -284,53 +284,118 @@ impl HalBuffer {
         Self(0, 0)
     }
 }
+impl Default for HalBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalGeometry {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalGeometry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalProgram {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalProgram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalRenderTarget {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalRenderTarget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalRenderBuffer {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalRenderBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalRasterState {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalRasterState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalDepthState {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalDepthState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalStencilState {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalStencilState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalBlendState {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalBlendState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalSampler {
     pub fn new() -> Self {
         Self(0, 0)
     }
 }
+impl Default for HalSampler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl HalTexture {
     pub fn new() -> Self {
         Self(0, 0)
+    }
+}
+impl Default for HalTexture {
+    fn default() -> Self {
+        Self::new()
     }
 }

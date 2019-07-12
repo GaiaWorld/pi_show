@@ -1,5 +1,4 @@
 use std::fmt;
-use std::default::Default;
 
 /** 
  * Uniform的值，包含各种Uniform枚举

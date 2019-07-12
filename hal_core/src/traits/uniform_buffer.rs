@@ -34,7 +34,6 @@ pub trait ProgramParamter {
     fn get_texture_layout(&self) -> &[&str];
 
     fn get_values(&self) -> &[Share<dyn UniformBuffer>];
-    // 每个元素都是(texture的数字, sampler的数字)
     fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)];
 
     fn set_value(&mut self, name: &str, value: Share<dyn UniformBuffer>) -> bool;
