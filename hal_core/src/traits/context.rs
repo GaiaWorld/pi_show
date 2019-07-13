@@ -22,9 +22,9 @@ pub struct HalDepthState(pub u32, pub u32);
 pub struct HalStencilState(pub u32, pub u32);
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalBlendState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalSampler(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalTexture(pub u32, pub u32);
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -47,17 +47,13 @@ pub struct UniformLayout<'a> {
     pub textures: &'a [Atom],
 }
 
-pub trait CustomTextureData {
-    fn update(&self, texture: &HalTexture);
-}
-
 pub enum TextureData<'a> {
     F32(u32, u32, u32, u32, &'a[f32]),  // (x, y, w, h, data)
     U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
-    Custom(Box<dyn CustomTextureData>),
+    Custom(u32, u32, u32, u32, *const usize), // (x, y, w, h, 具体数据，生命周期由实现自己管理)
 }
 
-pub trait HalContext: Sized + Clone {
+pub trait HalContext: Sized {
 
     // ==================== HalBuffer
     
@@ -138,18 +134,12 @@ pub trait HalContext: Sized + Clone {
 
     /** 
      * 方便的构造函数，根据vs，fs创建对应的Program
-     * ubo_layouts: 该Program的UBO的布局约定，索引就是该str
-     * uniforms_layouts: 该Program的Uniform的布局约定，里面索引就是该str的槽
-     * 注：compile，link内部有缓存表，已经编译过的shader和program不会再次编译
+     * uniform_layout: 该Program的Uniform的布局约定，所有的宏全展开之后的布局，内部和外部约定的槽的接口，用于避免渲染时候去找名字
+     * 注：compile有缓存表，已经编译过的shader不会再次编译
      */
-    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
+    fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
     fn program_destroy(&self, program: &HalProgram);
-
-    /** 
-     * 返回指定类型的shader的名字和宏
-     */
-    fn program_get_shader_info(&self, program: &HalProgram, stype: ShaderType) -> Option<(&Atom, &[Atom])>;
 
 
     // ==================== HalRenderTarget
@@ -196,7 +186,7 @@ pub trait HalContext: Sized + Clone {
 
     fn sampler_destroy(&self, sampler: &HalSampler);
 
-    fn sampler_get_desc(&self, sampler: &HalSampler) -> &SamplerDesc;
+    fn sampler_get_desc(&self, sampler: &HalSampler) -> Option<&SamplerDesc>;
 
     // ==================== HalRasterState
 
@@ -204,7 +194,7 @@ pub trait HalContext: Sized + Clone {
     
     fn rs_destroy(&self, state: &HalRasterState);
 
-    fn rs_get_desc(&self, state: &HalRasterState) -> &RasterStateDesc;
+    fn rs_get_desc(&self, state: &HalRasterState) -> Option<&RasterStateDesc>;
 
     // ==================== HalDepthState
 
@@ -212,7 +202,7 @@ pub trait HalContext: Sized + Clone {
     
     fn ds_destroy(&self, state: &HalDepthState);
 
-    fn ds_get_desc(&self, state: &HalDepthState) -> &DepthStateDesc;
+    fn ds_get_desc(&self, state: &HalDepthState) -> Option<&DepthStateDesc>;
 
     // ==================== HalStencilState
 
@@ -220,7 +210,7 @@ pub trait HalContext: Sized + Clone {
     
     fn ss_destroy(&self, state: &HalStencilState);
 
-    fn ss_get_desc(&self, state: &HalStencilState) -> &StencilStateDesc;
+    fn ss_get_desc(&self, state: &HalStencilState) -> Option<&StencilStateDesc>;
 
     // ==================== HalBlendState
     
@@ -228,7 +218,7 @@ pub trait HalContext: Sized + Clone {
     
     fn bs_destroy(&self, state: &HalBlendState);
 
-    fn bs_get_desc(&self, state: &HalBlendState) -> &BlendStateDesc;
+    fn bs_get_desc(&self, state: &HalBlendState) -> Option<&BlendStateDesc>;
 
     // ==================== 上下文相关
 
@@ -244,15 +234,14 @@ pub trait HalContext: Sized + Clone {
 
     /** 
      * 设置shader代码
+     * shader代码不会释放，内部有代码缓存表
      */
-    fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
+    fn render_set_shader_code(&self, name: &str, code: &str);
 
-    /**
-     * 将渲染库底层的状态还原成状态机的状态
-     * 目的：因为我们会和别的渲染引擎使用同一个底层渲染库，每个引擎的状态机，会导致底层状态机不一致，所以要有这个方法。
-     * 保证一帧开始调用begin之前调用一次。
+    /** 
+     * 重置内部所有的渲染状态，为了和其他引擎配合
      */
-    fn render_restore_state(&self);
+    fn restore_state(&self);
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
@@ -284,4 +273,125 @@ pub trait HalContext: Sized + Clone {
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
     fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
+}
+
+impl HalBuffer {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalGeometry {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalGeometry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalProgram {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalProgram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalRenderTarget {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalRenderTarget {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalRenderBuffer {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalRenderBuffer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalRasterState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalRasterState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalDepthState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalDepthState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalStencilState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalStencilState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalBlendState {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalBlendState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalSampler {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalSampler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl HalTexture {
+    pub fn new() -> Self {
+        Self(0, 0)
+    }
+}
+impl Default for HalTexture {
+    fn default() -> Self {
+        Self::new()
+    }
 }

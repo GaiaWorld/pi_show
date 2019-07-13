@@ -54,6 +54,12 @@ pub struct Capabilities {
     pub instanced_arrays: bool,
 }
 
+impl Default for Capabilities {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Capabilities {
     pub fn new() -> Self {
         Capabilities {

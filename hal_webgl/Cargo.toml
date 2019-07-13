@@ -10,9 +10,9 @@ atom={path="../../pi_lib/atom"}
 share={path="../../pi_lib/share"}
 slab={path="../../pi_lib/slab"}
 hal_core={path="../hal_core"}
+fx_hashmap={path="../../pi_lib/fx_hashmap"}
 ordered-float = "1.0"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
-fnv = "*"
 debug_info = {path="../../pi_lib/debug_info"}

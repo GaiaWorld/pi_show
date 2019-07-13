@@ -132,13 +132,3 @@ pub enum StencilOp {
     IncrWrap,
     DecrWrap, 
 }
-
-/**
- * 渲染目标的管道
- */
-#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
-pub enum RTAttachment {
-    Color0, // 第一个颜色缓冲区
-    Depth,  // 深度缓冲区
-    Stencil, // 模板缓冲区
-}

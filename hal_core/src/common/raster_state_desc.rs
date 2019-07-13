@@ -11,6 +11,12 @@ pub struct RasterStateDesc {
     pub polygon_offset: (OrderedFloat<f32>, OrderedFloat<f32>),    // 成员分别是factor和units，默认：(0, 0)
 }
 
+impl Default for RasterStateDesc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RasterStateDesc {
     
     pub fn new() -> Self {

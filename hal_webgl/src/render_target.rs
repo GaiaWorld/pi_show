@@ -1,33 +1,20 @@
-use share::{Share};
-use hal_core::{PixelFormat};
-use implement::context::{WebGLContextImpl}; 
-use implement::texture::{WebGLTextureImpl};
+use hal_core::{PixelFormat, HalTexture, HalRenderBuffer};
+use texture::{WebGLTextureImpl};
 use stdweb::{Object};
 use stdweb::unstable::TryInto;
 use webgl_rendering_context::{WebGLRenderingContext, WebGLRenderbuffer};
-use implement::convert::*;
-
-use wrap::{GLSlot};
-
-pub enum RenderTargetAttach {
-    Texture(GLSlot<WebGLTextureImpl>),
-    Buffer(GLSlot<WebGLRenderBufferImpl>),
-}
+use convert::*;
 
 pub struct WebGLRenderBufferImpl {
-    context: Share<WebGLContextImpl>,
-
     width: u32, 
     height: u32,
-    format: PixelFormat,
+    _format: PixelFormat,
     handle: WebGLRenderbuffer,
 }
 
 impl WebGLRenderBufferImpl  {
 
-    pub fn new(context: &Share<WebGLContextImpl>, w: u32, h: u32, pformat: PixelFormat) -> Result<Self, String> {
-        let gl = &context.context;
-
+    pub fn new(gl: &WebGLRenderingContext, w: u32, h: u32, pformat: PixelFormat) -> Result<Self, String> {
         let r = gl.create_renderbuffer();
         if r.is_none() {
             return Err("WebGLRenderBufferImpl new failed".to_string());
@@ -40,16 +27,15 @@ impl WebGLRenderBufferImpl  {
         gl.renderbuffer_storage(WebGLRenderingContext::RENDERBUFFER, format, w as i32, h as i32);
 
         Ok(WebGLRenderBufferImpl {
-            context: context.clone(),
             width: w,
             height: h,
-            format: pformat,
+            _format: pformat,
             handle: r,
         })
     }
     
-    pub fn delete(&self) {
-        self.context.context.delete_renderbuffer(Some(&self.handle))
+    pub fn delete(&self, gl: &WebGLRenderingContext) {
+        gl.delete_renderbuffer(Some(&self.handle))
     }
 
     pub fn get_size(&self) -> (u32, u32) {
@@ -58,20 +44,16 @@ impl WebGLRenderBufferImpl  {
 }
 
 pub struct WebGLRenderTargetImpl {
-    context: Share<WebGLContextImpl>,
-
     pub is_default: bool, // 注：不能从默认的渲染目标上取color depth
     pub handle: Option<Object>,
     width: u32,
     height: u32,
-    color: Option<RenderTargetAttach>,
-    depth: Option<RenderTargetAttach>,
-}
+    pub color: Option<HalTexture>,
+    pub depth: Option<HalRenderBuffer>,
+}   
 
 impl WebGLRenderTargetImpl {
-    pub fn new(context: &Share<WebGLContextImpl>, w: u32, h: u32, texture: &GLSlot<WebGLTextureImpl>, rb: Option<&GLSlot<WebGLRenderBufferImpl>>) -> Result<Self, String> {
-        let gl = &context.context;
-
+    pub fn new(gl: &WebGLRenderingContext, w: u32, h: u32, texture: &WebGLTextureImpl, rb: Option<&WebGLRenderBufferImpl>, texture_wrap: &HalTexture, rb_wrap: Option<&HalRenderBuffer>) -> Result<Self, String> {
         let fbo = TryInto::<Object>::try_into(js! {
             var fbo = @{gl}.createFramebuffer();
             var fboWrap = {
@@ -89,34 +71,27 @@ impl WebGLRenderTargetImpl {
             @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
         }
         
-        let t = texture.get_mut().unwrap();
-        
         let fb_type = WebGLRenderingContext::FRAMEBUFFER;
         let tex_target = WebGLRenderingContext::TEXTURE_2D;
         let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
         
-        gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&t.handle), 0);
+        gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&texture.handle), 0);
         
         if rb.is_some() {
-            
-            let rb = rb.unwrap().get_mut().unwrap();
-
             let rb_type = WebGLRenderingContext::RENDERBUFFER;
             let depth_attachment = WebGLRenderingContext::DEPTH_ATTACHMENT;
             
-            gl.framebuffer_renderbuffer(fb_type, depth_attachment, rb_type, Some(&rb.handle));
+            gl.framebuffer_renderbuffer(fb_type, depth_attachment, rb_type, Some(&rb.unwrap().handle));
         };
 
         js! {
             @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
         }
         
-        let color = RenderTargetAttach::Texture(texture.clone());
-        let depth = if rb.is_none() { None } else { Some(RenderTargetAttach::Buffer( rb.unwrap().clone() )) };
+        let color = texture_wrap.clone();
+        let depth = if rb.is_none() { None } else { Some(rb_wrap.unwrap().clone()) };
 
         Ok(Self {
-            context: context.clone(),
-
             is_default: false,
             handle: Some(fbo),
             width: w,
@@ -126,9 +101,8 @@ impl WebGLRenderTargetImpl {
         })
     }
     
-    pub fn new_default(context: &Share<WebGLContextImpl>, fbo: Option<Object>, w: u32, h: u32) -> Self {
+    pub fn new_default(fbo: Option<Object>, w: u32, h: u32) -> Self {
         Self {
-            context: context.clone(),
             is_default: true,
             handle: fbo,
             color: None,    
@@ -138,9 +112,8 @@ impl WebGLRenderTargetImpl {
         }
     }
     
-    pub fn delete(&self) {
+    pub fn delete(&self, gl: &WebGLRenderingContext) {
         if let Some(fbo) = &self.handle {
-            let gl = &self.context.context;
             js! {
                 @{gl}.deleteFramebuffer(@{fbo}.wrap);
             }
@@ -149,5 +122,9 @@ impl WebGLRenderTargetImpl {
 
     pub fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    pub fn get_color_texture(&self) -> Option<HalTexture> {
+        self.color.as_ref().map(|t| t.clone())
     }
 }

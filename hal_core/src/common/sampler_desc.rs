@@ -13,6 +13,12 @@ pub struct SamplerDesc {
     pub v_wrap: TextureWrapMode,
 }
 
+impl Default for SamplerDesc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SamplerDesc {
     
     pub fn new() -> Self {

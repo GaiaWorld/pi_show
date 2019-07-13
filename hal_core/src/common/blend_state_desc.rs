@@ -19,6 +19,12 @@ pub struct BlendStateDesc {
     pub const_rgba: (OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>),
 }
 
+impl Default for BlendStateDesc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlendStateDesc {
     
     pub fn new() -> Self {

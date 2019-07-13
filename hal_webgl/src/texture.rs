@@ -1,14 +1,9 @@
-use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc};
-use share::{Share};
-use implement::context::{WebGLContextImpl}; 
-use wrap::{WebGLContextWrap};
+use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc, HalSampler};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
-
-use implement::convert::*;
+use stdweb::{Object};
+use convert::*;
 
 pub struct WebGLTextureImpl {
-    context: Share<WebGLContextImpl>,
- 
     pub width: u32,
     pub height: u32,
     pub mipmap_level: u32,
@@ -16,13 +11,14 @@ pub struct WebGLTextureImpl {
     pub data_format: DataFormat,
     pub is_gen_mipmap: bool,
     pub handle: WebGLTexture,
- 
-    pub sampler: SamplerDesc,
+    
+    // 纹理缓存
+    pub curr_unit: i32,  // 仅当 >= 0 时有意义
+    pub curr_sampler: HalSampler, // 当前作用的Sampler
 }
 
 impl WebGLTextureImpl {
-    pub fn new_2d(context: &Share<WebGLContextImpl>, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData<WebGLContextWrap>>) -> Result<Self, String> {
-        let gl = &context.context;
+    pub fn new_2d(gl: &WebGLRenderingContext, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<Self, String> {
         let texture = gl.create_texture();
         if texture.is_none() {
             return Err("new_2d failed, not found".to_string());
@@ -48,7 +44,13 @@ impl WebGLTextureImpl {
             Some(TextureData::F32(_, _, _, _, v)) => {
                 gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
             }
-            _ => return Err("new_2d failed, invalid data".to_string())
+            Some(TextureData::Custom(_, _, _, _, v)) => {
+                let obj = v as *const Object;
+                let obj = unsafe {& *obj };
+                js! {
+                    @{gl}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{p}, @{p}, @{d}, @{obj}.wrap);
+                }
+            }
         }
         
         if is_gen_mipmap {
@@ -56,7 +58,6 @@ impl WebGLTextureImpl {
         }
         
         let t = WebGLTextureImpl {
-            context: context.clone(),
             width: width,
             height: height,
             mipmap_level: mipmap_level,
@@ -64,16 +65,18 @@ impl WebGLTextureImpl {
             data_format: dformat,
             is_gen_mipmap: is_gen_mipmap,
             handle: texture,
-            sampler: SamplerDesc::new(),
+            
+            curr_unit: -1,
+            curr_sampler: HalSampler::new(),
         };
 
-        t.apply_sampler(&t.sampler);
+        t.apply_sampler(gl, &SamplerDesc::new());
 
         Ok(t)
     }
 
-    pub fn delete(&self) {
-        self.context.context.delete_texture(Some(&self.handle));
+    pub fn delete(&self, gl: &WebGLRenderingContext) {
+        gl.delete_texture(Some(&self.handle));
     }
 
     pub fn get_size(&self) -> (u32, u32) {
@@ -88,12 +91,10 @@ impl WebGLTextureImpl {
         self.is_gen_mipmap
     }
 
-    pub fn update(&self, mipmap_level: u32, data: &TextureData<WebGLContextWrap>) {
+    pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: &TextureData) {
         
         let p = get_pixel_format(self.pixel_format);
         let d = get_data_format(self.data_format);
-        
-        let gl = &self.context.context;
         
         gl.active_texture(WebGLRenderingContext::TEXTURE0);
         gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
@@ -109,15 +110,17 @@ impl WebGLTextureImpl {
             TextureData::F32(x, y, w, h, v) => {
                 gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
             }
-            _ => {
-                panic!("Custom TextureData not implmentation !");
+            TextureData::Custom(x, y, _, _, v) => {
+                let obj = *v as *const Object;
+	            let obj = unsafe {& *obj };
+                js! {
+                    @{&gl}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{x}, @{y}, @{p}, @{d}, @{&obj}.wrap);
+                }
             }
         }
     }
 
-    pub fn apply_sampler(&self, sampler: &SamplerDesc) {
-
-        let gl = &self.context.context;
+    pub fn apply_sampler(&self, gl: &WebGLRenderingContext, sampler: &SamplerDesc) {
 
         let u_wrap = get_texture_wrap_mode(sampler.u_wrap);
         let v_wrap = get_texture_wrap_mode(sampler.v_wrap);

@@ -157,11 +157,3 @@ pub fn get_stencil_op(op: StencilOp) -> u32 {
         StencilOp::DecrWrap => WebGLRenderingContext::DECR_WRAP,
     }   
 }
-
-pub fn get_render_target_attachment(attachment: RTAttachment) -> u32 {
-    match attachment {
-        RTAttachment::Color0 => WebGLRenderingContext::COLOR_ATTACHMENT0,
-        RTAttachment::Depth => WebGLRenderingContext::DEPTH_ATTACHMENT,
-        RTAttachment::Stencil => WebGLRenderingContext::STENCIL_ATTACHMENT,
-    }
-}
