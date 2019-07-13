@@ -8,13 +8,9 @@ extern crate hal_core;
 #[macro_use]
 extern crate hal_derive;
 extern crate share;
-#[macro_use]
-extern crate lazy_static;
-extern crate atom;
 
 use hal_core::*;
 use share::Share;
-use atom::Atom;
 
 uniform_buffer! {
     #[derive(Debug)]

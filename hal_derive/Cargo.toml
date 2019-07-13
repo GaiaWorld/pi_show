@@ -13,7 +13,6 @@ quote = "0.6"
 lazy_static = "*"
 hal_core = {path="../hal_core"}
 share = {path="../../pi_lib/share"}
-atom = {path="../../pi_lib/atom"}
 
 [[example]]
 name = "basic"
