@@ -398,7 +398,7 @@ impl HalContext for WebglHalContext {
         &self.default_rt
     }
 
-    fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C) {
+    fn render_set_shader_code(&self, name: &str, code: &str) {
         let cache = convert_to_mut(&self.shader_cache);
         cache.set_shader_code(name, code)
     }

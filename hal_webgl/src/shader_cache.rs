@@ -57,8 +57,8 @@ impl ShaderCache {
     /** 
      * 设置shader代码
      */
-    pub fn set_shader_code<C: AsRef<str>>(&mut self, name: &str, code: &C) {
-        self.code_caches.insert(Atom::from(name), code.as_ref().to_string());
+    pub fn set_shader_code(&mut self, name: &str, code: &str) {
+        self.code_caches.insert(Atom::from(name), code.to_string());
     }
     
     pub fn get_location_map(&mut self, vs_name: &Atom, fs_name: &Atom, layout: &UniformLayout) -> &LayoutLocation {

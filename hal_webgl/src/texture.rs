@@ -1,6 +1,6 @@
 use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc, HalSampler};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
-
+use stdweb::{Object};
 use convert::*;
 
 pub struct WebGLTextureImpl {
@@ -44,7 +44,13 @@ impl WebGLTextureImpl {
             Some(TextureData::F32(_, _, _, _, v)) => {
                 gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
             }
-            _ => return Err("new_2d failed, invalid data".to_string())
+            Some(TextureData::Custom(_, _, _, _, v)) => {
+                let obj = v as *const Object;
+                let obj = unsafe {& *obj };
+                js! {
+                    @{gl}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{p}, @{p}, @{d}, @{obj}.wrap);
+                }
+            }
         }
         
         if is_gen_mipmap {
@@ -104,8 +110,12 @@ impl WebGLTextureImpl {
             TextureData::F32(x, y, w, h, v) => {
                 gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
             }
-            _ => {
-                panic!("Custom TextureData not implmentation !");
+            TextureData::Custom(x, y, _, _, v) => {
+                let obj = *v as *const Object;
+	            let obj = unsafe {& *obj };
+                js! {
+                    @{&gl}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{x}, @{y}, @{p}, @{d}, @{&obj}.wrap);
+                }
             }
         }
     }

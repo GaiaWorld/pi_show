@@ -47,17 +47,13 @@ pub struct UniformLayout<'a> {
     pub textures: &'a [Atom],
 }
 
-pub trait CustomTextureData {
-    fn update(&self, texture: &HalTexture);
-}
-
 pub enum TextureData<'a> {
     F32(u32, u32, u32, u32, &'a[f32]),  // (x, y, w, h, data)
     U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
-    Custom(Box<dyn CustomTextureData>),
+    Custom(u32, u32, u32, u32, *const usize), // (x, y, w, h, 具体数据，生命周期由实现自己管理)
 }
 
-pub trait HalContext {
+pub trait HalContext: Sized {
 
     // ==================== HalBuffer
     
@@ -240,7 +236,7 @@ pub trait HalContext {
      * 设置shader代码
      * shader代码不会释放，内部有代码缓存表
      */
-    fn render_set_shader_code<C: AsRef<str>>(&self, name: &str, code: &C);
+    fn render_set_shader_code(&self, name: &str, code: &str);
 
     /** 
      * 重置内部所有的渲染状态，为了和其他引擎配合
