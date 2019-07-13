@@ -238,9 +238,19 @@ impl FlexNode for YgNode {
     fn get_style_width_value(&self) -> f32 {
         yoga::yg_node_style_get_width(self.0).value
     }
+
+    fn get_style_align_content(&self) -> YGAlign{
+        unsafe { transmute( yoga::yg_node_style_get_align_content(self.0))}
+    }
+
+    fn get_style_align_items(&self) -> YGAlign{
+        unsafe { transmute( yoga::yg_node_style_get_align_items(self.0))}
+    }
+
     fn mark_dirty(&self) { 
         yoga::yg_node_mark_dirty(self.0)
     }
+
     fn is_dirty(&self) -> bool { 
         yoga::yg_node_is_dirty(self.0)
     }

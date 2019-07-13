@@ -234,14 +234,18 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
     let id = node.get_context() as usize;
     let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<C, L>) };
     let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
-    if b == 0 {   
+    if b == 0 {  
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
         if let Some(cb) = write.0.get_mut(id) {
             // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let node = node.get_parent();
-            match node.get_style_width_unit() {
-                YGUnit::YGUnitPercent => calc_wrap_align(cb, &node.get_layout()),
-                _ => ()
+            if node.get_child_count() == 1 {
+                match node.get_style_width_unit() {
+                    YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
+                        calc_wrap_align(cb, &node.get_layout());
+                    },
+                    _ => ()
+                }
             }
             unsafe { write.0.get_unchecked_write(id).modify(|_|{
                 return true;
@@ -438,7 +442,19 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
         YGJustify::YGJustifyFlexEnd => cb.clazz.style.text_align = TextAlign::Right,
         YGJustify::YGJustifySpaceBetween => cb.clazz.style.text_align = TextAlign::Justify,
         _ => (),
-    }
+    };
+
+    match parent_yoga.get_style_align_content() {
+        YGAlign::YGAlignCenter => cb.clazz.style.vertical_align = VerticalAlign::Middle,
+        YGAlign::YGAlignFlexEnd => cb.clazz.style.vertical_align = VerticalAlign::Bottom,
+        _ => (),
+    };
+
+    match parent_yoga.get_style_align_items() {
+        YGAlign::YGAlignCenter => cb.clazz.style.vertical_align = VerticalAlign::Middle,
+        YGAlign::YGAlignFlexEnd => cb.clazz.style.vertical_align = VerticalAlign::Bottom,
+        _ => (),
+    };
     // TODO 如果没有文字变动， 则可以直接返回或计算布局
     cb.modify = cb.dirty;
     cb.dirty = 0;
@@ -449,20 +465,19 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     };
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
-        let old = yoga.get_layout();
+        // let old = yoga.get_layout();
+        let old_size = cb.wrap_size;
         calc_text(cb, text, read.0);
-        match parent_yoga.get_style_width_unit() {
-            YGUnit::YGUnitUndefined => (),
-            YGUnit::YGUnitAuto => (),
-            YGUnit::YGUnitPoint => {
-                //calc_wrap_align(cb, &parent_yoga.get_layout())
-            },
-            _ => ()
-        }
-        if old.width != cb.wrap_size.x || old.height != cb.wrap_size.y {
+        if old_size.x != cb.wrap_size.x || old_size.y != cb.wrap_size.y {
             yoga.set_width(cb.wrap_size.x);
             yoga.set_height(cb.wrap_size.y);
         }else{
+            match parent_yoga.get_style_width_unit() {
+                YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
+                    calc_wrap_align(cb, &parent_yoga.get_layout());
+                },
+                _ => ()
+            }
             unsafe { write.0.get_unchecked_write(id).modify(|_|{
                 return true;
             }) };
@@ -634,6 +649,7 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
             },
         }
     }
+    cb.last_line.2 = calc.pos.x;
     //清除多余的CharNode
     if calc.index < cb.chars.len() {
         for i in calc.index..cb.chars.len() {
@@ -647,30 +663,37 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
 }
 // 更新字符，如果字符不同，则清空后重新插入
 fn update_char1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>,  calc: &mut Calc) {
-    if  calc.index < cb.chars.len() {
+    if calc.index < cb.chars.len() {
+        // let line_height = cb.line_height;
         let cn = &cb.chars[calc.index];
-        if cn.ch == c {
-            calc.index += 1;
-            return
+        // if cn.ch == c {
+        //     println!("cn--------------------------{:?}", cn);
+        //     set_node2(cn, line_height, c, cn.width, font, calc);   
+        //     calc.index += 1;
+        //     return
+        // }
+        if cn.ch != c {
+            // 字符不同，将当前的，和后面的节点都释放掉
+            for j in calc.index..cb.chars.len() {
+                cb.chars[j].node.free()
+            }
+            unsafe {cb.chars.set_len(calc.index)};
         }
-        // 字符不同，将当前的，和后面的节点都释放掉
-        for j in calc.index..cb.chars.len() {
-            cb.chars[j].node.free()
-        }
-        unsafe {cb.chars.set_len(calc.index)};
     }
+    let p = calc.pos;
     let w = set_node1(cb, c, w, font, calc);
     cb.chars.push(CharNode {
         ch: c,
         width: w,
-        pos: calc.pos,
+        pos: p,
         node: L::new_null(),
     });
     calc.index += 1;
 }
 // 设置节点的宽高
 fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
-    if c > ' ' {
+    if c as u32 == 0 {
+    } else if c > ' ' {
         w = font.measure(&cb.clazz.font.family, cb.font_size, c);
         if w != cb.font_size && cb.fix_width {
             cb.fix_width = false
@@ -682,8 +705,27 @@ fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlo
     }else if c == '\n' {
         calc.pos.x = 0.0;
         calc.pos.y += cb.line_height;
-    }else if c == char::from(0) {
+    }else if c == ' ' {
+        calc.pos.x += w;
+        if calc.max_w < calc.pos.x {
+            calc.max_w = calc.pos.x
+        }
+    }
+    w
+}
 
+// 设置节点的宽高
+fn set_node2<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cn: &CharNode<L>, line_height: f32,  c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
+    calc.pos.y = cn.pos.y;
+    if c as u32 == 0 {
+    } else if c > ' ' {
+        calc.pos.x += w;
+        if calc.max_w < calc.pos.x {
+            calc.max_w = calc.pos.x
+        }
+    }else if c == '\n' {
+        calc.pos.x = 0.0;
+        calc.pos.y += line_height;
     }else if c == ' ' {
         calc.pos.x += w;
         if calc.max_w < calc.pos.x {
@@ -752,14 +794,15 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
 fn wrap_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
     let (end, mut start, mut word_count, line_width) = line_info(cb, line);
     let mut x_fix = 0.0;
-    while line_width + x_fix > limit_width {
-        let w;
-        loop {//换行计算
+    let mut w = 0.0;
+    while line_width + x_fix > limit_width && start < end {
+        while start < end {//换行计算
             let n = unsafe {cb.chars.get_unchecked_mut(start)};
-            if n.pos.x + x_fix > limit_width {
-                w = n.pos.x;
+            w = n.pos.x;
+            if n.pos.x + x_fix + n.width > limit_width && x_fix != -w {
                 break
             }
+
             n.pos.x += x_fix;
             n.pos.y += y_fix;
             start += 1;
@@ -843,6 +886,7 @@ fn justify_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start
     if y_fix > 0.0 {
         while start < end {
             let n = unsafe {cb.chars.get_unchecked_mut(start)};
+            // n 是容器 
             n.pos.x += (start - i) as f32 * fix + x_fix;
             n.pos.y += y_fix;
             start+=1;
