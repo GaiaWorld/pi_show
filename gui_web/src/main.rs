@@ -197,17 +197,26 @@ pub fn release_texture_res(texture: u32){
     unsafe { Box::from_raw(texture as usize as *mut Res<TextureRes<WebGLContextImpl>>) };
 }
 
-// #[no_mangle]
-// pub fn create_texture_res(engine: u32, key: String, width: u32, height: u32, opacity: u8, compress: u32) -> u32{
-//     let engine = unsafe {&mut *(engine as usize as *mut Engine)};
-//     let bind = js!(return __jsObj;).try_into().unwrap();
-//     let key = Atom::from(key);
-//     let r = Box::into_raw(Box::new( engine.res_mgr.textures.create(TextureRes::new(key, width as usize, height as usize, unsafe{transmute(opacity)}, compress as usize, bind, engine.gl.clone()) ))) as u32;
-//     // js!{
-//     //     console.log("create_texture_res src:", @{r});
-//     // };
-//     r
-// }
+//__jsObj: image,  __jsObj1: key
+#[no_mangle]
+pub fn create_texture_res(world: u32, opacity: u8, compress: u8) -> u32{
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let engine = world.engine.lend_mut();
+    let name: String = js!{return __jsObj1}.try_into().unwrap();
+    let name = Atom::from(name);
+
+    let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+    let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+
+    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
+        Ok(image_obj) => engine.gl.create_texture_2d_webgl(width, height, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+        Err(_) => panic!("set_src error"),
+    };
+
+    let res = engine.res_mgr.create::<TextureRes<WebGLContextImpl>>(TextureRes::new(name, width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+    Box::into_raw(Box::new(res)) as u32
+}
 
 // #[no_mangle]
 // pub fn add_sdf_font_res(world: u32, value: u32){

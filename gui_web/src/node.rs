@@ -23,6 +23,7 @@ use gui::system::util::get_or_default;
 use gui::render::res::{TextureRes};
 use gui::layout::*;
 use gui::Z_MAX;
+use gui::util::res_mgr::Res;
 
 use GuiWorld;
 use yoga as yoga1;
@@ -179,6 +180,36 @@ pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
     debug_println!("set_src"); 
 }
 
+
+// 设置图片的src
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_src_with_texture(world: u32, node: u32, texture: u32){
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let yg_nodes = world.yoga.lend_mut();
+    let yoga = match yg_nodes.get(node) {
+        Some(r) => r,
+        None => return,
+    };
+
+    let texture = unsafe {&*(texture as usize as *mut Res<TextureRes<WebGLContextImpl>>) }.clone();
+
+    match yoga.get_width().unit {
+        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
+        _ => (),
+    };
+    match yoga.get_height().unit {
+        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
+        _ => (),
+    };
+    
+    let image = world.image.lend_mut();
+    image.insert(node, Image{src: texture});
+
+    debug_println!("set_src_with_texture"); 
+}
 // __jsObj: image, __jsObj1: image_name(String)
 // 设置图片的src
 
@@ -225,6 +256,36 @@ pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
     image.insert(node, BorderImage{src: texture});
 
     debug_println!("set_border_src"); 
+}
+
+// 设置图片的src
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_border_src_with_texture(world: u32, node: u32, texture: u32){
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let yg_nodes = world.yoga.lend_mut();
+    let yoga = match yg_nodes.get(node) {
+        Some(r) => r,
+        None => return,
+    };
+
+    let texture = unsafe {&*(texture as usize as *mut Res<TextureRes<WebGLContextImpl>>) }.clone();
+
+    match yoga.get_width().unit {
+        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
+        _ => (),
+    };
+    match yoga.get_height().unit {
+        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
+        _ => (),
+    };
+    
+    let image = world.border_image.lend_mut();
+    image.insert(node, BorderImage{src: texture});
+
+    debug_println!("set_border_src_with_texture"); 
 }
 
 #[allow(unused_attributes)]
