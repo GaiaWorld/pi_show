@@ -54,6 +54,7 @@ use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
+use gui::util::res_mgr::Res;
 use text::{ DrawTextSys, define_draw_canvas};
 
 
@@ -189,6 +190,11 @@ pub fn get_texture_res(world: u32, key: String) -> u32{
         Some(res) => Box::into_raw(Box::new(res)) as u32,
         None => 0,
     }
+}
+
+#[no_mangle]
+pub fn release_texture_res(texture: u32){
+    unsafe { Box::from_raw(texture as usize as *mut Res<TextureRes<WebGLContextImpl>>) };
 }
 
 // #[no_mangle]
