@@ -295,9 +295,9 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalSampler
 
-    fn sampler_create(&self, desc: &SamplerDesc) -> Result<HalSampler, String> {
+    fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String> {
         let slab = convert_to_mut(&self.sampler_slab);
-        let (index, count) = create_new_slot(slab, desc.clone());
+        let (index, count) = create_new_slot(slab, desc);
         Ok(HalSampler(index, count))
     }
 
@@ -314,9 +314,9 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalRasterState
 
-    fn rs_create(&self, desc: &RasterStateDesc) -> Result<HalRasterState, String> {
+    fn rs_create(&self, desc: RasterStateDesc) -> Result<HalRasterState, String> {
         let slab = convert_to_mut(&self.rs_slab);
-        let (index, count) = create_new_slot(slab, desc.clone());
+        let (index, count) = create_new_slot(slab, desc);
         Ok(HalRasterState(index, count))
     }
     
@@ -333,9 +333,9 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalDepthState
 
-    fn ds_create(&self, desc: &DepthStateDesc) -> Result<HalDepthState, String> {
+    fn ds_create(&self, desc: DepthStateDesc) -> Result<HalDepthState, String> {
         let slab = convert_to_mut(&self.ds_slab);
-        let (index, count) = create_new_slot(slab, desc.clone());
+        let (index, count) = create_new_slot(slab, desc);
         Ok(HalDepthState(index, count))
     }
     
@@ -352,9 +352,9 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalStencilState
 
-    fn ss_create(&self, desc: &StencilStateDesc) -> Result<HalStencilState, String> {
+    fn ss_create(&self, desc: StencilStateDesc) -> Result<HalStencilState, String> {
         let slab = convert_to_mut(&self.ss_slab);
-        let (index, count) = create_new_slot(slab, desc.clone());
+        let (index, count) = create_new_slot(slab, desc);
         Ok(HalStencilState(index, count))
     }
     
@@ -371,9 +371,9 @@ impl HalContext for WebglHalContext {
 
     // ==================== HalBlendState
     
-    fn bs_create(&self, desc: &BlendStateDesc) -> Result<HalBlendState, String> {
+    fn bs_create(&self, desc: BlendStateDesc) -> Result<HalBlendState, String> {
         let slab = convert_to_mut(&self.bs_slab);
-        let (index, count) = create_new_slot(slab, desc.clone());
+        let (index, count) = create_new_slot(slab, desc);
         Ok(HalBlendState(index, count))
     }
     

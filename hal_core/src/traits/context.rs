@@ -180,7 +180,7 @@ pub trait HalContext: Sized {
 
     // ==================== HalSampler
 
-    fn sampler_create(&self, desc: &SamplerDesc) -> Result<HalSampler, String>;
+    fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String>;
 
     fn sampler_destroy(&self, sampler: HalSampler);
 
@@ -188,7 +188,7 @@ pub trait HalContext: Sized {
 
     // ==================== HalRasterState
 
-    fn rs_create(&self, desc: &RasterStateDesc) -> Result<HalRasterState, String>;
+    fn rs_create(&self, desc: RasterStateDesc) -> Result<HalRasterState, String>;
     
     fn rs_destroy(&self, state: HalRasterState);
 
@@ -196,7 +196,7 @@ pub trait HalContext: Sized {
 
     // ==================== HalDepthState
 
-    fn ds_create(&self, desc: &DepthStateDesc) -> Result<HalDepthState, String>;
+    fn ds_create(&self, desc: DepthStateDesc) -> Result<HalDepthState, String>;
     
     fn ds_destroy(&self, state: HalDepthState);
 
@@ -204,7 +204,7 @@ pub trait HalContext: Sized {
 
     // ==================== HalStencilState
 
-    fn ss_create(&self, desc: &StencilStateDesc) -> Result<HalStencilState, String>;
+    fn ss_create(&self, desc: StencilStateDesc) -> Result<HalStencilState, String>;
     
     fn ss_destroy(&self, state: HalStencilState);
 
@@ -212,7 +212,7 @@ pub trait HalContext: Sized {
 
     // ==================== HalBlendState
     
-    fn bs_create(&self, desc: &BlendStateDesc) -> Result<HalBlendState, String>;
+    fn bs_create(&self, desc: BlendStateDesc) -> Result<HalBlendState, String>;
     
     fn bs_destroy(&self, state: HalBlendState);
 
