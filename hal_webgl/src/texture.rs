@@ -18,7 +18,7 @@ pub struct WebGLTextureImpl {
 }
 
 impl WebGLTextureImpl {
-    pub fn new_2d(gl: &WebGLRenderingContext, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<Self, String> {
+    pub fn new_2d(gl: &WebGLRenderingContext, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>, webgl_object: Option<&Object>) -> Result<Self, String> {
         let texture = gl.create_texture();
         if texture.is_none() {
             return Err("new_2d failed, not found".to_string());
@@ -34,25 +34,27 @@ impl WebGLTextureImpl {
         gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
         gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
 
-        match data {
-            None => {
-                gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Option::<&[u8]>::None);
-            }
-            Some(TextureData::U8(_, _, _, _, v)) => {
-                gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
-            }
-            Some(TextureData::F32(_, _, _, _, v)) => {
-                gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
-            }
-            Some(TextureData::Custom(_, _, _, _, v)) => {
-                let obj = v as *const Object;
-                let obj = unsafe {& *obj };
+        match webgl_object {
+            Some(object) => {
                 js! {
-                    @{gl}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{p}, @{p}, @{d}, @{obj}.wrap);
+                    @{&gl}.texImage2D(@{WebGLRenderingContext::TEXTURE_2D}, 0, @{p}, @{p}, @{d}, @{object}.wrap);
+                }
+            }
+            None => {
+                match data {
+                    None => {
+                        gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Option::<&[u8]>::None);
+                    }
+                    Some(TextureData::U8(_, _, _, _, v)) => {
+                        gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
+                    }
+                    Some(TextureData::F32(_, _, _, _, v)) => {
+                        gl.tex_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, p as i32, width as i32, height as i32, 0, p, d, Some(v));
+                    }
                 }
             }
         }
-        
+
         if is_gen_mipmap {
             gl.generate_mipmap(WebGLRenderingContext::TEXTURE_2D);
         }
@@ -91,7 +93,7 @@ impl WebGLTextureImpl {
         self.is_gen_mipmap
     }
 
-    pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: &TextureData) {
+    pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: Option<&TextureData>, webgl_object: Option<(u32, u32, &Object)>) {
         
         let p = get_pixel_format(self.pixel_format);
         let d = get_data_format(self.data_format);
@@ -102,19 +104,22 @@ impl WebGLTextureImpl {
         gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
         gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
         gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
-
-        match data {
-            TextureData::U8(x, y, w, h, v) => {
-                gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
-            }
-            TextureData::F32(x, y, w, h, v) => {
-                gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
-            }
-            TextureData::Custom(x, y, _, _, v) => {
-                let obj = *v as *const Object;
-	            let obj = unsafe {& *obj };
+        
+        match webgl_object {
+            Some((x, y, object)) => {
                 js! {
-                    @{&gl}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{x}, @{y}, @{p}, @{d}, @{&obj}.wrap);
+                    @{&gl}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{x}, @{y}, @{p}, @{d}, @{object}.wrap);
+                }
+            }
+            None => {
+                let data = data.unwrap();
+                match data {
+                    TextureData::U8(x, y, w, h, v) => {
+                        gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
+                    }
+                    TextureData::F32(x, y, w, h, v) => {
+                        gl.tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, mipmap_level as i32, *x as i32, *y as i32, *w as i32, *h as i32, p, d, Some(*v));
+                    }
                 }
             }
         }

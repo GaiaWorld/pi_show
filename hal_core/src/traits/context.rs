@@ -1,4 +1,3 @@
-use atom::{Atom};
 use share::{Share};
 
 use common::*;
@@ -42,15 +41,14 @@ pub enum BufferData<'a> {
  * Uniform布局
  */
 pub struct UniformLayout<'a> {
-    pub ubos: &'a [Atom],
-    pub uniforms: &'a [&'a [Atom]], 
-    pub textures: &'a [Atom],
+    pub ubos: &'a [&'static str],
+    pub uniforms: &'a [&'a [&'static str]], 
+    pub textures: &'a [&'static str],
 }
 
 pub enum TextureData<'a> {
     F32(u32, u32, u32, u32, &'a[f32]),  // (x, y, w, h, data)
     U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
-    Custom(u32, u32, u32, u32, *const usize), // (x, y, w, h, 具体数据，生命周期由实现自己管理)
 }
 
 pub trait HalContext: Sized {

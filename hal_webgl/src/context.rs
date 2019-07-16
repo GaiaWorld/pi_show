@@ -259,7 +259,7 @@ impl HalContext for WebglHalContext {
     // ==================== HalTexture
 
     fn texture_create_2d(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<HalTexture, String> {
-        WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, data).map(|texture| {
+        WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, data, None).map(|texture| {
             let slab = convert_to_mut(&self.texture_slab);
             let (index, count) = create_new_slot(slab, texture);
             HalTexture(index, count)
@@ -289,7 +289,7 @@ impl HalContext for WebglHalContext {
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData) {
         let slab = convert_to_mut(&self.texture_slab);
         if let Some(t) = get_mut_ref(slab, texture.0, texture.1) {
-            t.update(&self.gl, mipmap_level, data);
+            t.update(&self.gl, mipmap_level, Some(data), None);
         }
     }
 
@@ -515,6 +515,21 @@ impl WebglHalContext {
         };
 
         context
+    }
+
+    pub fn texture_create_2d_webgl(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<HalTexture, String> {
+        WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, None, Some(data)).map(|texture| {
+            let slab = convert_to_mut(&self.texture_slab);
+            let (index, count) = create_new_slot(slab, texture);
+            HalTexture(index, count)
+        })
+    }
+
+    pub fn texture_update_webgl(&self, texture: &HalTexture, mipmap_level: u32, x: u32, y: u32, data: &Object) {
+        let slab = convert_to_mut(&self.texture_slab);
+        if let Some(t) = get_mut_ref(slab, texture.0, texture.1) {
+            t.update(&self.gl, mipmap_level, None, Some((x, y, data)));
+        }
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {
