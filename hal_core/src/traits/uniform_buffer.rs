@@ -23,6 +23,28 @@ pub trait UniformBuffer {
     fn set_value(&mut self, name: &str, value: UniformValue) -> bool;
 }
 
+pub struct NullUniformBuffer;
+
+impl UniformBuffer for NullUniformBuffer {
+    #[inline]
+    fn get_layout(&self) -> &[&str] {
+        &[]
+    }
+
+    #[inline]
+    fn get_values(&self) -> &[UniformValue] {
+        &[]
+    }
+
+    fn get_value(&self, _name: &str) -> Option<&UniformValue> {
+        None
+    }
+
+    fn set_value(&mut self, _name: &str, _value: UniformValue) -> bool {
+        false
+    }
+}
+
 /** 
  * Program的Uniform参数；
  * Texture的Uniform和普通的Uniform要分开设置
