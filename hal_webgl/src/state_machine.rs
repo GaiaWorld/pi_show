@@ -89,7 +89,7 @@ impl TextureCache {
 
                 if t.curr_sampler.0 != sampler.0 || t.curr_sampler.1 != sampler.1 {
                     t.apply_sampler(gl, s);
-                    t.curr_sampler = sampler.clone();
+                    t.curr_sampler = HalSampler(sampler.0, sampler.1);
                 }
                 return t.curr_unit as u32;
             }
@@ -121,14 +121,14 @@ impl TextureCache {
         if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
             
             t.curr_unit = min_index as i32;
-            t.curr_sampler = sampler.clone();
+            t.curr_sampler = HalSampler(sampler.0, sampler.1);
             
             gl.active_texture(WebGLRenderingContext::TEXTURE0 + (min_index as u32));
             gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
             t.apply_sampler(gl, s);
         }
         
-        v.1 = texture.clone();
+        v.1 = HalTexture(texture.0, texture.1);
         min_index as u32
     }
 }
@@ -148,7 +148,7 @@ impl StateMachine {
             
             program: HalProgram::new(),
             geometry: HalGeometry::new(),
-            target: rt.clone(),
+            target: HalRenderTarget(rt.0, rt.1),
             viewport_rect: (0, 0, 0, 0),
             
             rs: HalRasterState::new(),
@@ -184,7 +184,7 @@ impl StateMachine {
     pub fn set_render_target(&mut self, gl: &WebGLRenderingContext, rt: &HalRenderTarget, rtimpl: &WebGLRenderTargetImpl) {
         if self.target.0 != rt.0 || self.target.1 != rt.1 {
             self.set_render_target_impl(gl, rtimpl);
-            self.target = rt.clone();
+            self.target = HalRenderTarget(rt.0, rt.1);
         }
     }
 
@@ -243,25 +243,25 @@ impl StateMachine {
         
         if self.rs.0 != rs.0 || self.rs.1 != rs.1 {
             Self::set_raster_state(&gl, Some(&self.rsdesc), rsdesc);
-            self.rs = rs.clone();
+            self.rs = HalRasterState(rs.0, rs.1);
             self.rsdesc = rsdesc.clone();
         }
         if self.ds.0 != ds.0 || self.ds.1 != ds.1 {
             Self::set_depth_state(&gl, Some(&self.dsdesc), dsdesc, &mut self.real_depth_mask);
             
-            self.ds = ds.clone();
+            self.ds = HalDepthState(ds.0, ds.1);
             self.dsdesc = dsdesc.clone();
         }
         if self.ss.0 != ss.0 || self.ss.1 != ss.1 {
             Self::set_stencil_state(&gl, Some(&self.ssdesc), ssdesc);
 
-            self.ss = ss.clone();
+            self.ss = HalStencilState(ss.0, ss.1);
             self.ssdesc = ssdesc.clone();
         }
         if self.bs.0 != bs.0 || self.bs.1 != bs.1 {
             Self::set_blend_state(&gl, Some(&self.bsdesc), bsdesc);
 
-            self.bs = bs.clone();
+            self.bs = HalBlendState(bs.0, bs.1);
             self.bsdesc = bsdesc.clone();
         }
     }
@@ -269,7 +269,7 @@ impl StateMachine {
     pub fn set_program(&mut self, gl: &WebGLRenderingContext, program: &HalProgram, pimpl: &WebGLProgramImpl) {
         if self.program.0 != program.0 || self.program.1 != program.1 {
             gl.use_program(Some(&pimpl.handle));
-            self.program = program.clone();
+            self.program = HalProgram(program.0, program.1);
         }
     }
 
@@ -337,7 +337,7 @@ impl StateMachine {
                 }
             }
             
-            self.geometry = geometry.clone();
+            self.geometry = HalGeometry(geometry.0, geometry.1);
         }
         
         match &gimpl.indices {
