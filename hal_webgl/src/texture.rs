@@ -13,7 +13,7 @@ pub struct WebGLTextureImpl {
     pub handle: WebGLTexture,
     
     // 纹理缓存
-    pub curr_unit: i32,  // 仅当 >= 0 时有意义
+    pub cache_index: i32,  // 仅当 >= 0 时有意义
     pub curr_sampler: HalSampler, // 当前作用的Sampler
 }
 
@@ -68,7 +68,7 @@ impl WebGLTextureImpl {
             is_gen_mipmap: is_gen_mipmap,
             handle: texture,
             
-            curr_unit: -1,
+            cache_index: -1,
             curr_sampler: HalSampler::new(),
         };
 

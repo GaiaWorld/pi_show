@@ -1,5 +1,6 @@
 use share::{Share};
 use slab::{Slab};
+use deque::slab_deque::{SlabDeque};
 use ordered_float::{OrderedFloat};
 use stdweb::{Object};
 
@@ -38,98 +39,86 @@ pub struct StateMachine {
 }
 
 struct TextureCache {
-    tex_use_count: usize,
+
+    total_units: usize,
+    curr_gl_unit: u32,
+
     // 槽和unit的关系是 unit = 槽索引 + 1
     // unit = 0 用于更新纹理等，不能用于普通纹理。
-    values: Vec<(usize, HalTexture)>, // 前面的usize是当前的次数
+    
+    // u32是当前纹理的gl_unit
+    values: SlabDeque<(u32, HalTexture)>,
 }
 
 impl TextureCache {
     fn new(max_tex_unit_num: usize) -> Self {
-        // 第0个纹理通道内部使用
-        let mut cache = Vec::with_capacity(max_tex_unit_num - 1);
-        for _ in 1..max_tex_unit_num {
-            cache.push((usize::max_value(), HalTexture::new()));
-        }
-
-        TextureCache {
-            values: cache,
-            tex_use_count: 1,
+        Self {
+            curr_gl_unit: 1, // 第0个纹理通道内部使用
+            total_units: max_tex_unit_num,
+            values: SlabDeque::new(),
         }
     }
 
     pub fn reset(&mut self, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>) {
-        for texture in self.values.iter_mut() {
-            let t = &mut texture.1;
-            match get_mut_ref(texture_slab, t.0, t.1) {
+        for (_, texture) in self.values.iter() {
+            match get_mut_ref(texture_slab, texture.0, texture.1) {
                 None => {},
                 Some(t) => {
-                    t.curr_unit = -1;
+                    t.cache_index = -1;
                     t.curr_sampler = HalSampler::new();
                 }
             }
-
-            texture.0 = usize::max_value();
-            t.0 = 0;
-            t.1 = 0;
         }
+        
+        self.curr_gl_unit = 1;
+        self.values.clear();
     }
 
-    // 缓存策略：当槽不够的时候，移除最远的槽。
-    // TODO: 换成LRU，可以加快速度
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
         texture: &HalTexture, sampler: &HalSampler,
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> u32 {
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> (u32, bool) {
         
         if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
-            if t.curr_unit > 0 {
-                let index = (t.curr_unit - 1) as usize;
-                self.values[index].0 = self.tex_use_count;
-                self.tex_use_count += 1;
-
+            // 命中，放回到队列的头部
+            if t.cache_index >= 0 {
+                let (unit, r) = self.values.remove(t.cache_index as usize);
+                t.cache_index = self.values.push_front((unit, r)) as i32;
+                
                 if t.curr_sampler.0 != sampler.0 || t.curr_sampler.1 != sampler.1 {
                     t.apply_sampler(gl, s);
                     t.curr_sampler = HalSampler(sampler.0, sampler.1);
                 }
-                return t.curr_unit as u32;
+                return (unit as u32, false);
             }
         }
-
-        let mut min_index = 0;
-        let mut min_count = usize::max_value();
-
-        for (i, v) in self.values.iter_mut().enumerate() {
-            if v.0 < min_count {
-                min_count = v.0;
-                min_index = i;
-            }
-        }
-    
-        let v = self.values.get_mut(min_index).unwrap();
-        v.0 = self.tex_use_count;
-        self.tex_use_count += 1;
         
-        // 将v.1对应的内容清空
-        let tslot = &v.1;
-        if let Some(t) = get_mut_ref(texture_slab, tslot.0, tslot.1) {
-            t.curr_sampler = HalSampler::new();
-            t.curr_unit = -1;
-        }
-
-        // 将texture的内容替换为最新的槽
-        min_index += 1;
+        // 缓存已经满了，替换老的
+        let unit = if self.values.len() == self.total_units {
+            let (u, old) = self.values.pop_back().unwrap();
+            if let Some(old) = get_mut_ref(texture_slab, old.0, old.1) {
+                old.cache_index = -1;
+            }
+            u
+        } else {
+            // 缓存没满，添加新的
+            let u = self.curr_gl_unit;
+            self.curr_gl_unit += 1;
+            u
+        };
+        
         if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
             
-            t.curr_unit = min_index as i32;
+            t.cache_index = self.values.push_front((unit, HalTexture(texture.0, texture.1))) as i32;
             t.curr_sampler = HalSampler(sampler.0, sampler.1);
             
-            gl.active_texture(WebGLRenderingContext::TEXTURE0 + (min_index as u32));
+            gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
             gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
             t.apply_sampler(gl, s);
+
+            return (unit as u32, true);
         }
-        
-        v.1 = HalTexture(texture.0, texture.1);
-        min_index as u32
+    
+        panic!("not found");
     }
 }
 
@@ -177,15 +166,20 @@ impl StateMachine {
     #[inline(always)]
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
         texture: &HalTexture, sampler: &HalSampler,
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> u32 {
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> (u32, bool) {
         self.tex_caches.use_texture(gl, texture, sampler, texture_slab, sampler_slab)
     }
 
-    pub fn set_render_target(&mut self, gl: &WebGLRenderingContext, rt: &HalRenderTarget, rtimpl: &WebGLRenderTargetImpl) {
-        if self.target.0 != rt.0 || self.target.1 != rt.1 {
+    /**
+     * 返回是否切换渲染目标
+     */
+    pub fn set_render_target(&mut self, gl: &WebGLRenderingContext, rt: &HalRenderTarget, rtimpl: &WebGLRenderTargetImpl) -> bool {
+        let is_change = self.target.0 != rt.0 || self.target.1 != rt.1;
+        if is_change {
             self.set_render_target_impl(gl, rtimpl);
             self.target = HalRenderTarget(rt.0, rt.1);
         }
+        is_change
     }
 
     /** 
@@ -266,21 +260,34 @@ impl StateMachine {
         }
     }
 
-    pub fn set_program(&mut self, gl: &WebGLRenderingContext, program: &HalProgram, pimpl: &WebGLProgramImpl) {
-        if self.program.0 != program.0 || self.program.1 != program.1 {
+    /**
+     * 返回是否切换program
+     */
+    pub fn set_program(&mut self, gl: &WebGLRenderingContext, program: &HalProgram, pimpl: &WebGLProgramImpl) -> bool {
+        let is_change = self.program.0 != program.0 || self.program.1 != program.1;
+        if is_change {
             gl.use_program(Some(&pimpl.handle));
             self.program = HalProgram(program.0, program.1);
         }
+        is_change
     }
 
+    /** 
+     * 返回切换纹理的次数
+     */
     pub fn set_uniforms(&mut self, gl: &WebGLRenderingContext, 
         program: &mut WebGLProgramImpl, pp: &Share<dyn ProgramParamter>, 
-        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) {
-
+        texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> i32 {
+        
+        let mut tex_change_count = 0;
+        
         let texs = pp.get_textures();
         for loc in program.active_textures.iter_mut() {
             let (t, s) = &texs[loc.slot_uniform];
-            let unit = self.use_texture(gl, &t, &s, texture_slab, sampler_slab);
+            let (unit, is_change) = self.use_texture(gl, &t, &s, texture_slab, sampler_slab);
+            if is_change {
+                tex_change_count += 1;
+            }
             loc.set_gl_uniform(gl, unit as i32);
         }
 
@@ -305,9 +312,14 @@ impl StateMachine {
             }
         }
         program.last_pp = Some(pp.clone());
+
+        tex_change_count
     }
 
-    pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) {
+    /**
+     * 返回是否切换geometry
+     */
+    pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) -> bool {
 
         let need_set_geometry = geometry.0 != self.geometry.0 || geometry.1 != self.geometry.1;
         if need_set_geometry {            
@@ -348,6 +360,8 @@ impl StateMachine {
                 gl.draw_elements(WebGLRenderingContext::TRIANGLES, indices.count as i32, WebGLRenderingContext::UNSIGNED_SHORT, indices.offset as i64);
             }
         }
+        
+        need_set_geometry
     }
 
     /** 

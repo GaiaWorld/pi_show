@@ -11,6 +11,7 @@ extern crate webgl_rendering_context;
 extern crate ordered_float;
 extern crate slab;
 extern crate atom;
+extern crate deque;
 extern crate share;
 extern crate fx_hashmap;
 #[macro_use]
@@ -34,7 +35,7 @@ mod state_machine;
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 
-pub use context::{WebglHalContext};
+pub use context::{WebglHalContext, RenderStat};
 
 /** 
  * fbo用js创建的WebGLFramebuffer，如果为None，说明要渲染到屏幕上；否则用fbo当渲染目标

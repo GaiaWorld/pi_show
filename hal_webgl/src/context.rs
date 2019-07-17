@@ -17,7 +17,73 @@ use shader_cache::{ShaderCache};
 use extension::*;
 use util::*;
 
+// 渲染统计情况
+#[derive(Debug)]
+pub struct RenderStat {
+    pub rt_count: i32,
+    pub texture_count: i32,
+    pub buffer_count: i32,
+    pub geometry_count: i32,
+    pub program_count: i32,
+
+    // 每帧统计的信息，切换了多少个相应的东西
+    pub rt_change_count: i32,
+    pub geometry_change_count: i32,
+    pub texture_change_count: i32,
+    pub program_change_count: i32,
+    pub draw_call_count: i32,
+}
+
+impl RenderStat {
+    pub fn new() -> Self {
+        Self {
+            rt_count: 0,
+            texture_count: 0,
+            buffer_count: 0,
+            geometry_count: 0,
+            program_count: 0,
+
+            rt_change_count: 0,
+            geometry_change_count: 0,
+            texture_change_count: 0,
+            program_change_count: 0,
+            draw_call_count: 0,
+        }
+    }
+
+    pub fn reset_frame(&mut self) {
+        self.rt_change_count = 0;
+        self.geometry_change_count = 0;
+        self.texture_change_count = 0;
+        self.program_change_count = 0;
+        self.draw_call_count = 0;
+    }
+
+    pub fn add_geometry_change(&mut self) {
+        self.geometry_change_count += 1;
+    }
+
+    pub fn add_texture_change(&mut self, count: i32) {
+        self.texture_change_count += count;
+    }
+
+    pub fn add_program_change(&mut self) {
+        self.program_change_count += 1;
+    }
+
+    pub fn add_rt_change(&mut self) {
+        self.rt_change_count += 1;
+    }
+
+    pub fn add_draw_call(&mut self) {
+        self.draw_call_count += 1;
+    }
+}
+
 pub struct WebglHalContext {
+
+    pub stat: RenderStat,
+
     pub default_rt: HalRenderTarget,
 
     // 具体实现
@@ -47,16 +113,18 @@ impl HalContext for WebglHalContext {
     
     fn buffer_create(&self, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<HalBuffer, String> {
         WebGLBufferImpl::new(&self.gl, btype, count, data, is_updatable).map(|buffer| {
-            let slab = convert_to_mut(&self.buffer_slab);
-            let (index, count) = create_new_slot(slab, buffer);
+            let context = convert_to_mut(self);
+            let (index, count) = create_new_slot(&mut context.buffer_slab, buffer);
+            context.stat.buffer_count += 1;
             HalBuffer(index, count)
         })
     }
 
     fn buffer_destroy(&self, buffer: HalBuffer) {
         if get_ref(&self.buffer_slab, buffer.0, buffer.1).is_some() {
-            let slab = convert_to_mut(&self.buffer_slab);
-            let rimpl = slab.remove(buffer.0 as usize);
+            let context = convert_to_mut(self);
+            let rimpl = context.buffer_slab.remove(buffer.0 as usize);
+            context.stat.buffer_count -= 1;
             rimpl.0.delete(&self.gl);
         }
     }
@@ -72,17 +140,19 @@ impl HalContext for WebglHalContext {
 
     fn geometry_create(&self) -> Result<HalGeometry, String> {
         WebGLGeometryImpl::new(&self.vao_extension).map(|geometry| {
-            let slab = convert_to_mut(&self.geometry_slab);
-            let (index, count) = create_new_slot(slab, geometry);
+            let context = convert_to_mut(self);
+            let (index, count) = create_new_slot(&mut context.geometry_slab, geometry);
+            context.stat.geometry_count += 1;
             HalGeometry(index, count)
         })
     }
 
     fn geometry_destroy(&self, geometry: HalGeometry) {
         if get_ref(&self.geometry_slab, geometry.0, geometry.1).is_some() {
-            let slab = convert_to_mut(&self.geometry_slab);
-            let rimpl = slab.remove(geometry.0 as usize);
+            let context = convert_to_mut(self);
+            let rimpl = context.geometry_slab.remove(geometry.0 as usize);
             rimpl.0.delete(&self.vao_extension);
+            context.stat.geometry_count -= 1;
         }
     }
 
@@ -162,16 +232,18 @@ impl HalContext for WebglHalContext {
 
         let shader_cache = convert_to_mut(&self.shader_cache);
         WebGLProgramImpl::new_with_vs_fs(&self.gl, &self.caps, shader_cache, vs_id, fs_id, &vs_name, vs_defines, &fs_name, fs_defines, uniform_layout).map(|program| {
-            let slab = convert_to_mut(&self.program_slab);
-            let (index, count) = create_new_slot(slab, program);
+            let context = convert_to_mut(self);
+            let (index, count) = create_new_slot(&mut context.program_slab, program);
+            context.stat.program_count += 1;
             HalProgram(index, count)
         })
     }
 
     fn program_destroy(&self, program: HalProgram) {
         if get_ref(&self.program_slab, program.0, program.1).is_some() {
-            let slab = convert_to_mut(&self.program_slab);
-            let rimpl = slab.remove(program.0 as usize);
+            let context = convert_to_mut(self);
+            let rimpl = context.program_slab.remove(program.0 as usize);
+            context.stat.program_count -= 1;
             rimpl.0.delete(&self.gl);
         }
     }
@@ -203,16 +275,18 @@ impl HalContext for WebglHalContext {
         };
         
         WebGLRenderTargetImpl::new(&self.gl, w, h, texture, rb, &texture_wrap, rb_wrap.as_ref()).map(|rt| {
-            let slab = convert_to_mut(&self.rt_slab);
-            let (index, count) = create_new_slot(slab, rt);
+            let context = convert_to_mut(self);
+            let (index, count) = create_new_slot(&mut context.rt_slab, rt);
+            context.stat.rt_count += 1;
             HalRenderTarget(index, count)
         })
     }
     
     fn rt_destroy(&self, rt: HalRenderTarget) {
         if get_ref(&self.rt_slab, rt.0, rt.1).is_some() {
-            let slab = convert_to_mut(&self.rt_slab);
-            let rimpl = slab.remove(rt.0 as usize);
+            let context = convert_to_mut(self);
+            context.stat.rt_count -= 1;
+            let rimpl = context.rt_slab.remove(rt.0 as usize);
             let rimpl = rimpl.0;
             rimpl.delete(&self.gl);
             
@@ -260,16 +334,18 @@ impl HalContext for WebglHalContext {
 
     fn texture_create_2d(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<HalTexture, String> {
         WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, data, None).map(|texture| {
-            let slab = convert_to_mut(&self.texture_slab);
-            let (index, count) = create_new_slot(slab, texture);
+            let context = convert_to_mut(self);
+            let (index, count) = create_new_slot(&mut context.texture_slab, texture);
+            context.stat.texture_count += 1;
             HalTexture(index, count)
         })
     }
 
     fn texture_destroy(&self, texture: HalTexture) {
         if get_ref(&self.texture_slab, texture.0, texture.1).is_some() {
-            let slab = convert_to_mut(&self.texture_slab);
-            let rimpl = slab.remove(texture.0 as usize);
+            let context = convert_to_mut(self);
+            let rimpl = context.texture_slab.remove(texture.0 as usize);
+            context.stat.texture_count -= 1;
             rimpl.0.delete(&self.gl);
         }
     }
@@ -415,8 +491,14 @@ impl HalContext for WebglHalContext {
         
         let context = convert_to_mut(self);
         
+        #[cfg(feature = "frame_stat")]
+        context.stat.reset_frame();
+
         let rt = get_ref(&context.rt_slab, render_target.0, render_target.1).expect("rt param not found");
-        context.state_machine.set_render_target(&context.gl, render_target, rt);
+        if context.state_machine.set_render_target(&context.gl, render_target, rt) {
+            #[cfg(feature = "frame_stat")]
+            context.stat.add_rt_change();
+        }
         context.state_machine.set_viewport(&context.gl, &data.viewport);
         context.state_machine.set_clear(&context.gl, &data.clear_color, &data.clear_depth, &data.clear_stencil);
     }
@@ -434,7 +516,10 @@ impl HalContext for WebglHalContext {
         let context = convert_to_mut(self);
         
         let p = get_ref(&context.program_slab, program.0, program.1).expect("param not found");
-        context.state_machine.set_program(&context.gl, program, p);
+        if context.state_machine.set_program(&context.gl, program, p) {
+            #[cfg(feature = "frame_stat")]
+            context.stat.add_program_change();
+        }
     }
 
     fn render_set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState) {
@@ -443,7 +528,6 @@ impl HalContext for WebglHalContext {
         let dsdesc = get_ref(&context.ds_slab, bs.0, bs.1).expect("ds param not found");
         let ssdesc = get_ref(&context.ss_slab, bs.0, bs.1).expect("ss param not found");
         let rsdesc = get_ref(&context.rs_slab, bs.0, bs.1).expect("rs param not found");
-
         context.state_machine.set_state(&context.gl, rs, bs, ss, ds, rsdesc, bsdesc, ssdesc, dsdesc);
     }
 
@@ -452,10 +536,21 @@ impl HalContext for WebglHalContext {
 
         let program = context.state_machine.get_curr_program();
         let pimpl = get_mut_ref(&mut context.program_slab, program.0, program.1).expect("curr program not found");
-        context.state_machine.set_uniforms(&context.gl, pimpl, pp, &mut context.texture_slab, &mut context.sampler_slab);
+        
+        let _count = context.state_machine.set_uniforms(&context.gl, pimpl, pp, &mut context.texture_slab, &mut context.sampler_slab);
+
+        #[cfg(feature = "frame_stat")]
+        context.stat.add_texture_change(_count);
         
         let gimpl = get_ref(&mut context.geometry_slab, geometry.0, geometry.1).expect("geometry not found");
-        context.state_machine.draw(&context.gl, &context.vao_extension, geometry, gimpl, &context.buffer_slab);
+        if context.state_machine.draw(&context.gl, &context.vao_extension, geometry, gimpl, &context.buffer_slab) {
+        
+            #[cfg(feature = "frame_stat")]
+            context.stat.add_geometry_change();
+        }
+        
+        #[cfg(feature = "frame_stat")]
+        context.stat.add_draw_call();
     }
 }
 
@@ -495,6 +590,7 @@ impl WebglHalContext {
         let state_machine = StateMachine::new(&gl, &default_rt, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
         let context = WebglHalContext {
+            stat: RenderStat::new(),
             default_rt: default_rt,
             gl: gl,
             caps: caps,
@@ -517,6 +613,10 @@ impl WebglHalContext {
         context
     }
 
+    /** 
+     * 创建webgl纹理
+     *    data是个普通的Javascript Object对象，wrap字段是：Canvas，Image，...
+     */
     pub fn texture_create_2d_webgl(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<HalTexture, String> {
         WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, None, Some(data)).map(|texture| {
             let slab = convert_to_mut(&self.texture_slab);
@@ -525,11 +625,25 @@ impl WebglHalContext {
         })
     }
 
+    /** 
+     * 更新webgl纹理
+     *    data是个普通的Javascript Object对象，wrap字段是：Canvas，Image，...
+     */
     pub fn texture_update_webgl(&self, texture: &HalTexture, mipmap_level: u32, x: u32, y: u32, data: &Object) {
         let slab = convert_to_mut(&self.texture_slab);
         if let Some(t) = get_mut_ref(slab, texture.0, texture.1) {
             t.update(&self.gl, mipmap_level, None, Some((x, y, data)));
         }
+    }
+
+    /** 
+     * 获取渲染统计信息，包括：
+     *    + 每个资源当前的数量：program，buffer，geometry，texture，render-target
+     *    + （需要加stat feature构建 才能获取正确数据）每帧切换的资源数：program，geometry，texture，render-target
+     *    + 注：如果要获取帧的切换信息，建议在begin_end之后获取。
+     */
+    pub fn get_render_stat(&self) -> &RenderStat {
+        &self.stat
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {
