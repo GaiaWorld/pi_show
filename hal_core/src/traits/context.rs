@@ -1,30 +1,29 @@
-use atom::{Atom};
 use share::{Share};
 
 use common::*;
 use traits::uniform_buffer::{ProgramParamter};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalBuffer(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalGeometry(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalProgram(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalRenderTarget(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalRenderBuffer(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalRasterState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalDepthState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalStencilState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalBlendState(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalSampler(pub u32, pub u32);
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HalTexture(pub u32, pub u32);
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -42,15 +41,14 @@ pub enum BufferData<'a> {
  * Uniform布局
  */
 pub struct UniformLayout<'a> {
-    pub ubos: &'a [Atom],
-    pub uniforms: &'a [&'a [Atom]], 
-    pub textures: &'a [Atom],
+    pub ubos: &'a [&'static str],
+    pub uniforms: &'a [&'a [&'static str]], 
+    pub textures: &'a [&'static str],
 }
 
 pub enum TextureData<'a> {
     F32(u32, u32, u32, u32, &'a[f32]),  // (x, y, w, h, data)
     U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
-    Custom(u32, u32, u32, u32, *const usize), // (x, y, w, h, 具体数据，生命周期由实现自己管理)
 }
 
 pub trait HalContext: Sized {
@@ -66,7 +64,7 @@ pub trait HalContext: Sized {
      */
     fn buffer_create(&self, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<HalBuffer, String>;
 
-    fn buffer_destroy(&self, buffer: &HalBuffer);
+    fn buffer_destroy(&self, buffer: HalBuffer);
 
     /**
      * 更新数据
@@ -86,7 +84,7 @@ pub trait HalContext: Sized {
 
     fn geometry_create(&self) -> Result<HalGeometry, String>;
 
-    fn geometry_destroy(&self, geometry: &HalGeometry);
+    fn geometry_destroy(&self, geometry: HalGeometry);
 
     /** 
      * 获取当前的顶点个数
@@ -139,19 +137,19 @@ pub trait HalContext: Sized {
      */
     fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
-    fn program_destroy(&self, program: &HalProgram);
+    fn program_destroy(&self, program: HalProgram);
 
 
     // ==================== HalRenderTarget
 
     fn rt_create(&self, w: u32, h: u32, pformat: PixelFormat, dformat: DataFormat, has_depth: bool) -> Result<HalRenderTarget, String>;
     
-    fn rt_destroy(&self, rt: &HalRenderTarget);
+    fn rt_destroy(&self, rt: HalRenderTarget);
 
     /** 
      * 取大小
      */
-    fn rt_get_size(&self, rt: &HalRenderTarget) -> Option<(u32, u32)>;
+    fn rt_get_size(&self, rt: &HalRenderTarget) -> (u32, u32);
 
     /**
      * 取渲染目标中特定通道的纹理
@@ -161,20 +159,20 @@ pub trait HalContext: Sized {
     // ==================== HalRenderBuffer
     fn rb_create(&self, w: u32, h: u32, pformat: PixelFormat) -> Result<HalRenderBuffer, String>;
     
-    fn rb_destroy(&self, rb: &HalRenderBuffer);
+    fn rb_destroy(&self, rb: HalRenderBuffer);
 
-    fn rb_get_size(&self, rb: &HalRenderBuffer) -> Option<(u32, u32)>;
+    fn rb_get_size(&self, rb: &HalRenderBuffer) -> (u32, u32);
 
 
     // ==================== HalTexture
 
     fn texture_create_2d(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<HalTexture, String>;
 
-    fn texture_destroy(&self, texture: &HalTexture);
+    fn texture_destroy(&self, texture: HalTexture);
 
-    fn texture_get_size(&self, texture: &HalTexture) -> Option<(u32, u32)>;
+    fn texture_get_size(&self, texture: &HalTexture) -> (u32, u32);
 
-    fn texture_get_render_format(&self, texture: &HalTexture) -> Option<PixelFormat>;
+    fn texture_get_render_format(&self, texture: &HalTexture) -> PixelFormat;
 
     fn texture_is_gen_mipmap(&self, texture: &HalTexture) -> bool;
 
@@ -182,43 +180,43 @@ pub trait HalContext: Sized {
 
     // ==================== HalSampler
 
-    fn sampler_create(&self, desc: &SamplerDesc) -> Result<HalSampler, String>;
+    fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String>;
 
-    fn sampler_destroy(&self, sampler: &HalSampler);
+    fn sampler_destroy(&self, sampler: HalSampler);
 
-    fn sampler_get_desc(&self, sampler: &HalSampler) -> Option<&SamplerDesc>;
+    fn sampler_get_desc(&self, sampler: &HalSampler) -> &SamplerDesc;
 
     // ==================== HalRasterState
 
-    fn rs_create(&self, desc: &RasterStateDesc) -> Result<HalRasterState, String>;
+    fn rs_create(&self, desc: RasterStateDesc) -> Result<HalRasterState, String>;
     
-    fn rs_destroy(&self, state: &HalRasterState);
+    fn rs_destroy(&self, state: HalRasterState);
 
-    fn rs_get_desc(&self, state: &HalRasterState) -> Option<&RasterStateDesc>;
+    fn rs_get_desc(&self, state: &HalRasterState) -> &RasterStateDesc;
 
     // ==================== HalDepthState
 
-    fn ds_create(&self, desc: &DepthStateDesc) -> Result<HalDepthState, String>;
+    fn ds_create(&self, desc: DepthStateDesc) -> Result<HalDepthState, String>;
     
-    fn ds_destroy(&self, state: &HalDepthState);
+    fn ds_destroy(&self, state: HalDepthState);
 
-    fn ds_get_desc(&self, state: &HalDepthState) -> Option<&DepthStateDesc>;
+    fn ds_get_desc(&self, state: &HalDepthState) -> &DepthStateDesc;
 
     // ==================== HalStencilState
 
-    fn ss_create(&self, desc: &StencilStateDesc) -> Result<HalStencilState, String>;
+    fn ss_create(&self, desc: StencilStateDesc) -> Result<HalStencilState, String>;
     
-    fn ss_destroy(&self, state: &HalStencilState);
+    fn ss_destroy(&self, state: HalStencilState);
 
-    fn ss_get_desc(&self, state: &HalStencilState) -> Option<&StencilStateDesc>;
+    fn ss_get_desc(&self, state: &HalStencilState) -> &StencilStateDesc;
 
     // ==================== HalBlendState
     
-    fn bs_create(&self, desc: &BlendStateDesc) -> Result<HalBlendState, String>;
+    fn bs_create(&self, desc: BlendStateDesc) -> Result<HalBlendState, String>;
     
-    fn bs_destroy(&self, state: &HalBlendState);
+    fn bs_destroy(&self, state: HalBlendState);
 
-    fn bs_get_desc(&self, state: &HalBlendState) -> Option<&BlendStateDesc>;
+    fn bs_get_desc(&self, state: &HalBlendState) -> &BlendStateDesc;
 
     // ==================== 上下文相关
 

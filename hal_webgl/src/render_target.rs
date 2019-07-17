@@ -88,15 +88,14 @@ impl WebGLRenderTargetImpl {
             @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
         }
         
-        let color = texture_wrap.clone();
-        let depth = if rb.is_none() { None } else { Some(rb_wrap.unwrap().clone()) };
+        let depth = if rb.is_none() { None } else { Some(HalRenderBuffer(rb_wrap.unwrap().0, rb_wrap.unwrap().1)) };
 
         Ok(Self {
             is_default: false,
             handle: Some(fbo),
             width: w,
             height: h,
-            color: Some(color),
+            color: Some(HalTexture(texture_wrap.0, texture_wrap.1)),
             depth: depth,
         })
     }
@@ -125,6 +124,6 @@ impl WebGLRenderTargetImpl {
     }
 
     pub fn get_color_texture(&self) -> Option<HalTexture> {
-        self.color.as_ref().map(|t| t.clone())
+        self.color.as_ref().map(|t| HalTexture(t.0, t.1))
     }
 }

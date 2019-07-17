@@ -9,6 +9,7 @@ authors = ["moyy <moyy@yineng.com>"]
 atom={path="../../pi_lib/atom"}
 share={path="../../pi_lib/share"}
 slab={path="../../pi_lib/slab"}
+deque = {path="../../pi_lib/deque"}
 hal_core={path="../hal_core"}
 fx_hashmap={path="../../pi_lib/fx_hashmap"}
 ordered-float = "1.0"
@@ -16,3 +17,6 @@ stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
 debug_info = {path="../../pi_lib/debug_info"}
+
+# [features]
+# frame_stat = []  # 统计每帧信息的feature

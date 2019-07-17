@@ -84,7 +84,7 @@ impl WebGLGeometryImpl  {
             count: count,
             item_count: item_count,
             stride: stride,
-            handle: wrap.clone(),
+            handle: HalBuffer(wrap.0, wrap.1),
         });
 
          if let Some(vao) = &self.vao {
@@ -134,7 +134,7 @@ impl WebGLGeometryImpl  {
         self.indices = Some(Indices {
             offset: offset,
             count: count,
-            handle: wrap.clone(),
+            handle: HalBuffer(wrap.0, wrap.1),
         });
 
         if let Some(vao) = &self.vao {

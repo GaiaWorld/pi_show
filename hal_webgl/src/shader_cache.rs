@@ -68,13 +68,13 @@ impl ShaderCache {
             let mut uniforms = FxHashMap32::default();
             for (i, ubo) in layout.uniforms.iter().enumerate() {
                 for (j, u) in ubo.iter().enumerate() {
-                    uniforms.insert(u.clone(), (i, j));
+                    uniforms.insert(Atom::from(*u), (i, j));
                 }
             }
             
             let mut textures = FxHashMap32::default();
             for (i, u) in layout.textures.iter().enumerate() {
-                textures.insert(u.clone(), i);
+                textures.insert(Atom::from(*u), i);
             }
 
             self.location_caches.insert(vs_fs.clone(), LayoutLocation {
