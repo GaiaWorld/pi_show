@@ -173,21 +173,22 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 &self.textures[..]
             }
 
-            fn get_value(&mut self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
+            fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
                 match name {
                     #uniform_get_value_match
                     _ => None,
                 }
             }
 
-            fn get_texture(&mut self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
+            fn get_texture(&self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
                 match name {
                     #texture_get_value_match
                     _ => None,
                 }
             }
 
-            fn set_value(&mut self, name: &str, value: Share<dyn UniformBuffer>) -> bool {
+            fn set_value(&self, name: &str, value: Share<dyn UniformBuffer>) -> bool {
+                let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
                 match name {
                     #uniform_set_value_match
                     _ => return false,
@@ -195,7 +196,8 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 true
             }
 
-            fn set_texture(&mut self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool {
+            fn set_texture(&self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool {
+                let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
                 match name {
                     #texture_set_value_match
                     _ => return false,
@@ -372,7 +374,7 @@ impl<'a> ToTokens for UniformSetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => self.uniforms[#index] = value,
+                    #field_name_str => s.uniforms[#index] = value,
                 });
                 i += 1;
             }
@@ -389,7 +391,7 @@ impl<'a> ToTokens for TextureSetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => self.textures[#index] = value,
+                    #field_name_str => s.textures[#index] = value,
                 });
                 i += 1;
             }
