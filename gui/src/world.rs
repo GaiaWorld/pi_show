@@ -190,6 +190,7 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub render_objs: Arc<CellSingleCase<RenderObjs<C>>>,
     pub font_sheet: Arc<CellSingleCase<FontSheet<C>>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
+    pub text_style_class_map: Arc<CellSingleCase<TextStyleClassMap>>,
 
     pub world: World,
 }
@@ -240,6 +241,7 @@ impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
             render_objs: world.fetch_single::<RenderObjs<C>>().unwrap(),
             font_sheet: world.fetch_single::<FontSheet<C>>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
+            text_style_class_map: world.fetch_single::<TextStyleClassMap>().unwrap(),
 
             world: world,
         }

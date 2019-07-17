@@ -165,7 +165,7 @@ pub fn set_text_style_class(world: u32, node_id: u32, class_id: u32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     world.text_style_class.lend_mut().insert(node_id, TextStyleClass(class_id as usize));
-    debug_println!("set_text_shadow"); 
+    debug_println!("set_text_style_class"); 
 }
 
 
@@ -692,6 +692,8 @@ impl DrawTextSys {
         let default_table = world.default_table.lend_mut();
         let default_font = default_table.get::<Font>();
         let font_sheet = world.font_sheet.lend_mut();
+        let text_style_class = world.text_style_class.lend_mut();
+        let text_style_class_map = world.text_style_class_map.lend_mut();
 
         let mut chars_catch = FxHashMap32::default();
         for id in self.text_ids.iter(){
@@ -701,9 +703,18 @@ impl DrawTextSys {
             };
             let font = match fonts.get(*id) {
                 Some(r) => r,
-                None => match default_font {
-                    Some(r) => r,
-                    None => continue,
+                None => {
+                    match text_style_class.get(*id) {
+                        Some(text_style_class_id) => match text_style_class_map.0.get(text_style_class_id) {
+                            Some(text_style_class) => &text_style_class.font,
+                            None => continue,
+                        },
+                        None => continue
+                    }
+                    // match default_font {
+                    //     Some(r) => r,
+                    //     None => continue,
+                    // }
                 },
             };
             Self::look_text(font_sheet, text, font, &mut chars_catch);
