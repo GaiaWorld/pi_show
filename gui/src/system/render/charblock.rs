@@ -296,7 +296,6 @@ impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSy
             if geometry_change {
                 let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;        
                 let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &charblock.clazz.style.color, z_depth + 0.2, (0.0, 0.0));
-
                 if positions.len() == 0 {
                     render_obj.geometry = None;
                 } else {

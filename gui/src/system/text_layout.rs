@@ -437,7 +437,9 @@ fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<
         return true
     }
     cb.line_height = (get_line_height(cb.font_size, &cb.clazz.style.line_height) * 100.0).round()/100.0;
-    cb.pos.y = (cb.line_height - cb.font_size)/2.0;
+    if cb.line_height > cb.font_size {
+        cb.pos.y = (cb.line_height - cb.font_size)/2.0;
+    }
     match parent_yoga.get_style_justify() {
         YGJustify::YGJustifyCenter => cb.clazz.style.text_align = TextAlign::Center,
         YGJustify::YGJustifyFlexEnd => cb.clazz.style.text_align = TextAlign::Right,
@@ -751,7 +753,10 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, layout: &Layout
         cb.wrap_size.x = w;
     }
     cb.pos.x = x;
-    cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
+    if cb.line_height > cb.font_size {
+        cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
+    }
+    
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
         match cb.clazz.style.vertical_align {
             VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
