@@ -128,7 +128,7 @@ impl<R: ResTrait, T: Timer> Drop for Res<R, T> {
 }
 
 pub struct ResMgr<T: Timer>{
-    tables: FxHashMap32<TypeId, Share<dyn Any + Send + Sync>>,
+    tables: FxHashMap32<TypeId, Share<dyn Any>>,
     pub timeout: u32,
 }
 

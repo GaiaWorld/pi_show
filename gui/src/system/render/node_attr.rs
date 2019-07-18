@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use share::Share;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::*;
 use atom::Atom;
 
@@ -21,13 +21,13 @@ lazy_static! {
     static ref HSV_ATTR: Atom = Atom::from("hsvValue");
 }
 
-pub struct NodeAttrSys<C: Context + ShareTrait>{
+pub struct NodeAttrSys<C: Context + 'static>{
     view_matrix_ubo: Option<Share<Uniforms<C>>>,
     project_matrix_ubo: Option<Share<Uniforms<C>>>,
     marker: PhantomData<C>,
 }
 
-impl<C: Context + ShareTrait> NodeAttrSys<C> {
+impl<C: Context + 'static> NodeAttrSys<C> {
     pub fn new() -> Self{
         NodeAttrSys {
             view_matrix_ubo: None,
@@ -37,7 +37,7 @@ impl<C: Context + ShareTrait> NodeAttrSys<C> {
     }
 }
 
-impl<'a, C: Context + ShareTrait> Runner<'a> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> Runner<'a> for NodeAttrSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -63,7 +63,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for NodeAttrSys<C>{
     }
 }
 
-impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -71,7 +71,7 @@ impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, CreateEvent> for Node
     }
 }
 
-impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -80,7 +80,7 @@ impl<'a, C: Context + ShareTrait> EntityListener<'a, Node, DeleteEvent> for Node
 }
 
 //创建索引
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for NodeAttrSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
@@ -154,7 +154,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEv
 }
 
 // 监听is_opacity的修改，修改渲染状态， 创建新的渲染管线
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = ( &'a mut SingleCaseImpl<RenderObjs<C>>,  &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -202,7 +202,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, ModifyEv
 }
 
 // 删除索引
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, node_render_map: Self::WriteData){
@@ -213,7 +213,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEv
 }
 
 // //世界矩阵变化， 设置ubo
-// impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
+// impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for NodeAttrSys<C>{
 //     type ReadData = (
 //         &'a MultiCaseImpl<Node, WorldMatrix>,
 //         &'a MultiCaseImpl<Node, Transform>,
@@ -244,7 +244,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEv
 // }
 
 //世界矩阵变化， 设置ubo
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
@@ -265,7 +265,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ZDepth, ModifyEven
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData){
@@ -284,7 +284,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEve
 }
 
 // 设置visibility
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, write: Self::WriteData){
@@ -302,7 +302,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Visibility, Modify
 }
 
 // 设置hsv
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, HSV>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
@@ -348,7 +348,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
 }
 
 // 修改或添加hsv， 如果是添加， 返回true
-fn add_or_modify_hsv<C: Context + ShareTrait>(hsv: &HSV, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
+fn add_or_modify_hsv<C: Context + 'static>(hsv: &HSV, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
     let defines = &mut render_obj.defines;
     let ubos = &mut render_obj.ubos;
     let id = render_obj.context;
@@ -383,11 +383,11 @@ fn add_or_modify_hsv<C: Context + ShareTrait>(hsv: &HSV, render_obj: &mut Render
     return define_change;
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for NodeAttrSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for NodeAttrSys<C>{}
+unsafe impl<C: Context + 'static> Sync for NodeAttrSys<C>{}
+unsafe impl<C: Context + 'static> Send for NodeAttrSys<C>{}
 
 impl_system!{
-    NodeAttrSys<C> where [C: Context + ShareTrait],
+    NodeAttrSys<C> where [C: Context + 'static],
     true,
     {
         EntityListener<Node, CreateEvent>

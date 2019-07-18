@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap };
 use hal_core::*;
 use atom::Atom;
@@ -34,7 +34,7 @@ lazy_static! {
     static ref REPEAT: Atom = Atom::from("repeat");
 }
 
-pub struct BorderImageSys<C: Context + ShareTrait>{
+pub struct BorderImageSys<C: Context + 'static>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
@@ -45,7 +45,7 @@ pub struct BorderImageSys<C: Context + ShareTrait>{
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + ShareTrait> BorderImageSys<C> {
+impl<C: Context + 'static> BorderImageSys<C> {
     pub fn new() -> Self{
         BorderImageSys {
             render_map: VecMap::default(),
@@ -61,7 +61,7 @@ impl<C: Context + ShareTrait> BorderImageSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> Runner<'a> for BorderImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -119,7 +119,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BorderImageSys<C>{
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
@@ -132,7 +132,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, C
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
@@ -145,7 +145,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageClip, M
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
@@ -158,7 +158,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, 
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
@@ -171,7 +171,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageSlice, 
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
@@ -184,7 +184,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat,
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
@@ -198,7 +198,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImageRepeat,
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderImage<C>>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -257,7 +257,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, Cr
 }
 
 // 修改渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImage<C>, ModifyEvent> for BorderImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -290,7 +290,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, Mo
 }
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, DeleteEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderImage<C>, DeleteEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -304,7 +304,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderImage<C>, De
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -318,7 +318,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEven
 }
 
 //不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -334,7 +334,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEve
 
 type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -342,7 +342,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -350,7 +350,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> BorderImageSys<C> {
+impl<'a, C: Context + 'static> BorderImageSys<C> {
     fn change_is_opacity(&mut self, _id: usize, opacity: f32, image: &BorderImage<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
@@ -389,11 +389,11 @@ struct Item {
     position_change: bool,
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for BorderImageSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for BorderImageSys<C>{}
+unsafe impl<C: Context + 'static> Sync for BorderImageSys<C>{}
+unsafe impl<C: Context + 'static> Send for BorderImageSys<C>{}
 
 
-pub fn get_border_image_stream<'a, C: Context + 'static + Send + Sync> (
+pub fn get_border_image_stream<'a, C: Context + 'static> (
   img: &BorderImage<C>,
   clip: Option<&BorderImageClip>,
   slice: Option<&BorderImageSlice>,
@@ -503,7 +503,7 @@ fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16){
     index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]);
 }
  
-// fn border_image_geo_hash<C: Context + ShareTrait>(
+// fn border_image_geo_hash<C: Context + 'static>(
 //     img: &BorderImage<C>,
 //     clip: Option<&BorderImageClip>,
 //     slice: Option<&BorderImageSlice>,
@@ -608,7 +608,7 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 
 
 impl_system!{
-    BorderImageSys<C> where [C: Context + ShareTrait],
+    BorderImageSys<C> where [C: Context + 'static],
     true,
     {
         MultiCaseListener<Node, BorderImage<C>, CreateEvent>

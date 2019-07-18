@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 
-use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::*;
 use atom::Atom;
 
@@ -31,7 +31,7 @@ lazy_static! {
     static ref CLIP_TEXTURE_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
-pub struct ClipSys<C: Context + ShareTrait>{
+pub struct ClipSys<C: Context + 'static>{
     mark: PhantomData<C>,
     dirty: bool,
     render_target: Share<<C as Context>::ContextRenderTarget>,
@@ -46,7 +46,7 @@ pub struct ClipSys<C: Context + ShareTrait>{
     sampler: Res<SamplerRes<C>>,
 }
 
-impl<C: Context + ShareTrait> ClipSys<C>{
+impl<C: Context + 'static> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
         let (rs, mut bs, ss, mut ds) = (Share::new(RasterState::new()), BlendState::new(), Share::new(StencilState::new()), DepthState::new());
         
@@ -144,7 +144,7 @@ impl<C: Context + ShareTrait> ClipSys<C>{
     }
 }
 
-impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
+impl<'a, C: Context + 'static> Runner<'a> for ClipSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -252,7 +252,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
 }
 
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
+impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
@@ -269,7 +269,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEv
 }
 
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -317,7 +317,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, Modify
 }
 
 
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -325,8 +325,8 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEve
     }
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for ClipSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for ClipSys<C>{}
+unsafe impl<C: Context + 'static> Sync for ClipSys<C>{}
+unsafe impl<C: Context + 'static> Send for ClipSys<C>{}
 
 
 
@@ -342,7 +342,7 @@ fn next_power_of_two(value: u32) -> u32 {
 }
 
 impl_system!{
-    ClipSys<C> where [C: Context + ShareTrait],
+    ClipSys<C> where [C: Context + 'static],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>

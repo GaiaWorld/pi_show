@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut, Mul};
 
 use map::{vecmap::VecMap};
 use ecs::component::Component;
-use ecs::Share as ShareTrait;
+
 
 use super::user::*;
 use layout::FlexNode;
@@ -76,7 +76,7 @@ pub enum DirtyType{
   ShadowBlur = 0x20000,
 }
 #[derive(Component, Debug)]
-pub struct CharBlock<L: FlexNode + ShareTrait> {
+pub struct CharBlock<L: FlexNode + 'static> {
   pub clazz: TextStyleClazz,
   pub font_size: f32, // 字体高度
   pub line_height: f32,
@@ -94,7 +94,7 @@ pub struct CharBlock<L: FlexNode + ShareTrait> {
   pub modify: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
 }
 #[derive(Debug)]
-pub struct CharNode<L: FlexNode + ShareTrait> {
+pub struct CharNode<L: FlexNode + 'static> {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置

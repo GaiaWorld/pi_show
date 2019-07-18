@@ -8,7 +8,7 @@ use cgmath::One;
 use share::Share;
 use ecs::*;
 use ecs::idtree::IdTree;
-use ecs::Share as ShareTrait;
+
 use component::user::*;
 use component::calc::*;
 use component::calc;
@@ -48,7 +48,7 @@ lazy_static! {
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
 }
 
-pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
+pub fn create_world<C: Context + 'static, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -146,7 +146,7 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world
 }
 
-pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
+pub struct GuiWorld<C: Context + 'static, L: FlexNode> {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -195,7 +195,7 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub world: World,
 }
 
-impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
+impl<C: Context + 'static, L: FlexNode> GuiWorld<C, L> {
     pub fn new(world: World) -> GuiWorld<C, L>{
         GuiWorld{
             node: world.fetch_entity::<Node>().unwrap(),

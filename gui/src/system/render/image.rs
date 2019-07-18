@@ -6,7 +6,7 @@ use share::Share;
 use std::hash::{ Hasher, Hash };
 
 use fxhash::FxHasher32;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
@@ -36,7 +36,7 @@ lazy_static! {
     static ref IMAGE: Atom = Atom::from("image");
 }
 
-pub struct ImageSys<C: Context + ShareTrait>{
+pub struct ImageSys<C: Context + 'static>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
@@ -47,7 +47,7 @@ pub struct ImageSys<C: Context + ShareTrait>{
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + ShareTrait> ImageSys<C> {
+impl<C: Context + 'static> ImageSys<C> {
     pub fn new() -> Self{
         ImageSys {
             render_map: VecMap::default(),
@@ -63,7 +63,7 @@ impl<C: Context + ShareTrait> ImageSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + ShareTrait> Runner<'a> for ImageSys<C>{
+impl<'a, C: Context + 'static> Runner<'a> for ImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -134,7 +134,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ImageSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Image<C>, CreateEvent> for ImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Image<C>>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -195,7 +195,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, CreateEv
 }
 
 // 修改渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Image<C>, ModifyEvent> for ImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, Image<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -225,7 +225,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, ModifyEv
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
@@ -238,7 +238,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, ModifyE
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
@@ -251,7 +251,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, ModifyE
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
@@ -264,7 +264,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ImageClip, CreateE
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
@@ -278,7 +278,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ObjectFit, CreateE
 }
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Image<C>, DeleteEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -292,7 +292,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Image<C>, DeleteEv
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for ImageSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -306,7 +306,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEven
 }
 
 //不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for ImageSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, Image<C>>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -329,7 +329,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, ObjectFit>,
 );
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for ImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -337,14 +337,14 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for ImageSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for ImageSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
         self.modify_matrix(event.id, read.0, read.1, read.2, read.3, read.4, render_objs);
     }
 }
-impl<'a, C: Context + ShareTrait> ImageSys<C> {
+impl<'a, C: Context + 'static> ImageSys<C> {
     fn change_is_opacity(&mut self, _id: usize, opacity: f32, image: &Image<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 {
             false
@@ -415,7 +415,7 @@ fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
 }
 
 //取几何体的顶点流、 uv流和属性流, 如果layout宽高是0， 有bug
-fn get_geo_flow<C: Context + ShareTrait>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+fn get_geo_flow<C: Context + 'static>(radius: &BorderRadius, layout: &Layout, z_depth: f32, image: &Image<C>, image_clip: Option<&ImageClip>, object_fit: Option<&ObjectFit>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     if layout.width - layout.border_left - layout.border_right == 0.0 && layout.height - layout.border_top - layout.border_bottom == 0.0 {
         return (Vec::new(), Vec::new(), Vec::new());
     }
@@ -508,7 +508,7 @@ fn use_layout_pos(uv: Aabb2, layout: &Layout, radius: &Point2, z_depth: f32) -> 
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-fn get_pos_uv<'a, C: Context + 'static + Send + Sync> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Aabb2, Aabb2){
+fn get_pos_uv<'a, C: Context + 'static> (img: &Image<C>, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, layout: &Layout) -> (Aabb2, Aabb2){
     let (size, mut uv1, mut uv2) = match clip {
         Some(c) => {
             let size = Vector2::new(img.src.width as f32 * (c.max.x - c.min.x).abs(), img.src.height as f32 * (c.max.y - c.min.y).abs());
@@ -597,11 +597,11 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){
     }
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for ImageSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for ImageSys<C>{}
+unsafe impl<C: Context + 'static> Sync for ImageSys<C>{}
+unsafe impl<C: Context + 'static> Send for ImageSys<C>{}
 
 impl_system!{
-    ImageSys<C> where [C: Context + ShareTrait],
+    ImageSys<C> where [C: Context + 'static],
     true,
     {
         MultiCaseListener<Node, Image<C>, CreateEvent>

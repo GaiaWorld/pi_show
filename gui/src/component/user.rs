@@ -60,7 +60,7 @@ pub struct BackgroundColor(pub Color);
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
-pub struct Image<C: Context + 'static + Send + Sync>{
+pub struct Image<C: Context + 'static>{
   pub src: Res<TextureRes<C>>
 }
 
@@ -83,7 +83,7 @@ pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
 #[storage(HashMap)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>{
+pub struct BorderImage<C: Context + 'static>{
   pub src: Res<TextureRes<C>>
 }
 

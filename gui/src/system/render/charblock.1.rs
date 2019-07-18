@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
@@ -39,7 +39,7 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
+pub struct CharBlockSys<C: Context + 'static, L: FlexNode + 'static>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<(C, L)>,
@@ -52,7 +52,7 @@ pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
     default_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
+impl<C: Context + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
         let mut ds = DepthState::new();
@@ -76,7 +76,7 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, TextStyle>,
@@ -144,7 +144,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextStyle>,
         &'a MultiCaseImpl<Node, Font>,
@@ -258,7 +258,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 
 // 字体修改， 设置顶点数据脏
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -273,7 +273,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -287,7 +287,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>
@@ -308,7 +308,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>
@@ -329,7 +329,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
@@ -354,7 +354,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
@@ -379,7 +379,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextStyle>,
@@ -415,7 +415,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -423,7 +423,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -431,7 +431,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> CharBlockSys<C, L>{
     fn modify_matrix(
         &self,
         id: usize,
@@ -453,7 +453,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L>{
 }
 
 // //不透明度变化， 修改渲染对象的is_opacity属性
-// impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C, L>{
+// impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C, L>{
 //     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
 //     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
 //     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -467,7 +467,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L>{
 //     }
 // }
 
-// impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
+// impl<'a, C: Context + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
 //     fn change_is_opacity(&mut self, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
 //         let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
 //             false
@@ -485,7 +485,7 @@ struct Item {
     position_change: bool,
 }
 
-fn modify_stroke<C: Context + ShareTrait>(
+fn modify_stroke<C: Context + 'static>(
     item: &mut Item,
     text_style: &TextStyle,
     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
@@ -560,7 +560,7 @@ fn modify_stroke<C: Context + ShareTrait>(
     }   
 }
 
-fn modify_color<C: Context + ShareTrait>(
+fn modify_color<C: Context + 'static>(
     geometry_dirtys: &mut Vec<usize>,
     item: &mut Item,
     id: usize,
@@ -647,7 +647,7 @@ fn modify_color<C: Context + ShareTrait>(
     }
 }
 
-fn modify_font<C: Context + ShareTrait> (
+fn modify_font<C: Context + 'static> (
     id: usize,
     item: &mut Item,
     default_sampler: Res<SamplerRes<C>>,
@@ -724,7 +724,7 @@ fn modify_font<C: Context + ShareTrait> (
 }
 
 // 返回position， uv， color， index
-fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
+fn get_geo_flow<C: Context + 'static, L: FlexNode + 'static>(
     char_block: &CharBlock<L>,
     sdf_font: &Share<dyn SdfFont<Ctx = C>>,
     color: &Color,
@@ -816,7 +816,7 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
     }
 }
 
-fn cal_all_size<C: Context + ShareTrait, L: FlexNode + ShareTrait>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
+fn cal_all_size<C: Context + 'static, L: FlexNode + 'static>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
     let mut start = Point2::new(0.0, 0.0);
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
@@ -959,11 +959,11 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 //     // (positions, uvs, indices)
 // }
 
-unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Sync for CharBlockSys<C, L>{}
-unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Send for CharBlockSys<C, L>{}
+unsafe impl<C: Context + 'static, L: FlexNode + 'static> Sync for CharBlockSys<C, L>{}
+unsafe impl<C: Context + 'static, L: FlexNode + 'static> Send for CharBlockSys<C, L>{}
 
 impl_system!{
-    CharBlockSys<C, L> where [C: Context + ShareTrait, L: FlexNode + ShareTrait],
+    CharBlockSys<C, L> where [C: Context + 'static, L: FlexNode + 'static],
     true,
     {
         MultiCaseListener<Node, CharBlock<L>, CreateEvent>

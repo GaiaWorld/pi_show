@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::monitor::NotifyImpl;
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
@@ -40,7 +40,7 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
+pub struct CharBlockSys<C: Context + 'static, L: FlexNode + 'static>{
     render_map: VecMap<usize>,
     shadow_render_map: VecMap<usize>,
     dirtys: Vec<usize>,
@@ -55,7 +55,7 @@ pub struct CharBlockSys<C: Context + ShareTrait, L: FlexNode + ShareTrait>{
     point_sampler: Option<Res<SamplerRes<C>>>,
 }
 
-impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
+impl<C: Context + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
     pub fn new() -> Self{
         let mut bs = BlendState::new();
         let mut ds = DepthState::new();
@@ -172,7 +172,7 @@ impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> CharBlockSys<C, L> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrixRender>,
@@ -412,7 +412,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for CharB
     }
 }
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -421,7 +421,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -444,7 +444,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 type MatrixRead<'a, L> = (&'a MultiCaseImpl<Node, WorldMatrixRender>, &'a MultiCaseImpl<Node, CharBlock<L>>,);
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
     type ReadData = MatrixRead<'a, L>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -457,7 +457,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
     type ReadData = MatrixRead<'a, L>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -471,7 +471,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 #[inline]
-fn modify_stroke<C: Context + ShareTrait>(
+fn modify_stroke<C: Context + 'static>(
     index: usize,
     text_stroke: &Stroke,
     render_obj: &mut RenderObj<C>,
@@ -519,7 +519,7 @@ fn modify_stroke<C: Context + ShareTrait>(
 }
 
 #[inline]
-fn modify_color<C: Context + ShareTrait>(
+fn modify_color<C: Context + 'static>(
     index: usize,
     color: &Color,
     engine: &mut SingleCaseImpl<Engine<C>>,
@@ -559,7 +559,7 @@ fn modify_color<C: Context + ShareTrait>(
 }
 
 #[inline]
-fn try_modify_font<C: Context + ShareTrait> (
+fn try_modify_font<C: Context + 'static> (
     modify: usize,
     index: usize,
     render_obj: &mut RenderObj<C>,
@@ -602,7 +602,7 @@ fn try_modify_font<C: Context + ShareTrait> (
 }
 
 #[inline]
-fn modify_shadow_color<C: Context + ShareTrait>(
+fn modify_shadow_color<C: Context + 'static>(
     index: usize,
     c: &CgColor,
     notify: &NotifyImpl,
@@ -619,7 +619,7 @@ fn modify_shadow_color<C: Context + ShareTrait>(
 
 // 返回position， uv， color， index
 #[inline]
-fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
+fn get_geo_flow<C: Context + 'static, L: FlexNode + 'static>(
     char_block: &CharBlock<L>,
     sdf_font: &Share<dyn SdfFont<Ctx = C>>,
     color: &Color,
@@ -713,7 +713,7 @@ fn get_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
 
 // 返回position， uv， color， index
 #[inline]
-fn get_shadow_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
+fn get_shadow_geo_flow<C: Context + 'static, L: FlexNode + 'static>(
     char_block: &CharBlock<L>,
     sdf_font: &Share<dyn SdfFont<Ctx = C>>,
     z_depth: f32,
@@ -744,7 +744,7 @@ fn get_shadow_geo_flow<C: Context + ShareTrait, L: FlexNode + ShareTrait>(
 }
 
 #[inline]
-fn cal_all_size<C: Context + ShareTrait, L: FlexNode + ShareTrait>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
+fn cal_all_size<C: Context + 'static, L: FlexNode + 'static>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
     let mut start = Point2::new(0.0, 0.0);
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
@@ -880,11 +880,11 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
     positions.extend_from_slice(&ps[0..12]);
 }
 
-unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Sync for CharBlockSys<C, L>{}
-unsafe impl<C: Context + ShareTrait, L: FlexNode + ShareTrait> Send for CharBlockSys<C, L>{}
+unsafe impl<C: Context + 'static, L: FlexNode + 'static> Sync for CharBlockSys<C, L>{}
+unsafe impl<C: Context + 'static, L: FlexNode + 'static> Send for CharBlockSys<C, L>{}
 
 impl_system!{
-    CharBlockSys<C, L> where [C: Context + ShareTrait, L: FlexNode + ShareTrait],
+    CharBlockSys<C, L> where [C: Context + 'static, L: FlexNode + 'static],
     true,
     {
         MultiCaseListener<Node, CharBlock<L>, ModifyEvent>

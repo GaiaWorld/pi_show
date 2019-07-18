@@ -7,7 +7,7 @@ use std::mem::transmute;
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{Component, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait};
+use ecs::{Component, SingleCaseImpl, MultiCaseImpl};
 use hal_core::{ RasterState, BlendState, StencilState, DepthState, Context, Geometry, SamplerDesc, AttributeName};
 use atom::Atom;
 
@@ -104,7 +104,7 @@ pub fn set_world_matrix_ubo<C: Context + 'static>(
     Share::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
 }
 
-pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + ShareTrait>(
+pub fn by_overflow_change<D: DefinesList + DefinesClip, C: Context + 'static>(
     by_overflow: usize,
     index: usize,
     defines: &mut D,

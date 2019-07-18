@@ -16,7 +16,6 @@ use ecs::{
     monitor::{CreateEvent, DeleteEvent, ModifyEvent},
     component::MultiCaseImpl,
     single::SingleCaseImpl,
-    Share as ShareTrait,
 };
 
 use ROOT;
@@ -40,7 +39,7 @@ type Read<'a, C, L> = (
     &'a MultiCaseImpl<Node, TextStyleClass>);
 type Write<'a, L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>);
 
-pub struct LayoutImpl<C: Context + ShareTrait, L: FlexNode + ShareTrait> {
+pub struct LayoutImpl<C: Context + 'static, L: FlexNode + 'static> {
     dirty: Vec<usize>, 
     temp: Vec<usize>,
     read: usize,
@@ -48,7 +47,7 @@ pub struct LayoutImpl<C: Context + ShareTrait, L: FlexNode + ShareTrait> {
     mark: PhantomData<(C, L)>,
 }
 
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> LayoutImpl< C, L> {
     pub fn new() -> Self{
         LayoutImpl {
             dirty: Vec::new(), 
@@ -91,7 +90,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> LayoutImpl< C, L> {
         }
     }
 }
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for LayoutImpl< C, L> {
   type ReadData = Read<'a, C, L>;
   type WriteData = Write<'a, L>;
 
@@ -119,7 +118,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> Runner<'a> for Layou
 }
 
 // 监听text属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -128,7 +127,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 // 监听text属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -137,7 +136,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 // 监听TextStyleClass属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyleClass, CreateEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyleClass, CreateEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -146,7 +145,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 // 监听TextStyleClass属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyleClass, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyleClass, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -157,7 +156,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 
 // 监听TextStyle属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -178,7 +177,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // 监听Font属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -195,7 +194,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 }
 
 // 监听TextShadow属性的改变
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -211,7 +210,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
     }
 }
 // 监听CharBlock的删除
-impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< C, L> {
+impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< C, L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
@@ -228,7 +227,7 @@ impl<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait> MultiCaseListener<'a
 
 //================================ 内部静态方法
 //回调函数
-extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: L, callback_args: *const c_void) {
+extern "C" fn callback<C: Context + 'static, L: FlexNode + 'static>(node: L, callback_args: *const c_void) {
     //更新布局
     let b = node.get_bind() as usize;
     let id = node.get_context() as usize;
@@ -264,7 +263,7 @@ extern "C" fn callback<C: Context + ShareTrait, L: FlexNode + ShareTrait>(node: 
 }
 
 // 文字布局更新
-fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
+fn update<'a, L: FlexNode + 'static>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
     let layout = node.get_layout();
     let mut pos = Point2{x: layout.left, y: layout.top};
     node = node.get_parent();
@@ -279,7 +278,7 @@ fn update<'a, L: FlexNode + ShareTrait>(mut node: L, id: usize, char_index: usiz
     cn.pos = pos;
 }
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {;
+fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<C, L>, write: &mut Write<L>) -> bool {;
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
     let yoga = unsafe { read.2.get_unchecked(id).clone() };
     let parent_yoga = yoga.get_parent();
@@ -540,7 +539,7 @@ fn calc<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, read: 
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
+fn update_char<C: Context + 'static, L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
     let i = *index;
     if i < cb.chars.len() {
         let cn = &cb.chars[i];
@@ -571,7 +570,7 @@ fn update_char<C: Context + ShareTrait, L: FlexNode + ShareTrait>(id: usize, cb:
     node
 }
 // 设置节点的宽高
-fn set_node<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>, node: L) -> L {
+fn set_node<C: Context + 'static, L: FlexNode + 'static>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>, node: L) -> L {
     if c > ' ' {
         w = font.measure(&cb.clazz.font.family, cb.font_size, c);
         node.set_width(w + cb.clazz.style.letter_spacing);
@@ -601,7 +600,7 @@ struct Calc {
     word: usize,
 }
 
-fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, text: &'a str, font: &FontSheet<C>) {
+fn calc_text<'a, C: Context + 'static, L: FlexNode + 'static>(cb: &mut CharBlock<L>, text: &'a str, font: &FontSheet<C>) {
     let mut calc = Calc{
         index: 0,
         pos: Point2::default(),
@@ -664,7 +663,7 @@ fn calc_text<'a, C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Cha
     cb.wrap_size = cb.size;
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>,  calc: &mut Calc) {
+fn update_char1<C: Context + 'static, L: FlexNode + 'static>(cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet<C>,  calc: &mut Calc) {
     if calc.index < cb.chars.len() {
         // let line_height = cb.line_height;
         let cn = &cb.chars[calc.index];
@@ -693,7 +692,7 @@ fn update_char1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut Char
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
+fn set_node1<C: Context + 'static, L: FlexNode + 'static>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
     if c as u32 == 0 {
     } else if c > ' ' {
         w = font.measure(&cb.clazz.font.family, cb.font_size, c);
@@ -717,7 +716,7 @@ fn set_node1<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cb: &mut CharBlo
 }
 
 // 设置节点的宽高
-fn set_node2<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cn: &CharNode<L>, line_height: f32,  c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
+fn set_node2<C: Context + 'static, L: FlexNode + 'static>(cn: &CharNode<L>, line_height: f32,  c: char, mut w: f32, font: &FontSheet<C>,  calc: &mut Calc) -> f32 {
     calc.pos.y = cn.pos.y;
     if c as u32 == 0 {
     } else if c > ' ' {
@@ -737,7 +736,7 @@ fn set_node2<C: Context + ShareTrait, L: FlexNode + ShareTrait>(cn: &CharNode<L>
     w
 }
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改cb.pos
-fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Layout) {
+fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, layout: &Layout) {
     let x = layout.border_left + layout.padding_left;
     let w = layout.width - x - layout.border_right - layout.padding_right;
     let y = layout.border_top + layout.padding_top;
@@ -793,7 +792,7 @@ fn calc_wrap_align<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, layout: &Lay
         _ => (),
     };
 }
-fn wrap_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
+fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
     let (end, mut start, mut word_count, line_width) = line_info(cb, line);
     let mut x_fix = 0.0;
     let mut w = 0.0;
@@ -862,7 +861,7 @@ fn wrap_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, line: usize, limit
     // };
     0.0
 }
-fn align_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start, _, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32, get_x_fix: fn(f32, f32) -> f32) {
+fn align_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, (end, mut start, _, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32, get_x_fix: fn(f32, f32) -> f32) {
     let fix = get_x_fix(limit_width, line_width) + x_fix;
     if y_fix > 0.0 {
         while start < end {
@@ -878,7 +877,7 @@ fn align_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start, 
         }
     }
 }
-fn justify_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start, word_count, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32) {
+fn justify_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, (end, mut start, word_count, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32) {
     if word_count == 1 {
         unsafe {cb.chars.get_unchecked_mut(start)}.pos.x += (limit_width - line_width)/2.0;
         return;
@@ -900,7 +899,7 @@ fn justify_line<L: FlexNode + ShareTrait>(cb: &mut CharBlock<L>, (end, mut start
         }
     }
 }
-fn line_info<L: FlexNode + ShareTrait>(cb: &CharBlock<L>, line: usize) -> (usize, usize, usize, f32) {
+fn line_info<L: FlexNode + 'static>(cb: &CharBlock<L>, line: usize) -> (usize, usize, usize, f32) {
     if line >= cb.lines.len() {
         (cb.chars.len(), cb.last_line.0, cb.last_line.1, cb.last_line.2)
     }else if line + 1 >= cb.lines.len(){
@@ -921,7 +920,7 @@ fn get_right_fix(limit_width: f32, line_width: f32) -> f32 {
 }
 
 impl_system!{
-    LayoutImpl<C, L> where [C: Context + ShareTrait, L: FlexNode + ShareTrait],
+    LayoutImpl<C, L> where [C: Context + 'static, L: FlexNode + 'static],
     true,
     {
         MultiCaseListener<Node, Text, CreateEvent>

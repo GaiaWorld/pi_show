@@ -702,8 +702,8 @@ impl DrawTextSys {
                 None => continue,
             };
             let font = match fonts.get(*id) {
-                Some(r) => r,
-                None => {
+                Some(r) if r.family.as_ref() != "" => r,
+                _ => {
                     match text_style_class.get(*id) {
                         Some(text_style_class_id) => match text_style_class_map.0.get(text_style_class_id) {
                             Some(text_style_class) => &text_style_class.font,

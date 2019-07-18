@@ -197,19 +197,19 @@ impl NodeRenderMap {
     }
 }
 
-pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
-pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
-pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
+pub struct ClipUbo<C: Context + 'static>(pub Share<Uniforms<C>>);
+pub struct ViewUbo<C: Context + 'static>(pub Share<Uniforms<C>>);
+pub struct ProjectionUbo<C: Context + 'static>(pub Share<Uniforms<C>>);
 pub struct RenderBegin(pub Share<RenderBeginDesc>);
 
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
+unsafe impl<C: Context + 'static> Sync for ClipUbo<C> {}
+unsafe impl<C: Context + 'static> Send for ClipUbo<C> {}
 
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ViewUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
+unsafe impl<C: Context + 'static> Sync for ViewUbo<C> {}
+unsafe impl<C: Context + 'static> Send for ViewUbo<C> {}
 
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
+unsafe impl<C: Context + 'static> Sync for ProjectionUbo<C> {}
+unsafe impl<C: Context + 'static> Send for ProjectionUbo<C> {}
 
 unsafe impl Sync for RenderBegin {}
 unsafe impl Send for RenderBegin {}
@@ -221,33 +221,33 @@ impl DefaultTable {
         Self(FxHashMap32::default())
     }
 
-    pub fn set<T: 'static + Any + Sync + Send>(&mut self, value: T){
+    pub fn set<T: 'static + Any>(&mut self, value: T){
         self.0.insert(TypeId::of::<T>(), Box::new(value));
     }
 
-    pub fn get<T: 'static + Any + Sync + Send>(&self) -> Option<&T>{
+    pub fn get<T: 'static + Any>(&self) -> Option<&T>{
         match self.0.get(&TypeId::of::<T>()) {
             Some(r) => r.downcast_ref::<T>(),
             None => None
         }
     }
 
-    pub fn get_mut<T: 'static + Any + Sync + Send>(&mut self) -> Option<&mut T>{
+    pub fn get_mut<T: 'static + Any>(&mut self) -> Option<&mut T>{
         match self.0.get_mut(&TypeId::of::<T>()) {
             Some(r) => r.downcast_mut::<T>(),
             None => None
         }
     }
 
-    pub fn get_unchecked<T: 'static + Any + Sync + Send>(&self) -> &T{
+    pub fn get_unchecked<T: 'static + Any>(&self) -> &T{
         self.0.get(&TypeId::of::<T>()).unwrap().downcast_ref::<T>().unwrap()
     }
 
-    pub fn get_unchecked_mut<T: 'static + Any + Sync + Send>(&mut self) -> &mut T{
+    pub fn get_unchecked_mut<T: 'static + Any>(&mut self) -> &mut T{
         self.0.get_mut(&TypeId::of::<T>()).unwrap().downcast_mut::<T>().unwrap()
     }
 
-    pub fn delete<T: 'static + Any + Sync + Send>(&mut self){
+    pub fn delete<T: 'static + Any>(&mut self){
         self.0.remove(&TypeId::of::<T>());
     }
 }

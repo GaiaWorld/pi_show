@@ -8,7 +8,7 @@ use std::hash::{ Hasher, Hash };
 use fxhash::FxHasher32;
 use ordered_float::NotNan;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
 use polygon::*;
@@ -34,7 +34,7 @@ lazy_static! {
     static ref GRADUAL: Atom = Atom::from("gradual_change");
 }
 
-pub struct BackgroundColorSys<C: Context + ShareTrait>{
+pub struct BackgroundColorSys<C: Context + 'static>{
     items: Items,
     mark: PhantomData<C>,
     rs: Share<RasterState>,
@@ -44,7 +44,7 @@ pub struct BackgroundColorSys<C: Context + ShareTrait>{
     default_pipeline: Option<Share<PipelineInfo>>,
 }
 
-impl<C: Context + ShareTrait> BackgroundColorSys<C> {
+impl<C: Context + 'static> BackgroundColorSys<C> {
     pub fn new() -> Self{
         BackgroundColorSys {
             items: Items::new(),
@@ -69,7 +69,7 @@ impl<C: Context + ShareTrait> BackgroundColorSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
-impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> Runner<'a> for BackgroundColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -133,7 +133,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BackgroundColorSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for BackgroundColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BackgroundColor>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -212,7 +212,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, C
 }
 
 // 修改渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, BackgroundColor>, &'a MultiCaseImpl<Node, Opacity>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -260,7 +260,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, M
 }
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -274,7 +274,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BackgroundColor, D
 }
 
 //圆角修改， 需要重新计算世界矩阵和顶点流
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -283,7 +283,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEven
 }
 
 //圆角修改， 需要重新计算世界矩阵和顶点流
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -292,7 +292,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BorderRadius, Modi
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BackgroundColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -308,7 +308,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, BorderRadius>,
 );
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BackgroundColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -316,7 +316,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BackgroundColorSys<C>{
+impl<'a, C: Context + 'static> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BackgroundColorSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -324,7 +324,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> BackgroundColorSys<C> {
+impl<'a, C: Context + 'static> BackgroundColorSys<C> {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BackgroundColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         if let Some(item) = self.items.render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
@@ -500,11 +500,11 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
     return true;
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for BackgroundColorSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for BackgroundColorSys<C>{}
+unsafe impl<C: Context + 'static> Sync for BackgroundColorSys<C>{}
+unsafe impl<C: Context + 'static> Send for BackgroundColorSys<C>{}
 
 impl_system!{
-    BackgroundColorSys<C> where [C: Context + ShareTrait],
+    BackgroundColorSys<C> where [C: Context + 'static],
     true,
     {
         MultiCaseListener<Node, BackgroundColor, CreateEvent>

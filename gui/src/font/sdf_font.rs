@@ -55,6 +55,7 @@ pub trait SdfFont {
 //     // fn gen_mult(&self, chars: &[char]) -> Vec<Glyph>;
 // }
 
+#[derive(Debug)]
 pub struct GlyphInfo{
     pub width: f32,
     pub height: f32,
@@ -67,7 +68,7 @@ pub struct GlyphInfo{
     pub adv: f32,
 }
 
-pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
+pub struct DefaultSdfFont<C: Context + 'static> {
     pub name: Atom,
     line_height: f32,
     atlas_width: usize,
@@ -82,7 +83,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     weight: f32,
 }
 
-impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
+impl<C: Context + 'static> SdfFont for DefaultSdfFont<C> { 
     type Ctx = C;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
@@ -187,7 +188,7 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
+impl<C: Context + 'static> DefaultSdfFont<C> {
     pub fn new(texture: Res<TextureRes<C>>, dyn_type: usize) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
@@ -231,7 +232,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
+impl<C: Context + 'static> DefaultSdfFont<C> {
     pub fn parse(&mut self, value: &[u8]) -> Result<(), String>{
         let mut offset = 12;
         match String::from_utf8(Vec::from(&value[0..11])) {

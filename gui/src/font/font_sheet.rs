@@ -14,16 +14,16 @@ pub const FONT_SIZE: f32 = 32.0;
 
 
 /// 字体表 使用SDF(signed distance field 有向距离场)渲染字体， 支持预定义字体纹理及配置， 也支持动态计算字符的SDF
-pub struct FontSheet<C: Context + 'static + Send + Sync> {
+pub struct FontSheet<C: Context + 'static> {
     size: f32,
     color: CgColor,
     src_map: FxHashMap32<Atom, Share<dyn SdfFont<Ctx=C>>>,
     face_map: FxHashMap32<Atom, FontFace>,
 }
-unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
-unsafe impl<C: Context + 'static + Send + Sync> Send for FontSheet<C>{}
+unsafe impl<C: Context + 'static> Sync for FontSheet<C>{}
+unsafe impl<C: Context + 'static> Send for FontSheet<C>{}
 
-impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
+impl<C: Context + 'static> Default for FontSheet<C> {
     fn default() -> Self {
         FontSheet {
             size: FONT_SIZE,
@@ -34,7 +34,7 @@ impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
+impl<C: Context + 'static>  FontSheet<C> {
     // 设置默认字号
     pub fn set_size(&mut self, size: f32) {
         self.size = size;
