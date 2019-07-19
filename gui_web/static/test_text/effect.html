@@ -1,0 +1,123 @@
+<!--
+// 2019/7/10, 文字计算和绘制批处理
+cal text canvas---------------395µs
+gui_web.js:1 run------505µs
+gui_web.js:1 run------4.965ms
+gui_web.js:1 run------170µs
+gui_web.js:1 run------5µs
+gui_web.js:1 run------0ns
+gui_web.js:1 run------175.001µs
+gui_web.js:1 run------5µs
+gui_web.js:1 run------0ns
+gui_web.js:1 run------5µs
+gui_web.js:1 run------0ns
+gui_web.js:1 run------0ns
+gui_web.js:1 run------13.305ms
+gui_web.js:1 run------5µs
+gui_web.js:1 run------0ns
+gui_web.js:1 run------4.59ms
+gui_web.js:1 time----------26.83ms 
+-->
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="../shader/clip.js"></script>
+    <script src="../shader/color.js"></script>
+    <script src="../shader/image.js"></script>
+    <script src="../shader/text.js"></script>
+    <script src="../shader/canvas_text.js"></script>
+    <script src="../shader/init.js"></script>
+    <script>
+        var gui = Module._create_gui(engine, 1000, 700);
+        var offset = 0;
+
+        var version = "GLYPL_TABLE";
+        var font = "200 28px arial";
+        var cfg_u8 = new Uint8Array(49);
+        for (var i = 0; i < version.length; i++) {
+            cfg_u8[offset++] = version.charCodeAt(i);
+        }
+        offset++;
+
+        cfg_u8[offset++] = font.length;    
+        for (var i = 0; i < font.length; i++) {
+            cfg_u8[offset++] = font.charCodeAt(i);
+        }
+        cfg_u8[offset++] = 31; // lineheight
+
+        var buffer1 = new ArrayBuffer(8);
+        var u16 = new Uint16Array(buffer1);
+        u16[0] = 1024; //width
+        u16[1] = 1024; //height
+        u16[2] = 28; // font_size
+        u16[3] = 0; //stroke_width 
+        cfg_u8.set(new Uint8Array(buffer1), offset);
+
+        var body = Module._create_node(gui);
+        Module._set_width(gui, body, 1000);
+        Module._set_height(gui, body, 700);
+        Module._append_child(gui, body, 1);
+
+        window.__jsObj = cfg_u8;
+        window.__jsObj2 = "36779_37232.png";
+        window.__jsObj1 = document.createElement("canvas");
+        window.__jsObj1.width = 1024;
+        window.__jsObj1.height = 1024;
+        var sdf_font = Module._add_sdf_font_res(gui, 16); //__jsObj: uv cfg, __jsObj1: image, __jsObj2: 字体资源纹理名称， 用于标识唯一的纹理资源
+
+        window.__jsObj = "common"; //font_face_name
+        window.__jsObj1 = "200 28px arial";
+        Module._add_font_face(gui, 0, 26, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
+
+        for (var i = 0; i < 10; i++) {
+            var ce = Module._create_text_node(gui);
+            window.__jsObj = "common";
+            Module._set_font_family(gui, ce);
+            Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
+            Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            window.__jsObj = "测试一下";
+            Module._set_text_content(gui, ce); // 文字内容
+            // Module._set_letter_spacing(gui, ce, 0); // 字符间距
+            Module._append_child(gui, ce, body);
+        }
+        
+        Module._render(gui);
+
+        // for (var i = 0; i < 5; i++) {
+        //     var ce = Module._create_node(gui);
+        //     Module._set_width(gui, ce, 90); // 文字内容
+        //     Module._set_height(gui, ce, 90); // 文字内容
+        //     Module._append_child(gui, ce, body);
+        // }
+
+        console.log("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+        for (var i = 0; i < 100; i++) {
+            var ce = Module._create_text_node(gui);
+            window.__jsObj = "common";
+            Module._set_font_family(gui, ce);
+            Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
+            // Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+            window.__jsObj = "测测测测测测测测测测";
+            Module._set_text_content(gui, ce); // 文字内容
+            // Module._set_letter_spacing(gui, ce, 0); // 字符间距
+            Module._append_child(gui, ce, body);
+        }
+
+        Module._render(gui);
+        render_fram();        
+    </script> 
+</body>
+</html>

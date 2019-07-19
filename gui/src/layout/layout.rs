@@ -63,12 +63,16 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn get_layout_margin(&self, edge: YGEdge) -> f32;
     fn get_layout_border(&self, edge: YGEdge) -> f32;
     fn get_layout_padding(&self, edge: YGEdge) -> f32;
+    fn get_style_width_unit(&self) -> YGUnit;
+    fn get_style_justify(&self) -> YGJustify;
+    fn get_style_align_content(&self) -> YGAlign;
+    fn get_style_align_items(&self) -> YGAlign;
+    fn get_style_width_value(&self) -> f32;
     fn free(&self);
     fn free_recursive(&self);
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGAlign {
     YGAlignAuto = 0,
     YGAlignFlexStart = 1,
@@ -80,30 +84,27 @@ pub enum YGAlign {
     YGAlignSpaceAround = 7,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGDimension {
     YGDimensionWidth = 0,
     YGDimensionHeight = 1,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGDirection {
     YGDirectionInherit = 0,
     YGDirectionLTR = 1,
     YGDirectionRTL = 2,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGDisplay {
     YGDisplayFlex = 0,
     YGDisplayNone = 1,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGEdge {
     YGEdgeLeft = 0,
     YGEdgeTop = 1,
@@ -116,14 +117,13 @@ pub enum YGEdge {
     YGEdgeAll = 8,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGExperimentalFeature {
     YGExperimentalFeatureWebFlexBasis = 0,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGFlexDirection {
     YGFlexDirectionColumn = 0,
     YGFlexDirectionColumnReverse = 1,
@@ -131,8 +131,7 @@ pub enum YGFlexDirection {
     YGFlexDirectionRowReverse = 3,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGJustify {
     YGJustifyFlexStart = 0,
     YGJustifyCenter = 1,
@@ -142,8 +141,7 @@ pub enum YGJustify {
     YGJustifySpaceEvenly = 5,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGLogLevel {
     YGLogLevelError = 0,
     YGLogLevelWarn = 1,
@@ -153,46 +151,40 @@ pub enum YGLogLevel {
     YGLogLevelFatal = 5,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGMeasureMode {
     YGMeasureModeUndefined = 0,
     YGMeasureModeExactly = 1,
     YGMeasureModeAtMost = 2,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum FlexNodeType {
     FlexNodeTypeDefault = 0,
     FlexNodeTypeText = 1,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGOverflow {
     YGOverflowVisible = 0,
     YGOverflowHidden = 1,
     YGOverflowScroll = 2,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGPositionType {
     YGPositionTypeRelative = 0,
     YGPositionTypeAbsolute = 1,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGPrintOptions {
     YGPrintOptionsLayout = 1,
     YGPrintOptionsStyle = 2,
     YGPrintOptionsChildren = 4,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGUnit {
     YGUnitUndefined = 0,
     YGUnitPoint = 1,
@@ -200,8 +192,7 @@ pub enum YGUnit {
     YGUnitAuto = 3,
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGWrap {
     YGWrapNoWrap = 0,
     YGWrapWrap = 1,

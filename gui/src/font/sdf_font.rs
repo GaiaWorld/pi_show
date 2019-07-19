@@ -2,17 +2,15 @@ use std::mem::transmute;
 
 use fnv::FnvHashMap;
 
-use hal_core::{Context};
 use data_view::GetView;
 use atom::Atom;
+use share::Share;
 
 use render::res::TextureRes;
-use util::res_mgr::Res;
 // use font::FontMeasure;
 // pub const FONT_FACTOR: f32 = 1.3198;
 
 pub trait SdfFont {
-    type Ctx: Context + 'static;
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32;
 
@@ -28,7 +26,7 @@ pub trait SdfFont {
 
     fn font_size(&self) -> f32;
     
-    fn texture(&self) -> &Res<TextureRes<Self::Ctx>>;
+    fn texture(&self) -> &Share<TextureRes>;
 
     fn distance_for_pixel(&self, font_size: f32) -> f32;
 
@@ -66,14 +64,14 @@ pub struct GlyphInfo{
     pub adv: f32,
 }
 
-pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
+pub struct DefaultSdfFont {
     pub name: Atom,
     line_height: f32,
     atlas_width: usize,
     atlas_height: usize,
     padding: f32,
     pub glyph_table: FnvHashMap<char, Glyph>,
-    texture: Res<TextureRes<C>>,
+    texture: Share<TextureRes>,
     dyn_type: usize,
     curr_uv: (f32, f32),
     stroke_width: f32,
@@ -81,8 +79,7 @@ pub struct DefaultSdfFont<C: Context + 'static + Send + Sync> {
     weight: f32,
 }
 
-impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> { 
-    type Ctx = C;
+impl SdfFont for DefaultSdfFont { 
     // 同步计算字符宽度的函数, 返回0表示不支持该字符，否则返回该字符的宽度
     fn measure(&self, font_size: f32, c: char) -> f32 {
         match self.glyph_table.get(&c) {
@@ -181,13 +178,13 @@ impl<C: Context + 'static + Send + Sync> SdfFont for DefaultSdfFont<C> {
 
 
     #[inline]
-    fn texture(&self) -> &Res<TextureRes<C>> {
+    fn texture(&self) -> &Share<TextureRes> {
         &self.texture
     }
 }
 
-impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
-    pub fn new(texture: Res<TextureRes<C>>, dyn_type: usize) -> Self{
+impl DefaultSdfFont {
+    pub fn new(texture: Share<TextureRes>, dyn_type: usize) -> Self{
         DefaultSdfFont {
             name: Atom::from(""),
             line_height: 0.0,
@@ -211,7 +208,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
         atlas_height: usize,
         padding: f32,
         glyph_table: FnvHashMap<char, Glyph>,
-        texture: Res<TextureRes<C>>,
+        texture: Share<TextureRes>,
     ) -> Self{
         DefaultSdfFont {
             name,
@@ -230,7 +227,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
+impl DefaultSdfFont {
     pub fn parse(&mut self, value: &[u8]) -> Result<(), String>{
         let mut offset = 12;
         match String::from_utf8(Vec::from(&value[0..11])) {
@@ -308,7 +305,7 @@ impl<C: Context + 'static + Send + Sync> DefaultSdfFont<C> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Glyph {
     pub id: char,
     pub x: f32,

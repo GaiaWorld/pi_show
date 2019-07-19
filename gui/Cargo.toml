@@ -19,6 +19,7 @@ slab = {path="../../pi_lib/slab"}
 util = {path="../../pi_lib/util"}
 map = {path="../../pi_lib/map"}
 hashmap = {path="../../pi_lib/hashmap"}
+fx_hashmap = {path="../../pi_lib/fx_hashmap"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
 atom = {path="../../pi_lib/atom"}
@@ -27,7 +28,8 @@ data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
 dirty = {path="../../pi_lib/dirty"}
 hal_core = {path="../hal_core"}
-polygon = {path="../../pi_math/polygon"}
+hal_derive = {path="../hal_derive"}
+polygon = {path="../../pi_math_hal/polygon"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
@@ -36,6 +38,7 @@ derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 ordered-float = { version = "1.0", default-features = false }
+fxhash = "0.2.1"
 
 [features]
 default = ["warning"]

@@ -10,6 +10,7 @@ ecs = {path="../../pi_lib/ecs"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }
 debug_info = { path = "../../pi_lib/debug_info" }
+fx_hashmap = { path = "../../pi_lib/fx_hashmap" }
 hal_webgl = {path="../hal_webgl"}
 hal_core = {path="../hal_core"}
 serde = { version = "1.0", features = ["derive"] }
@@ -17,15 +18,17 @@ cg2d = { path = "../../pi_math/cg2d" }
 color = { path = "../../pi_math/color" }
 cgmath = { path = "../../pi_math/cgmath" }
 octree = { path = "../../pi_math/octree" }
-gui = {path="../gui"} #, features = ["performance"]
-stdweb = "0.4.15"
+gui = {path="../gui", features = ["web"]} #, features = ["performance"]
+stdweb = "0.4"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
-lazy_static = "*"
+lazy_static = "1"
+serde_derive = "1"
 paste = "0.1"
+ordered-float = "1.0"
 
-[profile.release]
-lto = true
-opt-level ="z"
-panic = 'abort'
-codegen-units = 1
+# [profile.release]
+# lto = true
+# opt-level = "z"
+# panic = 'abort'
+# codegen-units = 1

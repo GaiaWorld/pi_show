@@ -1,8 +1,9 @@
 
 use atom::Atom;
-use hal_core::{Context};
+use hal_core::*;
 
-use util::res_mgr::{ ResTrait, Release};
+use util::res_mgr::{ Res };
+use share::Share;
 // use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
 #[derive(Debug, Clone, Copy)]
@@ -31,13 +32,12 @@ pub enum Compress {
 }
 
 #[derive(Debug)]
-pub struct TextureRes<C: Context> {
-    pub name: Atom,
+pub struct TextureRes {
     pub width: usize,
     pub height: usize,
     pub opacity: Opacity,
     pub compress: Compress,
-    pub bind: C::ContextTexture,
+    pub bind: HalTexture,
 }
 
 // impl<> fmt::Debug for Point {
@@ -46,11 +46,10 @@ pub struct TextureRes<C: Context> {
 //     }
 // }
 
-impl<C: Context + 'static> TextureRes<C> {
+impl TextureRes {
     // 创建资源
-	pub fn new(key: Atom, width: usize,height: usize, opacity: Opacity, compress: Compress, bind: C::ContextTexture) -> Self{
+	pub fn new(width: usize,height: usize, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
         TextureRes {
-            name: key,
             width: width,
             height: height,
             opacity: opacity,
@@ -60,95 +59,39 @@ impl<C: Context + 'static> TextureRes<C> {
     }
 }
 
-impl<C: Context + 'static> ResTrait for TextureRes<C> {
+impl Res for TextureRes {
     type Key = Atom;
-	// 创建资源
-	fn name(&self) -> &Self::Key{
-        &self.name
-    }
 }
 
-impl<C: Context + 'static> Release for TextureRes<C> {}
+pub type SamplerRes = HalSampler;
 
-impl<C: Context + 'static> AsRef<<C as Context>::ContextTexture> for TextureRes<C> {
-    fn as_ref(&self) -> &<C as Context>::ContextTexture{
-        &self.bind
-    }
-}
+pub type ProgramRes = HalProgram;
 
-#[derive(Debug)]
-pub struct SamplerRes<C: Context + 'static> {
-    pub name: u64,
-    pub bind: C::ContextSampler,
-}
-
-impl<C: Context + 'static> SamplerRes<C> {
-    // 创建资源
-	pub fn new(key: u64, bind: C::ContextSampler) -> Self{
-        SamplerRes {
-            name: key,
-            bind: bind,
-        }
-    }
-}
-
-impl<C: Context + 'static> ResTrait for SamplerRes<C> {
+impl Res for SamplerRes {
     type Key = u64;
-	// 创建资源
-	fn name(&self) -> &Self::Key{
-        &self.name
-    }
 }
 
-impl<C: Context + 'static> AsRef<<C as Context>::ContextSampler> for SamplerRes<C> {
-    fn as_ref(&self) -> &<C as Context>::ContextSampler{
-        &self.bind
-    }
+pub struct GeometryRes {
+    pub geo: HalGeometry,
+    pub buffers: Vec<Share<HalBuffer>>,
 }
 
-impl<C: Context + 'static> Release for SamplerRes<C> {}
-
-#[derive(Debug)]
-pub struct GeometryRes<C: Context + 'static> {
-    pub name: u64,
-    pub bind: C::ContextGeometry,
-}
-
-impl<C: Context + 'static> Release for GeometryRes<C> {}
-
-impl<C: Context + 'static> ResTrait for GeometryRes<C> {
+impl Res for GeometryRes {
     type Key = u64;
-	// 创建资源
-	fn name(&self) -> &Self::Key{
-        &self.name
-    }
 }
 
-impl<C: Context + 'static> AsRef<<C as Context>::ContextGeometry> for GeometryRes<C> {
-    fn as_ref(&self) -> &<C as Context>::ContextGeometry{
-        &self.bind
-    }
+impl Res for HalRasterState {
+    type Key = u64;
 }
 
+impl Res for HalBlendState {
+    type Key = u64;
+}
 
+impl Res for HalStencilState {
+    type Key = u64;
+}
 
-// pub struct ResMgr<C: Context> {
-//     pub textures: ResMap<TextureRes<C>>,
-//     pub samplers: ResMap<SamplerRes<C>>,
-// }
-
-// impl<C: Context> ResMgr<C> {
-//     pub fn new() -> Self{
-//         ResMgr{
-//             textures: ResMap::new(),
-//             samplers: ResMap::new(),
-//         }
-//     }
-// }
-
-unsafe impl<C: Context> Sync for TextureRes<C> {}
-unsafe impl<C: Context> Send for TextureRes<C> {}
-unsafe impl<C: Context> Sync for SamplerRes<C> {}
-unsafe impl<C: Context> Send for SamplerRes<C> {}
-unsafe impl<C: Context> Sync for GeometryRes<C> {}
-unsafe impl<C: Context> Send for GeometryRes<C> {}
+impl Res for HalDepthState {
+    type Key = u64;
+}

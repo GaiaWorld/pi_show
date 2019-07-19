@@ -36,7 +36,7 @@ unsafe impl Send for ReleaseArray{}
 unsafe impl Sync for ReleaseArray{}
 //资源接口
 pub trait ResTrait: Release {
-    type Key: Hash + Eq + Clone + Send + 'static + Sync;
+    type Key: Hash + Eq + Clone + 'static;
 	// 获得资源的唯一名称
 	fn name(&self) -> &Self::Key;
 	// 判断是否存活
@@ -45,7 +45,7 @@ pub trait ResTrait: Release {
 	//fn create(&mut self) -> bool;
 }
 
-pub trait Release: Send + 'static + Sync {}
+pub trait Release: 'static {}
 
 pub struct Res<R: ResTrait, T: Timer>{
     timeout: u32,

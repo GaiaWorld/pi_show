@@ -41,7 +41,6 @@ use std::mem::transmute;
 use stdweb::unstable::TryInto;
 use stdweb::Object;
 use webgl_rendering_context::{WebGLRenderingContext};
-use ordered_float::OrderedFloat;
 
 use share::Share;
 use atom::Atom;
@@ -50,12 +49,14 @@ use hal_core::*;
 use ecs::{ LendMut, Lend};
 use gui::layout::{ YGAlign, FlexNode };
 use gui::world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
-use gui::component::user::*;
+use gui::component::user::{ BorderRadius, LengthUnit };
 use gui::component::calc::Visibility;
 use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
+use text::{ DrawTextSys, define_draw_canvas};
+use ordered_float::OrderedFloat;
 
 
 pub mod class;
@@ -70,7 +71,6 @@ pub mod bc;
 pub mod world;
 
 use bc::YgNode;
-use text::{ DrawTextSys, define_draw_canvas};
 
 pub struct GuiWorld {
     pub gui: GuiWorld1<WebglHalContext, YgNode>,
@@ -99,23 +99,22 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
     let world = create_world::<_, YgNode>(engine, width, height);
     let world =  GuiWorld1::<WebglHalContext, YgNode>::new(world);
-    // let idtree = world.idtree.lend_mut();
-    // let node = world.node.lend_mut().create();
-    // let border_radius = world.border_radius.lend_mut();
-    // border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
-    // // world.class_name.lend_mut().insert(node, ClassName(0));
+    let idtree = world.idtree.lend_mut();
+    let node = world.node.lend_mut().create();
+    let border_radius = world.border_radius.lend_mut();
+    border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
 
-    // let visibilitys = world.visibility.lend_mut();
-    // visibilitys.insert(node, Visibility(true));
+    let visibilitys = world.visibility.lend_mut();
+    visibilitys.insert(node, Visibility(true));
 
-    // let ygnode = world.yoga.lend_mut();
-    // let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
-    // ygnode.set_width(width);
-    // ygnode.set_height(height);
-    // ygnode.set_align_items(YGAlign::YGAlignFlexStart);
+    let ygnode = world.yoga.lend_mut();
+    let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
+    ygnode.set_width(width);
+    ygnode.set_height(height);
+    ygnode.set_align_items(YGAlign::YGAlignFlexStart);
 
-    // idtree.create(node);
-    // idtree.insert_child(node, 0, 0, None);
+    idtree.create(node);
+    idtree.insert_child(node, 0, 0, None);
     let world = GuiWorld{
         gui: world,
         draw_text_sys: DrawTextSys::new(),

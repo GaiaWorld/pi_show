@@ -71,51 +71,51 @@ impl FlexNode for YgNode {
         self.0.is_null()
     }
     fn set_position_type(&self, value: YGPositionType) { 
-        yoga::yg_node_style_set_position_type(self.0, unsafe { transmute(value) })
+        yoga::yg_node_style_set_position_type(self.0, unsafe { transmute(value as u32) })
     }
     fn set_position(&self, edge: YGEdge, position: f32) { 
-        yoga::yg_node_style_set_position(self.0, unsafe { transmute(edge) }, position * 100.0);
+        yoga::yg_node_style_set_position(self.0, unsafe { transmute(edge as u32) }, position * 100.0);
     }
     fn set_position_percent(&self, edge: YGEdge, position: f32) {
-        yoga::yg_node_style_set_position_percent(self.0, unsafe { transmute(edge) }, position);
+        yoga::yg_node_style_set_position_percent(self.0, unsafe { transmute(edge as u32) }, position);
     }
 
     fn set_align_content(&self, value: YGAlign) {
-        yoga::yg_node_style_set_align_content(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_align_content(self.0, unsafe { transmute(value as u32) });
     }
 
     fn set_align_items(&self, value: YGAlign) { 
-        yoga::yg_node_style_set_align_items(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_align_items(self.0, unsafe { transmute(value as u32) });
     }
 
     fn set_align_self(&self, value: YGAlign) { 
-        yoga::yg_node_style_set_align_self(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_align_self(self.0, unsafe { transmute(value as u32) });
     }
     fn set_flex_direction(&self, value: YGFlexDirection) { 
-        yoga::yg_node_style_set_flex_direction(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_flex_direction(self.0, unsafe { transmute(value as u32) });
     }
     fn set_flex_wrap(&self, value: YGWrap) { 
-        yoga::yg_node_style_set_flex_wrap(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_flex_wrap(self.0, unsafe { transmute(value as u32) });
     }
     fn set_justify_content(&self, value: YGJustify) {
-        yoga::yg_node_style_set_justify_content(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_justify_content(self.0, unsafe { transmute(value as u32) });
     }
     fn set_margin(&self, edge: YGEdge, value: f32) { 
-        yoga::yg_node_style_set_margin(self.0, unsafe { transmute(edge) }, (value * 100.0).round());
+        yoga::yg_node_style_set_margin(self.0, unsafe { transmute(edge as u32) }, (value * 100.0).round());
     }
     fn set_margin_percent(&self, edge: YGEdge, value: f32) { 
-        yoga::yg_node_style_set_margin_percent(self.0, unsafe { transmute(edge) }, value);
+        yoga::yg_node_style_set_margin_percent(self.0, unsafe { transmute(edge as u32) }, value);
     }
     fn set_margin_auto(&self, edge: YGEdge) { 
-        yoga::yg_node_style_set_margin_auto(self.0, unsafe { transmute(edge) });
+        yoga::yg_node_style_set_margin_auto(self.0, unsafe { transmute(edge as u32) });
     }
 
     fn set_overflow(&self, value: YGOverflow) { 
-        yoga::yg_node_style_set_overflow(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_overflow(self.0, unsafe { transmute(value as u32) });
     }
 
     fn set_display(&self, value: YGDisplay) { 
-        yoga::yg_node_style_set_display(self.0, unsafe { transmute(value) });
+        yoga::yg_node_style_set_display(self.0, unsafe { transmute(value as u32) });
     }
 
     fn set_flex(&self, value: f32) { 
@@ -187,13 +187,13 @@ impl FlexNode for YgNode {
         yoga::yg_node_style_set_aspect_ratio(self.0, (value * 100.0).round());
     }
     fn set_border(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_border(self.0, unsafe { transmute(edge) }, (value * 100.0).round());
+        yoga::yg_node_style_set_border(self.0, unsafe { transmute(edge as u32) }, (value * 100.0).round());
     }
     fn set_padding(&self, edge: YGEdge, value: f32){ 
-        yoga::yg_node_style_set_padding(self.0, unsafe { transmute(edge) }, (value * 100.0).round());
+        yoga::yg_node_style_set_padding(self.0, unsafe { transmute(edge as u32) }, (value * 100.0).round());
     }
     fn set_padding_percent(&self, edge: YGEdge, value: f32){
-        yoga::yg_node_style_set_padding_percent(self.0, unsafe { transmute(edge) }, value);
+        yoga::yg_node_style_set_padding_percent(self.0, unsafe { transmute(edge as u32) }, value);
     }
 
     fn set_context(&self, context: *mut c_void){
@@ -229,20 +229,38 @@ impl FlexNode for YgNode {
     fn get_bind(&self) -> *mut c_void {
         yoga::yg_node_get_bind(self.0)
     }
+    fn get_style_width_unit(&self) -> YGUnit {
+        unsafe { transmute( yoga::yg_node_style_get_width(self.0).unit as u8 ) }
+    }
+    fn get_style_justify(&self) -> YGJustify {
+        unsafe { transmute( yoga::yg_node_style_get_justify_content(self.0) as u8 ) }
+    }
+    fn get_style_width_value(&self) -> f32 {
+        yoga::yg_node_style_get_width(self.0).value
+    }
+
+    fn get_style_align_content(&self) -> YGAlign{
+        unsafe { transmute( yoga::yg_node_style_get_align_content(self.0) as u8 )}
+    }
+
+    fn get_style_align_items(&self) -> YGAlign{
+        unsafe { transmute( yoga::yg_node_style_get_align_items(self.0) as u8 )}
+    }
 
     fn mark_dirty(&self) { 
         yoga::yg_node_mark_dirty(self.0)
     }
+
     fn is_dirty(&self) -> bool { 
         yoga::yg_node_is_dirty(self.0)
     }
 
     fn calculate_layout(&self, width: f32, height:f32, direction: YGDirection){
-        yoga::yg_node_calculate_layout(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction) });
+        yoga::yg_node_calculate_layout(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction as u32) });
     }
 
     fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: YGCalcCallbackFunc<Self>, arg: *const c_void) {
-        yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction) }, unsafe { std::mem::transmute(callback) }, arg);
+        yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction as u32) }, unsafe { std::mem::transmute(callback) }, arg);
     }
 
     fn get_layout(&self) -> Layout {
@@ -263,16 +281,19 @@ impl FlexNode for YgNode {
     }
 
     fn get_layout_margin(&self, edge: YGEdge) -> f32 { 
-        yoga::yg_node_layout_get_margin(self.0, unsafe { transmute(edge) })
+        yoga::yg_node_layout_get_margin(self.0, unsafe { transmute(edge as u32) })
     }
     fn get_layout_border(&self, edge: YGEdge) -> f32 { 
-        yoga::yg_node_layout_get_border(self.0, unsafe { transmute(edge) })
+        yoga::yg_node_layout_get_border(self.0, unsafe { transmute(edge as u32) })
     }
     fn get_layout_padding(&self, edge: YGEdge) -> f32 { 
-        yoga::yg_node_layout_get_padding(self.0, unsafe { transmute(edge) })
+        yoga::yg_node_layout_get_padding(self.0, unsafe { transmute(edge as u32) })
     }
 
-    fn free(&self){ 
+    fn free(&self){
+        if (self.0 as usize) == 0 {
+            return;
+        }
         yoga::yg_node_free(self.0)
     }
 

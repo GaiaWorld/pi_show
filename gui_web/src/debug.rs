@@ -5,7 +5,7 @@ use serde::{Serialize};
 use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
-// use gui::layout::YgNode;
+// use gui::layout::FlexNode;
 use GuiWorld;
 
 // 打印节点信息
@@ -14,6 +14,7 @@ use GuiWorld;
 pub fn node_info(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
 
     let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
 
@@ -86,8 +87,7 @@ pub fn node_info(world: u32, node: u32) {
     };
 
 
-    // let yogas = world.fetch_multi::<Node, YgNode>().unwrap();
-    // let yogas = yogas.lend();
+    // let yogas = world.yoga.lend();
     // let yoga = unsafe { yogas.get_unchecked(node) };
 
     // let octs = world.fetch_single::<Oct>().unwrap();
@@ -108,6 +108,7 @@ pub fn node_info(world: u32, node: u32) {
 #[no_mangle]
 pub fn overflow_clip(world: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let overflow_clip = world.overflow_clip.lend();
     js!{
         console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
@@ -119,6 +120,7 @@ pub fn overflow_clip(world: u32) {
 #[no_mangle]
 pub fn set_render_dirty(world: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
     let render_objs = world.render_objs.lend();
     
     render_objs.get_notify().modify_event(1, "", 0); 
@@ -129,6 +131,7 @@ pub fn set_render_dirty(world: u32) {
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
 //     let overflow_clip = world.fetch_single::<OverflowClip>().unwrap();
 //     js!{
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});

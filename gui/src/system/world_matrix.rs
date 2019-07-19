@@ -3,7 +3,7 @@
  */
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
-use ecs::idtree::{ IdTree, Node as IdTreeNode};
+use ecs::idtree::{ IdTree};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
@@ -32,16 +32,17 @@ impl WorldMatrixSys{
         };
     }
 
-    fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
-        if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
-            self.dirty.delete(id, node.layer)
-        }
+    // fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
+    //     unsafe { *self.dirty_mark_list.get_unchecked_mut(id) = false };
+    //     // if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
+    //     //     self.dirty.delete(id, node.layer)
+    //     // }
 
-        let first = unsafe { id_tree.get_unchecked(id).children.head };
-        for child in id_tree.iter(first) {
-            self.recursive_delete_dirty(child.0, &child.1, id_tree);
-        }
-    }
+    //     let first = unsafe { id_tree.get_unchecked(id).children.head };
+    //     for child in id_tree.iter(first) {
+    //         self.recursive_delete_dirty(child.0, &child.1, id_tree);
+    //     }
+    // }
 
     fn cal_matrix(
         &mut self,
@@ -55,14 +56,21 @@ impl WorldMatrixSys{
         // let time = std::time::Instant::now();
         for id in self.dirty.iter() {
             {
-                let dirty_mark = unsafe{self.dirty_mark_list.get_unchecked_mut(*id)};
+                let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
+                    Some(r) => r,
+                    None => continue, //panic!("dirty_mark_list err: {}", *id),
+                };
                 if  *dirty_mark == false {
                     continue;
                 }
                 *dirty_mark = false;
             }
 
-            let parent_id = unsafe { idtree.get_unchecked(*id).parent };
+            let parent_id = match idtree.get(*id) {
+                Some(r) => r.parent,
+                None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
+            };
+            // let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             let transform_value = get_or_default(parent_id, transform, default_table);
             recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
         }
@@ -82,7 +90,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Transform>, &'a mut MultiCaseImpl<Node, WorldMatrix>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-        // write.0.insert(event.id, Transform::default());
         write.1.insert(event.id, WorldMatrix::default());
         self.dirty_mark_list.insert(event.id, false);
     }
@@ -128,14 +135,14 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
-        let node = unsafe { read.get_unchecked(event.id) };
-        self.recursive_delete_dirty(event.id, &node, read);
-    }
-}
+// impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for WorldMatrixSys{
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
+//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+//         let node = unsafe { read.get_unchecked(event.id) };
+//         self.recursive_delete_dirty(event.id, &node, read);
+//     }
+// }
 
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
@@ -162,9 +169,17 @@ fn recursive_cal_matrix(
     count: &mut usize,
 ){
     *count = 1 + *count;
+    // match dirty_mark_list.get_mut(id) {
+    //     Some(r) => *r = false,
+    //     None => panic!("dirty_mark_list is no exist, id: {}", id),
+    // }
     unsafe{*dirty_mark_list.get_unchecked_mut(id) = false};
 
     let layout_value = unsafe { layout.get_unchecked(id) };
+    // let layout_value = match layout.get(id) {
+    //     Some(r) => r,
+    //     None => panic!("layout is no exist, id: {}", id)
+    // };
     let transform_value = match transform.get(id) {
         Some(r) => r,
         None => default_transform,
@@ -173,18 +188,37 @@ fn recursive_cal_matrix(
     let matrix = if parent == 0 {
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
     }else {
+        // let parent_layout = match layout.get(parent) {
+        //     Some(r) => r,
+        //     None => panic!("parent layout is no exist, id: {}", id)
+        // };
+        // let parent_world_matrix = match world_matrix.get(parent) {
+        //     Some(r) => r,
+        //     None => panic!("parent_world_matrix is no exist, id: {}", id)
+        // };
         let parent_layout = unsafe { layout.get_unchecked(parent) };
-        let parent_world_matrix = unsafe { **world_matrix.get_unchecked(parent) };
+        let parent_world_matrix = unsafe { world_matrix.get_unchecked(parent) };
         let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
 
+    // match world_matrix.get_write(id) {
+    //     Some(mut r) => r.modify(|w: &mut WorldMatrix| {
+    //         *w = matrix;
+    //         true
+    //     }),
+    //     None => panic!("world_matrix is no exist, id: {}", id)
+    // }
     unsafe { world_matrix.get_unchecked_write(id).modify(|w: &mut WorldMatrix| {
-        *w = WorldMatrix(matrix);
+        *w = matrix;
         true
     })};
 
+    // let first = match idtree.get(id) {
+    //     Some(r) => r.children.head,
+    //     None => panic!("idtree1 is no exist, id: {}", id),
+    // } ;
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
         recursive_cal_matrix(dirty_mark_list, id, child_id.0, transform_value, idtree, transform, layout, world_matrix, default_transform, count);
@@ -200,7 +234,7 @@ impl_system!{
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
-        SingleCaseListener<IdTree, DeleteEvent>
+        // SingleCaseListener<IdTree, DeleteEvent>
     }
 }
 

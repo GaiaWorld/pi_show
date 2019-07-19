@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 use fnv::FnvHashMap;
-use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::*;
 use atom::Atom;
 
@@ -30,7 +30,7 @@ lazy_static! {
     static ref CLIP_TEXTURE_SIZE: Atom = Atom::from("clipTextureSize");
 }
 
-pub struct ClipSys<C: Context + ShareTrait>{
+pub struct ClipSys<C: Context>{
     mark: PhantomData<C>,
     dirty: bool,
     render_target: Share<<C as Context>::ContextRenderTarget>,
@@ -45,7 +45,7 @@ pub struct ClipSys<C: Context + ShareTrait>{
     sampler: Res<SamplerRes<C>>,
 }
 
-impl<C: Context + ShareTrait> ClipSys<C>{
+impl<C: Context> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
         let (rs, mut bs, ss, mut ds) = (Share::new(RasterState::new()), BlendState::new(), Share::new(StencilState::new()), DepthState::new());
         
@@ -143,7 +143,7 @@ impl<C: Context + ShareTrait> ClipSys<C>{
     }
 }
 
-impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
+impl<'a, C: Context> Runner<'a> for ClipSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -189,8 +189,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         {
             let geometry_ref = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
 
-            let mut positions = [0.0; 96];
-            for i in 0..8 {
+            let mut positions = [0.0; 192];
+            for i in 0..16 {
                 let p = &overflow.clip[i];
 
                 positions[i * 12 + 0] = p[0].x;
@@ -209,7 +209,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
                 positions[i * 12 + 10] = p[3].y;
                 positions[i * 12 + 11] = 0.0;
             }
-            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..96]), true).unwrap();
+            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..192]), true).unwrap();
         }
         let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
         for (k, v) in self.ubos.iter() {
@@ -225,13 +225,13 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         let mut indexs: Vec<f32> = Vec::new();
         let mut indices: Vec<u16> = Vec::new();
 
-        for i in 0..8 {
+        for i in 0..16 {
             indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
             indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
         }
         
         let geometry = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_vertex_count(32);
+        geometry.set_vertex_count(64);
         let _ = geometry.set_attribute(&AttributeName::SkinIndex, 1, Some(indexs.as_slice()), false);
         geometry.set_indices_short(indices.as_slice(), false).unwrap();
 
@@ -241,7 +241,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
         let mut ubo = engine.gl.create_uniforms();
         ubo.set_mat_4v(&VIEW_MATRIX, &view[0..16]);   
         ubo.set_mat_4v(&PROJECT_MATRIX, &projection[0..16]);
-        ubo.set_float_1(&MESH_NUM, 8.0);
+        ubo.set_float_1(&MESH_NUM, 16.0);
         self.ubos.insert(COMMON.clone(), Share::new(ubo));
     
         self.dirty = true;
@@ -249,7 +249,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for ClipSys<C>{
 }
 
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
+impl<'a, C: Context> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
@@ -266,7 +266,7 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEv
 }
 
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -314,7 +314,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, ByOverflow, Modify
 }
 
 
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
+impl<'a, C: Context> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -322,8 +322,8 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, OverflowClip, ModifyEve
     }
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for ClipSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for ClipSys<C>{}
+unsafe impl<C: Context> Sync for ClipSys<C>{}
+unsafe impl<C: Context> Send for ClipSys<C>{}
 
 
 
@@ -339,7 +339,7 @@ fn next_power_of_two(value: u32) -> u32 {
 }
 
 impl_system!{
-    ClipSys<C> where [C: Context + ShareTrait],
+    ClipSys<C> where [C: Context],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>

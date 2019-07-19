@@ -1,36 +1,45 @@
 pub mod oct;
+pub mod class;
 
 use share::Share;
 use std::any::{TypeId, Any};
+use std::default::Default;
 
 use fnv::FnvHashMap;
 
 use cgmath::Ortho;
 use slab::Slab;
 use atom::Atom;
-use hal_core::{Context, Uniforms, RenderBeginDesc};
+use hal_core::*;
 use ecs::{ Write };
 use ecs::monitor::NotifyImpl;
 use map::vecmap::VecMap;
 
-use component::user::{Point2, Matrix4};
-use render::engine::{ PipelineInfo};
-use render::res::GeometryRes;
-use util::res_mgr::Res;
+use component::user::*;
+use render::res::*;
 
 pub use single::oct::Oct;
+pub use single::class::*;
 
 #[derive(Debug)]
 pub struct OverflowClip{
-    pub id_vec: [usize;8],
-    pub clip: [[Point2;4];8],
+    pub id_vec: [usize;16],
+    pub clip: [[Point2;4];16],
 }
 
 impl Default for OverflowClip {
     fn default() -> Self {
         Self {
-            id_vec: [0, 0, 0, 0, 0, 0, 0, 0],
+            id_vec: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             clip: [
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
                 [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
                 [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
                 [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
@@ -71,48 +80,124 @@ impl ProjectionMatrix {
     }
 }
 
+pub struct UnitQuad(pub Share<GeometryRes>);
+unsafe impl Sync for UnitQuad {}
+unsafe impl Send for UnitQuad {}
+
+pub struct DefaultState{
+    pub df_rs: Share<HalRasterState>,
+    pub df_bs: Share<HalBlendState>,
+    pub df_ss: Share<HalStencilState>,
+    pub df_ds: Share<HalDepthState>,
+
+    pub tarns_bs: Share<HalBlendState>,
+}
+unsafe impl Sync for DefaultState {}
+unsafe impl Send for DefaultState {}    
+
+pub struct Data<C>{
+    map: Slab<C>,
+    notify: NotifyImpl,
+}
+
+impl<C> Default for Data<C> {
+    fn default() -> Self {
+        Self{
+            map: Slab::default(),
+            notify: NotifyImpl::default(),
+        }
+    }
+}
+
+impl<C> Data<C> {
+    pub fn get(&self, id: usize) -> Option<&C> {
+        self.map.get(id)
+    }
+
+    pub fn get_mut(&mut self, id: usize) -> Option<&mut C> {
+        self.map.get_mut(id)
+    }
+
+    pub unsafe fn get_unchecked(&self, id: usize) -> &C {
+        self.map.get_unchecked(id)
+    }
+
+    pub unsafe fn get_unchecked_mut(&mut self, id: usize) -> &mut C {
+        self.map.get_unchecked_mut(id)
+    }
+
+    pub fn get_write(&mut self, id: usize) -> Option<Write<C>> {
+        match self.map.get_mut(id) {
+            Some(r) => Some(Write::new(id, r, &self.notify)),
+            None => None,
+        }
+    }
+
+    pub unsafe fn get_unchecked_write(&mut self, id: usize) -> Write<C> {
+        Write::new(id, self.map.get_unchecked_mut(id), &self.notify)
+    }
+
+    pub fn create(&mut self, c: C) -> usize {
+        let r = self.map.insert(c);
+        self.notify.create_event(r);
+        r
+    }
+    
+    pub fn delete(&mut self, id: usize) {
+        self.notify.delete_event(id);
+        self.map.remove(id);
+    }
+
+    pub fn get_notify(&self) -> NotifyImpl{
+        self.notify.clone()
+    }
+}
+
+#[derive(Clone)]
+pub struct State{
+    pub rs: Share<HalRasterState>,
+    pub bs: Share<HalBlendState>,
+    pub ss: Share<HalStencilState>,
+    pub ds: Share<HalDepthState>,
+}
+
 #[derive(Write)]
-pub struct RenderObj<C: Context + 'static>{
+pub struct RenderObj{
     pub depth: f32,
     pub depth_diff: f32,
     pub visibility: bool,
     pub is_opacity: bool,
-    pub ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
-    pub geometry: Option<Res<GeometryRes<C>>>,
-    pub pipeline: Share<PipelineInfo>,
+    pub vs_name: Atom,
+    pub fs_name: Atom,
+    pub vs_defines: Box<dyn Defines>,
+    pub fs_defines: Box<dyn Defines>,
+    pub paramter: Share<dyn ProgramParamter>,
+    pub program_dirty: bool,
+
+    pub program: Option<Share<ProgramRes>>,
+    pub geometry: Option<Share<GeometryRes>>,
+    pub state: State,
+
     pub context: usize,
-    pub defines: Vec<Atom>,
-    
-    // pub shader_attr: Option<SharderAttr<C>>, 
 }
 
-// pub struct SharderAttr<C: Context>{
-//     pub geometry: <C as Context>::ContextGeometry, //geometry 对象
-//     pub pipeline: Share<Pipeline>,
-// }
-
-// impl<C: Context + Debug> fmt::Debug for RenderObj<C> {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         // write!(f, "Point {{ x: {}, y: {} }}", self.depth, self.visibility)
-//         // write!(f, "RenderObj {{ depth: {}, visibility: {}, is_opacity: {} }}", self.depth, self.visibility, self.is_opacity)
-//         // write!(f, "RenderObj {{ depth: {}, visibility: {}, is_opacity: {}, geometry: {}, pipeline: {}, ubo: {} }}", self.depth, self.visibility, self.is_opacity, self.geometry, self.pipeline, self.ubo)
-//     }
-// }
+unsafe impl Sync for RenderObj {}
+unsafe impl Send for RenderObj {}
 
 #[derive(Deref, DerefMut)]
-pub struct RenderObjs<C: Context + 'static>(pub Slab<RenderObj<C>>);
+pub struct RenderObjs(pub Slab<RenderObj>);
 
-impl<C: Context> Default for RenderObjs<C> {
+unsafe impl Sync for RenderObjs {}
+unsafe impl Send for RenderObjs {}
+
+impl Default for RenderObjs {
     fn default() -> Self {
         Self(Slab::default())
     }
 }
 
-unsafe impl<C: Context + 'static> Sync for RenderObj<C> {}
-unsafe impl<C: Context + 'static> Send for RenderObj<C> {}
-
-impl<C: Context + 'static> RenderObjs<C> {
-    pub fn insert(&mut self, value: RenderObj<C>, notify: Option<NotifyImpl>) -> usize {
+impl RenderObjs {
+    pub fn insert(&mut self, value: RenderObj, notify: Option<NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {
             Some(n) => n.create_event(id),
@@ -139,11 +224,14 @@ impl<C: Context + 'static> RenderObjs<C> {
         }
     }
 
-    pub unsafe fn get_unchecked_write<'a>(&'a mut self, id: usize, notify: &'a NotifyImpl) -> Write<RenderObj<C>>{
+    pub unsafe fn get_unchecked_write<'a>(&'a mut self, id: usize, notify: &'a NotifyImpl) -> Write<RenderObj>{
         Write::new(id, self.0.get_unchecked_mut(id), &notify)
     }
-}
 
+    pub unsafe fn get_unchecked_mut(&mut self, id: usize) -> &mut RenderObj{
+        self.0.get_unchecked_mut(id)
+    }
+}
 
 pub struct NodeRenderMap(VecMap<Vec<usize>>);
 
@@ -177,19 +265,7 @@ impl NodeRenderMap {
     }
 }
 
-pub struct ClipUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
-pub struct ViewUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
-pub struct ProjectionUbo<C: Context + 'static + Sync + Send>(pub Share<Uniforms<C>>);
 pub struct RenderBegin(pub Share<RenderBeginDesc>);
-
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ClipUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ClipUbo<C> {}
-
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ViewUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ViewUbo<C> {}
-
-unsafe impl<C: Context + 'static + Sync + Send> Sync for ProjectionUbo<C> {}
-unsafe impl<C: Context + 'static + Sync + Send> Send for ProjectionUbo<C> {}
 
 unsafe impl Sync for RenderBegin {}
 unsafe impl Send for RenderBegin {}
@@ -201,33 +277,33 @@ impl DefaultTable {
         Self(FnvHashMap::default())
     }
 
-    pub fn set<T: 'static + Any + Sync + Send>(&mut self, value: T){
+    pub fn set<T: 'static + Any>(&mut self, value: T){
         self.0.insert(TypeId::of::<T>(), Box::new(value));
     }
 
-    pub fn get<T: 'static + Any + Sync + Send>(&self) -> Option<&T>{
+    pub fn get<T: 'static + Any>(&self) -> Option<&T>{
         match self.0.get(&TypeId::of::<T>()) {
             Some(r) => r.downcast_ref::<T>(),
             None => None
         }
     }
 
-    pub fn get_mut<T: 'static + Any + Sync + Send>(&mut self) -> Option<&mut T>{
+    pub fn get_mut<T: 'static + Any>(&mut self) -> Option<&mut T>{
         match self.0.get_mut(&TypeId::of::<T>()) {
             Some(r) => r.downcast_mut::<T>(),
             None => None
         }
     }
 
-    pub fn get_unchecked<T: 'static + Any + Sync + Send>(&self) -> &T{
+    pub fn get_unchecked<T: 'static + Any>(&self) -> &T{
         self.0.get(&TypeId::of::<T>()).unwrap().downcast_ref::<T>().unwrap()
     }
 
-    pub fn get_unchecked_mut<T: 'static + Any + Sync + Send>(&mut self) -> &mut T{
+    pub fn get_unchecked_mut<T: 'static + Any>(&mut self) -> &mut T{
         self.0.get_mut(&TypeId::of::<T>()).unwrap().downcast_mut::<T>().unwrap()
     }
 
-    pub fn delete<T: 'static + Any + Sync + Send>(&mut self){
+    pub fn delete<T: 'static + Any>(&mut self){
         self.0.remove(&TypeId::of::<T>());
     }
 }
