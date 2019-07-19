@@ -92,6 +92,26 @@ pub struct DefaultState{
 
     pub tarns_bs: Share<HalBlendState>,
 }
+
+impl DefaultState {
+    pub fn new<C: HalContext>(gl: &C) -> Self {
+        let df_rs = RasterStateDesc::default();
+        let df_bs = BlendStateDesc::default();
+        let df_ss = StencilStateDesc::default();
+        let df_ds = DepthStateDesc::default();
+
+        let tarns_bs = BlendStateDesc::default();
+
+        Self {
+            df_rs: Share::new(gl.rs_create(df_rs).unwrap()),
+            df_bs: Share::new(gl.bs_create(df_bs).unwrap()),
+            df_ss: Share::new(gl.ss_create(df_ss).unwrap()),
+            df_ds: Share::new(gl.ds_create(df_ds).unwrap()),
+            tarns_bs: Share::new(gl.bs_create(tarns_bs).unwrap()),
+        }
+    }
+}
+
 unsafe impl Sync for DefaultState {}
 unsafe impl Send for DefaultState {}    
 

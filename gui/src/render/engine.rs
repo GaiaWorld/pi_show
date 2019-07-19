@@ -47,12 +47,13 @@ impl<C: HalContext + 'static> Engine<C> {
                 uniforms.push(paramter.get_value(ubo).unwrap().get_layout());
             }
 
+            
+
             let uniform_layout = UniformLayout{
                 ubos: ubos,
                 uniforms: uniforms.as_slice(),
                 textures: paramter.get_texture_layout(),
             };
-
             match gl.program_create_with_vs_fs(vs_id, fs_id, vs_name, vs_defines.list(), fs_name, fs_defines.list(), &uniform_layout) {
                 Ok(r) => Share::new(r),
                 Err(e) => panic!("create_program error: {:?}", e),

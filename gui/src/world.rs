@@ -75,6 +75,9 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
     let unit_quad = UnitQuad(Share::new(GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]}));
 
+    let default_state = DefaultState::new(&engine.gl);
+    
+
     // let clip_sys = ClipSys::new(&mut engine, width as u32, height as u32);
 
     //user
@@ -130,6 +133,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_single::<DefaultTable>(default_table);
     world.register_single::<ClassSheet>(ClassSheet::default());
     world.register_single::<UnitQuad>(unit_quad);
+    world.register_single::<DefaultState>(default_state); 
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));

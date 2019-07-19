@@ -65,6 +65,7 @@ fn impl_uniform_buffer(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
     quote! {
         #(#attrs)*
+        #[derive(Default)]
         pub struct #name {
             values: [UniformValue; #count],
         }
@@ -127,8 +128,8 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let texture_set_value_match = TextureSetValueMatch(fields);
     let uniform_get_value_match = UniformGetValueMatch(fields);
     let texture_get_value_match = TextureGetValueMatch(fields);
-    let texture_null = TextureFieldNewNullArray(fields);
-    let uniform_null = UniformFieldNewNullArray(fields);
+    let texture_default = TextureDefaultValueMatch(fields);
+    let uniform_default = UniformDefaultValueMatch(fields);
     let attrs = &ast.attrs;
 
     quote! {
@@ -138,18 +139,18 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             textures: [(Share<HalTexture>, Share<HalSampler>); #textrue_count],
         }
 
-        impl #name {
-            pub const FIELDS: [&'static str; #uniform_count] = [#uniform_fields_names];
-            pub const TEXTURE_FIELDS: [&'static str; #textrue_count] = [#texture_fields_names];
-        }
-
         impl std::default::Default for #name{
             fn default() -> Self {
                 Self {
-                    uniforms: [#uniform_null],
-                    textures: [#texture_null],
+                    uniforms: [#uniform_default],
+                    textures: [#texture_default],
                 }
             }
+        }
+
+        impl #name {
+            pub const FIELDS: [&'static str; #uniform_count] = [#uniform_fields_names];
+            pub const TEXTURE_FIELDS: [&'static str; #textrue_count] = [#texture_fields_names];
         }
 
         impl ProgramParamter for #name {
@@ -191,7 +192,10 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
                 match name {
                     #uniform_set_value_match
-                    _ => return false,
+                    _ => {
+                        println!("set false: {:?}, {:?}", name, self.get_layout());
+                        return false
+                    },
                 };
                 true
             }
@@ -374,7 +378,10 @@ impl<'a> ToTokens for UniformSetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => s.uniforms[#index] = value,
+                    #field_name_str => {
+                        println!("set_value {:?}, value: {:?}", #field_name_str, value.get_layout());
+                        s.uniforms[#index] = value;
+                    },
                 });
                 i += 1;
             }
@@ -396,6 +403,29 @@ impl<'a> ToTokens for TextureSetValueMatch<'a> {
                 i += 1;
             }
         }          
+    }
+}
+
+struct UniformDefaultValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformDefaultValueMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        for v in self.0.iter(){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+                let field_ty = &v.ty;
+                tokens.extend(quote! {Share::new(#field_ty::default()),});
+            }
+        }    
+    }
+}
+
+struct TextureDefaultValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for TextureDefaultValueMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        for v in self.0.iter(){
+            if v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+                tokens.extend(quote! {(Share::new(HalTexture(0, 0)), Share::new(HalSampler(0, 0))),});
+            }
+        }      
     }
 }
 
@@ -442,7 +472,7 @@ impl<'a> ToTokens for DefinesAddMatch<'a> {
             let index = syn::Index::from(i);
             tokens.extend(quote! {
                 #field_name_str => {
-                    self.id += 1 << #index;
+                    self.id |= 1 << #index;
                     std::mem::replace(&mut self.values[#index], Some(#field_name_str))
                 },
             });
@@ -460,7 +490,9 @@ impl<'a> ToTokens for DefinesDelMatch<'a> {
             let index = syn::Index::from(i);
             tokens.extend(quote! {
                 #field_name_str => {
-                    self.id -= 1 << #index;
+                    println!("{}, {}", self.id, #index);
+                    self.id &= !(1 << #index);
+                    println!("{}", self.id);
                     std::mem::replace(&mut self.values[#index], None)
                 },
             });

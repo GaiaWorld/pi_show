@@ -40,6 +40,7 @@ pub enum BufferData<'a> {
 /**
  * Uniform布局
  */
+#[derive(Debug)]
 pub struct UniformLayout<'a> {
     pub ubos: &'a [&'a str],
     pub uniforms: &'a [&'a [&'a str]], 

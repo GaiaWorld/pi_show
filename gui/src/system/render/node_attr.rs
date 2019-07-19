@@ -52,7 +52,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C>{
         debug_println!("view_matrix: {:?}", &slice[..]);
 
         let slice: &[f32; 16] = projection_matrix.0.as_ref();
-        let project_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV(4, Vec::from(&slice[..])));
+        let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV(4, Vec::from(&slice[..])));
         debug_println!("projection_matrix: {:?}", &slice[..]);
 
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
@@ -93,8 +93,8 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         
         let paramter = &mut render_obj.paramter;
 
-        paramter.set_value("view_matrix", self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
-        paramter.set_value("project_matrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
+        paramter.set_value("viewMatrix", self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
+        paramter.set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         paramter.set_value("alpha", create_alpha_ubo(engine, opacity)); // alpha

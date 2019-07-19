@@ -244,7 +244,6 @@ impl Mul<Vector4> for WorldMatrix{
 // 渲染--------------------------------------------------------------------------------------------------------------------------
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct ClipUbo {
         clipIndices: UniformValue,
     }
@@ -256,7 +255,6 @@ impl Res for ClipUbo {type Key = u64;}
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct ClipTextureSize {
         clipTextureSize: UniformValue,
     }
@@ -264,7 +262,6 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct WorldMatrixUbo {
         worldMatrix: UniformValue,
     }
@@ -272,7 +269,6 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct ViewMatrixUbo {
         viewMatrix: UniformValue,
     }
@@ -280,7 +276,6 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct ProjectMatrixUbo {
         projectMatrix: UniformValue,
     }
@@ -288,7 +283,6 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct UColorUbo {
         uColor: UniformValue,
     }
@@ -297,7 +291,6 @@ impl Res for UColorUbo {type Key = u64;}
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct AlphaUbo {
         alpha: UniformValue,
     }
@@ -306,7 +299,14 @@ impl Res for AlphaUbo {type Key = u64;}
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
+    struct BlurUbo {
+        blur: UniformValue,
+    }
+}
+impl Res for BlurUbo {type Key = u64;}
+
+uniform_buffer! {
+    #[allow(non_snake_case)]
     struct HsvUbo {
         hsv: UniformValue,
     }
@@ -342,7 +342,6 @@ impl Res for FsBaseDefines {type Key = u64;}
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    #[derive(Default)]
     struct MsdfStrokeColorUbo {
         strokeSize: UniformValue,
         strokeColor: UniformValue,
@@ -361,6 +360,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
+        alpha: AlphaUbo,
     }
 }
 
@@ -396,6 +396,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
+        alpha: AlphaUbo,
     }
 }
 
@@ -410,19 +411,22 @@ program_paramter! {
         clip: ClipUbo,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        alpha: AlphaUbo,
+        blur: BlurUbo,
     }
 }
 
 program_paramter! {
     #[derive(Clone)]
     struct ImageParamter {
-        worldMatrix: WorldMatrix,
-        viewMatrix: ViewMatrix,
-        projectMatrix: ProjectMatrix,
-        clip: Clip,
+        worldMatrix: WorldMatrixUbo,
+        viewMatrix: ViewMatrixUbo,
+        projectMatrix: ProjectMatrixUbo,
+        clip: ClipUbo,
         clipTexture: (HalTexture, HalSampler),
         clipTexture_size: ClipTextureSize,
         texture: (HalTexture, HalSampler),
+        alpha: AlphaUbo,
     }
 }
 

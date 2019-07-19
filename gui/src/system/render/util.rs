@@ -27,7 +27,7 @@ impl Items {
         }
     }
 
-    pub  fn set_dirty(&mut self, id: usize, dirty: usize) {
+    pub fn set_dirty(&mut self, id: usize, dirty: usize) {
         if let Some(item) = self.render_map.get_mut(id) {
             let dirty = item.dirty | (dirty as usize);
             if item.dirty | (dirty as usize) != item.dirty {
@@ -35,6 +35,11 @@ impl Items {
                 self.dirtys.push(id);
             }
         }
+    }
+
+    pub fn create(&mut self, id: usize, index: usize) {
+        self.render_map.insert(id, Item::new(index));
+        self.dirtys.push(id);
     }
 }
 

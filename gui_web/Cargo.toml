@@ -27,8 +27,12 @@ serde_derive = "1"
 paste = "0.1"
 ordered-float = "1.0"
 
-# [profile.release]
-# lto = true
-# opt-level = "z"
-# panic = 'abort'
-# codegen-units = 1
+[profile.release]
+lto = true
+opt-level = "z"
+panic = 'abort'
+codegen-units = 1
+
+[profile.dev]
+debug = 2
+opt-level = 3

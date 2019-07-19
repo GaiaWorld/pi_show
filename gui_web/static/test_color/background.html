@@ -27,7 +27,7 @@
         var YGWrapWrapReverse = 2;
     </script>
     
-    <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -37,17 +37,17 @@
     <script>
         var gui = Module._create_gui(engine, 1000, 700);
 
-        // var body = Module._create_node(gui);
-        // Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
-        // Module._set_width_percent(gui, body, 100.0);
-        // Module._set_height_percent(gui, body, 100.0);
-        // Module._set_flex_wrap(gui, body, YGWrapWrap);
+        var body = Module._create_node(gui);
+        Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height_percent(gui, body, 100.0);
+        Module._set_flex_wrap(gui, body, YGWrapWrap);
 
-        // var node1 = Module._create_node(gui);
-        // Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
-        // Module._set_width(gui, node1, 200.0);
-        // Module._set_height(gui, node1, 200.0);
-        // Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+        var node1 = Module._create_node(gui);
+        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node1, 200.0);
+        Module._set_height(gui, node1, 200.0);
+        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
 
         // var node2 = Module._create_node(gui);
         // Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
@@ -125,6 +125,7 @@
         // Module._set_background_rgba_color(gui, node7, 0.0, 1.0, 0.0, 1.0);   
 
         // Module._render(gui);
+        render_fram();
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

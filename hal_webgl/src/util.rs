@@ -16,7 +16,7 @@ pub fn create_new_slot<T>(slab: &mut Slab<(T, u32)>, obj: T) -> (u32, u32) {
         v.1 = 0;
     }
     
-    v.0 = obj;
+    unsafe { std::ptr::write(&mut v.0 as *mut T, obj) };
     v.1 += 1;
 
     (key as u32, v.1 as u32)
