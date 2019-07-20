@@ -370,13 +370,17 @@ fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>
         match engine.res_mgr.get::<GeometryRes>(&hash) {
             Some(r) => Some(r.clone()),
             None => {
+                println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
+                println!("r: {:?}", r);
                 if r.0.len() == 0 {
                     return None;
                 } else {
+                    let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
+                    println!("indices: {:?}", indices);
                     // 创建geo， 设置attribut
                     let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
-                    let indices = create_buffer(&engine.gl, BufferType::Indices, r.1.len(), Some(BufferData::Short(r.1.as_slice())), false);
+                    let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
                     let geo = create_geometry(&engine.gl);
                     engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
                     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();

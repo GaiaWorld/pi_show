@@ -43,11 +43,11 @@
         Module._set_height_percent(gui, body, 100.0);
         Module._set_flex_wrap(gui, body, YGWrapWrap);
 
-        var node1 = Module._create_node(gui);
-        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node1, 200.0);
-        Module._set_height(gui, node1, 200.0);
-        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+        // var node1 = Module._create_node(gui);
+        // Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node1, 50.0);
+        // Module._set_height(gui, node1, 50.0);
+        // Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
 
         // var node2 = Module._create_node(gui);
         // Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
@@ -56,13 +56,13 @@
         // Module._set_margin(gui, node2, YGEdgeLeft, 10);
         // Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
 
-        // var node2 = Module._create_node(gui);
-        // Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
-        // Module._set_width(gui, node2, 40.0);
-        // Module._set_height(gui, node2, 40.0);
-        // Module._set_margin(gui, node2, YGEdgeLeft, 10);
-        // Module._set_border_radius(gui, node2, 20, 20);
-        // Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node2, 50.0);
+        Module._set_height(gui, node2, 50.0);
+        Module._set_margin(gui, node2, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node2, 5, 5);
+        Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
 
 
         // // 测试两点线性渐变颜色
