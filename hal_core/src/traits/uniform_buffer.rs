@@ -53,15 +53,19 @@ impl UniformBuffer for NullUniformBuffer {
 pub trait ProgramParamter {
 
     fn get_layout(&self) -> &[&str];
+    fn get_single_uniform_layout(&self) -> &[&str];
     fn get_texture_layout(&self) -> &[&str];
 
     fn get_values(&self) -> &[Share<dyn UniformBuffer>];
+    fn get_single_uniforms(&self) -> &[UniformValue];
     fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)];
 
     fn set_value(&mut self, name: &str, value: Share<dyn UniformBuffer>) -> bool;
+    fn set_single_uniform(&self, value: UniformValue) -> bool;
     fn set_texture(&mut self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool;
 
     fn get_value(&mut self, name: &str) -> Option<&Share<dyn UniformBuffer>>;
+    fn get_single_uniform(&self, name: &str) -> &UniformValue;
     fn get_texture(&mut self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)>;
 }
 

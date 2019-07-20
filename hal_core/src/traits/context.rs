@@ -44,6 +44,7 @@ pub struct UniformLayout<'a> {
     pub ubos: &'a [&'static str],
     pub uniforms: &'a [&'a [&'static str]], 
     pub textures: &'a [&'static str],
+    pub single_uniforms: &'a [&'static str],
 }
 
 pub enum TextureData<'a> {
