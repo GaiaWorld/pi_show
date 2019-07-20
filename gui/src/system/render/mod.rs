@@ -10,6 +10,7 @@ mod render;
 // mod charblock_shadow;
 // mod clip;
 // mod render_matrix;
+pub mod res_release;
 pub mod util;
 
 
@@ -24,3 +25,4 @@ pub use system::render::node_attr::*;
 pub use system::render::render::*;
 // pub use system::render::box_shadow::*;
 // pub use system::render::render_matrix::*;
+pub use system::render::res_release::*;

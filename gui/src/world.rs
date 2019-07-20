@@ -48,6 +48,7 @@ lazy_static! {
     pub static ref NODE_ATTR_N: Atom = Atom::from("node_attr_sys");
     pub static ref FILTER_N: Atom = Atom::from("filter_sys");
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
+    pub static ref RES_RELEASE_N: Atom = Atom::from("res_release");
 }
 
 pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, width: f32, height: f32) -> World {
@@ -155,9 +156,10 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
+    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, node_attr_sys, render_sys, res_release".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
