@@ -193,7 +193,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 match name {
                     #uniform_set_value_match
                     _ => {
-                        println!("set false: {:?}, {:?}", name, self.get_layout());
+                        println!("set ubo fail, name: {:?}, self_layout: {:?}", name, self.get_layout());
                         return false
                     },
                 };
@@ -204,7 +204,10 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
                 match name {
                     #texture_set_value_match
-                    _ => return false,
+                    _ => {
+                        println!("set texture fail, name: {:?}, self_layout: {:?}", name, self.get_texture_layout());
+                        return false
+                    },
                 };
                 true
             }
@@ -347,28 +350,6 @@ impl<'a> ToTokens for TextureFieldNamesArray<'a> {
     }
 }
 
-struct TextureFieldNewNullArray<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
-impl<'a> ToTokens for TextureFieldNewNullArray<'a> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        for v in self.0.iter(){
-            if v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
-                tokens.extend(quote! {(Share::new(HalTexture(0, 0)), Share::new(HalSampler(0, 0))),});
-            }
-        }          
-    }
-}
-
-struct UniformFieldNewNullArray<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
-impl<'a> ToTokens for UniformFieldNewNullArray<'a> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        for v in self.0.iter(){
-            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
-                tokens.extend(quote! {Share::new(NullUniformBuffer),});
-            }
-        }          
-    }
-}
-
 struct UniformSetValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
 impl<'a> ToTokens for UniformSetValueMatch<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
@@ -378,10 +359,7 @@ impl<'a> ToTokens for UniformSetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => {
-                        println!("set_value {:?}, value: {:?}", #field_name_str, value.get_layout());
-                        s.uniforms[#index] = value;
-                    },
+                    #field_name_str => s.uniforms[#index] = value,
                 });
                 i += 1;
             }
@@ -490,9 +468,7 @@ impl<'a> ToTokens for DefinesDelMatch<'a> {
             let index = syn::Index::from(i);
             tokens.extend(quote! {
                 #field_name_str => {
-                    println!("{}, {}", self.id, #index);
                     self.id &= !(1 << #index);
-                    println!("{}", self.id);
                     std::mem::replace(&mut self.values[#index], None)
                 },
             });

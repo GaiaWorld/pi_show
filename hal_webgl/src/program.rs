@@ -235,7 +235,6 @@ impl WebGLProgramImpl {
             return Err(e);
         }
 
-        println!("uniform_layout: {:?}", uniform_layout);
         let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
         
         // 初始化attribute和uniform

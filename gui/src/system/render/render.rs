@@ -223,7 +223,6 @@ fn render<C: HalContext + 'static>(gl: &mut C, obj: &RenderObj){
     };
     gl.render_set_program(obj.program.as_ref().unwrap());
     gl.render_set_state(&obj.state.bs, &obj.state.ds, &obj.state.rs, &obj.state.ss);
-    println!("geo: {:?}", &geometry.geo);
     gl.render_draw(&geometry.geo, &obj.paramter);
 }
 

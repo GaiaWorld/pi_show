@@ -93,12 +93,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                         let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                         render_obj.is_opacity = background_is_opacity(opacity, bg_color);
                     }
-                    println!("some---------------------------");
                     // 尝试修改颜色， 以及颜色所对应的geo
                     modify_color(render_obj, bg_color, engine, dirty, layout, &unit_quad.0, border_radius)
                 },
                 None => {
-                    println!("none---------------------------");
                     let class_id = unsafe { classes.get_unchecked(*id) }.0;
                     let class = unsafe{ class_sheet.class.get_unchecked(class_id) };
                     let bg_color = unsafe { class_sheet.background_color.get_unchecked(class.background_color) };
@@ -128,7 +126,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 ));
             }
             
-            println!("modify_matrix----------------------{}, {}", dirty, id);
             // 如果矩阵脏
             if dirty & DrityType::Matrix as usize != 0 || dirty & DrityType::Layout as usize != 0{
                 let world_matrix = unsafe{world_matrixs.get_unchecked(*id)};
@@ -137,9 +134,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                     None => default_transform,
                 };
                 let depth = unsafe{z_depths.get_unchecked(*id)}.0;
-                modify_matrix(render_obj, depth, world_matrix, transform, layout, false);
+                let is_unit_geo = {
+                    let radius = cal_border_radius(border_radius, layout);
+                    let g_b = geo_box(layout);
+                    if radius.x <= g_b.min.x {
+                        true
+                    } else {
+                        false
+                    }
+                };
+                modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
             }
-            println!("modify_matrix----------------------{}, {}", dirty, id);
         }
         self.items.dirtys.clear();
     }
@@ -154,7 +159,6 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, C
     );
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        println!("BackgroundColor dirty {}",event.id );
         // 如果已经存在渲染对象，设置颜色脏， 返回
         if self.items.render_map.get(event.id).is_some() {
             self.items.set_dirty(event.id, DrityType::BorderRadius as usize);
@@ -344,7 +348,6 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        println!("create_render_obj {}, index: {}", id, index );
         // 创建RenderObj与Node实体的索引关系， 并设脏
         self.items.create(id, index);
         index
@@ -483,7 +486,6 @@ fn get_geo_flow(radius: Option<&BorderRadius>, layout: &Layout, color: &Backgrou
     }
     let mut positions;
     let mut indices;
-    debug_println!("radius:{:?}", radius);
     match &color.0 {
         &Color::RGBA(_) => {
             if radius.x <= start_x {
@@ -559,7 +561,7 @@ fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<
 }
 
 #[inline]
-fn create_blur_ubo<C: HalContext + 'static>(blur: f32, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+fn create_blur_ubo<C: HalContext + 'static>(blur: f32, _engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
     Share::new(BlurUbo::new(UniformValue::Float(1, blur, 0.0, 0.0, 0.0)))
 }
 
@@ -575,7 +577,6 @@ fn modify_color<C: HalContext + 'static>(
     border_radius: Option<&BorderRadius>,
 ) -> bool {
     let mut change = false;
-    println!("modify color------------------------");
     match &background_color.0 {
         Color::RGBA(c) => {
             if dirty & DrityType::Color as usize != 0 {
@@ -583,12 +584,9 @@ fn modify_color<C: HalContext + 'static>(
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(c, engine));
             }
 
-            println!("dirty: {}, change: {}", dirty, change);
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & DrityType::BorderRadius as usize != 0 {
-                
+            if change || dirty & DrityType::BorderRadius as usize != 0 {    
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
-                println!("ccccccccccccccccccccccccccccccc: {}", render_obj.geometry.is_none());
             }
         },
         Color::LinearGradient(c) => {
@@ -627,7 +625,6 @@ fn modify_class_color<C: HalContext + 'static>(
                 render_obj.paramter.as_ref().set_value("uColor", u_color_ubo.clone());
             }
 
-            println!("dirty: {}, change: {}", dirty, change);
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
             if change || dirty & DrityType::BorderRadius as usize != 0 {
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
@@ -680,7 +677,6 @@ fn modify_matrix(
     layout: &Layout,
     is_unity_geo: bool,
 ){
-    println!("modify_matrix----------------------");
     if is_unity_geo {
         let arr = create_box_matrix(
             layout.width,
