@@ -291,22 +291,6 @@ impl Res for UColorUbo {type Key = u64;}
 
 uniform_buffer! {
     #[allow(non_snake_case)]
-    struct AlphaUbo {
-        alpha: UniformValue,
-    }
-}
-impl Res for AlphaUbo {type Key = u64;}
-
-uniform_buffer! {
-    #[allow(non_snake_case)]
-    struct BlurUbo {
-        blur: UniformValue,
-    }
-}
-impl Res for BlurUbo {type Key = u64;}
-
-uniform_buffer! {
-    #[allow(non_snake_case)]
     struct HsvUbo {
         hsv: UniformValue,
     }
@@ -360,7 +344,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
-        alpha: AlphaUbo,
+        alpha: UniformValue,
     }
 }
 
@@ -396,7 +380,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
-        alpha: AlphaUbo,
+        alpha: UniformValue,
     }
 }
 
@@ -411,8 +395,8 @@ program_paramter! {
         clip: ClipUbo,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
-        alpha: AlphaUbo,
-        blur: BlurUbo,
+        alpha: UniformValue,
+        blur: UniformValue,
     }
 }
 
@@ -426,7 +410,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTexture_size: ClipTextureSize,
         texture: (HalTexture, HalSampler),
-        alpha: AlphaUbo,
+        alpha: UniformValue,
     }
 }
 

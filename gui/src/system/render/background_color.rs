@@ -114,7 +114,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             
             // 渲染管线脏， 创建渲染管线
             if render_obj.program_dirty {
-                render_obj.paramter.as_ref().set_value("blur", create_blur_ubo(1.0, engine));
+                render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
                 render_obj.program = Some(engine.create_program(
                     COLOR_VS_SHADER_NAME.get_hash(),
                     COLOR_FS_SHADER_NAME.get_hash(),
@@ -560,13 +560,8 @@ fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<
     let h = f32_4_hash(c.r, c.g, c.b, c.a);
     match engine.res_mgr.get::<UColorUbo>(&h) {
         Some(r) => r,
-        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float(4, c.r, c.g, c.b, c.a))),
+        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
     }
-}
-
-#[inline]
-fn create_blur_ubo<C: HalContext + 'static>(blur: f32, _engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
-    Share::new(BlurUbo::new(UniformValue::Float(1, blur, 0.0, 0.0, 0.0)))
 }
 
 // 修改颜色， 返回是否存在宏的修改(不是class中的颜色)
@@ -694,10 +689,10 @@ fn modify_matrix(
             depth/Z_MAX,
         );
 
-        render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV(4, arr)) ));
+        render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     } else {
         let arr = create_let_top_matrix(layout, world_matrix, transform, depth);
-        render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV(4, arr)) ));
+        render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     }
 }
 

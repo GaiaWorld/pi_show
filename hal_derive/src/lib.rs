@@ -424,7 +424,7 @@ impl<'a> ToTokens for UniformSingleSetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => s.uniforms[#index] = value,
+                    #field_name_str => s.single_uniforms[#index] = value,
                 });
                 i += 1;
             }
@@ -467,7 +467,7 @@ impl<'a> ToTokens for UniformSingleDefaultValueMatch<'a> {
         for v in self.0.iter(){
             if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
                 let field_ty = &v.ty;
-                tokens.extend(quote! {Share::new(#field_ty::default()),});
+                tokens.extend(quote! {#field_ty::default(),});
             }
         }    
     }
@@ -510,7 +510,7 @@ impl<'a> ToTokens for UniformSingleGetValueMatch<'a> {
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
-                    #field_name_str => Some(&self.uniforms[#index]),
+                    #field_name_str => Some(&self.single_uniforms[#index]),
                 });
                 i += 1;
             }

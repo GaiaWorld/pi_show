@@ -48,11 +48,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C>{
         let (view_matrix, projection_matrix) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
-        let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV(4, Vec::from(&slice[..])));
+        let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
         debug_println!("view_matrix: {:?}", &slice[..]);
 
         let slice: &[f32; 16] = projection_matrix.0.as_ref();
-        let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV(4, Vec::from(&slice[..])));
+        let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
         debug_println!("projection_matrix: {:?}", &slice[..]);
 
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
@@ -97,7 +97,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         paramter.set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
-        paramter.set_value("alpha", create_alpha_ubo(engine, opacity)); // alpha
+        paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
@@ -182,15 +182,15 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
 //不透明度变化， 设置ubo
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData){
         let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-        let (render_objs, node_render_map, engine) = write;
+        let (render_objs, node_render_map) = write;
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-            render_obj.paramter.as_ref().set_value("alpha", create_alpha_ubo(engine, opacity));
+            render_obj.paramter.as_ref().set_single_uniform("alpha", UniformValue::Float1(opacity));
             render_objs.get_notify().modify_event(*id, "paramter", 0);
         }
     }
@@ -245,19 +245,11 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
     }
 }
 
-pub fn create_alpha_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, opacity: f32) -> Share<dyn UniformBuffer> {
-    let h = f32_1_hash(opacity);
-    match engine.res_mgr.get::<AlphaUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, AlphaUbo::new(UniformValue::Float(1, opacity, 0.0, 0.0, 0.0))),
-    }
-}
-
 pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HSV) -> Share<dyn UniformBuffer> {
     let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
     match engine.res_mgr.get::<HsvUbo>(&h) {
         Some(r) => r,
-        None => engine.res_mgr.create(h, AlphaUbo::new(UniformValue::Float(3, hsv.h, hsv.s, hsv.v, 0.0))),
+        None => engine.res_mgr.create(h, HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v))),
     }
 }
 

@@ -52,6 +52,7 @@ impl<C: HalContext + 'static> Engine<C> {
             let uniform_layout = UniformLayout{
                 ubos: ubos,
                 uniforms: uniforms.as_slice(),
+                single_uniforms: paramter.get_single_uniform_layout(),
                 textures: paramter.get_texture_layout(),
             };
             match gl.program_create_with_vs_fs(vs_id, fs_id, vs_name, vs_defines.list(), fs_name, fs_defines.list(), &uniform_layout) {
