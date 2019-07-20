@@ -57,10 +57,10 @@ impl BgColor {
     FIELDS:
     [&'static str; 2]
     =
-    ["Color", "depth"];
+    ["color", "depth"];
     #[inline]
-    pub fn new(Color: UniformValue, depth: UniformValue) -> Self {
-        Self{values: [Color, depth],}
+    pub fn new(color: UniformValue, depth: UniformValue) -> Self {
+        Self{values: [color, depth],}
     }
 }
 impl UniformBuffer for BgColor {
@@ -70,14 +70,14 @@ impl UniformBuffer for BgColor {
     fn get_values(&self) -> &[UniformValue] { &self.values[..] }
     fn get_value(&self, name: &str) -> Option<&UniformValue> {
         match name {
-            "Color" => Some(&self.values[0]),
+            "color" => Some(&self.values[0]),
             "depth" => Some(&self.values[1]),
             _ => None,
         }
     }
     fn set_value(&mut self, name: &str, value: UniformValue) -> bool {
         match name {
-            "Color" => self.values[0] = value,
+            "color" => self.values[0] = value,
             "depth" => self.values[1] = value,
             _ => return false,
         };
@@ -119,6 +119,7 @@ impl UniformBuffer for Clip {
 
 pub struct Color {
     uniforms: [Share<dyn UniformBuffer>; 2],
+    single_uniforms: [UniformValue; 1],
     textures: [(Share<HalTexture>, Share<HalSampler>); 1],
 }
 impl std::default::Default for Color {
@@ -126,6 +127,7 @@ impl std::default::Default for Color {
         Self{uniforms:
                  [Share::new(BgColor::default()),
                   Share::new(Clip::default())],
+             single_uniforms: [UniformValue::default()],
              textures:
                  [(Share::new(HalTexture(0, 0)),
                    Share::new(HalSampler(0, 0)))],}
@@ -138,6 +140,11 @@ impl Color {
     =
     ["common", "clip"];
     pub const
+    SINGLE_FIELDS:
+    [&'static str; 1]
+    =
+    ["alpha"];
+    pub const
     TEXTURE_FIELDS:
     [&'static str; 1]
     =
@@ -147,9 +154,17 @@ impl ProgramParamter for Color {
     #[inline]
     fn get_layout(&self) -> &[&str] { &Self::FIELDS[..] }
     #[inline]
+    fn get_single_uniform_layout(&self) -> &[&str] {
+        &Self::SINGLE_FIELDS[..]
+    }
+    #[inline]
     fn get_texture_layout(&self) -> &[&str] { &Self::TEXTURE_FIELDS[..] }
     #[inline]
     fn get_values(&self) -> &[Share<dyn UniformBuffer>] { &self.uniforms[..] }
+    #[inline]
+    fn get_single_uniforms(&self) -> &[UniformValue] {
+        &self.single_uniforms[..]
+    }
     #[inline]
     fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)] {
         &self.textures[..]
@@ -161,6 +176,9 @@ impl ProgramParamter for Color {
             _ => None,
         }
     }
+    fn get_single_uniform(&self, name: &str) -> Option<&UniformValue> {
+        match name { "alpha" => Some(&self.single_uniforms[0]), _ => None, }
+    }
     fn get_texture(&self, name: &str)
      -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
         match name { "texture" => Some(&self.textures[0]), _ => None, }
@@ -170,6 +188,16 @@ impl ProgramParamter for Color {
         match name {
             "common" => s.uniforms[0] = value,
             "clip" => s.uniforms[1] = value,
+            _ => {
+                return false
+            }
+        };
+        true
+    }
+    fn set_single_uniform(&self, name: &str, value: UniformValue) -> bool {
+        let s = unsafe { &mut *(self as *const Self as usize as *mut Self) };
+        match name {
+            "alpha" => s.single_uniforms[0] = value,
             _ => {
                 return false
             }

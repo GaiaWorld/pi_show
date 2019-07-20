@@ -32,6 +32,7 @@ program_paramter! {
         common: BgColor,
         clip: Clip,
         texture: (HalTexture, HalSampler),
+        alpha: UniformValue,
     }
 }
 
