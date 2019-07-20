@@ -142,7 +142,7 @@ impl CommonUniform {
                 gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice());
             },
             _ => {
-                panic!("Invalid uniform");
+                panic!(format!("Invalid Uniform: {:?}", value) )
             }
         }
     }
@@ -380,7 +380,7 @@ impl WebGLProgramImpl {
                     continue;
                 }
                 _ => {
-                    panic!("Invalid Uniform");
+                    panic!(format!("Invalid Uniform: {:?}", name) );
                 }
             }
 

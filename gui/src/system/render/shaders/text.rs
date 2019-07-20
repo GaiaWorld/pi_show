@@ -6,3 +6,4 @@ lazy_static! {
     pub static ref TEXT_FS_SHADER_NAME: Atom = Atom::from("text_fs");
     pub static ref TEXT_VS_SHADER_NAME: Atom = Atom::from("text_vs");
 }
+

@@ -3,18 +3,15 @@
 
 use std::{
   mem::transmute,
-//   ops::{ Deref, Mul},
 };
 
 use share::Share;
 use map::{vecmap::VecMap};
-use hal_core::Context;
 
 use render::res::TextureRes;
 use ecs::component::Component;
 use atom::Atom;
-use HashMap;
-use util::res_mgr::Res;
+use component::calc::WorldMatrix;
 
 //================================== 组件
 #[derive(Clone, Debug, Default, Component, PartialEq)]
@@ -32,14 +29,14 @@ pub struct Layout{
     pub padding_right: f32,
     pub padding_bottom: f32,
 }
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
-#[derive(Deref, DerefMut, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct Overflow(pub bool);
 //不透明度
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Clone, Component, Debug)]
 pub struct Opacity(pub f32);
 
 #[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
@@ -51,29 +48,25 @@ pub struct Transform {
     pub origin: TransformOrigin,
 }
 
+// 背景色和class
 #[derive(Debug, Clone, Component, Default)]
-pub struct BoxColor{
-	pub background: Color,
-	pub border: CgColor,
-}
-
-#[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct BackgroundColor(pub Color);
 
 #[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
+pub struct ClassName(pub usize);
+
+#[derive(Debug, Clone, Component, Default)]
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
-#[storage(HashMap)]
-pub struct Image<C: Context + 'static + Send + Sync>{
-  pub src: Res<TextureRes<C>>
+pub struct Image{
+  pub src: Share<TextureRes>
 }
+unsafe impl Sync for Image {}
+unsafe impl Send for Image {}
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component,Default)]
-#[storage(HashMap)]
 pub struct Filter {
   pub hue_rotate: f32, //色相转换  -0.5 ~ 0.5 , 对应ps的-180 ~180
   pub saturate: f32, // 饱和度  -1。0 ~1.0 ， 对应ps的 -100 ~ 100
@@ -81,41 +74,35 @@ pub struct Filter {
 }
 
 //ObjectFit
-#[derive(Deref, DerefMut, Component, Default)]
-#[storage(HashMap)]
+#[derive(Deref, DerefMut, Clone, Component, Default)]
 pub struct ObjectFit(pub FitType);
 
-#[derive(Deref, DerefMut, Component)]
-#[storage(HashMap)]
+#[derive(Deref, DerefMut, Clone, Component)]
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
-#[storage(HashMap)]
-pub struct BorderImage<C: Context + 'static + Send + Sync>{
-  pub src: Res<TextureRes<C>>
+pub struct BorderImage{
+  pub src: Share<TextureRes>
 }
+unsafe impl Sync for BorderImage {}
+unsafe impl Send for BorderImage {}
 
-#[derive(Deref, DerefMut, Component)]
-#[storage(HashMap)]
+#[derive(Deref, DerefMut, Clone, Component)]
 pub struct BorderImageClip(pub Aabb2);
 
 #[derive(Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct BorderImageSlice{
   pub top: f32, pub right: f32, pub bottom: f32, pub left: f32, pub fill: bool,
 }
 #[derive(Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
-#[derive(Debug, Clone, Component)]
-#[storage(HashMap)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
 }
 #[derive(Debug, Clone, Default, Component)]
-#[storage(HashMap)]
 pub struct BoxShadow{
     pub h: f32,
     pub v: f32,
@@ -125,7 +112,6 @@ pub struct BoxShadow{
 }
 
 #[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct TextStyle{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
@@ -134,40 +120,31 @@ pub struct TextStyle{
     pub white_space: WhiteSpace, //空白处理
     pub color: Color, //颜色
     pub stroke: Stroke,
+    pub text_align: TextAlign,
     pub vertical_align: VerticalAlign,
 }
 
 #[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct Text(pub Share<String>);
 
 unsafe impl Sync for Text{}
 unsafe impl Send for Text{}
 
 #[derive(Debug, Clone, Component, Default)]
-#[storage(HashMap)]
 pub struct TextShadow{
     pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
     pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
     pub blur: f32, //	可选。模糊的距离。	测试
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
-#[derive(Component, Default)]
-#[storage(HashMap)]
-pub struct SrcClip{
-  pub uv: (Point2, Point2),
-  pub size: Vector2,
-}
 
 #[derive(Component, Debug, Clone, Default)]
-#[storage(HashMap)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
-
 
 //================================== 枚举
 
@@ -181,117 +158,6 @@ pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
 
-// #[derive(Default)]
-// pub struct Matrix42d {
-//     pub has_rotate: bool,
-//     pub value: Matrix4,
-// }
-
-// impl Matrix42d {
-//     /// Create a homogeneous transformation matrix from a translation vector.
-//     #[inline]
-//     pub fn from_translation(v: Vector3) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_translation(v),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a scale value.
-//     #[inline]
-//     pub fn from_scale(value: f32) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_scale(value),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a set of scale values.
-//     #[inline]
-//     pub fn from_nonuniform_scale(x: f32, y: f32, z: f32) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_nonuniform_scale(x, y, z),
-//             has_rotate: false,
-//         }
-//     }
-
-//     /// Create a homogeneous transformation matrix from a rotation around the `x` axis (pitch).
-//     pub fn from_angle_x<A: Into<cgmath::Rad<f32>>>(theta: A) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_x(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_angle_y<A: Into<cgmath::Rad<f32>>>(theta: A) ->Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_y(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_angle_z<A: Into<cgmath::Rad<f32>>>(theta: A) -> Matrix42d {
-//         Matrix42d{
-//             value: Matrix4::from_angle_y(theta),
-//             has_rotate: true,
-//         }
-//     }
-
-//     pub fn from_axis_angle<A: Into<cgmath::Rad<f32>>>(axis: Vector3, angle: A) -> Matrix42d{
-//         Matrix42d{
-//             value: Matrix4::from_axis_angle(axis, angle),
-//             has_rotate: true,
-//         }
-//     }
-// }
-
-// impl Deref for Matrix42d {
-//     type Target = Matrix4;
-//     fn deref(&self) -> &Matrix4{
-//         &self.value
-//     }
-// }
-
-// impl Mul<Vector4> for Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a> Mul<&'a Vector4> for Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a> Mul<Vector4> for &'a Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other:  Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl<'a, 'b> Mul<&'a Vector4> for &'b Matrix42d {
-//     type Output = Vector4;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
-// impl Mul<Matrix42d> for Matrix42d {
-//     type Output = Matrix42d;
-//     #[inline]
-//     fn mul(self, other: &'a Vector4) -> Self::Output {
-//         self.value.mul(other)
-//     }
-// }
-
 
 #[derive(Debug)]
 pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
@@ -300,13 +166,13 @@ pub enum LengthUnitType{
     Pixel,
     Percent
 }
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, EnumDefault)]
 pub enum LengthUnit {
 	Pixel(f32),
 	Percent(f32),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, EnumDefault)]
 pub enum Display{
   Flex,
   None,
@@ -321,18 +187,17 @@ pub enum Color{
 }
 
 impl Color {
+    #[inline]
     pub fn is_opaque(&self) -> bool {
         match self {
-            Color::RGBA(c) => {
-                return c.a >= 1.0
-            },
+            Color::RGBA(c) => c.a >= 1.0,
             Color::LinearGradient(l) => {
                 for c in l.list.iter() {
                     if c.rgba.a < 1.0 {
-                    return false;
+                        return false;
                     }
                 }
-                return true;
+                true
             },
             // Color::RadialGradient(g) => {
             //     for c in g.list.iter() {
@@ -515,7 +380,7 @@ enum ShowType{
   Enable = 12, // 0表示no Enable
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, EnumDefault)]
 pub enum EnableType{
     Auto = 0, 
     None = 1,
@@ -523,7 +388,7 @@ pub enum EnableType{
 }
 
 impl Transform {
-    pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> Matrix4 {
+    pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> WorldMatrix {
         // M = T * R * S
         // let mut m = cg::Matrix4::new(
         //     1.0, 0.0, 0.0, 0.0,
@@ -532,25 +397,25 @@ impl Transform {
         //     0.0, 0.0, 0.0, 1.0,
         // );
         let value = self.origin.to_value(width, height);
-        let mut m = Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0));
+        let mut m = WorldMatrix(Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0)), false);
 
         for func in self.funcs.iter() {
             match func {
                 TransformFunc::TranslateX(x) => {
-                    m = m * Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0))
+                    m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0)), false)
                 },
-                TransformFunc::TranslateY(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)),
-                TransformFunc::Translate(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x, *y, 0.0)),
+                TransformFunc::TranslateY(y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)), false),
+                TransformFunc::Translate(x, y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x, *y, 0.0)), false),
 
-                TransformFunc::TranslateXPercent(x) => m = m * Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)),
-                TransformFunc::TranslateYPercent(y) => m = m * Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)),
-                TransformFunc::TranslatePercent(x, y) => m = m * Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)),
+                TransformFunc::TranslateXPercent(x) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)), false),
+                TransformFunc::TranslateYPercent(y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)), false),
+                TransformFunc::TranslatePercent(x, y) => m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)), false),
 
-                TransformFunc::ScaleX(x) => m = m * Matrix4::from_nonuniform_scale(*x, 1.0, 1.0),
-                TransformFunc::ScaleY(y) => m = m * Matrix4::from_nonuniform_scale(1.0, *y, 1.0),
-                TransformFunc::Scale(x, y) => m = m * Matrix4::from_nonuniform_scale(*x, *y, 1.0),
+                TransformFunc::ScaleX(x) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, 1.0, 1.0), false),
+                TransformFunc::ScaleY(y) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(1.0, *y, 1.0), false),
+                TransformFunc::Scale(x, y) => m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, *y, 1.0), false),
                 
-                TransformFunc::RotateZ(z) => m = m * Matrix4::from_angle_z(cgmath::Deg(*z)),
+                TransformFunc::RotateZ(z) => m = m * WorldMatrix(Matrix4::from_angle_z(cgmath::Deg(*z)), true),
             }
         }
         m

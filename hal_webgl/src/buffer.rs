@@ -30,7 +30,7 @@ impl WebGLBufferImpl {
 
         match &data {
             Some(BufferData::Float(v)) => {
-                debug_assert!(btype == BufferType::Attribute && v.len() == count, "WebGLBufferImpl new failed, invalid float btype");
+                debug_assert!(btype == BufferType::Attribute && v.len() == count, "WebGLBufferImpl new failed, invalid float btype, len: {}, count: {}", v.len(), count);
                 
                 let b = unsafe { UnsafeTypedArray::new(v) };
                 js! {
@@ -38,7 +38,7 @@ impl WebGLBufferImpl {
                 }
             },
             Some(BufferData::Short(v)) => {
-                debug_assert!(btype == BufferType::Attribute && v.len() == count, "WebGLBufferImpl new failed, invalid short btype");
+                debug_assert!(btype == BufferType::Indices && v.len() == count, format!("WebGLBufferImpl new failed, invalid short btype, len: {}, count: {}", v.len(), count) );
 
                 let b = unsafe { UnsafeTypedArray::new(v) };
                 js! {

@@ -55,9 +55,9 @@ let canvas_text_fs_code = `
     #endif
 
     #ifdef CLIP
-    uniform float clipIndices;
-    uniform sampler2D clipTexture;
-    uniform float clipTextureSize;
+        uniform float clipIndices;
+        uniform sampler2D clipTexture;
+        uniform float clipTextureSize;
     #endif
 
     // Varyings
@@ -95,7 +95,7 @@ let canvas_text_fs_code = `
         }
     #endif
 
-    #ifdef CLIP 
+    #ifdef CLIP
         // 8位int型变二进制数组
         void toBit(int num, out bvec4 r1, out bvec4 r2) {
             for (int i = 0; i < 4; ++i) {
@@ -121,26 +121,55 @@ let canvas_text_fs_code = `
 
     void main() {
 
-    #ifdef CLIP
-        vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
-        vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
-
-        int index = int(clipIndices);
-        int mask = int(clipColor.r * 256.0);
+        #ifdef CLIP
         
-        bvec4 m1, m2, i1, i2;
-        toBit(mask, m1, m2);
-        toBit(index, i1, i2);
+            vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
+            vec4 clipColor = texture2D(clipTexture, vec2(clipCoord));
+            
+            bvec4 m1, m2, i1, i2;
+            bvec4 notM1, notM2;
+            
+            float remain = clipIndices;
+            
+            int b = int(remain / 128.0 / 128.0);
+            remain = remain - float(b) * 128.0 * 128.0;
+            int mask = int(clipColor.b * 256.0);
+            
+            toBit(mask, m1, m2);
+            toBit(b, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
 
-        bvec4 notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
-        bvec4 notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
-        if (!bitAnd(notM1, notM2, i1, i2)) {
-            discard;
-        }
-    #endif
+            int g = int(remain / 128.0);
+            remain = remain - float(g) * 128.0;
+            mask = int(clipColor.g * 256.0);
+            
+            toBit(mask, m1, m2);
+            toBit(g, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
+            
+            int r = int(remain);
+            mask = int(clipColor.r * 256.0);
+            
+            toBit(mask, m1, m2);
+            toBit(r, i1, i2);
+            notM1 = bvec4(!m1.x, !m1.y, !m1.z, !m1.w);
+            notM2 = bvec4(!m2.x, !m2.y, !m2.z, !m2.w);
+            if (!bitAnd(notM1, notM2, i1, i2)) {
+                discard;
+            }
+    
+        #endif
 
         vec4 c = vec4(1.0);
-    #ifdef VERTEX_COLOR        
+    #ifdef VERTEX_COLOR
         c = c * vColor;
     #endif
 

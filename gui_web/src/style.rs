@@ -13,6 +13,7 @@ macro_rules! set_attr {
     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         let attr = world.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
@@ -33,6 +34,7 @@ macro_rules! insert_value {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         world.$key.lend_mut().insert(node_id, $tt($value));
     };
 }
@@ -41,6 +43,7 @@ macro_rules! insert_attr {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         world.$key.lend_mut().insert(node_id, $value);
     };
 }
@@ -49,6 +52,7 @@ macro_rules! set_show {
     ($world:ident, $node_id:ident, $name:ident, $value:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+		let world = &mut world.gui;
         unsafe {world.show.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
             let old = s.clone();
             s.$name($value);

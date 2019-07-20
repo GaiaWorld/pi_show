@@ -6,7 +6,6 @@ use fnv::FnvHashMap;
 
 use atom::{Atom};
 use ucd::{Codepoint};
-use hal_core::Context;
 
 use component::user::*;
 use font::sdf_font::SdfFont;
@@ -15,16 +14,14 @@ pub const FONT_SIZE: f32 = 32.0;
 
 
 /// 字体表 使用SDF(signed distance field 有向距离场)渲染字体， 支持预定义字体纹理及配置， 也支持动态计算字符的SDF
-pub struct FontSheet<C: Context + 'static + Send + Sync> {
+pub struct FontSheet {
     size: f32,
     color: CgColor,
-    src_map: FnvHashMap<Atom, Share<dyn SdfFont<Ctx=C>>>,
+    src_map: FnvHashMap<Atom, Share<dyn SdfFont>>,
     face_map: FnvHashMap<Atom, FontFace>,
 }
-unsafe impl<C: Context + 'static + Send + Sync> Sync for FontSheet<C>{}
-unsafe impl<C: Context + 'static + Send + Sync> Send for FontSheet<C>{}
 
-impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
+impl Default for FontSheet {
     fn default() -> Self {
         FontSheet {
             size: FONT_SIZE,
@@ -35,7 +32,7 @@ impl<C: Context + 'static + Send + Sync> Default for FontSheet<C> {
     }
 }
 
-impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
+impl  FontSheet {
     // 设置默认字号
     pub fn set_size(&mut self, size: f32) {
         self.size = size;
@@ -45,11 +42,11 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         self.color = color;
     }
     // 设置SDFFont
-    pub fn set_src(&mut self, name: Atom, src: Share<dyn SdfFont<Ctx=C>>) {
+    pub fn set_src(&mut self, name: Atom, src: Share<dyn SdfFont>) {
         self.src_map.insert(name, src);
     }
 
-    pub fn get_src(&mut self, name: &Atom) -> Option<&Share<dyn SdfFont<Ctx=C>>> {
+    pub fn get_src(&mut self, name: &Atom) -> Option<&Share<dyn SdfFont>> {
         self.src_map.get(name)
     }
     
@@ -98,7 +95,7 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         }
     }
 
-    pub fn get_first_font(&self, font_face: &Atom) -> Option<Share<dyn SdfFont<Ctx=C>>>{
+    pub fn get_first_font(&self, font_face: &Atom) -> Option<Share<dyn SdfFont>>{
         match self.face_map.get(font_face) {
             Some(face) => {
                 for name in &face.src {
@@ -113,6 +110,9 @@ impl<C: Context + 'static + Send + Sync>  FontSheet<C> {
         }
     }
 }
+
+unsafe impl Sync for FontSheet {}
+unsafe impl Send for FontSheet {}
 
 // 字体表现
 #[derive(Default, Debug)]

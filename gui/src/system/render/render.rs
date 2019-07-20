@@ -4,18 +4,14 @@
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::default::Default;
-use share::Share;
-
-use fnv::FnvHashMap;
 
 use hal_core::*;
-use ecs::{SingleCaseImpl, Share as ShareTrait, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
-use atom::Atom;
+use ecs::{SingleCaseImpl, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
 
 use render::engine::Engine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
 
-pub struct RenderSys<C: Context + ShareTrait>{
+pub struct RenderSys<C: HalContext + 'static>{
     transparent_dirty: bool,
     opacity_dirty: bool,
     dirty: bool,
@@ -28,7 +24,7 @@ pub struct RenderSys<C: Context + ShareTrait>{
     mark: PhantomData<C>,
 }
 
-impl<C: Context + ShareTrait> Default for RenderSys<C> {
+impl<C: HalContext + 'static> Default for RenderSys<C> {
     fn default() -> Self{
         Self{
             transparent_dirty: false,
@@ -42,9 +38,9 @@ impl<C: Context + ShareTrait> Default for RenderSys<C> {
     }
 }
 
-impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
+impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C>{
     type ReadData = (
-        &'a SingleCaseImpl<RenderObjs<C>>,
+        &'a SingleCaseImpl<RenderObjs>,
         &'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
@@ -80,7 +76,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
             self.opacity_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
                 let obj2 = unsafe { render_objs.get_unchecked(*id2) };
-                (obj1.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(obj2.pipeline.pipeline.as_ref() as *const Pipeline as usize)).unwrap()
+                (obj1.program.as_ref().unwrap() ).partial_cmp(&( obj2.program.as_ref().unwrap() )).unwrap()
             });
         } else if self.transparent_dirty {
             self.transparent_list.clear();
@@ -108,7 +104,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
             self.opacity_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
                 let obj2 = unsafe { render_objs.get_unchecked(*id2) };
-                (obj1.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(obj2.pipeline.pipeline.as_ref() as *const Pipeline as usize)).unwrap()
+                (obj1.program.as_ref().unwrap() ).partial_cmp(&( obj2.program.as_ref().unwrap() )).unwrap()
             });
         }
 
@@ -139,21 +135,22 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
             __time = performance.now();
         }
         let gl = &mut engine.gl;
-        gl.begin_render(
-            &(gl.get_default_render_target().clone() as Share<dyn AsRef<C::ContextRenderTarget>>), 
-            &(render_begin.0.clone() as Share<dyn AsRef<RenderBeginDesc>>));
+        gl.render_begin(
+            &gl.render_get_default_target(), 
+            &render_begin.0);
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
+            // println!("draw opacity_list-------------------------depth: {}, id: {}", obj.depth,  obj.HalContext);
             render(gl, obj); 
         }
 
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            debug_println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.context);
+            // println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.HalContext);
             render(gl, obj);
         }
 
-        gl.end_render();
+        gl.render_end();
 
         #[cfg(feature = "performance")]
         js!{
@@ -164,8 +161,8 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for RenderSys<C>{
     }
 }
 
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for RenderSys<C>{
-    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for RenderSys<C>{
+    type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
@@ -178,8 +175,8 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, CreateEv
     }
 }
 
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent> for RenderSys<C>{
-    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, ModifyEvent> for RenderSys<C>{
+    type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
@@ -205,8 +202,8 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, ModifyEv
     }
 }
 
-impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEvent> for RenderSys<C>{
-    type ReadData = &'a SingleCaseImpl<RenderObjs<C>>;
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent> for RenderSys<C>{
+    type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData){
         self.dirty = true;
@@ -219,71 +216,68 @@ impl<'a, C: Context + ShareTrait> SingleCaseListener<'a, RenderObjs<C>, DeleteEv
     }
 }
 
-fn render<C: Context + ShareTrait>(gl: &mut C, obj: &RenderObj<C>){
+fn render<C: HalContext + 'static>(gl: &mut C, obj: &RenderObj){
     let geometry = match &obj.geometry {
         None => return,
         Some(g) => g,
     };
-    gl.set_pipeline(&mut (obj.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
-    let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
-    for (k, v) in obj.ubos.iter() {
-        ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
-    }
-    gl.draw(&(geometry.value.clone() as Share<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
+    gl.render_set_program(obj.program.as_ref().unwrap());
+    gl.render_set_state(&obj.state.bs, &obj.state.ds, &obj.state.rs, &obj.state.ss);
+    gl.render_draw(&geometry.geo, &obj.paramter);
 }
 
-struct OpacityOrd<'a, C: Context + ShareTrait>(&'a RenderObj<C>, usize);
+struct OpacityOrd<'a>(&'a RenderObj, usize);
 
-impl<'a, C: Context + ShareTrait> PartialOrd for OpacityOrd<'a, C> {
-	fn partial_cmp(&self, other: &OpacityOrd<'a, C>) -> Option<Ordering> {
-        (self.0.pipeline.pipeline.as_ref() as *const Pipeline as usize).partial_cmp(&(other.0.pipeline.pipeline.as_ref() as *const Pipeline as usize))
+impl<'a> PartialOrd for OpacityOrd<'a> {
+	fn partial_cmp(&self, other: &OpacityOrd<'a>) -> Option<Ordering> {
+        (self.0.program.as_ref().unwrap() ).partial_cmp(&( other.0.program.as_ref().unwrap() ))
 	}
 }
 
-impl<'a, C: Context + ShareTrait> PartialEq for OpacityOrd<'a, C>{
-	 fn eq(&self, other: &OpacityOrd<'a, C>) -> bool {
-        (self.0.pipeline.pipeline.as_ref() as *const Pipeline as usize).eq(&(other.0.pipeline.pipeline.as_ref() as *const Pipeline as usize))
+impl<'a> PartialEq for OpacityOrd<'a>{
+	 fn eq(&self, other: &OpacityOrd<'a>) -> bool {
+        (self.0.program.as_ref().unwrap() ).eq(&( other.0.program.as_ref().unwrap() ))
     }
 }
 
-impl<'a, C: Context + ShareTrait> Eq for OpacityOrd<'a, C>{}
+impl<'a> Eq for OpacityOrd<'a>{}
 
-impl<'a, C: Context + ShareTrait> Ord for OpacityOrd<'a, C>{
-	fn cmp(&self, other: &OpacityOrd<'a, C>) -> Ordering {
+impl<'a> Ord for OpacityOrd<'a>{
+	fn cmp(&self, other: &OpacityOrd<'a>) -> Ordering {
         let r = self.partial_cmp(&other).unwrap();
         r
     }
 }
 
-struct TransparentOrd<'a, C: Context + ShareTrait>(&'a RenderObj<C>, usize);
+struct TransparentOrd<'a>(&'a RenderObj, usize);
 
-impl<'a, C: Context + ShareTrait> PartialOrd for TransparentOrd<'a, C> {
-	fn partial_cmp(&self, other: &TransparentOrd<'a, C>) -> Option<Ordering> {
+impl<'a> PartialOrd for TransparentOrd<'a> {
+	fn partial_cmp(&self, other: &TransparentOrd<'a>) -> Option<Ordering> {
 		(self.0.depth + other.0.depth_diff).partial_cmp(&(other.0.depth + other.0.depth_diff))
 	}
 }
 
-impl<'a, C: Context + ShareTrait> PartialEq for TransparentOrd<'a, C>{
-	 fn eq(&self, other: &TransparentOrd<'a, C>) -> bool {
+impl<'a> PartialEq for TransparentOrd<'a>{
+	 fn eq(&self, other: &TransparentOrd<'a>) -> bool {
         (self.0.depth + other.0.depth_diff).eq(&(other.0.depth + other.0.depth_diff))
     }
 }
 
-impl<'a, C: Context + ShareTrait> Eq for TransparentOrd<'a, C>{}
+impl<'a> Eq for TransparentOrd<'a>{}
 
-impl<'a, C: Context + ShareTrait> Ord for TransparentOrd<'a, C>{
-	fn cmp(&self, other: &TransparentOrd<'a, C>) -> Ordering {
+impl<'a> Ord for TransparentOrd<'a>{
+	fn cmp(&self, other: &TransparentOrd<'a>) -> Ordering {
         let r = self.partial_cmp(&other).unwrap();
         r
     }
 }
 
 impl_system!{
-    RenderSys<C> where [C: Context + ShareTrait],
+    RenderSys<C> where [C: HalContext + 'static],
     true,
     {
-        SingleCaseListener<RenderObjs<C>, CreateEvent>
-        SingleCaseListener<RenderObjs<C>, ModifyEvent>
-        SingleCaseListener<RenderObjs<C>, DeleteEvent>  
+        SingleCaseListener<RenderObjs, CreateEvent>
+        SingleCaseListener<RenderObjs, ModifyEvent>
+        SingleCaseListener<RenderObjs, DeleteEvent>  
     }
 }

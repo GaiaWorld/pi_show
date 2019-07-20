@@ -31,7 +31,7 @@ program_paramter! {
     struct Color {
         common: BgColor,
         clip: Clip,
-        texture: UniformTexture<C>,
+        texture: (HalTexture, HalSampler),
     }
 }
 

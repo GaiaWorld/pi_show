@@ -525,9 +525,9 @@ impl HalContext for WebglHalContext {
     fn render_set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState) {
         let context = convert_to_mut(self);
         let bsdesc = get_ref(&context.bs_slab, bs.0, bs.1).expect("bs param not found");
-        let dsdesc = get_ref(&context.ds_slab, bs.0, bs.1).expect("ds param not found");
-        let ssdesc = get_ref(&context.ss_slab, bs.0, bs.1).expect("ss param not found");
-        let rsdesc = get_ref(&context.rs_slab, bs.0, bs.1).expect("rs param not found");
+        let dsdesc = get_ref(&context.ds_slab, ds.0, ds.1).expect("ds param not found");
+        let ssdesc = get_ref(&context.ss_slab, ss.0, ss.1).expect("ss param not found");
+        let rsdesc = get_ref(&context.rs_slab, rs.0, rs.1).expect("rs param not found");
         context.state_machine.set_state(&context.gl, rs, bs, ss, ds, rsdesc, bsdesc, ssdesc, dsdesc);
     }
 

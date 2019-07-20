@@ -4,10 +4,9 @@
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
-use std::collections::hash_map::DefaultHasher;
 
-use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use fnv::{FnvHashMap, FnvHasher};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
 use atom::Atom;
@@ -31,7 +30,7 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct BoxShadowSys<C: Context + ShareTrait>{
+pub struct BoxShadowSys<C: Context>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
@@ -41,7 +40,7 @@ pub struct BoxShadowSys<C: Context + ShareTrait>{
     ds: Share<DepthState>,
 }
 
-impl<C: Context + ShareTrait> BoxShadowSys<C> {
+impl<C: Context> BoxShadowSys<C> {
     pub fn new() -> Self{
         BoxShadowSys {
             render_map: VecMap::default(),
@@ -56,7 +55,7 @@ impl<C: Context + ShareTrait> BoxShadowSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
-impl<'a, C: Context + ShareTrait> Runner<'a> for BoxShadowSys<C>{
+impl<'a, C: Context> Runner<'a> for BoxShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -106,7 +105,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for BoxShadowSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -167,7 +166,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, CreateE
 }
 
 // 修改渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, BoxShadow>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, box_shadows: Self::ReadData, render_objs: Self::WriteData){
@@ -213,7 +212,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, ModifyE
 }
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -227,7 +226,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, BoxShadow, DeleteE
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -247,7 +246,7 @@ type MatrixRead<'a> = (
     &'a MultiCaseImpl<Node, BorderRadius>,
 );
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BoxShadowSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -255,7 +254,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BoxShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BoxShadowSys<C>{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -263,7 +262,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, WorldMatrixRender,
     }
 }
 
-impl<'a, C: Context + ShareTrait> BoxShadowSys<C>{
+impl<'a, C: Context> BoxShadowSys<C>{
     fn modify_matrix(
         &self,
         id: usize,
@@ -305,7 +304,7 @@ struct Item {
 
 fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
     let radius = cal_border_radius(radius, layout);
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = FnvHasher::default();
     if radius.x == 0.0 {
         QUAD_POSITION_INDEX.hash(&mut hasher);           
     } else {
@@ -316,6 +315,9 @@ fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
 
 //取几何体的顶点流和索引流和color属性流
 fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow: &BoxShadow) -> (Vec<f32>, Vec<u16>) {
+    if layout.width == 0.0 && layout.height == 0.0 {
+        return (Vec::new(), Vec::new());
+    }
     let radius = cal_border_radius(radius, layout);
     let start_x = box_shadow.h;
     let start_y = box_shadow.v;
@@ -343,11 +345,11 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow
     (positions, to_triangle(indices.as_slice(), Vec::new()))
 }
 
-unsafe impl<C: Context + ShareTrait> Sync for BoxShadowSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for BoxShadowSys<C>{}
+unsafe impl<C: Context> Sync for BoxShadowSys<C>{}
+unsafe impl<C: Context> Send for BoxShadowSys<C>{}
 
 impl_system!{
-    BoxShadowSys<C> where [C: Context + ShareTrait],
+    BoxShadowSys<C> where [C: Context],
     true,
     {
         MultiCaseListener<Node, BoxShadow, CreateEvent>

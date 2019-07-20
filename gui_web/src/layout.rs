@@ -12,10 +12,11 @@ macro_rules! func_enum {
     ($func:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-        pub fn $func(world: u32, node_id: u32, value: u32){
+        pub fn $func(world: u32, node_id: u32, value: u8){
             let value = unsafe{transmute(value)};
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
@@ -31,6 +32,7 @@ macro_rules! func_value {
         pub fn $func(world: u32, node_id: u32, value: f32){
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
@@ -43,10 +45,11 @@ macro_rules! func_enum_value {
     ($func:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-        pub fn $func(world: u32, node_id: u32, edge: u32, value: f32){
+        pub fn $func(world: u32, node_id: u32, edge: u8, value: f32){
             let edge = unsafe{transmute(edge)};
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(edge, value);
                 true
@@ -62,6 +65,7 @@ macro_rules! func_auto {
         pub fn $func(world: u32, node_id: u32){
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func();
                 true

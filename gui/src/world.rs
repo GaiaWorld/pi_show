@@ -1,25 +1,27 @@
 use std::default::Default;
 use std::sync::Arc;
 
-use hal_core::{Context, RenderBeginDesc};
+use hal_core::*;
 use atom::Atom;
 use cgmath::One;
 
 use share::Share;
 use ecs::*;
 use ecs::idtree::IdTree;
-use ecs::Share as ShareTrait;
+
 use component::user::*;
 use component::calc::*;
 use component::calc;
 use component::user;
-use layout::FlexNode;
 use single::*;
 use entity::Node;
+use layout::FlexNode;
 use render::engine::Engine;
+use render::res::*;
 use system::*;
 use font::font_sheet::FontSheet;
 use Z_MAX;
+use system::util::*;
 
 lazy_static! {
 
@@ -48,7 +50,7 @@ lazy_static! {
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
 }
 
-pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World{
+pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, width: f32, height: f32) -> World {
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -58,7 +60,25 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     font.family = Atom::from("__$common");
     default_table.set::<Font>(font);
 
-    let clip_sys = ClipSys::<C>::new(&mut engine, width as u32, height as u32);
+    let positions = create_buffer(&engine.gl, BufferType::Attribute, 8, Some(BufferData::Float(&[
+        0.0, 0.0,
+        0.0, 1.0,
+        1.0, 1.0,
+        1.0, 0.0
+    ])), false);
+    let indices = create_buffer(&engine.gl, BufferType::Indices, 6, Some(BufferData::Short(&[
+        0, 1, 2, 0, 2, 3
+    ])), false);
+    let geo = create_geometry(&engine.gl);
+    engine.gl.geometry_set_vertex_count(&geo, 4);
+    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
+    engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+    let unit_quad = UnitQuad(Share::new(GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]}));
+
+    let default_state = DefaultState::new(&engine.gl);
+    
+
+    // let clip_sys = ClipSys::new(&mut engine, width as u32, height as u32);
 
     //user
     world.register_entity::<Node>();
@@ -70,7 +90,7 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world.register_multi::<Node, BackgroundColor>();
     world.register_multi::<Node, BoxShadow>();
     world.register_multi::<Node, BorderColor>();
-    world.register_multi::<Node, BorderImage<C>>();
+    world.register_multi::<Node, BorderImage>();
     world.register_multi::<Node, BorderImageClip>();
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
@@ -80,10 +100,11 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world.register_multi::<Node, TextShadow>();
     world.register_multi::<Node, Font>();
     world.register_multi::<Node, BorderRadius>();
-    world.register_multi::<Node, Image<C>>();
+    world.register_multi::<Node, Image>();
     world.register_multi::<Node, ImageClip>();
     world.register_multi::<Node, ObjectFit>();
     world.register_multi::<Node, Filter>();
+    world.register_multi::<Node, ClassName>();
 
 
     //calc
@@ -96,55 +117,61 @@ pub fn create_world<C: Context + ShareTrait, L: FlexNode>(mut engine: Engine<C>,
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, L>();
     world.register_multi::<Node, HSV>();
-    world.register_multi::<Node, WorldMatrixRender>();
-    
+
     //single
-    world.register_single::<ClipUbo<C>>(ClipUbo(Share::new(engine.gl.create_uniforms())));
+    // world.register_single::<ClipUbo>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());
-    world.register_single::<RenderObjs<C>>(RenderObjs::<C>::default());
+    world.register_single::<RenderObjs>(RenderObjs::default());
     world.register_single::<Engine<C>>(engine);
-    world.register_single::<FontSheet<C>>(FontSheet::<C>::default());
+    world.register_single::<FontSheet>(FontSheet::default());
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
     world.register_single::<RenderBegin>(RenderBegin(Share::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
     world.register_single::<DefaultTable>(default_table);
+    world.register_single::<ClassSheet>(ClassSheet::default());
+    world.register_single::<UnitQuad>(unit_quad);
+    world.register_single::<DefaultState>(default_state); 
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
     world.register_system(LYOUT_N.clone(), CellLayoutSys::<L>::new(LayoutSys::new()));
-    world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<C, L>::new()));
+    world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<L>::new()));
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
-    world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
-    world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::<C>::new()));
-    world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<C, L>::new(CharBlockSys::new()));
-    world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<C, L>::new(CharBlockShadowSys::new()));
-    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::<C>::new()));
-    world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::<C>::new()));
-    world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::<C>::new()));
-    world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::<C>::new()));
-    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::<C>::new()));
-    world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::<C>::default()));
-    world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::<C>::new()));
+    // world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
+    // world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::new()));
+    // world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<L>::new(CharBlockSys::new()));
+    // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
+    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::new()));
+    // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::new()));
+    // world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::new()));
+    // world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::new()));
+    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
+    world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
+    // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, node_attr_sys, render_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
-    let mut dispatch = SeqDispatcher::default();
-    dispatch.build("layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
-    world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, clip_sys, world_matrix_render, background_color_sys, border_color_sys, box_shadow_sys, image_sys, border_image_sys, charblock_sys, charblock_shadow_sys, node_attr_sys, render_sys".to_string(), &world);
+    // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
+
+    // let mut dispatch = SeqDispatcher::default();
+    // dispatch.build("text_layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
+    // world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     world
 }
 
-pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
+pub struct GuiWorld<C: HalContext + 'static, L: FlexNode> {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -154,7 +181,7 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub background_color: Arc<CellMultiCase<Node, BackgroundColor>>,
     pub box_shadow: Arc<CellMultiCase<Node, BoxShadow>>,
     pub border_color: Arc<CellMultiCase<Node, BorderColor>>,
-    pub border_image: Arc<CellMultiCase<Node, BorderImage<C>>>,
+    pub border_image: Arc<CellMultiCase<Node, BorderImage>>,
     pub border_image_clip: Arc<CellMultiCase<Node, BorderImageClip>>,
     pub border_image_slice: Arc<CellMultiCase<Node, BorderImageSlice>>,
     pub border_image_repeat: Arc<CellMultiCase<Node, BorderImageRepeat>>,
@@ -163,11 +190,12 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
     pub font: Arc<CellMultiCase<Node, Font>>,
     pub border_radius: Arc<CellMultiCase<Node, BorderRadius>>,
-    pub image: Arc<CellMultiCase<Node, Image<C>>>,
+    pub image: Arc<CellMultiCase<Node, Image>>,
     pub image_clip: Arc<CellMultiCase<Node, ImageClip>>,
     pub object_fit: Arc<CellMultiCase<Node, ObjectFit>>,
     pub filter: Arc<CellMultiCase<Node, Filter>>,
     pub yoga: Arc<CellMultiCase<Node, L>>,
+    pub class_name: Arc<CellMultiCase<Node, ClassName>>,
 
     //calc
     pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
@@ -184,14 +212,15 @@ pub struct GuiWorld<C: Context + ShareTrait, L: FlexNode> {
     pub oct: Arc<CellSingleCase<Oct>>,
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
     pub engine: Arc<CellSingleCase<Engine<C>>>,
-    pub render_objs: Arc<CellSingleCase<RenderObjs<C>>>,
-    pub font_sheet: Arc<CellSingleCase<FontSheet<C>>>,
+    pub render_objs: Arc<CellSingleCase<RenderObjs>>,
+    pub font_sheet: Arc<CellSingleCase<FontSheet>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
+    pub class_sheet: Arc<CellSingleCase<ClassSheet>>,
 
     pub world: World,
 }
 
-impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
+impl<C: HalContext + 'static, L: FlexNode> GuiWorld<C, L> {
     pub fn new(world: World) -> GuiWorld<C, L>{
         GuiWorld{
             node: world.fetch_entity::<Node>().unwrap(),
@@ -203,7 +232,7 @@ impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
             background_color: world.fetch_multi::<Node, BackgroundColor>().unwrap(),
             box_shadow: world.fetch_multi::<Node, BoxShadow>().unwrap(),
             border_color: world.fetch_multi::<Node, BorderColor>().unwrap(),
-            border_image: world.fetch_multi::<Node, BorderImage<C>>().unwrap(),
+            border_image: world.fetch_multi::<Node, BorderImage>().unwrap(),
             border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
             border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
             border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
@@ -212,11 +241,12 @@ impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
             text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
             font: world.fetch_multi::<Node, Font>().unwrap(),
             border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
-            image: world.fetch_multi::<Node, Image<C>>().unwrap(),
+            image: world.fetch_multi::<Node, Image>().unwrap(),
             image_clip: world.fetch_multi::<Node, ImageClip>().unwrap(),
             object_fit: world.fetch_multi::<Node, ObjectFit>().unwrap(),
             filter: world.fetch_multi::<Node, Filter>().unwrap(),
             yoga: world.fetch_multi::<Node, L>().unwrap(),
+            class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
 
             //calc
             z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
@@ -233,9 +263,10 @@ impl<C: Context + ShareTrait, L: FlexNode> GuiWorld<C, L> {
             oct: world.fetch_single::<Oct>().unwrap(),
             overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
             engine: world.fetch_single::<Engine<C>>().unwrap(),
-            render_objs: world.fetch_single::<RenderObjs<C>>().unwrap(),
-            font_sheet: world.fetch_single::<FontSheet<C>>().unwrap(),
+            render_objs: world.fetch_single::<RenderObjs>().unwrap(),
+            font_sheet: world.fetch_single::<FontSheet>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
+            class_sheet: world.fetch_single::<ClassSheet>().unwrap(),
 
             world: world,
         }

@@ -24,6 +24,8 @@ extern crate derive_deref;
 extern crate enum_default_macro;
 #[macro_use]
 extern crate debug_info;
+#[macro_use]
+extern crate hal_derive;
 pub extern crate paste;
 extern crate serde;
  
@@ -48,9 +50,8 @@ extern crate hal_core;
 extern crate polygon;
 extern crate hashmap;
 extern crate ordered_float;
-#[cfg(feature = "web")]
-#[macro_use]
-extern crate stdweb;
+extern crate fxhash;
+extern crate fx_hashmap;
 
 pub mod system;
 pub mod component;
@@ -61,56 +62,12 @@ pub mod render;
 pub mod util;
 pub mod world;
 
-#[cfg(feature = "web")]
-use std::mem::transmute;
-#[cfg(feature = "web")]
-use stdweb::unstable::TryInto;
-
 pub mod entity{
     pub struct Node;
+    // pub struct RenderObj;
+    // pub struct Class;
 }
 
 pub type IdBind = usize;
 pub const Z_MAX: f32 = 419430.0;
-// pub const Z_MAX: f32 = 50.0;
 pub const ROOT: usize = 1;
-pub type HashMap<T> = hashmap::HashMap<usize, T>;
-
-#[cfg(feature = "web")]
-pub fn cancel_timeout(id: usize){
-    js!{
-        clearTimeout(@{id as u32});
-    }
-}
-
-#[cfg(feature = "web")]
-pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
-    let (x, y): (usize, usize) = unsafe { transmute(f) };
-    js!{
-        return setTimeout(function(){
-            Module._notify_timeout(@{x as u32}, @{y as u32});
-        }, @{ms as u32});
-    }
-    0
-}
-
-#[cfg(feature = "web")]
-pub fn now_time() -> u64{
-    TryInto::<u64>::try_into(js!{
-        return Date.now();
-    }).unwrap()
-}
-
-#[cfg(not(feature = "web"))]
-pub fn cancel_timeout(_id: usize){
-}
-
-#[cfg(not(feature = "web"))]
-pub fn set_timeout(_ms: usize, _f: Box<dyn FnOnce()>) -> usize{
-    0
-}
-
-#[cfg(not(feature = "web"))]
-pub fn now_time() -> u64{
-    0
-}

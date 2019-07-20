@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Share as ShareTrait, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
@@ -32,7 +32,7 @@ lazy_static! {
     static ref U_COLOR: Atom = Atom::from("uColor");
 }
 
-pub struct CharBlockShadowSys<C: Context + ShareTrait>{
+pub struct CharBlockShadowSys<C: Context>{
     charblock_render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
     mark: PhantomData<C>,
@@ -44,7 +44,7 @@ pub struct CharBlockShadowSys<C: Context + ShareTrait>{
     default_sampler: Option<Share<SamplerRes<C>>>,
 }
 
-impl<C: Context + ShareTrait> CharBlockShadowSys<C> {
+impl<C: Context> CharBlockShadowSys<C> {
     pub fn new() -> Self{
         CharBlockShadowSys {
             charblock_render_map: VecMap::default(),
@@ -61,7 +61,7 @@ impl<C: Context + ShareTrait> CharBlockShadowSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context + ShareTrait> Runner<'a> for CharBlockShadowSys<C>{
+impl<'a, C: Context> Runner<'a> for CharBlockShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, TextShadow>,
@@ -120,7 +120,7 @@ impl<'a, C: Context + ShareTrait> Runner<'a> for CharBlockShadowSys<C>{
 }
 
 // 插入渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, CreateEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, CharBlock, CreateEvent> for CharBlockShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, TextShadow>,
         &'a MultiCaseImpl<Node, Font>,
@@ -204,7 +204,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, CreateE
 
 
 // 字体修改， 设置顶点数据脏
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, CharBlock, ModifyEvent> for CharBlockShadowSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -218,7 +218,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, ModifyE
 
 
 // 删除渲染对象
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, CharBlock, DeleteEvent> for CharBlockShadowSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -232,7 +232,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, CharBlock, DeleteE
 }
 
 // 字体修改， 重新设置字体纹理
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockShadowSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<FontSheet<C>>,
         &'a MultiCaseImpl<Node, Font>,
@@ -262,7 +262,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Font, ModifyEvent>
 }
 
 // TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for CharBlockShadowSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, TextShadow>,
@@ -302,7 +302,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, TextShadow, Modify
 }
 
 //不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockShadowSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockShadowSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextShadow>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -316,7 +316,7 @@ impl<'a, C: Context + ShareTrait> MultiCaseListener<'a, Node, Opacity, ModifyEve
     }
 }
 
-impl<'a, C: Context + ShareTrait> CharBlockShadowSys<C> {
+impl<'a, C: Context> CharBlockShadowSys<C> {
     fn change_is_opacity(&mut self, opacity: f32, text_shadow: &TextShadow, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         let is_opacity = if opacity < 1.0 || text_shadow.color.a < 1.0{
             false
@@ -335,7 +335,7 @@ struct Item {
 }
 
 // 返回position， uv， color， index
-fn get_geo_flow<C: Context + ShareTrait>(
+fn get_geo_flow<C: Context>(
     char_block: &CharBlock,
     sdf_font: &Share<SdfFont<Ctx = C>>,
     z_depth: f32,
@@ -391,11 +391,11 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 //     // (positions, uvs, indices)
 // }
 
-unsafe impl<C: Context + ShareTrait> Sync for CharBlockShadowSys<C>{}
-unsafe impl<C: Context + ShareTrait> Send for CharBlockShadowSys<C>{}
+unsafe impl<C: Context> Sync for CharBlockShadowSys<C>{}
+unsafe impl<C: Context> Send for CharBlockShadowSys<C>{}
 
 // impl_system!{
-//     CharBlockShadowSys<C> where [C: Context + ShareTrait],
+//     CharBlockShadowSys<C> where [C: Context],
 //     true,
 //     {
 //         MultiCaseListener<Node, CharBlock, CreateEvent>

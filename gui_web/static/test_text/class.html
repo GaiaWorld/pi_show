@@ -64,9 +64,15 @@
         window.__jsObj1 = "200 28px arial";
         Module._add_font_face(gui, 0, 28, 500); // __jsObj: font_face_name(String), __jsObj1: src_name(String, 逗号分隔), 
 
-        var ce = Module._create_text_node(gui);
+        Module._create_text_style_class(gui, 1);
         window.__jsObj = "common";
-        Module._set_font_family(gui, ce);
+        Module._set_text_style_class_font_family(gui, 1);
+
+
+        var ce = Module._create_text_node(gui);
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, ce);
+        Module._set_text_style_class(gui, ce, 1);
         Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
         Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
         window.__jsObj = "11";
@@ -74,28 +80,28 @@
         // Module._set_letter_spacing(gui, ce, 0); // 字符间距
         Module._append_child(gui, ce, body);
 
-        var ce = Module._create_text_node(gui);
-        window.__jsObj = "common";
-        Module._set_font_family(gui, ce);
-        Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
-        Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        window.__jsObj = "我的测试";
-        Module._set_text_content(gui, ce); // 文字内容
-        // Module._set_letter_spacing(gui, ce, 0); // 字符间距
-        Module._append_child(gui, ce, body);
+        // var ce = Module._create_text_node(gui);
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, ce);
+        // Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
+        // Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        // window.__jsObj = "我的测试";
+        // Module._set_text_content(gui, ce); // 文字内容
+        // // Module._set_letter_spacing(gui, ce, 0); // 字符间距
+        // Module._append_child(gui, ce, body);
         
-        Module._render(gui);
+        // Module._render(gui);
 
-        var ce = Module._create_text_node(gui);
-        window.__jsObj = "common";
-        Module._set_font_family(gui, ce);
-        Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
-        Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        window.__jsObj = "abcd我的测试";
-        Module._set_text_content(gui, ce); // 文字内容
-        // Module._set_letter_spacing(gui, ce, 0); // 字符间距
-        Module._append_child(gui, ce, body);
-        Module._render(gui);
+        // var ce = Module._create_text_node(gui);
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, ce);
+        // Module._set_text_rgba_color(gui, ce, 0.0, 0.0, 1.0, 1.0); // r, g, b, a
+        // Module._set_text_stroke(gui, ce, 1.0, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        // window.__jsObj = "abcd我的测试";
+        // Module._set_text_content(gui, ce); // 文字内容
+        // // Module._set_letter_spacing(gui, ce, 0); // 字符间距
+        // Module._append_child(gui, ce, body);
+        // Module._render(gui);
         render_fram();        
     </script> 
 </body>

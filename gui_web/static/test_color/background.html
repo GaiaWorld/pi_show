@@ -43,88 +43,89 @@
         Module._set_height_percent(gui, body, 100.0);
         Module._set_flex_wrap(gui, body, YGWrapWrap);
 
-        var node1 = Module._create_node(gui);
-        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node1, 200.0);
-        Module._set_height(gui, node1, 200.0);
-        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+        // var node1 = Module._create_node(gui);
+        // Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node1, 50.0);
+        // Module._set_height(gui, node1, 50.0);
+        // Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+
+        // var node2 = Module._create_node(gui);
+        // Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node2, 100.0);
+        // Module._set_height(gui, node2, 100.0);
+        // Module._set_margin(gui, node2, YGEdgeLeft, 10);
+        // Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
 
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node2, 100.0);
-        Module._set_height(gui, node2, 100.0);
+        Module._set_width(gui, node2, 50.0);
+        Module._set_height(gui, node2, 50.0);
         Module._set_margin(gui, node2, YGEdgeLeft, 10);
-        Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
-
-        var node2 = Module._create_node(gui);
-        Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node2, 100.0);
-        Module._set_height(gui, node2, 100.0);
-        Module._set_margin(gui, node2, YGEdgeLeft, 10);
-        Module._set_border_radius(gui, node2, 50, 50);
+        Module._set_border_radius(gui, node2, 5, 5);
         Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
 
 
-        // 测试两点线性渐变颜色
-        var node3 = Module._create_node(gui);
-        Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node3, 100.0);
-        Module._set_height(gui, node3, 100.0);
-        Module._set_margin(gui, node3, YGEdgeLeft, 10);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node3, 0);
+        // // 测试两点线性渐变颜色
+        // var node3 = Module._create_node(gui);
+        // Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node3, 100.0);
+        // Module._set_height(gui, node3, 100.0);
+        // Module._set_margin(gui, node3, YGEdgeLeft, 10);
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_background_linear_gradient_color(gui, node3, 0);
 
-        // 测试两点线性渐变颜色 + border_radius
-        var node4 = Module._create_node(gui);
-        Module._append_child(gui, node4, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node4, 100.0);
-        Module._set_height(gui, node4, 100.0);
-        Module._set_margin(gui, node4, YGEdgeLeft, 10);
-        Module._set_border_radius(gui, node4, 50, 50);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node4, 30);
+        // // 测试两点线性渐变颜色 + border_radius
+        // var node4 = Module._create_node(gui);
+        // Module._append_child(gui, node4, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node4, 100.0);
+        // Module._set_height(gui, node4, 100.0);
+        // Module._set_margin(gui, node4, YGEdgeLeft, 10);
+        // Module._set_border_radius(gui, node4, 50, 50);
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_background_linear_gradient_color(gui, node4, 30);
 
-        // 测试三点线性渐变颜色
-        var node5 = Module._create_node(gui);
-        Module._append_child(gui, node5, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node5, 100.0);
-        Module._set_height(gui, node5, 100.0);
-        Module._set_margin(gui, node5, YGEdgeLeft, 10);
-        // Module._set_border_radius(gui, node5, 50, 50);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node5, 30);
+        // // 测试三点线性渐变颜色
+        // var node5 = Module._create_node(gui);
+        // Module._append_child(gui, node5, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node5, 100.0);
+        // Module._set_height(gui, node5, 100.0);
+        // Module._set_margin(gui, node5, YGEdgeLeft, 10);
+        // // Module._set_border_radius(gui, node5, 50, 50);
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_background_linear_gradient_color(gui, node5, 30);
 
-        // 测试三点线性渐变颜色 + border_radius
-        var node6 = Module._create_node(gui);
-        Module._append_child(gui, node6, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node6, 100.0);
-        Module._set_height(gui, node6, 100.0);
-        Module._set_margin(gui, node6, YGEdgeLeft, 10);
-        Module._set_border_radius(gui, node6, 50, 50);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node6, 0);
+        // // 测试三点线性渐变颜色 + border_radius
+        // var node6 = Module._create_node(gui);
+        // Module._append_child(gui, node6, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node6, 100.0);
+        // Module._set_height(gui, node6, 100.0);
+        // Module._set_margin(gui, node6, YGEdgeLeft, 10);
+        // Module._set_border_radius(gui, node6, 50, 50);
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_background_linear_gradient_color(gui, node6, 0);
 
-        // 测试三点线性渐变颜色(非0度渐变角) + border_radius
-        var node6 = Module._create_node(gui);
-        Module._append_child(gui, node6, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node6, 100.0);
-        Module._set_height(gui, node6, 100.0);
-        Module._set_margin(gui, node6, YGEdgeLeft, 10);
-        Module._set_border_radius(gui, node6, 50, 50);
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_background_linear_gradient_color(gui, node6, 30);
+        // // 测试三点线性渐变颜色(非0度渐变角) + border_radius
+        // var node6 = Module._create_node(gui);
+        // Module._append_child(gui, node6, body); // 接口已修改， node和parent顺序颠倒
+        // Module._set_width(gui, node6, 100.0);
+        // Module._set_height(gui, node6, 100.0);
+        // Module._set_margin(gui, node6, YGEdgeLeft, 10);
+        // Module._set_border_radius(gui, node6, 50, 50);
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_background_linear_gradient_color(gui, node6, 30);
 
-        // 
-        var node7 = Module._create_node(gui);
-        Module._append_child(gui, node7, body);
-        Module._set_width(gui, node7, 100.0);
-        Module._set_height(gui, node7, 100.0);
-        Module._set_margin(gui, node7, YGEdgeLeft, 10);
-        Module._set_border(gui, node7, YGEdgeAll, 15);
-        Module._set_border_radius(gui, node7, 20, 20);
-        Module._set_background_rgba_color(gui, node7, 0.0, 1.0, 0.0, 1.0);   
+        // // 
+        // var node7 = Module._create_node(gui);
+        // Module._append_child(gui, node7, body);
+        // Module._set_width(gui, node7, 100.0);
+        // Module._set_height(gui, node7, 100.0);
+        // Module._set_margin(gui, node7, YGEdgeLeft, 10);
+        // Module._set_border(gui, node7, YGEdgeAll, 15);
+        // Module._set_border_radius(gui, node7, 20, 20);
+        // Module._set_background_rgba_color(gui, node7, 0.0, 1.0, 0.0, 1.0);   
 
-        Module._render(gui);
+        // Module._render(gui);
+        render_fram();
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

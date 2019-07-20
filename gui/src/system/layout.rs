@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
 use ecs::idtree::{IdTree};
-use ecs::Share as ShareTrait;
+
 
 use component::user::*;
 use layout::{FlexNode, YGOverflow, YGAlign};
@@ -18,7 +18,7 @@ impl<L: FlexNode> LayoutSys<L> {
 }
 
 //插入Layout 和 L 组件
-impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
+impl<'a, L: FlexNode> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -31,7 +31,7 @@ impl<'a, L: FlexNode + ShareTrait> EntityListener<'a, Node, CreateEvent> for Lay
     }
 }
 
-impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
+impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
@@ -46,7 +46,7 @@ impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, ModifyEvent> f
     }
 }
 
-impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys<L>{
+impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData){
@@ -54,7 +54,7 @@ impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, CreateEvent> f
     }
 }
 
-impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys<L>{
+impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
@@ -66,7 +66,7 @@ impl<'a, L: FlexNode + ShareTrait> SingleCaseListener<'a, IdTree, DeleteEvent> f
     }
 }
 
-fn add_yoga<L: FlexNode + ShareTrait>(id: usize, idtree: &SingleCaseImpl<IdTree>, yogas: &MultiCaseImpl<Node, L>){
+fn add_yoga<L: FlexNode>(id: usize, idtree: &SingleCaseImpl<IdTree>, yogas: &MultiCaseImpl<Node, L>){
 	let node = unsafe { idtree.get_unchecked(id) };
 	let yoga = unsafe { yogas.get_unchecked(id) };
 	if node.parent > 0 {
@@ -86,7 +86,7 @@ fn add_yoga<L: FlexNode + ShareTrait>(id: usize, idtree: &SingleCaseImpl<IdTree>
 
 
 impl_system!{
-    LayoutSys<L> where [L: FlexNode + ShareTrait],
+    LayoutSys<L> where [L: FlexNode],
     false,
     {
 		EntityListener<Node, CreateEvent>
