@@ -61,11 +61,11 @@ pub trait ProgramParamter {
     fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)];
 
     fn set_value(&self, name: &str, value: Share<dyn UniformBuffer>) -> bool;
-    fn set_single_uniform(&self, value: UniformValue) -> bool;
+    fn set_single_uniform(&self, name: &str, value: UniformValue) -> bool;
     fn set_texture(&self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool;
 
     fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>>;
-    fn get_single_uniform(&self, name: &str) -> &UniformValue;
+    fn get_single_uniform(&self, name: &str) -> Option<&UniformValue>;
     fn get_texture(&self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)>;
 }
 

@@ -1,4 +1,4 @@
-#![recursion_limit="128"]
+#![recursion_limit="256"]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -121,21 +121,26 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
         },
         _ => panic!("UniformBuffer must is a struct, and field have name!"),
     };
-    let (textrue_count, uniform_count) = textrue_and_uniform_count(fields);
+    let (textrue_count, uniform_count, single_uniform_count) = textrue_and_uniform_count(fields);
     let uniform_fields_names = UniformFieldNamesArray(fields);
+    let uniform_single_fields_names = UniformSingleFieldNamesArray(fields);
     let texture_fields_names = TextureFieldNamesArray(fields);
     let uniform_set_value_match = UniformSetValueMatch(fields);
+    let uniform_single_set_value_match = UniformSingleSetValueMatch(fields);
     let texture_set_value_match = TextureSetValueMatch(fields);
     let uniform_get_value_match = UniformGetValueMatch(fields);
+    let uniform_single_get_value_match = UniformSingleGetValueMatch(fields);
     let texture_get_value_match = TextureGetValueMatch(fields);
     let texture_default = TextureDefaultValueMatch(fields);
     let uniform_default = UniformDefaultValueMatch(fields);
+    let uniform_single_default = UniformSingleDefaultValueMatch(fields);
     let attrs = &ast.attrs;
 
     quote! {
         #(#attrs)*
         pub struct #name {
             uniforms: [Share<dyn UniformBuffer>; #uniform_count],
+            single_uniforms: [UniformValue; #single_uniform_count],
             textures: [(Share<HalTexture>, Share<HalSampler>); #textrue_count],
         }
 
@@ -143,6 +148,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             fn default() -> Self {
                 Self {
                     uniforms: [#uniform_default],
+                    single_uniforms: [#uniform_single_default],
                     textures: [#texture_default],
                 }
             }
@@ -150,6 +156,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
 
         impl #name {
             pub const FIELDS: [&'static str; #uniform_count] = [#uniform_fields_names];
+            pub const SINGLE_FIELDS: [&'static str; #single_uniform_count] = [#uniform_single_fields_names];
             pub const TEXTURE_FIELDS: [&'static str; #textrue_count] = [#texture_fields_names];
         }
 
@@ -157,6 +164,11 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             #[inline]
             fn get_layout(&self) -> &[&str] {
                 &Self::FIELDS[..]
+            }
+
+            #[inline]
+            fn get_single_uniform_layout(&self) -> &[&str] {
+                &Self::SINGLE_FIELDS[..]
             }
 
             #[inline]
@@ -170,6 +182,11 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             }
 
             #[inline]
+            fn get_single_uniforms(&self) -> &[UniformValue] {
+                &self.single_uniforms[..]
+            }
+
+            #[inline]
             fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)] {
                 &self.textures[..]
             }
@@ -177,6 +194,13 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
                 match name {
                     #uniform_get_value_match
+                    _ => None,
+                }
+            }
+
+            fn get_single_uniform(&self, name: &str) -> Option<&UniformValue> {
+                match name {
+                    #uniform_single_get_value_match
                     _ => None,
                 }
             }
@@ -192,6 +216,18 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
                 match name {
                     #uniform_set_value_match
+                    _ => {
+                        println!("set ubo fail, name: {:?}, self_layout: {:?}", name, self.get_layout());
+                        return false
+                    },
+                };
+                true
+            }
+
+            fn set_single_uniform(&self, name: &str, value: UniformValue) -> bool {
+                let s = unsafe {&mut *(self as *const Self as usize as *mut Self)};
+                match name {
+                    #uniform_single_set_value_match
                     _ => {
                         println!("set ubo fail, name: {:?}, self_layout: {:?}", name, self.get_layout());
                         return false
@@ -330,7 +366,19 @@ struct UniformFieldNamesArray<'a>(&'a syn::punctuated::Punctuated<syn::Field, sy
 impl<'a> ToTokens for UniformFieldNamesArray<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         for v in self.0.iter(){
-            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture") && !v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+                let field_name_str = v.ident.clone().unwrap().to_string();
+                tokens.extend(quote! {#field_name_str,});
+            }
+        }          
+    }
+}
+
+struct UniformSingleFieldNamesArray<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformSingleFieldNamesArray<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        for v in self.0.iter(){
+            if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 tokens.extend(quote! {#field_name_str,});
             }
@@ -355,7 +403,24 @@ impl<'a> ToTokens for UniformSetValueMatch<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut i = 0;
         for v in self.0.iter(){
-            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture") && !v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+                let field_name_str = v.ident.clone().unwrap().to_string();
+                let index = syn::Index::from(i);
+                tokens.extend(quote! {
+                    #field_name_str => s.uniforms[#index] = value,
+                });
+                i += 1;
+            }
+        }          
+    }
+}
+
+struct UniformSingleSetValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformSingleSetValueMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut i = 0;
+        for v in self.0.iter(){
+            if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
@@ -388,7 +453,19 @@ struct UniformDefaultValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, 
 impl<'a> ToTokens for UniformDefaultValueMatch<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         for v in self.0.iter(){
-            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture") && !v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+                let field_ty = &v.ty;
+                tokens.extend(quote! {Share::new(#field_ty::default()),});
+            }
+        }    
+    }
+}
+
+struct UniformSingleDefaultValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformSingleDefaultValueMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        for v in self.0.iter(){
+            if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
                 let field_ty = &v.ty;
                 tokens.extend(quote! {Share::new(#field_ty::default()),});
             }
@@ -412,7 +489,24 @@ impl<'a> ToTokens for UniformGetValueMatch<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut i = 0;
         for v in self.0.iter(){
-            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture") && !v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+                let field_name_str = v.ident.clone().unwrap().to_string();
+                let index = syn::Index::from(i);
+                tokens.extend(quote! {
+                    #field_name_str => Some(&self.uniforms[#index]),
+                });
+                i += 1;
+            }
+        }          
+    }
+}
+
+struct UniformSingleGetValueMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformSingleGetValueMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut i = 0;
+        for v in self.0.iter(){
+            if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
                 let field_name_str = v.ident.clone().unwrap().to_string();
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
@@ -477,14 +571,16 @@ impl<'a> ToTokens for DefinesDelMatch<'a> {
     }
 }
 
-fn textrue_and_uniform_count(fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>) -> (syn::Index, syn::Index) {
-    let (mut textrue_count, mut uniform_count) = (0, 0);
+fn textrue_and_uniform_count(fields: &syn::punctuated::Punctuated<syn::Field, syn::token::Comma>) -> (syn::Index, syn::Index, syn::Index) {
+    let (mut textrue_count, mut uniform_count, mut uniform_single_count) = (0, 0, 0);
     for v in fields.iter() {
         if v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
             textrue_count += 1;
+        }else if v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+            uniform_single_count += 1;
         }else {
             uniform_count += 1;
         }
     }
-    (syn::Index::from(textrue_count), syn::Index::from(uniform_count))
+    (syn::Index::from(textrue_count), syn::Index::from(uniform_count), syn::Index::from(uniform_single_count))
 }
