@@ -10,7 +10,7 @@ extern crate std;
 
 ///一个基本的例子， 演示如何使用 uniform_buffer! 和 program_paramter! 定义UniformBuffer 和 ProgramParamter
 extern crate hal_core;
-#[macro_use]
+
 extern crate hal_derive;
 extern crate share;
 
