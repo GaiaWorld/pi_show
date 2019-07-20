@@ -22,6 +22,7 @@ pub struct Shader {
 pub struct LayoutLocation {
     pub textures: FxHashMap32<Atom, usize>,
     pub uniforms: FxHashMap32<Atom, (usize, usize)>,
+    pub single_uniforms: FxHashMap32<Atom, usize>,
 }
 
 /**
@@ -72,13 +73,18 @@ impl ShaderCache {
                 }
             }
             
+            let mut single_uniforms = FxHashMap32::default();
+            for (i, u) in layout.single_uniforms.iter().enumerate() {
+                single_uniforms.insert(Atom::from(*u), i);
+            }
+
             let mut textures = FxHashMap32::default();
             for (i, u) in layout.textures.iter().enumerate() {
                 textures.insert(Atom::from(*u), i);
             }
 
             self.location_caches.insert(vs_fs.clone(), LayoutLocation {
-                uniforms, textures,
+                uniforms, single_uniforms, textures,
             });
         }
 

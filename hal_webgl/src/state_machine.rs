@@ -291,6 +291,11 @@ impl StateMachine {
             loc.set_gl_uniform(gl, unit as i32);
         }
 
+        let singles = pp.get_single_uniforms();
+        for loc in program.active_single_uniforms.iter_mut() {
+            loc.set_gl_uniform(gl, &singles[loc.slot_uniform]);
+        }
+
         if program.last_pp.is_none() {
             let pp = pp.get_values();
             for ubo_loc in program.active_uniforms.iter_mut() {
