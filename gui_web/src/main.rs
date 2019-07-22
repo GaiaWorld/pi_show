@@ -82,7 +82,8 @@ pub fn create_engine(mut res_cush_time: u32) -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
-    let gl = WebGLContextImpl::new(Share::new(gl), fbo);
+    let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
+    let gl = WebGLContextImpl::new(Share::new(gl), fbo, use_vao);
 
     if res_cush_time < 500 {
         res_cush_time = 500;

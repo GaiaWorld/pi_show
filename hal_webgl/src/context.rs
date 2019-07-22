@@ -193,7 +193,7 @@ impl WebGLContextImpl {
     /** 
      * 注：fbo是WebGLFramebuffer对象，但是WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
      */
-    pub fn new(gl: Share<WebGLRenderingContext>, fbo: Option<Object>) -> Self {
+    pub fn new(gl: Share<WebGLRenderingContext>, fbo: Option<Object>, use_vao: bool) -> Self {
         
         let stats = Rc::new(RefCell::new(RenderStats {
             geometry_count: 0,
@@ -210,7 +210,7 @@ impl WebGLContextImpl {
 
         let mgr = ProgramManager::new(&stats, &gl, caps.max_vertex_attribs);
 
-        let vao_extension = if caps.vertex_array_object {
+        let vao_extension = if use_vao && caps.vertex_array_object {
             match TryInto::<Object>::try_into(js! {
                 var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
                 if (!extension) { return; }
