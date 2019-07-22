@@ -555,7 +555,7 @@ impl HalContext for WebglHalContext {
 }
 
 impl WebglHalContext {
-    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>) -> WebglHalContext {
+    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>, use_vao: bool) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
         let mut texture_slab = Slab::new();
@@ -569,7 +569,7 @@ impl WebglHalContext {
         let program_slab = Slab::new();
         
         let caps = WebglHalContext::create_caps(&gl);
-        let vao_extension = if !caps.vertex_array_object {
+        let vao_extension = if !use_vao || !caps.vertex_array_object {
             None
         } else {
             TryInto::<Object>::try_into(js! {
@@ -587,7 +587,7 @@ impl WebglHalContext {
         let default_rt = HalRenderTarget(default_rt.0, default_rt.1);
 
         let shader_cache = ShaderCache::new();
-        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
+        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
         let context = WebglHalContext {
             stat: RenderStat::new(),
