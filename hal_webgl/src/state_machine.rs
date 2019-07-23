@@ -5,6 +5,7 @@ use ordered_float::{OrderedFloat};
 use stdweb::{Object};
 
 use hal_core::*;
+use extension::{OESVertexArrayObject};
 use convert::*;
 use util::*;
 use buffer::{WebGLBufferImpl};
@@ -35,6 +36,7 @@ pub struct StateMachine {
     geometry: HalGeometry,
     target: HalRenderTarget,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
+    enable_attrib_indices: Vec<bool>,
     tex_caches: TextureCache,
 }
 
@@ -124,7 +126,7 @@ impl TextureCache {
 
 impl StateMachine {
 
-    pub fn new(gl: &WebGLRenderingContext, rt: &HalRenderTarget, 
+    pub fn new(gl: &WebGLRenderingContext, rt: &HalRenderTarget, max_attributes: u32,
         max_tex_unit_num: u32, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) -> StateMachine {
         
         let tex_caches = TextureCache::new(max_tex_unit_num as usize);
@@ -149,7 +151,7 @@ impl StateMachine {
             bsdesc: BlendStateDesc::new(),
             dsdesc: DepthStateDesc::new(),
             ssdesc: StencilStateDesc::new(),
-
+            enable_attrib_indices: vec![false; max_attributes as usize],
             tex_caches: tex_caches,
         };  
         
@@ -339,10 +341,16 @@ impl StateMachine {
                     for (i, v) in gimpl.attributes.iter().enumerate() {
                         if let Some(v) = v {
                             if let Some(a) = get_ref(buffer_slab, v.handle.0, v.handle.1) {
+                                if !self.enable_attrib_indices[i] {
+                                    self.enable_attrib_indices[i] = true;
+                                    gl.enable_vertex_attrib_array(i as u32);
+                                }
                                 gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&a.handle));
-                                gl.enable_vertex_attrib_array(i as u32);
                                 gl.vertex_attrib_pointer(i as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
                             }
+                        } else {
+                            self.enable_attrib_indices[i] = false;
+                            gl.disable_vertex_attrib_array(i as u32);
                         }
                     }
                     
@@ -400,7 +408,16 @@ impl StateMachine {
         let rect = &self.viewport_rect;
         gl.viewport(rect.0, rect.1, rect.2, rect.3);
         gl.scissor(rect.0, rect.1, rect.2, rect.3);
-
+        
+        let is_vao_extension = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
+        if !is_vao_extension {
+            for (i, v) in self.enable_attrib_indices.iter_mut().enumerate() {
+                if *v {
+                    *v = false;
+                    gl.disable_vertex_attrib_array(i as u32);
+                }
+            }
+        }
         self.tex_caches.reset(texture_slab);
     }
 
