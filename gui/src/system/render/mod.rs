@@ -6,7 +6,7 @@ mod background_color;
 mod node_attr;
 mod render;
 // mod image;
-// mod charblock;
+mod charblock;
 // mod charblock_shadow;
 // mod clip;
 // mod render_matrix;
@@ -15,7 +15,7 @@ pub mod util;
 
 
 // pub use system::render::clip::*;
-// pub use system::render::charblock::*;
+pub use system::render::charblock::*;
 // pub use system::render::charblock_shadow::*;
 // pub use system::render::border::*;
 // pub use system::render::border_image::*;

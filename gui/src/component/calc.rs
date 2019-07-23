@@ -7,11 +7,11 @@ use ecs::component::Component;
 
 use share::Share;
 use hal_core::*;
-use util::res_mgr::Res;
 
 use super::user::*;
 use layout::FlexNode;
 use single::class::TextClass;
+use render::res_mgr::*;
 
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ZDepth(pub f32);
@@ -59,24 +59,24 @@ pub struct HSV {
 // }
 
 pub enum DirtyType{
-  Text = 1, // 1表示文字脏
-  StyleClass = 2, // 表示样式类脏
-  FontStyle = 4, // 表示局部样式脏
-  FontWeight = 8, // 表示局部样式脏
-  FontSize = 0x10, // 表示局部样式脏
-  FontFamily = 0x20, // 表示局部样式脏
-  LetterSpacing = 0x40, // 表示局部样式脏
-  WordSpacing = 0x80, // 表示局部样式脏
-  LineHeight = 0x100, // 表示局部样式脏
-  Indent = 0x200, // 表示局部样式脏
-  WhiteSpace = 0x400, // 表示局部样式脏
-  Color = 0x800, // 表示局部样式脏
-  Stroke = 0x1000, // 表示局部样式脏
-  TextAlign = 0x2000, // 表示局部样式脏
-  VerticalAlign = 0x4000, // 表示局部样式脏
-  ShadowColor = 0x8000, // 表示局部样式脏
-  ShadowHV = 0x10000,
-  ShadowBlur = 0x20000,
+    Text = 1, // 1表示文字脏
+    StyleClass = 2, // 表示样式类脏
+    FontStyle = 4, // 表示局部样式脏
+    FontWeight = 8, // 表示局部样式脏
+    FontSize = 0x10, // 表示局部样式脏
+    FontFamily = 0x20, // 表示局部样式脏
+    LetterSpacing = 0x40, // 表示局部样式脏
+    WordSpacing = 0x80, // 表示局部样式脏
+    LineHeight = 0x100, // 表示局部样式脏
+    Indent = 0x200, // 表示局部样式脏
+    WhiteSpace = 0x400, // 表示局部样式脏
+    TextAlign = 0x800, // 表示局部样式脏
+    VerticalAlign = 0x1000, // 表示局部样式脏
+    Color = 0x2000, // 表示局部样式脏
+    Stroke = 0x4000, // 表示局部样式脏
+    ShadowColor = 0x8000, // 表示局部样式脏
+    ShadowHV = 0x10000,
+    ShadowBlur = 0x20000,
 }
 
 #[derive(Component, Debug)]
@@ -243,68 +243,68 @@ impl Mul<Vector4> for WorldMatrix{
 
 // 渲染--------------------------------------------------------------------------------------------------------------------------
 uniform_buffer! {
-    #[allow(non_snake_case)]
-    struct ClipUbo {
-        clipIndices: UniformValue,
-    }
-}
-unsafe impl Sync for ClipUbo {}
-unsafe impl Send for ClipUbo {}
-
-impl Res for ClipUbo {type Key = u64;}
-
-uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct ClipTextureSize {
         clipTextureSize: UniformValue,
     }
 }
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct WorldMatrixUbo {
         worldMatrix: UniformValue,
     }
 }
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct ViewMatrixUbo {
         viewMatrix: UniformValue,
     }
 }
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct ProjectMatrixUbo {
         projectMatrix: UniformValue,
     }
 }
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct UColorUbo {
         uColor: UniformValue,
     }
 }
-impl Res for UColorUbo {type Key = u64;}
+impl<C: HalContext + 'static> Res<C> for UColorUbo {
+    type Key = u64;
+
+    fn destroy(&self, _gl: &C){
+    }
+}
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct HsvUbo {
         hsv: UniformValue,
     }
 }
-impl Res for HsvUbo {type Key = u64;}
+impl<C: HalContext + 'static> Res<C> for HsvUbo {
+    type Key = u64;
+
+    fn destroy(&self, _gl: &C){
+    }
+}
 
 defines! {
+    #[derive(Clone)]
     struct VsDefines {
         VERTEX_COLOR: String,
     }
 }
-impl Res for VsDefines {type Key = u64;}
 
 defines! {
+    #[derive(Clone)]
     struct FsDefines {
         UCOLOR: String,
         VERTEX_COLOR: String,
@@ -313,34 +313,39 @@ defines! {
         GRAY: String,
     }
 }
-impl Res for FsDefines {type Key = u64;}
 
 defines! {
+    #[derive(Clone)]
     struct FsBaseDefines {
         CLIP: String,
         HSV: String,
         GRAY: String,
     }
 }
-impl Res for FsBaseDefines {type Key = u64;}
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
-    struct MsdfStrokeColorUbo {
+    #[derive(Hash)]
+    struct MsdfStrokeUbo {
         strokeSize: UniformValue,
         strokeColor: UniformValue,
     }
 }
-impl Res for MsdfStrokeColorUbo {type Key = u64;}
+impl<C: HalContext + 'static> Res<C> for MsdfStrokeUbo {
+    type Key = u64;
+
+    fn destroy(&self, _gl: &C){
+    }
+}
 
 program_paramter! {
+    #[derive(Clone)]
     struct MsdfParamter {
         uColor: UColorUbo,
-        stroke: MsdfStrokeColorUbo,
+        stroke: MsdfStrokeUbo,
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
-        clip: ClipUbo,
+        clip: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
@@ -349,6 +354,7 @@ program_paramter! {
 }
 
 defines! {
+    #[derive(Clone)]
     struct MsdfFsDefines {
         STROKE: String,
         UCOLOR: String,
@@ -358,15 +364,19 @@ defines! {
         GRAY: String,
     }
 }
-impl Res for MsdfFsDefines {type Key = u64;}
 
 uniform_buffer! {
-    #[allow(non_snake_case)]
+    #[derive(Hash)]
     struct CanvasTextStrokeColorUbo {
         strokeColor: UniformValue,
     }
 }
-impl Res for CanvasTextStrokeColorUbo {type Key = u64;}
+impl<C: HalContext + 'static> Res<C> for CanvasTextStrokeColorUbo {
+    type Key = u64;
+
+    fn destroy(&self, _gl: &C){
+    }
+}
 
 program_paramter! {
     #[derive(Clone)]
@@ -376,7 +386,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
-        clip: ClipUbo,
+        clip: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
@@ -392,7 +402,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
-        clip: ClipUbo,
+        clip: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         alpha: UniformValue,
@@ -406,7 +416,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
-        clip: ClipUbo,
+        clip: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTexture_size: ClipTextureSize,
         texture: (HalTexture, HalSampler),
@@ -415,10 +425,10 @@ program_paramter! {
 }
 
 defines! {
+    #[derive(Clone)]
     struct ImageFsDefines {
         CLIP: String,
         HSV: String,
         GRAY: String,
     }
 }
-impl Res for ImageFsDefines {type Key = u64;}

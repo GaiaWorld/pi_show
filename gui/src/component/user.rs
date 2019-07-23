@@ -3,7 +3,10 @@
 
 use std::{
   mem::transmute,
+  hash::{Hash, Hasher},
 };
+
+use ordered_float::NotNan;
 
 use share::Share;
 use map::{vecmap::VecMap};
@@ -125,7 +128,7 @@ pub struct TextStyle{
 }
 
 #[derive(Debug, Clone, Component, Default)]
-pub struct Text(pub Share<String>);
+pub struct Text(pub String, pub Atom);
 
 unsafe impl Sync for Text{}
 unsafe impl Send for Text{}
@@ -215,6 +218,19 @@ impl Color {
 pub struct LinearGradientColor{
     pub direction: f32,
     pub list: Vec<ColorAndPosition>,
+}
+
+impl Hash for LinearGradientColor {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        unsafe { NotNan::unchecked_new(self.direction).hash(hasher) };
+        for l in self.list.iter() {
+            unsafe { NotNan::unchecked_new(l.position).hash(hasher) };
+            unsafe { NotNan::unchecked_new(l.rgba.r).hash(hasher) };
+            unsafe { NotNan::unchecked_new(l.rgba.g).hash(hasher) };
+            unsafe { NotNan::unchecked_new(l.rgba.b).hash(hasher) };
+            unsafe { NotNan::unchecked_new(l.rgba.a).hash(hasher) };
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -327,8 +343,6 @@ pub enum LineHeight{
     Percent(f32),   //	基于当前字体尺寸的百分比行间距.
 }
 
-
-
 #[derive(Debug, Clone)]
 pub enum TransformFunc {
     TranslateX(f32),
@@ -423,7 +437,7 @@ impl Transform {
 }
 
 //对齐元素中的文本
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
 pub enum TextAlign{
     Left,	//把文本排列到左边。默认值：由浏览器决定。
     Right,	//把文本排列到右边。
@@ -432,7 +446,7 @@ pub enum TextAlign{
 }
 
 //设置元素中空白的处理方式
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
 pub enum WhiteSpace{
     Normal, //	默认。空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围会换行。
     Nowrap, //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
@@ -472,13 +486,13 @@ impl WhiteSpace {
     }
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
 pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
     Ttalic, //	斜体的字体样式。
     Oblique, //	倾斜的字体样式。
 }
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
 pub enum VerticalAlign{
     Top,
     Middle,

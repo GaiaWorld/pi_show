@@ -8,18 +8,19 @@ use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
 use ecs::{Component, MultiCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use atom::Atom;
 
-
 use component::user::*;
-use component::calc::WorldMatrix;
+use component::calc::*;
 // use system::util::constant::{WORLD_MATRIX, CLIP_INDICES, CLIP};
 use render::engine::Engine;
-use single::{ DefaultTable };
+use render::res_mgr::*;
+use single::*;
 use entity::Node;
 use system::util::constant::*;
-use util::res_mgr::*;
+use Z_MAX;
 
 lazy_static! {
     // 四边形集合体的hash值
@@ -121,6 +122,14 @@ pub fn create_buffer<C: HalContext + 'static>(gl: &C, btype: BufferType, count: 
     match gl.buffer_create(btype, count, data, is_updatable) {
         Ok(r) => r,
         Err(e) => panic!("create_buffer error: {:?}", e),
+    }
+}
+
+#[inline]
+pub fn create_sampler<C: HalContext + 'static>(gl: &C, sampler: SamplerDesc) -> HalSampler{
+    match gl.sampler_create(sampler) {
+        Ok(r) => r,
+        Err(e) => panic!("create_sampler error: {:?}", e),
     }
 }
 
@@ -303,7 +312,7 @@ pub fn f32_1_hash(value: f32) -> u64 {
     hasher.finish()
 }
 
-pub fn create_hash_res<C: HalContext + 'static, T: Res<Key=u64> + Hash + 'static>( engine: &mut Engine<C>, res: T) -> Share<T> {
+pub fn create_hash_res<C: HalContext + 'static, T: Res<C, Key=u64> + Hash + 'static>( engine: &mut Engine<C>, res: T) -> Share<T> {
     let mut hasher = FxHasher32::default();
     res.hash(&mut hasher);
     let h = hasher.finish();
@@ -372,21 +381,17 @@ pub fn create_quad_geo() -> (Vec<f32>, Vec<u16>) {
 // use ordered_float::NotNan;
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
-pub fn create_box_matrix(
-    width: f32,
-    height: f32,
-    border_left: f32,
-    border_top: f32,
-    border_right: f32,
-    border_bottom: f32,
+pub fn create_unit_matrix(
+    layout: &Layout,
     matrix: &WorldMatrix,
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
-    let origin = transform.origin.to_value(width, height);
+    let depth = depth/Z_MAX;
+    let origin = transform.origin.to_value(layout.width, layout.height);
 
-    let width = width - border_left - border_right;
-    let height = width - border_top - border_bottom;
+    let width = layout.width - layout.border_left - layout.border_right;
+    let height = layout.width - layout.border_top - layout.border_bottom;
 
     let matrix = matrix * WorldMatrix(Matrix4::new(
         width,     0.0,                0.0, 0.0,
@@ -400,15 +405,19 @@ pub fn create_box_matrix(
     return arr;
 }
 
-// 将矩阵变换到布局框的中心
-pub fn create_let_top_matrix(
+// 将矩阵变换到布局框的左上角, 并偏移一定距离
+#[inline]
+pub fn create_let_top_offset_matrix(
     layout: &Layout,
     matrix: &WorldMatrix,
     transform: &Transform,
+    h: f32, 
+    v: f32,
     depth: f32,
 ) -> Vec<f32> {
+    let depth = depth/Z_MAX;
     let origin = transform.origin.to_value(layout.width, layout.height);
-    if origin.x == 0.0 && origin.y == 0.0 {
+    if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32; 16] = matrix.as_ref();
         let mut arr = Vec::from(&slice[..]);
         arr[14] = depth;
@@ -418,11 +427,22 @@ pub fn create_let_top_matrix(
             1.0,       0.0,       0.0, 0.0,
             0.0,       1.0,       0.0, 0.0,
             0.0,       0.0,       1.0, 0.0,
-            -origin.x, -origin.y, 0.0, 1.0,
+            -origin.x + h, -origin.y + v, 0.0, 1.0,
         ), false);
         let slice: &[f32; 16] = matrix.as_ref();
         let mut arr = Vec::from(&slice[..]);
         arr[14] = depth;
         return arr;
     }
+}
+
+#[inline]
+pub fn modify_matrix(
+    index: usize,
+    matrix: Vec<f32>,
+    render_obj: &mut RenderObj,
+    notify: &NotifyImpl,
+){
+    render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(matrix)) ));
+    notify.modify_event(index, "ubos", 0);
 }

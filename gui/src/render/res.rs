@@ -2,8 +2,8 @@
 use atom::Atom;
 use hal_core::*;
 
-use util::res_mgr::{ Res };
 use share::Share;
+use render::res_mgr::*;
 // use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
 #[derive(Debug, Clone, Copy)]
@@ -37,7 +37,7 @@ pub struct TextureRes {
     pub height: usize,
     pub opacity: Opacity,
     pub compress: Compress,
-    pub bind: HalTexture,
+    pub bind: Share<HalTexture>,
 }
 
 // impl<> fmt::Debug for Point {
@@ -48,7 +48,7 @@ pub struct TextureRes {
 
 impl TextureRes {
     // 创建资源
-	pub fn new(width: usize,height: usize, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
+	pub fn new(width: usize,height: usize, opacity: Opacity, compress: Compress, bind: Share<HalTexture>) -> Self{
         TextureRes {
             width: width,
             height: height,
@@ -59,16 +59,24 @@ impl TextureRes {
     }
 }
 
-impl Res for TextureRes {
+impl<C: HalContext + 'static> Res<C> for TextureRes {
     type Key = Atom;
+
+    fn destroy(&self, gl: &C){
+        gl.texture_destroy(HalTexture(self.bind.0, self.bind.1));
+    }
 }
 
 pub type SamplerRes = HalSampler;
 
 pub type ProgramRes = HalProgram;
 
-impl Res for SamplerRes {
+impl<C: HalContext + 'static> Res<C> for SamplerRes {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.sampler_destroy(HalSampler(self.0, self.1));
+    }
 }
 
 pub struct GeometryRes {
@@ -76,22 +84,50 @@ pub struct GeometryRes {
     pub buffers: Vec<Share<HalBuffer>>,
 }
 
-impl Res for GeometryRes {
+impl<C: HalContext + 'static> Res<C> for GeometryRes {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.geometry_destroy(HalGeometry(self.geo.0, self.geo.1));
+    }
 }
 
-impl Res for HalRasterState {
+impl<C: HalContext + 'static> Res<C> for HalRasterState {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.rs_destroy(HalRasterState(self.0, self.1));
+    }
 }
 
-impl Res for HalBlendState {
+impl<C: HalContext + 'static> Res<C> for HalBlendState {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.bs_destroy(HalBlendState(self.0, self.1));
+    }
 }
 
-impl Res for HalStencilState {
+impl<C: HalContext + 'static> Res<C> for HalStencilState {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.ss_destroy(HalStencilState(self.0, self.1));
+    }
 }
 
-impl Res for HalDepthState {
+impl<C: HalContext + 'static> Res<C> for HalDepthState {
     type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.ds_destroy(HalDepthState(self.0, self.1));
+    }
+}
+
+impl<C: HalContext + 'static> Res<C> for HalBuffer {
+    type Key = u64;
+
+    fn destroy(&self, gl: &C){
+        gl.buffer_destroy(HalBuffer(self.0, self.1));
+    }
 }

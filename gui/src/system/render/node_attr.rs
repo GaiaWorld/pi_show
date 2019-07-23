@@ -82,11 +82,13 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, HSV>,
+        &'a MultiCaseImpl<Node, ZDepth>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, visibilitys, hsvs) = read;
+        let (opacitys, visibilitys, hsvs, z_depths) = read;
         let (render_objs, engine, node_render_map) = write;
+        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
@@ -102,6 +104,8 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
         render_obj.visibility = visibility;
+
+        render_obj.depth = z_depth + render_obj.depth_diff;
 
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
@@ -150,34 +154,22 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
     }
 }
 
-// //深度变化， 世界矩阵ubo的z值
-// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
-//     type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
-//     fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
-//         let (render_objs, node_render_map) = write;
-//         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-//         let z_depth = unsafe{ z_depths.get_unchecked(event.id) }.0;
+//深度变化， 修改renderobj的深度值
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
+    type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
+        let (render_objs, node_render_map) = write;
+        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+        let z_depth = unsafe{ z_depths.get_unchecked(event.id) }.0;
 
-//         for id in obj_ids.iter() {
-//             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-//             render_obj.depth = z_depth + render_obj.depth_diff;
-//             let paramter = &mut render_obj.paramter;
-//             match paramter.get_value("worldMatrix") {
-//                 Some(ubo) => {
-//                     match ubo.get_value("worldMatrix").unwrap() {
-//                         UniformValue::MatrixV()
-//                     }
-//                 },
-//                 None => (),
-//             };
-//             let ubo = paramter.get_mut(&Z_DEPTH).unwrap();
-//             Share::make_mut(ubo).set_float_1(&Z_DEPTH, -render_obj.depth/Z_MAX);
-//             debug_println!("id: {}, z_depth: {:?}", render_obj.context, -render_obj.depth/Z_MAX);
-//             render_objs.get_notify().modify_event(*id, "depth", 0);
-//         }
-//     }
-// }
+        for id in obj_ids.iter() {
+            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            render_obj.depth = z_depth + render_obj.depth_diff;
+            render_objs.get_notify().modify_event(*id, "depth", 0);
+        }
+    }
+}
 
 //不透明度变化， 设置ubo
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
@@ -287,5 +279,6 @@ impl_system!{
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>
         MultiCaseListener<Node, HSV, ModifyEvent>
+        MultiCaseListener<Node, ZDepth, ModifyEvent>
     }
 }

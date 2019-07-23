@@ -5,11 +5,11 @@ use fxhash::FxHasher32;
 use share::Share;
 
 use hal_core::*;
-use util::res_mgr::ResMgr;
+use render::res_mgr::ResMgr;
 
 pub struct Engine<C: HalContext + 'static>{
     pub gl: C,
-    pub res_mgr: ResMgr,
+    pub res_mgr: ResMgr<C>,
     pub programs: FxHashMap32<u64, Share<HalProgram>>,
 }
 

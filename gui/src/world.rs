@@ -149,7 +149,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     // world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::new()));
     // world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<L>::new(CharBlockSys::new()));
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
-    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::new()));
+    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
     // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::new()));
     // world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::new()));
     // world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::new()));

@@ -21,7 +21,7 @@ impl<C: HalContext + 'static> ResReleaseSys<C> {
         Self{
             system_time: SystemTime::now(),
             conllect_time: std::u32::MAX,
-            prepare_conllect: 3000, // 3秒钟扫描一次与整理列表
+            prepare_conllect: 3000, // 3秒钟扫描一次预整理列表
             mark: PhantomData,
         }
     }
@@ -41,7 +41,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ResReleaseSys<C>{
 
         if now >= self.conllect_time {
             let mut conllect_time = std::u32::MAX;
-            engine.res_mgr.conllect(now, &mut conllect_time);
+            let engine1 = unsafe{&mut *( engine as *const SingleCaseImpl<Engine<C>> as usize as *mut SingleCaseImpl<Engine<C>>)};
+            engine1.res_mgr.conllect(now, &mut conllect_time, &engine.gl);
             self.conllect_time = conllect_time;
         }
     }

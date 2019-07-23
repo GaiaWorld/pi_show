@@ -59,7 +59,6 @@ pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
-pub mod util;
 pub mod world;
 
 pub mod entity{

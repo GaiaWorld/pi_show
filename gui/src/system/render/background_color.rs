@@ -24,21 +24,26 @@ use render::res::*;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use system::render::util::*;
-use Z_MAX;
+
 
 lazy_static! {
-    static ref UCOLOR: Atom = Atom::from("UCOLOR");
-    static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
-
-    static ref BLUR: Atom = Atom::from("blur");
-    static ref U_COLOR: Atom = Atom::from("uColor");
-    static ref GRADUAL: Atom = Atom::from("gradual_change");
+    static ref GRADUAL: Atom = Atom::from("GRADUAL");
 }
 
 pub struct BackgroundColorSys<C: HalContext + 'static>{
-    items: Items,
+    items: Items<usize>,
     share_ucolor_ubo: VecMap<Share<dyn UniformBuffer>>, // 如果存在BackgroundClass， 也存在对应的ubo
     mark: PhantomData<C>,
+}
+
+impl<C: HalContext + 'static> Default for BackgroundColorSys<C> {
+    fn default() -> Self {
+        BackgroundColorSys {
+            items: Items::default(),
+            share_ucolor_ubo: VecMap::default(),
+            mark: PhantomData,
+        }
+    }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -305,13 +310,6 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, Modif
 }
 
 impl<C: HalContext + 'static> BackgroundColorSys<C> {
-    pub fn new() -> Self{
-        BackgroundColorSys {
-            items: Items::new(),
-            share_ucolor_ubo: VecMap::default(),
-            mark: PhantomData,
-        }
-    }
 
     #[inline]
     fn create_render_obj(
@@ -478,75 +476,6 @@ fn geo_box(layout: &Layout) -> Aabb2{
     Aabb2::new(Point2::new(layout.border_left, layout.border_top), Point2::new(layout.width - layout.border_right, layout.height - layout.border_bottom))
 }
 
-//取几何体的顶点流和索引流和color属性流
-fn get_geo_flow(radius: Option<&BorderRadius>, layout: &Layout, color: &BackgroundColor) -> (Vec<f32>, Vec<u16>, Option<Vec<f32>>) {
-    let radius = cal_border_radius(radius, layout);
-    let start_x = layout.border_left;
-    let start_y = layout.border_top;
-    let end_x = layout.width - layout.border_right;
-    let end_y = layout.height - layout.border_bottom;
-    if end_x - start_x == 0.0 && end_y - start_y == 0.0 {
-        return (Vec::new(), Vec::new(), None);
-    }
-    let mut positions;
-    let mut indices;
-    match &color.0 {
-        &Color::RGBA(_) => {
-            if radius.x <= start_x {
-                let r = create_quad_geo();
-                positions = r.0;
-                indices = r.1;
-            } else {
-                let r = split_by_radius(start_x, start_y, end_x - start_x, end_y - start_y, radius.x - start_x, None);
-                positions = r.0;
-                indices = r.1;
-            }
-            (positions, to_triangle(indices.as_slice(), Vec::new()), None)
-            
-        },
-        &Color::LinearGradient(ref bg_colors) => {
-            if radius.x <= start_x {
-                positions = vec![
-                    start_x, start_y, // left_top
-                    start_x, end_y, // left_bootom
-                    end_x, end_y, // right_bootom
-                    end_x, start_y, // right_top
-                ];
-                indices = vec![0, 1, 2, 3];
-            } else {
-                debug_println!("bg_color, split_by_radius----x:{}, y: {}, width: {}, height: {}, radius: {}",
-                    start_x, start_y, end_x - start_x, end_y - start_y, radius.x - start_x);
-                let r = split_by_radius(start_x, start_y, end_x - start_x, end_y - start_y, radius.x - start_x, None);
-                positions = r.0;
-                indices = r.1;
-            }
-
-            let mut lg_pos = Vec::with_capacity(bg_colors.list.len());
-            let mut color = Vec::with_capacity(bg_colors.list.len() * 4);
-            for v in bg_colors.list.iter() {
-                lg_pos.push(v.position);
-                color.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
-            }
-
-            //渐变端点
-            debug_println!("layout:{:?}, direction: {}", layout, bg_colors.direction);
-            let endp = find_lg_endp(&[
-                0.0, 0.0,
-                0.0, layout.height,
-                layout.width, layout.height,
-                layout.width, 0.0,
-            ], bg_colors.direction);
-            debug_println!("split_by_lg------------------positions:{:?}, indices: {:?}, lg_pos:{:?}, start: ({}, {}), end: ({}, {})", positions, indices, lg_pos, (endp.0).0, (endp.0).1, (endp.1).0, (endp.1).1);
-            let (positions, indices_arr) = split_by_lg(positions, indices, lg_pos.as_slice(), endp.0.clone(), endp.1.clone());
-            debug_println!("indices_arr------------------{:?}", indices_arr);
-            let mut colors = interp_mult_by_lg(positions.as_slice(), &indices_arr, vec![Vec::new()], vec![LgCfg{unit:4, data: color}], lg_pos.as_slice(), endp.0, endp.1);
-            let indices = mult_to_triangle(&indices_arr, Vec::new());
-            let colors = colors.pop().unwrap();
-            (positions, indices, Some(colors))
-        },
-    }
-}
-
 #[inline]
 fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bool{
     if opacity < 1.0 {
@@ -648,7 +577,7 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
     match fs_defines.add("UCOLOR") {
         Some(_) => false,
         None => {
-            vs_defines.add("VERTEX_COLOR");
+            vs_defines.remove("VERTEX_COLOR");
             fs_defines.remove("VERTEX_COLOR");
             true
         },
@@ -657,13 +586,13 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
 
 #[inline]
 fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
-    match fs_defines.remove("UCOLOR"){
-        Some(_) => true,
+    match vs_defines.add("VERTEX_COLOR") {
+        Some(_) => false,
         None => {
-            vs_defines.add("VERTEX_COLOR");
             fs_defines.add("VERTEX_COLOR");
-            false
-        },
+            fs_defines.remove("UCOLOR");
+            true
+        }
     }
 }
 
@@ -677,21 +606,16 @@ fn modify_matrix(
     is_unity_geo: bool,
 ){
     if is_unity_geo {
-        let arr = create_box_matrix(
-            layout.width,
-            layout.height,
-            layout.border_left,
-            layout.border_top,
-            layout.border_right,
-            layout.border_bottom,
+        let arr = create_unit_matrix(
+            layout,
             world_matrix,
             transform,
-            depth/Z_MAX,
+            depth,
         );
 
         render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     } else {
-        let arr = create_let_top_matrix(layout, world_matrix, transform, depth);
+        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
         render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     }
 }

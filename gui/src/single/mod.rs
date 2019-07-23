@@ -91,6 +91,7 @@ pub struct DefaultState{
     pub df_ds: Share<HalDepthState>,
 
     pub tarns_bs: Share<HalBlendState>,
+    pub tarns_ds: Share<HalDepthState>,
 }
 
 impl DefaultState {
@@ -100,7 +101,11 @@ impl DefaultState {
         let df_ss = StencilStateDesc::default();
         let df_ds = DepthStateDesc::default();
 
-        let tarns_bs = BlendStateDesc::default();
+        let mut tarns_bs = BlendStateDesc::default();
+        tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+
+        let mut tarns_ds = DepthStateDesc::default();
+        tarns_ds.set_write_enable(false);
 
         Self {
             df_rs: Share::new(gl.rs_create(df_rs).unwrap()),
@@ -108,6 +113,7 @@ impl DefaultState {
             df_ss: Share::new(gl.ss_create(df_ss).unwrap()),
             df_ds: Share::new(gl.ds_create(df_ds).unwrap()),
             tarns_bs: Share::new(gl.bs_create(tarns_bs).unwrap()),
+            tarns_ds: Share::new(gl.ds_create(tarns_ds).unwrap()),
         }
     }
 }

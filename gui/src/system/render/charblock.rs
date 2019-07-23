@@ -2,743 +2,686 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::marker::PhantomData;
-use share::Share;
+use std::hash::{ Hash, Hasher };
 
-use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
-use map::{ vecmap::VecMap } ;
+use ordered_float::NotNan;
+use fxhash::FxHasher32;
+
+use ecs::{ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
-use atom::Atom;
 use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
+use share::Share;
+use map::vecmap::VecMap;
 
 use component::user::*;
 use single::*;
-use component::calc::{Opacity, ZDepth, CharBlock, WorldMatrixRender};
+use component::calc::*;
 use entity::{Node};
-use render::engine::{ Engine , PipelineInfo};
-use render::res::{ SamplerRes};
-use render::res::GeometryRes;
+use render::engine::{ Engine};
+use render::res::*;
 use system::util::*;
-use system::util::constant::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TEXT_FS_SHADER_NAME};
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
-use util::res_mgr::Res;
 use layout::FlexNode;
+use system::render::util::*;
 
 
-lazy_static! {
-    static ref STROKE: Atom = Atom::from("STROKE");
-    static ref UCOLOR: Atom = Atom::from("UCOLOR");
-    static ref VERTEX_COLOR: Atom = Atom::from("VERTEX_COLOR");
+#[derive(Default)]
+struct I{ text: usize, shadow: usize }
 
-    static ref STROKE_SIZE: Atom = Atom::from("strokeSize");
-    static ref STROKE_COLOR: Atom = Atom::from("strokeColor");
-    static ref U_COLOR: Atom = Atom::from("uColor");
+struct RenderCatch{
+    fill_color_ubo: Share<dyn UniformBuffer>,
+    stroke_ubo: Share<dyn UniformBuffer>,
+    stroke_color_ubo: Share<dyn UniformBuffer>,
+    shadow_color_ubo: Share<dyn UniformBuffer>,
+    layout_hash: u64, // 布局属性的hash
 }
 
-pub struct CharBlockSys<C: Context, L: FlexNode>{
-    render_map: VecMap<Item>,
-    geometry_dirtys: Vec<usize>,
+pub struct CharBlockSys<C: HalContext + 'static, L: FlexNode + 'static>{
+    items: Items<I>,
+    canvas_bs: Share<HalBlendState>,
+    default_sampler: Share<HalSampler>, // 默认采样方式
+    point_sampler: Share<HalSampler>, // 点采样， canvas着色器渲染时， 如果字体大小与纹理默认字体大小一致， 将采用点采样
+    canvas_default_stroke_color: Share<CanvasTextStrokeColorUbo>,
+    class_ubos: VecMap<RenderCatch>,
+    default_ubos: RenderCatch,
+    index_buffer: Share<HalBuffer>, // 索引 buffer， 长度： 600
+    index_len: usize,
     mark: PhantomData<(C, L)>,
-    rs: Share<RasterState>,
-    bs: Share<BlendState>,
-    ss: Share<StencilState>,
-    ds: Share<DepthState>,
+} 
 
-    canvas_bs: Share<BlendState>,
-
-    pipelines: FnvHashMap<u64, Share<PipelineInfo>>,
-    default_sampler: Option<Res<SamplerRes<C>>>,
-}
-
-impl<C: Context, L: FlexNode> CharBlockSys<C, L> {
-    pub fn new() -> Self{
-        let mut bs = BlendState::new();
-        let mut ds = DepthState::new();
-        let mut canvas_bs = BlendState::new();
-        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
+    
+    #[inline]
+    pub fn new(engine: &mut Engine<C>) -> Self {
+        let mut canvas_bs = BlendStateDesc::default();
         canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
-        ds.set_write_enable(false);
-        CharBlockSys {
-            render_map: VecMap::default(),
-            geometry_dirtys: Vec::new(),
+
+        let mut hasher = FxHasher32::default();
+        canvas_bs.hash(&mut hasher);
+        let hash = hasher.finish();
+        let canvas_bs = match engine.res_mgr.get::<HalBlendState>(&hash) {
+            Some(r) => r,
+            None => engine.res_mgr.create(hash, create_bs(&engine.gl, canvas_bs)),
+        };
+
+        let default_sampler = SamplerDesc::default();
+        let mut hasher = FxHasher32::default();
+        default_sampler.hash(&mut hasher);
+        let hash = hasher.finish();
+        let default_sampler = match engine.res_mgr.get::<HalSampler>(&hash) {
+            Some(r) => r,
+            None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
+        };
+
+        let mut point_sampler = SamplerDesc::default();
+        point_sampler.min_filter = TextureFilterMode::Nearest;
+        point_sampler.mag_filter = TextureFilterMode::Nearest;
+        let mut hasher = FxHasher32::default();
+        point_sampler.hash(&mut hasher);
+        let hash = hasher.finish();
+        let point_sampler = match engine.res_mgr.get::<HalSampler>(&hash) {
+            Some(r) => r,
+            None => engine.res_mgr.create(hash, create_sampler(&engine.gl, point_sampler)),
+        };
+
+        let default_color_ubo = create_hash_res(engine, UColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 1.0)));
+
+        let mut index_data = Vec::with_capacity(600);
+        for i in 0..100 {
+            index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
+        }
+
+        Self {
+            items: Items::default(),
+            canvas_bs: canvas_bs,
+            default_sampler: default_sampler,
+            point_sampler: point_sampler,
+            canvas_default_stroke_color: Share::new(CanvasTextStrokeColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 0.0))),
+            class_ubos: VecMap::default(),
+            default_ubos: RenderCatch {
+                fill_color_ubo: default_color_ubo.clone(),
+                shadow_color_ubo: default_color_ubo,
+                stroke_ubo: create_hash_res(engine, MsdfStrokeUbo::new(UniformValue::Float1(0.0), UniformValue::Float4(0.0, 0.0, 0.0, 0.0))),
+                stroke_color_ubo: create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 0.0))),
+                layout_hash: 0,
+            },
+            index_buffer: Share::new(create_buffer(&engine.gl, BufferType::Indices, 600, Some(BufferData::Short(index_data.as_slice())), false)),
+            index_len: 100,
             mark: PhantomData,
-            rs: Share::new(RasterState::new()),
-            bs: Share::new(bs),
-            ss: Share::new(StencilState::new()),
-            ds: Share::new(ds),
-            canvas_bs:  Share::new(canvas_bs),
-            pipelines: FnvHashMap::default(),
-            default_sampler: None,
-        }
-    }   
-}
-
-// 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context, L: FlexNode> Runner<'a> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Font>,
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a SingleCaseImpl<DefaultTable>,
-        &'a MultiCaseImpl<Node, WorldMatrixRender>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>,);
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (z_depths, text_styles, fonts, font_sheet, default_table, world_matrixs) = read;
-        let (render_objs, engine, charblocks) = write;
-        for id in  self.geometry_dirtys.iter() {
-            let map = &mut self.render_map;
-            let item = unsafe { map.get_unchecked_mut(*id) };
-            item.position_change = false;
-            let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
-            let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
-            let text_style = get_or_default(*id, text_styles, default_table);
-            let font = get_or_default(*id, fonts, default_table);
-            charblock.dirty = false;
-            let first_font = match font_sheet.get_first_font(&font.family) {
-                Some(r) => r,
-                None => {
-                    debug_println!("font is not exist: {}", font.family.as_str());
-                    return;
-                }
-            };
-            let (positions, uvs, colors, indices) = get_geo_flow(charblock, &first_font, &text_style.color, z_depth + 0.2, (0.0, 0.0));
-
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            if positions.len() == 0 {
-                render_obj.geometry = None;
-            } else {
-                let mut geometry = create_geometry(&mut engine.gl);
-                geometry.set_vertex_count((positions.len()/3) as u32);
-                geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-                geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
-                geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                match colors {
-                    Some(color) => {geometry.set_attribute(&AttributeName::Color, 4, Some(color.as_slice()), false).unwrap();},
-                    None => ()
-                };
-                render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
-            };
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
-
-            self.modify_matrix(*id, world_matrixs, render_objs);
-        }
-        self.geometry_dirtys.clear();
-    }
-
-    fn setup(&mut self, _: Self::ReadData, write: Self::WriteData){
-        let (_, engine, _) = write;
-        let s = SamplerDesc::default();
-        let hash = sampler_desc_hash(&s);
-        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-            Some(r) => self.default_sampler = Some(r.clone()),
-            None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
-                self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
-            }
         }
     }
-}
 
-// 插入渲染对象
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, CharBlock<L>, CreateEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Font>,
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = (
-        &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<Engine<C>>,
-    );
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (text_styles, fonts, z_depths, opacitys, font_sheet, default_table) = read;
-        let (render_objs, engine) = write;
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-        let text_style = get_or_default(event.id, text_styles, default_table);
-        let font = get_or_default(event.id, fonts, default_table);
-        let mut defines = Vec::new();
+    #[inline]
+    fn create_render_obj(
+        &mut self,
+        id: usize,
+        z_depth: f32,
+        visibility: bool,
+        charblock: &CharBlock<L>,
+        render_objs: &mut SingleCaseImpl<RenderObjs>,
+        default_state: &DefaultState,
+    ) -> &mut Item<I> {
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
-
-        let mut common_ubo = engine.gl.create_uniforms();
-        let dyn_type = match font_sheet.get_first_font(&font.family) {
-            Some(r) => {
-                let sampler = if r.get_dyn_type() > 0 && r.font_size() == font_sheet.get_size(&font.family, &font.size)  {
-                    let mut s = SamplerDesc::default();
-                    s.min_filter = TextureFilterMode::Nearest;
-                    s.mag_filter = TextureFilterMode::Nearest;
-                    let hash = sampler_desc_hash(&s);
-                    match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-                        Some(r) => r.clone(),
-                        None => {
-                            let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
-                            engine.res_mgr.create::<SamplerRes<C>>(res)
-                        }
-                    }
-                } else {
-                    self.default_sampler.clone().unwrap()
-                };
-                common_ubo.set_sampler(
-                    &TEXTURE,
-                    &(sampler.value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
-                    &(r.texture().value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
-                );
-                r.get_dyn_type()
-            },
-            None => { debug_println!("font is not exist: {}", font.family.as_str()); 0 }
-        }; 
-
-        match &text_style.color {
-            Color::RGBA(c) => {
-                let mut ucolor_ubo = engine.gl.create_uniforms();
-                ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-                ubos.insert(UCOLOR.clone(), Share::new(ucolor_ubo));
-                defines.push(UCOLOR.clone());
-                debug_println!("text, id: {}, color: {:?}", event.id, c);
-            },
-            Color::LinearGradient(_) => {
-                defines.push(VERTEX_COLOR.clone());
-            },
-        }
-
-        let pipeline;
-        if dyn_type == 0 {
-            pipeline = engine.create_pipeline(
-                1,
-                &TEXT_VS_SHADER_NAME.clone(),
-                &TEXT_FS_SHADER_NAME.clone(),
-                defines.as_slice(),
-                self.rs.clone(),
-                self.bs.clone(),
-                self.ss.clone(),
-                self.ds.clone()
-            );
-        }else {
-            common_ubo.set_float_4(&STROKE_COLOR, 1.0, 1.0, 1.0, 1.0);
-            pipeline = engine.create_pipeline(
-                3,
-                &CANVAS_TEXT_VS_SHADER_NAME.clone(),
-                &CANVAS_TEXT_FS_SHADER_NAME.clone(),
-                defines.as_slice(),
-                self.rs.clone(),
-                self.canvas_bs.clone(),
-                self.ss.clone(),
-                self.ds.clone(),
-            );
-        }
-
-        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
-
-        let render_obj: RenderObj<C> = RenderObj {
+        let render_obj = RenderObj {
             depth: z_depth + 0.2,
             depth_diff: 0.2,
-            visibility: false,
-            is_opacity: false,
-            ubos: ubos,
+            visibility: visibility,
+            is_opacity: true,
+            vs_name: CANVAS_TEXT_VS_SHADER_NAME.clone(),
+            fs_name: CANVAS_TEXT_FS_SHADER_NAME.clone(),
+            vs_defines: Box::new(VsDefines::default()),
+            fs_defines: Box::new(FsDefines::default()),
+            paramter: Share::new(CanvasTextParamter::default()),
+            program_dirty: true,
+
+            program: None,
             geometry: None,
-            pipeline: pipeline.clone(),
-            context: event.id,
-            defines: defines,
+            state: State {
+                bs: self.canvas_bs.clone(),
+                rs: default_state.df_rs.clone(),
+                ss: default_state.df_ss.clone(),
+                ds: default_state.tarns_ds.clone(),
+            },
+            context: id,
         };
 
         let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        self.render_map.insert(event.id, Item{index: index, position_change: true});
-        self.geometry_dirtys.push(event.id);
+        let index = render_objs.insert(render_obj, Some(notify.clone()));
+
+        let shadow_index = if charblock.clazz.shadow.color == CgColor::new(0.0, 0.0, 0.0, 0.0){
+            0
+        }else {
+            let render_obj = RenderObj {
+                depth: z_depth + 0.1,
+                depth_diff: 0.1,
+                visibility: visibility,
+                is_opacity: true,
+                vs_name: CANVAS_TEXT_VS_SHADER_NAME.clone(),
+                fs_name: CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                vs_defines: Box::new(VsDefines::default()),
+                fs_defines: Box::new(FsDefines::default()),
+                paramter: Share::new(CanvasTextParamter::default()),
+                program_dirty: true,
+
+                program: None,
+                geometry: None,
+                state: State {
+                    bs: self.canvas_bs.clone(),
+                    rs: default_state.df_rs.clone(),
+                    ss: default_state.df_ss.clone(),
+                    ds: default_state.tarns_ds.clone(),
+                },
+                context: id,
+            };
+            render_objs.insert(render_obj, Some(notify))
+        };
+
+        // 创建RenderObj与Node实体的索引关系， 并设脏
+        self.items.create(id, I{text: index, shadow: shadow_index});
+        unsafe { self.items.render_map.get_unchecked_mut(id)}
     }
 }
 
+// 将顶点数据改变的渲染对象重新设置索引流和顶点流
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSys<C, L>{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, Transform>,
+        &'a MultiCaseImpl<Node, Text>,
+        &'a SingleCaseImpl<FontSheet>,
+        &'a SingleCaseImpl<DefaultTable>,
+        &'a SingleCaseImpl<DefaultState>,
+        &'a SingleCaseImpl<ClassSheet>,
+    );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let (z_depths, world_matrixs, layouts, transforms, texts, font_sheet, default_table, default_state, class_sheet) = read;
+        let (render_objs, engine, charblocks) = write;
+        let notify = render_objs.get_notify();
+        let default_transform = default_table.get::<Transform>().unwrap();
 
-// 字体修改， 设置顶点数据脏
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        let item = unsafe { self.render_map.get_unchecked_mut(event.id) };
-        debug_println!("CharBlock<L> modify-----------------------------, id: {}", event.id);
-        if item.position_change == false {
-            item.position_change = true;
-            self.geometry_dirtys.push(event.id);
+        let text_layout_dirty = (DirtyType::FontStyle as usize) |
+                                (DirtyType::FontWeight as usize) |
+                                (DirtyType::FontSize as usize) |
+                                (DirtyType::FontFamily as usize) |
+                                (DirtyType::LetterSpacing as usize) |
+                                (DirtyType::WordSpacing as usize) |
+                                (DirtyType::LineHeight as usize) |
+                                (DirtyType::Indent as usize) |
+                                (DirtyType::WhiteSpace as usize) |
+                                (DirtyType::TextAlign as usize) |
+                                (DirtyType::VerticalAlign as usize);
+
+        for id in self.items.dirtys.iter() {
+            // 如果charblock已经被删除， 跳过
+            let charblock = match charblocks.get_mut(*id) {
+                Some(r) => r,
+                None => return,
+            };
+
+            let map = &mut self.items.render_map;
+            let z_depth = unsafe{z_depths.get_unchecked(*id)}.0;
+            let item = match map.get_mut(*id) {
+                Some(r) => r,
+                None =>  unsafe {&mut *( self as *const Self as usize as *mut Self ) }.create_render_obj(*id, z_depth, false, charblock, render_objs, default_state),
+            };
+
+            let render_obj = unsafe { &mut *(render_objs.get_unchecked(item.index.text) as *const RenderObj as usize as *mut RenderObj) };
+
+            if charblock.modify != 0 {
+                // 如果字体不存在， 无法渲染，直接跳过
+                let first_font = match font_sheet.get_first_font(&charblock.clazz.font.family) {
+                    Some(r) => r,
+                    None => {
+                        debug_println!("font is not exist: {}", charblock.clazz.font.family.as_str());
+                        return;
+                    }
+                };
+
+                let text = unsafe { texts.get_unchecked(*id) };
+
+                let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
+                    if let Some(ubos) = self.class_ubos.get(class.text) {
+                        ubos
+                    } else {
+                        &self.default_ubos
+                    }
+                }else {
+                    &self.default_ubos
+                };
+
+                let font_size = font_sheet.get_size(&charblock.clazz.font.family, &charblock.clazz.font.size);
+
+                let (mut pipeline_change, mut geometry_change) = (false, false);
+                let mut shadow_geometry_change  = false;
+
+                // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记pipeline_change 和 geometry_change脏
+                if charblock.modify & (DirtyType::Color as usize) != 0 {
+                    let exchange = modify_color(item.index.text, charblock, engine, &notify, render_obj, &class_ubo);
+                    pipeline_change = pipeline_change | exchange;
+                    geometry_change = geometry_change | exchange;
+                }
+
+                // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置pipeline_change脏
+                if charblock.modify & (DirtyType::Stroke as usize) != 0 {
+                    pipeline_change = pipeline_change | modify_stroke(item.index.text, &charblock, render_obj, engine, &notify, &first_font, &class_ubo);
+                }
+
+                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline
+                let font_type_change = try_modify_font(charblock.modify, item.index.text, render_obj, &first_font, font_size, &notify, &self.default_sampler, &self.point_sampler);
+                pipeline_change = pipeline_change | font_type_change;
+
+                // 文字内容脏， 这是顶点流脏
+                if charblock.modify & (DirtyType::Text as usize) != 0 {
+                    geometry_change = true;
+                    shadow_geometry_change = true;
+                }
+                
+                // 如果渲染管线脏， 重新创建渲染管线
+                if pipeline_change {
+                    modify_program(render_obj, &first_font, engine, &self.canvas_default_stroke_color);
+                }
+                
+                // 文字属性流改变， 重新生成geometry
+                if geometry_change {
+                    render_obj.geometry = create_geo(charblock, &charblock.clazz.style.color, text, &first_font, text_layout_dirty, class_ubo, &self.index_buffer, engine);
+                    render_objs.get_notify().modify_event(item.index.text, "geometry", 0);
+                }
+
+                 // 阴影存在
+                if item.index.shadow > 0 {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index.shadow) };
+
+                    // 阴影颜色脏，或描边脏， 修改ubo
+                    if charblock.modify & (DirtyType::ShadowColor as usize) != 0 || charblock.modify & (DirtyType::Stroke as usize) != 0 {
+                        modify_shadow_color(item.index.shadow, &charblock, &notify, render_obj, engine, &first_font, &class_ubo);         
+                    };
+
+                    // 阴影blur脏， 修改blur ubo
+                    if charblock.modify & (DirtyType::ShadowBlur as usize) != 0 {
+                        // 设置ubo
+                    }
+
+                    // 修改阴影的渲染管线
+                    if pipeline_change {
+                        modify_program(render_obj, &first_font, engine, &self.canvas_default_stroke_color);
+                    }
+
+                    // 修改阴影的顶点流
+                    if shadow_geometry_change  {
+                        // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
+                        match &charblock.clazz.style.color {
+                            Color::RGBA(_) => render_obj.geometry = render_obj.geometry.clone(),
+                            Color::LinearGradient(_) => {
+                                let color = charblock.clazz.shadow.color.clone();
+                                render_obj.geometry = create_geo(charblock, &Color::RGBA(color), text, &first_font, text_layout_dirty, class_ubo, &self.index_buffer, engine)
+                            },
+                        }
+                        notify.modify_event(item.index.shadow, "geometry", 0);
+                    }
+                }
+            }
+
+            // 矩阵脏
+            if item.dirty & (NodeDirtyType::Matrix as usize) != 0 || charblock.modify & (DirtyType::ShadowHV as usize) != 0 {
+                let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
+                let layout = unsafe{ layouts.get_unchecked(*id) };
+                let transform = match transforms.get(*id){
+                    Some(r) => r,
+                    None => default_transform,
+                };
+                if item.dirty & (NodeDirtyType::Matrix as usize) != 0 {
+                    modify_matrix(
+                        item.index.text,
+                        create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
+                        render_obj,
+                        &notify,
+                    );
+                }
+
+                if item.index.shadow > 0 {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index.shadow) };
+                    modify_matrix(
+                        item.index.shadow,
+                        create_let_top_offset_matrix(layout, world_matrix, transform, charblock.clazz.shadow.h, charblock.clazz.shadow.v, render_obj.depth),
+                        render_obj,
+                        &notify,
+                    );
+                }
+            }      
+           
+            item.dirty = 0;
+            charblock.modify = 0;
         }
+        self.items.dirtys.clear();
     }
 }
 
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        self.items.dirtys.push(event.id);
+    }
+}
 
 // 删除渲染对象
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        let item = self.render_map.remove(event.id).unwrap();
-        let notify = write.get_notify();
-        write.remove(item.index, Some(notify));
-        if item.position_change == true {
-            self.geometry_dirtys.remove_item(&event.id);
-        }
-    }
-}
-
-// 字体修改， 重新设置字体纹理
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, Font, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a MultiCaseImpl<Node, Font>
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let (font_sheet, fonts) = read;
-            let (render_objs, engine) = write;
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine, &self.rs,  &self.bs,  &self.ss,  &self.ds, &self.canvas_bs);
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
-        }
-    }
-}
-
-// 字体修改， 重新设置字体纹理
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, Font, CreateEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a MultiCaseImpl<Node, Font>
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let (font_sheet, fonts) = read;
-            let (render_objs, engine) = write;
-            modify_font(event.id, item, self.default_sampler.clone().unwrap(), font_sheet, fonts, render_objs, engine, &self.rs,  &self.bs,  &self.ss,  &self.ds, &self.canvas_bs);
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
-        }
-    }
-}
-
-// TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, TextStyle, CreateEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Font>,
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles, fonts, font_sheet, default_table) = read;   
-        let (render_objs, engine) = write;
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            let font = get_or_default(event.id, fonts, default_table);
-            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet); 
-            modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
-            // let index = item.index;
-            // self.change_is_opacity(opacity, text_style, index, render_objs);
-        }
-    }
-}
-
-// TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Font>,
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, text_styles, fonts, font_sheet, default_table) = read;   
-        let (render_objs, engine) = write;
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            let font = get_or_default(event.id, fonts, default_table);
-            modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet);
-            modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
-            // let index = item.index;
-            // self.change_is_opacity(opacity, text_style, index, render_objs);
-        }
-    }
-}
-
-// TextStyle修改， 设置对应的ubo和宏
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Font>,
-        &'a SingleCaseImpl<FontSheet<C>>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (_opacitys, text_styles, fonts, font_sheet, default_table) = read;   
-        let (render_objs, engine) = write;
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let text_style = unsafe { text_styles.get_unchecked(event.id) };
-            
-            match event.field {
-                "color" => {
-                    let font = get_or_default(event.id, fonts, default_table);
-                    modify_color(&mut self.geometry_dirtys, item, event.id, text_style, render_objs, engine, font, font_sheet);
-                },
-                "stroke" => {
-                    let font = get_or_default(event.id, fonts, default_table);
-                    modify_stroke(item, text_style, render_objs, engine, font, font_sheet);
-                },
-                _ => return,
-            }
-
-            // let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
-            // let index = item.index;
-            // self.change_is_opacity(opacity, text_style, index, render_objs);
-        }
-    }
-}
-
-type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
-
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
-    }
-}
-
-impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for CharBlockSys<C, L>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
-    }
-}
-
-impl<'a, C: Context, L: FlexNode> CharBlockSys<C, L>{
-    fn modify_matrix(
-        &self,
-        id: usize,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
-        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
-    ){
-        if let Some(item) = self.render_map.get(id) {
-            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-
-            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("charblock, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(item.index, "ubos", 0);
-        }
-    }
-}
-
-// //不透明度变化， 修改渲染对象的is_opacity属性
-// impl<'a, C: Context, L: FlexNode> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for CharBlockSys<C, L>{
-//     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, TextStyle>);
-//     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-//         let (opacitys, text_styles) = read;
-//         if let Some(item) = self.render_map.get(event.id) {
-//             let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-//             // let text_style = unsafe { text_styles.get_unchecked(event.id) };
-//             // let index = item.index;
-//             // self.change_is_opacity( opacity, text_style, index, write);
-//         }
-//     }
-// }
-
-// impl<'a, C: Context, L: FlexNode> CharBlockSys<C, L> {
-//     fn change_is_opacity(&mut self, opacity: f32, text_style: &TextStyle, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-//         let is_opacity = if opacity < 1.0 || !text_style.color.is_opaque() || text_style.stroke.color.a < 1.0{
-//             false
-//         }else {
-//             true
-//         };
-
-//         let notify = render_objs.get_notify();
-//         unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
-//     }
-// }
-
-struct Item {
-    index: usize,
-    position_change: bool,
-}
-
-fn modify_stroke<C: Context>(
-    item: &mut Item,
-    text_style: &TextStyle,
-    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
-    engine: &mut SingleCaseImpl<Engine<C>>,
-    font: &Font,
-    font_sheet: &SingleCaseImpl<FontSheet<C>>,
-) {
-    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    let first_font = match font_sheet.get_first_font(&font.family) {
-        Some(r) => r,
-        None => {
-            debug_println!("font is not exist: {}", font.family.as_ref());
-            return;
-        }
-    };
-    if first_font.get_dyn_type() > 0 {
-        let mut common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-        let color = &text_style.stroke.color;
-        Share::make_mut(&mut common_ubo).set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
-        return;
-    }
-    if text_style.stroke.width == 0.0 {
-        //  删除边框的宏
-        match render_obj.defines.remove_item(&STROKE) {
-            Some(_) => {
-                // 如果边框宏存在， 删除边框对应的ubo， 重新创建渲染管线
-                render_obj.ubos.remove(&STROKE);
-                let old_pipeline = render_obj.pipeline.clone();
-                render_obj.pipeline = engine.create_pipeline(
-                    old_pipeline.start_hash,
-                    &TEXT_VS_SHADER_NAME.clone(),
-                    &TEXT_FS_SHADER_NAME.clone(),
-                    render_obj.defines.as_slice(),
-                    old_pipeline.rs.clone(),
-                    old_pipeline.bs.clone(),
-                    old_pipeline.ss.clone(),
-                    old_pipeline.ds.clone()
-                );
-                render_objs.get_notify().modify_event(item.index, "pipeline", 0);
-            },
-            None => ()
+        match self.items.render_map.remove(event.id) {
+            Some(index) => {
+                let notify = write.get_notify();
+                write.remove(index.index.text, Some(notify.clone()));
+                write.remove(index.index.shadow, Some(notify));
+            }, 
+            None => (),
         };
-        
-    } else {
-        // 边框宽度不为0， 并且不存在STROKE宏， 应该添加STROKE宏， 并添加边框对应的ubo， 且重新创建渲染管线
-        if find_item_from_vec(&render_obj.defines, &STROKE) == 0 {
-            render_obj.defines.push(STROKE.clone());
-            let mut stroke_ubo = engine.gl.create_uniforms();
-            let color = &text_style.stroke.color;
-            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width / 10.0);
-            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
-            render_obj.ubos.insert(STROKE.clone(), Share::new(stroke_ubo));
-            let old_pipeline = render_obj.pipeline.clone();
-            render_obj.pipeline = engine.create_pipeline(
-                old_pipeline.start_hash,
-                &TEXT_VS_SHADER_NAME.clone(),
-                &TEXT_FS_SHADER_NAME.clone(),
-                render_obj.defines.as_slice(),
-                old_pipeline.rs.clone(),
-                old_pipeline.bs.clone(),
-                old_pipeline.ss.clone(),
-                old_pipeline.ds.clone()
-            );
-            render_objs.get_notify().modify_event(item.index, "pipeline", 0);
-        }else {
-            let stroke_ubo = render_obj.ubos.get_mut(&STROKE).unwrap();
-            let color = &text_style.stroke.color;
-            let stroke_ubo = Share::make_mut(stroke_ubo);
-            stroke_ubo.set_float_1(&STROKE_SIZE, text_style.stroke.width / 10.0);
-            stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
-        }
-    }   
+    }
 }
 
-fn modify_color<C: Context>(
-    geometry_dirtys: &mut Vec<usize>,
-    item: &mut Item,
-    id: usize,
-    text_style: &TextStyle,
-    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for CharBlockSys<C, L>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        self.items.set_dirty(event.id, NodeDirtyType::Matrix as usize);
+    }
+}
+
+#[inline]
+fn modify_stroke<C: HalContext + 'static, L: FlexNode + 'static>(
+    index: usize,
+    charblock: &CharBlock<L>,
+    render_obj: &mut RenderObj,
     engine: &mut SingleCaseImpl<Engine<C>>,
-    font: &Font,
-    font_sheet: &SingleCaseImpl<FontSheet<C>>,
-) {
-    let notify = render_objs.get_notify();
-    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    let mut change = false;
-    match &text_style.color {
+    notify: &NotifyImpl,
+    first_font: &Share<dyn SdfFont>,
+    class_ubo: &RenderCatch,
+) -> bool {
+    notify.modify_event(index, "", 0);
+    let text_stroke = &charblock.clazz.style.stroke;
+    // canvas 字体
+    if first_font.get_dyn_type() > 0 {
+        let ubo = if charblock.local_style & (DirtyType::Stroke as usize) == 0 {
+            class_ubo.stroke_color_ubo.clone()
+        } else {
+            let color = &text_stroke.color;
+            create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)))
+        };
+        render_obj.paramter.set_value("stroke_color", ubo);
+        return false;
+    }
+
+    // msdf字体
+    if text_stroke.width == 0.0 {
+        //删除描边的宏
+        match render_obj.vs_defines.remove("STROKE") {
+            Some(_) => true,
+            None => false,
+        } 
+    } else { 
+        let ubo = if charblock.local_style & (DirtyType::Stroke as usize) == 0 {
+            class_ubo.stroke_ubo.clone()
+        } else {
+            let color = &text_stroke.color;
+            create_hash_res(engine, MsdfStrokeUbo::new(UniformValue::Float1(text_stroke.width/10.0), UniformValue::Float4(color.r, color.g, color.b, color.a)) )
+        };
+        render_obj.paramter.set_value("stroke", ubo);
+        match render_obj.vs_defines.add("STROKE") {
+            Some(_) => false,
+            None => true,
+        }
+    }
+}
+
+#[inline]
+fn modify_color<C: HalContext + 'static, L: FlexNode>(
+    index: usize,
+    charblock: &CharBlock<L>,
+    engine: &mut Engine<C>,
+    notify: &NotifyImpl,
+    render_obj: &mut RenderObj,
+    class_ubo: &RenderCatch,
+) -> bool {
+    let color = &charblock.clazz.style.color;
+    let change = match color {
         Color::RGBA(c) => {
+            // 如果是class样式中的颜色， 直接使用class_ubo.fill_color_ubo
+            let ubo = if charblock.local_style & (DirtyType::Color as usize) == 0 {
+                class_ubo.fill_color_ubo.clone()
+            } else {
+                create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)))
+            };
+            render_obj.paramter.set_value("uColor", ubo );
+            notify.modify_event(index, "", 0);
+
             // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-            if find_item_from_vec(&render_obj.defines, &UCOLOR) == 0 {
-                render_obj.defines.remove_item(&VERTEX_COLOR);
-
-                let ucolor_ubo = engine.gl.create_uniforms();
-                render_obj.ubos.insert(UCOLOR.clone(), Share::new(ucolor_ubo));
-                render_obj.defines.push(UCOLOR.clone());
-
-                if item.position_change == false {
-                    item.position_change = true;
-                    geometry_dirtys.push(id);
-                }
-                change = true;
+            match render_obj.fs_defines.add("UCOLOR") {
+                Some(_) => false,
+                None => {
+                    render_obj.fs_defines.remove("VERTEX_COLOR");
+                    render_obj.vs_defines.remove("VERTEX_COLOR");
+                    true
+                },
             }
-            // 设置ubo
-            let ucolor_ubo = Share::make_mut(render_obj.ubos.get_mut(&UCOLOR).unwrap());
-            debug_println!("text_color, id: {}, color: {:?}", id, c);
-            ucolor_ubo.set_float_4(&U_COLOR, c.r, c.g, c.b, c.a);
-
-            notify.modify_event(item.index, "", 0);
         },
         Color::LinearGradient(_) => {
             // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-            if find_item_from_vec(&render_obj.defines, &VERTEX_COLOR) == 0 {
-                render_obj.defines.remove_item(&UCOLOR);
-                render_obj.defines.push(VERTEX_COLOR.clone());
-                render_obj.ubos.remove(&UCOLOR);   
-                if item.position_change == false {
-                    item.position_change = true;
-                    geometry_dirtys.push(id);
+            match render_obj.vs_defines.add("VERTEX_COLOR") {
+                Some(_) => false,
+                None => {
+                    render_obj.fs_defines.remove("UCOLOR");
+                    render_obj.fs_defines.remove("VERTEX_COLOR");
+                    true
                 }
-                change = true
             }
         },
-    }
-
-    if change {
-        let first_font = match font_sheet.get_first_font(&font.family) {
-            Some(r) => r,
-            None => {
-                debug_println!("font is not exist: {}", font.family.as_ref());
-                return;
-            }
-        };
-        let old_pipeline = render_obj.pipeline.clone();
-        if first_font.get_dyn_type() == 0 {
-            render_obj.pipeline = engine.create_pipeline(
-                old_pipeline.start_hash,
-                &TEXT_VS_SHADER_NAME.clone(),
-                &TEXT_FS_SHADER_NAME.clone(),
-                render_obj.defines.as_slice(),
-                old_pipeline.rs.clone(),
-                old_pipeline.bs.clone(),
-                old_pipeline.ss.clone(),
-                old_pipeline.ds.clone()
-            );
-        } else {
-            render_obj.pipeline = engine.create_pipeline(
-                old_pipeline.start_hash,
-                &CANVAS_TEXT_VS_SHADER_NAME.clone(),
-                &CANVAS_TEXT_FS_SHADER_NAME.clone(),
-                render_obj.defines.as_slice(),
-                old_pipeline.rs.clone(),
-                old_pipeline.bs.clone(),
-                old_pipeline.ss.clone(),
-                old_pipeline.ds.clone()
-            );
-        }
-        notify.modify_event(item.index, "pipeline", 0);
-    }
+    };
+    change
 }
 
-fn modify_font<C: Context> (
-    id: usize,
-    item: &mut Item,
-    default_sampler: Res<SamplerRes<C>>,
-    font_sheet: &SingleCaseImpl<FontSheet<C>>,
-    fonts: &MultiCaseImpl<Node, Font>,
-    render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
-    engine:  &mut SingleCaseImpl<Engine<C>>,
-    rs: &Share<RasterState>,
-    bs: &Share<BlendState>,
-    ss: &Share<StencilState>,
-    ds: &Share<DepthState>,
-    canvas_bs: &Share<BlendState>,
+#[inline]
+fn try_modify_font (
+    modify: usize,
+    index: usize,
+    render_obj: &mut RenderObj,
+    first_font: &Share<dyn SdfFont>,
+    font_size: f32,
+    notify: &NotifyImpl,
+    default_sampler: &Share<SamplerRes>,
+    point_sampler: &Share<SamplerRes>, // 点采样sampler
+) -> bool {
+    let mut change = false;
+    notify.modify_event(index, "", 0);
+    if (modify & (DirtyType::FontFamily as usize) != 0) || ( first_font.get_dyn_type() > 0 && (modify & (DirtyType::FontSize as usize) != 0) ) {
+        // 如果是canvas 字体绘制类型， 并且绘制fontsize 与字体本身fontsize一致， 应该使用点采样
+        let sampler = if first_font.get_dyn_type() > 0 && first_font.font_size() == font_size  {
+            point_sampler
+        } else {
+            default_sampler
+        };
+        render_obj.paramter.set_texture("texture", ( first_font.texture().bind.clone() , sampler.clone()));
+    }
+    
+    if modify & (DirtyType::FontFamily as usize) != 0{
+        if first_font.get_dyn_type() == 0 {
+            change = render_obj.vs_name == CANVAS_TEXT_VS_SHADER_NAME.clone();
+        } else {
+            change = render_obj.vs_name == TEXT_VS_SHADER_NAME.clone();
+        }
+    }
+    change
+}
+
+#[inline]
+fn modify_shadow_color<C: HalContext + 'static, L: FlexNode + 'static>(
+    index: usize,
+    charblock: &CharBlock<L>,
+    notify: &NotifyImpl,
+    render_obj: &mut RenderObj,
+    engine: &mut Engine<C>,
+    first_font: &Share<dyn SdfFont>,
+    class_ubo: &RenderCatch,
 ) {
-    let font = unsafe { fonts.get_unchecked(id) };
-    let first_font = match font_sheet.get_first_font(&font.family) {
-        Some(r) => r,
-        None => {
-            debug_println!("font is not exist: {}", font.family.as_ref());
-            return;
-        }
-    };
-
-    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-    let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-    let common_ubo = Share::make_mut(common_ubo);
-    let sampler = if first_font.get_dyn_type() > 0 && first_font.font_size() == font_sheet.get_size(&font.family, &font.size)  {
-        let mut s = SamplerDesc::default();
-        s.min_filter = TextureFilterMode::Nearest;
-        s.mag_filter = TextureFilterMode::Nearest;
-        let hash = sampler_desc_hash(&s);
-        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-            Some(r) => r.clone(),
-            None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
-                engine.res_mgr.create::<SamplerRes<C>>(res)
-            }
-        }
+    let c = &charblock.clazz.shadow.color;
+    if charblock.clazz.style.stroke.width > 0.0 && first_font.get_dyn_type() > 0 {
+        render_obj.paramter.set_value("strokeColor", create_hash_res(engine,  CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) ));
+    }
+    let ubo = if charblock.local_style & (DirtyType::ShadowColor as usize) == 0 {
+        class_ubo.shadow_color_ubo.clone()
     } else {
-        default_sampler
+        create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
     };
-    common_ubo.set_sampler(
-        &TEXTURE,
-        &(sampler.value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
-        &(first_font.texture().value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
-    );
+    render_obj.paramter.set_value("uColor", ubo);
+    notify.modify_event(index, "ubo", 0);
+}
 
-    if first_font.get_dyn_type() == 0 {
-        if find_item_from_vec(&render_obj.defines, &STROKE) > 0 {
-            render_obj.ubos.remove(&STROKE);
-        }
-        Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap()).remove(&STROKE_COLOR);
-        render_obj.pipeline = engine.create_pipeline(
-            1,
-            &TEXT_VS_SHADER_NAME.clone(),
-            &TEXT_FS_SHADER_NAME.clone(),
-            render_obj.defines.as_slice(),
-            rs.clone(),
-            bs.clone(),
-            ss.clone(),
-            ds.clone()
-        );
-    } else {
-        render_obj.pipeline = engine.create_pipeline(
-            3,
-            &CANVAS_TEXT_VS_SHADER_NAME.clone(),
-            &CANVAS_TEXT_FS_SHADER_NAME.clone(),
-            render_obj.defines.as_slice(),
-            rs.clone(),
-            canvas_bs.clone(),
-            ss.clone(),
-            ds.clone(),
-        );
-    } 
+#[inline]
+fn set_canvas_default_stroke(render_obj: &RenderObj, canvas_default_stroke_color: &Share<CanvasTextStrokeColorUbo>) {
+    match render_obj.paramter.get_value("strokeColor") {
+        Some(_) => (),
+        None => { render_obj.paramter.set_value("strokeColor", canvas_default_stroke_color.clone()); },
+    };
+}
+
+fn modify_program<C: HalContext + 'static>(render_obj: &mut RenderObj, first_font: &Share<dyn SdfFont>, engine: &mut Engine<C>, canvas_default_stroke_color: &Share<CanvasTextStrokeColorUbo>) {
+    render_obj.program = if first_font.get_dyn_type() == 0 {
+        Some(engine.create_program(
+            TEXT_VS_SHADER_NAME.get_hash(),
+            TEXT_FS_SHADER_NAME.get_hash(),
+            TEXT_VS_SHADER_NAME.as_ref(),
+            &*render_obj.vs_defines,
+            TEXT_FS_SHADER_NAME.as_ref(),
+            &*render_obj.fs_defines,
+            render_obj.paramter.as_ref(),
+        ))
+    }else {
+        render_obj.vs_defines.remove("STROKE");
+        set_canvas_default_stroke(render_obj, canvas_default_stroke_color);
+        Some(engine.create_program(
+            CANVAS_TEXT_VS_SHADER_NAME.get_hash(),
+            CANVAS_TEXT_FS_SHADER_NAME.get_hash(),
+            CANVAS_TEXT_VS_SHADER_NAME.as_ref(),
+            &*render_obj.vs_defines,
+            CANVAS_TEXT_FS_SHADER_NAME.as_ref(),
+            &*render_obj.fs_defines,
+            render_obj.paramter.as_ref(),
+        ))
+    };
 }
 
 // 返回position， uv， color， index
-fn get_geo_flow<C: Context, L: FlexNode>(
+#[inline]
+fn create_geo<C: HalContext + 'static, L: FlexNode + 'static>(
     char_block: &CharBlock<L>,
-    sdf_font: &Share<dyn SdfFont<Ctx = C>>,
     color: &Color,
-    z_depth: f32,
-    mut offset: (f32, f32)
-) -> (Vec<f32>, Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
+    text: &Text,
+    sdf_font: &Share<dyn SdfFont>,
+    text_layout_dirty: usize,
+    share_data: &RenderCatch,
+    share_index_buffer: &Share<HalBuffer>,
+    engine: &mut Engine<C>,
+) -> Option<Share<GeometryRes>> {
+    // 是共享文字
+    if text.0 == String::new() {
+        let mut hasher = FxHasher32::default();
+        text.1.hash(&mut hasher);
+        // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
+        if char_block.modify & text_layout_dirty == 0 {
+            share_data.layout_hash.hash(&mut hasher); 
+        }else {
+            //在style中使用了文字布局属性, 从新计算文字布局属性的hash
+            let layout_hash = text_layout_hash(&char_block.clazz.style, &char_block.clazz.font);
+            layout_hash.hash(&mut hasher); 
+        }
+
+        // 如果是渐变色， 计算渐变色的hash
+        if let Color::LinearGradient(ref c) = color {
+            c.hash(&mut hasher); 
+        }
+
+        let hash = hasher.finish();
+        // 从缓存中找到geo， 直接返回
+        if let Some(geo) = engine.res_mgr.get::<GeometryRes>(&hash) {
+            return Some(geo);
+        }
+
+        // 缓存中不存在 对应的geo， 创建geo并缓存
+        get_geo_flow(char_block, color, sdf_font, engine, Some(hash), share_index_buffer)
+    } else {
+        // 如果文字不共享， 重新创建geo， 并且不缓存geo
+        get_geo_flow(char_block, color, sdf_font, engine, None, share_index_buffer)
+    }
+}
+
+
+fn text_layout_hash(text_style: &TextStyle, font: &Font) -> u64 {
+    let mut hasher = FxHasher32::default();
+    let hasher = &mut hasher;
+    unsafe { NotNan::unchecked_new(text_style.letter_spacing).hash(hasher) };
+    unsafe { NotNan::unchecked_new(text_style.indent).hash(hasher) };
+    unsafe { NotNan::unchecked_new(text_style.word_spacing).hash(hasher) };
+    match text_style.line_height {
+        LineHeight::Normal => 0.hash(hasher),
+        LineHeight::Length(r) => {
+            1.hash(hasher);
+            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+        },
+        LineHeight::Number(r) => {
+            2.hash(hasher);
+            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+        },
+        LineHeight::Percent(r) => {
+            3.hash(hasher);
+            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+        },
+    };
+    text_style.text_align.hash(hasher);
+    text_style.white_space.hash(hasher);
+    text_style.vertical_align.hash(hasher);
+    unsafe { NotNan::unchecked_new(font.weight).hash(hasher) };
+    match font.size {
+        FontSize::None => 0.hash(hasher),
+        FontSize::Length(r) => {
+            1.hash(hasher);
+            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+        },
+        FontSize::Percent(r) => {
+            3.hash(hasher);
+            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+        },
+    };
+    font.style.hash(hasher);
+    font.family.hash(hasher);
+    hasher.finish()
+}
+
+// 返回position， uv， color， index
+#[inline]
+fn get_geo_flow<C: HalContext + 'static, L: FlexNode + 'static>(
+    char_block: &CharBlock<L>,
+    color: &Color,
+    sdf_font: &Share<dyn SdfFont>,
+    engine: &mut Engine<C>,
+    hash: Option<u64>,
+    index_buffer: &Share<HalBuffer>,
+) -> Option<Share<GeometryRes>> {
     let len = char_block.chars.len();
-    let mut positions: Vec<f32> = Vec::with_capacity(12 * len);
+    let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
-    let mut indices: Vec<u16> = Vec::with_capacity(6 * len);
     let font_size = char_block.font_size;
     let mut i = 0;
-    offset.1 += (char_block.line_height - font_size)/2.0;
+    let offset = (char_block.pos.x, char_block.pos.y);
+
+    let geo = create_geometry(&engine.gl);
+    let mut geo_res = GeometryRes{geo: geo, buffers: Vec::with_capacity(3)};
 
     debug_println!("charblock get_geo_flow: {:?}", char_block);
     if len > 0 {
@@ -749,14 +692,13 @@ fn get_geo_flow<C: Context, L: FlexNode>(
                         Some(r) => r,
                         None => continue,
                     };
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
-                    indices.extend_from_slice(&[i, i + 1, i + 2, i + 0, i + 2, i + 3]);
-                    i += 4;  
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph); 
                 }
-                return (positions, uvs, None, indices);
+                engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {
                 let mut colors = vec![Vec::new()];
+                let mut indices = Vec::with_capacity(6 * len);
                 let (start, end) = cal_all_size(char_block, font_size, sdf_font); // 渐变范围
                 //渐变端点
                 let endp = find_lg_endp(&[
@@ -780,7 +722,7 @@ fn get_geo_flow<C: Context, L: FlexNode>(
                         None => continue,
                     };
 
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, z_depth);
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph);
                     
                     let (ps, indices_arr) = split_by_lg(
                         positions,
@@ -806,17 +748,40 @@ fn get_geo_flow<C: Context, L: FlexNode>(
                     );
 
                     indices = mult_to_triangle(&indices_arr, indices);
-                    i = positions.len() as u16 / 3;
+                    i = positions.len() as u16 / 2;
                 }
-                return (positions, uvs, Some(colors.pop().unwrap()), indices);
+                let colors = colors.pop().unwrap();
+                let color_buffer = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(&colors)), false);
+                let color_buffer = engine.res_mgr.add(color_buffer);
+                let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices)), false);
+                let index_buffer = engine.res_mgr.add(i_buffer);
+                engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::Color, &color_buffer, 4).unwrap();
+                engine.gl.geometry_set_indices_short(&geo_res.geo, &index_buffer).unwrap();
+                geo_res.buffers.push(index_buffer);
+                geo_res.buffers.push(color_buffer);
             }
         }
+
+        let position_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions)), false);
+        let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs)), false);
+        let position_buffer = engine.res_mgr.add(position_buffer);
+        let uv_buffer = engine.res_mgr.add(uv_buffer);
+        engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::Position, &position_buffer, 2).unwrap();
+        engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
+        geo_res.buffers.push(uv_buffer);
+        geo_res.buffers.push(position_buffer);
+        
+        Some(match hash {
+            Some(hash) => engine.res_mgr.create::<GeometryRes>(hash, geo_res),
+            None => engine.res_mgr.add::<GeometryRes>(geo_res)
+        })
     } else {
-        return (positions, uvs, None, indices);
+        None
     }
 }
 
-fn cal_all_size<C: Context, L: FlexNode>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont<Ctx = C>>,) -> (Point2, Point2) {
+#[inline]
+fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_size: f32, sdf_font: &Share<dyn SdfFont>) -> (Point2, Point2) {
     let mut start = Point2::new(0.0, 0.0);
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
@@ -855,6 +820,7 @@ fn cal_all_size<C: Context, L: FlexNode>(char_block: &CharBlock<L>, font_size: f
     (start, end)
 }
 
+#[inline]
 fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     let pi = i * 3;
     let uvi = i * 2;
@@ -931,16 +897,14 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     }
 }
 
-
-
-fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &GlyphInfo, z_depth: f32){
+fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &GlyphInfo){
     let left_top = (pos.x + offset.0 + glyph.ox, pos.y + offset.1 + glyph.oy);
     let right_bootom = (left_top.0 + glyph.width, left_top.1 + glyph.height);
     let ps = [
-        left_top.0,     left_top.1,     z_depth,
-        left_top.0,     right_bootom.1, z_depth,
-        right_bootom.0, right_bootom.1, z_depth,
-        right_bootom.0, left_top.1,     z_depth,
+        left_top.0,     left_top.1,    
+        left_top.0,     right_bootom.1,
+        right_bootom.0, right_bootom.1,
+        right_bootom.0, left_top.1,    
     ];
     uvs.extend_from_slice(&[
         glyph.u_min, glyph.v_min,
@@ -948,32 +912,21 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.u_max, glyph.v_max,
         glyph.u_max, glyph.v_min,
     ]);
-    positions.extend_from_slice(&ps[0..12]);
+    positions.extend_from_slice(&ps[..]);
 }
 
-// //取几何体的顶点流、 颜色流和属性流
-// fn get_geo_flow(char_block: &CharBlock<L>, color: &Color, layout: &Layout, z_depth: f32) -> (Vec<f32>, Option<Vec<f32>>, Vec<u16>) {
-//     unimplemented!()
-    
 
-//     // (positions, uvs, indices)
-// }
-
-unsafe impl<C: Context, L: FlexNode> Sync for CharBlockSys<C, L>{}
-unsafe impl<C: Context, L: FlexNode> Send for CharBlockSys<C, L>{}
+enum NodeDirtyType {
+    Matrix = 1,
+    Opacity = 2,
+}
 
 impl_system!{
-    CharBlockSys<C, L> where [C: Context, L: FlexNode],
+    CharBlockSys<C, L> where [C: HalContext + 'static, L: FlexNode + 'static],
     true,
     {
-        MultiCaseListener<Node, CharBlock<L>, CreateEvent>
         MultiCaseListener<Node, CharBlock<L>, ModifyEvent>
         MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
-        MultiCaseListener<Node, TextStyle, CreateEvent>
-        MultiCaseListener<Node, TextStyle, ModifyEvent>
-        MultiCaseListener<Node, TextStyle, DeleteEvent>
-        MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
-        MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
+        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
     }
 }
