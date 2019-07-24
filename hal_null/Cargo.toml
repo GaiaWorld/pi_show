@@ -7,5 +7,7 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+fx_hashmap={path="../../pi_lib/fx_hashmap"}
+share={path="../../pi_lib/share"}
 hal_core={path="../hal_core"}
-fnv = "1.0.6"
+fxhash="*"

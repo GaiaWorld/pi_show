@@ -5,7 +5,9 @@
 
 extern crate atom;
 extern crate hal_core;
-extern crate fnv;
+extern crate fx_hashmap;
+extern crate share;
+extern crate fxhash;
 
 mod context;
 mod geometry;
@@ -18,6 +20,8 @@ pub use geometry::*;
 pub use render_target::*;
 pub use sampler::*;
 pub use texture::*;
+
+pub use share::Share;
 
 pub fn create_hal_null() -> NullContextImpl {
     NullContextImpl::new()

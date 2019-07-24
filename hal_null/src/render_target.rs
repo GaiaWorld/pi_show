@@ -1,4 +1,4 @@
-use std::sync::{Arc};
+use share::Share;
 use hal_core::{Context, RenderTarget, RenderBuffer};
 use context::{NullContextImpl};
 use texture::NullTextureImpl;
@@ -36,8 +36,8 @@ impl RenderTarget for NullRenderTargetImpl {
         (0, 0)
     }
 
-    fn get_color_texture(&self, _index: u32) -> Option<Arc<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
-        Some(Arc::new(NullTextureImpl{}))
+    fn get_color_texture(&self, _index: u32) -> Option<Share<<<Self as RenderTarget>::RContext as Context>::ContextTexture>> {
+        Some(Share::new(NullTextureImpl{}))
     }
 }
 

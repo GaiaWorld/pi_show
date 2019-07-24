@@ -16,7 +16,7 @@ use component::user::*;
 use component::calc::WorldMatrix;
 use system::util::constant::{WORLD_MATRIX, CLIP_INDICES, CLIP};
 use render::engine::Engine;
-use single::{ RenderObjs, DefaultTable };
+use single::*;
 use entity::Node;
 use system::util::constant::*;
 

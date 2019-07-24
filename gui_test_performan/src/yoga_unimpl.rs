@@ -219,4 +219,24 @@ impl FlexNode for YgNode {
     fn free_recursive(&self) {
         
     }
+
+    fn get_style_width_unit(&self) -> gui::layout::YGUnit{
+        unimplemented!{}
+    }
+
+    fn get_style_justify(&self) -> gui::layout::YGJustify{
+        unimplemented!{}
+    }
+
+    fn get_style_align_content(&self) -> gui::layout::YGAlign{
+        unimplemented!{}
+    }
+
+    fn get_style_align_items(&self) -> gui::layout::YGAlign{
+        unimplemented!{}
+    }
+
+    fn get_style_width_value(&self) -> f32{
+        unimplemented!{}
+    }
 }

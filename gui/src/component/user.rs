@@ -124,12 +124,12 @@ pub struct TextStyle{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
     pub line_height: LineHeight, //设置行高
-    pub indent: f32, // 缩进， 单位： 像素
     pub white_space: WhiteSpace, //空白处理
-    pub color: Color, //颜色
-    pub stroke: Stroke,
     pub text_align: TextAlign,
     pub vertical_align: VerticalAlign,
+    pub indent: f32, // 缩进， 单位： 像素
+    pub color: Color, //颜色
+    pub stroke: Stroke,
 }
 
 #[derive(Debug, Clone, Component, Default)]

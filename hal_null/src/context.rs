@@ -1,5 +1,4 @@
-use std::sync::{Arc};
-use fnv::{FnvHashMap as HashMap};
+use share::Share;
 
 use atom::{Atom};
 
@@ -11,16 +10,16 @@ use texture::{NullTextureImpl};
 use sampler::{NullSamplerImpl};
 
 pub struct NullContextImpl {
-    caps: Arc<Capabilities>,
-    default_rt: Arc<NullRenderTargetImpl>,
+    caps: Share<Capabilities>,
+    default_rt: Share<NullRenderTargetImpl>,
 }
 
 impl NullContextImpl {
     pub fn new() -> Self {
         NullContextImpl {
-            caps: Arc::new(Capabilities::new()),
+            caps: Share::new(Capabilities::new()),
 
-            default_rt: Arc::new(NullRenderTargetImpl {
+            default_rt: Share::new(NullRenderTargetImpl {
 
             })
         } 
@@ -35,11 +34,11 @@ impl Context for NullContextImpl {
     type ContextRenderTarget = NullRenderTargetImpl;
     type ContextRenderBuffer = NullRenderBufferImpl;
     
-    fn get_caps(&self) -> Arc<Capabilities> {
+    fn get_caps(&self) -> Share<Capabilities> {
         self.caps.clone()
     }
 
-    fn get_default_render_target(&self) -> Arc<Self::ContextRenderTarget> {
+    fn get_default_render_target(&self) -> Share<Self::ContextRenderTarget> {
         self.default_rt.clone()
     }
 
@@ -57,13 +56,13 @@ impl Context for NullContextImpl {
 
     fn create_uniforms(&mut self) -> Uniforms<Self::ContextSelf> {
         Uniforms::<Self::ContextSelf> {
-            values: HashMap::default(),
+            values: fx_hashmap::FxHashMap32::default(),
             dirty_count: 0,
             has_texture: false,
         }
     }
 
-    fn create_pipeline(&mut self, _vs_hash: u64, _fs_hash: u64, _rs: Arc<AsRef<RasterState>>, _bs: Arc<AsRef<BlendState>>, _ss: Arc<AsRef<StencilState>>, _ds: Arc<AsRef<DepthState>>) -> Result<Pipeline, String> {
+    fn create_pipeline(&mut self, _vs_hash: u64, _fs_hash: u64, _rs: Share<AsRef<RasterState>>, _bs: Share<AsRef<BlendState>>, _ss: Share<AsRef<StencilState>>, _ds: Share<AsRef<DepthState>>) -> Result<Pipeline, String> {
         Ok(Pipeline::new())
     }
 
@@ -79,7 +78,7 @@ impl Context for NullContextImpl {
         })
     }
 
-    fn create_sampler(&mut self, _desc: Arc<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
+    fn create_sampler(&mut self, _desc: Share<AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
         Ok(NullSamplerImpl {
 
         })
@@ -91,7 +90,7 @@ impl Context for NullContextImpl {
         })
     }
 
-    fn begin_render(&mut self, _render_target: &Arc<AsRef<Self::ContextRenderTarget>>, _data: &Arc<AsRef<RenderBeginDesc>>) {
+    fn begin_render(&mut self, _render_target: &Share<AsRef<Self::ContextRenderTarget>>, _data: &Share<AsRef<RenderBeginDesc>>) {
         
     }
 
@@ -99,11 +98,11 @@ impl Context for NullContextImpl {
 
     }
 
-    fn set_pipeline(&mut self, _pipeline: &Arc<AsRef<Pipeline>>) {
+    fn set_pipeline(&mut self, _pipeline: &Share<AsRef<Pipeline>>) {
 
     }
 
-    fn draw(&mut self, _geometry: &Arc<AsRef<Self::ContextGeometry>>, _values: &HashMap<Atom, Arc<AsRef<Uniforms<Self::ContextSelf>>>>) {
+    fn draw(&mut self, _geometry: &Share<AsRef<Self::ContextGeometry>>, _values: &fx_hashmap::FxHashMap32<Atom, Share<AsRef<Uniforms<Self::ContextSelf>>>>) {
 
     }
 }

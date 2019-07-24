@@ -278,6 +278,8 @@ impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSy
                         old_pipeline.ds.clone()
                     )
                 }else {
+                    let mut common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
+                    Share::make_mut(&mut common_ubo).set_float_4(&STROKE_COLOR, 0.0, 0.0, 0.0, 0.0);
                     engine.create_pipeline(
                         3,
                         &CANVAS_TEXT_VS_SHADER_NAME.clone(),
@@ -485,6 +487,7 @@ fn modify_stroke<C: Context + 'static>(
         Share::make_mut(&mut common_ubo).set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
         return false;
     }
+    println!("text_stroke.width-------------{}", text_stroke.width);
     if text_stroke.width == 0.0 {
         //  删除边框的宏
         match render_obj.defines.remove_item(&STROKE) {
@@ -502,6 +505,7 @@ fn modify_stroke<C: Context + 'static>(
             render_obj.defines.push(STROKE.clone());
             let mut stroke_ubo = engine.gl.create_uniforms();
             let color = &text_stroke.color;
+            println!("text_stroke1-------------{}, {:?}", text_stroke.width / 10.0, color);
             stroke_ubo.set_float_1(&STROKE_SIZE, text_stroke.width / 10.0);
             stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
             render_obj.ubos.insert(STROKE.clone(), Share::new(stroke_ubo));
@@ -510,6 +514,7 @@ fn modify_stroke<C: Context + 'static>(
             let stroke_ubo = render_obj.ubos.get_mut(&STROKE).unwrap();
             let color = &text_stroke.color;
             let stroke_ubo = Share::make_mut(stroke_ubo);
+            println!("text_stroke2-------------{}, {:?}", text_stroke.width / 10.0, color);
             stroke_ubo.set_float_1(&STROKE_SIZE, text_stroke.width / 10.0);
             stroke_ubo.set_float_4(&STROKE_COLOR, color.r, color.g, color.b, color.a);
             false
@@ -589,11 +594,10 @@ fn try_modify_font<C: Context + 'static> (
     
     if modify & (DirtyType::FontFamily as usize) != 0{
         // canvas字体绘制， 总是不需要STROKE宏
-        if first_font.get_dyn_type() == 0 {
+        if first_font.get_dyn_type() > 0 {
             if find_item_from_vec(&render_obj.defines, &STROKE) > 0 {
                 render_obj.ubos.remove(&STROKE);
             }
-            Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap()).remove(&STROKE_COLOR);
         }
         change = true
     }

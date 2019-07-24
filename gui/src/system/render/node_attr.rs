@@ -135,20 +135,25 @@ impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, CreateEvent
             let pipeline = &render_obj.pipeline;
             let mut bs = pipeline.bs.clone();
             let mut ds = pipeline.ds.clone();
-            Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-            Share::make_mut(&mut ds).set_write_enable(false);
-            let pipeline = engine.create_pipeline(
-                start_hash,
-                &pipeline.vs,
-                &pipeline.fs,
-                render_obj.defines.as_slice(),
-                pipeline.rs.clone(),
-                bs,
-                pipeline.ss.clone(),
-                ds,
-            );
-            render_obj.pipeline = pipeline;
-            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
+            match (bs.src_rgb_factor, bs.dst_rgb_factor) {
+                (BlendFactor::One, BlendFactor::Zero) => {
+                    Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+                    Share::make_mut(&mut ds).set_write_enable(false);
+                    let pipeline = engine.create_pipeline(
+                        start_hash,
+                        &pipeline.vs,
+                        &pipeline.fs,
+                        render_obj.defines.as_slice(),
+                        pipeline.rs.clone(),
+                        bs,
+                        pipeline.ss.clone(),
+                        ds,
+                    );
+                    render_obj.pipeline = pipeline;
+                    render_objs.get_notify().modify_event(event.id, "pipeline", 0);
+                },
+                _ => (),
+            } 
         }
     }
 }
@@ -166,20 +171,26 @@ impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent
                 let mut bs = pipeline.bs.clone();
                 let mut ds = pipeline.ds.clone();
                 if render_obj.is_opacity == false {
-                    Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-                    Share::make_mut(&mut ds).set_write_enable(false);
-                    let pipeline = engine.create_pipeline(
-                        1,
-                        &pipeline.vs,
-                        &pipeline.fs,
-                        pipeline.defines.as_slice(),
-                        pipeline.rs.clone(),
-                        bs,
-                        pipeline.ss.clone(),
-                        ds,
-                    );
-                    render_obj.pipeline = pipeline;
-                } else {
+                    match (bs.src_rgb_factor, bs.dst_rgb_factor) {
+                        (BlendFactor::One, BlendFactor::Zero) => {
+                            Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+                            Share::make_mut(&mut ds).set_write_enable(false);
+                            let pipeline = engine.create_pipeline(
+                                1,
+                                &pipeline.vs,
+                                &pipeline.fs,
+                                render_obj.defines.as_slice(),
+                                pipeline.rs.clone(),
+                                bs,
+                                pipeline.ss.clone(),
+                                ds,
+                            );
+                            render_obj.pipeline = pipeline;
+                            render_objs.get_notify().modify_event(event.id, "pipeline", 0);
+                        },
+                        _ => (),
+                    }
+                }else {
                     Share::make_mut(&mut bs).set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
                     Share::make_mut(&mut ds).set_write_enable(true);
                     let pipeline = engine.create_pipeline(
@@ -193,8 +204,8 @@ impl<'a, C: Context + 'static> SingleCaseListener<'a, RenderObjs<C>, ModifyEvent
                         pipeline.ds.clone(),
                     );
                     render_obj.pipeline = pipeline;
-                }
-                render_objs.get_notify().modify_event(event.id, "pipeline", 0);
+                    render_objs.get_notify().modify_event(event.id, "pipeline", 0);
+                } 
             },
             _ => (),
         }
