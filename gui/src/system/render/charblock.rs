@@ -91,8 +91,10 @@ impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
         let default_color_ubo = create_hash_res(engine, UColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 1.0)));
 
         let mut index_data = Vec::with_capacity(600);
-        for i in 0..100 {
+        let mut i = 0;
+        while i < 400 {
             index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
+            i += 4;
         }
 
         Self {
@@ -135,7 +137,7 @@ impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
             fs_name: CANVAS_TEXT_FS_SHADER_NAME.clone(),
             vs_defines: Box::new(VsDefines::default()),
             fs_defines: Box::new(FsDefines::default()),
-            paramter: Share::new(CanvasTextParamter::default()),
+            paramter: Share::new(MsdfParamter::default()),
             program_dirty: true,
 
             program: None,
@@ -273,7 +275,7 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBloc
                     pipeline_change = pipeline_change | modify_stroke(item.index.text, &charblock, render_obj, engine, &notify, &first_font, &class_ubo);
                 }
 
-                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline
+                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
                 let font_type_change = try_modify_font(charblock.modify, item.index.text, render_obj, &first_font, font_size, &notify, &self.default_sampler, &self.point_sampler);
                 pipeline_change = pipeline_change | font_type_change;
 
@@ -478,7 +480,7 @@ fn modify_color<C: HalContext + 'static, L: FlexNode>(
                 Some(_) => false,
                 None => {
                     render_obj.fs_defines.remove("UCOLOR");
-                    render_obj.fs_defines.remove("VERTEX_COLOR");
+                    render_obj.fs_defines.add("VERTEX_COLOR");
                     true
                 }
             }
@@ -683,7 +685,6 @@ fn get_geo_flow<C: HalContext + 'static, L: FlexNode + 'static>(
     let geo = create_geometry(&engine.gl);
     let mut geo_res = GeometryRes{geo: geo, buffers: Vec::with_capacity(3)};
 
-    debug_println!("charblock get_geo_flow: {:?}", char_block);
     if len > 0 {
         match color {
             Color::RGBA(_) => {
@@ -822,7 +823,7 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_size: f32
 
 #[inline]
 fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
-    let pi = i * 3;
+    let pi = i * 2;
     let uvi = i * 2;
     let len = positions.len() - pi;
     let (p1, p4) = (
@@ -831,8 +832,8 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
             positions[pi + 1],
         ),
         (
-            positions[pi + 6],
-            positions[pi + 7],
+            positions[pi + 4],
+            positions[pi + 5],
         ),
     );
     let (u1, u4) = (
@@ -846,9 +847,9 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
         ),
     );
     debug_println!("p1: {}, {}, p4: {}, {}, u1: {},{}, u4: {}, {}", p1.0, p1.1, p4.0, p4.1, u1.0, u1.1, u4.0, u4.1);
-    if len > 12 {
-        let mut i = pi + 12;
-        for _j in 0..(len - 12)/3 {
+    if len > 8 {
+        let mut i = pi + 8;
+        for _j in 0..(len - 8)/2 {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
             debug_println!("pos_x: {}, pos_y: {}, i:derive_deref{}", pos_x, pos_y, i);
@@ -892,7 +893,7 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
             uvs.push(uv.0);
             uvs.push(uv.1);
             debug_println!("uvs: {}, {}", uv.0, uv.1);
-            i += 3;
+            i += 2;
         }
     }
 }

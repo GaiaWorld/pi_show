@@ -242,7 +242,7 @@ pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
         Err(_) => panic!("set_src error"),
     };
 
-    let texture_res = TextureRes::new(width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
+    let texture_res = TextureRes::new(width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, Share::new(texture));
     let texture_res = engine.res_mgr.create(name, texture_res);
     // new_width_data
     let mut sdf_font = DefaultSdfFont::new(texture_res, dyn_type as usize);
@@ -279,7 +279,7 @@ pub fn set_text_content(world_id: u32, node: u32){
 
     // 生成不存在的字体
 
-    world.text.lend_mut().insert(node as usize, Text(Share::new(value)));
+    world.text.lend_mut().insert(node as usize, Text(value, Atom::from("")));
     debug_println!("set_text_content");  
 }
 

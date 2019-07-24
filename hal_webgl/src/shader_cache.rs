@@ -19,6 +19,7 @@ pub struct Shader {
     pub handle: WebGLShader,
 }
 
+#[derive(Debug)]
 pub struct LayoutLocation {
     pub textures: FxHashMap32<Atom, usize>,
     pub uniforms: FxHashMap32<Atom, (usize, usize)>,

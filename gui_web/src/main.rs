@@ -83,7 +83,7 @@ pub fn create_engine(mut res_cush_time: u32) -> u32{
     debug_println!("create_engine");
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
-    let gl = WebglHalContext::new(gl, fbo);
+    let gl = WebglHalContext::new(gl, fbo, true);
 
     if res_cush_time < 500 {
         res_cush_time = 500;
@@ -216,7 +216,7 @@ pub fn create_texture_res(world: u32, opacity: u8, compress: u8) -> u32{
         Err(_) => panic!("set_src error"),
     };
 
-    let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+    let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, Share::new(texture)) );
     Box::into_raw(Box::new(res)) as u32
 }
 

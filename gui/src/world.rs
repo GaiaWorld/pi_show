@@ -51,7 +51,7 @@ lazy_static! {
     pub static ref RES_RELEASE_N: Atom = Atom::from("res_release");
 }
 
-pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, width: f32, height: f32) -> World {
+pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World {
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -77,6 +77,8 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     let unit_quad = UnitQuad(Share::new(GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]}));
 
     let default_state = DefaultState::new(&engine.gl);
+
+    let charblock_sys = CellCharBlockSys::<C, L>::new(CharBlockSys::new(&mut engine));
     
 
     // let clip_sys = ClipSys::new(&mut engine, width as u32, height as u32);
@@ -117,7 +119,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, L>();
-    world.register_multi::<Node, HSV>();
+    world.register_multi::<Node, HSV>(); 
 
     //single
     // world.register_single::<ClipUbo>(ClipUbo(Share::new(engine.gl.create_uniforms())));
@@ -134,7 +136,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_single::<DefaultTable>(default_table);
     world.register_single::<ClassSheet>(ClassSheet::default());
     world.register_single::<UnitQuad>(unit_quad);
-    world.register_single::<DefaultState>(default_state); 
+    world.register_single::<DefaultState>(default_state);
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -147,7 +149,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
     // world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // world.register_system(IMAGE_N.clone(), CellImageSys::new(ImageSys::new()));
-    // world.register_system(CHAR_BLOCK_N.clone(), CellCharBlockSys::<L>::new(CharBlockSys::new()));
+    world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
     // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::new()));
@@ -159,7 +161,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(engine: Engine<C>, wid
     world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, node_attr_sys, render_sys, res_release".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, charblock_sys, node_attr_sys, render_sys, res_release".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();

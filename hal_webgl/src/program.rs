@@ -211,22 +211,30 @@ impl WebGLProgramImpl {
         let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
         
         // 初始化attribute和uniform
-        match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map) {
-            None => {
-                gl.delete_program(Some(&program_handle));
-                Err("WebGLProgramImpl failed, invalid uniforms".to_string())
-            },
-            Some((uniforms, single_uniforms, textures)) => {
+        let (uniforms, single_uniforms, textures) = WebGLProgramImpl::init_uniform(gl, &program_handle, location_map)?;
+        Ok(WebGLProgramImpl {
+            handle: program_handle,
+            active_uniforms: uniforms,
+            active_single_uniforms: single_uniforms,
+            active_textures: textures,
+            last_pp: None,
+        })
+        // match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map) {
+        //     Err(e) => {
+        //         gl.delete_program(Some(&program_handle));
+        //         Err("WebGLProgramImpl failed, invalid uniforms".to_string())
+        //     },
+        //     Ok((uniforms, single_uniforms, textures)) => {
                 
-                Ok(WebGLProgramImpl {
-                    handle: program_handle,
-                    active_uniforms: uniforms,
-                    active_single_uniforms: single_uniforms,
-                    active_textures: textures,
-                    last_pp: None,
-                })
-            }
-        }
+        //         Ok(WebGLProgramImpl {
+        //             handle: program_handle,
+        //             active_uniforms: uniforms,
+        //             active_single_uniforms: single_uniforms,
+        //             active_textures: textures,
+        //             last_pp: None,
+        //         })
+        //     }
+        // }
     }
 
     pub fn delete(&self, gl: &WebGLRenderingContext) {
@@ -258,7 +266,7 @@ impl WebGLProgramImpl {
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation) -> Option<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>)> {
+    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation) -> Result<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>), String> {
         
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
@@ -367,7 +375,7 @@ impl WebGLProgramImpl {
                 }
                 WebGLRenderingContext::SAMPLER_2D => {
                     match location_map.textures.get(&name) {
-                        None => return None,
+                        None => return Err(format!("init_uniform fail, location_map texture is not exist, name: {:?}, location_map: {:?}", name, location_map)),
                         Some(i) => {
                             
                             textures.push(SamplerUniform {
@@ -394,7 +402,7 @@ impl WebGLProgramImpl {
             }
             
             match location_map.uniforms.get(&name) {
-                None => return None,
+                None => return Err(format!("init_uniform fail, location_map uniform is not exist, name: {:?}, location_map: {:?}", name, location_map)),
                 Some((i, j)) => {
                     match slot_map.get(i) {
                         None => {
@@ -432,6 +440,6 @@ impl WebGLProgramImpl {
         
         single_uniforms.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
         
-        return Some((uniforms, single_uniforms, textures));
+        return Ok((uniforms, single_uniforms, textures));
     }
 }

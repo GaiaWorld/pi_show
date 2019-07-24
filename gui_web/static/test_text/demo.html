@@ -12,7 +12,7 @@
 </head>
 <body>
     <canvas id="canvas" width = "1000px" height="700px"></canvas>
-    <script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="../../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
     <script src="../shader/clip.js"></script>
     <script src="../shader/color.js"></script>
     <script src="../shader/image.js"></script>
@@ -49,7 +49,6 @@
             // Module._append_child(gui, name, div);
             // Module._set_width(gui, name, 100);
             // Module._set_height(gui, name, 32);
-
             var ce = Module._create_text_node(gui);
             window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
             Module._set_text_linear_gradient_color(gui, ce, 90); //, direction: 0~360度
