@@ -318,6 +318,8 @@ impl<'a, C: Context + 'static, L: FlexNode + 'static> Runner<'a> for CharBlockSy
             if shadow_index > 0 {
                 let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(shadow_index) };
 
+                try_modify_font(charblock.modify, shadow_index, shadow_render_obj, &first_font, font_size, &notify, self.default_sampler.as_ref().unwrap(), self.point_sampler.as_ref().unwrap());
+
                 // 修改阴影的顶点流
                 if shadow_geometry_change  {
                     match &charblock.clazz.style.color {

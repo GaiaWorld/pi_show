@@ -115,18 +115,18 @@ impl<C: Context + 'static> ClipSys<C>{
             self.by_ubo.clone()
         });
 
-        if is_change {
-            // 设置 by_clip_index
-            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Share<Uniforms<C>>|{
-                debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
-                Share::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
-            }).or_insert_with(||{
-                debug_println!("add clip ubo, by_overflow: {}", by_overflow);
-                let mut ubo = engine.gl.create_uniforms();
-                ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
-                Share::new(ubo)
-            });
+        // 设置 by_clip_index
+        render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Share<Uniforms<C>>|{
+            debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
+            Share::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
+        }).or_insert_with(||{
+            debug_println!("add clip ubo, by_overflow: {}", by_overflow);
+            let mut ubo = engine.gl.create_uniforms();
+            ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
+            Share::new(ubo)
+        });
 
+        if is_change {
             // 重新创建渲染管线
             let pipeline = engine.create_pipeline(
                 render_obj.pipeline.start_hash,
@@ -196,21 +196,39 @@ impl<'a, C: Context + 'static> Runner<'a> for ClipSys<C>{
             for i in 0..16 {
                 let p = &overflow.clip[i];
 
-                positions[i * 12 + 0] = p[0].x;
-                positions[i * 12 + 1] = p[0].y;
-                positions[i * 12 + 2] = 0.0;
+                if overflow.id_vec[i] > 0 {
+                    positions[i * 12 + 0] = p[0].x;
+                    positions[i * 12 + 1] = p[0].y;
+                    positions[i * 12 + 2] = 0.0;
 
-                positions[i * 12 + 3] = p[1].x;
-                positions[i * 12 + 4] = p[1].y;
-                positions[i * 12 + 5] = 0.0;
+                    positions[i * 12 + 3] = p[1].x;
+                    positions[i * 12 + 4] = p[1].y;
+                    positions[i * 12 + 5] = 0.0;
 
-                positions[i * 12 + 6] = p[2].x;
-                positions[i * 12 + 7] = p[2].y;
-                positions[i * 12 + 8] = 0.0;
+                    positions[i * 12 + 6] = p[2].x;
+                    positions[i * 12 + 7] = p[2].y;
+                    positions[i * 12 + 8] = 0.0;
 
-                positions[i * 12 + 9] = p[3].x;
-                positions[i * 12 + 10] = p[3].y;
-                positions[i * 12 + 11] = 0.0;
+                    positions[i * 12 + 9] = p[3].x;
+                    positions[i * 12 + 10] = p[3].y;
+                    positions[i * 12 + 11] = 0.0;
+                } else {
+                    positions[i * 12 + 0] = 0.0;
+                    positions[i * 12 + 1] = 0.0;
+                    positions[i * 12 + 2] = 0.0;
+
+                    positions[i * 12 + 3] = 0.0;
+                    positions[i * 12 + 4] = 0.0;
+                    positions[i * 12 + 5] = 0.0;
+
+                    positions[i * 12 + 6] = 0.0;
+                    positions[i * 12 + 7] = 0.0;
+                    positions[i * 12 + 8] = 0.0;
+
+                    positions[i * 12 + 9] = 0.0;
+                    positions[i * 12 + 10] = 0.0;
+                    positions[i * 12 + 11] = 0.0;
+                }
             }
             geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..192]), true).unwrap();
         }

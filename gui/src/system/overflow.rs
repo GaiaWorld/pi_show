@@ -198,7 +198,7 @@ fn set_index(overflow: &mut OverflowClip, cur: usize, value: usize) -> usize {
     let i = get_index(overflow, cur);
     if i > 0 {
         overflow.id_vec[i-1] = value;
-    } else {
+    } else if cur == 0 {
         #[cfg(feature = "warning")]
         println!("!!!!!!!!!!!!!!!!!!!Overflow reaches the upper limit");
 
