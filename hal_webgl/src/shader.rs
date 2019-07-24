@@ -300,7 +300,7 @@ impl ProgramManager {
 
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i).unwrap();
-            let mut value;
+            let value;
             let mut name = uniform.name();
             
             let is_array = match uniform.name().find('[') {

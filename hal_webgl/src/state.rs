@@ -28,7 +28,7 @@ pub struct State {
     geometry: Option<Share<dyn AsRef<WebGLGeometryImpl>>>,
     target: Share<dyn AsRef<WebGLRenderTargetImpl>>,
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
-    enable_attrib_indices: Vec<bool>,
+    enable_attrib_indices: Vec<i8>,
 
     tex_caches: TextureCache,
 }
@@ -145,7 +145,7 @@ impl State {
             geometry: None,
             target: rt.clone(),
             viewport_rect: (0, 0, 0, 0),
-            enable_attrib_indices: vec![false; max_attributes as usize],
+            enable_attrib_indices: vec![0; max_attributes as usize],
             
             tex_caches: tex_caches,
         };  
@@ -286,16 +286,23 @@ impl State {
                     }
                 }
                 None => {
+                    for (n, _) in geometry.as_ref().as_ref().attributes.iter() {
+                        let index = get_attribute_location(n) as usize;
+                        self.enable_attrib_indices[index] -= 10;
+                    }
+                    for (i, v) in self.enable_attrib_indices.iter_mut().enumerate() {
+                        if *v > 0 {
+                            *v = 0;
+                            self.gl.disable_vertex_attrib_array(i as u32);
+                        } else if *v < 0 {
+                            *v = 1;
+                            self.gl.enable_vertex_attrib_array(i as u32);
+                        }
+                    }
+
                     for (n, v) in geometry.as_ref().as_ref().attributes.iter() {
                         let index = get_attribute_location(n) as usize;
-                        
                         self.gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&v.buffer));
-                        
-                        if !self.enable_attrib_indices[index] {
-                            self.gl.enable_vertex_attrib_array(index as u32);
-                            self.enable_attrib_indices[index] = true;
-                        }
-                        
                         self.gl.vertex_attrib_pointer(index as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
                         // debug_println!("State::draw, bind_buffer index = {:?}, buffer = {:?}, ", index, &v.buffer);
                     }
@@ -465,9 +472,9 @@ impl State {
         let is_vao_extension = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         if !is_vao_extension {
             for (i, v) in state.enable_attrib_indices.iter_mut().enumerate() {
-                if *v {
+                if *v != 0 {
                     gl.disable_vertex_attrib_array(i as u32);
-                    *v = false;
+                    *v = 0;
                 }
             }
         }
