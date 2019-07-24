@@ -226,7 +226,6 @@ impl HalContext for WebglHalContext {
     // ==================== HalProgram
 
     fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String> {
-
         let vs_name = Atom::from(vs_name);
         let fs_name = Atom::from(fs_name);
 
@@ -514,6 +513,7 @@ impl HalContext for WebglHalContext {
 
     fn render_set_program(&self, program: &HalProgram) {
         let context = convert_to_mut(self);
+        println!("program------------------{:?}", program);
         
         let p = get_ref(&context.program_slab, program.0, program.1).expect("param not found");
         if context.state_machine.set_program(&context.gl, program, p) {

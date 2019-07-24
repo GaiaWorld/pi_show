@@ -91,8 +91,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
 
             let border_radius = border_radiuses.get(*id);
             let layout = unsafe {layouts.get_unchecked(*id)};
+            let color;
             render_obj.program_dirty = render_obj.program_dirty | match background_colors.get(*id) {
                 Some(bg_color) => {
+                    color = bg_color;
                     // 如果Color脏， 或Opacity脏， 计算is_opacity
                     if dirty & DrityType::Color as usize != 0 || dirty & DrityType::Opacity as usize != 0 {
                         let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
@@ -112,6 +114,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                         render_obj.is_opacity = background_is_opacity(opacity, bg_color);
                     }
 
+                    color = bg_color;
                     // 尝试修改颜色， 以及颜色所对应的geo
                     modify_class_color(render_obj, bg_color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
                 }
@@ -139,14 +142,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                     None => default_transform,
                 };
                 let depth = unsafe{z_depths.get_unchecked(*id)}.0;
-                let is_unit_geo = {
-                    let radius = cal_border_radius(border_radius, layout);
-                    let g_b = geo_box(layout);
-                    if radius.x <= g_b.min.x {
-                        true
-                    } else {
-                        false
-                    }
+                let is_unit_geo = match &color.0 {
+                    Color::RGBA(_) => {
+                        let radius = cal_border_radius(border_radius, layout);
+                        let g_b = geo_box(layout);
+                        if radius.x <= g_b.min.x {
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    Color::LinearGradient(_) => false,
                 };
                 modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
             }
@@ -458,8 +464,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
             let colors = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(colors.as_slice())), false);
             let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
             let geo = create_geometry(&engine.gl);
-            engine.gl.geometry_set_vertex_count(&geo, (position_len/3) as u32);
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 3).unwrap();
+            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
             engine.gl.geometry_set_attribute(&geo, &AttributeName::Color, &colors, 4).unwrap();
             engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
 

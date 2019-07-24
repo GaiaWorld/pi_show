@@ -66,13 +66,13 @@
 
 
         // // 测试两点线性渐变颜色
-        // var node3 = Module._create_node(gui);
-        // Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
-        // Module._set_width(gui, node3, 100.0);
-        // Module._set_height(gui, node3, 100.0);
-        // Module._set_margin(gui, node3, YGEdgeLeft, 10);
-        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        // Module._set_background_linear_gradient_color(gui, node3, 0);
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node3, 100.0);
+        Module._set_height(gui, node3, 100.0);
+        Module._set_margin(gui, node3, YGEdgeLeft, 10);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node3, 0);
 
         // // 测试两点线性渐变颜色 + border_radius
         // var node4 = Module._create_node(gui);
