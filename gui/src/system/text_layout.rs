@@ -287,61 +287,79 @@ fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<
         println!("parent_yoga.is_null");
         return true
     }
+    cb.modify = cb.dirty;
     if cb.dirty & DirtyType::StyleClass as usize != 0 {
         cb.style_class = read.7.get(id).unwrap().0;
         match (read.1).0.get(&cb.style_class) {
             Some(c) if cb.local_style == 0 => {
+                cb.modify |= std::usize::MAX - (DirtyType::Text as usize);
                 cb.clazz = c.clone();
             },
             Some(c) => {
                 if cb.local_style & DirtyType::FontStyle as usize == 0 {
-                    cb.clazz.font.style = c.font.style
+                    cb.clazz.font.style = c.font.style;
+                    cb.modify |= DirtyType::FontStyle as usize;
                 }
                 if cb.local_style & DirtyType::FontWeight as usize == 0 {
-                    cb.clazz.font.weight = c.font.weight
+                    cb.clazz.font.weight = c.font.weight;
+                    cb.modify |= DirtyType::FontWeight as usize;
                 }
                 if cb.local_style & DirtyType::FontSize as usize == 0 {
-                    cb.clazz.font.size = c.font.size
+                    cb.clazz.font.size = c.font.size;
+                    cb.modify |= DirtyType::FontSize as usize;
                 }
                 if cb.local_style & DirtyType::FontFamily as usize == 0 {
-                    cb.clazz.font.family = c.font.family.clone()
+                    cb.modify |= DirtyType::FontFamily as usize;
+                    cb.clazz.font.family = c.font.family.clone();
                 }
                 if cb.local_style & DirtyType::LetterSpacing as usize == 0 {
-                    cb.clazz.style.letter_spacing = c.style.letter_spacing
+                    cb.modify |= DirtyType::LetterSpacing as usize;
+                    cb.clazz.style.letter_spacing = c.style.letter_spacing;
                 }
                 if cb.local_style & DirtyType::WordSpacing as usize == 0 {
-                    cb.clazz.style.word_spacing = c.style.word_spacing
+                    cb.modify |= DirtyType::WordSpacing as usize;
+                    cb.clazz.style.word_spacing = c.style.word_spacing;
                 }
                 if cb.local_style & DirtyType::LineHeight as usize == 0 {
-                    cb.clazz.style.line_height = c.style.line_height
+                    cb.modify |= DirtyType::LineHeight as usize;
+                    cb.clazz.style.line_height = c.style.line_height;
                 }
                 if cb.local_style & DirtyType::Indent as usize == 0 {
-                    cb.clazz.style.indent = c.style.indent
+                    cb.modify |= DirtyType::Indent as usize;
+                    cb.clazz.style.indent = c.style.indent;
                 }
                 if cb.local_style & DirtyType::WhiteSpace as usize == 0 {
-                    cb.clazz.style.white_space = c.style.white_space
+                    cb.modify |= DirtyType::WhiteSpace as usize;
+                    cb.clazz.style.white_space = c.style.white_space;
                 }
                 if cb.local_style & DirtyType::Color as usize == 0 {
-                    cb.clazz.style.color = c.style.color.clone()
+                    cb.modify |= DirtyType::Color as usize;
+                    cb.clazz.style.color = c.style.color.clone();
                 }
                 if cb.local_style & DirtyType::Stroke as usize == 0 {
-                    cb.clazz.style.stroke = c.style.stroke.clone()
+                    cb.modify |= DirtyType::Stroke as usize;
+                    cb.clazz.style.stroke = c.style.stroke.clone();
                 }
                 if cb.local_style & DirtyType::TextAlign as usize == 0 {
-                    cb.clazz.style.text_align = c.style.text_align
+                    cb.modify |= DirtyType::TextAlign as usize;
+                    cb.clazz.style.text_align = c.style.text_align;
                 }
                 if cb.local_style & DirtyType::VerticalAlign as usize == 0 {
-                    cb.clazz.style.vertical_align = c.style.vertical_align
+                    cb.modify |= DirtyType::VerticalAlign as usize;
+                    cb.clazz.style.vertical_align = c.style.vertical_align;
                 }
                 if cb.local_style & DirtyType::ShadowColor as usize == 0 {
-                    cb.clazz.shadow.color = c.shadow.color
+                    cb.modify |= DirtyType::ShadowColor as usize;
+                    cb.clazz.shadow.color = c.shadow.color;
                 }
                 if cb.local_style & DirtyType::ShadowHV as usize == 0 {
+                    cb.modify |= DirtyType::ShadowHV as usize;
                     cb.clazz.shadow.h = c.shadow.h;
                     cb.clazz.shadow.v = c.shadow.v;
                 }
                 if cb.local_style & DirtyType::ShadowBlur as usize == 0 {
-                     cb.clazz.shadow.blur = c.shadow.blur
+                    cb.modify |= DirtyType::ShadowBlur as usize;
+                    cb.clazz.shadow.blur = c.shadow.blur;
                 }
             },
             _ => (),
@@ -460,7 +478,7 @@ fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<
         _ => (),
     };
     // TODO 如果没有文字变动， 则可以直接返回或计算布局
-    cb.modify = cb.dirty;
+    // cb.modify = cb.dirty;
     cb.dirty = 0;
     let count = parent_yoga.get_child_count() as usize;
     let text = match read.3.get(id) {

@@ -55,6 +55,7 @@ pub struct HSV {
 //     pub geometry: usize,
 //     pub ubo: usize, //geometry 对象
 // }
+#[derive(Debug)]
 pub enum DirtyType{
   Text = 1, // 1表示文字脏
   StyleClass = 2, // 表示样式类脏
