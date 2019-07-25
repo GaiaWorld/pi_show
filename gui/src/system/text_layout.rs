@@ -553,10 +553,12 @@ fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<
     //清除多余的CharNode
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
+            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
             cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};
     }
+
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
