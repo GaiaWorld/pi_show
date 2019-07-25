@@ -220,7 +220,8 @@ impl<'a, C: Context + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node
         let cb = unsafe{ write.get_unchecked(event.id)};
         // 删除所有yoga节点
         for cn in cb.chars.iter() {
-            cn.node.free();
+            cn.node.get_parent().remove_child(cn.node);
+            // cn.node.free();
         }
     }
 }
@@ -554,7 +555,7 @@ fn calc<'a, C: Context + 'static, L: FlexNode + 'static>(id: usize, read: &Read<
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
             cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
-            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};
     }
@@ -677,7 +678,8 @@ fn calc_text<'a, C: Context + 'static, L: FlexNode + 'static>(cb: &mut CharBlock
     //清除多余的CharNode
     if calc.index < cb.chars.len() {
         for i in calc.index..cb.chars.len() {
-            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(calc.index)};
     }
@@ -699,7 +701,8 @@ fn update_char1<C: Context + 'static, L: FlexNode + 'static>(cb: &mut CharBlock<
         if cn.ch != c {
             // 字符不同，将当前的，和后面的节点都释放掉
             for j in calc.index..cb.chars.len() {
-                cb.chars[j].node.free()
+                cb.chars[j].node.get_parent().remove_child(cb.chars[j].node);
+                // cb.chars[j].node.free()
             }
             unsafe {cb.chars.set_len(calc.index)};
         }
