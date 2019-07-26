@@ -477,11 +477,6 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
 }
 
 #[inline]
-fn geo_box(layout: &Layout) -> Aabb2{
-    Aabb2::new(Point2::new(layout.border_left, layout.border_top), Point2::new(layout.width - layout.border_right, layout.height - layout.border_bottom))
-}
-
-#[inline]
 fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bool{
     if opacity < 1.0 {
         return false;
@@ -611,7 +606,7 @@ fn modify_matrix(
     is_unity_geo: bool,
 ){
     if is_unity_geo {
-        let arr = create_unit_matrix(
+        let arr = create_unit_matrix_by_layout(
             layout,
             world_matrix,
             transform,

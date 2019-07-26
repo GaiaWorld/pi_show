@@ -35,8 +35,16 @@ impl<C: HalContext + 'static> Engine<C> {
         let mut hasher = FxHasher32::default();
         vs_id.hash(&mut hasher);
         vs_defines.id().hash(&mut hasher);
+        let vs_id = hasher.finish();
+
+        let mut hasher = FxHasher32::default();
         fs_id.hash(&mut hasher);
         fs_defines.id().hash(&mut hasher);
+        let fs_id = hasher.finish();
+
+        let mut hasher = FxHasher32::default();
+        vs_id.hash(&mut hasher);
+        fs_id.hash(&mut hasher);
         let hash = hasher.finish();
 
         let gl = &self.gl;
@@ -55,6 +63,8 @@ impl<C: HalContext + 'static> Engine<C> {
                 single_uniforms: paramter.get_single_uniform_layout(),
                 textures: paramter.get_texture_layout(),
             };
+
+
             match gl.program_create_with_vs_fs(vs_id, fs_id, vs_name, vs_defines.list(), fs_name, fs_defines.list(), &uniform_layout) {
                 Ok(r) => Share::new(r),
                 Err(e) => panic!("create_program error: {:?}", e),

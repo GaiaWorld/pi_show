@@ -4,6 +4,7 @@ pub mod class;
 use share::Share;
 use std::any::{TypeId, Any};
 use std::default::Default;
+use std::ops::{Deref, DerefMut};
 
 use fnv::FnvHashMap;
 
@@ -80,9 +81,12 @@ impl ProjectionMatrix {
     }
 }
 
+// pub struct ImageWaitSheet{
+//     pub wait: FxHashMap<Atom, Vec<usize>>,
+//     pub finish: Option<(Atom, Vec<usize>)>,
+// };
+
 pub struct UnitQuad(pub Share<GeometryRes>);
-unsafe impl Sync for UnitQuad {}
-unsafe impl Send for UnitQuad {}
 
 pub struct DefaultState{
     pub df_rs: Share<HalRasterState>,

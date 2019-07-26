@@ -32,6 +32,13 @@ impl<T> Items<T> {
         }
     }
 
+    pub fn set_dirty_no_push(&mut self, id: usize, dirty: usize) {
+        if let Some(item) = self.render_map.get_mut(id) {
+            let dirty = item.dirty | (dirty as usize);
+            item.dirty = dirty;
+        }
+    }
+
     pub fn create(&mut self, id: usize, index: T) {
         self.render_map.insert(id, Item::new(index));
         self.dirtys.push(id);
