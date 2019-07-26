@@ -55,6 +55,9 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
     let c = class_sheet.class.insert(class);
 
     class_sheet.class_map.insert(class_id, c);
+
+    let notify = class_sheet.get_notify();
+    notify.create_event(c);
 }
 
 fn parse_class_from_string(value: &str) -> Result<(Vec<Attribute>, Vec<LayoutAttr>), String> {

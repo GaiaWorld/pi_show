@@ -7,7 +7,7 @@ use std::hash::{ Hash, Hasher };
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
@@ -26,8 +26,6 @@ use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TE
 use font::font_sheet::FontSheet;
 use font::sdf_font:: {GlyphInfo, SdfFont };
 use layout::FlexNode;
-use system::render::util::*;
-
 
 #[derive(Default)]
 struct I{ text: usize, shadow: usize }
@@ -41,7 +39,8 @@ struct RenderCatch{
 }
 
 pub struct CharBlockSys<C: HalContext + 'static, L: FlexNode + 'static>{
-    items: Items<I>,
+    dirty_ty: usize,
+    render_map: VecMap<I>,
     canvas_bs: Share<HalBlendState>,
     default_sampler: Share<HalSampler>, // 默认采样方式
     point_sampler: Share<HalSampler>, // 点采样， canvas着色器渲染时， 如果字体大小与纹理默认字体大小一致， 将采用点采样
@@ -98,7 +97,21 @@ impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
         }
 
         Self {
-            items: Items::default(),
+            dirty_ty:   StyleType::LetterSpacing as usize | 
+                        StyleType::WordSpacing as usize |
+                        StyleType::LineHeight as usize |
+                        StyleType::Indent as usize |
+                        StyleType::WhiteSpace as usize | 
+                        StyleType::TextAlign as usize | 
+                        StyleType::VerticalAlign as usize | 
+                        StyleType::Color as usize | 
+                        StyleType::Stroke as usize |
+                        StyleType::FontStyle as usize | 
+                        StyleType::FontFamily as usize | 
+                        StyleType::FontSize as usize | 
+                        StyleType::FontWeight as usize |
+                        StyleType::TextShadow as usize,
+            render_map: VecMap::default(),
             canvas_bs: canvas_bs,
             default_sampler: default_sampler,
             point_sampler: point_sampler,
@@ -126,7 +139,7 @@ impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
         charblock: &CharBlock<L>,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
-    ) -> &mut Item<I> {
+    ) -> &mut I {
 
         let render_obj = RenderObj {
             depth: z_depth + 0.2,
@@ -183,8 +196,20 @@ impl<C: HalContext + 'static, L: FlexNode + 'static> CharBlockSys<C, L> {
         };
 
         // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.items.create(id, I{text: index, shadow: shadow_index});
-        unsafe { self.items.render_map.get_unchecked_mut(id)}
+        self.render_map.insert(id, I{text: index, shadow: shadow_index});
+        unsafe { self.render_map.get_unchecked_mut(id)}
+    }
+
+    #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index.text, Some(notify.clone()));
+                render_objs.remove(index.shadow, Some(notify));
+            },
+            None => ()
+        };
     }
 }
 
@@ -196,47 +221,66 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBloc
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Text>,
+        &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<FontSheet>,
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DefaultState>,
         &'a SingleCaseImpl<ClassSheet>,
+        &'a SingleCaseImpl<DirtyList>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (z_depths, world_matrixs, layouts, transforms, texts, font_sheet, default_table, default_state, class_sheet) = read;
+        let (z_depths, world_matrixs, layouts, transforms, texts, style_marks, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
 
-        let text_layout_dirty = (DirtyType::FontStyle as usize) |
-                                (DirtyType::FontWeight as usize) |
-                                (DirtyType::FontSize as usize) |
-                                (DirtyType::FontFamily as usize) |
-                                (DirtyType::LetterSpacing as usize) |
-                                (DirtyType::WordSpacing as usize) |
-                                (DirtyType::LineHeight as usize) |
-                                (DirtyType::Indent as usize) |
-                                (DirtyType::WhiteSpace as usize) |
-                                (DirtyType::TextAlign as usize) |
-                                (DirtyType::VerticalAlign as usize);
+        let text_layout_dirty = (StyleType::FontStyle as usize) |
+                                (StyleType::FontWeight as usize) |
+                                (StyleType::FontSize as usize) |
+                                (StyleType::FontFamily as usize) |
+                                (StyleType::LetterSpacing as usize) |
+                                (StyleType::WordSpacing as usize) |
+                                (StyleType::LineHeight as usize) |
+                                (StyleType::Indent as usize) |
+                                (StyleType::WhiteSpace as usize) |
+                                (StyleType::TextAlign as usize) |
+                                (StyleType::VerticalAlign as usize);
 
-        for id in self.items.dirtys.iter() {
-            // 如果charblock已经被删除， 跳过
-            let charblock = match charblocks.get_mut(*id) {
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => return,
+                None => {
+                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                },
             };
 
-            let map = &mut self.items.render_map;
+            let dirty = style_mark.dirty;
+
+            // 不存在Chablock关心的脏, 跳过
+            if dirty & self.dirty_ty == 0 {
+                continue;
+            }
+
+            // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
+            if dirty & StyleType::Text as usize != 0 && style_mark.local_style & StyleType::Text as usize == 0{
+                self.remove_render_obj(*id, render_objs);
+                continue;
+            }
+
+            let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
+            let map = &mut self.render_map;
             let z_depth = unsafe{z_depths.get_unchecked(*id)}.0;
-            let item = match map.get_mut(*id) {
+            let index = match map.get_mut(*id) {
                 Some(r) => r,
                 None =>  unsafe {&mut *( self as *const Self as usize as *mut Self ) }.create_render_obj(*id, z_depth, false, charblock, render_objs, default_state),
             };
 
-            let render_obj = unsafe { &mut *(render_objs.get_unchecked(item.index.text) as *const RenderObj as usize as *mut RenderObj) };
+            let render_obj = unsafe { &mut *(render_objs.get_unchecked(index.text) as *const RenderObj as usize as *mut RenderObj) };
 
-            if charblock.modify != 0 {
+            if dirty!= 0 {
                 // 如果字体不存在， 无法渲染，直接跳过
                 let first_font = match font_sheet.get_first_font(&charblock.clazz.font.family) {
                     Some(r) => r,
@@ -264,23 +308,23 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBloc
                 let mut shadow_geometry_change  = false;
 
                 // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记pipeline_change 和 geometry_change脏
-                if charblock.modify & (DirtyType::Color as usize) != 0 {
-                    let exchange = modify_color(item.index.text, charblock, engine, &notify, render_obj, &class_ubo);
+                if dirty& (StyleType::Color as usize) != 0 {
+                    let exchange = modify_color(index.text, charblock, engine, &notify, render_obj, &class_ubo);
                     pipeline_change = pipeline_change | exchange;
                     geometry_change = geometry_change | exchange;
                 }
 
                 // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置pipeline_change脏
-                if charblock.modify & (DirtyType::Stroke as usize) != 0 {
-                    pipeline_change = pipeline_change | modify_stroke(item.index.text, &charblock, render_obj, engine, &notify, &first_font, &class_ubo);
+                if dirty& (StyleType::Stroke as usize) != 0 {
+                    pipeline_change = pipeline_change | modify_stroke(index.text, &charblock, render_obj, engine, &notify, &first_font, &class_ubo);
                 }
 
                 // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-                let font_type_change = try_modify_font(charblock.modify, item.index.text, render_obj, &first_font, font_size, &notify, &self.default_sampler, &self.point_sampler);
+                let font_type_change = try_modify_font(charblock.modify, index.text, render_obj, &first_font, font_size, &notify, &self.default_sampler, &self.point_sampler);
                 pipeline_change = pipeline_change | font_type_change;
 
                 // 文字内容脏， 这是顶点流脏
-                if charblock.modify & (DirtyType::Text as usize) != 0 {
+                if dirty& (StyleType::Text as usize) != 0 {
                     geometry_change = true;
                     shadow_geometry_change = true;
                 }
@@ -293,22 +337,15 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBloc
                 // 文字属性流改变， 重新生成geometry
                 if geometry_change {
                     render_obj.geometry = create_geo(charblock, &charblock.clazz.style.color, text, &first_font, text_layout_dirty, class_ubo, &self.index_buffer, engine);
-                    render_objs.get_notify().modify_event(item.index.text, "geometry", 0);
+                    render_objs.get_notify().modify_event(index.text, "geometry", 0);
                 }
 
                  // 阴影存在
-                if item.index.shadow > 0 {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index.shadow) };
-
-                    // 阴影颜色脏，或描边脏， 修改ubo
-                    if charblock.modify & (DirtyType::ShadowColor as usize) != 0 || charblock.modify & (DirtyType::Stroke as usize) != 0 {
-                        modify_shadow_color(item.index.shadow, &charblock, &notify, render_obj, engine, &first_font, &class_ubo);         
-                    };
-
-                    // 阴影blur脏， 修改blur ubo
-                    if charblock.modify & (DirtyType::ShadowBlur as usize) != 0 {
-                        // 设置ubo
-                    }
+                if index.shadow > 0 && dirty & (StyleType::TextShadow as usize) != 0 {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
+                     // 阴影颜色脏，或描边脏， 修改ubo
+                    modify_shadow_color(index.shadow, &charblock, &notify, render_obj, engine, &first_font, &class_ubo);
+                    // 设置ubo TODO
 
                     // 修改阴影的渲染管线
                     if pipeline_change {
@@ -325,75 +362,39 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for CharBloc
                                 render_obj.geometry = create_geo(charblock, &Color::RGBA(color), text, &first_font, text_layout_dirty, class_ubo, &self.index_buffer, engine)
                             },
                         }
-                        notify.modify_event(item.index.shadow, "geometry", 0);
+                        notify.modify_event(index.shadow, "geometry", 0);
                     }
                 }
             }
 
             // 矩阵脏
-            if item.dirty & (NodeDirtyType::Matrix as usize) != 0 || charblock.modify & (DirtyType::ShadowHV as usize) != 0 {
+            if dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::TextShadow as usize) != 0 {
                 let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
                 let layout = unsafe{ layouts.get_unchecked(*id) };
                 let transform = match transforms.get(*id){
                     Some(r) => r,
                     None => default_transform,
                 };
-                if item.dirty & (NodeDirtyType::Matrix as usize) != 0 {
+                if dirty & (StyleType::Matrix as usize) != 0 {
                     modify_matrix(
-                        item.index.text,
+                        index.text,
                         create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
                         render_obj,
                         &notify,
                     );
                 }
 
-                if item.index.shadow > 0 {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(item.index.shadow) };
+                if index.shadow > 0 {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
                     modify_matrix(
-                        item.index.shadow,
+                        index.shadow,
                         create_let_top_offset_matrix(layout, world_matrix, transform, charblock.clazz.shadow.h, charblock.clazz.shadow.v, render_obj.depth),
                         render_obj,
                         &notify,
                     );
                 }
             }      
-           
-            item.dirty = 0;
-            charblock.modify = 0;
         }
-        self.items.dirtys.clear();
-    }
-}
-
-impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        self.items.dirtys.push(event.id);
-    }
-}
-
-// 删除渲染对象
-impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for CharBlockSys<C, L>{
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        match self.items.render_map.remove(event.id) {
-            Some(index) => {
-                let notify = write.get_notify();
-                write.remove(index.index.text, Some(notify.clone()));
-                write.remove(index.index.shadow, Some(notify));
-            }, 
-            None => (),
-        };
-    }
-}
-
-impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for CharBlockSys<C, L>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, NodeDirtyType::Matrix as usize);
     }
 }
 
@@ -411,7 +412,7 @@ fn modify_stroke<C: HalContext + 'static, L: FlexNode + 'static>(
     let text_stroke = &charblock.clazz.style.stroke;
     // canvas 字体
     if first_font.get_dyn_type() > 0 {
-        let ubo = if charblock.local_style & (DirtyType::Stroke as usize) == 0 {
+        let ubo = if charblock.local_style & (StyleType::Stroke as usize) == 0 {
             class_ubo.stroke_color_ubo.clone()
         } else {
             let color = &text_stroke.color;
@@ -429,7 +430,7 @@ fn modify_stroke<C: HalContext + 'static, L: FlexNode + 'static>(
             None => false,
         } 
     } else { 
-        let ubo = if charblock.local_style & (DirtyType::Stroke as usize) == 0 {
+        let ubo = if charblock.local_style & (StyleType::Stroke as usize) == 0 {
             class_ubo.stroke_ubo.clone()
         } else {
             let color = &text_stroke.color;
@@ -456,7 +457,7 @@ fn modify_color<C: HalContext + 'static, L: FlexNode>(
     let change = match color {
         Color::RGBA(c) => {
             // 如果是class样式中的颜色， 直接使用class_ubo.fill_color_ubo
-            let ubo = if charblock.local_style & (DirtyType::Color as usize) == 0 {
+            let ubo = if charblock.local_style & (StyleType::Color as usize) == 0 {
                 class_ubo.fill_color_ubo.clone()
             } else {
                 create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)))
@@ -502,7 +503,7 @@ fn try_modify_font (
 ) -> bool {
     let mut change = false;
     notify.modify_event(index, "", 0);
-    if (modify & (DirtyType::FontFamily as usize) != 0) || ( first_font.get_dyn_type() > 0 && (modify & (DirtyType::FontSize as usize) != 0) ) {
+    if (modify & (StyleType::FontFamily as usize) != 0) || ( first_font.get_dyn_type() > 0 && (modify & (StyleType::FontSize as usize) != 0) ) {
         // 如果是canvas 字体绘制类型， 并且绘制fontsize 与字体本身fontsize一致， 应该使用点采样
         let sampler = if first_font.get_dyn_type() > 0 && first_font.font_size() == font_size  {
             point_sampler
@@ -512,7 +513,7 @@ fn try_modify_font (
         render_obj.paramter.set_texture("texture", ( first_font.texture().bind.clone() , sampler.clone()));
     }
     
-    if modify & (DirtyType::FontFamily as usize) != 0{
+    if modify & (StyleType::FontFamily as usize) != 0{
         if first_font.get_dyn_type() == 0 {
             change = render_obj.vs_name == CANVAS_TEXT_VS_SHADER_NAME.clone();
         } else {
@@ -536,7 +537,7 @@ fn modify_shadow_color<C: HalContext + 'static, L: FlexNode + 'static>(
     if charblock.clazz.style.stroke.width > 0.0 && first_font.get_dyn_type() > 0 {
         render_obj.paramter.set_value("strokeColor", create_hash_res(engine,  CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) ));
     }
-    let ubo = if charblock.local_style & (DirtyType::ShadowColor as usize) == 0 {
+    let ubo = if charblock.local_style & (StyleType::TextShadow as usize) == 0 {
         class_ubo.shadow_color_ubo.clone()
     } else {
         create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
@@ -916,18 +917,10 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
     positions.extend_from_slice(&ps[..]);
 }
 
-
-enum NodeDirtyType {
-    Matrix = 1,
-    Opacity = 2,
-}
-
 impl_system!{
     CharBlockSys<C, L> where [C: HalContext + 'static, L: FlexNode + 'static],
     true,
     {
-        MultiCaseListener<Node, CharBlock<L>, ModifyEvent>
-        MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+
     }
 }

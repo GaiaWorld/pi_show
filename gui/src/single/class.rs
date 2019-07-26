@@ -184,7 +184,7 @@ pub struct Class {
 pub struct ImageClass {
     pub image: Atom,
     pub obj_fit: FitType,
-    pub image_clip: Option<ImageClip>,
+    pub image_clip: ImageClip,
 }
 
 pub struct BorderImageClass {

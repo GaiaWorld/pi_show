@@ -49,6 +49,7 @@ lazy_static! {
     pub static ref FILTER_N: Atom = Atom::from("filter_sys");
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
     pub static ref RES_RELEASE_N: Atom = Atom::from("res_release");
+    pub static ref STYLE_MARK_N: Atom = Atom::from("style_mark_sys");
 }
 
 pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>, width: f32, height: f32) -> World {
@@ -137,6 +138,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>,
     world.register_single::<ClassSheet>(ClassSheet::default());
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
+    world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -159,9 +161,11 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>,
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
     world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
+    world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<C, L>::new(StyleMarkSys::new()));
+    
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, charblock_sys, node_attr_sys, render_sys, res_release".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, charblock_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -221,6 +225,7 @@ pub struct GuiWorld<C: HalContext + 'static, L: FlexNode> {
     pub font_sheet: Arc<CellSingleCase<FontSheet>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
     pub class_sheet: Arc<CellSingleCase<ClassSheet>>,
+    pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
 
     pub world: World,
 }
@@ -273,6 +278,7 @@ impl<C: HalContext + 'static, L: FlexNode> GuiWorld<C, L> {
             font_sheet: world.fetch_single::<FontSheet>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
             class_sheet: world.fetch_single::<ClassSheet>().unwrap(),
+            image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
 
             world: world,
         }

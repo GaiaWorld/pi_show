@@ -395,9 +395,6 @@ pub fn create_unit_matrix_by_layout(
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
-    let depth = depth/Z_MAX;
-    let origin = transform.origin.to_value(layout.width, layout.height);
-
     let width = layout.width - layout.border_left - layout.border_right;
     let height = layout.width - layout.border_top - layout.border_bottom;
 
