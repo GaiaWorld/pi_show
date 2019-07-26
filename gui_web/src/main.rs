@@ -259,7 +259,8 @@ pub fn load_image_success(world_id: u32, opacity: u8, compress: u8){
             image_wait_sheet.finish.push((name, res, r));
         },
         None => (),
-    }
+    };
+    image_wait_sheet.get_notify().modify_event(0, "", 0);
 }
 
 fn load_image(world_id: u32) {

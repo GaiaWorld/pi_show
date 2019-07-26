@@ -563,7 +563,7 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, N
 }
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, C: HalContext + 'static, L: FlexNode + 'static> SingleCaseListener<'a,ImageWaitSheet, ModifyEvent> for StyleMarkSys<C, L>{
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<C, L>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ClassName>,
         &'a SingleCaseImpl<ClassSheet>
@@ -591,7 +591,7 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> SingleCaseListener<'a,I
             for image_wait in wait.2.iter() {
                 // 图片加载完成后， 节点可能已经删除， 因此跳过
                 if !entitys.is_exist(image_wait.id) {
-                    break;
+                    continue;
                 }
                 // 判断等待类型， 设置对应的组件
                 match image_wait.ty {
@@ -602,12 +602,12 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> SingleCaseListener<'a,I
                     ImageType::ImageClass => {
                         let style_mark = unsafe { style_marks.get_unchecked_mut(image_wait.id) };
                         if style_mark.local_style & StyleType::Image as usize != 0 { // 本地样式存在Image， 跳过
-                            break;
+                            continue;
                         }
                         let class_name = unsafe { class_names.get_unchecked(image_wait.id) }.0;
                         let class = match class_sheet.class.get(class_name) {
                             Some(class) => class,
-                            None => break, // 样式不存在， 跳过
+                            None => continue, // 样式不存在， 跳过
                         };
 
                         if let Some(image_class) = class_sheet.image.get(class.image) {
@@ -624,12 +624,12 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> SingleCaseListener<'a,I
                     ImageType::BorderImageClass=> {
                         let style_mark = unsafe { style_marks.get_unchecked_mut(image_wait.id) };
                         if style_mark.local_style & StyleType::BorderImage as usize != 0 { // 本地样式存在BorderImage， 跳过
-                            break;
+                            continue;
                         }
                         let class_name = unsafe { class_names.get_unchecked(image_wait.id) }.0;
                         let class = match class_sheet.class.get(class_name) {
                             Some(class) => class,
-                            None => break, // 样式不存在， 跳过
+                            None => continue, // 样式不存在， 跳过
                         };
                         
                         if let Some(border_image_class) = class_sheet.border_image.get(class.border_image) {
