@@ -474,7 +474,6 @@ pub fn set_class(world: u32, node_id: u32, key: u32){
     let class_sheet = world.class_sheet.lend();
     match class_sheet.class_map.get(&(key as usize)) {
         Some(class_id) => {
-            let class = unsafe { class_sheet.class.get_unchecked(*class_id) };
             // 插入className
             world.class_name.lend_mut().insert(node_id, ClassName(*class_id) );
         },

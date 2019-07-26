@@ -143,6 +143,7 @@ pub fn render(world_id: u32){
     world.draw_text_sys.run(world_id);
     // println!("cal text canvas---------------{:?}",  std::time::Instant::now() - time);
 	let world = &mut world.gui;
+    load_image(world_id);
     world.world.run(&RENDER_DISPATCH);
 }
 
@@ -227,10 +228,54 @@ pub fn create_texture_res(world: u32, opacity: u8, compress: u8) -> u32{
 //     world.component_mgr.font.set_src(res.name(), res);
 // }
 
+
 #[no_mangle]
 pub fn notify_timeout(f1: u32, f2: u32){
     let f: Box<dyn FnOnce()> = unsafe { transmute((f1 as usize, f2 as usize)) };
     f();
+}
+
+// __jsObj: image, __jsObj1: image_name(String)
+#[no_mangle]
+pub fn load_image_success(world_id: u32, opacity: u8, compress: u8){
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+
+    let name: String = js!{return __jsObj1}.try_into().unwrap();
+    let name = Atom::from(name);
+    let engine = world.engine.lend_mut();
+    let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+    let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+
+    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
+        Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+        Err(s) => panic!("set_src error, {:?}", s),
+    };
+    let res = engine.res_mgr.create::<TextureRes>(name.clone(), TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, Share::new(texture)) );
+    
+    let image_wait_sheet = world.image_wait_sheet.lend_mut();
+    match image_wait_sheet.wait.remove(&name) {
+        Some(r) => {
+            image_wait_sheet.finish.push((name, res, r));
+        },
+        None => (),
+    }
+}
+
+fn load_image(world_id: u32) {
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+
+    let image_wait_sheet = &mut world.gui.image_wait_sheet.lend_mut();
+    for img_name in image_wait_sheet.loads.iter() {
+        js!{
+            if window.__load_image {
+                window.__load_image(world_id, @{img_name.as_ref()});
+            } else {
+                console.log("__load_image is undefined");
+            }
+        }
+    }
+    image_wait_sheet.loads.clear();
 }
 
 // pub fn cancel_timeout(id: usize){
