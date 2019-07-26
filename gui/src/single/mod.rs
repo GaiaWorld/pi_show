@@ -6,7 +6,6 @@ use std::any::{TypeId, Any};
 use std::default::Default;
 use std::ops::{Deref, DerefMut};
 
-use fnv::FnvHashMap;
 
 use cgmath::Ortho;
 use slab::Slab;
@@ -15,6 +14,7 @@ use hal_core::*;
 use ecs::{ Write };
 use ecs::monitor::NotifyImpl;
 use map::vecmap::VecMap;
+use fx_hashmap::FxHashMap32;
 
 use component::user::*;
 use render::res::*;
@@ -81,10 +81,21 @@ impl ProjectionMatrix {
     }
 }
 
-// pub struct ImageWaitSheet{
-//     pub wait: FxHashMap<Atom, Vec<usize>>,
-//     pub finish: Option<(Atom, Vec<usize>)>,
-// };
+// 图片等待表
+pub struct ImageWaitSheet {
+    pub wait: FxHashMap32<Atom, Vec<ImageWait>>,
+    pub finish: Option<(Atom, Vec<ImageWait>)>,
+}
+
+pub enum ImageType {
+    Class,
+    Local,
+}
+
+pub struct ImageWait {
+    ty: ImageType,
+    id: usize,
+}
 
 pub struct UnitQuad(pub Share<GeometryRes>);
 
@@ -300,11 +311,11 @@ pub struct RenderBegin(pub Share<RenderBeginDesc>);
 unsafe impl Sync for RenderBegin {}
 unsafe impl Send for RenderBegin {}
 
-pub struct DefaultTable(FnvHashMap<TypeId, Box<dyn Any>>);
+pub struct DefaultTable(FxHashMap32<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
     pub fn new() -> Self{
-        Self(FnvHashMap::default())
+        Self(FxHashMap32::default())
     }
 
     pub fn set<T: 'static + Any>(&mut self, value: T){
