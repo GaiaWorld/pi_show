@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use fxhash::FxHasher32;
 use map::vecmap::VecMap;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::*;
 use atom::Atom;
 use polygon::*;
@@ -23,7 +23,6 @@ use render::engine::Engine;
 use render::res::*;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
-use system::render::util::*;
 
 
 lazy_static! {
@@ -31,7 +30,8 @@ lazy_static! {
 }
 
 pub struct BackgroundColorSys<C: HalContext + 'static>{
-    items: Items<usize>,
+    render_map: VecMap<usize>,
+    dirty_ty: usize,
     share_ucolor_ubo: VecMap<Share<dyn UniformBuffer>>, // 如果存在BackgroundClass， 也存在对应的ubo
     mark: PhantomData<C>,
 }
@@ -39,7 +39,8 @@ pub struct BackgroundColorSys<C: HalContext + 'static>{
 impl<C: HalContext + 'static> Default for BackgroundColorSys<C> {
     fn default() -> Self {
         BackgroundColorSys {
-            items: Items::default(),
+            render_map: VecMap::default(),
+            dirty_ty: StyleType::BackgroundColor as usize | StyleType::Matrix as usize | StyleType::BorderRadius as usize | StyleType::Opacity as usize | StyleType::Layout as usize,
             share_ucolor_ubo: VecMap::default(),
             mark: PhantomData,
         }
@@ -57,10 +58,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, BackgroundColor>,
         &'a MultiCaseImpl<Node, ClassName>,
+        &'a MultiCaseImpl<Node, StyleMark>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<ClassSheet>,
         &'a SingleCaseImpl<UnitQuad>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<DefaultState>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
@@ -73,51 +77,63 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             border_radiuses,
             background_colors,
             classes,
+            style_marks,
 
             default_table,
-            class_sheet,
+            _class_sheet,
             unit_quad,
+            dirty_list,
+            default_state,
         ) = read;
         let (render_objs, engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();
-        for id in self.items.dirtys.iter() {
-            let item = match self.items.render_map.get_mut(*id) {
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => continue,
+                None => {
+                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                },
             };
-            let dirty = item.dirty;
-            let render_obj = unsafe {render_objs.get_unchecked_mut(item.index)};
-            item.dirty = 0;
+
+            let dirty = style_mark.dirty;
+
+            // 不存在BuckgroundColor关心的脏, 跳过
+            if dirty & self.dirty_ty == 0 {
+                continue;
+            }
+
+            // 背景颜色脏， 如果不存在BacgroundColor的本地样式和class样式， 删除渲染对象
+            if dirty & StyleType::BackgroundColor as usize != 0 && style_mark.local_style & StyleType::BackgroundColor as usize == 0 && style_mark.class_style & StyleType::BackgroundColor as usize == 0 {
+                self.remove_render_obj(*id, render_objs);
+                continue;
+            }
+
+            let render_index = match self.render_map.get_mut(*id) {
+                Some(r) => *r,
+                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            };
+
+            let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 
             let border_radius = border_radiuses.get(*id);
             let layout = unsafe {layouts.get_unchecked(*id)};
-            let color;
-            render_obj.program_dirty = render_obj.program_dirty | match background_colors.get(*id) {
-                Some(bg_color) => {
-                    color = bg_color;
-                    // 如果Color脏， 或Opacity脏， 计算is_opacity
-                    if dirty & DrityType::Color as usize != 0 || dirty & DrityType::Opacity as usize != 0 {
-                        let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
-                        render_obj.is_opacity = background_is_opacity(opacity, bg_color);
-                    }
-                    // 尝试修改颜色， 以及颜色所对应的geo
-                    modify_color(render_obj, bg_color, engine, dirty, layout, &unit_quad.0, border_radius)
-                },
-                None => {
-                    let class_id = unsafe { classes.get_unchecked(*id) }.0;
-                    let class = unsafe{ class_sheet.class.get_unchecked(class_id) };
-                    let bg_color = unsafe { class_sheet.background_color.get_unchecked(class.background_color) };
+            let color = unsafe {background_colors.get_unchecked(*id)};
 
-                    // 如果Color脏， 或Opacity脏， 计算is_opacity
-                    if dirty & DrityType::Color as usize != 0 || dirty & DrityType::Opacity as usize != 0 {
-                        let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
-                        render_obj.is_opacity = background_is_opacity(opacity, bg_color);
-                    }
+            // 如果Color脏， 或Opacity脏， 计算is_opacity
+            if dirty & StyleType::Color as usize != 0 || dirty & StyleType::Opacity as usize != 0 {
+                let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
+                render_obj.is_opacity = background_is_opacity(opacity, color);
+            }
 
-                    color = bg_color;
-                    // 尝试修改颜色， 以及颜色所对应的geo
-                    modify_class_color(render_obj, bg_color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
-                }
+            render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{  
+                // 尝试修改颜色， 以及颜色所对应的geo
+                modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
+            } else {
+                let class_id = unsafe { classes.get_unchecked(*id) }.0;
+                // 尝试修改颜色， 以及颜色所对应的geo
+                modify_class_color(render_obj, color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
             };
             
             // 渲染管线脏， 创建渲染管线
@@ -135,7 +151,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             }
             
             // 如果矩阵脏
-            if dirty & DrityType::Matrix as usize != 0 || dirty & DrityType::Layout as usize != 0{
+            if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0{
                 let world_matrix = unsafe{world_matrixs.get_unchecked(*id)};
                 let transform =  match transforms.get(*id) {
                     Some(r) => r,
@@ -157,112 +173,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
             }
         }
-        self.items.dirtys.clear();
-    }
-}
-
-// 插入渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for BackgroundColorSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Visibility>,
-        &'a SingleCaseImpl<DefaultState>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        // 如果已经存在渲染对象，设置颜色脏， 返回
-        if self.items.render_map.get(event.id).is_some() {
-            self.items.set_dirty(event.id, DrityType::BorderRadius as usize);
-            return;
-        }
-
-        // 否则创建渲染对象
-        let (z_depths, visibilitys, default_state) = read;
-        let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
-        let visibility = unsafe {visibilitys.get_unchecked(event.id)}.0;
-        self.create_render_obj(event.id, z_depth, visibility, render_objs, default_state);
-    }
-}
-
-// 修改渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, BackgroundColor>, &'a MultiCaseImpl<Node, Opacity>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::Color as usize);
-    }
-}
-
-// 删除渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ClassName>, 
-        &'a SingleCaseImpl<ClassSheet>,  
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (class_names, class_sheet) = read;
-        // 如果class中存在backgroundColor， 设置color脏
-        let class_name = unsafe { class_names.get_unchecked(event.id) };
-        if let Some(class) = class_sheet.class.get(class_name.0) {
-            if let Some(_) = class_sheet.background_color.get(class.background_color) {
-                self.items.set_dirty(event.id, DrityType::Color as usize);
-                return;
-            }
-        }
-        let item = self.items.render_map.remove(event.id).unwrap();
-        let notify = render_objs.get_notify();
-        render_objs.remove(item.index, Some(notify));
-    }
-}
-
-// 修改class （不监听class的创建， 应该在创建node的同时创建class， 创建的class没有意义）
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Visibility>,
-        &'a MultiCaseImpl<Node, ClassName>,
-        &'a MultiCaseImpl<Node, BackgroundColor>,
-
-        &'a SingleCaseImpl<ClassSheet>,
-        &'a SingleCaseImpl<DefaultState>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-
-        // 如果class中含有backgrooundColor的描述， 创建一个渲染对象
-        let (z_depths, visibilitys,class_names, background_colors, class_sheet, default_state) = read;
-        if let Some(class_name) = class_names.get(event.id) {
-            if let Some(class) = class_sheet.class.get(class_name.0) {
-                if class.background_color > 0 {
-                    // 如果已经存在backgroundColor， 设置color脏 返回
-                    if background_colors.get(event.id).is_some() {
-                        self.items.set_dirty(event.id, DrityType::Color as usize);
-                        return;
-                    }
-
-                    // 如果不存在渲染对象， 创建渲染对象
-                    if self.items.render_map.get(event.id).is_none() {
-                        let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
-                        let visibility = unsafe {visibilitys.get_unchecked(event.id)}.0;
-                        self.create_render_obj(event.id, z_depth, visibility, render_objs, default_state);
-                    }
-   
-                    self.items.set_dirty(event.id, DrityType::Color as usize);
-                    return;
-                }
-            }
-        }
-
-        if background_colors.get(event.id).is_some()  {
-            return;
-        }
-
-        // 如果class中不存在backgroundColor， style中也不存在， 应该删除渲染对象
-        if let Some(item) = self.items.render_map.remove(event.id) {
-            let notify = render_objs.get_notify();
-            render_objs.remove(item.index, Some(notify));
-        }
     }
 }
 
@@ -281,41 +191,17 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::Layout as usize);
-    }
-}
-
-//圆角修改， 需要重新计算世界矩阵和顶点流
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::BorderRadius as usize);
-    }
-}
-
-//不透明度变化， 设置ubo
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::Opacity as usize);
-    }
-}
-
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for BackgroundColorSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::Matrix as usize);
-    }
-}
-
 impl<C: HalContext + 'static> BackgroundColorSys<C> {
+    #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index, Some(notify));
+            },
+            None => ()
+        };
+    }
 
     #[inline]
     fn create_render_obj(
@@ -353,7 +239,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.items.create(id, index);
+        self.render_map.insert(id, index);
         index
     }
 }
@@ -458,7 +344,6 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
             let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
 
-            let position_len = positions.len();
             // 创建geo， 设置attribut
             let positions = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
             let colors = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(colors.as_slice())), false);
@@ -507,23 +392,23 @@ fn modify_color<C: HalContext + 'static>(
     let mut change = false;
     match &background_color.0 {
         Color::RGBA(c) => {
-            if dirty & DrityType::Color as usize != 0 {
+            if dirty & StyleType::Color as usize != 0 {
                 change = to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(c, engine));
             }
 
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & DrityType::BorderRadius as usize != 0 {    
+            if change || dirty & StyleType::BorderRadius as usize != 0 {    
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
             }
         },
         Color::LinearGradient(c) => {
-            if dirty & DrityType::Color as usize != 0{
+            if dirty & StyleType::Color as usize != 0{
                 change = to_vex_color_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
             }
 
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & DrityType::BorderRadius as usize != 0 || dirty & DrityType::Layout as usize != 0 {
+            if change || dirty & StyleType::BorderRadius as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 render_obj.geometry = create_linear_gradient_geo(c, border_radius, layout, engine);
             }
         },
@@ -547,24 +432,24 @@ fn modify_class_color<C: HalContext + 'static>(
     let mut change = false;
     match &background_color.0 {
         Color::RGBA(_) => {
-            if dirty & DrityType::Color as usize != 0{
+            if dirty & StyleType::Color as usize != 0{
                 change = to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 let u_color_ubo = unsafe {share_bg.get_unchecked(class_id)};
                 render_obj.paramter.as_ref().set_value("uColor", u_color_ubo.clone());
             }
 
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & DrityType::BorderRadius as usize != 0 {
+            if change || dirty & StyleType::BorderRadius as usize != 0 {
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
             }
         },
         Color::LinearGradient(c) => {
-            if dirty & DrityType::Color as usize != 0{
+            if dirty & StyleType::Color as usize != 0{
                 change = to_vex_color_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
             }
 
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & DrityType::BorderRadius as usize != 0 || dirty & DrityType::Layout as usize != 0 {
+            if change || dirty & StyleType::BorderRadius as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 render_obj.geometry = create_linear_gradient_geo(c, border_radius, layout, engine);
             }
         },
@@ -620,15 +505,6 @@ fn modify_matrix(
     }
 }
 
-enum DrityType {
-    Color = 1,
-    BorderRadius = 4,
-    Matrix = 16,
-    Opacity = 32,
-    Layout = 64,
-}
-
-
 unsafe impl<C: HalContext + 'static> Sync for BackgroundColorSys<C>{}
 unsafe impl<C: HalContext + 'static> Send for BackgroundColorSys<C>{}
 
@@ -636,13 +512,6 @@ impl_system!{
     BackgroundColorSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BackgroundColor, CreateEvent>
-        MultiCaseListener<Node, BackgroundColor, ModifyEvent>
-        MultiCaseListener<Node, BackgroundColor, DeleteEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        MultiCaseListener<Node, BorderRadius, ModifyEvent>
-        MultiCaseListener<Node, ClassName, ModifyEvent>
+        SingleCaseListener<ClassSheet, CreateEvent>
     }
 }

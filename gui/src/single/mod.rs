@@ -4,8 +4,6 @@ pub mod class;
 use share::Share;
 use std::any::{TypeId, Any};
 use std::default::Default;
-use std::ops::{Deref, DerefMut};
-
 
 use cgmath::Ortho;
 use slab::Slab;
@@ -82,22 +80,38 @@ impl ProjectionMatrix {
 }
 
 // 图片等待表
+#[derive(Default)]
 pub struct ImageWaitSheet {
     pub wait: FxHashMap32<Atom, Vec<ImageWait>>,
-    pub finish: Option<(Atom, Vec<ImageWait>)>,
+    pub finish: Vec<(Atom, Share<TextureRes>, Vec<ImageWait>)>,
+    pub loads: Vec<Atom>,
+}
+
+impl ImageWaitSheet {
+    pub fn add(&mut self, name: &Atom, wait: ImageWait) {
+        let loads = &mut self.loads;
+        self.wait.entry(name.clone()).or_insert_with(||{
+            loads.push(name.clone());
+            Vec::with_capacity(1)
+        }).push(wait);
+    }
 }
 
 pub enum ImageType {
-    Class,
-    Local,
+    ImageClass,
+    ImageLocal,
+    BorderImageClass,
+    BorderImageLocal,
 }
 
 pub struct ImageWait {
-    ty: ImageType,
-    id: usize,
+    pub ty: ImageType,
+    pub id: usize,
 }
 
 pub struct UnitQuad(pub Share<GeometryRes>);
+
+pub struct DirtyList(pub Vec<usize>);
 
 pub struct DefaultState{
     pub df_rs: Share<HalRasterState>,
