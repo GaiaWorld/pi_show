@@ -21,6 +21,7 @@ pub struct ClassSheet {
     pub image: Slab<ImageClass>,
     pub border_image: Slab<BorderImageClass>,
     pub text: Slab<TextClass>,
+    pub box_shadow: Slab<BoxShadow>,
 
     pub class: Slab<Class>, 
     pub class_map: FxHashMap32<usize, usize>, // key对应应用层的class名称（class名称必须是一个数字），value对应class slab 的偏移量
@@ -122,7 +123,7 @@ pub struct Class {
     pub visibility: bool,
     pub border_radius: BorderRadius,
     pub opacity: f32,
-    pub transform: usize,
+    pub transform: Transform,
     pub filter: Filter,
 
     // // 布局属性
@@ -138,6 +139,9 @@ pub struct Class {
     pub image: usize,
     pub border_image: usize,
     pub text: usize,
+    pub box_shadow: usize,
+
+    pub class_style_mark: usize, // 标记class中的有效属性
 }
 
 // pub enum DirtyType1 {
@@ -180,14 +184,14 @@ pub struct Class {
 pub struct ImageClass {
     pub image: Atom,
     pub obj_fit: FitType,
-    pub image_clip: ImageClip,
+    pub image_clip: Option<ImageClip>,
 }
 
 pub struct BorderImageClass {
-    pub border_image: Image,
+    pub border_image: Atom,
     pub border_image_slice: BorderImageSlice,
-    pub border_image_clip: ImageClip,
-    pub border_image_repeat: BorderImageRepeatType,
+    pub border_image_clip: BorderImageClip,
+    pub border_image_repeat: BorderImageRepeat,
 }
 
 #[derive(Debug, Clone, Default)]

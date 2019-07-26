@@ -77,6 +77,69 @@ pub enum DirtyType{
     ShadowColor = 0x8000, // 表示局部样式脏
     ShadowHV = 0x10000,
     ShadowBlur = 0x20000,
+
+    // Image = 0x40000,
+    // ImageClip = 0x80000,
+    // ObjectFit = 0x100000,
+
+    // BorderImage = 0x200000,
+    // BorderImageClip = 0x400000,
+    // BorderImageSlice = 0x800000,
+    // BorderImageRepeat = 0x1000000,
+
+    // BorderColor = 0x2000000,
+
+    // BackgroundColor = 0x4000000,
+
+    // BoxShadow = 0x8000000,
+}
+
+// 样式类型
+pub enum StyleType{
+    Text = 1, // 1表示文字脏
+    FontStyle = 2, // 表示局部样式脏
+    FontWeight = 4, // 表示局部样式脏
+    FontSize = 0x8, // 表示局部样式脏
+    FontFamily = 0x10, // 表示局部样式脏
+    LetterSpacing = 0x20, // 表示局部样式脏
+    WordSpacing = 0x40, // 表示局部样式脏
+    LineHeight = 0x80, // 表示局部样式脏
+    Indent = 0x100, // 表示局部样式脏
+    WhiteSpace = 0x200, // 表示局部样式脏
+    TextAlign = 0x400, // 表示局部样式脏
+    VerticalAlign = 0x800, // 表示局部样式脏
+    Color = 0x1000, // 表示局部样式脏
+    Stroke = 0x2000, // 表示局部样式脏
+    TextShadow = 0x4000, // 表示局部样式脏
+
+    Image = 0x8000,
+    ImageClip = 0x10000,
+    ObjectFit = 0x20000,
+
+    BorderImage = 0x40000,
+    BorderImageClip = 0x80000,
+    BorderImageSlice = 0x100000,
+    BorderImageRepeat = 0x200000,
+
+    BorderColor = 0x400000,
+
+    BackgroundColor = 0x800000,
+
+    BoxShadow = 0x1000000,
+
+    Matrix = 0x2000000,
+    Opacity = 0x4000000,
+    Layout = 0x8000000,
+    BorderRadius = 0x10000000,
+    Transform = 0x20000000,
+    Filter = 0x40000000,
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct StyleMark{
+    pub dirty: usize,
+    pub local_style: usize,
+    pub class_style: usize,
 }
 
 #[derive(Component, Debug)]

@@ -9,7 +9,9 @@ pub mod util;
 mod text_layout;
 mod render;
 mod filter;
+mod style_mark;
 
+pub use system::style_mark::*;
 pub use system::overflow::*;
 pub use system::zindex::*;
 pub use system::opacity::*;
@@ -20,3 +22,4 @@ pub use system::oct::*;
 pub use system::text_layout::*;
 pub use system::filter::*;
 pub use system::render::*;
+

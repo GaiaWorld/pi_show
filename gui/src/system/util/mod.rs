@@ -298,6 +298,14 @@ pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
     hasher.finish()
 }
 
+pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut FxHasher32){
+    unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    unsafe { NotNan::unchecked_new(g).hash(hasher) };
+    unsafe { NotNan::unchecked_new(b).hash(hasher) };
+    unsafe { NotNan::unchecked_new(a).hash(hasher) };
+}
+
+
 pub fn f32_3_hash(x: f32, y: f32, z: f32) -> u64 {
     let mut hasher = FxHasher32::default();
     unsafe { NotNan::unchecked_new(x).hash(&mut hasher) };
@@ -381,7 +389,7 @@ pub fn create_quad_geo() -> (Vec<f32>, Vec<u16>) {
 // use ordered_float::NotNan;
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
-pub fn create_unit_matrix(
+pub fn create_unit_matrix_by_layout(
     layout: &Layout,
     matrix: &WorldMatrix,
     transform: &Transform,
@@ -392,6 +400,21 @@ pub fn create_unit_matrix(
 
     let width = layout.width - layout.border_left - layout.border_right;
     let height = layout.width - layout.border_top - layout.border_bottom;
+
+    create_unit_matrix(width, height, layout, matrix, transform, depth)
+}
+
+// 计算矩阵变化， 将其变换到0~1, 以左上角为中心
+pub fn create_unit_matrix(
+    width: f32,
+    height: f32,
+    layout: &Layout,
+    matrix: &WorldMatrix,
+    transform: &Transform,
+    depth: f32,
+) -> Vec<f32> {
+    let depth = depth/Z_MAX;
+    let origin = transform.origin.to_value(layout.width, layout.height);
 
     let matrix = matrix * WorldMatrix(Matrix4::new(
         width,     0.0,                0.0, 0.0,
@@ -445,4 +468,9 @@ pub fn modify_matrix(
 ){
     render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(matrix)) ));
     notify.modify_event(index, "ubos", 0);
+}
+
+#[inline]
+pub fn geo_box(layout: &Layout) -> Aabb2{
+    Aabb2::new(Point2::new(layout.border_left, layout.border_top), Point2::new(layout.width - layout.border_right, layout.height - layout.border_bottom))
 }

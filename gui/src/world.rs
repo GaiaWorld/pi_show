@@ -108,7 +108,7 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>,
     world.register_multi::<Node, ObjectFit>();
     world.register_multi::<Node, Filter>();
     world.register_multi::<Node, ClassName>();
-
+    world.register_multi::<Node, StyleMark>();
 
     //calc
     world.register_multi::<Node, ZDepth>();
@@ -200,6 +200,7 @@ pub struct GuiWorld<C: HalContext + 'static, L: FlexNode> {
     pub filter: Arc<CellMultiCase<Node, Filter>>,
     pub yoga: Arc<CellMultiCase<Node, L>>,
     pub class_name: Arc<CellMultiCase<Node, ClassName>>,
+    pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
 
     //calc
     pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
@@ -251,6 +252,7 @@ impl<C: HalContext + 'static, L: FlexNode> GuiWorld<C, L> {
             filter: world.fetch_multi::<Node, Filter>().unwrap(),
             yoga: world.fetch_multi::<Node, L>().unwrap(),
             class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
+            style_mark: world.fetch_multi::<Node, StyleMark>().unwrap(),
 
             //calc
             z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
