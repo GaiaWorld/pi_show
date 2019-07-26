@@ -135,7 +135,7 @@ pub enum StyleType{
     Filter = 0x40000000,
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark{
     pub dirty: usize,
     pub local_style: usize,
