@@ -180,6 +180,8 @@ pub trait HalContext: Sized {
 
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData);
 
+    fn texture_copy(&self, dst: &HalTexture, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32);
+
     // ==================== HalSampler
 
     fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String>;

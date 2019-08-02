@@ -13,7 +13,7 @@ use program::{WebGLProgramImpl};
 use texture::{WebGLTextureImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
-use webgl_rendering_context::{WebGLRenderingContext};
+use webgl_rendering_context::{WebGLRenderingContext, WebGLFramebuffer};
 
 pub struct StateMachine {
     clear_color: (OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>), 
@@ -31,7 +31,9 @@ pub struct StateMachine {
     bsdesc: BlendStateDesc,
     dsdesc: DepthStateDesc,
     ssdesc: StencilStateDesc,
-
+    
+    pub copy_fbo: WebGLFramebuffer, // 用于纹理拷贝的FBO
+    
     program: HalProgram,
     geometry: HalGeometry,
     target: HalRenderTarget,
@@ -153,6 +155,8 @@ impl StateMachine {
             ssdesc: StencilStateDesc::new(),
             enable_attrib_indices: vec![false; max_attributes as usize],
             tex_caches: tex_caches,
+
+            copy_fbo: gl.create_framebuffer().unwrap(),
         };  
         
         state.apply_all_state(gl, texture_slab, rt_slab);
@@ -163,6 +167,11 @@ impl StateMachine {
     #[inline(always)]
     pub fn get_curr_program(&self) -> &HalProgram {
         &self.program
+    }
+
+    #[inline(always)]
+    pub fn get_curr_rt(&self) -> &HalRenderTarget {
+        &self.target
     }
 
     #[inline(always)]
@@ -425,6 +434,20 @@ impl StateMachine {
         self.tex_caches.reset(texture_slab);
     }
 
+    pub fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
+        if rt.handle.is_none() {
+            js! {
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
+            }
+        } else {
+            let fbo = rt.handle.as_ref().unwrap();
+            js!{
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
+            }
+        }
+    }
+
+
     fn set_raster_state(gl: &WebGLRenderingContext, old: Option<&RasterStateDesc>, curr: &RasterStateDesc) {
         match old {
             None => {
@@ -524,19 +547,6 @@ impl StateMachine {
                 if old.const_rgba != curr.const_rgba {
                     Self::set_blend_color(gl, curr);
                 }
-            }
-        }
-    }
-
-    fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
-        if rt.handle.is_none() {
-            js! {
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
-            }
-        } else {
-            let fbo = rt.handle.as_ref().unwrap();
-            js!{
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
             }
         }
     }

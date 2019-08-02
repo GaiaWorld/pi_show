@@ -368,6 +368,31 @@ impl HalContext for WebglHalContext {
         }
     }
 
+    fn texture_copy(&self, dst: &HalTexture, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
+        let rt;
+        {
+            let temp = self.state_machine.get_curr_rt();
+            rt = get_ref(&self.rt_slab, temp.0, temp.1).unwrap();
+        }
+
+        if let Some(src) = get_ref(&self.texture_slab, src.0, src.1) {
+
+            let fb_type = WebGLRenderingContext::FRAMEBUFFER;
+            let tex_target = WebGLRenderingContext::TEXTURE_2D;
+            let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
+            
+            self.gl.bind_framebuffer(fb_type, Some(&self.state_machine.copy_fbo));
+            self.gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&src.handle), 0);
+        }
+
+        if let Some(dst) = get_ref(&self.texture_slab, dst.0, dst.1) {
+            dst.copy(&self.gl, src_mipmap_level, src_x, src_y, dst_x, dst_y, width, height);
+        }
+
+        let context = convert_to_mut(self);
+        context.state_machine.set_render_target_impl(&self.gl, rt);
+    }
+
     // ==================== HalSampler
 
     fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String> {

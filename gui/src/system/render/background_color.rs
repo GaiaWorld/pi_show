@@ -122,11 +122,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             let color = unsafe {background_colors.get_unchecked(*id)};
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
-            if dirty & StyleType::Color as usize != 0 || dirty & StyleType::Opacity as usize != 0 {
+            if dirty & StyleType::BackgroundColor as usize != 0 || dirty & StyleType::Opacity as usize != 0 {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = background_is_opacity(opacity, color);
             }
 
+            // TODO: 是不是borderradius脏了，backgroundcolor就脏？
             render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{  
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)

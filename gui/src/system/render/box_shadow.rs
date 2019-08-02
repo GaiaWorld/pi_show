@@ -1,12 +1,12 @@
 /**
- *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
+ * Box Shadow
  */
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
-use fnv::{FnvHashMap, FnvHasher};
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use fnv::{ FnvHashMap, FnvHasher };
+use ecs::{ CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner };
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use atom::Atom;
@@ -14,214 +14,194 @@ use polygon::*;
 
 use component::user::*;
 use component::calc::*;
-use component::calc::{Opacity};
-use entity::{Node};
+use component::calc::{ Opacity };
+use entity::{ Node };
 use single::*;
-use render::engine::{ Engine};
+use render::engine::{ Engine };
 use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
 use system::render::util::*;
 
-pub struct BoxShadowSys<C: HalContext + 'static>{
-    items: Items<usize>,
-    share_ucolor_ubo: VecMap<Share<dyn UniformBuffer>>, // 如果存在BoxShadowClass， 也存在对应的ubo
+pub struct BoxShadowSys<C: HalContext + 'static> {
+    render_map: VecMap<usize>,
+    dirty_ty: usize,
     mark: PhantomData<C>,
 }
 
 impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
     fn default() -> Self {
+        let dirty_ty = StyleType::BoxShadow as usize 
+            | StyleType::Matrix as usize 
+            | StyleType::BorderRadius as usize 
+            | StyleType::Opacity as usize
+            | StyleType::Layout as usize;
+
         Self {
-            items: Items::default(),
-            share_ucolor_ubo: VecMap::default(),
+            dirty_ty,
+            render_map: VecMap::default(),
             mark: PhantomData,
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C>{
+impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, BoxShadow>,
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, Layout>,
+
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, ClassName>,
+        &'a MultiCaseImpl<Node, StyleMark>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<ClassSheet>,
-        &'a SingleCaseImpl<UnitQuad>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<DefaultState>,
     );
 
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
 
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (
-            layouts,
-            z_depths,
-            world_matrixs,
-            transforms,
-            opacitys,
-            border_radiuses,
             box_shadows,
+            world_matrixs,
+            border_radiuses,
+            opacitys,
+            layouts,
+
+            z_depths,
+            transforms,
             classes,
+            style_marks,
 
             default_table,
-            class_sheet,
-            unit_quad,
+            _class_sheet,
+            dirty_list,
+            default_state,
         ) = read;
+
         let (render_objs, engine) = write;
+        
         let default_transform = default_table.get::<Transform>().unwrap();
-        for id in self.items.dirtys.iter() {
-            let item = match self.items.render_map.get_mut(*id) {
+        
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => continue,
+                None => {
+                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                },
             };
 
-            let dirty = item.dirty;
-            let render_obj = unsafe {render_objs.get_unchecked_mut(item.index)};
-            item.dirty = 0;
-            
-            // 因为不一定有border半径，所以要用Option。
+            let dirty = style_mark.dirty;
+
+            // 不存在BuckgroundColor关心的脏, 跳过
+            if dirty & self.dirty_ty == 0 {
+                continue;
+            }
+
+            // 阴影脏，如果不存在BoxShadow本地样式和class样式， 删除渲染对象
+            if dirty & StyleType::BoxShadow as usize != 0 
+            && style_mark.local_style & StyleType::BoxShadow as usize == 0 
+            && style_mark.class_style & StyleType::BoxShadow as usize == 0 {
+                self.remove_render_obj(*id, render_objs);
+                continue;
+            }
+
+            // 不存在，则创建渲染对象
+            let render_index = match self.render_map.get_mut(*id) {
+                Some(r) => *r,
+                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            };
+
+            // 从组件中取出对应的数据
+            let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
+
             let border_radius = border_radiuses.get(*id);
-            
             let layout = unsafe {layouts.get_unchecked(*id)};
-            let color;
+            let shadow = unsafe {box_shadows.get_unchecked(*id)};
 
-        }
-        self.items.dirtys.clear();
-    }
-}
-
-// 插入渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Visibility>,
-        &'a SingleCaseImpl<DefaultState>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData) {
-        // 如果已经存在渲染对象，设置阴影脏，返回；
-        if self.items.render_map.get(event.id).is_some() {
-            self.items.set_dirty(event.id, DrityType::Color as usize);
-            return;
-        }
-
-        // 否则创建渲染对象
-        let (z_depths, visibilitys, default_state) = read;
-        let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
-        let visibility = unsafe {visibilitys.get_unchecked(event.id)}.0;
-        self.create_render_obj(event.id, z_depth, visibility, render_objs, default_state);
-    }
-}
-
-// 修改渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, BoxShadow>, &'a MultiCaseImpl<Node, Opacity>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        self.items.set_dirty(event.id, DrityType::Color as usize);
-    }
-}
-
-// 删除渲染对象
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ClassName>, 
-        &'a SingleCaseImpl<ClassSheet>,  
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (class_names, class_sheet) = read;
-        // 小燕：如果class中存在BoxShadow，设脏，目的是？
-        let class_name = unsafe { class_names.get_unchecked(event.id) };
-        if let Some(class) = class_sheet.class.get(class_name.0) {
-            if let Some(_) = class_sheet.box_shadow.get(class.box_shadow) {
-                self.items.set_dirty(event.id, DrityType::Color as usize);
-                return;
+            // 如果Color脏， 或Opacity脏， 计算is_opacity
+            if dirty & StyleType::Opacity as usize != 0
+            || dirty & StyleType::BoxShadow as usize != 0 {
+                let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
+                render_obj.is_opacity = color_is_opacity(opacity, &shadow.color);
             }
-        }
-        let item = self.items.render_map.remove(event.id).unwrap();
-        let notify = render_objs.get_notify();
-        render_objs.remove(item.index, Some(notify));
-    }
-}
 
-// 修改class （不监听class的创建， 应该在创建node的同时创建class， 创建的class没有意义）
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for BoxShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Visibility>,
-        &'a MultiCaseImpl<Node, ClassName>,
-        &'a MultiCaseImpl<Node, BoxShadow>,
+            // 如果阴影脏，或者边框半径改变，则重新创建geometry
+            if style_mark.dirty & StyleType::BoxShadow as usize != 0
+            || style_mark.dirty & StyleType::BorderRadius as usize != 0 {
+                render_obj.program_dirty =  true;
+                to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
-        &'a SingleCaseImpl<ClassSheet>,
-        &'a SingleCaseImpl<DefaultState>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+                render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
 
-        // 如果class中含有BoxShadow的描述， 创建一个渲染对象
-        // 小燕：如何防止修改别的class属性的修改时候也进来。
-        let (z_depths, visibilitys, class_names, box_shadows, class_sheet, default_state) = read;
-        if let Some(class_name) = class_names.get(event.id) {
-            if let Some(class) = class_sheet.class.get(class_name.0) {
-                if class.background_color > 0 {
-                    // 如果已经存在， 设置color脏 返回
-                    if box_shadows.get(event.id).is_some() {
-                        self.items.set_dirty(event.id, DrityType::Color as usize);
-                        return;
-                    }
-
-                    // 如果不存在渲染对象， 创建渲染对象
-                    if self.items.render_map.get(event.id).is_none() {
-                        let z_depth = unsafe {z_depths.get_unchecked(event.id)}.0;
-                        let visibility = unsafe {visibilitys.get_unchecked(event.id)}.0;
-                        self.create_render_obj(event.id, z_depth, visibility, render_objs, default_state);
-                    }
-   
-                    self.items.set_dirty(event.id, DrityType::Color as usize);
-                    return;
-                }
+                render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
             }
-        }
 
-        if box_shadows.get(event.id).is_some()  {
-            return;
-        }
-
-        // 如果class中不存在boxshadow， style中也不存在， 应该删除渲染对象
-        if let Some(item) = self.items.render_map.remove(event.id) {
-            let notify = render_objs.get_notify();
-            render_objs.remove(item.index, Some(notify));
-        }
-    }
-}
-
-// 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
-impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BoxShadowSys<C>{
-    type ReadData = &'a SingleCaseImpl<ClassSheet>;
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
-    fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
-        let class = unsafe { class_sheet.class.get_unchecked(event.id)};
-
-        if class.box_shadow > 0 {
-            if let Color::RGBA(c) = unsafe { &class_sheet.box_shadow.get_unchecked(class.box_shadow).0 } {
-                self.share_ucolor_ubo.insert(event.id, create_u_color_ubo(c, engine));
+            // 渲染管线脏， 创建渲染管线
+            if render_obj.program_dirty {
+                render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
+                render_obj.program = Some(engine.create_program(
+                    COLOR_VS_SHADER_NAME.get_hash(),
+                    COLOR_FS_SHADER_NAME.get_hash(),
+                    COLOR_VS_SHADER_NAME.as_ref(),
+                    &*render_obj.vs_defines,
+                    COLOR_FS_SHADER_NAME.as_ref(),
+                    &*render_obj.fs_defines,
+                    render_obj.paramter.as_ref(),
+                ));
+            }
+            
+            // 矩阵脏，或者布局脏
+            if dirty & StyleType::Matrix as usize != 0 
+            || dirty & StyleType::Layout as usize != 0 {
+                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let transform =  match transforms.get(*id) {
+                    Some(r) => r,
+                    None => default_transform,
+                };
+                let depth = unsafe{z_depths.get_unchecked(*id)}.0;
+                let is_unit_geo = match &color.0 {
+                    Color::RGBA(_) => {
+                        let radius = cal_border_radius(border_radius, layout);
+                        let g_b = geo_box(layout);
+                        if radius.x <= g_b.min.x {
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    Color::LinearGradient(_) => false,
+                };
+                modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
             }
         }
     }
 }
 
 impl<C: HalContext + 'static> BoxShadowSys<C> {
-    
+
     #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index, Some(notify));
+            },
+            None => ()
+        };
+    }
+
+        #[inline]
     fn create_render_obj(
         &mut self,
         id: usize,
@@ -257,37 +237,88 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.items.create(id, index);
+        self.render_map.insert(id, index);
         index
     }
 }
-      
-enum DrityType {
-    // 阴影相关属性
-    OffsetX = 1,
-    OffsetY = 2,
-    Blur = 4,
-    Spread = 8,
-    Color = 16,
+
+#[inline]
+fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
+    opacity == 1.0 && color.a == 1.0
+}
+
+#[inline]
+fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+    let h = f32_4_hash(c.r, c.g, c.b, c.a);
+    match engine.res_mgr.get::<UColorUbo>(&h) {
+        Some(r) => r,
+        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
+    }
+}
+
+#[inline]
+fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
+    match fs_defines.add("UCOLOR") {
+        Some(_) => false,
+        None => {
+            vs_defines.remove("VERTEX_COLOR");
+            fs_defines.remove("VERTEX_COLOR");
+            true
+        },
+    }
+}
+
+#[inline]
+fn create_shadow_geo<C: HalContext + 'static>(
+    engine: &mut Engine<C>,
+    layout: &Layout,
+    shadow: &BoxShadow,
+    border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
     
-    // 通用属性
-    BorderRadius = 32,
-    Matrix = 64,
-    Opacity = 128,
-    Layout = 512,
+    let radius = cal_border_radius(border_radius, layout);
+    let g_b = geo_box(layout);
+    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+        return None;
+    }
+
+    if radius.x <= g_b.min.x {
+        return Some(unit_quad.clone());
+    } else {
+        let mut hasher = FxHasher32::default();
+        radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
+        let hash = hasher.finish();
+        match engine.res_mgr.get::<GeometryRes>(&hash) {
+            Some(r) => Some(r.clone()),
+            None => {
+                println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
+                let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
+                println!("r: {:?}", r);
+                if r.0.len() == 0 {
+                    return None;
+                } else {
+                    let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
+                    println!("indices: {:?}", indices);
+                    // 创建geo， 设置attribut
+                    let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
+                    let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
+                    let geo = create_geometry(&engine.gl);
+                    engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
+                    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
+                    engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+
+                    // 创建缓存
+                    let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
+                    let share_geo = engine.res_mgr.create(hash, geo_res);
+                    return Some(share_geo);
+                }
+            }
+        }
+    }
 }
 
 impl_system!{
     BoxShadowSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BoxShadow, CreateEvent>
-        MultiCaseListener<Node, BoxShadow, ModifyEvent>
-        MultiCaseListener<Node, BoxShadow, DeleteEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        MultiCaseListener<Node, BorderRadius, ModifyEvent>
-        MultiCaseListener<Node, ClassName, ModifyEvent>
     }
 }

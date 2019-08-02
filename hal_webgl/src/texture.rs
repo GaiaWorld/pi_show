@@ -93,6 +93,21 @@ impl WebGLTextureImpl {
         self.is_gen_mipmap
     }
 
+    /**
+     * 将fbo的纹理拷贝到self来
+     */
+    pub fn copy(&self, gl: &WebGLRenderingContext, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
+
+        gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
+
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
+        gl.copy_tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, src_mipmap_level as i32, src_x as i32, src_y as i32, dst_x as i32, dst_y as i32, width as i32, height as i32);
+    }
+
     pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: Option<&TextureData>, webgl_object: Option<(u32, u32, &Object)>) {
         
         let p = get_pixel_format(self.pixel_format);
