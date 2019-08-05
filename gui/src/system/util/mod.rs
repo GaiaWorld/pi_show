@@ -42,7 +42,7 @@ pub fn cal_matrix(
     let origin = transform.origin.to_value(layout.width, layout.height);
 
     if origin.x != 0.0 || origin.y != 0.0 {
-        return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
+        return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x * world_matrix.0.x.x, -origin.y * world_matrix.0.y.y, 0.0));
     }
     
     world_matrix.0.clone()
