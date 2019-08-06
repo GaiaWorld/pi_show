@@ -140,6 +140,7 @@ pub struct StyleMark{
     pub dirty: usize,
     pub local_style: usize,
     pub class_style: usize,
+    pub local_layout: usize,
 }
 
 #[derive(Component, Debug)]
@@ -197,7 +198,7 @@ impl<'a, 'b> Mul<&'a WorldMatrix> for &'b WorldMatrix{
                     self.x.x * other.x.x,             0.0,                              0.0, 0.0,
                     0.0,                              self.y.y * other.y.y,             0.0, 0.0,
                     0.0,                              0.0,                              1.0, 0.0,
-                    self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
+                    self.w.x + (other.w.x * self.x.x), self.w.y + (other.w.y * self.y.y), 0.0, 1.0,
                 ),
                 false
             )
@@ -214,8 +215,8 @@ impl<'a> Mul<&'a WorldMatrix> for WorldMatrix{
         if self.1 == false && other.1 == false {
             self.x.x = self.x.x * other.x.x;
             self.y.y = self.y.y * other.y.y;
-            self.w.x = self.w.x + other.w.x;
-            self.w.y = self.w.y + other.w.y;
+            self.w.x = self.w.x + (other.w.x * self.x.x);
+            self.w.y = self.w.y + (other.w.y * self.y.y);
             self
             // WorldMatrix(
             //     Matrix4::new(
@@ -239,8 +240,8 @@ impl<'a> Mul<WorldMatrix> for &'a WorldMatrix{
         if self.1 == false && other.1 == false {
             other.x.x = self.x.x * other.x.x;
             other.y.y = self.y.y * other.y.y;
-            other.w.x = self.w.x + other.w.x;
-            other.w.y = self.w.y + other.w.y;
+            other.w.x = self.w.x + (other.w.x * self.x.x);
+            other.w.y = self.w.y + (other.w.y * self.y.y);
             other
             // WorldMatrix(
             //     Matrix4::new(
@@ -264,8 +265,8 @@ impl Mul<WorldMatrix> for WorldMatrix{
         if self.1 == false && other.1 == false {
             other.x.x = self.x.x * other.x.x;
             other.y.y = self.y.y * other.y.y;
-            other.w.x = self.w.x + other.w.x;
-            other.w.y = self.w.y + other.w.y;
+            other.w.x = self.w.x + (other.w.x * self.x.x);
+            other.w.y = self.w.y + (other.w.y * self.y.y);
             other
             // WorldMatrix(
             //     Matrix4::new(

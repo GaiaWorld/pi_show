@@ -70,10 +70,12 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> Runner<'a> for StyleMar
 // 监听TextStyle属性的改变
 impl<'a, C: HalContext + 'static, L: FlexNode + 'static> EntityListener<'a, Node, CreateEvent> for StyleMarkSys<C, L> {
     type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut MultiCaseImpl<Node, ClassName>);
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, style_marks: Self::WriteData) {
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, class_names) = write;
         style_marks.insert(event.id, StyleMark::default());
+        class_names.insert(event.id, ClassName::default());
     }
 }
 
@@ -216,6 +218,98 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, N
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BoxShadow as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, Image, CreateEvent> for StyleMarkSys<C, L> {
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::Image as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::ImageClip as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::ObjectFit as usize, style_marks);
+    }
+}
+
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for StyleMarkSys<C, L> {
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BorderImageClip as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BorderImageSlice as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImage, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BorderImage as usize, style_marks);
+    }
+}
+
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for StyleMarkSys<C, L> {
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BorderImageRepeat as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BorderColor as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::BackgroundColor as usize, style_marks);
+    }
+}
+
+impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for StyleMarkSys<C, L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
         set_local_dirty(dirty_list, event.id, StyleType::BoxShadow as usize, style_marks);
     }
@@ -367,7 +461,6 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, N
             image_wait_sheet,
             dirty_list,
             ) = write;
-        
         let class_name = unsafe { class_names.get_unchecked(event.id) }.0;
         let class = match class_sheet.class.get(class_name) {
             Some(class) => class,
@@ -483,7 +576,7 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, N
         }
 
         if class.border_image > 0 {
-            let c = unsafe { class_sheet.border_image.get_unchecked(class.image) };
+            let c = unsafe { class_sheet.border_image.get_unchecked(class.border_image) };
             if class.class_style_mark & StyleType::BorderImage as usize != 0 && style_mark.local_style & StyleType::BorderImage as usize == 0 {
                 match engine.res_mgr.get::<TextureRes>(&c.border_image) {
                     Some(r) => {
@@ -511,23 +604,23 @@ impl<'a, C: HalContext + 'static, L: FlexNode + 'static> MultiCaseListener<'a, N
         }
 
         if class.border_color > 0 {
-            let c = unsafe { class_sheet.border_color.get_unchecked(class.image) };
             if class.class_style_mark & StyleType::BorderColor as usize != 0 && style_mark.local_style & StyleType::BorderColor as usize == 0 {
+                let c = unsafe { class_sheet.border_color.get_unchecked(class.image) };
                 border_colors.insert(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderColor as usize, style_mark);
             }
         }
 
         if class.background_color > 0 {
-            let c = unsafe { class_sheet.background_color.get_unchecked(class.image) };
             if class.class_style_mark & StyleType::BackgroundColor as usize != 0 && style_mark.local_style & StyleType::BackgroundColor as usize == 0 {
+                let c = unsafe { class_sheet.background_color.get_unchecked(class.background_color) };
                 background_colors.insert(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BackgroundColor as usize, style_mark);
             }
         }
 
         if class.box_shadow > 0 {
-            let c = unsafe { class_sheet.box_shadow.get_unchecked(class.image) };
+            let c = unsafe { class_sheet.box_shadow.get_unchecked(class.box_shadow) };
             if class.class_style_mark & StyleType::BoxShadow as usize != 0 && style_mark.local_style & StyleType::BoxShadow as usize == 0 {
                 box_shadows.insert(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BoxShadow as usize, style_mark);
@@ -799,7 +892,18 @@ impl_system!{
         MultiCaseListener<Node, BorderImageRepeat, ModifyEvent>
         MultiCaseListener<Node, BorderColor, ModifyEvent>
         MultiCaseListener<Node, BackgroundColor, ModifyEvent>
-        MultiCaseListener<Node, BoxShadow, ModifyEvent>   
+        MultiCaseListener<Node, BoxShadow, ModifyEvent>
+
+        MultiCaseListener<Node, Image, CreateEvent>
+        MultiCaseListener<Node, ImageClip, CreateEvent>
+        MultiCaseListener<Node, ObjectFit, CreateEvent>
+        MultiCaseListener<Node, BorderImage, CreateEvent>
+        MultiCaseListener<Node, BorderImageClip, CreateEvent>
+        MultiCaseListener<Node, BorderImageSlice, CreateEvent>
+        MultiCaseListener<Node, BorderImageRepeat, CreateEvent>
+        MultiCaseListener<Node, BorderColor, CreateEvent>
+        MultiCaseListener<Node, BackgroundColor, CreateEvent>
+        MultiCaseListener<Node, BoxShadow, CreateEvent> 
 
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>

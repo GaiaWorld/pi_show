@@ -105,21 +105,28 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             }
 
             // 背景颜色脏， 如果不存在BacgroundColor的本地样式和class样式， 删除渲染对象
-            if dirty & StyleType::BackgroundColor as usize != 0 && style_mark.local_style & StyleType::BackgroundColor as usize == 0 && style_mark.class_style & StyleType::BackgroundColor as usize == 0 {
-                self.remove_render_obj(*id, render_objs);
-                continue;
-            }
-
-            let render_index = match self.render_map.get_mut(*id) {
-                Some(r) => *r,
-                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            let (render_index, color) = if dirty & StyleType::BackgroundColor as usize != 0 {
+                if style_mark.local_style & StyleType::BackgroundColor as usize == 0 && style_mark.class_style & StyleType::BackgroundColor as usize == 0 {
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                } else {
+                    let render_index = match self.render_map.get_mut(*id) {
+                        Some(r) => *r,
+                        None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+                    };
+                    ( render_index, unsafe {background_colors.get_unchecked(*id)} )
+                } 
+            } else {
+                let render_index = match self.render_map.get_mut(*id) {
+                    Some(r) => *r,
+                    None => continue,
+                };
+                ( render_index, unsafe {background_colors.get_unchecked(*id)} )
             };
-
+            
             let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
-
             let border_radius = border_radiuses.get(*id);
             let layout = unsafe {layouts.get_unchecked(*id)};
-            let color = unsafe {background_colors.get_unchecked(*id)};
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
             if dirty & StyleType::BackgroundColor as usize != 0 || dirty & StyleType::Opacity as usize != 0 {
@@ -127,8 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 render_obj.is_opacity = background_is_opacity(opacity, color);
             }
 
-            // TODO: 是不是borderradius脏了，backgroundcolor就脏？
-            render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{  
+            render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
             } else {
@@ -261,14 +267,11 @@ fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>
         match engine.res_mgr.get::<GeometryRes>(&hash) {
             Some(r) => Some(r.clone()),
             None => {
-                println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
-                println!("r: {:?}", r);
                 if r.0.len() == 0 {
                     return None;
                 } else {
                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-                    println!("indices: {:?}", indices);
                     // 创建geo， 设置attribut
                     let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
                     let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
@@ -393,18 +396,17 @@ fn modify_color<C: HalContext + 'static>(
     let mut change = false;
     match &background_color.0 {
         Color::RGBA(c) => {
-            if dirty & StyleType::Color as usize != 0 {
+            if dirty & StyleType::BackgroundColor as usize != 0 {
                 change = to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(c, engine));
             }
-
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
             if change || dirty & StyleType::BorderRadius as usize != 0 {    
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
             }
         },
         Color::LinearGradient(c) => {
-            if dirty & StyleType::Color as usize != 0{
+            if dirty & StyleType::BackgroundColor as usize != 0{
                 change = to_vex_color_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
             }
 
@@ -433,7 +435,7 @@ fn modify_class_color<C: HalContext + 'static>(
     let mut change = false;
     match &background_color.0 {
         Color::RGBA(_) => {
-            if dirty & StyleType::Color as usize != 0{
+            if dirty & StyleType::BackgroundColor as usize != 0{
                 change = to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 let u_color_ubo = unsafe {share_bg.get_unchecked(class_id)};
                 render_obj.paramter.as_ref().set_value("uColor", u_color_ubo.clone());
@@ -445,7 +447,7 @@ fn modify_class_color<C: HalContext + 'static>(
             }
         },
         Color::LinearGradient(c) => {
-            if dirty & StyleType::Color as usize != 0{
+            if dirty & StyleType::BackgroundColor as usize != 0{
                 change = to_vex_color_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
             }
 
@@ -461,7 +463,7 @@ fn modify_class_color<C: HalContext + 'static>(
 #[inline]
 fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
     match fs_defines.add("UCOLOR") {
-        Some(_) => false,
+        Some(r) => false,
         None => {
             vs_defines.remove("VERTEX_COLOR");
             fs_defines.remove("VERTEX_COLOR");
