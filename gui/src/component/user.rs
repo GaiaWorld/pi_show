@@ -214,7 +214,7 @@ impl Color {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct LinearGradientColor{
     pub direction: f32,
     pub list: Vec<ColorAndPosition>,

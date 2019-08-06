@@ -134,6 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 render_obj.is_opacity = background_is_opacity(opacity, color);
             }
 
+            println!("color1----------: {:?}", color);
             render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)

@@ -31,6 +31,14 @@ pub fn parse_class_from_string(value: &str) -> Result<(Vec<Attribute>, Vec<Layou
 fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr: &mut Vec<LayoutAttr>) -> Result<(), String> {
     match key {
         "background-color" => show_attr.push(Attribute::BGColor( BackgroundColor(Color::RGBA(parse_color_string(value)?)))),
+        "background" => {
+            if value.starts_with("linear-gradient") {
+                show_attr.push(Attribute::BGColor( BackgroundColor(parse_linear_gradient_color_string(value)?)));
+            } else {
+                println!("background err: {}", value);
+                return Ok(());
+            }
+        },
         "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
         "height" => layout_attr.push(LayoutAttr::Height(parse_unity(value)?)),
         "margin-left" => layout_attr.push(LayoutAttr::MarginLeft(parse_unity(value)?)),
@@ -65,6 +73,77 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         "justify-content" => layout_attr.push(LayoutAttr::JustifyContent(unsafe {transmute(parse_u8(value)?)})),
         _ => (),
     };
+    Ok(())
+}
+
+fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
+    let value = &value[15..].trim();
+    let value = value[1..value.len() - 1].trim();
+    let mut iter= value.split(",");
+    let first = iter.nth(0);
+    let mut color = LinearGradientColor::default();
+    let mut list = Vec::new();
+    let mut pre_percent = 0.0;
+    match first {
+        Some(first) => {
+            let first = first.trim();
+            if first.ends_with("deg") {
+                color.direction = parse_f32(&first[0..first.len() - 3])?;
+            } else {
+                parser_color_stop(first, &mut list, &mut color.list, &mut pre_percent)?;
+            }
+        },
+        None => return Ok(Color::LinearGradient(color)),
+    };
+
+    for value in iter {
+        let value = value.trim();
+        parser_color_stop(value, &mut list, &mut color.list, &mut pre_percent)?;
+    }
+
+    parser_color_stop_last(1.0, &mut list, &mut color.list, &mut pre_percent, None)?;
+    
+    println!("color: {:?}, ", color);
+    Ok(Color::LinearGradient(color))
+}
+
+fn parser_color_stop(value: &str, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32) -> Result<(), String>{
+    if value.ends_with("%") {
+        if let Some(index) = value.find(" ") {
+            let r = value.split_at(index);
+            let pos = r.1.trim();
+            let v = match f32::from_str(&pos[0..pos.len() - 1]) {
+                Ok(r) => r,
+                Err(e) => return Err(e.to_string()),
+            };
+            let v = v/100.0;
+            return parser_color_stop_last(v, list, color_stop, pre_percent, Some(parse_color_string(r.0.trim())?))
+        }
+    }
+    list.push(parse_color_string(value.trim())?);
+    Ok(())
+}
+
+fn parser_color_stop_last(v: f32, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32, last_color: Option<CgColor>) -> Result<(), String>{
+    println!("v: {}, len: {}", v, list.len());
+    if list.len() > 0 {
+        let pos = (v - *pre_percent) / list.len() as f32;
+        if color_stop.len() != 0 {
+            for i in 0..list.len() {
+                color_stop.push(ColorAndPosition{position: *pre_percent + pos * (i + 1) as f32, rgba: list[i]});
+            }
+        } else {
+            for i in 0..list.len() {
+                color_stop.push(ColorAndPosition{position: *pre_percent + pos * i as f32, rgba: list[i]});
+            }
+        }
+        
+        list.clear();
+    }
+    *pre_percent = v;
+    if let Some(last_color) = last_color {
+        color_stop.push(ColorAndPosition{position: v, rgba: last_color});
+    }   
     Ok(())
 }
 
@@ -235,14 +314,14 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
 
         // } 
         else {
-            return Err("parse color err".to_string())
+            return Err(format!("parse color err: '{}'", value))
         },
     };
     Ok(color)
 }
 
 fn parse_unity(value: &str) -> Result<ValueUnit, String> {
-    if value.starts_with("%") {
+    if value.ends_with("%") {
         let v = match f32::from_str(value) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
@@ -272,7 +351,7 @@ fn parse_u8(value: &str) -> Result<u8, String> {
 fn parse_f32(value: &str) -> Result<f32, String> {
     match f32::from_str(value) {
         Ok(r) => Ok(r),
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(format!("{:?}: {}", e.to_string(), value) ),
     }
 }
 
