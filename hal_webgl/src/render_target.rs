@@ -53,7 +53,7 @@ pub struct WebGLRenderTargetImpl {
 }   
 
 impl WebGLRenderTargetImpl {
-    pub fn new(gl: &WebGLRenderingContext, w: u32, h: u32, texture: &WebGLTextureImpl, rb: Option<&WebGLRenderBufferImpl>, texture_wrap: &HalTexture, rb_wrap: Option<&HalRenderBuffer>) -> Result<Self, String> {
+    pub fn new(gl: &WebGLRenderingContext, w: u32, h: u32, texture: &WebGLTextureImpl, rb: Option<&WebGLRenderBufferImpl>, texture_wrap: HalTexture, rb_wrap: Option<HalRenderBuffer>) -> Result<Self, String> {
         let fbo = TryInto::<Object>::try_into(js! {
             var fbo = @{gl}.createFramebuffer();
             var fboWrap = {
@@ -88,15 +88,13 @@ impl WebGLRenderTargetImpl {
             @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
         }
         
-        let depth = if rb.is_none() { None } else { Some(HalRenderBuffer(rb_wrap.unwrap().0, rb_wrap.unwrap().1)) };
-
         Ok(Self {
             is_default: false,
             handle: Some(fbo),
             width: w,
             height: h,
-            color: Some(HalTexture(texture_wrap.0, texture_wrap.1)),
-            depth: depth,
+            color: Some(texture_wrap),
+            depth: rb_wrap,
         })
     }
     
@@ -123,7 +121,7 @@ impl WebGLRenderTargetImpl {
         (self.width, self.height)
     }
 
-    pub fn get_color_texture(&self) -> Option<HalTexture> {
-        self.color.as_ref().map(|t| HalTexture(t.0, t.1))
+    pub fn get_color_texture(&self) -> Option<&HalTexture> {
+        self.color.as_ref()
     }
 }

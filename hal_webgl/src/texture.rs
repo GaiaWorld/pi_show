@@ -1,4 +1,4 @@
-use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc, HalSampler};
+use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
 use stdweb::{Object};
 use convert::*;
@@ -14,7 +14,7 @@ pub struct WebGLTextureImpl {
     
     // 纹理缓存
     pub cache_index: i32,  // 仅当 >= 0 时有意义
-    pub curr_sampler: HalSampler, // 当前作用的Sampler
+    pub curr_sampler: (u32, u32), // slab的index, use_count
 }
 
 impl WebGLTextureImpl {
@@ -69,7 +69,7 @@ impl WebGLTextureImpl {
             handle: texture,
             
             cache_index: -1,
-            curr_sampler: HalSampler::new(),
+            curr_sampler: (0, 0),
         };
 
         t.apply_sampler(gl, &SamplerDesc::new());
@@ -91,6 +91,21 @@ impl WebGLTextureImpl {
 
     pub fn is_gen_mipmap(&self) -> bool {
         self.is_gen_mipmap
+    }
+
+    /**
+     * 将fbo的纹理拷贝到self来
+     */
+    pub fn copy(&self, gl: &WebGLRenderingContext, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
+
+        gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&self.handle));
+
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
+        gl.copy_tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, src_mipmap_level as i32, src_x as i32, src_y as i32, dst_x as i32, dst_y as i32, width as i32, height as i32);
     }
 
     pub fn update(&self, gl: &WebGLRenderingContext, mipmap_level: u32, data: Option<&TextureData>, webgl_object: Option<(u32, u32, &Object)>) {

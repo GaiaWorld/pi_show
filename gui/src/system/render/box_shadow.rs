@@ -1,362 +1,324 @@
 /**
- *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
+ * Box Shadow
  */
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
-
-use fnv::{FnvHashMap, FnvHasher};
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use fxhash::FxHasher32;
+use fnv::{ FnvHashMap, FnvHasher };
+use ecs::{ CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner };
 use map::{ vecmap::VecMap } ;
-use hal_core::{Context, Uniforms, RasterState, BlendState, StencilState, DepthState, Geometry, AttributeName};
+use hal_core::*;
 use atom::Atom;
 use polygon::*;
 
 use component::user::*;
-use component::calc::{Opacity, ZDepth, WorldMatrixRender};
-use entity::{Node};
+use component::calc::*;
+use component::calc::{ Opacity };
+use entity::{ Node };
 use single::*;
-use render::engine::{ Engine};
+use render::engine::{ Engine };
 use render::res::GeometryRes;
 use system::util::*;
 use system::util::constant::*;
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
+use system::render::util::*;
 
-
-lazy_static! {
-    static ref UCOLOR: Atom = Atom::from("UCOLOR");
-
-    static ref BLUR: Atom = Atom::from("blur");
-    static ref U_COLOR: Atom = Atom::from("uColor");
-}
-
-pub struct BoxShadowSys<C: Context>{
-    render_map: VecMap<Item>,
-    geometry_dirtys: Vec<usize>,
+pub struct BoxShadowSys<C: HalContext + 'static> {
+    render_map: VecMap<usize>,
+    dirty_ty: usize,
     mark: PhantomData<C>,
-    rs: Share<RasterState>,
-    bs: Share<BlendState>,
-    ss: Share<StencilState>,
-    ds: Share<DepthState>,
 }
 
-impl<C: Context> BoxShadowSys<C> {
-    pub fn new() -> Self{
-        BoxShadowSys {
+impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
+    fn default() -> Self {
+        let dirty_ty = StyleType::BoxShadow as usize 
+            | StyleType::Matrix as usize 
+            | StyleType::BorderRadius as usize 
+            | StyleType::Opacity as usize
+            | StyleType::Layout as usize;
+
+        Self {
+            dirty_ty,
             render_map: VecMap::default(),
-            geometry_dirtys: Vec::new(),
             mark: PhantomData,
-            rs: Share::new(RasterState::new()),
-            bs: Share::new(BlendState::new()),
-            ss: Share::new(StencilState::new()),
-            ds: Share::new(DepthState::new()),
         }
     }
 }
 
-// 将顶点数据改变的渲染对象重新设置索引流和顶点流和颜色属性流
-impl<'a, C: Context> Runner<'a> for BoxShadowSys<C>{
+// 将顶点数据改变的渲染对象重新设置索引流和顶点流
+impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, BorderRadius>,
-        &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, BoxShadow>,
-        &'a MultiCaseImpl<Node, WorldMatrixRender>
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (layouts, border_radiuss, z_depths, box_shadows, world_matrixs) = read;
-        let (render_objs, engine) = write;
-        for id in  self.geometry_dirtys.iter() {
-            let map = &mut self.render_map;
-            let item = unsafe { map.get_unchecked_mut(*id) };
-            item.position_change = false;
-            let border_radius = unsafe { border_radiuss.get_unchecked(*id) };
-            let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
-            let layout = unsafe { layouts.get_unchecked(*id) };
-            let box_shadow = unsafe { box_shadows.get_unchecked(*id) };
-   
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, Layout>,
 
-            let key = geometry_hash(border_radius, layout);
-            match engine.res_mgr.get::<GeometryRes<C>>(&key) {
-                Some(geometry) => {
-                    render_obj.geometry = Some(geometry);
-                },
+        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Transform>,
+        &'a MultiCaseImpl<Node, ClassName>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+
+        &'a SingleCaseImpl<DefaultTable>,
+        &'a SingleCaseImpl<ClassSheet>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<DefaultState>,
+    );
+
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
+        let (
+            box_shadows,
+            world_matrixs,
+            border_radiuses,
+            opacitys,
+            layouts,
+
+            z_depths,
+            transforms,
+            classes,
+            style_marks,
+
+            default_table,
+            _class_sheet,
+            dirty_list,
+            default_state,
+        ) = read;
+
+        let (render_objs, engine) = write;
+        
+        let default_transform = default_table.get::<Transform>().unwrap();
+        
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
+                Some(r) => r,
                 None => {
-                    let (positions, indices) = get_geo_flow(border_radius, layout, z_depth - 0.3, box_shadow);
-                    if positions.len() == 0 {
-                        render_obj.geometry = None;
-                    } else {
-                        let mut geometry = create_geometry(&mut engine.gl);
-                        geometry.set_vertex_count((positions.len()/3) as u32);
-                        geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-                        geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                        render_obj.geometry = Some(engine.res_mgr.create::<GeometryRes<C>>(GeometryRes{name: key, bind: geometry}));
-                    }
+                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
                 },
             };
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
 
-            self.modify_matrix(*id, world_matrixs, box_shadows, layouts, border_radiuss, render_objs)
+            let dirty = style_mark.dirty;
+
+            // 不存在BuckgroundColor关心的脏, 跳过
+            if dirty & self.dirty_ty == 0 {
+                continue;
+            }
+
+            // 阴影脏，如果不存在BoxShadow本地样式和class样式， 删除渲染对象
+            if dirty & StyleType::BoxShadow as usize != 0 
+            && style_mark.local_style & StyleType::BoxShadow as usize == 0 
+            && style_mark.class_style & StyleType::BoxShadow as usize == 0 {
+                self.remove_render_obj(*id, render_objs);
+                continue;
+            }
+
+            // 不存在，则创建渲染对象
+            let render_index = match self.render_map.get_mut(*id) {
+                Some(r) => *r,
+                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            };
+
+            // 从组件中取出对应的数据
+            let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
+
+            let border_radius = border_radiuses.get(*id);
+            let layout = unsafe {layouts.get_unchecked(*id)};
+            let shadow = unsafe {box_shadows.get_unchecked(*id)};
+
+            // 如果Color脏， 或Opacity脏， 计算is_opacity
+            if dirty & StyleType::Opacity as usize != 0
+            || dirty & StyleType::BoxShadow as usize != 0 {
+                let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
+                render_obj.is_opacity = color_is_opacity(opacity, &shadow.color);
+            }
+
+            // 如果阴影脏，或者边框半径改变，则重新创建geometry
+            if style_mark.dirty & StyleType::BoxShadow as usize != 0
+            || style_mark.dirty & StyleType::BorderRadius as usize != 0 {
+                render_obj.program_dirty =  true;
+                to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
+
+                render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
+                // TODO
+                // render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
+            }
+
+            // 渲染管线脏， 创建渲染管线
+            if render_obj.program_dirty {
+                render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
+                render_obj.program = Some(engine.create_program(
+                    COLOR_VS_SHADER_NAME.get_hash(),
+                    COLOR_FS_SHADER_NAME.get_hash(),
+                    COLOR_VS_SHADER_NAME.as_ref(),
+                    &*render_obj.vs_defines,
+                    COLOR_FS_SHADER_NAME.as_ref(),
+                    &*render_obj.fs_defines,
+                    render_obj.paramter.as_ref(),
+                ));
+            }
+            
+            // TODO 矩阵脏，或者布局脏
+            // if dirty & StyleType::Matrix as usize != 0 
+            // || dirty & StyleType::Layout as usize != 0 {
+            //     let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+            //     let transform =  match transforms.get(*id) {
+            //         Some(r) => r,
+            //         None => default_transform,
+            //     };
+            //     let depth = unsafe{z_depths.get_unchecked(*id)}.0;
+            //     let is_unit_geo = match &color.0 {
+            //         Color::RGBA(_) => {
+            //             let radius = cal_border_radius(border_radius, layout);
+            //             let g_b = geo_box(layout);
+            //             if radius.x <= g_b.min.x {
+            //                 true
+            //             } else {
+            //                 false
+            //             }
+            //         },
+            //         Color::LinearGradient(_) => false,
+            //     };
+            //     modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
+            // }
         }
-        self.geometry_dirtys.clear();
     }
 }
 
-// 插入渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for BoxShadowSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, BoxShadow>,
-        &'a MultiCaseImpl<Node, BorderRadius>,
-        &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, Opacity>,
-    );
-    type WriteData = (
-        &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<Engine<C>>,
-    );
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (box_shadows, border_radius, z_depths, layouts, opacitys) = read;
-        let (render_objs, engine) = write;
-        let box_shadow = unsafe { box_shadows.get_unchecked(event.id) };
-        let _border_radius = unsafe { border_radius.get_unchecked(event.id) };
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let _layout = unsafe { layouts.get_unchecked(event.id) };
-        let _opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+impl<C: HalContext + 'static> BoxShadowSys<C> {
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
-        let mut defines = Vec::new();
-        defines.push(UCOLOR.clone());
+    #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index, Some(notify));
+            },
+            None => ()
+        };
+    }
 
-        let mut common_ubo = engine.gl.create_uniforms();
-        common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
-        common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
-        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
-
-        let pipeline = engine.create_pipeline(
-            0,
-            &COLOR_VS_SHADER_NAME.clone(),
-            &COLOR_FS_SHADER_NAME.clone(),
-            defines.as_slice(),
-            self.rs.clone(),
-            self.bs.clone(),
-            self.ss.clone(),
-            self.ds.clone(),
-        );
+        #[inline]
+    fn create_render_obj(
+        &mut self,
+        id: usize,
+        z_depth: f32,
+        visibility: bool,
+        render_objs: &mut SingleCaseImpl<RenderObjs>,
+        default_state: &DefaultState,
+    ) -> usize{
         
-        let render_obj: RenderObj<C> = RenderObj {
+        let render_obj = RenderObj {
             depth: z_depth - 0.3,
             depth_diff: -0.3,
-            visibility: false,
-            is_opacity: false,
-            ubos: ubos,
+            visibility: visibility,
+            is_opacity: true,
+            vs_name: COLOR_VS_SHADER_NAME.clone(),
+            fs_name: COLOR_FS_SHADER_NAME.clone(),
+            vs_defines: Box::new(VsDefines::default()),
+            fs_defines: Box::new(FsDefines::default()),
+            paramter: Share::new(ColorParamter::default()),
+            program_dirty: true,
+
+            program: None,
             geometry: None,
-            pipeline: pipeline.clone(),
-            context: event.id,
-            defines: defines,
+            state: State {
+                bs: default_state.df_bs.clone(),
+                rs: default_state.df_rs.clone(),
+                ss: default_state.df_ss.clone(),
+                ds: default_state.df_ds.clone(),
+            },
+            context: id,
         };
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        self.render_map.insert(event.id, Item{index: index, position_change: true});
-        self.geometry_dirtys.push(event.id);
+        // 创建RenderObj与Node实体的索引关系， 并设脏
+        self.render_map.insert(id, index);
+        index
     }
 }
 
-// 修改渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for BoxShadowSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, BoxShadow>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, box_shadows: Self::ReadData, render_objs: Self::WriteData){
-        let item = unsafe { self.render_map.get_unchecked_mut(event.id) };
-        let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-   
-        let box_shadow = unsafe { box_shadows.get_unchecked(event.id) };
-        match event.field {
-            "color" => {
-                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
-                debug_println!("box_shadow, id: {}, color: {:?}", event.id, box_shadow.color);
-                common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
-                return;
-            },
-            "blur" => {
-                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
-                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
-                common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
-                return;
-            },
-            "h" | "v" => {
-                let item  = unsafe { self.render_map.get_unchecked_mut(event.id) };
-                if item.position_change == false {
-                    item.position_change = true;
-                    self.geometry_dirtys.push(event.id);
-                }
-            },
-            "" => {
-                let common_ubo = Share::make_mut(render_obj.ubos.get_mut(&COMMON).unwrap());
-                debug_println!("box_shadow, id: {}, color: {:?}", event.id, box_shadow.color);
-                common_ubo.set_float_4(&U_COLOR, box_shadow.color.r, box_shadow.color.g, box_shadow.color.b, box_shadow.color.a);
-                debug_println!("box_shadow, id: {}, blur: {:?}", event.id, box_shadow.blur + 1.0);
-                common_ubo.set_float_1(&BLUR, box_shadow.blur + 1.0);
-                let item  = unsafe { self.render_map.get_unchecked_mut(event.id) };
-                if item.position_change == false {
-                    item.position_change = true;
-                    self.geometry_dirtys.push(event.id);
-                }
-            },
-            _ => (),
-        };
+#[inline]
+fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
+    opacity == 1.0 && color.a == 1.0
+}
+
+#[inline]
+fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+    let h = f32_4_hash(c.r, c.g, c.b, c.a);
+    match engine.res_mgr.get::<UColorUbo>(&h) {
+        Some(r) => r,
+        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
     }
 }
 
-// 删除渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent> for BoxShadowSys<C>{
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
-        let item = self.render_map.remove(event.id).unwrap();
-        let notify = render_objs.get_notify();
-        render_objs.remove(item.index, Some(notify));
-        if item.position_change == true {
-            self.geometry_dirtys.remove_item(&event.id);
-        }
+#[inline]
+fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
+    match fs_defines.add("UCOLOR") {
+        Some(_) => false,
+        None => {
+            vs_defines.remove("VERTEX_COLOR");
+            fs_defines.remove("VERTEX_COLOR");
+            true
+        },
     }
 }
 
-//布局修改， 需要重新计算顶点
-impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BoxShadowSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
+// #[inline]
+// fn create_shadow_geo<C: HalContext + 'static>(
+//     engine: &mut Engine<C>,
+//     layout: &Layout,
+//     shadow: &BoxShadow,
+//     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
+    
+//     let radius = cal_border_radius(border_radius, layout);
+//     let g_b = geo_box(layout);
+//     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+//         return None;
+//     }
 
-type MatrixRead<'a> = (
-    &'a MultiCaseImpl<Node, WorldMatrixRender>,
-    &'a MultiCaseImpl<Node, BoxShadow>,
-    &'a MultiCaseImpl<Node, Layout>,
-    &'a MultiCaseImpl<Node, BorderRadius>,
-);
+//     if radius.x <= g_b.min.x {
+//         return Some(unit_quad.clone());
+//     } else {
+//         let mut hasher = FxHasher32::default();
+//         radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
+//         let hash = hasher.finish();
+//         match engine.res_mgr.get::<GeometryRes>(&hash) {
+//             Some(r) => Some(r.clone()),
+//             None => {
+//                 println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
+//                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
+//                 println!("r: {:?}", r);
+//                 if r.0.len() == 0 {
+//                     return None;
+//                 } else {
+//                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
+//                     println!("indices: {:?}", indices);
+//                     // 创建geo， 设置attribut
+//                     let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
+//                     let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
+//                     let geo = create_geometry(&engine.gl);
+//                     engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
+//                     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
+//                     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
 
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BoxShadowSys<C>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read.0, read.1, read.2, read.3, render_objs);
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BoxShadowSys<C>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read.0, read.1, read.2, read.3, render_objs);
-    }
-}
-
-impl<'a, C: Context> BoxShadowSys<C>{
-    fn modify_matrix(
-        &self,
-        id: usize,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
-        box_shadows: &MultiCaseImpl<Node, BoxShadow>,
-        layouts: &MultiCaseImpl<Node, Layout>,
-        border_radiuss: &MultiCaseImpl<Node, BorderRadius>,
-        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
-    ){
-        if let Some(item) = self.render_map.get(id) {
-            let layout = unsafe { layouts.get_unchecked(id) };
-            let box_shadow = unsafe { box_shadows.get_unchecked(id) };
-            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-            let border_radius = cal_border_radius(unsafe { border_radiuss.get_unchecked(id) }, layout);
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-
-            let mut world_matrix = world_matrix.0 * Matrix4::from_translation(Vector3::new(box_shadow.h, box_shadow.v, 1.0));
-            if border_radius.x == 0.0 {
-                // 渲染物件的顶点是一个四边形， 将其宽高乘在世界矩阵上
-                world_matrix = world_matrix * Matrix4::from_nonuniform_scale(
-                    layout.width - layout.border_right - layout.border_left,
-                    layout.height - layout.border_top - layout.border_bottom,
-                    1.0
-                );
-            }
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.as_ref();
-            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("box_shadow, id: {}, world_matrix_shadow: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(item.index, "ubos", 0);
-        }
-    }
-}
-
-struct Item {
-    index: usize,
-    position_change: bool,
-}
-
-fn geometry_hash(radius: &BorderRadius, layout: &Layout) -> u64{
-    let radius = cal_border_radius(radius, layout);
-    let mut hasher = FnvHasher::default();
-    if radius.x == 0.0 {
-        QUAD_POSITION_INDEX.hash(&mut hasher);           
-    } else {
-        radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
-    }
-    return hasher.finish();  
-}
-
-//取几何体的顶点流和索引流和color属性流
-fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32, box_shadow: &BoxShadow) -> (Vec<f32>, Vec<u16>) {
-    if layout.width == 0.0 && layout.height == 0.0 {
-        return (Vec::new(), Vec::new());
-    }
-    let radius = cal_border_radius(radius, layout);
-    let start_x = box_shadow.h;
-    let start_y = box_shadow.v;
-    let end_x = layout.width + box_shadow.h;
-    let end_y = layout.height + box_shadow.v;
-    let mut positions;
-    let mut indices;
-    if radius.x == 0.0 {
-        let r = create_quad_geo();
-        positions = r.0;
-        indices = r.1;
-        // (positions, to_triangle(indices.as_slice(), Vec::new()), None)
-        // positions = vec![
-        //     start_x, start_y, z_depth, // left_top
-        //     start_x, end_y, z_depth, // left_bootom
-        //     end_x, end_y, z_depth, // right_bootom
-        //     end_x, start_y, z_depth, // right_top
-        // ];
-        // indices = vec![0, 1, 2, 3];
-    } else {
-        let r = split_by_radius(start_x, start_y, end_x - box_shadow.h, end_y - box_shadow.v, radius.x, z_depth, None);
-        positions = r.0;
-        indices = r.1;
-    }
-    (positions, to_triangle(indices.as_slice(), Vec::new()))
-}
-
-unsafe impl<C: Context> Sync for BoxShadowSys<C>{}
-unsafe impl<C: Context> Send for BoxShadowSys<C>{}
+//                     // 创建缓存
+//                     let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
+//                     let share_geo = engine.res_mgr.create(hash, geo_res);
+//                     return Some(share_geo);
+//                 }
+//             }
+//         }
+//     }
+// }
 
 impl_system!{
-    BoxShadowSys<C> where [C: Context],
+    BoxShadowSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BoxShadow, CreateEvent>
-        MultiCaseListener<Node, BoxShadow, ModifyEvent>
-        MultiCaseListener<Node, BoxShadow, DeleteEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
-        MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
     }
 }

@@ -13,7 +13,7 @@ use program::{WebGLProgramImpl};
 use texture::{WebGLTextureImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
-use webgl_rendering_context::{WebGLRenderingContext};
+use webgl_rendering_context::{WebGLRenderingContext, WebGLFramebuffer};
 
 pub struct StateMachine {
     clear_color: (OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>, OrderedFloat<f32>), 
@@ -22,19 +22,21 @@ pub struct StateMachine {
     
     real_depth_mask: bool, // 实际的深度写入的开关
 
-    rs: HalRasterState,
-    ds: HalDepthState,
-    bs: HalBlendState,
-    ss: HalStencilState,
+    rs: (u32, u32), // rs_slab的index, use_count 
+    ds: (u32, u32), // rs_slab的index, use_count
+    bs: (u32, u32), // bs_slab的index, use_count
+    ss: (u32, u32), // ss_slab的index, use_count
     
     rsdesc: RasterStateDesc,
     bsdesc: BlendStateDesc,
     dsdesc: DepthStateDesc,
     ssdesc: StencilStateDesc,
-
-    program: HalProgram,
-    geometry: HalGeometry,
-    target: HalRenderTarget,
+    
+    pub copy_fbo: WebGLFramebuffer, // 用于纹理拷贝的FBO
+    
+    program: (u32, u32),  // program_slab的index, use_count
+    geometry: (u32, u32), // geometry_slab的index, use_count
+    target: (u32, u32),   // target_slab的index, use_count
     viewport_rect: (i32, i32, i32, i32), // x, y, w, h
     enable_attrib_indices: Vec<bool>,
     tex_caches: TextureCache,
@@ -48,8 +50,8 @@ struct TextureCache {
     // 槽和unit的关系是 unit = 槽索引 + 1
     // unit = 0 用于更新纹理等，不能用于普通纹理。
     
-    // u32是当前纹理的gl_unit
-    values: SlabDeque<(u32, HalTexture)>,
+    // u32是当前纹理的gl_unit, index, use_count
+    values: SlabDeque<(u32, u32, u32)>,
 }
 
 impl TextureCache {
@@ -62,12 +64,12 @@ impl TextureCache {
     }
 
     pub fn reset(&mut self, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>) {
-        for (_, texture) in self.values.iter() {
-            match get_mut_ref(texture_slab, texture.0, texture.1) {
+        for (_, index, use_count) in self.values.iter() {
+            match get_mut_ref(texture_slab, *index, *use_count) {
                 None => {},
                 Some(t) => {
                     t.cache_index = -1;
-                    t.curr_sampler = HalSampler::new();
+                    t.curr_sampler = (0, 0);
                 }
             }
         }
@@ -80,15 +82,15 @@ impl TextureCache {
         texture: &HalTexture, sampler: &HalSampler,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> (u32, bool) {
         
-        if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
+        if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.index, texture.use_count), get_ref(sampler_slab, sampler.index, sampler.use_count)) {
             // 命中，放回到队列的头部
             if t.cache_index >= 0 {
-                let (unit, r) = self.values.remove(t.cache_index as usize);
-                t.cache_index = self.values.push_front((unit, r)) as i32;
+                let (unit, index, use_count) = self.values.remove(t.cache_index as usize);
+                t.cache_index = self.values.push_front((unit, index, use_count)) as i32;
                 
-                if t.curr_sampler.0 != sampler.0 || t.curr_sampler.1 != sampler.1 {
+                if t.curr_sampler.0 != sampler.index || t.curr_sampler.1 != sampler.use_count {
                     t.apply_sampler(gl, s);
-                    t.curr_sampler = HalSampler(sampler.0, sampler.1);
+                    t.curr_sampler = (sampler.index, sampler.use_count);
                 }
                 return (unit as u32, false);
             }
@@ -96,8 +98,8 @@ impl TextureCache {
         
         // 缓存已经满了，替换老的
         let unit = if self.values.len() == self.total_units {
-            let (u, old) = self.values.pop_back().unwrap();
-            if let Some(old) = get_mut_ref(texture_slab, old.0, old.1) {
+            let (u, old_index, old_use_count) = self.values.pop_back().unwrap();
+            if let Some(old) = get_mut_ref(texture_slab, old_index, old_use_count) {
                 old.cache_index = -1;
             }
             u
@@ -108,10 +110,10 @@ impl TextureCache {
             u
         };
         
-        if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.0, texture.1), get_ref(sampler_slab, sampler.0, sampler.1)) {
+        if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.index, texture.use_count), get_ref(sampler_slab, sampler.index, sampler.use_count)) {
             
-            t.cache_index = self.values.push_front((unit, HalTexture(texture.0, texture.1))) as i32;
-            t.curr_sampler = HalSampler(sampler.0, sampler.1);
+            t.cache_index = self.values.push_front((unit, texture.index, texture.use_count)) as i32;
+            t.curr_sampler = (sampler.index, sampler.use_count);
             
             gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
             gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
@@ -137,15 +139,15 @@ impl StateMachine {
             clear_depth: OrderedFloat(1.0), 
             clear_stencil: 0,
             
-            program: HalProgram::new(),
-            geometry: HalGeometry::new(),
-            target: HalRenderTarget(rt.0, rt.1),
+            program: (0, 0),
+            geometry: (0, 0),
+            target: (rt.index, rt.use_count),
             viewport_rect: (0, 0, 0, 0),
             
-            rs: HalRasterState::new(),
-            bs: HalBlendState::new(),
-            ds: HalDepthState::new(),
-            ss: HalStencilState::new(),
+            rs: (0, 0),
+            bs: (0, 0),
+            ds: (0, 0),
+            ss: (0, 0),
 
             rsdesc: RasterStateDesc::new(),
             bsdesc: BlendStateDesc::new(),
@@ -153,6 +155,8 @@ impl StateMachine {
             ssdesc: StencilStateDesc::new(),
             enable_attrib_indices: vec![false; max_attributes as usize],
             tex_caches: tex_caches,
+
+            copy_fbo: gl.create_framebuffer().unwrap(),
         };  
         
         state.apply_all_state(gl, texture_slab, rt_slab);
@@ -161,8 +165,13 @@ impl StateMachine {
     }
     
     #[inline(always)]
-    pub fn get_curr_program(&self) -> &HalProgram {
-        &self.program
+    pub fn get_curr_program(&self) -> (u32, u32) {
+        self.program
+    }
+
+    #[inline(always)]
+    pub fn get_curr_rt(&self) -> (u32, u32) {
+        self.target
     }
 
     #[inline(always)]
@@ -176,10 +185,10 @@ impl StateMachine {
      * 返回是否切换渲染目标
      */
     pub fn set_render_target(&mut self, gl: &WebGLRenderingContext, rt: &HalRenderTarget, rtimpl: &WebGLRenderTargetImpl) -> bool {
-        let is_change = self.target.0 != rt.0 || self.target.1 != rt.1;
+        let is_change = self.target.0 != rt.index || self.target.1 != rt.use_count;
         if is_change {
             self.set_render_target_impl(gl, rtimpl);
-            self.target = HalRenderTarget(rt.0, rt.1);
+            self.target = (rt.index, rt.use_count);
         }
         is_change
     }
@@ -237,27 +246,27 @@ impl StateMachine {
         rs: &HalRasterState, bs: &HalBlendState, ss: &HalStencilState, ds: &HalDepthState, 
         rsdesc: &RasterStateDesc, bsdesc: &BlendStateDesc, ssdesc: &StencilStateDesc, dsdesc: &DepthStateDesc) {
         
-        if self.rs.0 != rs.0 || self.rs.1 != rs.1 {
+        if self.rs.0 != rs.index || self.rs.1 != rs.use_count {
             Self::set_raster_state(&gl, Some(&self.rsdesc), rsdesc);
-            self.rs = HalRasterState(rs.0, rs.1);
+            self.rs = (rs.index, rs.use_count);
             self.rsdesc = rsdesc.clone();
         }
-        if self.ds.0 != ds.0 || self.ds.1 != ds.1 {
+        if self.ds.0 != ds.index || self.ds.1 != ds.use_count {
             Self::set_depth_state(&gl, Some(&self.dsdesc), dsdesc, &mut self.real_depth_mask);
             
-            self.ds = HalDepthState(ds.0, ds.1);
+            self.ds = (ds.index, ds.use_count);
             self.dsdesc = dsdesc.clone();
         }
-        if self.ss.0 != ss.0 || self.ss.1 != ss.1 {
+        if self.ss.0 != ss.index || self.ss.1 != ss.use_count {
             Self::set_stencil_state(&gl, Some(&self.ssdesc), ssdesc);
 
-            self.ss = HalStencilState(ss.0, ss.1);
+            self.ss = (ss.index, ss.use_count);
             self.ssdesc = ssdesc.clone();
         }
-        if self.bs.0 != bs.0 || self.bs.1 != bs.1 {
+        if self.bs.0 != bs.index || self.bs.1 != bs.use_count {
             Self::set_blend_state(&gl, Some(&self.bsdesc), bsdesc);
 
-            self.bs = HalBlendState(bs.0, bs.1);
+            self.bs = (bs.index, bs.use_count);
             self.bsdesc = bsdesc.clone();
         }
     }
@@ -266,10 +275,10 @@ impl StateMachine {
      * 返回是否切换program
      */
     pub fn set_program(&mut self, gl: &WebGLRenderingContext, program: &HalProgram, pimpl: &WebGLProgramImpl) -> bool {
-        let is_change = self.program.0 != program.0 || self.program.1 != program.1;
+        let is_change = self.program.0 != program.index || self.program.1 != program.use_count;
         if is_change {
             gl.use_program(Some(&pimpl.handle));
-            self.program = HalProgram(program.0, program.1);
+            self.program = (program.index, program.use_count);
         }
         is_change
     }
@@ -293,8 +302,6 @@ impl StateMachine {
             loc.set_gl_uniform(gl, unit as i32);
         }
 
-        // println!("single names--------------{:?}", pp.get_single_uniform_layout());
-        // println!("single--------------{:?}", pp.get_single_uniforms());
         let singles = pp.get_single_uniforms();
         for loc in program.active_single_uniforms.iter_mut() {
             loc.set_gl_uniform(gl, &singles[loc.slot_uniform]);
@@ -304,8 +311,6 @@ impl StateMachine {
             let pp = pp.get_values();
             for ubo_loc in program.active_uniforms.iter_mut() {
                 let uniforms = pp[ubo_loc.slot_ubo].get_values();
-                // println!("uniforms names--------------{:?}", pp[ubo_loc.slot_ubo].get_layout());
-                // println!("uniforms--------------{:?}", pp[ubo_loc.slot_ubo].get_values());
                 for u_loc in ubo_loc.values.iter_mut() {
                     u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
                 }
@@ -332,7 +337,7 @@ impl StateMachine {
      */
     pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) -> bool {
 
-        let need_set_geometry = geometry.0 != self.geometry.0 || geometry.1 != self.geometry.1;
+        let need_set_geometry = geometry.index != self.geometry.0 || geometry.use_count != self.geometry.1;
         if need_set_geometry {            
             match &gimpl.vao {
                 Some(vao) => {
@@ -366,7 +371,7 @@ impl StateMachine {
                 }
             }
             
-            self.geometry = HalGeometry(geometry.0, geometry.1);
+            self.geometry = (geometry.index, geometry.use_count);
         }
         
         match &gimpl.indices {
@@ -402,8 +407,8 @@ impl StateMachine {
         Self::set_blend_state(gl, None, &self.bsdesc);
         Self::set_stencil_state(gl, None, &self.ssdesc);
 
-        self.geometry = HalGeometry::new();
-        self.program = HalProgram::new();
+        self.geometry = (0, 0);
+        self.program = (0, 0);
         
         if let Some(rt) = get_ref(rt_slab, self.target.0, self.target.1) {
             self.set_render_target_impl(gl, &rt);
@@ -424,6 +429,20 @@ impl StateMachine {
         }
         self.tex_caches.reset(texture_slab);
     }
+
+    pub fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
+        if rt.handle.is_none() {
+            js! {
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
+            }
+        } else {
+            let fbo = rt.handle.as_ref().unwrap();
+            js!{
+                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
+            }
+        }
+    }
+
 
     fn set_raster_state(gl: &WebGLRenderingContext, old: Option<&RasterStateDesc>, curr: &RasterStateDesc) {
         match old {
@@ -524,19 +543,6 @@ impl StateMachine {
                 if old.const_rgba != curr.const_rgba {
                     Self::set_blend_color(gl, curr);
                 }
-            }
-        }
-    }
-
-    fn set_render_target_impl(&mut self, gl: &WebGLRenderingContext, rt: &WebGLRenderTargetImpl) {
-        if rt.handle.is_none() {
-            js! {
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
-            }
-        } else {
-            let fbo = rt.handle.as_ref().unwrap();
-            js!{
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
             }
         }
     }

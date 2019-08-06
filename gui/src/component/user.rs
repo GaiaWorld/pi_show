@@ -105,13 +105,15 @@ pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
 }
+
+// 参考CSS的box-shadow的语法
 #[derive(Debug, Clone, Default, Component)]
 pub struct BoxShadow{
-    pub h: f32,
-    pub v: f32,
-    pub blur: f32,
-    pub spread: f32,
-    pub color: CgColor,
+    pub h: f32,    // 水平偏移，正右负左
+    pub v: f32,    // 垂直偏移，正下负上
+    pub blur: f32, // 模糊半径，0代表不模糊，
+    pub spread: f32,  // 阴影扩展，上下左右各加上这个值
+    pub color: CgColor, // 阴影颜色
 }
 
 #[derive(Debug, Clone, Component, Default)]

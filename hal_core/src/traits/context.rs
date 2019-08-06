@@ -1,30 +1,78 @@
-use share::{Share};
+use share::{Share, ShareWeak};
 
 use common::*;
 use traits::uniform_buffer::{ProgramParamter};
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalBuffer(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalGeometry(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalProgram(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRenderTarget(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRenderBuffer(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalRasterState(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalDepthState(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalStencilState(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalBlendState(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalSampler(pub u32, pub u32);
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct HalTexture(pub u32, pub u32);
+/**
+ * 外部不需要关心HalAll和HalDestroy这两个trait
+ */
+pub trait HalAll: HalContext + HalDestroy {}
+
+pub struct HalBuffer {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalGeometry {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalProgram {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalRenderTarget {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalRenderBuffer {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalRasterState {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalDepthState {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalStencilState {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalBlendState {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalSampler {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalTexture {
+    pub index: u32, 
+    pub use_count: u32,
+    pub context: ShareWeak<dyn HalAll>, 
+}
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
 pub enum BufferType {
@@ -53,7 +101,95 @@ pub enum TextureData<'a> {
     U8(u32, u32, u32, u32, &'a[u8]),   // (x, y, w, h, data)
 }
 
-pub trait HalContext: Sized {
+impl Drop for HalBuffer {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.buffer_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalGeometry {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.geometry_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalProgram {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.program_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalRenderTarget {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.rt_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalRenderBuffer {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.rb_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalRasterState {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.rs_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalDepthState {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.ds_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalStencilState {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.ss_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalBlendState {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.bs_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalSampler {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.sampler_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+impl Drop for HalTexture {
+    fn drop(&mut self) {
+        if let Some(context) = self.context.upgrade() {
+            context.texture_destroy(self.index, self.use_count);
+        }
+    }
+}
+
+pub trait HalContext {
 
     // ==================== HalBuffer
     
@@ -65,8 +201,6 @@ pub trait HalContext: Sized {
      * 注：Indeices --> short
      */
     fn buffer_create(&self, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<HalBuffer, String>;
-
-    fn buffer_destroy(&self, buffer: HalBuffer);
 
     /**
      * 更新数据
@@ -85,9 +219,7 @@ pub trait HalContext: Sized {
     // ==================== HalGeometry
 
     fn geometry_create(&self) -> Result<HalGeometry, String>;
-
-    fn geometry_destroy(&self, geometry: HalGeometry);
-
+    
     /** 
      * 获取当前的顶点个数
      */   
@@ -128,8 +260,6 @@ pub trait HalContext: Sized {
      */
     fn geometry_remove_indices(&self, geometry: &HalGeometry);
 
-
-
     // ==================== HalProgram
 
     /** 
@@ -139,15 +269,10 @@ pub trait HalContext: Sized {
      */
     fn program_create_with_vs_fs(&self, vs_id: u64, fs_id: u64, vs_name: &str, vs_defines: &[Option<&str>], fs_name: &str, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<HalProgram, String>;
 
-    fn program_destroy(&self, program: HalProgram);
-
-
     // ==================== HalRenderTarget
 
     fn rt_create(&self, w: u32, h: u32, pformat: PixelFormat, dformat: DataFormat, has_depth: bool) -> Result<HalRenderTarget, String>;
     
-    fn rt_destroy(&self, rt: HalRenderTarget);
-
     /** 
      * 取大小
      */
@@ -155,22 +280,18 @@ pub trait HalContext: Sized {
 
     /**
      * 取渲染目标中特定通道的纹理
+     * 注：高层不需要管理该texture的释放
      */
-    fn rt_get_color_texture(&self, rt: &HalRenderTarget, index: u32) -> Option<HalTexture>;
+    fn rt_get_color_texture(&self, rt: &HalRenderTarget, index: u32) -> Option<&HalTexture>;
 
     // ==================== HalRenderBuffer
     fn rb_create(&self, w: u32, h: u32, pformat: PixelFormat) -> Result<HalRenderBuffer, String>;
-    
-    fn rb_destroy(&self, rb: HalRenderBuffer);
 
     fn rb_get_size(&self, rb: &HalRenderBuffer) -> (u32, u32);
-
 
     // ==================== HalTexture
 
     fn texture_create_2d(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<HalTexture, String>;
-
-    fn texture_destroy(&self, texture: HalTexture);
 
     fn texture_get_size(&self, texture: &HalTexture) -> (u32, u32);
 
@@ -180,43 +301,40 @@ pub trait HalContext: Sized {
 
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData);
 
+    /**
+     * 将原有的纹理扩展成 width * height
+     */
+    fn texture_extend(&self, texture: &HalTexture, width: u32, height: u32) -> bool;
+
+    fn texture_copy(&self, dst: &HalTexture, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32);
+
     // ==================== HalSampler
 
     fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String>;
-
-    fn sampler_destroy(&self, sampler: HalSampler);
 
     fn sampler_get_desc(&self, sampler: &HalSampler) -> &SamplerDesc;
 
     // ==================== HalRasterState
 
     fn rs_create(&self, desc: RasterStateDesc) -> Result<HalRasterState, String>;
-    
-    fn rs_destroy(&self, state: HalRasterState);
 
     fn rs_get_desc(&self, state: &HalRasterState) -> &RasterStateDesc;
 
     // ==================== HalDepthState
 
     fn ds_create(&self, desc: DepthStateDesc) -> Result<HalDepthState, String>;
-    
-    fn ds_destroy(&self, state: HalDepthState);
 
     fn ds_get_desc(&self, state: &HalDepthState) -> &DepthStateDesc;
 
     // ==================== HalStencilState
 
     fn ss_create(&self, desc: StencilStateDesc) -> Result<HalStencilState, String>;
-    
-    fn ss_destroy(&self, state: HalStencilState);
 
     fn ss_get_desc(&self, state: &HalStencilState) -> &StencilStateDesc;
 
     // ==================== HalBlendState
     
     fn bs_create(&self, desc: BlendStateDesc) -> Result<HalBlendState, String>;
-    
-    fn bs_destroy(&self, state: HalBlendState);
 
     fn bs_get_desc(&self, state: &HalBlendState) -> &BlendStateDesc;
 
@@ -275,123 +393,19 @@ pub trait HalContext: Sized {
     fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
 }
 
-impl HalBuffer {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalBuffer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalGeometry {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalGeometry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalProgram {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalProgram {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalRenderTarget {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalRenderTarget {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalRenderBuffer {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalRenderBuffer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalRasterState {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalRasterState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalDepthState {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalDepthState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalStencilState {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalStencilState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalBlendState {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalBlendState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalSampler {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalSampler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl HalTexture {
-    pub fn new() -> Self {
-        Self(0, 0)
-    }
-}
-impl Default for HalTexture {
-    fn default() -> Self {
-        Self::new()
-    }
+/**
+ * 这个trait外部不需要关心，仅提供给具体渲染库使用
+ */
+pub trait HalDestroy {
+    fn buffer_destroy(&self, index: u32, use_count: u32);
+    fn geometry_destroy(&self, index: u32, use_count: u32);
+    fn program_destroy(&self, index: u32, use_count: u32);
+    fn rt_destroy(&self, index: u32, use_count: u32);
+    fn rb_destroy(&self, index: u32, use_count: u32);
+    fn texture_destroy(&self, index: u32, use_count: u32);
+    fn sampler_destroy(&self, index: u32, use_count: u32);
+    fn rs_destroy(&self, index: u32, use_count: u32);
+    fn ds_destroy(&self, index: u32, use_count: u32);
+    fn ss_destroy(&self, index: u32, use_count: u32);
+    fn bs_destroy(&self, index: u32, use_count: u32);
 }
