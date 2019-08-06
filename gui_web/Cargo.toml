@@ -14,10 +14,10 @@ fx_hashmap = { path = "../../pi_lib/fx_hashmap" }
 hal_webgl = {path="../hal_webgl"}
 hal_core = {path="../hal_core"}
 serde = { version = "1.0", features = ["derive"] }
-cg2d = { path = "../../pi_math/cg2d" }
-color = { path = "../../pi_math/color" }
-cgmath = { path = "../../pi_math/cgmath" }
-octree = { path = "../../pi_math/octree" }
+cg2d = { path = "../../pi_math_hal/cg2d" }
+color = { path = "../../pi_math_hal/color" }
+cgmath = { path = "../../pi_math_hal/cgmath" }
+octree = { path = "../../pi_math_hal/octree" }
 gui = {path="../gui", features = ["web"]} #, features = ["performance"]
 stdweb = "0.4"
 stdweb-derive = "0.5.1"

@@ -269,7 +269,7 @@ fn load_image(world_id: u32) {
     let image_wait_sheet = &mut world.gui.image_wait_sheet.lend_mut();
     for img_name in image_wait_sheet.loads.iter() {
         js!{
-            if window.__load_image {
+            if (window.__load_image) {
                 window.__load_image(world_id, @{img_name.as_ref()});
             } else {
                 console.log("__load_image is undefined");
@@ -278,28 +278,6 @@ fn load_image(world_id: u32) {
     }
     image_wait_sheet.loads.clear();
 }
-
-// pub fn cancel_timeout(id: usize){
-//     js!{
-//         clearTimeout(@{id as u32});
-//     }
-// }
-
-// pub fn set_timeout(ms: usize, f: Box<dyn FnOnce()>) -> usize{
-//     let (x, y): (usize, usize) = unsafe { transmute(f) };
-//     js!{
-//         return setTimeout(function(){
-//             Module._notify_timeout(@{x as u32}, @{y as u32});
-//         }, @{ms as u32});
-//     }
-//     0
-// }
-
-// pub fn now_time() -> u64{
-//     TryInto::<u64>::try_into(js!{
-//         return Date.now();
-//     }).unwrap()
-// }
 
 fn main(){
     define_draw_canvas();

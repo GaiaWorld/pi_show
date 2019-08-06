@@ -140,6 +140,7 @@ pub struct Class {
     pub box_shadow: usize,
 
     pub class_style_mark: usize, // 标记class中的有效属性
+    pub class_layout_mark: u32, // 标记class中布局的有效属性
 }
 
 // pub enum DirtyType1 {

@@ -139,6 +139,8 @@ pub fn create_world<C: HalContext + 'static, L: FlexNode>(mut engine: Engine<C>,
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
+    world.register_single::<DirtyList>(DirtyList::default());
+    
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));

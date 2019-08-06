@@ -293,8 +293,8 @@ impl StateMachine {
             loc.set_gl_uniform(gl, unit as i32);
         }
 
-        println!("single names--------------{:?}", pp.get_single_uniform_layout());
-        println!("single--------------{:?}", pp.get_single_uniforms());
+        // println!("single names--------------{:?}", pp.get_single_uniform_layout());
+        // println!("single--------------{:?}", pp.get_single_uniforms());
         let singles = pp.get_single_uniforms();
         for loc in program.active_single_uniforms.iter_mut() {
             loc.set_gl_uniform(gl, &singles[loc.slot_uniform]);
@@ -304,8 +304,8 @@ impl StateMachine {
             let pp = pp.get_values();
             for ubo_loc in program.active_uniforms.iter_mut() {
                 let uniforms = pp[ubo_loc.slot_ubo].get_values();
-                println!("uniforms names--------------{:?}", pp[ubo_loc.slot_ubo].get_layout());
-                println!("uniforms--------------{:?}", pp[ubo_loc.slot_ubo].get_values());
+                // println!("uniforms names--------------{:?}", pp[ubo_loc.slot_ubo].get_layout());
+                // println!("uniforms--------------{:?}", pp[ubo_loc.slot_ubo].get_values());
                 for u_loc in ubo_loc.values.iter_mut() {
                     u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
                 }

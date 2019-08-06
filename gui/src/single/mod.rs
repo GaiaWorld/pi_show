@@ -1,5 +1,6 @@
 pub mod oct;
 pub mod class;
+pub mod style_parse;
 
 use share::Share;
 use std::any::{TypeId, Any};
@@ -111,6 +112,7 @@ pub struct ImageWait {
 
 pub struct UnitQuad(pub Share<GeometryRes>);
 
+#[derive(Default)]
 pub struct DirtyList(pub Vec<usize>);
 
 pub struct DefaultState{

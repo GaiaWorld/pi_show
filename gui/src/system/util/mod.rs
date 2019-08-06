@@ -396,7 +396,7 @@ pub fn create_unit_matrix_by_layout(
     depth: f32,
 ) -> Vec<f32> {
     let width = layout.width - layout.border_left - layout.border_right;
-    let height = layout.width - layout.border_top - layout.border_bottom;
+    let height = layout.height - layout.border_top - layout.border_bottom;
 
     create_unit_matrix(width, height, layout, matrix, transform, depth)
 }

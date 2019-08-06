@@ -513,7 +513,6 @@ impl HalContext for WebglHalContext {
 
     fn render_set_program(&self, program: &HalProgram) {
         let context = convert_to_mut(self);
-        println!("program------------------{:?}", program);
         
         let p = get_ref(&context.program_slab, program.0, program.1).expect("param not found");
         if context.state_machine.set_program(&context.gl, program, p) {
