@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
-
+use fxhash::FxHasher32;
 use fnv::{ FnvHashMap, FnvHasher };
 use ecs::{ CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner };
 use map::{ vecmap::VecMap } ;
@@ -143,8 +143,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
-
-                render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
+                // TODO
+                // render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
             }
 
             // 渲染管线脏， 创建渲染管线
@@ -161,29 +161,29 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 ));
             }
             
-            // 矩阵脏，或者布局脏
-            if dirty & StyleType::Matrix as usize != 0 
-            || dirty & StyleType::Layout as usize != 0 {
-                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
-                let transform =  match transforms.get(*id) {
-                    Some(r) => r,
-                    None => default_transform,
-                };
-                let depth = unsafe{z_depths.get_unchecked(*id)}.0;
-                let is_unit_geo = match &color.0 {
-                    Color::RGBA(_) => {
-                        let radius = cal_border_radius(border_radius, layout);
-                        let g_b = geo_box(layout);
-                        if radius.x <= g_b.min.x {
-                            true
-                        } else {
-                            false
-                        }
-                    },
-                    Color::LinearGradient(_) => false,
-                };
-                modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
-            }
+            // TODO 矩阵脏，或者布局脏
+            // if dirty & StyleType::Matrix as usize != 0 
+            // || dirty & StyleType::Layout as usize != 0 {
+            //     let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+            //     let transform =  match transforms.get(*id) {
+            //         Some(r) => r,
+            //         None => default_transform,
+            //     };
+            //     let depth = unsafe{z_depths.get_unchecked(*id)}.0;
+            //     let is_unit_geo = match &color.0 {
+            //         Color::RGBA(_) => {
+            //             let radius = cal_border_radius(border_radius, layout);
+            //             let g_b = geo_box(layout);
+            //             if radius.x <= g_b.min.x {
+            //                 true
+            //             } else {
+            //                 false
+            //             }
+            //         },
+            //         Color::LinearGradient(_) => false,
+            //     };
+            //     modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
+            // }
         }
     }
 }
@@ -268,53 +268,53 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
     }
 }
 
-#[inline]
-fn create_shadow_geo<C: HalContext + 'static>(
-    engine: &mut Engine<C>,
-    layout: &Layout,
-    shadow: &BoxShadow,
-    border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
+// #[inline]
+// fn create_shadow_geo<C: HalContext + 'static>(
+//     engine: &mut Engine<C>,
+//     layout: &Layout,
+//     shadow: &BoxShadow,
+//     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
     
-    let radius = cal_border_radius(border_radius, layout);
-    let g_b = geo_box(layout);
-    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
-        return None;
-    }
+//     let radius = cal_border_radius(border_radius, layout);
+//     let g_b = geo_box(layout);
+//     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+//         return None;
+//     }
 
-    if radius.x <= g_b.min.x {
-        return Some(unit_quad.clone());
-    } else {
-        let mut hasher = FxHasher32::default();
-        radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
-        let hash = hasher.finish();
-        match engine.res_mgr.get::<GeometryRes>(&hash) {
-            Some(r) => Some(r.clone()),
-            None => {
-                println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
-                let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
-                println!("r: {:?}", r);
-                if r.0.len() == 0 {
-                    return None;
-                } else {
-                    let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-                    println!("indices: {:?}", indices);
-                    // 创建geo， 设置attribut
-                    let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
-                    let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-                    let geo = create_geometry(&engine.gl);
-                    engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
-                    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
-                    engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+//     if radius.x <= g_b.min.x {
+//         return Some(unit_quad.clone());
+//     } else {
+//         let mut hasher = FxHasher32::default();
+//         radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
+//         let hash = hasher.finish();
+//         match engine.res_mgr.get::<GeometryRes>(&hash) {
+//             Some(r) => Some(r.clone()),
+//             None => {
+//                 println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
+//                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
+//                 println!("r: {:?}", r);
+//                 if r.0.len() == 0 {
+//                     return None;
+//                 } else {
+//                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
+//                     println!("indices: {:?}", indices);
+//                     // 创建geo， 设置attribut
+//                     let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
+//                     let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
+//                     let geo = create_geometry(&engine.gl);
+//                     engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
+//                     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
+//                     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
 
-                    // 创建缓存
-                    let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
-                    let share_geo = engine.res_mgr.create(hash, geo_res);
-                    return Some(share_geo);
-                }
-            }
-        }
-    }
-}
+//                     // 创建缓存
+//                     let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
+//                     let share_geo = engine.res_mgr.create(hash, geo_res);
+//                     return Some(share_geo);
+//                 }
+//             }
+//         }
+//     }
+// }
 
 impl_system!{
     BoxShadowSys<C> where [C: HalContext + 'static],
