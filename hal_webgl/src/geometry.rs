@@ -10,13 +10,13 @@ pub struct Attribute {
     pub count: usize,       // 元素的个数
     pub item_count: usize,  // 每个元素的个数
     pub stride: usize,      // 偏移
-    pub handle: HalBuffer,
+    pub handle: (u32, u32), // HalBuffer的index, use_count
 }
 
 pub struct Indices {
     pub offset: usize, 
     pub count: usize,
-    pub handle: HalBuffer,
+    pub handle: (u32, u32), // HalBuffer的index, use_count
 }
 
 pub struct WebGLGeometryImpl {
@@ -84,7 +84,7 @@ impl WebGLGeometryImpl  {
             count: count,
             item_count: item_count,
             stride: stride,
-            handle: HalBuffer(wrap.0, wrap.1),
+            handle: (wrap.index, wrap.use_count),
         });
 
          if let Some(vao) = &self.vao {
@@ -134,7 +134,7 @@ impl WebGLGeometryImpl  {
         self.indices = Some(Indices {
             offset: offset,
             count: count,
-            handle: HalBuffer(wrap.0, wrap.1),
+            handle: (wrap.index, wrap.use_count),
         });
 
         if let Some(vao) = &self.vao {

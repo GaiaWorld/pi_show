@@ -132,3 +132,12 @@ pub enum StencilOp {
     IncrWrap,
     DecrWrap, 
 }
+
+/**
+ * 目标的attach类型
+ */
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+pub enum RTAttachementType {
+    Color0,
+    Depth,
+}

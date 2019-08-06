@@ -1,4 +1,4 @@
-use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc, HalSampler};
+use hal_core::{PixelFormat, DataFormat, TextureData, SamplerDesc};
 use webgl_rendering_context::{WebGLTexture, WebGLRenderingContext};
 use stdweb::{Object};
 use convert::*;
@@ -14,7 +14,7 @@ pub struct WebGLTextureImpl {
     
     // 纹理缓存
     pub cache_index: i32,  // 仅当 >= 0 时有意义
-    pub curr_sampler: HalSampler, // 当前作用的Sampler
+    pub curr_sampler: (u32, u32), // slab的index, use_count
 }
 
 impl WebGLTextureImpl {
@@ -69,7 +69,7 @@ impl WebGLTextureImpl {
             handle: texture,
             
             cache_index: -1,
-            curr_sampler: HalSampler::new(),
+            curr_sampler: (0, 0),
         };
 
         t.apply_sampler(gl, &SamplerDesc::new());
