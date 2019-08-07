@@ -12,6 +12,8 @@ pub enum TextureData<'a> {
 
 pub trait Texture: Drop + AsRef<Self> {
 
+    fn extend(&self, width: u32, height: u32) -> bool;
+
     fn get_size(&self) -> (u32, u32);
 
     fn get_render_format(&self) -> PixelFormat;

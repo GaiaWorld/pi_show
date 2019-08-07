@@ -9,10 +9,12 @@ use sampler::{WebGLSamplerImpl};
 use std::rc::{Rc};
 use std::cell::{RefCell};
 use context::{RenderStats};
+use util::*;
+use state::{State};
 
-#[derive(Debug)]
 pub struct WebGLTextureImpl {
     pub gl: Share<WebGLRenderingContext>,
+    pub state: Share<State>,
     pub width: u32,
     pub height: u32,
     pub level: u32,
@@ -26,6 +28,23 @@ pub struct WebGLTextureImpl {
 
 impl Texture for WebGLTextureImpl {
     
+    fn extend(&self, width: u32, height: u32) -> bool {
+        match Self::new_2d_impl(&self.gl, width, height, 0, &self.pixel_format, &self.data_format, self.is_gen_mipmap, &TextureData::None) {
+            None => false,
+            Some(new_tex) => {
+                self.copy_impl(&new_tex);
+                self.gl.delete_texture(Some(&self.handle));
+                
+                let old_tex = convert_to_mut(self);
+                old_tex.handle = new_tex;
+                old_tex.width = width;
+                old_tex.height = height;
+                
+                true
+            }
+        }
+    }
+
     fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
@@ -79,7 +98,58 @@ impl AsRef<Self> for WebGLTextureImpl {
 
 impl WebGLTextureImpl {
     
-    pub fn new_2d(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
+    // 将self的纹理内存拷贝到dst去
+    pub fn copy_impl(&self, dst: &WebGLTexture) {
+        let state = convert_to_mut(self.state.as_ref());
+        
+        let rt = state.get_curr_rt();
+        
+        let fb_type = WebGLRenderingContext::FRAMEBUFFER;
+        let tex_target = WebGLRenderingContext::TEXTURE_2D;
+        let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
+        
+        self.gl.bind_framebuffer(fb_type, Some(&self.state.copy_fbo));
+        self.gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&self.handle), 0);
+        
+        // 将fbo的内容拷到目标纹理
+        self.gl.active_texture(WebGLRenderingContext::TEXTURE0);
+        self.gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(dst));
+
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+        self.gl.pixel_storei(WebGLRenderingContext::UNPACK_ALIGNMENT, 4);
+
+        self.gl.copy_tex_sub_image2_d(WebGLRenderingContext::TEXTURE_2D, 0, 0, 0, 0, 0, self.width as i32, self.height as i32);
+        
+        state.set_render_target_impl(&rt);
+    }
+
+    pub fn new_2d(stats: &Rc<RefCell<RenderStats>>, state: Share<State>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Result<Self, String> {
+        match Self::new_2d_impl(gl, w, h, level, pformat, dformat, is_gen_mipmap, data) {
+            Some(handle) => {
+                let t = WebGLTextureImpl {
+                    gl: gl.clone(),
+                    state: state,
+                    width: w,
+                    height: h,
+                    level: level,
+                    pixel_format: *pformat,
+                    data_format: *dformat,
+                    is_gen_mipmap: is_gen_mipmap,
+                    handle: handle,
+                    sampler: WebGLSamplerImpl::new(stats),
+                    stats: stats.clone(),
+                };
+
+                t.apply_sampler(&t.sampler);
+
+                Ok(t)
+            }
+            None => Err("new_2d_with_data failed".to_string())
+        }
+    }
+
+    fn new_2d_impl(gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &TextureData) -> Option<WebGLTexture> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);
@@ -106,32 +176,16 @@ impl WebGLTextureImpl {
                 if is_gen_mipmap {
                     gl.generate_mipmap(WebGLRenderingContext::TEXTURE_2D);
                 }
-                
-                let t = WebGLTextureImpl {
-                    gl: gl.clone(),
-                    width: w,
-                    height: h,
-                    level: level,
-                    pixel_format: *pformat,
-                    data_format: *dformat,
-                    is_gen_mipmap: is_gen_mipmap,
-                    handle: texture,
-                    sampler: WebGLSamplerImpl::new(stats),
-                    stats: stats.clone(),
-                };
-
-                t.apply_sampler(&t.sampler);
-
-                Ok(t)
+                Some(texture)
             }
-            None => Err("new_2d_with_data failed".to_string())
+            None => None
         }
     }
 
     /** 
      * 注：data是Image或者是Canvas对象，但是那两个在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: Image | Canvas}
      */
-    pub fn new_2d_webgl(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
+    pub fn new_2d_webgl(stats: &Rc<RefCell<RenderStats>>, state: Share<State>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, level: u32, pformat: &PixelFormat, dformat: &DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<WebGLTextureImpl, String> {
         match gl.create_texture()  {
             Some(texture) => {
                 let p = get_pixel_format(pformat);
@@ -153,6 +207,7 @@ impl WebGLTextureImpl {
                 
                 let t = WebGLTextureImpl {
                     gl: gl.clone(),
+                    state: state,
                     width: w,
                     height: h,
                     level: level,

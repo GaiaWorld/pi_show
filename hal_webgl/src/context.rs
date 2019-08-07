@@ -18,6 +18,7 @@ use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 use shader::{ProgramManager};
 use debug_info::*;
+use util::*;
 
 #[derive(Debug)]
 pub struct RenderStats {
@@ -32,7 +33,7 @@ pub struct WebGLContextImpl {
     gl: Share<WebGLRenderingContext>,
     caps: Share<Capabilities>,
     default_rt: Share<WebGLRenderTargetImpl>,
-    state: State,
+    state: Share<State>,
     vao_extension: Option<Share<Object>>,
     program_mgr: ProgramManager,
     
@@ -108,7 +109,7 @@ impl Context for WebGLContextImpl {
         self.stats.borrow_mut().texture_count += 1;
         //println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
         
-        WebGLTextureImpl::new_2d(&self.stats, &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
+        WebGLTextureImpl::new_2d(&self.stats, self.state.clone(), &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
     fn create_sampler(&mut self, desc: Share<dyn AsRef<SamplerDesc>>) -> Result<Self::ContextSampler, String> {
@@ -130,7 +131,7 @@ impl Context for WebGLContextImpl {
     fn create_render_target(&mut self, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self::ContextRenderTarget, String> {
         self.stats.borrow_mut().render_target_count += 1;
         //println!("!!!!!!!!!!!!!!!!! WebGLRenderTargetImpl Create, stats = {:?} !", self.stats.borrow());
-        WebGLRenderTargetImpl::new(&self.stats, &self.gl, w, h, pformat, dformat, has_depth)
+        WebGLRenderTargetImpl::new(&self.stats, self.state.clone(), &self.gl, w, h, pformat, dformat, has_depth)
     }
 
     fn restore_state(&mut self) {
@@ -138,18 +139,20 @@ impl Context for WebGLContextImpl {
         if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
             program.use_me();
         }
-        State::apply_all_state(&self.gl, &mut self.state);
+        let state = convert_to_mut(self.state.as_ref());
+        State::apply_all_state(&self.gl, state);
     }
 
     fn begin_render(&mut self, render_target: &Share<dyn AsRef<Self::ContextRenderTarget>>, data: &Share<dyn AsRef<RenderBeginDesc>>) {
 
         // 注：暂时在这里重置所有状态
         self.restore_state();
-
-        self.state.set_render_target(render_target);
+        
+        let state = convert_to_mut(self.state.as_ref());
+        state.set_render_target(render_target);
         let data = data.as_ref().as_ref();
-        self.state.set_viewport(&data.viewport);
-        self.state.set_clear(&data.clear_color, &data.clear_depth, &data.clear_stencil);
+        state.set_viewport(&data.viewport);
+        state.set_clear(&data.clear_color, &data.clear_depth, &data.clear_stencil);
     }
 
     /** 
@@ -166,8 +169,8 @@ impl Context for WebGLContextImpl {
     }
 
     fn set_pipeline(&mut self, pipeline: &Share<dyn AsRef<Pipeline>>) {
-        
-        if !self.state.set_pipeline(pipeline) {
+        let state = convert_to_mut(self.state.as_ref());
+        if !state.set_pipeline(pipeline) {
             let p = pipeline.as_ref().as_ref();
             if let Ok(program) = self.program_mgr.get_program(p.vs_hash, p.fs_hash) {
                 program.use_me();
@@ -179,11 +182,10 @@ impl Context for WebGLContextImpl {
 
     fn draw(&mut self, geometry: &Share<dyn AsRef<Self::ContextGeometry>>, values: &FxHashMap32<Atom, Share<dyn AsRef<Uniforms<Self::ContextSelf>>>>) {
 
-
-
+        let state = convert_to_mut(self.state.as_ref());
         if let Ok(program) = self.state.get_current_program(&mut self.program_mgr) {
-            program.set_uniforms(&mut self.state, values);
-            self.state.draw(geometry);
+            program.set_uniforms(state, values);
+            state.draw(geometry);
         }
     }
 }
@@ -233,7 +235,7 @@ impl WebGLContextImpl {
             gl: gl,
             caps: Share::new(caps),
             default_rt: rt,
-            state: state,
+            state: Share::new(state),
             vao_extension: vao_extension,
             program_mgr: mgr,
             stats: stats,
@@ -248,7 +250,7 @@ impl WebGLContextImpl {
         self.stats.borrow_mut().texture_count += 1;
         //println!("!!!!!!!!!!!!!!!!! WebGLTextureImpl Create, stats = {:?} !", self.stats.borrow());
 
-        WebGLTextureImpl::new_2d_webgl(&self.stats, &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
+        WebGLTextureImpl::new_2d_webgl(&self.stats, self.state.clone(), &self.gl, w, h, level, pformat, dformat, is_gen_mipmap, data)
     }
 
     fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {

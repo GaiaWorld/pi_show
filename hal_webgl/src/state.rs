@@ -11,7 +11,7 @@ use texture::{WebGLTextureImpl};
 use sampler::{WebGLSamplerImpl};
 use geometry::{WebGLGeometryImpl};
 use render_target::{WebGLRenderTargetImpl};
-use webgl_rendering_context::{WebGLRenderingContext};
+use webgl_rendering_context::{WebGLRenderingContext, WebGLFramebuffer};
 // use debug_info::*;
 
 pub struct State {
@@ -22,7 +22,8 @@ pub struct State {
     gl: Share<WebGLRenderingContext>, 
     
     real_depth_mask: bool, // 实际的深度写入的开关
-
+    
+    pub copy_fbo: WebGLFramebuffer,
     pub pipeline: Share<dyn AsRef<Pipeline>>,
 
     geometry: Option<Share<dyn AsRef<WebGLGeometryImpl>>>,
@@ -134,12 +135,15 @@ impl State {
         };
         
         let tex_caches = TextureCache::new(gl, max_tex_unit_num as usize);
+        let copy_fbo = gl.create_framebuffer().unwrap();
         let mut state = State {
             gl: gl.clone(),
             real_depth_mask: false,
             clear_color: (1.0, 1.0, 1.0, 1.0), 
             clear_depth: 1.0, 
             clear_stencil: 0,
+
+            copy_fbo: copy_fbo,
             pipeline: Share::new(pipeline),
             
             geometry: None,
@@ -166,7 +170,11 @@ impl State {
         }
     }
 
-    fn set_render_target_impl(&mut self, rt: &Share<dyn AsRef<WebGLRenderTargetImpl>>) {
+    pub fn get_curr_rt(&self) -> Share<dyn AsRef<WebGLRenderTargetImpl>> {
+        self.target.clone()
+    }
+
+    pub fn set_render_target_impl(&mut self, rt: &Share<dyn AsRef<WebGLRenderTargetImpl>>) {
         let fbo = &rt.as_ref().as_ref().frame_buffer;
         if fbo.is_none() {
             js! {

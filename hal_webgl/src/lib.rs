@@ -26,6 +26,7 @@ mod convert;
 mod extension;
 mod state;
 mod shader;
+mod util;
 
 use share::{Share};
 use webgl_rendering_context::{WebGLRenderingContext};
@@ -36,6 +37,7 @@ pub use self::geometry::{WebGLGeometryImpl};
 pub use self::context::{WebGLContextImpl};
 pub use self::texture::{WebGLTextureImpl};
 pub use self::convert::*;
+pub use self::util::*;
 
 use stdweb::{Object};
 

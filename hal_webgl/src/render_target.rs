@@ -2,7 +2,7 @@ use share::{Share, ShareWeak};
 use hal_core::*;
 use texture::{WebGLTextureImpl};
 use context::{WebGLContextImpl};
-
+use state::{State};
 use stdweb::{Object};
 use stdweb::unstable::TryInto;
 use webgl_rendering_context::{WebGLRenderingContext, WebGLRenderbuffer};
@@ -21,13 +21,11 @@ pub struct WebGLRenderBufferImpl {
     handle: WebGLRenderbuffer,
 }
 
-#[derive(Debug)]
 pub enum RenderTargetAttach {
     Texture(Share<WebGLTextureImpl>),
     Buffer(Share<WebGLRenderBufferImpl>),
 }
 
-#[derive(Debug)]
 pub struct WebGLRenderTargetImpl {
 
     gl: ShareWeak<WebGLRenderingContext>,
@@ -35,7 +33,7 @@ pub struct WebGLRenderTargetImpl {
     pub is_default: bool, // 注：不能从默认的渲染目标上取color depth
     pub frame_buffer: Option<Object>,
     color: Option<RenderTargetAttach>,
-    depth: Option<RenderTargetAttach>,
+    _depth: Option<RenderTargetAttach>,
     width: u32,
     height: u32,
     stats: Rc<RefCell<RenderStats>>,
@@ -99,14 +97,14 @@ impl WebGLRenderTargetImpl {
             is_default: true,
             frame_buffer: fbo,
             color: None,    
-            depth: None,
+            _depth: None,
             width: w,
             height: h,
             stats: stats.clone(),
         }
     }
 
-    pub fn new(stats: &Rc<RefCell<RenderStats>>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
+    pub fn new(stats: &Rc<RefCell<RenderStats>>, state: Share<State>, gl: &Share<WebGLRenderingContext>, w: u32, h: u32, pformat: &PixelFormat, dformat: &DataFormat, has_depth: bool) -> Result<Self, String> {
         
         match TryInto::<Object>::try_into(js! {
             var fbo = @{gl.as_ref()}.createFramebuffer();
@@ -123,7 +121,7 @@ impl WebGLRenderTargetImpl {
                 let fb_type = WebGLRenderingContext::FRAMEBUFFER;
                 let tex_target = WebGLRenderingContext::TEXTURE_2D;
                 let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
-                let color = match WebGLTextureImpl::new_2d(stats, gl, w, h, 0, pformat, dformat, false, &TextureData::None) {
+                let color = match WebGLTextureImpl::new_2d(stats, state, gl, w, h, 0, pformat, dformat, false, &TextureData::None) {
                     Ok(texture) => {
                         gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&texture.handle), 0);
                         Some(RenderTargetAttach::Texture(Share::new(texture)))
@@ -150,7 +148,7 @@ impl WebGLRenderTargetImpl {
                     is_default: false,
                     frame_buffer: Some(fb),
                     color: color,
-                    depth: depth,
+                    _depth: depth,
                     width: w,
                     height: h,
                     stats: stats.clone(),
