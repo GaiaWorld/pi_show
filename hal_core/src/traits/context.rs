@@ -1,77 +1,67 @@
-use share::{Share, ShareWeak};
+use share::{Share};
 
 use common::*;
 use traits::uniform_buffer::{ProgramParamter};
 
-/**
- * 外部不需要关心HalAll和HalDestroy这两个trait
- */
-pub trait HalAll: HalContext + HalDestroy {}
-
-pub struct HalBuffer {
+#[derive(Clone)]
+pub struct HalItem {
     pub index: u32, 
     pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+}
+
+pub struct HalBuffer {
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalGeometry {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalProgram {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalRenderTarget {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalRenderBuffer {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalRasterState {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalDepthState {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalStencilState {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalBlendState {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalSampler {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 pub struct HalTexture {
-    pub index: u32, 
-    pub use_count: u32,
-    pub context: ShareWeak<dyn HalAll>, 
+    pub item: HalItem,
+    pub destroy_func: Share<dyn Fn(u32, u32)>,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug, Hash)]
@@ -103,89 +93,67 @@ pub enum TextureData<'a> {
 
 impl Drop for HalBuffer {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.buffer_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalGeometry {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.geometry_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalProgram {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.program_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalRenderTarget {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.rt_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalRenderBuffer {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.rb_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalRasterState {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.rs_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalDepthState {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.ds_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalStencilState {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.ss_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalBlendState {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.bs_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalSampler {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.sampler_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
 impl Drop for HalTexture {
     fn drop(&mut self) {
-        if let Some(context) = self.context.upgrade() {
-            context.texture_destroy(self.index, self.use_count);
-        }
+        self.destroy_func.as_ref()(self.item.index, self.item.use_count);
     }
 }
 
@@ -391,21 +359,4 @@ pub trait HalContext {
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
     fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
-}
-
-/**
- * 这个trait外部不需要关心，仅提供给具体渲染库使用
- */
-pub trait HalDestroy {
-    fn buffer_destroy(&self, index: u32, use_count: u32);
-    fn geometry_destroy(&self, index: u32, use_count: u32);
-    fn program_destroy(&self, index: u32, use_count: u32);
-    fn rt_destroy(&self, index: u32, use_count: u32);
-    fn rb_destroy(&self, index: u32, use_count: u32);
-    fn texture_destroy(&self, index: u32, use_count: u32);
-    fn sampler_destroy(&self, index: u32, use_count: u32);
-    fn rs_destroy(&self, index: u32, use_count: u32);
-    fn ds_destroy(&self, index: u32, use_count: u32);
-    fn ss_destroy(&self, index: u32, use_count: u32);
-    fn bs_destroy(&self, index: u32, use_count: u32);
 }

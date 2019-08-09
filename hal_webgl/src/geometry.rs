@@ -84,7 +84,7 @@ impl WebGLGeometryImpl  {
             count: count,
             item_count: item_count,
             stride: stride,
-            handle: (wrap.index, wrap.use_count),
+            handle: (wrap.item.index, wrap.item.use_count),
         });
 
          if let Some(vao) = &self.vao {
@@ -134,7 +134,7 @@ impl WebGLGeometryImpl  {
         self.indices = Some(Indices {
             offset: offset,
             count: count,
-            handle: (wrap.index, wrap.use_count),
+            handle: (wrap.item.index, wrap.item.use_count),
         });
 
         if let Some(vao) = &self.vao {

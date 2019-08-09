@@ -79,7 +79,7 @@ impl TextureCache {
     }
 
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
-        texture: &HalTexture, sampler: &HalSampler,
+        texture: &HalItem, sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> (u32, bool) {
         
         if let (Some(t), Some(s)) = (get_mut_ref(texture_slab, texture.index, texture.use_count), get_ref(sampler_slab, sampler.index, sampler.use_count)) {
@@ -116,7 +116,7 @@ impl TextureCache {
             t.curr_sampler = (sampler.index, sampler.use_count);
             
             gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
-            gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
+            gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle)) ;
             t.apply_sampler(gl, s);
 
             return (unit as u32, true);
@@ -128,7 +128,7 @@ impl TextureCache {
 
 impl StateMachine {
 
-    pub fn new(gl: &WebGLRenderingContext, rt: &HalRenderTarget, max_attributes: u32,
+    pub fn new(gl: &WebGLRenderingContext, max_attributes: u32,
         max_tex_unit_num: u32, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) -> StateMachine {
         
         let tex_caches = TextureCache::new(max_tex_unit_num as usize);
@@ -141,7 +141,7 @@ impl StateMachine {
             
             program: (0, 0),
             geometry: (0, 0),
-            target: (rt.index, rt.use_count),
+            target: (0, 0),
             viewport_rect: (0, 0, 0, 0),
             
             rs: (0, 0),
@@ -176,7 +176,7 @@ impl StateMachine {
 
     #[inline(always)]
     pub fn use_texture(&mut self, gl: &WebGLRenderingContext, 
-        texture: &HalTexture, sampler: &HalSampler,
+        texture: &HalItem, sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, sampler_slab: &mut Slab<(SamplerDesc, u32)>) -> (u32, bool) {
         self.tex_caches.use_texture(gl, texture, sampler, texture_slab, sampler_slab)
     }
@@ -185,10 +185,10 @@ impl StateMachine {
      * 返回是否切换渲染目标
      */
     pub fn set_render_target(&mut self, gl: &WebGLRenderingContext, rt: &HalRenderTarget, rtimpl: &WebGLRenderTargetImpl) -> bool {
-        let is_change = self.target.0 != rt.index || self.target.1 != rt.use_count;
+        let is_change = self.target.0 != rt.item.index || self.target.1 != rt.item.use_count;
         if is_change {
             self.set_render_target_impl(gl, rtimpl);
-            self.target = (rt.index, rt.use_count);
+            self.target = (rt.item.index, rt.item.use_count);
         }
         is_change
     }
@@ -246,27 +246,27 @@ impl StateMachine {
         rs: &HalRasterState, bs: &HalBlendState, ss: &HalStencilState, ds: &HalDepthState, 
         rsdesc: &RasterStateDesc, bsdesc: &BlendStateDesc, ssdesc: &StencilStateDesc, dsdesc: &DepthStateDesc) {
         
-        if self.rs.0 != rs.index || self.rs.1 != rs.use_count {
+        if self.rs.0 != rs.item.index || self.rs.1 != rs.item.use_count {
             Self::set_raster_state(&gl, Some(&self.rsdesc), rsdesc);
-            self.rs = (rs.index, rs.use_count);
+            self.rs = (rs.item.index, rs.item.use_count);
             self.rsdesc = rsdesc.clone();
         }
-        if self.ds.0 != ds.index || self.ds.1 != ds.use_count {
+        if self.ds.0 != ds.item.index || self.ds.1 != ds.item.use_count {
             Self::set_depth_state(&gl, Some(&self.dsdesc), dsdesc, &mut self.real_depth_mask);
             
-            self.ds = (ds.index, ds.use_count);
+            self.ds = (ds.item.index, ds.item.use_count);
             self.dsdesc = dsdesc.clone();
         }
-        if self.ss.0 != ss.index || self.ss.1 != ss.use_count {
+        if self.ss.0 != ss.item.index || self.ss.1 != ss.item.use_count {
             Self::set_stencil_state(&gl, Some(&self.ssdesc), ssdesc);
 
-            self.ss = (ss.index, ss.use_count);
+            self.ss = (ss.item.index, ss.item.use_count);
             self.ssdesc = ssdesc.clone();
         }
-        if self.bs.0 != bs.index || self.bs.1 != bs.use_count {
+        if self.bs.0 != bs.item.index || self.bs.1 != bs.item.use_count {
             Self::set_blend_state(&gl, Some(&self.bsdesc), bsdesc);
 
-            self.bs = (bs.index, bs.use_count);
+            self.bs = (bs.item.index, bs.item.use_count);
             self.bsdesc = bsdesc.clone();
         }
     }
@@ -275,10 +275,10 @@ impl StateMachine {
      * 返回是否切换program
      */
     pub fn set_program(&mut self, gl: &WebGLRenderingContext, program: &HalProgram, pimpl: &WebGLProgramImpl) -> bool {
-        let is_change = self.program.0 != program.index || self.program.1 != program.use_count;
+        let is_change = self.program.0 != program.item.index || self.program.1 != program.item.use_count;
         if is_change {
             gl.use_program(Some(&pimpl.handle));
-            self.program = (program.index, program.use_count);
+            self.program = (program.item.index, program.item.use_count);
         }
         is_change
     }
@@ -337,7 +337,7 @@ impl StateMachine {
      */
     pub fn draw(&mut self, gl: &WebGLRenderingContext, vao_extension: &Option<Object>, geometry: &HalGeometry, gimpl: &WebGLGeometryImpl, buffer_slab: &Slab<(WebGLBufferImpl, u32)>) -> bool {
 
-        let need_set_geometry = geometry.index != self.geometry.0 || geometry.use_count != self.geometry.1;
+        let need_set_geometry = geometry.item.index != self.geometry.0 || geometry.item.use_count != self.geometry.1;
         if need_set_geometry {            
             match &gimpl.vao {
                 Some(vao) => {
@@ -371,7 +371,7 @@ impl StateMachine {
                 }
             }
             
-            self.geometry = (geometry.index, geometry.use_count);
+            self.geometry = (geometry.item.index, geometry.item.use_count);
         }
         
         match &gimpl.indices {

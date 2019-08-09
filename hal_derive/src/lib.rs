@@ -141,7 +141,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
         pub struct #name {
             uniforms: [Share<dyn UniformBuffer>; #uniform_count],
             single_uniforms: [UniformValue; #single_uniform_count],
-            textures: [((u32, u32, ShareWeak<dyn HalAll>), (u32, u32, ShareWeak<dyn HalAll>)); #textrue_count],
+            textures: [((u32, u32), (u32, u32)); #textrue_count],
         }
 
         impl std::default::Default for #name{
@@ -187,8 +187,8 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             }
 
             #[inline]
-            fn get_textures(&self) -> &[(HalTexture, HalSampler)] {
-                unsafe { &(* (&self.textures as *const [((u32, u32, ShareWeak<dyn HalAll>), (u32, u32, ShareWeak<dyn HalAll>)); #textrue_count] as usize as *const [(HalTexture, HalSampler); #textrue_count]))[..] }
+            fn get_textures(&self) -> &[(HalItem, HalItem)] {
+                unsafe { &(* (&self.textures as *const [((u32, u32), (u32, u32)); #textrue_count] as usize as *const [(HalItem, HalItem); #textrue_count]))[..] }
             }
 
             fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
@@ -205,7 +205,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                 }
             }
 
-            fn get_texture(&self, name: &str) -> Option<&(HalTexture, HalSampler)> {
+            fn get_texture(&self, name: &str) -> Option<&(HalItem, HalItem)> {
                 match name {
                     #texture_get_value_match
                     _ => None,
@@ -442,8 +442,8 @@ impl<'a> ToTokens for TextureSetValueMatch<'a> {
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
                     #field_name_str => {
-                        s.textures[#index].0 = (value.0.index, value.0.use_count, value.0.context.clone());
-                        s.textures[#index].1 = (value.1.index, value.1.use_count, value.1.context.clone());
+                        s.textures[#index].0 = (value.0.item.index, value.0.item.use_count);
+                        s.textures[#index].1 = (value.1.item.index, value.1.item.use_count);
                     },
                 });
                 i += 1;
@@ -481,7 +481,7 @@ impl<'a> ToTokens for TextureDefaultValueMatch<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         for v in self.0.iter(){
             if v.ty.clone().into_token_stream().to_string().contains("HalTexture"){
-                tokens.extend(quote! {( (0, 0, unsafe {std::mem::transmute::<_, ShareWeak<dyn HalAll>>((std::ptr::NonNull::new(std::usize::MAX as *mut usize).expect("MAX is not 0"), 0 as usize)) } ), (0, 0, unsafe {std::mem::transmute::<_, ShareWeak<dyn HalAll>>((std::ptr::NonNull::new(std::usize::MAX as *mut usize).expect("MAX is not 0"), 0 as usize)) }) ),});
+                tokens.extend(quote! {( (0, 0), (0, 0) ),});
             }
         }      
     }
@@ -531,7 +531,7 @@ impl<'a> ToTokens for TextureGetValueMatch<'a> {
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
                     #field_name_str => Some(
-                        unsafe { &*( &self.textures[#index] as *const ((u32, u32, ShareWeak<dyn HalAll>), (u32, u32, ShareWeak<dyn HalAll>)) as usize as *const (HalTexture, HalSampler))}
+                        unsafe { &*( &self.textures[#index] as *const ((u32, u32), (u32, u32)) as usize as *const (HalItem, HalItem))}
                     ),
                 });
                 i += 1;
