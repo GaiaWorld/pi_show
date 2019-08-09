@@ -1,6 +1,6 @@
 use atom::{Atom};
 use slab::{Slab};
-use share::{Share, ShareWeak};
+use share::{Share};
 use webgl_rendering_context::{WebGLRenderingContext};
 use stdweb::{Object};
 use stdweb::unstable::TryInto;
@@ -80,14 +80,11 @@ impl RenderStat {
     }
 }
 
-pub struct WebglHalContext {
+pub struct WebglHalContextImpl {
 
     // 用于给每个context
-    pub context: ShareWeak<WebglHalContext>,
 
     pub stat: RenderStat,
-
-    pub default_rt: HalRenderTarget,
 
     // 具体实现
     pub gl: WebGLRenderingContext,
@@ -110,103 +107,113 @@ pub struct WebglHalContext {
     pub program_slab: Slab<(WebGLProgramImpl, u32)>,
 }
 
+pub struct WebglHalContext(Share<WebglHalContextImpl>, HalRenderTarget);
+
 impl HalContext for WebglHalContext {
 
     // ==================== HalBuffer
     
     fn buffer_create(&self, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> Result<HalBuffer, String> {
-        WebGLBufferImpl::new(&self.gl, btype, count, data, is_updatable).map(|buffer| {
-            let context = convert_to_mut(self);
+        WebGLBufferImpl::new(&self.0.gl, btype, count, data, is_updatable).map(|buffer| {
+            let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.buffer_slab, buffer);
             context.stat.buffer_count += 1;
-            let context = self.context.clone();
-            HalBuffer{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalBuffer {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.buffer_destroy(index, use_count); }),
+            }
         })
     }
 
     fn buffer_update(&self, buffer: &HalBuffer, offset: usize, data: BufferData) {
-        let context = convert_to_mut(self);
-        if let Some(buffer) = get_mut_ref(&mut context.buffer_slab, buffer.index, buffer.use_count) {
-            buffer.update(&self.gl, offset, data);
+        let context = convert_to_mut(self.0.as_ref());
+        if let Some(buffer) = get_mut_ref(&mut context.buffer_slab, buffer.item.index, buffer.item.use_count) {
+            buffer.update(&self.0.gl, offset, data);
         }
     }
     
     // ==================== HalGeometry
 
     fn geometry_create(&self) -> Result<HalGeometry, String> {
-        WebGLGeometryImpl::new(&self.vao_extension).map(|geometry| {
-            let context = convert_to_mut(self);
+        WebGLGeometryImpl::new(&self.0.vao_extension).map(|geometry| {
+            let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.geometry_slab, geometry);
             context.stat.geometry_count += 1;
-            let context = self.context.clone();
-            HalGeometry{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalGeometry {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.geometry_destroy(index, use_count); }),
+            }
         })
     }
 
     fn geometry_get_vertex_count(&self, geometry: &HalGeometry) -> u32 {
-        get_ref(&self.geometry_slab, geometry.index, geometry.use_count).map_or(0, |geometry| {
+        get_ref(&self.0.geometry_slab, geometry.item.index, geometry.item.use_count).map_or(0, |geometry| {
             geometry.get_vertex_count()
         })
     }
 
     fn geometry_set_vertex_count(&self, geometry: &HalGeometry, count: u32) {
-        let slab = convert_to_mut(&self.geometry_slab);
-        if let Some(geometry) = get_mut_ref(slab, geometry.index, geometry.use_count) {
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        if let Some(geometry) = get_mut_ref(slab, geometry.item.index, geometry.item.use_count) {
             geometry.set_vertex_count(count);
         }
     }
 
     fn geometry_set_attribute(&self, geometry: &HalGeometry, name: &AttributeName, buffer: &HalBuffer, item_count: usize) -> Result<(), String> {
-        let slab = convert_to_mut(&self.geometry_slab);
-        let g = get_mut_ref(slab, geometry.index, geometry.use_count).ok_or("geometry isn't found")?;
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        let g = get_mut_ref(slab, geometry.item.index, geometry.item.use_count).ok_or("geometry isn't found")?;
         
-        let slab = convert_to_mut(&self.buffer_slab);
-        let b = get_mut_ref(slab, buffer.index, buffer.use_count).ok_or("buffer isn't found")?;
+        let slab = convert_to_mut(&self.0.buffer_slab);
+        let b = get_mut_ref(slab, buffer.item.index, buffer.item.use_count).ok_or("buffer isn't found")?;
 
-        g.set_attribute(&self.gl, &self.vao_extension, name, b, buffer, item_count)
+        g.set_attribute(&self.0.gl, &self.0.vao_extension, name, b, buffer, item_count)
     }
 
     fn geometry_set_attribute_with_offset(&self, geometry: &HalGeometry, name: &AttributeName, buffer: &HalBuffer, item_count: usize, offset: usize, count: usize, stride: usize) -> Result<(), String> {
-        let slab = convert_to_mut(&self.geometry_slab);
-        let g = get_mut_ref(slab, geometry.index, geometry.use_count).ok_or("geometry isn't found")?;
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        let g = get_mut_ref(slab, geometry.item.index, geometry.item.use_count).ok_or("geometry isn't found")?;
         
-        let slab = convert_to_mut(&self.buffer_slab);
-        let b = get_mut_ref(slab, buffer.index, buffer.use_count).ok_or("buffer isn't found")?;
+        let slab = convert_to_mut(&self.0.buffer_slab);
+        let b = get_mut_ref(slab, buffer.item.index, buffer.item.use_count).ok_or("buffer isn't found")?;
 
-        g.set_attribute_with_offset(&self.gl, &self.vao_extension, name, b, buffer, item_count, offset, count, stride)
+        g.set_attribute_with_offset(&self.0.gl, &self.0.vao_extension, name, b, buffer, item_count, offset, count, stride)
     }
       
     fn geometry_remove_attribute(&self, geometry: &HalGeometry, name: &AttributeName) {
-        let slab = convert_to_mut(&self.geometry_slab);
-        if let Some(g) = get_mut_ref(slab, geometry.index, geometry.use_count) {
-            g.remove_attribute(&self.gl, &self.vao_extension, name);
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        if let Some(g) = get_mut_ref(slab, geometry.item.index, geometry.item.use_count) {
+            g.remove_attribute(&self.0.gl, &self.0.vao_extension, name);
         }
     }
  
     fn geometry_set_indices_short(&self, geometry: &HalGeometry, buffer: &HalBuffer) -> Result<(), String> {
-        let slab = convert_to_mut(&self.geometry_slab);
-        let g = get_mut_ref(slab, geometry.index, geometry.use_count).ok_or("geometry isn't found")?;
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        let g = get_mut_ref(slab, geometry.item.index, geometry.item.use_count).ok_or("geometry isn't found")?;
         
-        let slab = convert_to_mut(&self.buffer_slab);
-        let b = get_mut_ref(slab, buffer.index, buffer.use_count).ok_or("buffer isn't found")?;
+        let slab = convert_to_mut(&self.0.buffer_slab);
+        let b = get_mut_ref(slab, buffer.item.index, buffer.item.use_count).ok_or("buffer isn't found")?;
 
-        g.set_indices_short(&self.gl, &self.vao_extension, b, buffer)
+        g.set_indices_short(&self.0.gl, &self.0.vao_extension, b, buffer)
     }
     
     fn geometry_set_indices_short_with_offset(&self, geometry: &HalGeometry, buffer: &HalBuffer, offset: usize, count: usize) -> Result<(), String> {
-        let slab = convert_to_mut(&self.geometry_slab);
-        let g = get_mut_ref(slab, geometry.index, geometry.use_count).ok_or("geometry isn't found")?;
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        let g = get_mut_ref(slab, geometry.item.index, geometry.item.use_count).ok_or("geometry isn't found")?;
         
-        let slab = convert_to_mut(&self.buffer_slab);
-        let b = get_mut_ref(slab, buffer.index, buffer.use_count).ok_or("buffer isn't found")?;
+        let slab = convert_to_mut(&self.0.buffer_slab);
+        let b = get_mut_ref(slab, buffer.item.index, buffer.item.use_count).ok_or("buffer isn't found")?;
         
-        g.set_indices_short_with_offset(&self.gl, &self.vao_extension, b, buffer, offset, count)
+        g.set_indices_short_with_offset(&self.0.gl, &self.0.vao_extension, b, buffer, offset, count)
     }
 
     fn geometry_remove_indices(&self, geometry: &HalGeometry) {
-        let slab = convert_to_mut(&self.geometry_slab);
-        if let Some(g) = get_mut_ref(slab, geometry.index, geometry.use_count) {
-            g.remove_indices(&self.gl, &self.vao_extension);
+        let slab = convert_to_mut(&self.0.geometry_slab);
+        if let Some(g) = get_mut_ref(slab, geometry.item.index, geometry.item.use_count) {
+            g.remove_indices(&self.0.gl, &self.0.vao_extension);
         }
     }
 
@@ -216,13 +223,17 @@ impl HalContext for WebglHalContext {
         let vs_name = Atom::from(vs_name);
         let fs_name = Atom::from(fs_name);
 
-        let shader_cache = convert_to_mut(&self.shader_cache);
-        WebGLProgramImpl::new_with_vs_fs(&self.gl, &self.caps, shader_cache, vs_id, fs_id, &vs_name, vs_defines, &fs_name, fs_defines, uniform_layout).map(|program| {
-            let context = convert_to_mut(self);
+        let shader_cache = convert_to_mut(&self.0.shader_cache);
+        WebGLProgramImpl::new_with_vs_fs(&self.0.gl, &self.0.caps, shader_cache, vs_id, fs_id, &vs_name, vs_defines, &fs_name, fs_defines, uniform_layout).map(|program| {
+            let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.program_slab, program);
             context.stat.program_count += 1;
-            let context = self.context.clone();
-            HalProgram{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalProgram {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.program_destroy(index, use_count); }),
+            }
         })
     }
 
@@ -242,92 +253,104 @@ impl HalContext for WebglHalContext {
             None
         };
 
-        let texture = get_ref(&self.texture_slab, texture_wrap.index, texture_wrap.use_count).unwrap();
+        let texture = get_ref(&self.0.texture_slab, texture_wrap.item.index, texture_wrap.item.use_count).unwrap();
 
         let rb = if has_depth {
             let r = rb_wrap.as_ref().unwrap();
-            Some(get_ref(&self.rb_slab, r.index, r.use_count).unwrap())
+            Some(get_ref(&self.0.rb_slab, r.item.index, r.item.use_count).unwrap())
         } else {
             None
         };
         
-        WebGLRenderTargetImpl::new(&self.gl, w, h, texture, rb, texture_wrap, rb_wrap).map(|rt| {
-            let context = convert_to_mut(self);
+        WebGLRenderTargetImpl::new(&self.0.gl, w, h, texture, rb, texture_wrap, rb_wrap).map(|rt| {
+            let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.rt_slab, rt);
             context.stat.rt_count += 1;
-            let context = self.context.clone();
-            HalRenderTarget{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalRenderTarget {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.rt_destroy(index, use_count); }),
+            }
         })
     }
 
     fn rt_get_size(&self, rt: &HalRenderTarget) -> (u32, u32) {
-        get_ref(&self.rt_slab, rt.index, rt.use_count).map(|rt| rt.get_size()).unwrap()
+        get_ref(&self.0.rt_slab, rt.item.index, rt.item.use_count).map(|rt| rt.get_size()).unwrap()
     }
 
     fn rt_get_color_texture(&self, rt: &HalRenderTarget, _index: u32) -> Option<&HalTexture> {
-        get_ref(&self.rt_slab, rt.index, rt.use_count).and_then(|rt| rt.get_color_texture())
+        get_ref(&self.0.rt_slab, rt.item.index, rt.item.use_count).and_then(|rt| rt.get_color_texture())
     }
 
     // ==================== HalRenderBuffer
 
     fn rb_create(&self, w: u32, h: u32, pformat: PixelFormat) -> Result<HalRenderBuffer, String> {
-        WebGLRenderBufferImpl::new(&self.gl, w, h, pformat).map(|rb| {
-            let slab = convert_to_mut(&self.rb_slab);
+        WebGLRenderBufferImpl::new(&self.0.gl, w, h, pformat).map(|rb| {
+            let slab = convert_to_mut(&self.0.rb_slab);
             let (index, use_count) = create_new_slot(slab, rb);
-            let context = self.context.clone();
-            HalRenderBuffer{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalRenderBuffer {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.rb_destroy(index, use_count); }),
+            }
         })
     }
     
     fn rb_get_size(&self, rb: &HalRenderBuffer) -> (u32, u32) {
-        get_ref(&self.rb_slab, rb.index, rb.use_count).map(|rb| rb.get_size()).unwrap()
+        get_ref(&self.0.rb_slab, rb.item.index, rb.item.use_count).map(|rb| rb.get_size()).unwrap()
     }
 
 
     // ==================== HalTexture
 
     fn texture_create_2d(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: Option<TextureData>) -> Result<HalTexture, String> {
-        WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, data, None).map(|texture| {
-            let context = convert_to_mut(self);
+        WebGLTextureImpl::new_2d(&self.0.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, data, None).map(|texture| {
+            let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.texture_slab, texture);
             context.stat.texture_count += 1;
-            let context = self.context.clone();
-            HalTexture{context, index, use_count}
+            
+            let context_impl = self.0.clone();
+            HalTexture {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.texture_destroy(index, use_count); }),
+            }
         })
     }
 
     fn texture_get_size(&self, texture: &HalTexture) -> (u32, u32) {
-        get_ref(&self.texture_slab, texture.index, texture.use_count).map(|tex| tex.get_size()).unwrap()
+        get_ref(&self.0.texture_slab, texture.item.index, texture.item.use_count).map(|tex| tex.get_size()).unwrap()
     }
 
     fn texture_get_render_format(&self, texture: &HalTexture) -> PixelFormat {
-        get_ref(&self.texture_slab, texture.index, texture.use_count).map(|tex| tex.get_render_format()).unwrap()
+        get_ref(&self.0.texture_slab, texture.item.index, texture.item.use_count).map(|tex| tex.get_render_format()).unwrap()
     }
 
     fn texture_is_gen_mipmap(&self, texture: &HalTexture) -> bool {
-        get_ref(&self.texture_slab, texture.index, texture.use_count).map_or(false, |tex| tex.is_gen_mipmap())
+        get_ref(&self.0.texture_slab, texture.item.index, texture.item.use_count).map_or(false, |tex| tex.is_gen_mipmap())
     }
 
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData) {
-        let slab = convert_to_mut(&self.texture_slab);
-        if let Some(t) = get_mut_ref(slab, texture.index, texture.use_count) {
-            t.update(&self.gl, mipmap_level, Some(data), None);
+        let slab = convert_to_mut(&self.0.texture_slab);
+        if let Some(t) = get_mut_ref(slab, texture.item.index, texture.item.use_count) {
+            t.update(&self.0.gl, mipmap_level, Some(data), None);
         }
     }
 
     fn texture_copy(&self, dst: &HalTexture, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
-        if let Some(dst) = get_ref(&self.texture_slab, dst.index, dst.use_count) {
+        if let Some(dst) = get_ref(&self.0.texture_slab, dst.item.index, dst.item.use_count) {
             self.texture_copy_impl(dst, src, src_mipmap_level, src_x, src_y, dst_x, dst_y, width, height);
         }
     }
 
     fn texture_extend(&self, texture: &HalTexture, width: u32, height: u32) -> bool {
-        let slab = convert_to_mut(&self.texture_slab);
-        if let Some(old_tex) = get_mut_ref(slab, texture.index, texture.use_count) {
-            match WebGLTextureImpl::new_2d(&self.gl, 0, width, height, old_tex.pixel_format, old_tex.data_format, old_tex.is_gen_mipmap, None, None) {
+        let slab = convert_to_mut(&self.0.texture_slab);
+        if let Some(old_tex) = get_mut_ref(slab, texture.item.index, texture.item.use_count) {
+            match WebGLTextureImpl::new_2d(&self.0.gl, 0, width, height, old_tex.pixel_format, old_tex.data_format, old_tex.is_gen_mipmap, None, None) {
                 Ok(dst) => {
                     self.texture_copy_impl(&dst, texture, 0, 0, 0, 0, 0, old_tex.width, old_tex.height);
-                    old_tex.delete(&self.gl);
+                    old_tex.delete(&self.0.gl);
                     old_tex.width = width;
                     old_tex.height = height;
                     
@@ -350,85 +373,105 @@ impl HalContext for WebglHalContext {
     // ==================== HalSampler
 
     fn sampler_create(&self, desc: SamplerDesc) -> Result<HalSampler, String> {
-        let slab = convert_to_mut(&self.sampler_slab);
+        let slab = convert_to_mut(&self.0.sampler_slab);
         let (index, use_count) = create_new_slot(slab, desc);
-        let context = self.context.clone();
-        Ok(HalSampler{context, index, use_count})
+            
+        let context_impl = self.0.clone();
+        Ok(HalSampler {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.sampler_destroy(index, use_count); }),
+        })
     }
 
     fn sampler_get_desc(&self, sampler: &HalSampler) -> &SamplerDesc {
-        get_ref(&self.sampler_slab, sampler.index, sampler.use_count).unwrap()
+        get_ref(&self.0.sampler_slab, sampler.item.index, sampler.item.use_count).unwrap()
     }
 
     // ==================== HalRasterState
 
     fn rs_create(&self, desc: RasterStateDesc) -> Result<HalRasterState, String> {
-        let slab = convert_to_mut(&self.rs_slab);
+        let slab = convert_to_mut(&self.0.rs_slab);
         let (index, use_count) = create_new_slot(slab, desc);
-        let context = self.context.clone();
-        Ok(HalRasterState{context, index, use_count})
+        
+        let context_impl = self.0.clone();
+        Ok(HalRasterState {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.rs_destroy(index, use_count); }),
+        })
     }
 
     fn rs_get_desc(&self, state: &HalRasterState) -> &RasterStateDesc {
-        get_ref(&self.rs_slab, state.index, state.use_count).unwrap()
+        get_ref(&self.0.rs_slab, state.item.index, state.item.use_count).unwrap()
     }
 
     // ==================== HalDepthState
 
     fn ds_create(&self, desc: DepthStateDesc) -> Result<HalDepthState, String> {
-        let slab = convert_to_mut(&self.ds_slab);
+        let slab = convert_to_mut(&self.0.ds_slab);
         let (index, use_count) = create_new_slot(slab, desc);
-        let context = self.context.clone();
-        Ok(HalDepthState{context, index, use_count})
+        
+        let context_impl = self.0.clone();
+        Ok(HalDepthState {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.ds_destroy(index, use_count); }),
+        })
     }
     
     fn ds_get_desc(&self, state: &HalDepthState) -> &DepthStateDesc {
-        get_ref(&self.ds_slab, state.index, state.use_count).unwrap()
+        get_ref(&self.0.ds_slab, state.item.index, state.item.use_count).unwrap()
     }
 
     // ==================== HalStencilState
 
     fn ss_create(&self, desc: StencilStateDesc) -> Result<HalStencilState, String> {
-        let slab = convert_to_mut(&self.ss_slab);
+        let slab = convert_to_mut(&self.0.ss_slab);
         let (index, use_count) = create_new_slot(slab, desc);
-        let context = self.context.clone();
-        Ok(HalStencilState{context, index, use_count})
+        
+        let context_impl = self.0.clone();
+        Ok(HalStencilState {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.ss_destroy(index, use_count); }),
+        })
     }
 
     fn ss_get_desc(&self, state: &HalStencilState) -> &StencilStateDesc {
-        get_ref(&self.ss_slab, state.index, state.use_count).unwrap()
+        get_ref(&self.0.ss_slab, state.item.index, state.item.use_count).unwrap()
     }
 
     // ==================== HalBlendState
     
     fn bs_create(&self, desc: BlendStateDesc) -> Result<HalBlendState, String> {
-        let slab = convert_to_mut(&self.bs_slab);
+        let slab = convert_to_mut(&self.0.bs_slab);
         let (index, use_count) = create_new_slot(slab, desc);
-        let context = self.context.clone();
-        Ok(HalBlendState{context, index, use_count})
+        
+        let context_impl = self.0.clone();
+        Ok(HalBlendState {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.bs_destroy(index, use_count); }),
+        })
     }
     
     fn bs_get_desc(&self, state: &HalBlendState) -> &BlendStateDesc {
-        get_ref(&self.bs_slab, state.index, state.use_count).unwrap()
+        get_ref(&self.0.bs_slab, state.item.index, state.item.use_count).unwrap()
     }
 
     // ==================== 上下文相关
 
     fn render_get_caps(&self) -> &Capabilities {
-        &self.caps
+        &self.0.caps
     }
 
     fn render_get_default_target(&self) -> &HalRenderTarget {
-        &self.default_rt
+        &self.1
     }
 
     fn render_set_shader_code(&self, name: &str, code: &str) {
-        let cache = convert_to_mut(&self.shader_cache);
+        let cache = convert_to_mut(&self.0.shader_cache);
         cache.set_shader_code(name, code)
     }
 
     fn restore_state(&self) {
-        let context = convert_to_mut(self);
+        let context = convert_to_mut(self.0.as_ref());
         context.state_machine.apply_all_state(&context.gl, &mut context.texture_slab, &mut context.rt_slab);
     }
 
@@ -437,12 +480,12 @@ impl HalContext for WebglHalContext {
         // 注：暂时在这里重置所有状态
         self.restore_state();
         
-        let context = convert_to_mut(self);
+        let context = convert_to_mut(self.0.as_ref());
         
         #[cfg(feature = "frame_stat")]
         context.stat.reset_frame();
 
-        let rt = get_ref(&context.rt_slab, render_target.index, render_target.use_count).expect("rt param not found");
+        let rt = get_ref(&context.rt_slab, render_target.item.index, render_target.item.use_count).expect("rt param not found");
         if context.state_machine.set_render_target(&context.gl, render_target, rt) {
             #[cfg(feature = "frame_stat")]
             context.stat.add_rt_change();
@@ -452,7 +495,7 @@ impl HalContext for WebglHalContext {
     }
     
     fn render_end(&self) {
-        if let Some(vao_extension) = &self.vao_extension {
+        if let Some(vao_extension) = &self.0.vao_extension {
             let extension = vao_extension.as_ref();
             js! {
                 @{&extension}.wrap.bindVertexArrayOES(null);
@@ -461,9 +504,9 @@ impl HalContext for WebglHalContext {
     }
 
     fn render_set_program(&self, program: &HalProgram) {
-        let context = convert_to_mut(self);
+        let context = convert_to_mut(self.0.as_ref());
         
-        let p = get_ref(&context.program_slab, program.index, program.use_count).expect("param not found");
+        let p = get_ref(&context.program_slab, program.item.index, program.item.use_count).expect("param not found");
         if context.state_machine.set_program(&context.gl, program, p) {
             #[cfg(feature = "frame_stat")]
             context.stat.add_program_change();
@@ -471,16 +514,16 @@ impl HalContext for WebglHalContext {
     }
 
     fn render_set_state(&self, bs: &HalBlendState, ds: &HalDepthState, rs: &HalRasterState, ss: &HalStencilState) {
-        let context = convert_to_mut(self);
-        let bsdesc = get_ref(&context.bs_slab, bs.index, bs.use_count).expect("bs param not found");
-        let dsdesc = get_ref(&context.ds_slab, ds.index, ds.use_count).expect("ds param not found");
-        let ssdesc = get_ref(&context.ss_slab, ss.index, ss.use_count).expect("ss param not found");
-        let rsdesc = get_ref(&context.rs_slab, rs.index, rs.use_count).expect("rs param not found");
+        let context = convert_to_mut(self.0.as_ref());
+        let bsdesc = get_ref(&context.bs_slab, bs.item.index, bs.item.use_count).expect("bs param not found");
+        let dsdesc = get_ref(&context.ds_slab, ds.item.index, ds.item.use_count).expect("ds param not found");
+        let ssdesc = get_ref(&context.ss_slab, ss.item.index, ss.item.use_count).expect("ss param not found");
+        let rsdesc = get_ref(&context.rs_slab, rs.item.index, rs.item.use_count).expect("rs param not found");
         context.state_machine.set_state(&context.gl, rs, bs, ss, ds, rsdesc, bsdesc, ssdesc, dsdesc);
     }
 
     fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) {
-        let context = convert_to_mut(self);
+        let context = convert_to_mut(self.0.as_ref());
 
         let program = context.state_machine.get_curr_program();
         let pimpl = get_mut_ref(&mut context.program_slab, program.0, program.1).expect("curr program not found");
@@ -490,7 +533,7 @@ impl HalContext for WebglHalContext {
         #[cfg(feature = "frame_stat")]
         context.stat.add_texture_change(_count);
         
-        let gimpl = get_ref(&mut context.geometry_slab, geometry.index, geometry.use_count).expect("geometry not found");
+        let gimpl = get_ref(&mut context.geometry_slab, geometry.item.index, geometry.item.use_count).expect("geometry not found");
         if context.state_machine.draw(&context.gl, &context.vao_extension, geometry, gimpl, &context.buffer_slab) {
         
             #[cfg(feature = "frame_stat")]
@@ -502,7 +545,7 @@ impl HalContext for WebglHalContext {
     }
 }
 
-impl HalDestroy for WebglHalContext {
+impl WebglHalContextImpl {
     
     fn buffer_destroy(&self, index: u32, use_count: u32) {
         if get_ref(&self.buffer_slab, index, use_count).is_some() {
@@ -540,10 +583,10 @@ impl HalDestroy for WebglHalContext {
             rimpl.delete(&self.gl);
             
             if let Some(t) = &rimpl.color {
-                self.texture_destroy(t.index, t.use_count);
+                self.texture_destroy(t.item.index, t.item.use_count);
             }
             if let Some(rb) = &rimpl.depth {
-                self.rb_destroy(rb.index, rb.use_count);
+                self.rb_destroy(rb.item.index, rb.item.use_count);
             }
         }
     }
@@ -601,11 +644,8 @@ impl HalDestroy for WebglHalContext {
     }
 }
 
-impl HalAll for WebglHalContext {
-}
-
 impl WebglHalContext {
-    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>, use_vao: bool) -> Share<WebglHalContext> {
+    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>, use_vao: bool) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
         let mut texture_slab = Slab::new();
@@ -633,21 +673,15 @@ impl WebglHalContext {
             }).ok()
         };
 
-        let default_rt = WebGLRenderTargetImpl::new_default(fbo, 0, 0);
-        let default_rt = create_new_slot(&mut rt_slab, default_rt);
-        let default_rt = HalRenderTarget {
-            index: default_rt.0,
-            use_count: default_rt.1,
-            context: ShareWeak::<WebglHalContext>::new(),
-        };
 
         let shader_cache = ShaderCache::new();
-        let state_machine = StateMachine::new(&gl, &default_rt, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
+        let state_machine = StateMachine::new(&gl, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
-        let context = WebglHalContext {
-            context: ShareWeak::new(),
+        let rt = WebGLRenderTargetImpl::new_default(fbo, 0, 0);
+        let (index, use_count) = create_new_slot(&mut rt_slab, rt);
+        
+        let context_impl = Share::new(WebglHalContextImpl {
             stat: RenderStat::new(),
-            default_rt: default_rt,
             gl: gl,
             caps: caps,
             vao_extension,
@@ -664,15 +698,19 @@ impl WebglHalContext {
             rs_slab,
             ss_slab,
             program_slab,
-        };
-
-        let context = Share::new(context);
-        let mut_context = convert_to_mut(context.as_ref());
-        mut_context.context = Share::downgrade(&context);
-        let default_rt = convert_to_mut(&context.default_rt);
-        default_rt.context = context.context.clone();
+        });
         
-        context
+        let context_clone = context_impl.clone();
+        let default_rt = HalRenderTarget {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_clone.rt_destroy(index, use_count)} ),
+        };
+        
+        let rt = get_ref(&context_impl.rt_slab, default_rt.item.index, default_rt.item.use_count).expect("rt param not found");
+        let cc = convert_to_mut(context_impl.as_ref());
+        cc.state_machine.set_render_target(&context_impl.gl, &default_rt, &rt);
+
+        WebglHalContext(context_impl, default_rt)
     }
 
     /** 
@@ -680,11 +718,15 @@ impl WebglHalContext {
      *    data是个普通的Javascript Object对象，wrap字段是：Canvas，Image，...
      */
     pub fn texture_create_2d_webgl(&self, mipmap_level: u32, width: u32, height: u32, pformat: PixelFormat, dformat: DataFormat, is_gen_mipmap: bool, data: &Object) -> Result<HalTexture, String> {
-        WebGLTextureImpl::new_2d(&self.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, None, Some(data)).map(|texture| {
-            let slab = convert_to_mut(&self.texture_slab);
+        WebGLTextureImpl::new_2d(&self.0.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, None, Some(data)).map(|texture| {
+            let slab = convert_to_mut(&self.0.texture_slab);
             let (index, use_count) = create_new_slot(slab, texture);
-            let context = self.context.clone();
-            HalTexture { context, index, use_count }
+            
+            let context_impl = self.0.clone();
+            HalTexture {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.texture_destroy(index, use_count); }),
+            }
         })
     }
 
@@ -693,9 +735,9 @@ impl WebglHalContext {
      *    data是个普通的Javascript Object对象，wrap字段是：Canvas，Image，...
      */
     pub fn texture_update_webgl(&self, texture: &HalTexture, mipmap_level: u32, x: u32, y: u32, data: &Object) {
-        let slab = convert_to_mut(&self.texture_slab);
-        if let Some(t) = get_mut_ref(slab, texture.index, texture.use_count) {
-            t.update(&self.gl, mipmap_level, None, Some((x, y, data)));
+        let slab = convert_to_mut(&self.0.texture_slab);
+        if let Some(t) = get_mut_ref(slab, texture.item.index, texture.item.use_count) {
+            t.update(&self.0.gl, mipmap_level, None, Some((x, y, data)));
         }
     }
 
@@ -706,30 +748,30 @@ impl WebglHalContext {
      *    + 注：如果要获取帧的切换信息，建议在begin_end之后获取。
      */
     pub fn get_render_stat(&self) -> &RenderStat {
-        &self.stat
+        &self.0.stat
     }
 
     fn texture_copy_impl(&self, dst: &WebGLTextureImpl, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
         let rt;
         {
-            let temp = self.state_machine.get_curr_rt();
-            rt = get_ref(&self.rt_slab, temp.0, temp.1).unwrap();
+            let temp = self.0.state_machine.get_curr_rt();
+            rt = get_ref(&self.0.rt_slab, temp.0, temp.1).unwrap();
         }
 
-        if let Some(src) = get_ref(&self.texture_slab, src.index, src.use_count) {
+        if let Some(src) = get_ref(&self.0.texture_slab, src.item.index, src.item.use_count) {
 
             let fb_type = WebGLRenderingContext::FRAMEBUFFER;
             let tex_target = WebGLRenderingContext::TEXTURE_2D;
             let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
             
-            self.gl.bind_framebuffer(fb_type, Some(&self.state_machine.copy_fbo));
-            self.gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&src.handle), 0);
+            self.0.gl.bind_framebuffer(fb_type, Some(&self.0.state_machine.copy_fbo));
+            self.0.gl.framebuffer_texture2_d(fb_type, color_attachment, tex_target, Some(&src.handle), 0);
         }
 
-        dst.copy(&self.gl, src_mipmap_level, src_x, src_y, dst_x, dst_y, width, height);
+        dst.copy(&self.0.gl, src_mipmap_level, src_x, src_y, dst_x, dst_y, width, height);
         
-        let context = convert_to_mut(self);
-        context.state_machine.set_render_target_impl(&self.gl, rt);
+        let context = convert_to_mut(self.0.as_ref());
+        context.state_machine.set_render_target_impl(&self.0.gl, rt);
     }
 
 
