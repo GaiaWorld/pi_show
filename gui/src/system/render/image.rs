@@ -1,7 +1,6 @@
 /**
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
-use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
@@ -23,6 +22,7 @@ use render::engine::{ Engine};
 use render::res::*;
 use render::res::{Opacity as ROpacity};
 use system::util::*;
+use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 
 lazy_static! {
@@ -31,96 +31,28 @@ lazy_static! {
     static ref INDEX: Atom = Atom::from("Index");
 }
 
-pub struct ImageSys<C: HalContext + 'static>{
-    dirty_ty: usize,
+const DIRTY_TY: usize = StyleType::BorderRadius as usize |
+                        StyleType::Matrix as usize |
+                        StyleType::Opacity as usize |
+                        StyleType::Layout as usize |
+                        StyleType::Image as usize |
+                        StyleType::ImageClip as usize |
+                        StyleType::ObjectFit as usize;
+
+const GEO_DIRTY: usize =StyleType::BorderRadius as usize |
+                        StyleType::Layout as usize |
+                        StyleType::Image as usize |
+                        StyleType::ImageClip as usize |
+                        StyleType::ObjectFit as usize;
+
+pub struct ImageSys{
     render_map: VecMap<usize>,
     default_sampler: Share<SamplerRes>,
-    unit_geo: Share<GeometryRes>, // 含uv， index， pos
-    unit_position_hash: u64,
-    unit_index_hash: u64,
-    mark: PhantomData<C>,
-}
-
-impl<C: HalContext + 'static> ImageSys<C> {
-    pub fn new(_engine: &mut Engine<C>) -> Self{
-        // let default_sampler = SamplerDesc::default();
-        // let mut hasher = FxHasher32::default();
-        // default_sampler.hash(&mut hasher);
-        // let hash = hasher.finish();
-        // let default_sampler = match engine.res_mgr.get::<HalSampler>(&hash) {
-        //     Some(r) => r,
-        //     None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
-        // };
-
-        // ImageSys {
-        //     items: Items::default(),
-        //     default_sampler: default_sampler,
-        //     mark: PhantomData,
-        // }
-    //     BorderRadius = 1,
-    // Matrix = 2,
-    // Opacity = 4,
-    // Layout = 8,
-    // Src = 0x10,
-    // ImageClip =  0x20,
-    // ObjectFit =  0x40,
-        unimplemented!()
-    }
-
-    #[inline]
-    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
-        match self.render_map.remove(id) {
-            Some(index) => {
-                let notify = render_objs.get_notify();
-                render_objs.remove(index, Some(notify));
-            },
-            None => ()
-        };
-    }
-
-    #[inline]
-    fn create_render_obj(
-        &mut self,
-        id: usize,
-        z_depth: f32,
-        visibility: bool,
-        render_objs: &mut SingleCaseImpl<RenderObjs>,
-        default_state: &DefaultState,
-    ) -> usize{
-        
-        let render_obj = RenderObj {
-            depth: z_depth - 0.1,
-            depth_diff: -0.1,
-            visibility: visibility,
-            is_opacity: true,
-            vs_name: IMAGE_VS_SHADER_NAME.clone(),
-            fs_name: IMAGE_FS_SHADER_NAME.clone(),
-            vs_defines: Box::new(VsDefines::default()),
-            fs_defines: Box::new(FsDefines::default()),
-            paramter: Share::new(ColorParamter::default()),
-            program_dirty: true,
-
-            program: None,
-            geometry: None,
-            state: State {
-                bs: default_state.df_bs.clone(),
-                rs: default_state.df_rs.clone(),
-                ss: default_state.df_ss.clone(),
-                ds: default_state.df_ds.clone(),
-            },
-            context: id,
-        };
-
-        let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.render_map.insert(id, index);
-        index
-    }
+    unit_geo: Share<GeometryRes>, // 含uv， index， pos  
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
+impl<'a> Runner<'a> for ImageSys{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -136,17 +68,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, border_radiuss, z_depths, images, image_clips, object_fits, world_matrixs, transforms, opacitys, style_marks, default_table, dirty_list, default_state) = read;
         let (render_objs, engine) = write;
-        let geo_dirty = StyleType::ObjectFit as usize    |
-                        StyleType::ImageClip as usize    | 
-                        StyleType::Layout as usize       |
-                        StyleType::BorderRadius as usize | 
-                        StyleType::Image as usize;
         let default_transform = default_table.get::<Transform>().unwrap();
         let notify = render_objs.get_notify();
+
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -160,7 +88,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
             let mut dirty = style_mark.dirty;
 
             // 不存在Image关心的脏, 跳过
-            if dirty & self.dirty_ty == 0 {
+            if dirty & DIRTY_TY == 0 {
                 continue;
             }
 
@@ -190,15 +118,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
             };
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
             
-            if dirty & geo_dirty != 0 {
-                let (has_radius, pos) = update_geo(render_obj, border_radius, layout, image, image_clip, object_fit, engine, &self.unit_geo, &self.unit_position_hash, &self.unit_index_hash);
-                
+            if dirty & GEO_DIRTY != 0 {
+                let (has_radius, pos) = update_geo(render_obj, border_radius, layout, image, image_clip, object_fit, engine, &self.unit_geo);
+
                 modify_matrix(render_obj, layout, z_depth, world_matrix, transform, &pos, has_radius);
                 
                 // src修改， 修改texture
                 if dirty & StyleType::Image as usize != 0 {
                     // 如果四边形与图片宽高一样， 使用点采样， TODO
-                    render_obj.paramter.set_texture("texture", (image.src.bind.clone(), self.default_sampler.clone()));
+                    render_obj.paramter.set_texture("texture", (&image.src.bind, &self.default_sampler));
                 }
 
                 notify.modify_event(render_index, "geometry", 0);
@@ -237,18 +165,94 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
     }
 }
 
+impl ImageSys {
+    pub fn new(engine: &mut Engine) -> Self{
+        let default_sampler = SamplerDesc::default();
+        let mut hasher = FxHasher32::default();
+        default_sampler.hash(&mut hasher);
+        let hash = hasher.finish();
+        let default_sampler = match engine.res_mgr.get::<HalSampler>(&hash) {
+            Some(r) => r,
+            None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
+        };
+
+        let positions = engine.res_mgr.get::<HalBuffer>(&POSITIONUNIT.get_hash()).unwrap();
+        let indices = engine.res_mgr.get::<HalBuffer>(&INDEXUNIT.get_hash()).unwrap();
+
+        let geo = create_geometry(&engine.gl);
+        engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
+        engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &positions, 2).unwrap();
+        engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+
+        ImageSys {
+            render_map: VecMap::default(),
+            default_sampler: default_sampler,
+            unit_geo: Share::new(GeometryRes{geo: geo, buffers: vec![positions.clone(), indices, positions]}),  
+        }
+    }
+
+    #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index, Some(notify));
+            },
+            None => ()
+        };
+    }
+
+    #[inline]
+    fn create_render_obj(
+        &mut self,
+        id: usize,
+        z_depth: f32,
+        visibility: bool,
+        render_objs: &mut SingleCaseImpl<RenderObjs>,
+        default_state: &DefaultState,
+    ) -> usize{
+        
+        let render_obj = RenderObj {
+            depth: z_depth - 0.1,
+            depth_diff: -0.1,
+            visibility: visibility,
+            is_opacity: true,
+            vs_name: IMAGE_VS_SHADER_NAME.clone(),
+            fs_name: IMAGE_FS_SHADER_NAME.clone(),
+            vs_defines: Box::new(VsDefines::default()),
+            fs_defines: Box::new(FsDefines::default()),
+            paramter: Share::new(ImageParamter::default()),
+            program_dirty: true,
+
+            program: None,
+            geometry: None,
+            state: State {
+                bs: default_state.df_bs.clone(),
+                rs: default_state.df_rs.clone(),
+                ss: default_state.df_ss.clone(),
+                ds: default_state.df_ds.clone(),
+            },
+            context: id,
+        };
+
+        let notify = render_objs.get_notify();
+        let index = render_objs.insert(render_obj, Some(notify));
+        // 创建RenderObj与Node实体的索引关系， 并设脏
+        self.render_map.insert(id, index);
+        index
+    }
+}
+
 #[inline]
-fn update_geo<'a, C: HalContext + 'static>(
+fn update_geo<'a>(
     render_obj: &mut RenderObj,
     border_radius: Option<&BorderRadius>,
     layout: &Layout,
     image: &Image,
     image_clip: Option<&ImageClip>,
     object_fit: Option<&ObjectFit>,
-    engine: &mut Engine<C>,
+    engine: &mut Engine,
     unit_geo: &Share<GeometryRes>,
-    unit_position_hash: &u64,
-    unit_index_hash: &u64,
 ) -> (bool, Aabb2)  {
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
     let radius = cal_border_radius(border_radius, layout);
@@ -258,19 +262,17 @@ fn update_geo<'a, C: HalContext + 'static>(
         use_layout_pos(render_obj, uv, layout, &radius, engine); // 有圆角
         (true, pos)
     }else{
-        update_geo_no_radius(render_obj, &uv, image_clip, engine, unit_geo, unit_position_hash, unit_index_hash); // 没有圆角
+        update_geo_no_radius(render_obj, &uv, image_clip, engine, unit_geo); // 没有圆角
         (false, pos)
     } 
 }
 
-fn update_geo_no_radius<'a, C: HalContext + 'static>(
+fn update_geo_no_radius<'a>(
     render_obj: &mut RenderObj,
     uv: &Aabb2,
     image_clip: Option<&ImageClip>,
-    engine: &mut Engine<C>,
+    engine: &mut Engine,
     unit_geo: &Share<GeometryRes>,
-    unit_position_hash: &u64,
-    unit_index_hash: &u64,
 ) {
     match image_clip {
         Some(_clip) => {
@@ -281,7 +283,7 @@ fn update_geo_no_radius<'a, C: HalContext + 'static>(
             engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
             engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[1]).unwrap();
             let geo_res = GeometryRes{geo: geo, buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), uv_buffer]};
-            render_obj.geometry = Some(create_geo(&uv_hash, unit_position_hash, unit_index_hash, geo_res, engine));
+            render_obj.geometry = Some(create_geo(&uv_hash, geo_res, engine));
         },
         None => render_obj.geometry = Some(unit_geo.clone()),
     }
@@ -297,7 +299,7 @@ fn cal_uv_hash(uv: &Aabb2) -> u64 {
     hasher.finish()
 }
 
-fn create_uv_buffer<'a, C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine<C>) -> Share<HalBuffer> {
+fn create_uv_buffer<'a>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine) -> Share<HalBuffer> {
     match engine.res_mgr.get::<HalBuffer>(&uv_hash) {
         Some(r) => r,
         None => {
@@ -308,11 +310,11 @@ fn create_uv_buffer<'a, C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engin
     }
 }
 
-fn create_geo<'a, C: HalContext + 'static>(uv_hash: &u64, position_hash: &u64, index_hash: &u64, geo_res: GeometryRes, engine: &mut Engine<C>) -> Share<GeometryRes> {
+fn create_geo<'a>(uv_hash: &u64, geo_res: GeometryRes, engine: &mut Engine) -> Share<GeometryRes> {
     let mut hasher = FxHasher32::default();
     uv_hash.hash(&mut hasher);
-    position_hash.hash(&mut hasher);
-    index_hash.hash(&mut hasher);
+    POSITIONUNIT.hash(&mut hasher);
+    INDEXUNIT.hash(&mut hasher);
     let hash = hasher.finish();
 
     match engine.res_mgr.get::<GeometryRes>(&hash) {
@@ -340,7 +342,7 @@ fn modify_matrix(
     }
 }
 
-fn use_layout_pos<'a, C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2, layout: &Layout, radius: &Point2, engine: &mut Engine<C>){
+fn use_layout_pos<'a>(render_obj: &mut RenderObj, uv: Aabb2, layout: &Layout, radius: &Point2, engine: &mut Engine){
     let start_x = layout.border_left;
     let start_y = layout.border_top;
     let end_x = layout.width - layout.border_right;
@@ -484,7 +486,7 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){
 }
 
 impl_system!{
-    ImageSys<C> where [C: HalContext + 'static],
+    ImageSys,
     true,
     {
         // MultiCaseListener<Node, Image<C>, CreateEvent>

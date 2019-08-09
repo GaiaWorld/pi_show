@@ -15,12 +15,11 @@ pub struct ClassSheet {
     pub layout_box_pattern: Slab<LayoutBoxPattern>,
     pub layout_adaption: Slab<LayoutAdaption>,
     
-    pub box_shadow: Slab<BoxShadowClass>,
     pub background_color: Slab<BackgroundColorClass>,
     pub border_color: Slab<BorderColor>,
     pub image: Slab<ImageClass>,
     pub border_image: Slab<BorderImageClass>,
-    pub text: Slab<TextClass>,
+    pub text: Slab<TextStyle>,
     pub box_shadow: Slab<BoxShadow>,
 
     pub class: Slab<Class>, 
@@ -135,7 +134,6 @@ pub struct Class {
     // 显示属性
     pub background_color: usize,
     pub border_color: usize,
-    pub box_shadow: usize,
     pub image: usize,
     pub border_image: usize,
     pub text: usize,
@@ -193,13 +191,6 @@ pub struct BorderImageClass {
     pub border_image_slice: BorderImageSlice,
     pub border_image_clip: BorderImageClip,
     pub border_image_repeat: BorderImageRepeat,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct TextClass {
-    pub style: TextStyle,
-    pub font: Font,
-    pub shadow: TextShadow,
 }
 
 pub type BoxShadowClass = BoxShadow;

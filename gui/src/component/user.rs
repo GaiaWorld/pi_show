@@ -85,7 +85,8 @@ pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
 pub struct BorderImage{
-  pub src: Share<TextureRes>
+  pub src: Share<TextureRes>,
+  pub url: Atom,
 }
 unsafe impl Sync for BorderImage {}
 unsafe impl Send for BorderImage {}
@@ -117,7 +118,7 @@ pub struct BoxShadow{
 }
 
 #[derive(Debug, Clone, Component, Default)]
-pub struct TextStyle{
+pub struct Text{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
     pub line_height: LineHeight, //设置行高
@@ -130,10 +131,14 @@ pub struct TextStyle{
 }
 
 #[derive(Debug, Clone, Component, Default)]
-pub struct Text(pub String, pub Atom);
+pub struct TextContent(pub String, pub Atom);
 
-unsafe impl Sync for Text{}
-unsafe impl Send for Text{}
+#[derive(Debug, Clone, Component, Default)]
+pub struct TextStyle {
+    pub text: Text,
+    pub font: Font,
+    pub shadow: TextShadow,
+}
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct TextShadow{

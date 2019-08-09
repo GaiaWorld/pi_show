@@ -1,7 +1,6 @@
 /**
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
-use std::marker::PhantomData;
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
@@ -29,26 +28,26 @@ lazy_static! {
     static ref GRADUAL: Atom = Atom::from("GRADUAL");
 }
 
-pub struct BackgroundColorSys<C: HalContext + 'static>{
+pub struct BackgroundColorSys{
     render_map: VecMap<usize>,
     dirty_ty: usize,
     share_ucolor_ubo: VecMap<Share<dyn UniformBuffer>>, // 如果存在BackgroundClass， 也存在对应的ubo
-    mark: PhantomData<C>,
+    
 }
 
-impl<C: HalContext + 'static> Default for BackgroundColorSys<C> {
+impl Default for BackgroundColorSys {
     fn default() -> Self {
         BackgroundColorSys {
             render_map: VecMap::default(),
             dirty_ty: StyleType::BackgroundColor as usize | StyleType::Matrix as usize | StyleType::BorderRadius as usize | StyleType::Opacity as usize | StyleType::Layout as usize,
             share_ucolor_ubo: VecMap::default(),
-            mark: PhantomData,
+            
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
+impl<'a> Runner<'a> for BackgroundColorSys{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -66,7 +65,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             layouts,
@@ -87,6 +86,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
         ) = read;
         let (render_objs, engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();
+        let notify = render_objs.get_notify();
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -134,8 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 render_obj.is_opacity = background_is_opacity(opacity, color);
             }
 
-            println!("color1----------: {:?}", color);
-            render_obj.program_dirty = render_obj.program_dirty | if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
+            let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
             } else {
@@ -144,20 +143,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 modify_class_color(render_obj, color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
             };
             
-            // 渲染管线脏， 创建渲染管线
-            if render_obj.program_dirty {
-                render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
-                render_obj.program = Some(engine.create_program(
-                    COLOR_VS_SHADER_NAME.get_hash(),
-                    COLOR_FS_SHADER_NAME.get_hash(),
-                    COLOR_VS_SHADER_NAME.as_ref(),
-                    &*render_obj.vs_defines,
-                    COLOR_FS_SHADER_NAME.as_ref(),
-                    &*render_obj.fs_defines,
-                    render_obj.paramter.as_ref(),
-                ));
+            // program管线脏, 通知
+            if program_dirty {
+                notify.modify_event(render_index, "program_dirty", 0);
             }
-            
+
             // 如果矩阵脏
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0{
                 let world_matrix = unsafe{world_matrixs.get_unchecked(*id)};
@@ -185,9 +175,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
 }
 
 // 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
-impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys<C>{
+impl<'a> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys{
     type ReadData = &'a SingleCaseImpl<ClassSheet>;
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+    type WriteData = &'a mut SingleCaseImpl<Engine>;
     fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
         let class = unsafe { class_sheet.class.get_unchecked(event.id)};
 
@@ -199,7 +189,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent
     }
 }
 
-impl<C: HalContext + 'static> BackgroundColorSys<C> {
+impl BackgroundColorSys {
     #[inline]
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
@@ -231,7 +221,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
             vs_defines: Box::new(VsDefines::default()),
             fs_defines: Box::new(FsDefines::default()),
             paramter: Share::new(ColorParamter::default()),
-            program_dirty: true,
+            program_dirty: false,
 
             program: None,
             geometry: None,
@@ -243,7 +233,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
             },
             context: id,
         };
-
+        render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
         // 创建RenderObj与Node实体的索引关系， 并设脏
@@ -252,7 +242,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     }
 }
 
-fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>, layout: &Layout, unit_quad: &Share<GeometryRes>, engine: &mut Engine<C>) -> Option<Share<GeometryRes>>{
+fn create_rgba_geo(border_radius: Option<&BorderRadius>, layout: &Layout, unit_quad: &Share<GeometryRes>, engine: &mut Engine) -> Option<Share<GeometryRes>>{
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
@@ -291,7 +281,7 @@ fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>
     }
 }
 
-fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientColor, border_radius: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine<C>) -> Option<Share<GeometryRes>>{
+fn create_linear_gradient_geo(color: &LinearGradientColor, border_radius: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine) -> Option<Share<GeometryRes>>{
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
@@ -375,7 +365,7 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
 }
 
 #[inline]
-fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+fn create_u_color_ubo(c: &CgColor, engine: &mut Engine) -> Share<dyn UniformBuffer> {
     let h = f32_4_hash(c.r, c.g, c.b, c.a);
     match engine.res_mgr.get::<UColorUbo>(&h) {
         Some(r) => r,
@@ -385,10 +375,10 @@ fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<
 
 // 修改颜色， 返回是否存在宏的修改(不是class中的颜色)
 #[inline]
-fn modify_color<C: HalContext + 'static>(
+fn modify_color(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
-    engine: &mut Engine<C>,
+    engine: &mut Engine,
     dirty: usize,
     layout: &Layout,
     unit_quad: &Share<GeometryRes>,
@@ -422,10 +412,10 @@ fn modify_color<C: HalContext + 'static>(
 
 // class bgcolor
 #[inline]
-fn modify_class_color<C: HalContext + 'static>(
+fn modify_class_color(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
-    engine: &mut Engine<C>,
+    engine: &mut Engine,
     dirty: usize,
     share_bg: &VecMap<Share<dyn UniformBuffer>>,
     class_id: usize,
@@ -464,7 +454,7 @@ fn modify_class_color<C: HalContext + 'static>(
 #[inline]
 fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
     match fs_defines.add("UCOLOR") {
-        Some(r) => false,
+        Some(_) => false,
         None => {
             vs_defines.remove("VERTEX_COLOR");
             fs_defines.remove("VERTEX_COLOR");
@@ -509,11 +499,11 @@ fn modify_matrix(
     }
 }
 
-unsafe impl<C: HalContext + 'static> Sync for BackgroundColorSys<C>{}
-unsafe impl<C: HalContext + 'static> Send for BackgroundColorSys<C>{}
+unsafe impl Sync for BackgroundColorSys{}
+unsafe impl Send for BackgroundColorSys{}
 
 impl_system!{
-    BackgroundColorSys<C> where [C: HalContext + 'static],
+    BackgroundColorSys,
     true,
     {
         SingleCaseListener<ClassSheet, CreateEvent>

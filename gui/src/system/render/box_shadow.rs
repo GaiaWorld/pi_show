@@ -24,13 +24,13 @@ use system::util::constant::*;
 use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
 use system::render::util::*;
 
-pub struct BoxShadowSys<C: HalContext + 'static> {
+pub struct BoxShadowSys {
     render_map: VecMap<usize>,
     dirty_ty: usize,
-    mark: PhantomData<C>,
+    
 }
 
-impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
+impl Default for BoxShadowSys {
     fn default() -> Self {
         let dirty_ty = StyleType::BoxShadow as usize 
             | StyleType::Matrix as usize 
@@ -41,13 +41,13 @@ impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
         Self {
             dirty_ty,
             render_map: VecMap::default(),
-            mark: PhantomData,
+            
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
+impl<'a> Runner<'a> for BoxShadowSys {
     type ReadData = (
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -66,7 +66,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a SingleCaseImpl<DefaultState>,
     );
 
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
 
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (
@@ -188,7 +188,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
     }
 }
 
-impl<C: HalContext + 'static> BoxShadowSys<C> {
+impl BoxShadowSys {
 
     #[inline]
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
@@ -248,7 +248,7 @@ fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
 }
 
 #[inline]
-fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+fn create_u_color_ubo(c: &CgColor, engine: &mut Engine) -> Share<dyn UniformBuffer> {
     let h = f32_4_hash(c.r, c.g, c.b, c.a);
     match engine.res_mgr.get::<UColorUbo>(&h) {
         Some(r) => r,
@@ -269,8 +269,8 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
 }
 
 // #[inline]
-// fn create_shadow_geo<C: HalContext + 'static>(
-//     engine: &mut Engine<C>,
+// fn create_shadow_geo(
+//     engine: &mut Engine,
 //     layout: &Layout,
 //     shadow: &BoxShadow,
 //     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
@@ -317,7 +317,7 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
 // }
 
 impl_system!{
-    BoxShadowSys<C> where [C: HalContext + 'static],
+    BoxShadowSys,
     true,
     {
     }

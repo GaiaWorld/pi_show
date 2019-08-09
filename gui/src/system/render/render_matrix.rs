@@ -16,10 +16,10 @@ use system::util::*;
 pub struct RenderMatrixSys<C: Context>{
     dirtys: Vec<usize>,
     dirty_mark: VecMap<bool>,
-    marker: PhantomData<C>,
+    
 }
 
-impl<'a, C: Context> RenderMatrixSys<C> {
+impl<'a, C: Context> RenderMatrixSys {
     pub fn new() -> Self{
         RenderMatrixSys {
             dirty_mark: VecMap::default(),
@@ -29,7 +29,7 @@ impl<'a, C: Context> RenderMatrixSys<C> {
     }
 }
 
-impl<'a, C: Context> Runner<'a> for RenderMatrixSys<C>{
+impl<'a, C: Context> Runner<'a> for RenderMatrixSys{
     type ReadData = (
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -53,7 +53,7 @@ impl<'a, C: Context> Runner<'a> for RenderMatrixSys<C>{
 }
 
 //Node创建 设脏
-impl<'a, C: Context> EntityListener<'a, Node, CreateEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context> EntityListener<'a, Node, CreateEvent> for RenderMatrixSys{
     type ReadData = ();
     type WriteData = () ;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, _: Self::WriteData){
@@ -63,7 +63,7 @@ impl<'a, C: Context> EntityListener<'a, Node, CreateEvent> for RenderMatrixSys<C
 }
 
 //Node删除 设脏
-impl<'a, C: Context> EntityListener<'a, Node, DeleteEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context> EntityListener<'a, Node, DeleteEvent> for RenderMatrixSys{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _: Self::WriteData){
@@ -74,7 +74,7 @@ impl<'a, C: Context> EntityListener<'a, Node, DeleteEvent> for RenderMatrixSys<C
 }
 
 //世界矩阵变化， 设脏
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for RenderMatrixSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for RenderMatrixSys{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -86,11 +86,11 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for R
     }
 }
 
-unsafe impl<'a, C: Context> Sync for RenderMatrixSys<C>{}
-unsafe impl<'a, C: Context> Send for RenderMatrixSys<C>{}
+unsafe impl<'a, C: Context> Sync for RenderMatrixSys{}
+unsafe impl<'a, C: Context> Send for RenderMatrixSys{}
 
 impl_system!{
-    RenderMatrixSys<C> where [C: Context],
+    RenderMatrixSys where [C: Context],
     true,
     {
         EntityListener<Node, CreateEvent>

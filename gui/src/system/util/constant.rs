@@ -3,7 +3,11 @@ use atom::Atom;
 lazy_static! {
     //common attribute
     pub static ref POSITION: Atom = Atom::from("position");
+    pub static ref INDEX: Atom = Atom::from("index");
     pub static ref COLOR: Atom = Atom::from("color");
+
+    pub static ref POSITIONUNIT: Atom = Atom::from("position_unit");
+    pub static ref INDEXUNIT: Atom = Atom::from("index_unit");
 
     //common uniform
     pub static ref VIEW_MATRIX: Atom = Atom::from("viewMatrix");

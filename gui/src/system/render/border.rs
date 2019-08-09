@@ -35,19 +35,19 @@ lazy_static! {
 pub struct BorderColorSys<C: Context>{
     render_map: VecMap<Item>,
     geometry_dirtys: Vec<usize>,
-    mark: PhantomData<C>,
+    
     rs: Share<RasterState>,
     bs: Share<BlendState>,
     ss: Share<StencilState>,
     ds: Share<DepthState>,
 }
 
-impl<C: Context> BorderColorSys<C> {
+impl<C: Context> BorderColorSys {
     pub fn new() -> Self{
         BorderColorSys {
             render_map: VecMap::default(),
             geometry_dirtys: Vec::new(),
-            mark: PhantomData,
+            
             rs: Share::new(RasterState::new()),
             bs: Share::new(BlendState::new()),
             ss: Share::new(StencilState::new()),
@@ -57,14 +57,14 @@ impl<C: Context> BorderColorSys<C> {
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context> Runner<'a> for BorderColorSys<C>{
+impl<'a, C: Context> Runner<'a> for BorderColorSys{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, border_radius, z_depths, world_matrixs) = read;
         let (render_objs, engine) = write;
@@ -102,7 +102,7 @@ impl<'a, C: Context> Runner<'a> for BorderColorSys<C>{
 }
 
 // 删除渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for BorderColorSys{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -111,7 +111,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for B
 }
 
 // 插入渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for BorderColorSys{
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderColor>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -121,7 +121,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for B
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<Engine<C>>,
+        &'a mut SingleCaseImpl<Engine>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (border_colors, border_radius, z_depths, layouts, opacitys) = read;
@@ -168,7 +168,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for B
 }
 
 // 删除渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for BorderColorSys{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -182,7 +182,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for B
 }
 
 //布局修改， 需要重新计算顶点
-impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderColorSys{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -196,7 +196,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for Border
 }
 
 //不透明度变化， 设置ubo
-impl<'a, C: Context> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderColorSys{
     type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderColor>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
@@ -206,7 +206,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for Borde
 
 type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
 
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderColorSys{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -214,7 +214,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent>
     }
 }
 
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderColorSys<C>{
+impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderColorSys{
     type ReadData = MatrixRead<'a>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -222,7 +222,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent>
     }
 }
 
-impl<'a, C: Context> BorderColorSys<C> {
+impl<'a, C: Context> BorderColorSys {
     fn change_is_opacity(&mut self, id: usize, opacitys: &MultiCaseImpl<Node, Opacity>, colors: &MultiCaseImpl<Node, BorderColor>, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
         if let Some(item) = self.render_map.get_mut(id) {
             let opacity = unsafe { opacitys.get_unchecked(id).0 };
@@ -316,11 +316,11 @@ fn get_geo_flow(radius: &BorderRadius, layout: &Layout, z_depth: f32) -> (Vec<f3
     }
 }
 
-unsafe impl<C: Context> Sync for BorderColorSys<C>{}
-unsafe impl<C: Context> Send for BorderColorSys<C>{}
+unsafe impl<C: Context> Sync for BorderColorSys{}
+unsafe impl<C: Context> Send for BorderColorSys{}
 
 impl_system!{
-    BorderColorSys<C> where [C: Context],
+    BorderColorSys where [C: Context],
     true,
     {
         MultiCaseListener<Node, BorderColor, CreateEvent>

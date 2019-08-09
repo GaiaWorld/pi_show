@@ -9,47 +9,62 @@ use std::{
     marker::PhantomData,
 };
 
-use lib_util::VecIndex;
 use ecs::{
     system::{Runner, MultiCaseListener},
-    monitor::{CreateEvent, DeleteEvent, ModifyEvent},
+    monitor::{CreateEvent, DeleteEvent},
     component::MultiCaseImpl,
     single::SingleCaseImpl,
-    
 };
+use atom::Atom;
 
 use ROOT;
-use entity::*;
-use single::*;
+use entity::{Node};
 use component::{
     user::*,
     calc::*,
 };
-
+use single::class::*;
+use single::*;
 use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit};
 use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
 
-type Read<'a, L> = (
-    &'a SingleCaseImpl<FontSheet>,
-    &'a MultiCaseImpl<Node, L>,
-    &'a MultiCaseImpl<Node, Text>,
-    &'a MultiCaseImpl<Node, Font>,
-    &'a MultiCaseImpl<Node, TextStyle>,
-    &'a MultiCaseImpl<Node, TextShadow>,
-    &'a MultiCaseImpl<Node, ClassName>,
-    &'a SingleCaseImpl<ClassSheet>,
-);
-type Write<'a, L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>);
+const MARK: usize = StyleType::LetterSpacing as usize | 
+                    StyleType::WordSpacing as usize | 
+                    StyleType::LineHeight as usize | 
+                    StyleType::Indent as usize |
+                    StyleType::WhiteSpace as usize | 
+                    StyleType::TextAlign as usize | 
+                    StyleType::VerticalAlign as usize |
+                    StyleType::TextShadow as usize |
+                    StyleType::Color as usize | 
+                    StyleType::Stroke as usize |
+                    StyleType::FontStyle as usize | 
+                    StyleType::FontFamily as usize | 
+                    StyleType::FontSize as usize | 
+                    StyleType::FontWeight as usize |
+                    StyleType::Text as usize;
 
-pub struct LayoutImpl<L: FlexNode> {
+type Read<'a, L> = (
+    &'a SingleCaseImpl<ClassSheet>,
+    &'a MultiCaseImpl<Node, L>,
+    &'a MultiCaseImpl<Node, TextContent>,
+    &'a MultiCaseImpl<Node, TextStyle>,
+    &'a MultiCaseImpl<Node, ClassName>,
+    &'a MultiCaseImpl<Node, WorldMatrix>,
+    &'a MultiCaseImpl<Node, StyleMark>,
+    &'a SingleCaseImpl<DirtyList>,
+);
+type Write<'a,L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>, &'a mut SingleCaseImpl<FontSheet>);
+
+pub struct LayoutImpl<L: FlexNode + 'static> {
     dirty: Vec<usize>, 
     temp: Vec<usize>,
     read: usize,
     write: usize,
-    mark: PhantomData<(L)>,
+    mark: PhantomData<L>,
 }
 
-impl<'a, L: FlexNode> LayoutImpl< L> {
+impl<'a, L: FlexNode + 'static> LayoutImpl<L> {
     pub fn new() -> Self{
         LayoutImpl {
             dirty: Vec::new(), 
@@ -59,50 +74,26 @@ impl<'a, L: FlexNode> LayoutImpl< L> {
             mark: PhantomData,
         }
     }
-    fn set_dirty(&mut self, id: usize, dirty: usize, write: &'a mut MultiCaseImpl<Node, CharBlock<L>>) {
-        match write.get_mut(id) {
-        Some(node) => {
-            if node.dirty == 0 {
-                self.dirty.push(id);
-                node.dirty = dirty;
-            }else if node.dirty & dirty == 0  {
-                node.dirty |= dirty;
-            }
-        },
-        _ => {
-            write.insert(id, CharBlock{
-                clazz: TextClass::default(),
-                font_size: 16.0,
-                line_height: 20.0,
-                chars: Vec::new(),
-                lines: Vec::new(),
-                last_line: (0, 0, 0.0),
-                size: Vector2::default(),
-                wrap_size: Vector2::default(),
-                pos: Point2::default(),
-                line_count: 1,
-                fix_width: true,
-                dirty: dirty,
-                local_style: 0,
-                style_class: 0,
-                modify: 0,
-                });
-                self.dirty.push(id);
-            }
-        }
-    }
 }
-impl<'a, L: FlexNode> Runner<'a> for LayoutImpl< L> {
+impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
   type ReadData = Read<'a, L>;
-  type WriteData = Write<'a, L>;
+  type WriteData = Write<'a,L>;
 
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
         for id in self.dirty.iter() {
+            let r = match read.6.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            if r.dirty & MARK == 0 {
+                continue;
+            }
+
             if calc(*id, &read, &mut write) {
                 self.temp.push(*id)
             }
-        }
-        self.dirty.clear();
+        }     
         if self.temp.len() > 0 {
             let vec = replace(&mut self.temp, Vec::new());
             let temp = replace(&mut self.dirty, vec);
@@ -113,136 +104,84 @@ impl<'a, L: FlexNode> Runner<'a> for LayoutImpl< L> {
             (layout.width, layout.height)
         };
         self.read= &read as *const Read<'a, L> as usize;
-        self.write= &mut write as *mut Write<'a, L> as usize;
+        self.write= &mut write as *mut Write<'a,L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
         unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, self as *const LayoutImpl<L> as *const c_void);
-  }
+        
+        for id in self.dirty.iter() {
+            let r = match read.6.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            if r.dirty & MARK == 0 {
+                continue;
+            }
+
+            set_gylph(*id, &read, &mut write);
+        } 
+
+        self.dirty.clear();
+    }
 }
 
-// 监听text属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, Text, CreateEvent> for LayoutImpl< L> {
+impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateEvent> for LayoutImpl<L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::Text as usize, write)
-    }
-}
-// 监听text属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, Text, ModifyEvent> for LayoutImpl< L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::Text as usize, write)
-    }
-}
-// 监听TextStyleClass属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, ClassName, CreateEvent> for LayoutImpl< L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        self.set_dirty(event.id, DirtyType::StyleClass as usize, write)
-    }
-}
-// // 监听TextStyleClass属性的改变
-// impl<'a, L: FlexNode> MultiCaseListener<'a, Node, TextStyleClass, ModifyEvent> for LayoutImpl< L> {
-//     type ReadData = ();
-//     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-//     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-//         self.set_dirty(event.id, DirtyType::StyleClass as usize, write)
-//     }
-// }
-
-// 监听TextStyle属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for LayoutImpl< L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let r = match event.field {
-            "letter_spacing" => DirtyType::LetterSpacing,
-            "word_spacing" => DirtyType::WordSpacing,
-            "line_height" => DirtyType::LineHeight,
-            "indent" => DirtyType::Indent,
-            "color" => DirtyType::Color,
-            "stroke" => DirtyType::Stroke,
-            "text_align" => DirtyType::TextAlign,
-            "vertical_align" => DirtyType::VerticalAlign,
-            _ => return
-        };
-        self.set_dirty(event.id, r as usize, write)
+        write.insert(event.id, CharBlock{
+            font_size: 16.0,
+            calc_font_size: 16.0,
+            stroke_width: 0.0,
+            line_height: 20.0,
+            chars: Vec::new(),
+            lines: Vec::new(),
+            last_line: (0, 0, 0.0),
+            size: Vector2::default(),
+            wrap_size: Vector2::default(),
+            pos: Point2::default(),
+            line_count: 1,
+            fix_width: true,
+            style_class: 0,
+        });
     }
 }
 
-// 监听Font属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, Font, ModifyEvent> for LayoutImpl< L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let r = match event.field {
-            "style" => DirtyType::FontStyle,
-            "weight" => DirtyType::FontWeight,
-            "size" => DirtyType::FontSize,
-            "family" => DirtyType::FontFamily,
-            _ => return
-        };
-        self.set_dirty(event.id, r as usize, write)
-    }
-}
-
-// 监听TextShadow属性的改变
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for LayoutImpl< L> {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
-
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let r = match event.field {
-            "h" => DirtyType::ShadowHV as usize,
-            "v" => DirtyType::ShadowHV as usize,
-            "color" => DirtyType::ShadowColor as usize,
-            "blur" => DirtyType::ShadowBlur as usize,
-            _ => DirtyType::ShadowHV as usize + DirtyType::ShadowColor as usize + DirtyType::ShadowBlur as usize,
-        };
-        self.set_dirty(event.id, r, write)
-    }
-}
 // 监听CharBlock的删除
-impl<'a, L: FlexNode> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl< L> {
+impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, DeleteEvent> for LayoutImpl<L> {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-        // 删除脏列表中的CharBlock
-        self.dirty.swap_delete(&event.id);
         let cb = unsafe{ write.get_unchecked(event.id)};
         // 删除所有yoga节点
         for cn in cb.chars.iter() {
-            cn.node.free();
+            cn.node.get_parent().remove_child(cn.node);
+            // cn.node.free();
         }
     }
 }
 
 //================================ 内部静态方法
 //回调函数
-extern "C" fn callback<L: FlexNode>(node: L, callback_args: *const c_void) {
+extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_void) {
     //更新布局
     let b = node.get_bind() as usize;
     let id = node.get_context() as usize;
     let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<L>) };
     let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
+    let read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
     if b == 0 {  
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
         if let Some(cb) = write.0.get_mut(id) {
+            let text_style = unsafe { read.3.get_unchecked(id) };
             // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let node = node.get_parent();
             if node.get_child_count() == 1 {
                 match node.get_style_width_unit() {
                     YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                        calc_wrap_align(cb, &node.get_layout());
+                        calc_wrap_align(cb, &text_style, &node.get_layout());
                     },
                     _ => ()
                 }
@@ -264,7 +203,7 @@ extern "C" fn callback<L: FlexNode>(node: L, callback_args: *const c_void) {
 }
 
 // 文字布局更新
-fn update<'a, L: FlexNode>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
+fn update<'a, L: FlexNode + 'static>(mut node: L, id: usize, char_index: usize, write: &mut Write<L>) {
     let layout = node.get_layout();
     let mut pos = Point2{x: layout.left, y: layout.top};
     node = node.get_parent();
@@ -278,9 +217,26 @@ fn update<'a, L: FlexNode>(mut node: L, id: usize, char_index: usize, write: &mu
     let mut cn = unsafe {cb.chars.get_unchecked_mut(char_index)};
     cn.pos = pos;
 }
-// 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, L: FlexNode>(id: usize, read: &Read<L>, write: &mut Write<L>) -> bool {;
+
+// 设置字形的id
+fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>) {
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
+    let scale = unsafe { read.5.get_unchecked(id).y.y };
+    
+    cb.calc_font_size = cb.font_size * scale;
+    for char_node in cb.chars.iter_mut() {
+        let ch_id = write.2.calc_gylph(&char_node.font_name, cb.font_size as usize, cb.stroke_width as usize, scale, char_node.base_width as usize, char_node.ch);
+        char_node.ch_id = ch_id;
+    }
+}
+
+// 计算节点的L的布局参数， 返回是否保留在脏列表中
+fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>) -> bool {
+    let cb = match write.0.get_mut(id) {
+        Some(r) => r,
+        None => return false, 
+    };
+    let text_style = unsafe{ read.3.get_unchecked(id)};
     let yoga = unsafe { read.1.get_unchecked(id).clone() };
     let parent_yoga = yoga.get_parent();
     if parent_yoga.is_null() {
@@ -288,208 +244,62 @@ fn calc<'a, L: FlexNode>(id: usize, read: &Read<L>, write: &mut Write<L>) -> boo
         println!("parent_yoga.is_null");
         return true
     }
-    cb.style_class = unsafe { read.6.get_unchecked(id) }.0;
-    if cb.dirty & DirtyType::StyleClass as usize != 0 {
-        let text_class = if cb.style_class > 0 {
-            match read.7.class.get(cb.style_class) {
-                Some(class) => class.text,
-                None => 0,
-            }
-        } else {
-            0
-        };
-        if text_class > 0 {
-            match read.7.text.get(cb.style_class) {
-               Some(c) if cb.local_style == 0 => {
-                    cb.clazz = c.clone();
-                },
-                Some(c) => {
-                    if cb.local_style & DirtyType::FontStyle as usize == 0 {
-                        cb.clazz.font.style = c.font.style
-                    }
-                    if cb.local_style & DirtyType::FontWeight as usize == 0 {
-                        cb.clazz.font.weight = c.font.weight
-                    }
-                    if cb.local_style & DirtyType::FontSize as usize == 0 {
-                        cb.clazz.font.size = c.font.size
-                    }
-                    if cb.local_style & DirtyType::FontFamily as usize == 0 {
-                        cb.clazz.font.family = c.font.family.clone()
-                    }
-                    if cb.local_style & DirtyType::LetterSpacing as usize == 0 {
-                        cb.clazz.style.letter_spacing = c.style.letter_spacing
-                    }
-                    if cb.local_style & DirtyType::WordSpacing as usize == 0 {
-                        cb.clazz.style.word_spacing = c.style.word_spacing
-                    }
-                    if cb.local_style & DirtyType::LineHeight as usize == 0 {
-                        cb.clazz.style.line_height = c.style.line_height
-                    }
-                    if cb.local_style & DirtyType::Indent as usize == 0 {
-                        cb.clazz.style.indent = c.style.indent
-                    }
-                    if cb.local_style & DirtyType::WhiteSpace as usize == 0 {
-                        cb.clazz.style.white_space = c.style.white_space
-                    }
-                    if cb.local_style & DirtyType::Color as usize == 0 {
-                        cb.clazz.style.color = c.style.color.clone()
-                    }
-                    if cb.local_style & DirtyType::Stroke as usize == 0 {
-                        cb.clazz.style.stroke = c.style.stroke.clone()
-                    }
-                    if cb.local_style & DirtyType::TextAlign as usize == 0 {
-                        cb.clazz.style.text_align = c.style.text_align
-                    }
-                    if cb.local_style & DirtyType::VerticalAlign as usize == 0 {
-                        cb.clazz.style.vertical_align = c.style.vertical_align
-                    }
-                    if cb.local_style & DirtyType::ShadowColor as usize == 0 {
-                        cb.clazz.shadow.color = c.shadow.color
-                    }
-                    if cb.local_style & DirtyType::ShadowHV as usize == 0 {
-                        cb.clazz.shadow.h = c.shadow.h;
-                        cb.clazz.shadow.v = c.shadow.v;
-                    }
-                    if cb.local_style & DirtyType::ShadowBlur as usize == 0 {
-                        cb.clazz.shadow.blur = c.shadow.blur
-                    }
-                },
-                _ => (),
-            };
-        }
-    }
-    if cb.dirty > DirtyType::StyleClass as usize {
-        cb.local_style |= cb.dirty & (!(DirtyType::Text as usize + DirtyType::StyleClass as usize));
-        if cb.dirty & (DirtyType::FontStyle as usize + DirtyType::FontSize as usize + DirtyType::FontFamily as usize) != 0 {
-            match read.3.get(id) {
-                Some(r) => {
-                    if cb.dirty & DirtyType::FontStyle as usize != 0 {
-                        cb.clazz.font.style = r.style
-                    }
-                    if cb.dirty & DirtyType::FontWeight as usize != 0 {
-                        cb.clazz.font.weight = r.weight
-                    }
-                    if cb.dirty & DirtyType::FontSize as usize != 0 {
-                        cb.clazz.font.size = r.size
-                    }
-                    if cb.dirty & DirtyType::FontFamily as usize != 0 {
-                        cb.clazz.font.family = r.family.clone()
-                    }
-                },
-                _ => ()
-            };
-        }
-        if cb.dirty & (
-            DirtyType::LetterSpacing as usize +
-            DirtyType::WordSpacing as usize +
-            DirtyType::LineHeight as usize +
-            DirtyType::Indent as usize +
-            DirtyType::WhiteSpace as usize +
-            DirtyType::Color as usize +
-            DirtyType::Stroke as usize +
-            DirtyType::TextAlign as usize +
-            DirtyType::VerticalAlign as usize) != 0 {
-            match read.4.get(id) {
-                Some(r) => {
-                    if cb.dirty & DirtyType::LetterSpacing as usize != 0 {
-                    cb.clazz.style.letter_spacing = r.letter_spacing
-                    }
-                    if cb.dirty & DirtyType::WordSpacing as usize != 0 {
-                        cb.clazz.style.word_spacing = r.word_spacing
-                    }
-                    if cb.dirty & DirtyType::LineHeight as usize != 0 {
-                        cb.clazz.style.line_height = r.line_height
-                    }
-                    if cb.dirty & DirtyType::Indent as usize != 0 {
-                        cb.clazz.style.indent = r.indent
-                    }
-                    if cb.dirty & DirtyType::WhiteSpace as usize != 0 {
-                        cb.clazz.style.white_space = r.white_space
-                    }
-                    if cb.dirty & DirtyType::Color as usize != 0 {
-                        cb.clazz.style.color = r.color.clone()
-                    }
-                    if cb.dirty & DirtyType::Stroke as usize != 0 {
-                        cb.clazz.style.stroke = r.stroke.clone()
-                    }
-                    if cb.dirty & DirtyType::TextAlign as usize != 0 {
-                        cb.clazz.style.text_align = r.text_align
-                    }
-                    if cb.dirty & DirtyType::VerticalAlign as usize != 0 {
-                        cb.clazz.style.vertical_align = r.vertical_align
-                    }
-                },
-                _ => ()
-            };
-        }
-        if cb.dirty & (DirtyType::ShadowColor as usize + DirtyType::ShadowHV as usize + DirtyType::ShadowBlur as usize) != 0 {
-            match read.5.get(id) {
-                Some(r) => {
-                    if cb.dirty & DirtyType::ShadowColor as usize != 0 {
-                        cb.clazz.shadow.color = r.color
-                    }
-                    if cb.dirty & DirtyType::ShadowHV as usize != 0 {
-                        cb.clazz.shadow.h = r.h;
-                        cb.clazz.shadow.v = r.v;
-                    }
-                    if cb.dirty & DirtyType::ShadowBlur as usize != 0 {
-                        cb.clazz.shadow.blur = r.blur
-                    }
-                },
-                _ => ()
-            };
-        }
-    }
+
     // 获得字体高度
-    cb.font_size = read.0.get_size(&cb.clazz.font.family, &cb.clazz.font.size);
+    cb.font_size = write.2.get_size(&text_style.font.family, &text_style.font.size) as f32;
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
-        println!("font_size==0.0");
+        println!("font_size==0.0, family: {:?}", text_style.font.family);
         return true
     }
-    cb.line_height = (get_line_height(cb.font_size, &cb.clazz.style.line_height) * 100.0).round()/100.0;
-    if cb.line_height < cb.font_size {
+    cb.line_height = (get_line_height(cb.font_size as usize, &text_style.text.line_height) * 100.0).round()/100.0;
+    if cb.line_height < cb.font_size{
         cb.line_height = cb.font_size;
     }
     cb.pos.y = (cb.line_height - cb.font_size)/2.0;
-    match parent_yoga.get_style_justify() {
-        YGJustify::YGJustifyCenter => cb.clazz.style.text_align = TextAlign::Center,
-        YGJustify::YGJustifyFlexEnd => cb.clazz.style.text_align = TextAlign::Right,
-        YGJustify::YGJustifySpaceBetween => cb.clazz.style.text_align = TextAlign::Justify,
-        _ => (),
-    };
+    // match parent_yoga.get_style_justify() {
+    //     YGJustify::YGJustifyCenter => text_style.text.text_align = TextAlign::Center,
+    //     YGJustify::YGJustifyFlexEnd => text_style.text.text_align = TextAlign::Right,
+    //     YGJustify::YGJustifySpaceBetween => text_style.text.text_align = TextAlign::Justify,
+    //     _ => (),
+    // };
 
-    match parent_yoga.get_style_align_content() {
-        YGAlign::YGAlignCenter => cb.clazz.style.vertical_align = VerticalAlign::Middle,
-        YGAlign::YGAlignFlexEnd => cb.clazz.style.vertical_align = VerticalAlign::Bottom,
-        _ => (),
-    };
+    // match parent_yoga.get_style_align_content() {
+    //     YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+    //     YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
+    //     _ => (),
+    // };
 
-    match parent_yoga.get_style_align_items() {
-        YGAlign::YGAlignCenter => cb.clazz.style.vertical_align = VerticalAlign::Middle,
-        YGAlign::YGAlignFlexEnd => cb.clazz.style.vertical_align = VerticalAlign::Bottom,
-        _ => (),
-    };
+    // match parent_yoga.get_style_align_items() {
+    //     YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+    //     YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
+    //     _ => (),
+    // };
     // TODO 如果没有文字变动， 则可以直接返回或计算布局
-    cb.modify = cb.dirty;
-    cb.dirty = 0;
+    // cb.modify = cb.dirty;
     let count = parent_yoga.get_child_count() as usize;
     let text = match read.2.get(id) {
         Some(t) => t.0.as_ref(),
         _ => "",
     };
+    let sw = text_style.text.stroke.width as usize;
+    cb.stroke_width = text_style.text.stroke.width;
+    // let scale = match read.7.get(id) {
+    //     Some(w) => w.y.y,
+    //     _ => 1.0
+    // };
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
         // let old = yoga.get_layout();
         let old_size = cb.wrap_size;
-        calc_text(cb, text, read.0);
+        calc_text(cb, &text_style, text, sw, write.2);
         if old_size.x != cb.wrap_size.x || old_size.y != cb.wrap_size.y {
             yoga.set_width(cb.wrap_size.x);
             yoga.set_height(cb.wrap_size.y);
         }else{
             match parent_yoga.get_style_width_unit() {
                 YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                    calc_wrap_align(cb, &parent_yoga.get_layout());
+                    calc_wrap_align(cb, text_style, &parent_yoga.get_layout());
                 },
                 _ => ()
             }
@@ -499,13 +309,13 @@ fn calc<'a, L: FlexNode>(id: usize, read: &Read<L>, write: &mut Write<L>) -> boo
         }
         return false
     }
-    if cb.clazz.style.white_space.allow_wrap() {
+    if text_style.text.white_space.allow_wrap() {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     }else {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapNoWrap);
     }
     // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
-    yoga.set_width(cb.clazz.style.indent);
+    yoga.set_width(text_style.text.indent);
     
     // 计算节点的yoga节点在父节点的yoga节点的位置
     let mut yg_index: usize = 0;
@@ -517,25 +327,25 @@ fn calc<'a, L: FlexNode>(id: usize, read: &Read<L>, write: &mut Write<L>) -> boo
     let mut word = L::new_null();
     let mut word_index = 0;
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-    for cr in split(text, true, cb.clazz.style.white_space.preserve_spaces()) {
+    for cr in split(text, true, text_style.text.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
-                update_char(id, cb, '\n', 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
-                update_char(id, cb, '\t', cb.clazz.style.indent, read.0, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, cb, text_style, '\n', 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, cb, text_style, '\t', text_style.text.indent, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为半高, 高度0
-                update_char(id, cb, ' ', cb.font_size/2.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, cb, text_style, ' ', cb.font_size/2.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Word(c) => {
-                update_char(id, cb, c, 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::WordStart(c) => {
-                word = update_char(0, cb, char::from(0), 0.0, read.0, &mut index, &parent_yoga, &mut yg_index);
-                update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
+                word = update_char(0, cb, text_style, char::from(0), 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
             },
             SplitResult::WordNext(c) =>{
-                update_char(id, cb, c, 0.0, read.0, &mut index, &word, &mut word_index);
+                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
             },
             SplitResult::WordEnd =>{
                     word = L::new_null();
@@ -546,14 +356,16 @@ fn calc<'a, L: FlexNode>(id: usize, read: &Read<L>, write: &mut Write<L>) -> boo
     //清除多余的CharNode
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
-            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};
     }
+
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<L: FlexNode>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
+fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
     let i = *index;
     if i < cb.chars.len() {
         let cn = &cb.chars[i];
@@ -568,11 +380,15 @@ fn update_char<L: FlexNode>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, f
         }
         unsafe {cb.chars.set_len(i)};
     }
-    let node = set_node(cb, c, w, font, L::new());
+    let (node, font_name, is_pixel, base_width) = set_node(cb, text_style, c, w, sw, font, L::new());
     let cn = CharNode {
         ch: c,
         width: w,
         pos: Point2::default(),
+        ch_id: id,
+        is_pixel: is_pixel,
+        font_name: font_name,
+        base_width: base_width,
         node: node.clone(),
     };
     node.set_bind((i + 1) as *mut c_void);
@@ -584,17 +400,19 @@ fn update_char<L: FlexNode>(id: usize, cb: &mut CharBlock<L>, c: char, w: f32, f
     node
 }
 // 设置节点的宽高
-fn set_node<L: FlexNode>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontSheet, node: L) -> L {
+fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, node: L) -> (L, Atom, bool, f32) {
     if c > ' ' {
-        w = font.measure(&cb.clazz.font.family, cb.font_size, c);
-        node.set_width(w + cb.clazz.style.letter_spacing);
+        let r= font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
+        node.set_width(r.0.x + text_style.text.letter_spacing);
         node.set_height(cb.line_height);
-        match cb.clazz.style.vertical_align {
+        match text_style.text.vertical_align {
             VerticalAlign::Middle => node.set_align_self(YGAlign::YGAlignCenter),
             VerticalAlign::Top => node.set_align_self(YGAlign::YGAlignFlexStart),
             VerticalAlign::Bottom => node.set_align_self(YGAlign::YGAlignFlexEnd),
         };
-    }else if c == '\n' {
+        return (node, r.1.clone(), r.2, r.3)
+    }
+    if c == '\n' {
         node.set_width_percent(100.0);
     }else if c == char::from(0) {
         node.set_width_auto();
@@ -603,7 +421,7 @@ fn set_node<L: FlexNode>(cb: &CharBlock<L>, c: char, mut w: f32, font: &FontShee
     }else{ // "\t"
         node.set_width(w);
     }
-    node
+    (node, Atom::from(""), false, 0.0)
 }
 
 #[derive(Debug)]
@@ -614,7 +432,7 @@ struct Calc {
     word: usize,
 }
 
-fn calc_text<'a, L: FlexNode>(cb: &mut CharBlock<L>, text: &'a str, font: &FontSheet) {
+fn calc_text<'a, L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, text: &'a str, sw: usize, font: &mut FontSheet) {
     let mut calc = Calc{
         index: 0,
         pos: Point2::default(),
@@ -622,7 +440,7 @@ fn calc_text<'a, L: FlexNode>(cb: &mut CharBlock<L>, text: &'a str, font: &FontS
         word: 0,
     };
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-    for cr in split(text, true, cb.clazz.style.white_space.preserve_spaces()) {
+    for cr in split(text, true, text_style.text.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
                 cb.last_line.2 = calc.pos.x;
@@ -630,36 +448,36 @@ fn calc_text<'a, L: FlexNode>(cb: &mut CharBlock<L>, text: &'a str, font: &FontS
                 cb.lines.push(cb.last_line.clone());
                 cb.last_line = (0, 0, 0.0);
                 cb.line_count += 1;
-                update_char1(cb, '\n', 0.0, font, &mut calc);
+                update_char1(cb, text_style, '\n', 0.0, sw, font, &mut calc);
                 // 行首缩进
-                calc.pos.x += cb.clazz.style.indent;
+                calc.pos.x += text_style.text.indent;
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
-                update_char1(cb, ' ', cb.font_size, font, &mut calc);
-                calc.pos.x += cb.clazz.style.letter_spacing;
+                update_char1(cb, text_style, ' ', cb.font_size, sw, font, &mut calc);
+                calc.pos.x += text_style.text.letter_spacing;
                 cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
-                update_char1(cb, c, 0.0, font, &mut calc);
-                calc.pos.x += cb.clazz.style.letter_spacing;
+                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
+                calc.pos.x += text_style.text.letter_spacing;
                 cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
                 calc.word = calc.index;
-                update_char1(cb, 0 as char, 0.0, font, &mut calc);
-                update_char1(cb, c, 0.0, font, &mut calc);
+                update_char1(cb, text_style, 0 as char, 0.0, sw, font, &mut calc);
+                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordNext(c) =>{
-                calc.pos.x += cb.clazz.style.letter_spacing;
-                update_char1(cb, c, 0.0, font, &mut calc);
+                calc.pos.x += text_style.text.letter_spacing;
+                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordEnd =>{
                 let node = unsafe {cb.chars.get_unchecked_mut(calc.word)};
                 node.width = calc.pos.x - node.pos.x;
                 node.pos.y = (calc.index - calc.word) as f32;
                 calc.word = 0;
-                calc.pos.x += cb.clazz.style.word_spacing;
+                calc.pos.x += text_style.text.word_spacing;
                 cb.last_line.1 += 1;
             },
         }
@@ -668,7 +486,8 @@ fn calc_text<'a, L: FlexNode>(cb: &mut CharBlock<L>, text: &'a str, font: &FontS
     //清除多余的CharNode
     if calc.index < cb.chars.len() {
         for i in calc.index..cb.chars.len() {
-            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(calc.index)};
     }
@@ -677,47 +496,54 @@ fn calc_text<'a, L: FlexNode>(cb: &mut CharBlock<L>, text: &'a str, font: &FontS
     cb.wrap_size = cb.size;
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char1<L: FlexNode>(cb: &mut CharBlock<L>, c: char, w: f32, font: &FontSheet,  calc: &mut Calc) {
+fn update_char1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet,  calc: &mut Calc) {
     if calc.index < cb.chars.len() {
         // let line_height = cb.line_height;
         let cn = &cb.chars[calc.index];
         // if cn.ch == c {
         //     println!("cn--------------------------{:?}", cn);
-        //     set_node2(cn, line_height, cn.width, font, calc);   
+        //     set_node2(cn, line_height, c, cn.width, font, calc);   
         //     calc.index += 1;
         //     return
         // }
         if cn.ch != c {
             // 字符不同，将当前的，和后面的节点都释放掉
             for j in calc.index..cb.chars.len() {
-                cb.chars[j].node.free()
+                cb.chars[j].node.get_parent().remove_child(cb.chars[j].node);
+                // cb.chars[j].node.free()
             }
             unsafe {cb.chars.set_len(calc.index)};
         }
     }
     let p = calc.pos;
-    let w = set_node1(cb, c, w, font, calc);
+    let (w, font_name, is_pixel, base_width) = set_node1(cb, text_style, c, w, sw, font, calc);
     cb.chars.push(CharNode {
         ch: c,
         width: w,
         pos: p,
+        ch_id: 0,
+        is_pixel: is_pixel,
+        font_name: font_name,
+        base_width: base_width,
         node: L::new_null(),
     });
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<L: FlexNode>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &FontSheet,  calc: &mut Calc) -> f32 {
-    if c as u32 == 0 {
-    } else if c > ' ' {
-        w = font.measure(&cb.clazz.font.family, cb.font_size, c);
-        if w != cb.font_size && cb.fix_width {
+fn set_node1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
+    if c > ' ' {
+        let r= font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
+       //  w = font.measure(&text_style.font.family, cb.font_size as usize, sw, c).0.x;
+        if r.0.x != cb.font_size && cb.fix_width {
             cb.fix_width = false
         }
-        calc.pos.x += w;
+        calc.pos.x += r.0.x;
         if calc.max_w < calc.pos.x {
             calc.max_w = calc.pos.x
         }
-    }else if c == '\n' {
+        return (r.0.x, r.1, r.2, r.3)
+    }
+    if c == '\n' {
         calc.pos.x = 0.0;
         calc.pos.y += cb.line_height;
     }else if c == ' ' {
@@ -726,28 +552,29 @@ fn set_node1<L: FlexNode>(cb: &mut CharBlock<L>, c: char, mut w: f32, font: &Fon
             calc.max_w = calc.pos.x
         }
     }
-    w
+    (w, Atom::from("".to_string()), false, 0.0)
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改cb.pos
-fn calc_wrap_align<L: FlexNode>(cb: &mut CharBlock<L>, layout: &Layout) {
+fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, layout: &Layout) {
     let x = layout.border_left + layout.padding_left;
     let w = layout.width - x - layout.border_right - layout.padding_right;
     let y = layout.border_top + layout.padding_top;
     let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
-    if cb.clazz.style.white_space.allow_wrap() && cb.size.x > w {
+    if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
         for i in 0..cb.lines.len() + 1 {
-            y_fix = wrap_line(cb, i, w, y_fix)
+            y_fix = wrap_line(cb, text_style, i, w, y_fix)
         }
         cb.wrap_size.y += y_fix;
         cb.wrap_size.x = w;
     }
     cb.pos.x = x;
     cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
+    
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
-        match cb.clazz.style.vertical_align {
+        match text_style.text.vertical_align {
             VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
             VerticalAlign::Bottom => cb.pos.y += h - cb.wrap_size.y,
             _ => (),
@@ -758,7 +585,7 @@ fn calc_wrap_align<L: FlexNode>(cb: &mut CharBlock<L>, layout: &Layout) {
         return;
     }
     if cb.line_count == 1 { // 单行优化
-        match cb.clazz.style.text_align {
+        match text_style.text.text_align {
             TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
             TextAlign::Right => cb.pos.x += w - cb.size.x,
             TextAlign::Justify => justify_line(cb, line_info(cb, 0), w, 0.0, 0.0),
@@ -767,7 +594,7 @@ fn calc_wrap_align<L: FlexNode>(cb: &mut CharBlock<L>, layout: &Layout) {
         return
     }
     // 多行的3种布局的处理
-    match cb.clazz.style.text_align {
+    match text_style.text.text_align {
         TextAlign::Center => {
             for i in 0..cb.lines.len() + 1 {
                 align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_center_fix)
@@ -786,7 +613,7 @@ fn calc_wrap_align<L: FlexNode>(cb: &mut CharBlock<L>, layout: &Layout) {
         _ => (),
     };
 }
-fn wrap_line<L: FlexNode>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
+fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
     let (end, mut start, mut word_count, line_width) = line_info(cb, line);
     let mut x_fix = 0.0;
     let mut w = 0.0;
@@ -823,7 +650,7 @@ fn wrap_line<L: FlexNode>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, 
         x_fix = -w;
     }
     // 剩余的宽度， 需要计算行对齐
-    match cb.clazz.style.text_align {
+    match text_style.text.text_align {
         TextAlign::Center => {
             align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_center_fix)
         },
@@ -847,7 +674,7 @@ fn wrap_line<L: FlexNode>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, 
     // while w > limit_width {
     //     // 计算折行
     // }
-    // match cb.clazz.style.text_align {
+    // match text_style.text.text_align {
     //     TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
     //     TextAlign::Right => cb.pos.x += w - cb.size.x,
     //     // TextAlign::Justify if cb.size.x > w => justify(cb, w, cb.size.x),
@@ -855,7 +682,7 @@ fn wrap_line<L: FlexNode>(cb: &mut CharBlock<L>, line: usize, limit_width: f32, 
     // };
     0.0
 }
-fn align_line<L: FlexNode>(cb: &mut CharBlock<L>, (end, mut start, _, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32, get_x_fix: fn(f32, f32) -> f32) {
+fn align_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, (end, mut start, _, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32, get_x_fix: fn(f32, f32) -> f32) {
     let fix = get_x_fix(limit_width, line_width) + x_fix;
     if y_fix > 0.0 {
         while start < end {
@@ -871,7 +698,7 @@ fn align_line<L: FlexNode>(cb: &mut CharBlock<L>, (end, mut start, _, line_width
         }
     }
 }
-fn justify_line<L: FlexNode>(cb: &mut CharBlock<L>, (end, mut start, word_count, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32) {
+fn justify_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, (end, mut start, word_count, line_width): (usize, usize, usize, f32), limit_width: f32, x_fix: f32, y_fix: f32) {
     if word_count == 1 {
         unsafe {cb.chars.get_unchecked_mut(start)}.pos.x += (limit_width - line_width)/2.0;
         return;
@@ -893,7 +720,7 @@ fn justify_line<L: FlexNode>(cb: &mut CharBlock<L>, (end, mut start, word_count,
         }
     }
 }
-fn line_info<L: FlexNode>(cb: &CharBlock<L>, line: usize) -> (usize, usize, usize, f32) {
+fn line_info<L: FlexNode + 'static>(cb: &CharBlock<L>, line: usize) -> (usize, usize, usize, f32) {
     if line >= cb.lines.len() {
         (cb.chars.len(), cb.last_line.0, cb.last_line.1, cb.last_line.2)
     }else if line + 1 >= cb.lines.len(){
@@ -917,11 +744,7 @@ impl_system!{
     LayoutImpl<L> where [L: FlexNode],
     true,
     {
-        MultiCaseListener<Node, Text, CreateEvent>
-        MultiCaseListener<Node, Text, ModifyEvent>
-        MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, TextStyle, ModifyEvent>
-        MultiCaseListener<Node, TextShadow, ModifyEvent>
+        MultiCaseListener<Node, TextContent, CreateEvent>
         MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
     }
 }

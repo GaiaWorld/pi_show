@@ -78,7 +78,7 @@ pub fn color_is_opaque(color: &Color) -> bool{
 }
 
 #[inline]
-pub fn create_geometry<C: HalContext + 'static>(gl: &C) -> HalGeometry {
+pub fn create_geometry(gl: &Share<dyn HalContext + 'static>) -> HalGeometry {
     match gl.geometry_create() {
         Ok(r) => r,
         Err(e) => panic!("create_geometry error: {:?}", e),
@@ -86,7 +86,7 @@ pub fn create_geometry<C: HalContext + 'static>(gl: &C) -> HalGeometry {
 }
 
 #[inline]
-pub fn create_rs<C: HalContext + 'static>(gl: &C, rs: RasterStateDesc) -> HalRasterState {
+pub fn create_rs(gl: &Share<dyn HalContext + 'static>, rs: RasterStateDesc) -> HalRasterState {
     match gl.rs_create(rs) {
         Ok(r) => r,
         Err(e) => panic!("create_rs error: {:?}", e),
@@ -94,7 +94,7 @@ pub fn create_rs<C: HalContext + 'static>(gl: &C, rs: RasterStateDesc) -> HalRas
 }
 
 #[inline]
-pub fn create_bs<C: HalContext + 'static>(gl: &C, bs: BlendStateDesc) -> HalBlendState {
+pub fn create_bs(gl: &Share<dyn HalContext + 'static>, bs: BlendStateDesc) -> HalBlendState {
     match gl.bs_create(bs) {
         Ok(r) => r,
         Err(e) => panic!("create_bs error: {:?}", e),
@@ -102,7 +102,7 @@ pub fn create_bs<C: HalContext + 'static>(gl: &C, bs: BlendStateDesc) -> HalBlen
 }
 
 #[inline]
-pub fn create_ss<C: HalContext + 'static>(gl: &C, ss: StencilStateDesc) -> HalStencilState {
+pub fn create_ss(gl: &Share<dyn HalContext + 'static>, ss: StencilStateDesc) -> HalStencilState {
     match gl.ss_create(ss) {
         Ok(r) => r,
         Err(e) => panic!("create_geometry error: {:?}", e),
@@ -110,7 +110,7 @@ pub fn create_ss<C: HalContext + 'static>(gl: &C, ss: StencilStateDesc) -> HalSt
 }
 
 #[inline]
-pub fn create_ds<C: HalContext + 'static>(gl: &C, ds: DepthStateDesc) -> HalDepthState {
+pub fn create_ds(gl: &Share<dyn HalContext + 'static>, ds: DepthStateDesc) -> HalDepthState {
     match gl.ds_create(ds) {
         Ok(r) => r,
         Err(e) => panic!("create_geometry error: {:?}", e),
@@ -118,7 +118,7 @@ pub fn create_ds<C: HalContext + 'static>(gl: &C, ds: DepthStateDesc) -> HalDept
 }
 
 #[inline]
-pub fn create_buffer<C: HalContext + 'static>(gl: &C, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> HalBuffer {
+pub fn create_buffer(gl: &Share<dyn HalContext + 'static>, btype: BufferType, count: usize, data: Option<BufferData>, is_updatable: bool) -> HalBuffer {
     match gl.buffer_create(btype, count, data, is_updatable) {
         Ok(r) => r,
         Err(e) => panic!("create_buffer error: {:?}", e),
@@ -126,7 +126,7 @@ pub fn create_buffer<C: HalContext + 'static>(gl: &C, btype: BufferType, count: 
 }
 
 #[inline]
-pub fn create_sampler<C: HalContext + 'static>(gl: &C, sampler: SamplerDesc) -> HalSampler{
+pub fn create_sampler(gl: &Share<dyn HalContext + 'static>, sampler: SamplerDesc) -> HalSampler{
     match gl.sampler_create(sampler) {
         Ok(r) => r,
         Err(e) => panic!("create_sampler error: {:?}", e),
@@ -134,7 +134,7 @@ pub fn create_sampler<C: HalContext + 'static>(gl: &C, sampler: SamplerDesc) -> 
 }
 
 
-// pub fn set_atrribute<C: HalContext + 'static>(layout: &Layout, z_depth: f32, offset:(f32, f32), geometry: &mut Share<GeometryRes>){
+// pub fn set_atrribute(layout: &Layout, z_depth: f32, offset:(f32, f32), geometry: &mut Share<GeometryRes>){
 //     let (start_x, start_y, end_x, end_y) = (offset.0, offset.1, layout.width + offset.0, layout.height + offset.1);
 //     let buffer = [
 //         start_x, start_y, z_depth, // left_top
@@ -156,7 +156,7 @@ pub fn create_sampler<C: HalContext + 'static>(gl: &C, sampler: SamplerDesc) -> 
 //     Share::make_mut(ubos.get_mut(&WORLD_MATRIX).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
 // }
 
-// pub fn by_overflow_change<D: DefinesList + DefinesClip, C: HalContext + 'static>(
+// pub fn by_overflow_change<D: DefinesList + DefinesClip>(
 //     by_overflow: usize,
 //     index: usize,
 //     defines: &mut D,
@@ -168,7 +168,7 @@ pub fn create_sampler<C: HalContext + 'static>(gl: &C, sampler: SamplerDesc) -> 
 //     vs: &Atom,
 //     fs: &Atom,
 //     render_objs: &mut SingleCaseImpl<RenderObjs<C>>,
-//     engine: &mut SingleCaseImpl<Engine<C>>,
+//     engine: &mut SingleCaseImpl<Engine>,
 // ){
 //     let mut obj = &mut unsafe { render_objs.get_unchecked_mut(index) };
 //     let ubos = &mut obj.ubos;
@@ -305,6 +305,11 @@ pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut FxHasher32){
     unsafe { NotNan::unchecked_new(a).hash(hasher) };
 }
 
+pub fn f32_3_hash_(x: f32, y: f32, z: f32, hasher: &mut FxHasher32) {
+    unsafe { NotNan::unchecked_new(x).hash(hasher) };
+    unsafe { NotNan::unchecked_new(y).hash(hasher) };
+    unsafe { NotNan::unchecked_new(z).hash(hasher) };
+}
 
 pub fn f32_3_hash(x: f32, y: f32, z: f32) -> u64 {
     let mut hasher = FxHasher32::default();
@@ -320,7 +325,7 @@ pub fn f32_1_hash(value: f32) -> u64 {
     hasher.finish()
 }
 
-pub fn create_hash_res<C: HalContext + 'static, T: Res<C, Key=u64> + Hash + 'static>( engine: &mut Engine<C>, res: T) -> Share<T> {
+pub fn create_hash_res<T: Res<Key=u64> + Hash + 'static>( engine: &mut Engine, res: T) -> Share<T> {
     let mut hasher = FxHasher32::default();
     res.hash(&mut hasher);
     let h = hasher.finish();
@@ -330,7 +335,7 @@ pub fn create_hash_res<C: HalContext + 'static, T: Res<C, Key=u64> + Hash + 'sta
     }
 }
 
-pub fn create_rs_res<C: HalContext + 'static>( engine: &mut Engine<C>, rs: RasterStateDesc) -> Share<HalRasterState> {
+pub fn create_rs_res( engine: &mut Engine, rs: RasterStateDesc) -> Share<HalRasterState> {
     let mut hasher = FxHasher32::default();
     rs.hash(&mut hasher);
     let h = hasher.finish();
@@ -340,7 +345,7 @@ pub fn create_rs_res<C: HalContext + 'static>( engine: &mut Engine<C>, rs: Raste
     }
 }
 
-pub fn create_bs_res<C: HalContext + 'static>( engine: &mut Engine<C>, bs: BlendStateDesc) -> Share<HalBlendState> {
+pub fn create_bs_res( engine: &mut Engine, bs: BlendStateDesc) -> Share<HalBlendState> {
     let mut hasher = FxHasher32::default();
     bs.hash(&mut hasher);
     let h = hasher.finish();
@@ -350,7 +355,7 @@ pub fn create_bs_res<C: HalContext + 'static>( engine: &mut Engine<C>, bs: Blend
     }
 }
 
-pub fn create_ss_res<C: HalContext + 'static>( engine: &mut Engine<C>, ss: StencilStateDesc) -> Share<HalStencilState> {
+pub fn create_ss_res( engine: &mut Engine, ss: StencilStateDesc) -> Share<HalStencilState> {
     let mut hasher = FxHasher32::default();
     ss.hash(&mut hasher);
     let h = hasher.finish();
@@ -360,7 +365,7 @@ pub fn create_ss_res<C: HalContext + 'static>( engine: &mut Engine<C>, ss: Stenc
     }
 }
 
-pub fn create_ds_res<C: HalContext + 'static>( engine: &mut Engine<C>, ds: DepthStateDesc) -> Share<HalDepthState> {
+pub fn create_ds_res( engine: &mut Engine, ds: DepthStateDesc) -> Share<HalDepthState> {
     let mut hasher = FxHasher32::default();
     ds.hash(&mut hasher);
     let h = hasher.finish();
@@ -470,4 +475,15 @@ pub fn modify_matrix(
 #[inline]
 pub fn geo_box(layout: &Layout) -> Aabb2{
     Aabb2::new(Point2::new(layout.border_left, layout.border_top), Point2::new(layout.width - layout.border_right, layout.height - layout.border_bottom))
+}
+
+pub fn create_default_sampler(engine: &mut Engine) -> Share<HalSampler> {
+    let default_sampler = SamplerDesc::default();
+    let mut hasher = FxHasher32::default();
+    default_sampler.hash(&mut hasher);
+    let hash = hasher.finish();
+    match engine.res_mgr.get::<HalSampler>(&hash) {
+        Some(r) => r,
+        None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
+    }
 }

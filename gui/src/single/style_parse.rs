@@ -1,5 +1,7 @@
 use std::mem::transmute;
-use std::str::FromStr;
+use std::str::{FromStr, Split};
+
+use atom::Atom;
 
 use component::user::*;
 use single::class::*;
@@ -39,6 +41,36 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
                 return Ok(());
             }
         },
+
+        "background-image" => show_attr.push(Attribute::ImageUrl( parse_url(value)? )),
+        "background-image-clip" => show_attr.push(Attribute::ImageClip( unsafe { transmute(parse_f32_4(value)?) } )),
+        "object-fit" =>  show_attr.push(Attribute::ObjectFit( ObjectFit(parse_object_fit(value)?) )),
+
+        "border-image" => show_attr.push(Attribute::BorderImageUrl( parse_url(value)? )),
+        "border-image-clip" => show_attr.push(Attribute::BorderImageClip( unsafe { transmute(parse_f32_4(value)?) } )),
+        "border-image-slice" => show_attr.push(Attribute::BorderImageSlice( unsafe { transmute(parse_f32_5(value)?) } )),
+        "border-image-repeat" => {
+            let ty = parse_border_image_repeat(value)?;
+            show_attr.push(Attribute::BorderImageRepeat( BorderImageRepeat(ty, ty) ));
+        },
+
+        "color" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "letter-spacing" => show_attr.push(Attribute::LetterSpacing( parse_f32(value)? )),
+        "line-height" => show_attr.push(Attribute::LineHeight( parse_line_height(value)? )),
+        "text-align" => show_attr.push(Attribute::TextAlign( parse_text_align(value)? )),
+        "text-indent" => show_attr.push(Attribute::TextIndent( parse_f32(value)? )),
+        "text-shadow" => show_attr.push(Attribute::TextShadow( parse_text_shadow(value)? )),
+        "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "white-space" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "word-spacing" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+
+        "text-stroke" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+
+        "font-style" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "font-weight" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "font-size" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "font-family" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+
         "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
         "height" => layout_attr.push(LayoutAttr::Height(parse_unity(value)?)),
         "margin-left" => layout_attr.push(LayoutAttr::MarginLeft(parse_unity(value)?)),
@@ -122,6 +154,97 @@ fn parser_color_stop(value: &str, list: &mut Vec<CgColor>, color_stop: &mut Vec<
     }
     list.push(parse_color_string(value.trim())?);
     Ok(())
+}
+
+fn parse_f32_4(value: &str) -> Result<[f32; 4], String> {
+    let mut r = [0.0, 0.0, 0.0, 0.0];
+    let mut i = 0;
+    for v in value.split(" ") {
+        if i > 3 {
+            return Err(format!("parse_f32_4 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r[i] = parse_f32(v)?;
+            i += 1;
+        }
+    }
+    Ok(r)
+}
+
+fn parse_f32_5(value: &str) -> Result<[f32; 5], String> {
+    let mut r = [0.0, 0.0, 0.0, 0.0, 0.0];
+    let mut i = 0;
+    for v in value.split(" ") {
+        if i > 4 {
+            return Err(format!("parse_f32_4 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r[i] = parse_f32(v)?;
+            i += 1;
+        }
+    }
+    Ok(r)
+}
+
+fn parse_line_height(value: &str) -> Result<LineHeight, String>{
+    let r = if value == "normal" {
+        LineHeight::Normal
+    } else if value.ends_with("%") {
+        let v = match f32::from_str(value) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        LineHeight::Percent(v/100.0)
+    } else if value.ends_with("px") {
+        let v = match f32::from_str(&value[0..value.len() - 2]) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        LineHeight::Length(v)
+    } else {
+        return Err(format!("parse_line_height error, value: {}", value));
+    };
+    Ok(r)
+}
+
+fn parse_text_align(value: &str) -> Result<TextAlign, String>{
+    match value {
+        "left" => Ok(TextAlign::Left),
+        "right" => Ok(TextAlign::Right),
+        "center" => Ok(TextAlign::Center),
+        "justify" => Ok(TextAlign::Justify),
+        _ => Err(format!("parse_text_align error, value: {}", value))
+    }
+}
+
+fn parse_text_shadow(value: &str) -> Result<TextShadow, String>{
+    let mut it = value.split(" ");
+    let mut shadow = TextShadow::default();
+    // shadow.h = parse_px(iter(&mut it, "")?)?;
+    // shadow.v = parse_px(iter(&mut it, "")?)?;
+    // match iter(&mut it, "") {
+    //     Ok(r) => match parse_px(r) {
+    //         Ok(r) => shadow.blur = r,
+    //         Err(_) => shadow.color = parse_color_string(r)?,
+    //     },
+    //     _ => (),
+    // };
+    Ok(shadow)
+}
+
+fn iter<'a, 'b>(it: &'a mut Split<&'a str>, no: &'b str) -> Result<&'a str, String> {
+    loop {
+        match it.next() {
+            Some(r) => if no != r{
+                return Ok(r.trim())
+            } else {
+                continue;
+            },
+            None => return Err("iter err".to_string()),
+        }
+    }
 }
 
 fn parser_color_stop_last(v: f32, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32, last_color: Option<CgColor>) -> Result<(), String>{
@@ -340,6 +463,18 @@ fn parse_unity(value: &str) -> Result<ValueUnit, String> {
     }
 }
 
+fn parse_px(value: &str) -> Result<f32, String> {
+    if value.ends_with("px") {
+        let v = match f32::from_str(&value[0..value.len() - 2]) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(v)
+    }else {
+        Err("parse_unity error".to_string())
+    }
+}
+
 fn parse_u8(value: &str) -> Result<u8, String> {
     match u8::from_str(value) {
         Ok(r) => Ok(r),
@@ -353,6 +488,41 @@ fn parse_f32(value: &str) -> Result<f32, String> {
         Ok(r) => Ok(r),
         Err(e) => Err(format!("{:?}: {}", e.to_string(), value) ),
     }
+}
+
+fn parse_url(value: &str) -> Result<Atom, String> {
+    if value.len() < 7 { //"url()" 就有5个字符
+        return Err(format!("parse_url error, {}", value));
+    }
+    let value = value[4..value.len() - 1].trim();
+    if value.len() > 2 && ( (value.starts_with("'")  && value.ends_with("'")) || (value.starts_with("\"") && value.ends_with("\"" )) ){
+        Ok(Atom::from(&value[1..value.len() - 1]))
+    } else {
+        Ok(Atom::from(&value[1..value.len() - 1]))
+    }
+}
+
+fn parse_object_fit(value: &str) -> Result<FitType, String>{
+    let r = match value {
+        "contain" => FitType::Contain,
+        "cover" => FitType::Cover,
+        "fill" => FitType::Fill,
+        "none" => FitType::None,
+        "scale-down" => FitType::ScaleDown,
+        _ => return Err(format!("parse_object_fit error, value: {:?}", value)),
+    };
+    Ok(r)
+}
+
+fn parse_border_image_repeat(value: &str) -> Result<BorderImageRepeatType, String>{
+    let r = match value {
+        "stretch" => BorderImageRepeatType::Stretch,
+        "repeat" => BorderImageRepeatType::Repeat,
+        "round" => BorderImageRepeatType::Round,
+        "space" => BorderImageRepeatType::Space,
+        _ => return Err(format!("parse_border_image_repeat error, value: {:?}", value)),
+    };
+    Ok(r)
 }
 
 fn parse_color_hex(value: &str) -> Result<CgColor, String> {
@@ -402,6 +572,32 @@ fn from_hex(c: u8) -> Result<u8, String> {
 pub enum Attribute {
     BGColor(BackgroundColor),
     BorderColor(BorderColor),
+
+    ImageUrl(Atom),
+    ImageClip(ImageClip),
+    ObjectFit(ObjectFit),
+
+    BorderImageUrl(Atom),
+    BorderImageClip(BorderImageClip),
+    BorderImageSlice(BorderImageSlice),
+    BorderImageRepeat(BorderImageRepeat),
+
+    Color(Color),
+    LetterSpacing(f32),
+    LineHeight(LineHeight),
+    TextAlign(TextAlign),
+    TextIndent(f32),
+    VerticalAlign(VerticalAlign),
+    WhiteSpace(WhiteSpace),
+    WordSpacing(f32),
+    TextShadow(TextShadow),
+    TextStroke(Stroke),
+
+    FontStyle(FontStyle),
+    FontWeight(f32),
+    FontSize(f32),
+    FontFamily(Atom),
+
     ZIndex(usize),
     Enable(EnableType),
     Display(Display),

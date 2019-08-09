@@ -10,6 +10,7 @@ use stdweb::Object;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::idtree::{InsertType};
 use hal_core::*;
+use hal_webgl::*;
 use atom::Atom;
 use octree::intersects;
 use cg2d::{include_quad2, InnOuter};
@@ -122,63 +123,63 @@ pub fn remove_child(world: u32, node_id: u32){
     debug_println!("remove_child: {}", node_id);  
 }
 
-// __jsObj: image, __jsObj1: image_name(String)
-// 设置图片的src
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
-    let node = node as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let yg_nodes = world.yoga.lend_mut();
-    let yoga = match yg_nodes.get(node) {
-        Some(r) => r,
-        None => return,
-    };
+// // __jsObj: image, __jsObj1: image_name(String)
+// // 设置图片的src
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_src(world: u32, node: u32, opacity: u8, compress: u8){
+//     let node = node as usize;
+//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+// 	let world = &mut world.gui;
+//     let yg_nodes = world.yoga.lend_mut();
+//     let yoga = match yg_nodes.get(node) {
+//         Some(r) => r,
+//         None => return,
+//     };
 
-    let name: String = js!{return __jsObj1}.try_into().unwrap();
-    let name = Atom::from(name);
-    let engine = world.engine.lend_mut();
-    let (width, height, texture) = match engine.res_mgr.get::<TextureRes>(&name) {
-        Some(res) => {
-            (res.width as u32, res.height as u32, res.clone())
-        },
-        None => {
-            let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-            let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+//     let name: String = js!{return __jsObj1}.try_into().unwrap();
+//     let name = Atom::from(name);
+//     let engine = world.engine.lend_mut();
+//     let (width, height, texture) = match engine.res_mgr.get::<TextureRes>(&name) {
+//         Some(res) => {
+//             (res.width as u32, res.height as u32, res.clone())
+//         },
+//         None => {
+//             let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+//             let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-            let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
-                Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-                Err(s) => panic!("set_src error, {:?}", s),
-            };
-            // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
-            //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-            //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
-            //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            //     Err(s) => panic!("set_src error, {:?}", s),
-            //   },
-            // };
-            // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
-            // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-            let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, Share::new(texture)) );
-            (width, height, res)
-        },
-    };
+//             let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
+//                 Ok(image_obj) => Share::downcast::<WebglHalContext>(unsafe{std::mem::transmute_copy::<_, Share<dyn std::any::Any>>(&engine.gl) } ) .unwrap().texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+//                 Err(s) => panic!("set_src error, {:?}", s),
+//             };
+//             // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
+//             //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
+//             //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+//             //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+//             //     Err(s) => panic!("set_src error, {:?}", s),
+//             //   },
+//             // };
+//             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
+//             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+//             let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+//             (width, height, res)
+//         },
+//     };
 
-    match yoga.get_width().unit {
-        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(width as f32),
-        _ => (),
-    };
-    match yoga.get_height().unit {
-        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(height as f32),
-        _ => (),
-    };
+//     match yoga.get_width().unit {
+//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(width as f32),
+//         _ => (),
+//     };
+//     match yoga.get_height().unit {
+//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(height as f32),
+//         _ => (),
+//     };
     
-    let image = world.image.lend_mut();
-    image.insert(node, Image{src: texture});
+//     let image = world.image.lend_mut();
+//     image.insert(node, Image{src: texture});
 
-    debug_println!("set_src"); 
-}
+//     debug_println!("set_src"); 
+// }
 
 
 // 设置图片的src
@@ -213,80 +214,80 @@ pub fn set_src_with_texture(world: u32, node: u32, texture: u32){
 // __jsObj: image, __jsObj1: image_name(String)
 // 设置图片的src
 
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
-    let node = node as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    if !world.node.lend().is_exist(node){
-        return;
-    }
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_border_src(world: u32, node: u32, opacity: u8, compress: u8){
+//     let node = node as usize;
+//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+// 	let world = &mut world.gui;
+//     if !world.node.lend().is_exist(node){
+//         return;
+//     }
 
-    let name: String = js!{return __jsObj1}.try_into().unwrap();
-    let name = Atom::from(name);
-    let engine = world.engine.lend_mut();
-    let texture = match engine.res_mgr.get::<TextureRes>(&name) {
-        Some(res) => {
-            res.clone()
-        },
-        None => {
-            let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-            let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+//     let name: String = js!{return __jsObj1}.try_into().unwrap();
+//     let name = Atom::from(name);
+//     let engine = world.engine.lend_mut();
+//     let texture = match engine.res_mgr.get::<TextureRes>(&name) {
+//         Some(res) => {
+//             res.clone()
+//         },
+//         None => {
+//             let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+//             let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
 
-            let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
-                Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-                Err(_) => panic!("set_src error"),
-            };
-            // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
-            //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
-            //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
-            //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
-            //     Err(s) => panic!("set_src error, {:?}", s),
-            //   },
-            // };
-            // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
-            // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
-            let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, Share::new(texture)) );
-            res
-        },
-    };
+//             let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
+//                 Ok(image_obj) => Share::downcast::<WebglHalContext>(unsafe{std::mem::transmute_copy::<_, Share<dyn std::any::Any>>(&engine.gl) } ).unwrap().texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+//                 Err(_) => panic!("set_src error"),
+//             };
+//             // let texture = match TryInto::<ImageElement>::try_into(js!{return __jsObj}) {
+//             //   Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Image(r)),
+//             //   Err(_s) => match TryInto::<CanvasElement>::try_into(js!{return __jsObj}){
+//             //     Ok(r) => engine.gl.create_texture_2d_webgl(0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &WebGLTextureData::Canvas(r)),
+//             //     Err(s) => panic!("set_src error, {:?}", s),
+//             //   },
+//             // };
+//             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MAG_FILTER, WebGLRenderingContext::NEAREST as i32);
+//             // gl.tex_parameteri(WebGLRenderingContext::TEXTURE_2D,WebGLRenderingContext::TEXTURE_MIN_FILTER, WebGLRenderingContext::NEAREST as i32);
+//             let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
+//             res
+//         },
+//     };
     
-    let image = world.border_image.lend_mut();
-    image.insert(node, BorderImage{src: texture});
+//     let image = world.border_image.lend_mut();
+//     image.insert(node, BorderImage{src: texture});
 
-    debug_println!("set_border_src"); 
-}
+//     debug_println!("set_border_src"); 
+// }
 
-// 设置图片的src
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_border_src_with_texture(world: u32, node: u32, texture: u32){
-    let node = node as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let yg_nodes = world.yoga.lend_mut();
-    let yoga = match yg_nodes.get(node) {
-        Some(r) => r,
-        None => return,
-    };
+// // 设置图片的src
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_border_src_with_texture(world: u32, node: u32, texture: u32){
+//     let node = node as usize;
+//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+// 	let world = &mut world.gui;
+//     let yg_nodes = world.yoga.lend_mut();
+//     let yoga = match yg_nodes.get(node) {
+//         Some(r) => r,
+//         None => return,
+//     };
 
-    let texture = unsafe {&*(texture as usize as *mut Share<TextureRes>) }.clone();
+//     let texture = unsafe {&*(texture as usize as *mut Share<TextureRes>) }.clone();
 
-    match yoga.get_width().unit {
-        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
-        _ => (),
-    };
-    match yoga.get_height().unit {
-        yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
-        _ => (),
-    };
+//     match yoga.get_width().unit {
+//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
+//         _ => (),
+//     };
+//     match yoga.get_height().unit {
+//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
+//         _ => (),
+//     };
     
-    let image = world.border_image.lend_mut();
-    image.insert(node, BorderImage{src: texture});
+//     let image = world.border_image.lend_mut();
+//     image.insert(node, BorderImage{src: texture});
 
-    debug_println!("set_border_src_with_texture"); 
-}
+//     debug_println!("set_border_src_with_texture"); 
+// }
 
 #[allow(unused_attributes)]
 #[no_mangle]

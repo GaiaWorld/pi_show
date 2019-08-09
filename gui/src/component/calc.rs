@@ -4,13 +4,13 @@ use std::ops::{Deref, DerefMut, Mul};
 
 use map::{vecmap::VecMap};
 use ecs::component::Component;
+use atom::Atom;
 
-use share::Share;
+use share::{ Share, ShareWeak };
 use hal_core::*;
 
 use super::user::*;
 use layout::FlexNode;
-use single::class::TextClass;
 use render::res_mgr::*;
 
 #[derive(Component, Default, Deref, DerefMut)]
@@ -144,9 +144,10 @@ pub struct StyleMark{
 }
 
 #[derive(Component, Debug)]
-pub struct CharBlock<L: FlexNode> {
-  pub clazz: TextClass,
+pub struct CharBlock<L: FlexNode + 'static> {
   pub font_size: f32, // 字体高度
+  pub calc_font_size: f32, // 字体高度
+  pub stroke_width: f32, //描边宽度
   pub line_height: f32,
   pub chars: Vec<CharNode<L>>, // 字符集合
   pub lines: Vec<(usize, usize, f32)>, // 不折行下的每行的起始字符位置、单词数量和总宽度。 自动折行不会影响该值
@@ -156,17 +157,18 @@ pub struct CharBlock<L: FlexNode> {
   pub pos: Point2,
   pub line_count: usize, // 行数，
   pub fix_width: bool, // 如果有字宽不等于font_size
-  pub local_style: usize, // 那些局部样式修改值， 包括间距、字体、字号是否修改
   pub style_class: usize, // 使用的那个样式类
-  pub dirty: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
-  pub modify: usize, // 1表示文字脏， 2表示局部样式脏， 4表示样式类脏
 }
 
 #[derive(Debug)]
-pub struct CharNode<L: FlexNode> {
+pub struct CharNode<L: FlexNode + 'static> {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置
+  pub ch_id: usize, // 字符id
+  pub is_pixel: bool, //是否为像素
+  pub base_width: f32, // font_size 为32 的字符宽度
+  pub font_name: Atom,
   pub node: L, // 对应的yoga节点
 }
 
@@ -340,11 +342,8 @@ uniform_buffer! {
         uColor: UniformValue,
     }
 }
-impl<C: HalContext + 'static> Res<C> for UColorUbo {
+impl Res for UColorUbo {
     type Key = u64;
-
-    fn destroy(&self, _gl: &C){
-    }
 }
 
 uniform_buffer! {
@@ -353,11 +352,8 @@ uniform_buffer! {
         hsv: UniformValue,
     }
 }
-impl<C: HalContext + 'static> Res<C> for HsvUbo {
+impl Res for HsvUbo {
     type Key = u64;
-
-    fn destroy(&self, _gl: &C){
-    }
 }
 
 defines! {
@@ -394,11 +390,8 @@ uniform_buffer! {
         strokeColor: UniformValue,
     }
 }
-impl<C: HalContext + 'static> Res<C> for MsdfStrokeUbo {
+impl Res for MsdfStrokeUbo {
     type Key = u64;
-
-    fn destroy(&self, _gl: &C){
-    }
 }
 
 program_paramter! {
@@ -435,11 +428,8 @@ uniform_buffer! {
         strokeColor: UniformValue,
     }
 }
-impl<C: HalContext + 'static> Res<C> for CanvasTextStrokeColorUbo {
+impl Res for CanvasTextStrokeColorUbo {
     type Key = u64;
-
-    fn destroy(&self, _gl: &C){
-    }
 }
 
 program_paramter! {
@@ -485,6 +475,15 @@ program_paramter! {
         clipTexture_size: ClipTextureSize,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
+    }
+}
+
+program_paramter! {
+    #[derive(Clone)]
+    struct ClipParamter {
+        meshNum: UniformValue,
+        viewMatrix: ViewMatrixUbo,
+        projectMatrix: ProjectMatrixUbo,
     }
 }
 

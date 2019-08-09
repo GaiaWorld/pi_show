@@ -1,312 +1,216 @@
 // 监听Overflow， 绘制裁剪纹理
-
-use std::marker::PhantomData;
 use share::Share;
 
-use fnv::FnvHashMap;
+use ordered_float::OrderedFloat;
+
 use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use hal_core::*;
-use atom::Atom;
 
-use component::calc::{ByOverflow};
+use component::calc::*;
 use entity::{Node};
 use single::*;
-use render::engine:: { Engine, PipelineInfo };
-use render::res::{SamplerRes};
+use render::engine:: { Engine };
 use system::util::*;
-use system::util::constant::*;
 use system::render::shaders::clip::*;
-use util::res_mgr::Res;
 
-lazy_static! {
-    static ref MESH_NUM: Atom = Atom::from("meshNum");
-    // static ref MESH_INDEX: Atom = Atom::from("meshIndex");
-    static ref CLIP_RENDER: Atom = Atom::from("clip_render");
-
-    static ref COMMON: Atom = Atom::from("common");
-    
-    static ref CLIP_TEXTURE: Atom = Atom::from("clipTexture");
-    static ref CLIP_INDICES: Atom = Atom::from("clipIndices");
-    static ref CLIP_TEXTURE_SIZE: Atom = Atom::from("clipTextureSize");
-}
-
-pub struct ClipSys<C: Context>{
-    mark: PhantomData<C>,
+pub struct ClipSys{
     dirty: bool,
-    render_target: Share<<C as Context>::ContextRenderTarget>,
-    by_ubo: Share<Uniforms<C>>,
-    rs: Share<RasterState>,
-    bs: Share<BlendState>,
-    ss: Share<StencilState>,
-    ds: Share<DepthState>,
-    pipeline: Share<PipelineInfo>,
-    geometry: Share<<C as Context>::ContextGeometry>,
-    ubos: FnvHashMap<Atom, Share<Uniforms<C>>>,
-    sampler: Res<SamplerRes<C>>,
+    clip_size_ubo: Share<ClipTextureSize>,
+    sampler: Share<HalSampler>,
+
+    rs: Share<HalRasterState>,
+    bs: Share<HalBlendState>,
+    ss: Share<HalStencilState>,
+    ds: Share<HalDepthState>,
+    render_target: HalRenderTarget,
+    program: Share<HalProgram>,
+    geometry: HalGeometry,
+    indexs: HalBuffer,
+    mumbers: HalBuffer,
+    positions: HalBuffer,
+    paramter: Share<dyn ProgramParamter>,
+    begin_desc: RenderBeginDesc,
 }
 
-impl<C: Context> ClipSys<C>{
-    pub fn new(engine: &mut Engine<C>, w: u32, h: u32) -> Self{
-        let (rs, mut bs, ss, mut ds) = (Share::new(RasterState::new()), BlendState::new(), Share::new(StencilState::new()), DepthState::new());
-        
+impl ClipSys{
+    pub fn new(engine: &mut Engine, w: u32, h: u32, viewport: &(i32, i32, i32, i32)) -> Self{
+        let (rs, mut bs, ss, mut ds) = (RasterStateDesc::default(), BlendStateDesc::default(), StencilStateDesc::default(), DepthStateDesc::default());
         bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
-        let bs = Share::new(bs);
-
         ds.set_test_enable(false);
         ds.set_write_enable(false);
-        let ds = Share::new(ds);
 
-        let defines = Vec::new();
-        let pipeline = engine.create_pipeline(
-            0,
-            &CLIP_VS_SHADER_NAME,
-            &CLIP_FS_SHADER_NAME,
-            defines.as_slice(),
-            rs.clone(),
-            bs.clone(),
-            ss.clone(),
-            ds.clone(),
+        let paramter = ClipParamter::default();
+
+        let mut mumbers: Vec<f32> = Vec::new();
+        let mut indices: Vec<u16> = Vec::new();
+
+        for i in 0..16 {
+            mumbers.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
+            indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
+        }
+
+        let p_buffer = create_buffer(&engine.gl, BufferType::Attribute, 128, None, false);
+        let m_buffer = create_buffer(&engine.gl, BufferType::Attribute, mumbers.len(), Some(BufferData::Float(mumbers.as_slice())), false);
+        let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
+
+        let geo = create_geometry(&engine.gl);
+        engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &p_buffer, 2).unwrap();
+        engine.gl.geometry_set_attribute(&geo, &AttributeName::SkinIndex, &m_buffer, 1).unwrap();
+        engine.gl.geometry_set_indices_short(&geo, &i_buffer).unwrap();
+
+        let program = engine.create_program(
+            CLIP_VS_SHADER_NAME.get_hash(),
+            CLIP_FS_SHADER_NAME.get_hash(),
+            CLIP_VS_SHADER_NAME.as_ref(),
+            &VsDefines::default(),
+            CLIP_FS_SHADER_NAME.as_ref(),
+            &FsDefines::default(),
+            &paramter,
         );
-        let s = SamplerDesc::default();
-        let hash = sampler_desc_hash(&s);
-        let sampler = match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-            Some(r) => r.clone(),
-            None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
-                engine.res_mgr.create::<SamplerRes<C>>(res)
-            },          
-        };
+
         let size = next_power_of_two(w.max(h));
-        let target = engine.gl.create_render_target(size, size, &PixelFormat::RGB, &DataFormat::UnsignedByte, false).unwrap();
-        let mut by_ubo = engine.gl.create_uniforms();
-        by_ubo.set_sampler(
-            &CLIP_TEXTURE,
-            &(sampler.value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
-            &(target.get_color_texture(0).unwrap().clone() as  Share<dyn AsRef<<C as Context>::ContextTexture>>)
-        );
-        by_ubo.set_float_1(&CLIP_TEXTURE_SIZE, size as f32);
+        let target = engine.gl.rt_create(size, size, PixelFormat::RGB, DataFormat::UnsignedByte, false).unwrap();
+        let mut clip_size_ubo = ClipTextureSize::default();
+        clip_size_ubo.set_value("clipTextureSize", UniformValue::Float1(size as f32));
 
-        let ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
+        // by_ubo.set_sampler(
+        //     &CLIP_TEXTURE,
+        //     &(sampler.value.clone() as Share<dyn AsRef<ContextSampler>>),
+        //     &(target.get_color_texture(0).unwrap().clone() as  Share<dyn AsRef<ContextTexture>>)
+        // );
 
         Self {
-            mark: PhantomData,
             dirty: true,
-            render_target: Share::new(target),
-            by_ubo: Share::new(by_ubo),
-            rs: rs,
-            bs: bs,
-            ss: ss,
-            ds: ds,
-            pipeline: pipeline,
-            geometry: Share::new(engine.gl.create_geometry().unwrap()),
-            ubos: ubos,
-            sampler: sampler,
+            clip_size_ubo: Share::new(clip_size_ubo),
+            sampler: create_default_sampler(engine: &mut Engine),
+
+            rs: create_rs_res(engine, rs),
+            bs: create_bs_res(engine, bs),
+            ss: create_ss_res(engine, ss),
+            ds: create_ds_res(engine, ds),
+
+            render_target: target,
+            program: program,
+            geometry: geo,
+            indexs: i_buffer,
+            mumbers: m_buffer,
+            positions: p_buffer,
+            paramter: Share::new(paramter),
+            begin_desc: RenderBeginDesc{
+                viewport: (viewport.0, viewport.1, viewport.2, viewport.3),
+                clear_color: Some((OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(1.0))),
+                clear_depth: None,
+                clear_stencil: None,
+            },
         }
-    }
-
-    fn add_by_overflow(&self, by_overflow: usize, render_obj: &mut RenderObj<C>, engine: &mut SingleCaseImpl<Engine<C>>) -> bool{
-        let defines = &mut render_obj.defines;
-        let mut is_change = false;
-        // 插入裁剪ubo 插入裁剪宏
-        render_obj.ubos.entry(CLIP.clone()).or_insert_with(||{
-            defines.push(CLIP.clone());
-            is_change = true;
-            self.by_ubo.clone()
-        });
-
-        if is_change {
-            // 设置 by_clip_index
-            render_obj.ubos.entry(CLIP_INDICES.clone()).and_modify(|ubo: &mut Share<Uniforms<C>>|{
-                debug_println!("modify clip ubo, by_overflow: {}", by_overflow);
-                Share::make_mut(ubo).set_float_1(&CLIP_INDICES, by_overflow as f32);
-            }).or_insert_with(||{
-                debug_println!("add clip ubo, by_overflow: {}", by_overflow);
-                let mut ubo = engine.gl.create_uniforms();
-                ubo.set_float_1(&CLIP_INDICES, by_overflow as f32);
-                Share::new(ubo)
-            });
-
-            // 重新创建渲染管线
-            let pipeline = engine.create_pipeline(
-                render_obj.pipeline.start_hash,
-                &render_obj.pipeline.vs,
-                &render_obj.pipeline.fs,
-                render_obj.defines.as_slice(),
-                render_obj.pipeline.rs.clone(),
-                render_obj.pipeline.bs.clone(),
-                render_obj.pipeline.ss.clone(),
-                render_obj.pipeline.ds.clone(),
-            );
-            render_obj.pipeline = pipeline;
-        }
-        return is_change;
     }
 }
 
-impl<'a, C: Context> Runner<'a> for ClipSys<C>{
+impl<'a> Runner<'a> for ClipSys{
     type ReadData = (
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<RenderBegin>,
     );
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+    type WriteData = &'a mut SingleCaseImpl<Engine>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         if self.dirty == false {
             return;
         }
+
         self.dirty = false;
 
-        let (overflow, _projection, _view, view_port) = read;
+        let (overflow, _projection, _view, _view_port) = read;
         let gl = &mut engine.gl;
 
-        // pub struct RenderBeginDesc {
-        //     pub viewport: (i32, i32, i32, i32),    // x, y, 宽, 高，左上角为原点
-        //     pub clear_color: Option<(f32, f32, f32, f32)>, // r, g, b, a，范围：0-1，为None代表不更新颜色
-        //     pub clear_depth: Option<f32>,   // 0-1，1代表最远，为None代表不更新深度
-        //     pub clear_stencil: Option<u8>, // 0-255，为None代表不更新模板
-        // }
-        let viewport = &view_port.0.viewport;
-        let new_viewport = (viewport.0, viewport.1, viewport.2, viewport.3);
-        let viewport = RenderBeginDesc{
-            viewport: new_viewport,
-            clear_color: Some((0.0, 0.0, 0.0, 1.0)),
-            clear_depth: None,
-            clear_stencil: None,
-        };
-        // gl.begin_render(
-        //     &(gl.get_default_render_target().clone() as Share<AsRef<C::ContextRenderTarget>>), 
-        //     &(Share::new(viewport) as Share<AsRef<RenderBeginDesc>>)
-        // );
-
-        gl.begin_render(
-            &(self.render_target.clone() as Share<dyn AsRef<C::ContextRenderTarget>>), 
-            &(Share::new(viewport) as Share<dyn AsRef<RenderBeginDesc>>)
-        );
-
         // set_pipeline
-        gl.set_pipeline(&(self.pipeline.pipeline.clone() as Share<dyn AsRef<Pipeline>>));
         {
-            let geometry_ref = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-
-            let mut positions = [0.0; 192];
+            let mut positions = [0.0; 128];
             for i in 0..16 {
                 let p = &overflow.clip[i];
 
-                positions[i * 12 + 0] = p[0].x;
-                positions[i * 12 + 1] = p[0].y;
-                positions[i * 12 + 2] = 0.0;
+                positions[i * 8 + 0] = p[0].x;
+                positions[i * 8 + 1] = p[0].y;
 
-                positions[i * 12 + 3] = p[1].x;
-                positions[i * 12 + 4] = p[1].y;
-                positions[i * 12 + 5] = 0.0;
+                positions[i * 8 + 3] = p[1].x;
+                positions[i * 8 + 4] = p[1].y;
 
-                positions[i * 12 + 6] = p[2].x;
-                positions[i * 12 + 7] = p[2].y;
-                positions[i * 12 + 8] = 0.0;
+                positions[i * 8 + 6] = p[2].x;
+                positions[i * 8 + 7] = p[2].y;
 
-                positions[i * 12 + 9] = p[3].x;
-                positions[i * 12 + 10] = p[3].y;
-                positions[i * 12 + 11] = 0.0;
+                positions[i * 8 + 9] = p[3].x;
+                positions[i * 8 + 10] = p[3].y;
             }
-            geometry_ref.set_attribute(&AttributeName::Position, 3, Some(&positions[0..192]), true).unwrap();
+            gl.buffer_update(&self.positions, 0, BufferData::Float(&positions[..]));
         }
-        let mut ubos: FnvHashMap<Atom, Share<dyn AsRef<Uniforms<C>>>> = FnvHashMap::default();
-        for (k, v) in self.ubos.iter() {
-            ubos.insert(k.clone(), v.clone() as Share<dyn AsRef<Uniforms<C>>>);
-        }
-        //draw
-        gl.draw(&(self.geometry.clone() as Share<dyn AsRef<<C as Context>::ContextGeometry>>), &ubos);
 
-        gl.end_render();
+        // 渲染裁剪平面
+        gl.render_begin(&self.render_target, &self.begin_desc);
+        gl.render_set_program(&self.program);
+        gl.render_set_state(&self.bs, &self.ds, &self.rs, &self.ss);
+        gl.render_draw(&self.geometry, &self.paramter);
+        gl.render_end();
     }
     
-    fn setup(&mut self, read: Self::ReadData, engine: Self::WriteData){
-        let mut indexs: Vec<f32> = Vec::new();
-        let mut indices: Vec<u16> = Vec::new();
+    fn setup(&mut self, read: Self::ReadData, _engine: Self::WriteData){
+        let ( _, view_matrix, projection_matrix, _) = read;
 
-        for i in 0..16 {
-            indexs.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
-            indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
-        }
-        
-        let geometry = unsafe {&mut *(self.geometry.as_ref() as *const C::ContextGeometry as usize as *mut C::ContextGeometry)};
-        geometry.set_vertex_count(64);
-        let _ = geometry.set_attribute(&AttributeName::SkinIndex, 1, Some(indexs.as_slice()), false);
-        geometry.set_indices_short(indices.as_slice(), false).unwrap();
+        let slice: &[f32; 16] = view_matrix.0.as_ref();
+        let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+        debug_println!("view_matrix: {:?}", &slice[..]);
 
-        let ( _, projection, view, _) = read;
-        let view: &[f32; 16] = view.0.as_ref();
-        let projection: &[f32; 16] = projection.0.as_ref();
-        let mut ubo = engine.gl.create_uniforms();
-        ubo.set_mat_4v(&VIEW_MATRIX, &view[0..16]);   
-        ubo.set_mat_4v(&PROJECT_MATRIX, &projection[0..16]);
-        ubo.set_float_1(&MESH_NUM, 16.0);
-        self.ubos.insert(COMMON.clone(), Share::new(ubo));
-    
-        self.dirty = true;
+        let slice: &[f32; 16] = projection_matrix.0.as_ref();
+        let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+        debug_println!("projection_matrix: {:?}", &slice[..]);
+
+        self.paramter.set_value("viewMatrix", Share::new(view_matrix_ubo)); // VIEW_MATRIX
+        self.paramter.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
+        self.paramter.set_single_uniform("meshNum", UniformValue::Float1(16.0));
     }
 }
 
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a, C: Context> SingleCaseListener<'a, RenderObjs<C>, CreateEvent> for ClipSys<C>{
+impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
-        let (render_objs, engine) = write;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, render_objs: Self::WriteData){
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let node_id = render_obj.context;
         let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
         if by_overflow > 0 {
-            if self.add_by_overflow(by_overflow, render_obj, engine) {
-                render_objs.get_notify().modify_event(node_id, "pipeline", 0);
+            render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+            // 插入裁剪ubo 插入裁剪宏
+            if let None = render_obj.fs_defines.add("CLIP") {
+                render_objs.get_notify().modify_event(node_id, "program_dirty", 0);
             }
         }
     }
 }
 
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a, C: Context> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
+impl<'a> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
         let (by_overflows, node_render_map) = read;
-        let (render_objs, engine) = write;
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
         if by_overflow == 0 {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-
-                // 移除ubo
-                if let Some(_) = render_obj.ubos.remove(&CLIP) {
-                    //移除宏
-                    render_obj.defines.remove_item(&CLIP);
-
-                    //移除ubo
-                    render_obj.ubos.remove(&CLIP_INDICES);
-                    
-                    // 重新创建渲染管线
-                    let pipeline = engine.create_pipeline(
-                        render_obj.pipeline.start_hash,
-                        &render_obj.pipeline.vs,
-                        &render_obj.pipeline.fs,
-                        render_obj.defines.as_slice(),
-                        render_obj.pipeline.rs.clone(),
-                        render_obj.pipeline.bs.clone(),
-                        render_obj.pipeline.ss.clone(),
-                        render_obj.pipeline.ds.clone(),
-                    );
-                    render_obj.pipeline = pipeline;
-                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
-                }  
+                if let Some(_) = render_obj.vs_defines.remove("CLIP") {
+                    render_objs.get_notify().modify_event(*id, "program_dirty", 0);
+                }
             }
         } else {
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                if self.add_by_overflow(by_overflow, render_obj, engine) {
-                    render_objs.get_notify().modify_event(*id, "pipeline", 0);
+                render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+                // 插入裁剪ubo 插入裁剪宏
+                if let None = render_obj.fs_defines.add("CLIP") {
+                    render_objs.get_notify().modify_event(*id, "program_dirty", 0);
                 }
             }
         }
@@ -314,7 +218,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for Cl
 }
 
 
-impl<'a, C: Context> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
+impl<'a> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
@@ -322,8 +226,8 @@ impl<'a, C: Context> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipS
     }
 }
 
-unsafe impl<C: Context> Sync for ClipSys<C>{}
-unsafe impl<C: Context> Send for ClipSys<C>{}
+unsafe impl Sync for ClipSys{}
+unsafe impl Send for ClipSys{}
 
 
 
@@ -339,11 +243,11 @@ fn next_power_of_two(value: u32) -> u32 {
 }
 
 impl_system!{
-    ClipSys<C> where [C: Context],
+    ClipSys,
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
-        SingleCaseListener<RenderObjs<C>, CreateEvent>
+        SingleCaseListener<RenderObjs, CreateEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>  
     }
 }

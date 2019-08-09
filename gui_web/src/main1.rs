@@ -96,7 +96,7 @@ pub fn create_engine(mut res_cush_time: u32) -> u32{
 #[no_mangle]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     debug_println!("create_gui");
-    let engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
+    let engine = *unsafe { Box::from_raw(engine as usize as *mut Engine)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
     let world = create_world::<_, YgNode>(engine, width, height);
     let world =  GuiWorld1::<WebglHalContext, YgNode>::new(world);
     let idtree = world.idtree.lend_mut();
@@ -165,7 +165,7 @@ pub fn set_shader(engine: u32){
     debug_println!("set_shader");
     let shader_name: String = js!(return __jsObj;).try_into().unwrap();
     let shader_code: String = js!(return __jsObj1;).try_into().unwrap();
-    let engine = unsafe { &mut *(engine as usize as *mut Engine<WebglHalContext>)};
+    let engine = unsafe { &mut *(engine as usize as *mut Engine)};
     engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 

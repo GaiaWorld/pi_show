@@ -126,7 +126,7 @@ pub struct DefaultState{
 }
 
 impl DefaultState {
-    pub fn new<C: HalContext>(gl: &C) -> Self {
+    pub fn new(gl: &Share<dyn HalContext + 'static>) -> Self {
         let df_rs = RasterStateDesc::default();
         let df_bs = BlendStateDesc::default();
         let df_ss = StencilStateDesc::default();

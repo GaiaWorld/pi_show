@@ -1,12 +1,12 @@
 /**
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
-use std::marker::PhantomData;
-// use std::mem::transmute;
-use share::Share;
+use std::hash::{ Hasher, Hash };
 
-use fnv::FnvHashMap;
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use fxhash::FxHasher32;
+
+use share::Share;
+use ecs::{SingleCaseImpl, MultiCaseImpl, Runner};
 use map::{ vecmap::VecMap };
 use hal_core::*;
 use atom::Atom;
@@ -15,389 +15,287 @@ use atom::Atom;
 // use ordered_float::NotNan;
 
 use component::user::*;
-use component::calc::{Opacity, ZDepth, WorldMatrixRender};
+use component::calc::*;
+use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
 use render::engine::{Engine};
-use render::res::{Opacity as ROpacity, SamplerRes, GeometryRes};
+use render::res::{Opacity as ROpacity, GeometryRes};
 use system::util::*;
-use system::util::constant::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
-use util::res_mgr::Res;
 
+const DIRTY_TY: usize = StyleType::Matrix as usize |
+                        StyleType::Opacity as usize |
+                        StyleType::Layout as usize |
+                        StyleType::BorderImage as usize |
+                        StyleType::BorderImageClip as usize |
+                        StyleType::BorderImageSlice as usize |
+                        StyleType::BorderImageRepeat as usize;
+
+const GEO_DIRTY: usize =StyleType::Layout as usize |
+                        StyleType::BorderImage as usize |
+                        StyleType::BorderImageClip as usize |
+                        StyleType::BorderImageSlice as usize |
+                        StyleType::BorderImageRepeat as usize;
 
 lazy_static! {
     static ref BORDER_IMAGE: Atom = Atom::from("border_image");
-    static ref CLIP: Atom = Atom::from("clip");
-    static ref SLICE: Atom = Atom::from("slice");
-    static ref REPEAT: Atom = Atom::from("repeat");
 }
 
-pub struct BorderImageSys<C: Context>{
-    render_map: VecMap<Item>,
-    geometry_dirtys: Vec<usize>,
-    mark: PhantomData<C>,
-    rs: Share<RasterState>,
-    bs: Share<BlendState>,
-    ss: Share<StencilState>,
-    ds: Share<DepthState>,
-    default_sampler: Option<Res<SamplerRes<C>>>,
-}
-
-impl<C: Context> BorderImageSys<C> {
-    pub fn new() -> Self{
-        BorderImageSys {
-            render_map: VecMap::default(),
-            geometry_dirtys: Vec::new(),
-            mark: PhantomData,
-            rs: Share::new(RasterState::new()),
-            bs: Share::new(BlendState::new()),
-            ss: Share::new(StencilState::new()),
-            ds: Share::new(DepthState::new()),
-            default_sampler: None,
-        }
-    }
+pub struct BorderImageSys{
+    render_map: VecMap<usize>,
+    default_sampler: Share<HalSampler>,
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: Context> Runner<'a> for BorderImageSys<C>{
+impl<'a> Runner<'a> for BorderImageSys{
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, BorderImage>,
         &'a MultiCaseImpl<Node, BorderImageClip>,
         &'a MultiCaseImpl<Node, BorderImageSlice>,
         &'a MultiCaseImpl<Node, BorderImageRepeat>,
-        &'a MultiCaseImpl<Node, BorderImage<C>>,
-        &'a MultiCaseImpl<Node, WorldMatrixRender>,
-    );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (layouts, z_depths, clips, slices, repeats, images, world_matrixs) = read;
-        let (render_objs, engine) = write;
-        for id in  self.geometry_dirtys.iter() {
-            let map = &mut self.render_map;
-            let item = unsafe { map.get_unchecked_mut(*id) };
-            item.position_change = false;
-            let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
-            let layout = unsafe { layouts.get_unchecked(*id) };
-            let image = unsafe { images.get_unchecked(*id) };
-            let slice = slices.get(*id);
-            let repeat = repeats.get(*id);
-            let clip = clips.get(*id);
-
-            let (positions, uvs, indices) = get_border_image_stream(image, clip, slice, repeat, layout, z_depth - 0.1, Vec::new(), Vec::new(), Vec::new());
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            if positions.len() == 0 {
-                render_obj.geometry = None;
-            } else {
-                let mut geometry = create_geometry(&mut engine.gl);
-                geometry.set_vertex_count((positions.len()/3) as u32);
-                geometry.set_attribute(&AttributeName::Position, 3, Some(positions.as_slice()), false).unwrap();
-                geometry.set_attribute(&AttributeName::UV0, 2, Some(uvs.as_slice()), false).unwrap();
-                geometry.set_indices_short(indices.as_slice(), false).unwrap();
-                render_obj.geometry = Some(Res::new(500, Share::new(GeometryRes{name: 0, bind: geometry})));
-            };
-            render_objs.get_notify().modify_event(item.index, "geometry", 0);
-
-            self.modify_matrix(*id, world_matrixs, render_objs);
-        }
-        self.geometry_dirtys.clear();
-    }
-
-    fn setup(&mut self, _: Self::ReadData, write: Self::WriteData){
-        let (_, engine) = write;
-        let s = SamplerDesc::default();
-        let hash = sampler_desc_hash(&s);
-        match engine.res_mgr.get::<SamplerRes<C>>(&hash) {
-            Some(r) => self.default_sampler = Some(r.clone()),
-            None => {
-                let res = SamplerRes::new(hash, engine.gl.create_sampler(Share::new(s)).unwrap());
-                self.default_sampler = Some(engine.res_mgr.create::<SamplerRes<C>>(res));
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-// 插入渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImage<C>, CreateEvent> for BorderImageSys<C>{
-    type ReadData = (
-        &'a MultiCaseImpl<Node, BorderImage<C>>,
-        &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+        &'a SingleCaseImpl<DefaultTable>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (
-        &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<Engine<C>>,
-    );
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (images, z_depths, layouts, opacitys) = read;
-        let (render_objs, engine) = write;
-        let image = unsafe { images.get_unchecked(event.id) };
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
-        let _layout = unsafe { layouts.get_unchecked(event.id) };
-        let opacity = unsafe { opacitys.get_unchecked(event.id) }.0;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let (
+            border_images,
+            border_image_clips,
+            border_image_slices,
+            border_image_repeats,
+            layouts,
+            world_matrixs,
+            transforms,
+            opacitys,
+            style_marks,
+            default_table,
+            dirty_list,
+            default_state,
+        ) = read;
+        let (render_objs, mut engine) = write;
+        let default_transform = default_table.get::<Transform>().unwrap();
+        let notify = render_objs.get_notify();
 
-        let mut ubos: FnvHashMap<Atom, Share<Uniforms<C>>> = FnvHashMap::default();
-        let defines = Vec::new();
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
+                Some(r) => r,
+                None => {
+                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                },
+            };
+            let dirty = style_mark.dirty;
 
-        let mut common_ubo = engine.gl.create_uniforms();
-        common_ubo.set_sampler(
-            &TEXTURE,
-            &(self.default_sampler.as_ref().unwrap().value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
-            &(image.src.value.clone() as Share<dyn AsRef<<C as Context>::ContextTexture>>)
-        );
-        ubos.insert(COMMON.clone(), Share::new(common_ubo)); // COMMON
+            // 不存在Image关心的脏, 跳过
+            if dirty & DIRTY_TY == 0 {
+                continue;
+            }
 
-        let pipeline = engine.create_pipeline(0, &IMAGE_VS_SHADER_NAME.clone(), &IMAGE_FS_SHADER_NAME.clone(), defines.as_slice(), self.rs.clone(), self.bs.clone(), self.ss.clone(), self.ds.clone());
-        
-        let is_opacity = if opacity < 1.0 {
-            false
-        }else if let ROpacity::Opaque = image.src.opacity{
-            true
-        }else {
-            false
+            // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
+            if dirty & StyleType::BorderImage as usize != 0 && style_mark.local_style & StyleType::BorderImage as usize == 0 && style_mark.class_style & StyleType::BorderImage as usize == 0 {
+                self.remove_render_obj(*id, render_objs);
+                continue;
+            }
+
+            // 不存在渲染对象， 创建
+            let render_index = match self.render_map.get_mut(*id) {
+                Some(r) => *r,
+                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            };
+
+            let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
+
+            let layout = unsafe { layouts.get_unchecked(*id) };
+            let image = unsafe { border_images.get_unchecked(*id) };
+            let image_clip = border_image_clips.get(*id);
+            let image_slice = border_image_slices.get(*id);
+            let image_repeat = border_image_repeats.get(*id);
+            let transform =  match transforms.get(*id) {
+                Some(r) => r,
+                None => default_transform,
+            };
+            let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+            
+            if dirty & GEO_DIRTY != 0 {
+                let h = geo_hash(image, image_clip, image_slice, image_repeat, layout);
+                match engine.res_mgr.get::<GeometryRes>(&h) {
+                    Some(r) => render_obj.geometry = Some(r),
+                    None => render_obj.geometry = create_geo(image, image_clip, image_slice, image_repeat, layout, &mut engine),
+                };
+                
+                // BorderImage修改， 修改texture
+                if dirty & StyleType::BorderImage as usize != 0 {
+                    // 如果四边形与图片宽高一样， 使用点采样， TODO
+                    render_obj.paramter.set_texture("texture", (&image.src.bind, &self.default_sampler));
+                    notify.modify_event(render_index, "ubo", 0);
+                }
+                notify.modify_event(render_index, "geometry", 0);
+            }
+
+            // 世界矩阵脏， 设置世界矩阵ubo
+            if dirty & StyleType::Matrix as usize != 0 {
+                modify_matrix(
+                    render_index,
+                    create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
+                    render_obj,
+                    &notify,
+                );
+            }
+
+            // 不透明度脏或图片脏， 设置is_opacity
+            if dirty & StyleType::Opacity as usize != 0 || dirty & StyleType::BorderImage as usize != 0 {
+                let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
+                let is_opacity = if opacity < 1.0 {
+                    false
+                }else if let ROpacity::Opaque = image.src.opacity{
+                    true
+                }else {
+                    false
+                };
+                render_obj.is_opacity = is_opacity;
+                notify.modify_event(render_index, "is_opacity", 0);
+            }
+        }
+    }
+}
+
+impl BorderImageSys {
+    pub fn new(engine: &mut Engine) -> Self{
+        BorderImageSys {
+            render_map: VecMap::default(),
+            default_sampler: create_default_sampler(engine),
+        }
+    }
+
+    #[inline]
+    fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
+        match self.render_map.remove(id) {
+            Some(index) => {
+                let notify = render_objs.get_notify();
+                render_objs.remove(index, Some(notify));
+            },
+            None => ()
         };
-        let render_obj: RenderObj<C> = RenderObj {
+    }
+
+    #[inline]
+    fn create_render_obj(
+        &mut self,
+        id: usize,
+        z_depth: f32,
+        visibility: bool,
+        render_objs: &mut SingleCaseImpl<RenderObjs>,
+        default_state: &DefaultState,
+    ) -> usize{
+        let render_obj = RenderObj {
             depth: z_depth - 0.1,
             depth_diff: -0.1,
-            visibility: false,
-            is_opacity: is_opacity,
-            ubos: ubos,
+            visibility: visibility,
+            is_opacity: true,
+            vs_name: IMAGE_VS_SHADER_NAME.clone(),
+            fs_name: IMAGE_FS_SHADER_NAME.clone(),
+            vs_defines: Box::new(VsDefines::default()),
+            fs_defines: Box::new(FsDefines::default()),
+            paramter: Share::new(ImageParamter::default()),
+            program_dirty: false,
+
+            program: None,
             geometry: None,
-            pipeline: pipeline.clone(),
-            context: event.id,
-            defines: defines,
+            state: State {
+                bs: default_state.df_bs.clone(),
+                rs: default_state.df_rs.clone(),
+                ss: default_state.df_ss.clone(),
+                ds: default_state.df_ds.clone(),
+            },
+            context: id,
         };
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
-        self.render_map.insert(event.id, Item{index: index, position_change: true});
-        self.geometry_dirtys.push(event.id);
+        // 创建RenderObj与Node实体的索引关系， 并设脏
+        self.render_map.insert(id, index);
+        index
     }
 }
 
-// 修改渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImage<C>, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        let (opacitys, images) = read;
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-            let image = unsafe { images.get_unchecked(event.id) };
-
-            // 图片改变， 更新common_ubo中的纹理
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-            let common_ubo = render_obj.ubos.get_mut(&COMMON).unwrap();
-            let common_ubo = Share::make_mut(common_ubo);
-            common_ubo.set_sampler(
-                &TEXTURE,
-                &(self.default_sampler.as_ref().unwrap().value.clone() as Share<dyn AsRef<<C as Context>::ContextSampler>>),
-                &(image.src.value.clone() as Share<dyn  AsRef<<C as Context>::ContextTexture>>)
-            );
-
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-
-            // 图片改变， 修改渲染对象的不透明属性
-            let index = item.index;
-            self.change_is_opacity(event.id, opacity, image, index, render_objs);
- 
+#[inline]
+fn create_geo(
+    img: &BorderImage,
+    clip: Option<&BorderImageClip>,
+    slice: Option<&BorderImageSlice>,
+    repeat: Option<&BorderImageRepeat>,
+    layout: &Layout,
+    engine: &mut Engine,
+) -> Option<Share<GeometryRes>>{
+    let h = geo_hash(img, clip, slice, repeat, layout);
+    match engine.res_mgr.get::<GeometryRes>(&h) {
+        Some(r) => Some(r.clone()),
+        None => {
+            let (positions, uvs, indices) = get_border_image_stream(img, clip, slice, repeat, layout, Vec::new(), Vec::new(), Vec::new());
+            let p_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions[..])), false));
+            let u_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs[..])), false));
+            let i_buffer = Share::new(create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices[..])), false));
+            let geo = create_geometry(&engine.gl);
+            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &p_buffer, 2).unwrap();
+            engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &u_buffer, 2).unwrap();
+            engine.gl.geometry_set_indices_short(&geo, &i_buffer).unwrap();
+            let geo_res = GeometryRes{geo: geo, buffers: vec![p_buffer, u_buffer, i_buffer]};
+            Some(engine.res_mgr.create(h, geo_res))
         }
     }
 }
 
-// 删除渲染对象
-impl<'a, C: Context> MultiCaseListener<'a, Node, BorderImage<C>, DeleteEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-        let item = self.render_map.remove(event.id).unwrap();
-        let notify = write.get_notify();
-        write.remove(item.index, Some(notify));
-        if item.position_change == true {
-            self.geometry_dirtys.remove_item(&event.id);
-        }
-    }
+#[inline]
+fn geo_hash(
+    img: &BorderImage,
+    clip: Option<&BorderImageClip>,
+    slice: Option<&BorderImageSlice>,
+    repeat: Option<&BorderImageRepeat>,
+    layout: &Layout,
+) -> u64 {
+    let mut hasher = FxHasher32::default();
+    BORDER_IMAGE.hash(&mut hasher);
+    img.url.hash(&mut hasher);
+    match clip {
+        Some(r) => f32_4_hash_(r.min.x, r.min.y, r.max.x, r.max.y, &mut hasher),
+        None => 0.hash(&mut hasher),
+    };
+    match slice {
+        Some(r) => {
+            f32_4_hash_(r.left, r.top, r.bottom, r.right, &mut hasher);
+            r.fill.hash(&mut hasher);
+        },
+        None => 0.hash(&mut hasher),
+    };
+    match repeat {
+        Some(r) => {
+            (r.0 as u8).hash(&mut hasher);
+            (r.1 as u8).hash(&mut hasher);
+        },
+        None => 0.hash(&mut hasher),
+    };
+    f32_3_hash_(layout.width, layout.height, layout.border_left, &mut hasher);
+    hasher.finish()
 }
 
-//布局修改， 需要重新计算顶点
-impl<'a, C: Context> MultiCaseListener<'a, Node, Layout, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        if let Some(item) = self.render_map.get_mut(event.id) {
-            if item.position_change == false {
-                item.position_change = true;
-                self.geometry_dirtys.push(event.id);
-            }
-        };
-    }
-}
-
-//不透明度变化， 修改渲染对象的is_opacity属性
-impl<'a, C: Context> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, BorderImage<C>>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, images) = read;
-        if let Some(item) = self.render_map.get(event.id) {
-            let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
-            let image = unsafe { images.get_unchecked(event.id) };
-            let index = item.index;
-            self.change_is_opacity(event.id, opacity, image, index, write);
-        }
-    }
-}
-
-type MatrixRead<'a> = &'a MultiCaseImpl<Node, WorldMatrixRender>;
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, ModifyEvent> for BorderImageSys<C>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
-    }
-}
-
-impl<'a, C: Context> MultiCaseListener<'a, Node, WorldMatrixRender, CreateEvent> for BorderImageSys<C>{
-    type ReadData = MatrixRead<'a>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs<C>>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, render_objs: Self::WriteData){
-        self.modify_matrix(event.id, read, render_objs);
-    }
-}
-
-impl<'a, C: Context> BorderImageSys<C> {
-    fn change_is_opacity(&mut self, _id: usize, opacity: f32, image: &BorderImage<C>, index: usize, render_objs: &mut SingleCaseImpl<RenderObjs<C>>){
-        let is_opacity = if opacity < 1.0 {
-            false
-        }else if let ROpacity::Opaque = image.src.opacity{
-            true
-        }else {
-            false
-        };
-
-        let notify = render_objs.get_notify();
-        unsafe { render_objs.get_unchecked_write(index, &notify).set_is_opacity(is_opacity)};
-    }
-
-    fn modify_matrix(
-        &self,
-        id: usize,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrixRender>,
-        render_objs: &mut SingleCaseImpl<RenderObjs<C>>
-    ){
-        if let Some(item) = self.render_map.get(id) {
-            let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(item.index) };
-
-            // 渲染物件的顶点不是一个四边形， 保持其原有的矩阵
-            let ubos = &mut render_obj.ubos;
-            let slice: &[f32; 16] = world_matrix.0.as_ref();
-            Share::make_mut(ubos.get_mut(&WORLD).unwrap()).set_mat_4v(&WORLD_MATRIX, &slice[0..16]);
-            debug_println!("border_image, id: {}, world_matrix: {:?}", render_obj.context, &slice[0..16]);
-            render_objs.get_notify().modify_event(item.index, "ubos", 0);
-        }
-    }
-}
-
-struct Item {
-    index: usize,
-    position_change: bool,
-}
-
-unsafe impl<C: Context> Sync for BorderImageSys<C>{}
-unsafe impl<C: Context> Send for BorderImageSys<C>{}
-
-
-pub fn get_border_image_stream<'a, C: Context + 'static > (
-  img: &BorderImage<C>,
+fn get_border_image_stream (
+  img: &BorderImage,
   clip: Option<&BorderImageClip>,
   slice: Option<&BorderImageSlice>,
   repeat: Option<&BorderImageRepeat>,
-  layout: &Layout, z: f32, mut point_arr: Polygon, mut uv_arr: Polygon, mut index_arr: Vec<u16>) -> (Polygon, Polygon, Vec<u16>){
+  layout: &Layout,
+  mut point_arr: Polygon,
+  mut uv_arr: Polygon,
+  mut index_arr: Vec<u16>
+) -> (Polygon, Polygon, Vec<u16>){
     let (uv1, uv2) = match clip {
         Some(c) => (c.min, c.max),
         _ => (Point2::new(0.0,0.0), Point2::new(1.0,1.0))
@@ -433,31 +331,31 @@ pub fn get_border_image_stream<'a, C: Context + 'static > (
     // 先将16个顶点和uv放入数组，记录偏移量
     let mut pi = (point_arr.len() / 3)  as u16;
     // 左上的4个点
-    let p_x1_y1 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p1.y, z, uv1.x, uv1.y, &mut pi);
-    let p_x1_top = push_vertex(&mut point_arr, &mut uv_arr, p1.x, top, z, uv1.x, uv_top, &mut pi);
-    let p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, z, uv_left, uv_top, &mut pi);
-    let p_left_y1 = push_vertex(&mut point_arr, &mut uv_arr, left, p1.y, z, uv_left, uv1.y, &mut pi);
+    let p_x1_y1 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p1.y, uv1.x, uv1.y, &mut pi);
+    let p_x1_top = push_vertex(&mut point_arr, &mut uv_arr, p1.x, top, uv1.x, uv_top, &mut pi);
+    let p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, uv_left, uv_top, &mut pi);
+    let p_left_y1 = push_vertex(&mut point_arr, &mut uv_arr, left, p1.y, uv_left, uv1.y, &mut pi);
     push_quad(&mut index_arr, p_x1_y1, p_x1_top, p_left_top, p_left_y1);
 
     // 左下的4个点
-    let p_x1_bottom = push_vertex(&mut point_arr, &mut uv_arr, p1.x, bottom, z, uv1.x, uv_bottom, &mut pi);
-    let p_x1_y2 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p2.y, z, uv1.x, uv2.y, &mut pi);
-    let p_left_y2 = push_vertex(&mut point_arr, &mut uv_arr, left, p2.y, z, uv_left, uv2.y, &mut pi);
-    let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, z, uv_left, uv_bottom, &mut pi);
+    let p_x1_bottom = push_vertex(&mut point_arr, &mut uv_arr, p1.x, bottom, uv1.x, uv_bottom, &mut pi);
+    let p_x1_y2 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p2.y, uv1.x, uv2.y, &mut pi);
+    let p_left_y2 = push_vertex(&mut point_arr, &mut uv_arr, left, p2.y, uv_left, uv2.y, &mut pi);
+    let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, uv_left, uv_bottom, &mut pi);
     push_quad(&mut index_arr, p_x1_bottom, p_x1_y2, p_left_y2, p_left_bottom);
 
     // 右下的4个点
-    let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, z, uv_right, uv_bottom, &mut pi);
-    let p_right_y2 = push_vertex(&mut point_arr, &mut uv_arr, right, p2.y, z, uv_right, uv2.y, &mut pi);
-    let p_x2_y2 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p2.y, z, uv2.x, uv2.y, &mut pi);
-    let p_x2_bottom = push_vertex(&mut point_arr, &mut uv_arr, p2.x, bottom, z, uv2.x, uv_bottom, &mut pi);
+    let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, uv_right, uv_bottom, &mut pi);
+    let p_right_y2 = push_vertex(&mut point_arr, &mut uv_arr, right, p2.y, uv_right, uv2.y, &mut pi);
+    let p_x2_y2 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p2.y, uv2.x, uv2.y, &mut pi);
+    let p_x2_bottom = push_vertex(&mut point_arr, &mut uv_arr, p2.x, bottom, uv2.x, uv_bottom, &mut pi);
     push_quad(&mut index_arr, p_right_bottom, p_right_y2, p_x2_y2, p_x2_bottom);
 
     // 右上的4个点
-    let p_right_y1 = push_vertex(&mut point_arr, &mut uv_arr, right, p1.y, z, uv_right, uv1.y, &mut pi);
-    let p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, z, uv_right, uv_top, &mut pi);
-    let p_x2_top = push_vertex(&mut point_arr, &mut uv_arr, p2.x, top, z, uv2.x, uv_top, &mut pi);
-    let p_x2_y1 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p1.y, z, uv2.x, uv1.y, &mut pi);
+    let p_right_y1 = push_vertex(&mut point_arr, &mut uv_arr, right, p1.y, uv_right, uv1.y, &mut pi);
+    let p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, uv_right, uv_top, &mut pi);
+    let p_x2_top = push_vertex(&mut point_arr, &mut uv_arr, p2.x, top, uv2.x, uv_top, &mut pi);
+    let p_x2_y1 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p1.y, uv2.x, uv1.y, &mut pi);
     push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
 
     let (ustep, vstep) = match repeat {
@@ -470,16 +368,16 @@ pub fn get_border_image_stream<'a, C: Context + 'static > (
       _ => (w, h)
     };
     push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
-    p_left_y1, p_left_top, p_right_top, p_right_y1, z,
+    p_left_y1, p_left_top, p_right_top, p_right_y1,
     uv_left, uv1.y, uv_right, uv_top, ustep, &mut pi); // 上边
     push_u_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
-    p_left_bottom, p_left_y2, p_right_y2, p_right_bottom, z,
+    p_left_bottom, p_left_y2, p_right_y2, p_right_bottom,
     uv_left, uv_bottom, uv_right, uv2.y, ustep, &mut pi); // 下边
     push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
-    p_x1_top, p_x1_bottom, p_left_bottom, p_left_top, z,
+    p_x1_top, p_x1_bottom, p_left_bottom, p_left_top,
     uv1.x, uv_top, uv_left, uv_bottom, vstep, &mut pi); // 左边
     push_v_arr(&mut point_arr, &mut uv_arr, &mut index_arr,
-    p_right_top, p_right_bottom, p_x2_bottom, p_x2_top, z,
+    p_right_top, p_right_bottom, p_x2_bottom, p_x2_top,
     uv_right, uv_top, uv2.x, uv_bottom, vstep, &mut pi); // 右边
     // 处理中间
     if let Some(slice) = slice{
@@ -490,8 +388,8 @@ pub fn get_border_image_stream<'a, C: Context + 'static > (
     (point_arr, uv_arr, index_arr)
 }
 // 将四边形放进数组中
-fn push_vertex(point_arr: &mut Polygon, uv_arr: &mut Polygon, x: f32, y: f32, z: f32, u: f32, v: f32, i: &mut u16) -> u16 {
-    point_arr.extend_from_slice(&[x, y, z]);
+fn push_vertex(point_arr: &mut Polygon, uv_arr: &mut Polygon, x: f32, y: f32, u: f32, v: f32, i: &mut u16) -> u16 {
+    point_arr.extend_from_slice(&[x, y]);
     uv_arr.extend_from_slice(&[u, v]);
     let r = *i;
     *i += 1;
@@ -502,8 +400,8 @@ fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16){
     index_arr.extend_from_slice(&[p1, p2, p3, p1, p3, p4]);
 }
  
-// fn border_image_geo_hash<C: Context>(
-//     img: &BorderImage<C>,
+// fn border_image_geo_hash(
+//     img: &BorderImage,
 //     clip: Option<&BorderImageClip>,
 //     slice: Option<&BorderImageSlice>,
 //     repeat: Option<&BorderImageRepeat>,
@@ -566,7 +464,7 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
 
 // 将指定区域按u切开
 fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
-  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  p1: u16, p2: u16, p3: u16, p4: u16, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
   let y1 = point_arr[p1 as usize *3 + 1];
   let y2 = point_arr[p2 as usize *3 + 1];
   let mut cur = point_arr[p1 as usize *3] + step;
@@ -574,19 +472,19 @@ fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
   let mut pt1 = p1;
   let mut pt2 = p2;
   while cur < max {
-    let i3 = push_vertex(point_arr, uv_arr, cur, y2, z, u2, v2, i);
-    let i4 = push_vertex(point_arr, uv_arr, cur, y1, z, u2, v1, i);
+    let i3 = push_vertex(point_arr, uv_arr, cur, y2, u2, v2, i);
+    let i4 = push_vertex(point_arr, uv_arr, cur, y1, u2, v1, i);
     push_quad(index_arr, pt1, pt2, i3, i4);
     // 因为uv不同，新插入2个顶点
-    pt1 = push_vertex(point_arr, uv_arr, cur, y1, z, u1, v1, i);
-    pt2 = push_vertex(point_arr, uv_arr, cur, y2, z, u1, v2, i);
+    pt1 = push_vertex(point_arr, uv_arr, cur, y1, u1, v1, i);
+    pt2 = push_vertex(point_arr, uv_arr, cur, y2, u1, v2, i);
     cur += step;
   }
   push_quad(index_arr, pt1, pt2, p3, p4);
 }
 // 将指定区域按v切开
 fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
-  p1: u16, p2: u16, p3: u16, p4: u16, z: f32, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
+  p1: u16, p2: u16, p3: u16, p4: u16, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
   let x1 = point_arr[p1 as usize *3];
   let x2 = point_arr[p4 as usize *3];
   let mut cur = point_arr[p1 as usize *3 + 1] + step;
@@ -594,12 +492,12 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
   let mut pt1 = p1;
   let mut pt4 = p4;
   while cur < max {
-    let i2 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v2, i);
-    let i3 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v2, i);
+    let i2 = push_vertex(point_arr, uv_arr, x1, cur, u1, v2, i);
+    let i3 = push_vertex(point_arr, uv_arr, x2, cur, u2, v2, i);
     push_quad(index_arr, pt1, i2, i3, pt4);
     // 因为uv不同，新插入2个顶点
-    pt1 = push_vertex(point_arr, uv_arr, x1, cur, z, u1, v1, i);
-    pt4 = push_vertex(point_arr, uv_arr, x2, cur, z, u2, v1, i);
+    pt1 = push_vertex(point_arr, uv_arr, x1, cur, u1, v1, i);
+    pt4 = push_vertex(point_arr, uv_arr, x2, cur, u2, v1, i);
     cur += step;
   }
   push_quad(index_arr, pt1, p2, p3, pt4);
@@ -607,21 +505,21 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 
 
 impl_system!{
-    BorderImageSys<C> where [C: Context],
+    BorderImageSys,
     true,
     {
-        MultiCaseListener<Node, BorderImage<C>, CreateEvent>
-        MultiCaseListener<Node, BorderImage<C>, ModifyEvent>
-        MultiCaseListener<Node, BorderImage<C>, DeleteEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
-        MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
-        MultiCaseListener<Node, BorderImageClip, CreateEvent>
-        MultiCaseListener<Node, BorderImageClip, ModifyEvent>
-        MultiCaseListener<Node, BorderImageSlice, CreateEvent>
-        MultiCaseListener<Node, BorderImageSlice, ModifyEvent>
-        MultiCaseListener<Node, BorderImageRepeat, CreateEvent>
-        MultiCaseListener<Node, BorderImageRepeat, ModifyEvent>
+        // MultiCaseListener<Node, BorderImage, CreateEvent>
+        // MultiCaseListener<Node, BorderImage, ModifyEvent>
+        // MultiCaseListener<Node, BorderImage, DeleteEvent>
+        // MultiCaseListener<Node, Layout, ModifyEvent>
+        // MultiCaseListener<Node, Opacity, ModifyEvent>
+        // MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
+        // MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
+        // MultiCaseListener<Node, BorderImageClip, CreateEvent>
+        // MultiCaseListener<Node, BorderImageClip, ModifyEvent>
+        // MultiCaseListener<Node, BorderImageSlice, CreateEvent>
+        // MultiCaseListener<Node, BorderImageSlice, ModifyEvent>
+        // MultiCaseListener<Node, BorderImageRepeat, CreateEvent>
+        // MultiCaseListener<Node, BorderImageRepeat, ModifyEvent>
     }
 }

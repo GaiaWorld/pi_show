@@ -1,15 +1,13 @@
 pub mod shaders;
 // mod border;
-// mod border_image;
+mod border_image;
 mod background_color;
 mod box_shadow;
 mod node_attr;
 mod render;
 mod image;
 mod charblock;
-// mod charblock_shadow;
-// mod clip;
-// mod render_matrix;
+mod clip;
 pub mod res_release;
 pub mod util;
 

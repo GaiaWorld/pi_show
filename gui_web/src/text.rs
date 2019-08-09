@@ -9,6 +9,7 @@ use atom::Atom;
 use ecs::{LendMut};
 use hal_core::*;
 use fx_hashmap::FxHashMap32;
+use hal_webgl::*;
 
 use gui::component::user::*;
 use gui::render::res::{ TextureRes, Opacity };
@@ -219,37 +220,37 @@ pub fn set_font_family(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_sdf_font_res(world: u32, dyn_type: u32) {
-    if dyn_type > 0 {
-        js!{
-            var ctx = __jsObj1.getContext("2d");
-            ctx.fillStyle = "#00f";
-		    ctx.fillRect(0, 0, __jsObj1.width, __jsObj1.height);
-        }
-    }
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let name: String = js!(return __jsObj2;).try_into().unwrap();
-    let name = Atom::from(name);
-    let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
-    let cfg = cfg.to_vec();
-    let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
-    let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
-    let engine = world.engine.lend_mut();
-    let font_sheet = world.font_sheet.lend_mut();
+    // if dyn_type > 0 {
+    //     js!{
+    //         var ctx = __jsObj1.getContext("2d");
+    //         ctx.fillStyle = "#00f";
+	// 	    ctx.fillRect(0, 0, __jsObj1.width, __jsObj1.height);
+    //     }
+    // }
+    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
+    // let name: String = js!(return __jsObj2;).try_into().unwrap();
+    // let name = Atom::from(name);
+    // let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    // let cfg = cfg.to_vec();
+    // let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
+    // let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
+    // let engine = world.engine.lend_mut();
+    // let font_sheet = world.font_sheet.lend_mut();
 
-    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
-        Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-        Err(_) => panic!("set_src error"),
-    };
+    // let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
+    //     Ok(image_obj) => Share::downcast::<WebglHalContext>(unsafe{std::mem::transmute_copy::<_, Share<dyn std::any::Any>>(&engine.gl) } ) .unwrap().texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+    //     Err(_) => panic!("set_src error"),
+    // };
 
-    let texture_res = TextureRes::new(width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, Share::new(texture));
-    let texture_res = engine.res_mgr.create(name, texture_res);
-    // new_width_data
-    let mut sdf_font = DefaultSdfFont::new(texture_res, dyn_type as usize);
-    sdf_font.parse(cfg.as_slice()).unwrap();
-    // _println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
+    // let texture_res = TextureRes::new(width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
+    // let texture_res = engine.res_mgr.create(name, texture_res);
+    // // new_width_data
+    // let mut sdf_font = DefaultSdfFont::new(texture_res, dyn_type as usize);
+    // sdf_font.parse(cfg.as_slice()).unwrap();
+    // // _println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
 
-    font_sheet.set_src(sdf_font.name(), Share::new(sdf_font));
+    // font_sheet.set_src(sdf_font.name(), Share::new(sdf_font));
 }
 
 //          字体族名称                        字体名称（逗号分隔）     
@@ -358,7 +359,7 @@ fn update_font_texture1(world: u32, font_name: String, chars: &[u32], u: u32, v:
         return;
     }
 
-    engine.gl.texture_update_webgl(&src.texture().bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
+    // Share::downcast::<WebglHalContext>(unsafe{std::mem::transmute_copy::<_, Share<dyn std::any::Any>>(&engine.gl) } ) .unwrap().texture_update_webgl(&src.texture().bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
     let render_objs = world.render_objs.lend_mut();
     render_objs.get_notify().modify_event(1, "", 0);
 
@@ -378,31 +379,31 @@ fn update_font_texture1(world: u32, font_name: String, chars: &[u32], u: u32, v:
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn update_font_texture2(world: u32, u: u32, v: u32) {
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let font_name: String = js!(return __jsObj1;).try_into().unwrap();
-    let font_name = Atom::from(font_name);
-    let font_sheet = world.font_sheet.lend_mut();
-    let engine = world.engine.lend_mut();
-    let src = match font_sheet.get_src(&font_name) {
-        Some(r) => r,
-        None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
-    };
-    
-    engine.gl.texture_update_webgl(&src.texture().bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
-    let render_objs = world.render_objs.lend_mut();
-    render_objs.get_notify().modify_event(1, "", 0);
-
-    // 优化， getImageData性能不好， 应该直接更新canvas， TODO
-    // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
-    //     Ok(data) => {
-    //         let data = data.to_vec();
-    //         src.texture().bind.update_webgl(u, v, width, height, &TextureData::U8(data.as_slice()));
-    //         let render_objs = world.render_objs.lend_mut();
-    //         render_objs.get_notify().modify_event(1, "", 0);
-    //     },
-    //     Err(_) => panic!("update_font_texture error"),
+    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
+    // let font_name: String = js!(return __jsObj1;).try_into().unwrap();
+    // let font_name = Atom::from(font_name);
+    // let font_sheet = world.font_sheet.lend_mut();
+    // let engine = world.engine.lend_mut();
+    // let src = match font_sheet.get_src(&font_name) {
+    //     Some(r) => r,
+    //     None => panic!("update_font_texture error, font is not exist: {}", font_name.as_ref()),
     // };
+    
+    // Share::downcast::<WebglHalContext>(unsafe{std::mem::transmute_copy::<_, Share<dyn std::any::Any>>(&engine.gl) } ).unwrap().texture_update_webgl(&src.texture().bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
+    // let render_objs = world.render_objs.lend_mut();
+    // render_objs.get_notify().modify_event(1, "", 0);
+
+    // // 优化， getImageData性能不好， 应该直接更新canvas， TODO
+    // // match TryInto::<TypedArray<u8>>::try_into(js!{return new Uint8Array(__jsObj.getContext("2d").getImageData(0, 0, @{width}, @{height}).data.buffer);} ) {
+    // //     Ok(data) => {
+    // //         let data = data.to_vec();
+    // //         src.texture().bind.update_webgl(u, v, width, height, &TextureData::U8(data.as_slice()));
+    // //         let render_objs = world.render_objs.lend_mut();
+    // //         render_objs.get_notify().modify_event(1, "", 0);
+    // //     },
+    // //     Err(_) => panic!("update_font_texture error"),
+    // // };
 }
 
 // pub struct FontGenerator;
