@@ -1,6 +1,6 @@
 use share::{Share};
 use common::{UniformValue};
-use traits::context::{HalTexture, HalSampler};
+use traits::context::{HalItem, HalTexture, HalSampler};
 
 /** 
  * UniformBuffer
@@ -58,15 +58,15 @@ pub trait ProgramParamter {
 
     fn get_values(&self) -> &[Share<dyn UniformBuffer>];
     fn get_single_uniforms(&self) -> &[UniformValue];
-    fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)];
+    fn get_textures(&self) -> &[(HalItem, HalItem)];
 
     fn set_value(&self, name: &str, value: Share<dyn UniformBuffer>) -> bool;
     fn set_single_uniform(&self, name: &str, value: UniformValue) -> bool;
-    fn set_texture(&self, name: &str, value: (Share<HalTexture>, Share<HalSampler>)) -> bool;
+    fn set_texture(&self, name: &str, value: (&HalTexture, &HalSampler)) -> bool;
 
     fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>>;
     fn get_single_uniform(&self, name: &str) -> Option<&UniformValue>;
-    fn get_texture(&self, name: &str) -> Option<&(Share<HalTexture>, Share<HalSampler>)>;
+    fn get_texture(&self, name: &str) -> Option<&(HalItem, HalItem)>;
 }
 
 pub trait Defines {
