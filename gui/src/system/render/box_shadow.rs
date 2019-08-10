@@ -66,7 +66,7 @@ impl<'a> Runner<'a> for BoxShadowSys {
         &'a SingleCaseImpl<DefaultState>,
     );
 
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
 
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (
@@ -248,7 +248,7 @@ fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
 }
 
 #[inline]
-fn create_u_color_ubo(c: &CgColor, engine: &mut Engine) -> Share<dyn UniformBuffer> {
+fn create_u_color_ubo(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
     let h = f32_4_hash(c.r, c.g, c.b, c.a);
     match engine.res_mgr.get::<UColorUbo>(&h) {
         Some(r) => r,
@@ -270,7 +270,7 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
 
 // #[inline]
 // fn create_shadow_geo(
-//     engine: &mut Engine,
+//     engine: &mut Engine<C>,
 //     layout: &Layout,
 //     shadow: &BoxShadow,
 //     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {

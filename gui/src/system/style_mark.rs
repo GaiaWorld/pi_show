@@ -5,6 +5,8 @@ use std::marker::PhantomData;
 
 use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, EntityImpl, Runner};
 
+use hal_core::*;
+
 use component::user::*;
 use component::calc::*;
 use component::calc::Opacity as COpacity;
@@ -16,12 +18,12 @@ use entity::{Node};
 use render::engine::Engine;
 use render::res::*;
 
-pub struct StyleMarkSys<L>{
+pub struct StyleMarkSys<L, C>{
     text_style_mark: usize,
-    mark: PhantomData<L>,
+    mark: PhantomData<(L, C)>,
 }
 
-impl<'a, L: FlexNode + 'static> StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> StyleMarkSys<L, C> {
     pub fn new() -> Self {
         Self{
             text_style_mark:StyleType::LetterSpacing as usize | 
@@ -61,7 +63,7 @@ fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut 
     style_mark.dirty |= ty;
 }
 
-impl<'a, L: FlexNode + 'static> Runner<'a> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn run(&mut self, _read: Self::ReadData, write: Self::WriteData){
@@ -77,7 +79,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for StyleMarkSys<L>{
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static> EntityListener<'a, Node, CreateEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut MultiCaseImpl<Node, ClassName>);
 
@@ -89,7 +91,7 @@ impl<'a, L: FlexNode + 'static> EntityListener<'a, Node, CreateEvent> for StyleM
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Text, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Text, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
@@ -111,7 +113,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Text, ModifyEvent> f
 }
 
 // 监听Font属性的改变
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
@@ -129,7 +131,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> f
 }
 
 // 监听TextShadow属性的改变
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
@@ -140,7 +142,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextShadow, ModifyEv
 }
 
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Image, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -149,7 +151,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Image, ModifyEvent> 
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -158,7 +160,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ImageClip, ModifyEve
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -168,7 +170,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ObjectFit, ModifyEve
 }
 
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -177,7 +179,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageClip, Mod
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -186,7 +188,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageSlice, Mo
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImage, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -196,7 +198,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImage, ModifyE
 }
 
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -205,7 +207,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, M
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -214,7 +216,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderColor, ModifyE
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -223,7 +225,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BackgroundColor, Mod
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -232,7 +234,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BoxShadow, ModifyEve
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Image, CreateEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -241,7 +243,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Image, CreateEvent> 
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageClip, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -250,7 +252,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ImageClip, CreateEve
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -260,7 +262,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ObjectFit, CreateEve
 }
 
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -269,7 +271,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageClip, Cre
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -278,7 +280,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageSlice, Cr
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImage, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -288,7 +290,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImage, CreateE
 }
 
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -297,7 +299,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderImageRepeat, C
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -306,7 +308,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderColor, CreateE
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -315,7 +317,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BackgroundColor, Cre
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -324,7 +326,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BoxShadow, CreateEve
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -333,7 +335,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Transform, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Transform, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -342,7 +344,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Transform, ModifyEve
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -351,7 +353,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, BorderRadius, Modify
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Filter, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Filter, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -360,7 +362,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Filter, ModifyEvent>
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, COpacity, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, COpacity, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -370,7 +372,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, COpacity, ModifyEven
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -380,7 +382,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, Layout, ModifyEvent>
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -391,7 +393,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyE
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
@@ -402,7 +404,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateE
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<L> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
@@ -413,13 +415,13 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, ModifyE
     }
 }
 
-impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ClassName>,
         &'a SingleCaseImpl<ClassSheet>
     );
     type WriteData = (
-        &'a mut MultiCaseImpl<Node, TextStyle>,
+        // &'a mut MultiCaseImpl<Node, TextStyle>,
         &'a mut MultiCaseImpl<Node, Image>,
         &'a mut MultiCaseImpl<Node, ImageClip>,
         &'a mut MultiCaseImpl<Node, ObjectFit>,
@@ -437,14 +439,14 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
         &'a mut MultiCaseImpl<Node, Filter>,
         &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut MultiCaseImpl<Node, L>,
-        &'a mut SingleCaseImpl<Engine>,
+        &'a mut SingleCaseImpl<Engine<C>>,
         &'a mut SingleCaseImpl<ImageWaitSheet>,
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (class_names, class_sheet) = read;
         let (
-            text_styles,
+            // text_styles,
             images,
             image_clips,
             obj_fits,
@@ -474,86 +476,86 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
 
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
 
-        if class.text > 0 {
-            let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
-            if class.class_style_mark & self.text_style_mark != 0 {
-                // 文字本地样式不存在
-                if style_mark.local_style & self.text_style_mark == 0 {
-                    text_styles.insert(event.id, c.clone());
-                } else {
-                    let text_style = unsafe { text_styles.get_unchecked_mut(event.id) };
-                    if class.class_style_mark & StyleType::FontStyle as usize != 0 && style_mark.local_style & StyleType::FontStyle as usize == 0 {
-                        text_style.font.style = c.font.style;
-                        set_dirty(dirty_list, event.id, StyleType::FontStyle as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::FontWeight as usize != 0 && style_mark.local_style & StyleType::FontWeight as usize == 0 {
-                        text_style.font.weight = c.font.weight;
-                        set_dirty(dirty_list, event.id, StyleType::FontWeight as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::FontSize as usize != 0 && style_mark.local_style & StyleType::FontSize as usize == 0 {
-                        text_style.font.size = c.font.size;
-                        set_dirty(dirty_list, event.id, StyleType::FontSize as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::FontFamily as usize != 0 && style_mark.local_style & StyleType::FontFamily as usize == 0 {
-                        text_style.font.family = c.font.family.clone();
-                        set_dirty(dirty_list, event.id, StyleType::FontFamily as usize, style_mark);
-                    }
+        // if class.text > 0 {
+        //     let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
+        //     if class.class_style_mark & self.text_style_mark != 0 {
+        //         // 文字本地样式不存在
+        //         if style_mark.local_style & self.text_style_mark == 0 {
+        //             text_styles.insert(event.id, c.clone());
+        //         } else {
+        //             let text_style = unsafe { text_styles.get_unchecked_mut(event.id) };
+        //             if class.class_style_mark & StyleType::FontStyle as usize != 0 && style_mark.local_style & StyleType::FontStyle as usize == 0 {
+        //                 text_style.font.style = c.font.style;
+        //                 set_dirty(dirty_list, event.id, StyleType::FontStyle as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::FontWeight as usize != 0 && style_mark.local_style & StyleType::FontWeight as usize == 0 {
+        //                 text_style.font.weight = c.font.weight;
+        //                 set_dirty(dirty_list, event.id, StyleType::FontWeight as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::FontSize as usize != 0 && style_mark.local_style & StyleType::FontSize as usize == 0 {
+        //                 text_style.font.size = c.font.size;
+        //                 set_dirty(dirty_list, event.id, StyleType::FontSize as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::FontFamily as usize != 0 && style_mark.local_style & StyleType::FontFamily as usize == 0 {
+        //                 text_style.font.family = c.font.family.clone();
+        //                 set_dirty(dirty_list, event.id, StyleType::FontFamily as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::LetterSpacing as usize != 0 && style_mark.local_style & StyleType::LetterSpacing as usize == 0 {
-                        text_style.text.letter_spacing = c.text.letter_spacing;
-                        set_dirty(dirty_list, event.id, StyleType::LetterSpacing as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::WordSpacing as usize != 0 && style_mark.local_style & StyleType::WordSpacing as usize == 0 {
-                        text_style.text.word_spacing = c.text.word_spacing;
-                        set_dirty(dirty_list, event.id, StyleType::WordSpacing as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::LineHeight as usize != 0 && style_mark.local_style & StyleType::LineHeight as usize == 0 {
-                        text_style.text.line_height = c.text.line_height;
-                        set_dirty(dirty_list, event.id, StyleType::LineHeight as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::Indent as usize != 0 && style_mark.local_style & StyleType::Indent as usize == 0 {
-                        text_style.text.indent = c.text.indent;
-                        set_dirty(dirty_list, event.id, StyleType::Indent as usize, style_mark);
-                    }
-                    if class.class_style_mark & StyleType::WhiteSpace as usize != 0 && style_mark.local_style & StyleType::WhiteSpace as usize == 0 {
-                        text_style.text.white_space = c.text.white_space;
-                        set_dirty(dirty_list, event.id, StyleType::WhiteSpace as usize, style_mark);
-                    }
+        //             if class.class_style_mark & StyleType::LetterSpacing as usize != 0 && style_mark.local_style & StyleType::LetterSpacing as usize == 0 {
+        //                 text_style.text.letter_spacing = c.text.letter_spacing;
+        //                 set_dirty(dirty_list, event.id, StyleType::LetterSpacing as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::WordSpacing as usize != 0 && style_mark.local_style & StyleType::WordSpacing as usize == 0 {
+        //                 text_style.text.word_spacing = c.text.word_spacing;
+        //                 set_dirty(dirty_list, event.id, StyleType::WordSpacing as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::LineHeight as usize != 0 && style_mark.local_style & StyleType::LineHeight as usize == 0 {
+        //                 text_style.text.line_height = c.text.line_height;
+        //                 set_dirty(dirty_list, event.id, StyleType::LineHeight as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::Indent as usize != 0 && style_mark.local_style & StyleType::Indent as usize == 0 {
+        //                 text_style.text.indent = c.text.indent;
+        //                 set_dirty(dirty_list, event.id, StyleType::Indent as usize, style_mark);
+        //             }
+        //             if class.class_style_mark & StyleType::WhiteSpace as usize != 0 && style_mark.local_style & StyleType::WhiteSpace as usize == 0 {
+        //                 text_style.text.white_space = c.text.white_space;
+        //                 set_dirty(dirty_list, event.id, StyleType::WhiteSpace as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::Color as usize != 0 && style_mark.local_style & StyleType::Color as usize == 0 {
-                        text_style.text.color = c.text.color.clone();
-                        set_dirty(dirty_list, event.id, StyleType::Color as usize, style_mark);
-                    }
+        //             if class.class_style_mark & StyleType::Color as usize != 0 && style_mark.local_style & StyleType::Color as usize == 0 {
+        //                 text_style.text.color = c.text.color.clone();
+        //                 set_dirty(dirty_list, event.id, StyleType::Color as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::Stroke as usize != 0 && style_mark.local_style & StyleType::Stroke as usize == 0 {
-                        text_style.text.stroke = c.text.stroke.clone();
-                        set_dirty(dirty_list, event.id, StyleType::Stroke as usize, style_mark);
-                    }
+        //             if class.class_style_mark & StyleType::Stroke as usize != 0 && style_mark.local_style & StyleType::Stroke as usize == 0 {
+        //                 text_style.text.stroke = c.text.stroke.clone();
+        //                 set_dirty(dirty_list, event.id, StyleType::Stroke as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::TextAlign as usize != 0 && style_mark.local_style & StyleType::TextAlign as usize == 0 {
-                        text_style.text.text_align = c.text.text_align;
-                        set_dirty(dirty_list, event.id, StyleType::TextAlign as usize, style_mark);
-                    }
+        //             if class.class_style_mark & StyleType::TextAlign as usize != 0 && style_mark.local_style & StyleType::TextAlign as usize == 0 {
+        //                 text_style.text.text_align = c.text.text_align;
+        //                 set_dirty(dirty_list, event.id, StyleType::TextAlign as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::VerticalAlign as usize != 0 && style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
-                        text_style.text.vertical_align = c.text.vertical_align;
-                        set_dirty(dirty_list, event.id, StyleType::VerticalAlign as usize, style_mark);
-                    }
+        //             if class.class_style_mark & StyleType::VerticalAlign as usize != 0 && style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
+        //                 text_style.text.vertical_align = c.text.vertical_align;
+        //                 set_dirty(dirty_list, event.id, StyleType::VerticalAlign as usize, style_mark);
+        //             }
 
-                    if class.class_style_mark & StyleType::TextShadow as usize != 0 && style_mark.local_style & StyleType::TextShadow as usize == 0 {
-                        text_style.shadow = c.shadow.clone();
-                        set_dirty(dirty_list, event.id, StyleType::TextShadow as usize, style_mark);
-                    }
-                }
-            } 
-        }
+        //             if class.class_style_mark & StyleType::TextShadow as usize != 0 && style_mark.local_style & StyleType::TextShadow as usize == 0 {
+        //                 text_style.shadow = c.shadow.clone();
+        //                 set_dirty(dirty_list, event.id, StyleType::TextShadow as usize, style_mark);
+        //             }
+        //         }
+        //     } 
+        // }
 
         if class.image > 0 {
             let c = unsafe { class_sheet.image.get_unchecked(class.image) };
             if class.class_style_mark & StyleType::Image as usize != 0 && style_mark.local_style & StyleType::Image as usize == 0 {
                 match engine.res_mgr.get::<TextureRes>(&c.image) {
                     Some(r) => {
-                        images.insert(event.id, Image{src: r});
+                        images.insert_no_notify(event.id, Image{src: r, url: c.image.clone()});
                         set_dirty(dirty_list, event.id, StyleType::Image as usize, style_mark);
                     },
                     None => {
@@ -563,11 +565,11 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
                 }
             }
             if class.class_style_mark & StyleType::ImageClip as usize != 0 && style_mark.local_style & StyleType::ImageClip as usize == 0 {
-                image_clips.insert(event.id, c.image_clip.clone());
+                image_clips.insert_no_notify(event.id, c.image_clip.clone());
                 set_dirty(dirty_list, event.id, StyleType::ImageClip as usize, style_mark);
             }
             if class.class_style_mark & StyleType::ObjectFit as usize != 0 && style_mark.local_style & StyleType::ObjectFit as usize == 0 {
-                obj_fits.insert(event.id, ObjectFit(c.obj_fit.clone()));
+                obj_fits.insert_no_notify(event.id, ObjectFit(c.obj_fit.clone()));
                 set_dirty(dirty_list, event.id, StyleType::ObjectFit as usize, style_mark);
             }
         }
@@ -577,7 +579,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
             if class.class_style_mark & StyleType::BorderImage as usize != 0 && style_mark.local_style & StyleType::BorderImage as usize == 0 {
                 match engine.res_mgr.get::<TextureRes>(&c.border_image) {
                     Some(r) => {
-                        border_images.insert(event.id, BorderImage{src: r, url: c.border_image.clone()});
+                        border_images.insert_no_notify(event.id, BorderImage{src: r, url: c.border_image.clone()});
                         set_dirty(dirty_list, event.id, StyleType::BorderImage as usize, style_mark);
                     },
                     None => {
@@ -587,15 +589,15 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
                 }
             }
             if class.class_style_mark & StyleType::BorderImageClip as usize != 0 && style_mark.local_style & StyleType::BorderImageClip as usize == 0 {
-                border_image_clips.insert(event.id, c.border_image_clip.clone());
+                border_image_clips.insert_no_notify(event.id, c.border_image_clip.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderImageClip as usize, style_mark);
             }
             if class.class_style_mark & StyleType::BorderImageSlice as usize != 0 && style_mark.local_style & StyleType::BorderImageSlice as usize == 0 {
-                border_image_slices.insert(event.id, c.border_image_slice.clone());
+                border_image_slices.insert_no_notify(event.id, c.border_image_slice.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderImageSlice as usize, style_mark);
             }
             if class.class_style_mark & StyleType::BorderImageClip as usize != 0 && style_mark.local_style & StyleType::BorderImageClip as usize == 0 {
-                border_image_repeats.insert(event.id, c.border_image_repeat.clone());
+                border_image_repeats.insert_no_notify(event.id, c.border_image_repeat.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderImageClip as usize, style_mark);
             }
         }
@@ -603,7 +605,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
         if class.border_color > 0 {
             if class.class_style_mark & StyleType::BorderColor as usize != 0 && style_mark.local_style & StyleType::BorderColor as usize == 0 {
                 let c = unsafe { class_sheet.border_color.get_unchecked(class.image) };
-                border_colors.insert(event.id, c.clone());
+                border_colors.insert_no_notify(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderColor as usize, style_mark);
             }
         }
@@ -611,7 +613,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
         if class.background_color > 0 {
             if class.class_style_mark & StyleType::BackgroundColor as usize != 0 && style_mark.local_style & StyleType::BackgroundColor as usize == 0 {
                 let c = unsafe { class_sheet.background_color.get_unchecked(class.background_color) };
-                background_colors.insert(event.id, c.clone());
+                background_colors.insert_no_notify(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BackgroundColor as usize, style_mark);
             }
         }
@@ -619,7 +621,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
         if class.box_shadow > 0 {
             let c = unsafe { class_sheet.box_shadow.get_unchecked(class.box_shadow) };
             if class.class_style_mark & StyleType::BoxShadow as usize != 0 && style_mark.local_style & StyleType::BoxShadow as usize == 0 {
-                box_shadows.insert(event.id, c.clone());
+                box_shadows.insert_no_notify(event.id, c.clone());
                 set_dirty(dirty_list, event.id, StyleType::BoxShadow as usize, style_mark);
             }
         }
@@ -653,7 +655,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEve
 }
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, L: FlexNode + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ClassName>,
         &'a SingleCaseImpl<ClassSheet>
@@ -686,7 +688,7 @@ impl<'a, L: FlexNode + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEve
                 // 判断等待类型， 设置对应的组件
                 match image_wait.ty {
                     ImageType::ImageLocal => {
-                        images.insert(image_wait.id, Image{src: wait.1.clone()});
+                        images.insert(image_wait.id, Image{src: wait.1.clone(), url: wait.0.clone()});
                         set_local_dirty(dirty_list, image_wait.id, StyleType::Image as usize, style_marks);
                     },
                     ImageType::ImageClass => {
@@ -702,7 +704,7 @@ impl<'a, L: FlexNode + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEve
 
                         if let Some(image_class) = class_sheet.image.get(class.image) {
                             if image_class.image == wait.0 {
-                                images.insert(image_wait.id, Image{src: wait.1.clone()});
+                                images.insert_no_notify(image_wait.id, Image{src: wait.1.clone(), url: wait.0.clone()});
                                 set_dirty(dirty_list, image_wait.id, StyleType::Image as usize, style_mark);
                             }
                         }
@@ -871,14 +873,14 @@ fn set_layout_style<L: FlexNode>(class: &Class, yoga: &L){
 }
 
 impl_system!{
-    StyleMarkSys<L> where [L: FlexNode + 'static],
+    StyleMarkSys<L, C> where [L: FlexNode + 'static, C: HalContext + 'static],
     true,
     {
         EntityListener<Node, CreateEvent>
-        MultiCaseListener<Node, TextContent, CreateEvent>
-        MultiCaseListener<Node, TextContent, ModifyEvent>
-        MultiCaseListener<Node, Font, ModifyEvent>
-        MultiCaseListener<Node, TextShadow, ModifyEvent>
+        // MultiCaseListener<Node, TextContent, CreateEvent>
+        // MultiCaseListener<Node, TextContent, ModifyEvent>
+        // MultiCaseListener<Node, Font, ModifyEvent>
+        // MultiCaseListener<Node, TextShadow, ModifyEvent>
 
         MultiCaseListener<Node, Image, ModifyEvent>
         MultiCaseListener<Node, ImageClip, ModifyEvent>
@@ -910,5 +912,7 @@ impl_system!{
         MultiCaseListener<Node, Filter, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent> 
+
+        SingleCaseListener<ImageWaitSheet, ModifyEvent>
     }
 }

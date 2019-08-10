@@ -33,7 +33,6 @@ opt-level = "s"
 panic = 'abort'
 codegen-units = 1
 
-[profile.dev]
-debug = 2
-opt-level = 1
-codegen-units = 1
+# [profile.dev]
+# debug = 2
+# opt-level = 3

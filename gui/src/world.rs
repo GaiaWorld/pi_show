@@ -53,7 +53,13 @@ lazy_static! {
     pub static ref STYLE_MARK_N: Atom = Atom::from("style_mark_sys");
 }
 
-pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) -> World {
+pub fn create_world<L: FlexNode, C: HalContext + 'static>(
+    mut engine: Engine<C>,
+    width: f32,
+    height: f32,
+    font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
+    font_texture: Share<TextureRes>,
+) -> World {
     let mut world = World::default();
 
     let mut default_table = DefaultTable::new();
@@ -82,10 +88,10 @@ pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) ->
 
     let default_state = DefaultState::new(&engine.gl);
 
-    // let charblock_sys = CellCharBlockSys::<L>::new(CharBlockSys::new(&mut engine));
+    // let charblock_sys = CellCharBlockSys::<L>::new(CharBlockSys::new(&mut Engine<C>));
     
 
-    // let clip_sys = ClipSys::new(&mut engine, width as u32, height as u32);
+    // let clip_sys = ClipSys::new(&mut Engine<C>, width as u32, height as u32);
     let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
 
     //user
@@ -103,9 +109,10 @@ pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) ->
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
     world.register_multi::<Node, CharBlock<L>>();
-    world.register_multi::<Node, Text>(); 
+    // world.register_multi::<Node, Text>(); 
     world.register_multi::<Node, TextStyle>();
-    world.register_multi::<Node, TextShadow>();
+    world.register_multi::<Node, TextContent>();
+    // world.register_multi::<Node, TextShadow>();
     world.register_multi::<Node, Font>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Image>();
@@ -125,15 +132,14 @@ pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) ->
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, L>();
     world.register_multi::<Node, HSV>(); 
-
     //single
     // world.register_single::<ClipUbo>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs>(RenderObjs::default());
-    world.register_single::<Engine>(engine);
-    // world.register_single::<FontSheet>(FontSheet::default());
+    world.register_single::<Engine<C>>(engine);
+    world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
     world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
     world.register_single::<RenderBegin>(RenderBegin(Share::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
@@ -159,15 +165,15 @@ pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) ->
     world.register_system(IMAGE_N.clone(), image_sys);
     // world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
-    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::new(BackgroundColorSys::default()));
+    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
     // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::new()));
     // world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(BorderImageSys::new()));
     // world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::new()));
-    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::new(NodeAttrSys::new()));
-    world.register_system(RENDER_N.clone(), CellRenderSys::new(RenderSys::default()));
+    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
+    world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
-    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::new(ResReleaseSys::new()));
-    world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<L>::new(StyleMarkSys::new()));
+    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
+    world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<L, C>::new(StyleMarkSys::new()));
     
 
     let mut dispatch = SeqDispatcher::default();
@@ -185,7 +191,7 @@ pub fn create_world<L: FlexNode>(mut engine: Engine, width: f32, height: f32) ->
     world
 }
 
-pub struct GuiWorld<L: FlexNode> {
+pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -199,9 +205,9 @@ pub struct GuiWorld<L: FlexNode> {
     pub border_image_clip: Arc<CellMultiCase<Node, BorderImageClip>>,
     pub border_image_slice: Arc<CellMultiCase<Node, BorderImageSlice>>,
     pub border_image_repeat: Arc<CellMultiCase<Node, BorderImageRepeat>>,
-    pub text: Arc<CellMultiCase<Node, Text>>,
-    pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
-    pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
+    // pub text: Arc<CellMultiCase<Node, Text>>,
+    // pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
+    // pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
     pub font: Arc<CellMultiCase<Node, Font>>,
     pub border_radius: Arc<CellMultiCase<Node, BorderRadius>>,
     pub image: Arc<CellMultiCase<Node, Image>>,
@@ -226,7 +232,7 @@ pub struct GuiWorld<L: FlexNode> {
     pub idtree: Arc<CellSingleCase<IdTree>>,
     pub oct: Arc<CellSingleCase<Oct>>,
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
-    pub engine: Arc<CellSingleCase<Engine>>,
+    pub engine: Arc<CellSingleCase<Engine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
     pub font_sheet: Arc<CellSingleCase<FontSheet>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
@@ -236,8 +242,8 @@ pub struct GuiWorld<L: FlexNode> {
     pub world: World,
 }
 
-impl<L: FlexNode> GuiWorld<L> {
-    pub fn new(world: World) -> GuiWorld<L>{
+impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
+    pub fn new(world: World) -> GuiWorld<L, C>{
         GuiWorld{
             node: world.fetch_entity::<Node>().unwrap(),
             transform: world.fetch_multi::<Node, Transform>().unwrap(),
@@ -252,9 +258,9 @@ impl<L: FlexNode> GuiWorld<L> {
             border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
             border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
             border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
-            text: world.fetch_multi::<Node, Text>().unwrap(),
-            text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
-            text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
+            // text: world.fetch_multi::<Node, Text>().unwrap(),
+            // text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
+            // text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
             font: world.fetch_multi::<Node, Font>().unwrap(),
             border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
             image: world.fetch_multi::<Node, Image>().unwrap(),
@@ -279,7 +285,7 @@ impl<L: FlexNode> GuiWorld<L> {
             idtree: world.fetch_single::<IdTree>().unwrap(),
             oct: world.fetch_single::<Oct>().unwrap(),
             overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
-            engine: world.fetch_single::<Engine>().unwrap(),
+            engine: world.fetch_single::<Engine<C>>().unwrap(),
             render_objs: world.fetch_single::<RenderObjs>().unwrap(),
             font_sheet: world.fetch_single::<FontSheet>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),

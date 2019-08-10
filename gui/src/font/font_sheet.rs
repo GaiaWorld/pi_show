@@ -48,9 +48,6 @@ pub struct FontSheet {
     measure_char: Box<dyn Fn(&Atom, usize, char)-> f32>,
     font_tex: FontTex,
 }
-unsafe impl Sync for FontSheet{}
-unsafe impl Send for FontSheet{}
-
 
 impl  FontSheet {
     pub fn new(texture: Share<TextureRes>, measure: Box<dyn Fn(&Atom, usize, char)-> f32>) -> Self {

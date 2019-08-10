@@ -39,7 +39,7 @@ struct RenderCatch{
     layout_hash: u64, // 布局属性的hash
 }
 
-pub struct CharBlockSys<L: FlexNode + 'static>{
+pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
     dirty_ty: usize,
     render_map: VecMap<I>,
     canvas_bs: Share<HalBlendState>,
@@ -50,11 +50,11 @@ pub struct CharBlockSys<L: FlexNode + 'static>{
     default_ubos: RenderCatch,
     index_buffer: Share<HalBuffer>, // 索引 buffer， 长度： 600
     index_len: usize,
-    mark: PhantomData<L>,
+    mark: PhantomData<(L, C)>,
 } 
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, L: FlexNode + 'static> Runner<'a> for CharBlockSys<L>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBlockSys<L, C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -69,7 +69,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for CharBlockSys<L>{
         &'a SingleCaseImpl<ClassSheet>,
         &'a SingleCaseImpl<DirtyList>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (z_depths, world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
         let (render_objs, engine, charblocks) = write;
@@ -238,10 +238,10 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for CharBlockSys<L>{
     }
 }
 
-impl<L: FlexNode + 'static> CharBlockSys<L> {
+impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
     
     #[inline]
-    pub fn new(engine: &mut Engine) -> Self {
+    pub fn new(engine: &mut Engine<C>) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
         canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
@@ -403,13 +403,13 @@ impl<L: FlexNode + 'static> CharBlockSys<L> {
 }
 
 #[inline]
-fn modify_stroke<L: FlexNode + 'static>(
+fn modify_stroke<L: FlexNode + 'static, C: HalContext + 'static>(
     index: usize,
     charblock: &CharBlock<L>,
     local_style: usize,
     text_stroke: &Stroke,
     render_obj: &mut RenderObj,
-    engine: &mut SingleCaseImpl<Engine>,
+    engine: &mut SingleCaseImpl<Engine<C>>,
     notify: &NotifyImpl,
     is_pixel: bool,
     class_ubo: &RenderCatch,
@@ -450,12 +450,12 @@ fn modify_stroke<L: FlexNode + 'static>(
 }
 
 #[inline]
-fn modify_color<L: FlexNode>(
+fn modify_color<L: FlexNode, C: HalContext + 'static>(
     index: usize,
     charblock: &CharBlock<L>,
     local_style: usize,
     color: &Color,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     notify: &NotifyImpl,
     render_obj: &mut RenderObj,
     class_ubo: &RenderCatch,
@@ -531,14 +531,14 @@ fn try_modify_font (
 }
 
 #[inline]
-fn modify_shadow_color<L: FlexNode + 'static>(
+fn modify_shadow_color<L: FlexNode + 'static, C: HalContext + 'static>(
     index: usize,
     charblock: &CharBlock<L>,
     local_style: usize,
     text_style: &TextStyle,
     notify: &NotifyImpl,
     render_obj: &mut RenderObj,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     is_pixel: bool,
     class_ubo: &RenderCatch,
 ) {
@@ -563,7 +563,7 @@ fn set_canvas_default_stroke(render_obj: &RenderObj, canvas_default_stroke_color
     };
 }
 
-fn modify_program(render_obj: &mut RenderObj, is_pixel: bool, engine: &mut Engine, canvas_default_stroke_color: &Share<CanvasTextStrokeColorUbo>) {
+fn modify_program<C: HalContext + 'static>(render_obj: &mut RenderObj, is_pixel: bool, engine: &mut Engine<C>, canvas_default_stroke_color: &Share<CanvasTextStrokeColorUbo>) {
     render_obj.program = if !is_pixel {
         Some(engine.create_program(
             TEXT_VS_SHADER_NAME.get_hash(),
@@ -591,7 +591,7 @@ fn modify_program(render_obj: &mut RenderObj, is_pixel: bool, engine: &mut Engin
 
 // 返回position， uv， color， index
 #[inline]
-fn create_geo<L: FlexNode + 'static>(
+fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
     dirty: usize,
     char_block: &CharBlock<L>,
     color: &Color,
@@ -602,7 +602,7 @@ fn create_geo<L: FlexNode + 'static>(
     text_layout_dirty: usize,
     share_data: &RenderCatch,
     share_index_buffer: &Share<HalBuffer>,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>> {
     // 是共享文字
     if text.0 == String::new() {
@@ -680,12 +680,12 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
 
 // 返回position， uv， color， index
 #[inline]
-fn get_geo_flow<L: FlexNode + 'static>(
+fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     char_block: &CharBlock<L>,
     color: &Color,
     is_pixel: bool,
     font_sheet: &FontSheet,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     hash: Option<u64>,
     index_buffer: &Share<HalBuffer>,
 ) -> Option<Share<GeometryRes>> {
@@ -959,7 +959,7 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
 }
 
 impl_system!{
-    CharBlockSys<L> where [L: FlexNode + 'static],
+    CharBlockSys<L, C> where [L: FlexNode + 'static, C: HalContext + 'static],
     true,
     {
 

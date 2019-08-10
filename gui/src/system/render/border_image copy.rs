@@ -39,7 +39,7 @@ pub struct BorderImageSys{
 }
 
 impl BorderImageSys {
-    pub fn new(engine: &mut Engine) -> Self{
+    pub fn new(engine: &mut Engine<C>) -> Self{
         BorderImageSys {
             render_map: VecMap::default(),
             default_sampler: create_default_sampler(engine),
@@ -66,7 +66,7 @@ impl<'a> Runner<'a> for BorderImageSys{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);;
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, z_depths, clips, slices, repeats, images, world_matrixs) = read;
         let (render_objs, engine) = write;
@@ -202,7 +202,7 @@ impl<'a> MultiCaseListener<'a, Node, BorderImage, CreateEvent> for BorderImageSy
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
-        &'a mut SingleCaseImpl<Engine>,
+        &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (images, z_depths, layouts, opacitys) = read;

@@ -63,10 +63,9 @@ pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
 pub struct Image{
-  pub src: Share<TextureRes>
+  pub src: Share<TextureRes>,
+  pub url: Atom,
 }
-unsafe impl Sync for Image {}
-unsafe impl Send for Image {}
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component,Default)]
@@ -88,8 +87,6 @@ pub struct BorderImage{
   pub src: Share<TextureRes>,
   pub url: Atom,
 }
-unsafe impl Sync for BorderImage {}
-unsafe impl Send for BorderImage {}
 
 #[derive(Deref, DerefMut, Clone, Component)]
 pub struct BorderImageClip(pub Aabb2);
@@ -325,6 +322,9 @@ pub enum FitType {
   Contain,
   Cover,
   ScaleDown,
+  Repeat,
+  RepeatX,
+  RepeatY,
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault)]

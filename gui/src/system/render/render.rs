@@ -3,6 +3,7 @@
  */
 use std::cmp::Ordering;
 use std::default::Default;
+use std::marker::PhantomData;
 
 use hal_core::*;
 use ecs::{SingleCaseImpl, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
@@ -11,7 +12,7 @@ use share::Share;
 use render::engine::Engine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
 
-pub struct RenderSys{
+pub struct RenderSys<C: HalContext + 'static>{
     program_dirtys: Vec<usize>,
     transparent_dirty: bool,
     opacity_dirty: bool,
@@ -22,10 +23,11 @@ pub struct RenderSys{
     // transparent_list: BTreeMap<u32, usize>, // 透明列表
     // transpare
     // nt_map: 
+    marker: PhantomData<C>,
     
 }
 
-impl Default for RenderSys {
+impl<C: HalContext + 'static> Default for RenderSys<C> {
     fn default() -> Self{
         Self{
             program_dirtys: Vec::default(),
@@ -35,14 +37,15 @@ impl Default for RenderSys {
             opacity_list: Vec::new(),
             transparent_list: Vec::new(),
             // transparent_list: BTreeMap::new(),
+            marker: PhantomData,
             
         }
     }
 }
 
-impl<'a> Runner<'a> for RenderSys{
+impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderBegin>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine> );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>> );
     fn run(&mut self, render_begin: Self::ReadData, write: Self::WriteData){
         let (render_objs, engine) = write;
 
@@ -94,7 +97,7 @@ impl<'a> Runner<'a> for RenderSys{
             self.opacity_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
                 let obj2 = unsafe { render_objs.get_unchecked(*id2) };
-                (obj1.program.as_ref().unwrap().index ).partial_cmp(&( obj2.program.as_ref().unwrap().index )).unwrap()
+                (obj1.program.as_ref().unwrap().item.index ).partial_cmp(&( obj2.program.as_ref().unwrap().item.index )).unwrap()
             });
         } else if self.transparent_dirty {
             self.transparent_list.clear();
@@ -122,14 +125,14 @@ impl<'a> Runner<'a> for RenderSys{
             self.opacity_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
                 let obj2 = unsafe { render_objs.get_unchecked(*id2) };
-                obj1.program.as_ref().unwrap().index.partial_cmp(&obj2.program.as_ref().unwrap().index).unwrap()
+                obj1.program.as_ref().unwrap().item.index.partial_cmp(&obj2.program.as_ref().unwrap().item.index).unwrap()
             });
         }
 
         #[cfg(feature = "performance")]
         js!{
             if (__p) {
-                __p.rendersys_run_sort = performance.now() - __time;
+                __p.RenderSys<C>_run_sort = performance.now() - __time;
             }
         }
         // let mut transparent_list = Vec::new();
@@ -173,13 +176,13 @@ impl<'a> Runner<'a> for RenderSys{
         #[cfg(feature = "performance")]
         js!{
             if (__p) {
-                __p.rendersys_run_render = performance.now() - __time;
+                __p.RenderSys<C>_run_render = performance.now() - __time;
             }
         }
     }
 }
 
-impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for RenderSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEvent> for RenderSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -195,7 +198,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for RenderSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, RenderObjs, ModifyEvent> for RenderSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, ModifyEvent> for RenderSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, render_objs: Self::WriteData){
@@ -226,7 +229,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, ModifyEvent> for RenderSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, RenderObjs, DeleteEvent> for RenderSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, DeleteEvent> for RenderSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData){
@@ -240,7 +243,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, DeleteEvent> for RenderSys{
     }
 }
 
-fn render(gl: &Share<dyn HalContext + 'static>, obj: &RenderObj){
+fn render<C: HalContext + 'static>(gl: &C, obj: &RenderObj){
     let geometry = match &obj.geometry {
         None => return,
         Some(g) => g,
@@ -252,21 +255,21 @@ fn render(gl: &Share<dyn HalContext + 'static>, obj: &RenderObj){
 
 struct OpacityOrd<'a>(&'a RenderObj, usize);
 
-impl<'a> PartialOrd for OpacityOrd<'a> {
+impl<'a>  PartialOrd for OpacityOrd<'a> {
 	fn partial_cmp(&self, other: &OpacityOrd<'a>) -> Option<Ordering> {
-        self.0.program.as_ref().unwrap().index.partial_cmp(&other.0.program.as_ref().unwrap().index)
+        self.0.program.as_ref().unwrap().item.index.partial_cmp(&other.0.program.as_ref().unwrap().item.index)
 	}
 }
 
-impl<'a> PartialEq for OpacityOrd<'a>{
+impl<'a>  PartialEq for OpacityOrd<'a>{
 	 fn eq(&self, other: &OpacityOrd<'a>) -> bool {
-        self.0.program.as_ref().unwrap().index.eq(&other.0.program.as_ref().unwrap().index)
+        self.0.program.as_ref().unwrap().item.index.eq(&other.0.program.as_ref().unwrap().item.index)
     }
 }
 
-impl<'a> Eq for OpacityOrd<'a>{}
+impl<'a>  Eq for OpacityOrd<'a>{}
 
-impl<'a> Ord for OpacityOrd<'a>{
+impl<'a>  Ord for OpacityOrd<'a>{
 	fn cmp(&self, other: &OpacityOrd<'a>) -> Ordering {
         let r = self.partial_cmp(&other).unwrap();
         r
@@ -275,21 +278,21 @@ impl<'a> Ord for OpacityOrd<'a>{
 
 struct TransparentOrd<'a>(&'a RenderObj, usize);
 
-impl<'a> PartialOrd for TransparentOrd<'a> {
+impl<'a>  PartialOrd for TransparentOrd<'a> {
 	fn partial_cmp(&self, other: &TransparentOrd<'a>) -> Option<Ordering> {
 		(self.0.depth + other.0.depth_diff).partial_cmp(&(other.0.depth + other.0.depth_diff))
 	}
 }
 
-impl<'a> PartialEq for TransparentOrd<'a>{
+impl<'a>  PartialEq for TransparentOrd<'a>{
 	 fn eq(&self, other: &TransparentOrd<'a>) -> bool {
         (self.0.depth + other.0.depth_diff).eq(&(other.0.depth + other.0.depth_diff))
     }
 }
 
-impl<'a> Eq for TransparentOrd<'a>{}
+impl<'a>  Eq for TransparentOrd<'a>{}
 
-impl<'a> Ord for TransparentOrd<'a>{
+impl<'a>  Ord for TransparentOrd<'a>{
 	fn cmp(&self, other: &TransparentOrd<'a>) -> Ordering {
         let r = self.partial_cmp(&other).unwrap();
         r
@@ -297,7 +300,7 @@ impl<'a> Ord for TransparentOrd<'a>{
 }
 
 impl_system!{
-    RenderSys,
+    RenderSys<C> where [C: HalContext + 'static],
     true,
     {
         SingleCaseListener<RenderObjs, CreateEvent>

@@ -3,6 +3,7 @@
  */
 use share::Share;
 use std::hash::{ Hasher, Hash };
+use std::marker::PhantomData;
 
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
@@ -28,26 +29,26 @@ lazy_static! {
     static ref GRADUAL: Atom = Atom::from("GRADUAL");
 }
 
-pub struct BackgroundColorSys{
+pub struct BackgroundColorSys<C: HalContext + 'static>{
     render_map: VecMap<usize>,
     dirty_ty: usize,
     share_ucolor_ubo: VecMap<Share<dyn UniformBuffer>>, // 如果存在BackgroundClass， 也存在对应的ubo
-    
+    marker: std::marker::PhantomData<C>,
 }
 
-impl Default for BackgroundColorSys {
+impl<C: HalContext + 'static> Default for BackgroundColorSys<C> {
     fn default() -> Self {
         BackgroundColorSys {
             render_map: VecMap::default(),
             dirty_ty: StyleType::BackgroundColor as usize | StyleType::Matrix as usize | StyleType::BorderRadius as usize | StyleType::Opacity as usize | StyleType::Layout as usize,
             share_ucolor_ubo: VecMap::default(),
-            
+            marker: PhantomData,
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a> Runner<'a> for BackgroundColorSys{
+impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, ZDepth>,
@@ -65,7 +66,7 @@ impl<'a> Runner<'a> for BackgroundColorSys{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             layouts,
@@ -175,9 +176,9 @@ impl<'a> Runner<'a> for BackgroundColorSys{
 }
 
 // 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
-impl<'a> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys{
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys<C>{
     type ReadData = &'a SingleCaseImpl<ClassSheet>;
-    type WriteData = &'a mut SingleCaseImpl<Engine>;
+    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
         let class = unsafe { class_sheet.class.get_unchecked(event.id)};
 
@@ -189,7 +190,7 @@ impl<'a> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys{
     }
 }
 
-impl BackgroundColorSys {
+impl<C: HalContext + 'static> BackgroundColorSys<C> {
     #[inline]
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
@@ -242,7 +243,7 @@ impl BackgroundColorSys {
     }
 }
 
-fn create_rgba_geo(border_radius: Option<&BorderRadius>, layout: &Layout, unit_quad: &Share<GeometryRes>, engine: &mut Engine) -> Option<Share<GeometryRes>>{
+fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>, layout: &Layout, unit_quad: &Share<GeometryRes>, engine: &mut Engine<C>) -> Option<Share<GeometryRes>>{
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
@@ -281,7 +282,7 @@ fn create_rgba_geo(border_radius: Option<&BorderRadius>, layout: &Layout, unit_q
     }
 }
 
-fn create_linear_gradient_geo(color: &LinearGradientColor, border_radius: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine) -> Option<Share<GeometryRes>>{
+fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientColor, border_radius: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine<C>) -> Option<Share<GeometryRes>>{
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
@@ -365,7 +366,7 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
 }
 
 #[inline]
-fn create_u_color_ubo(c: &CgColor, engine: &mut Engine) -> Share<dyn UniformBuffer> {
+fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
     let h = f32_4_hash(c.r, c.g, c.b, c.a);
     match engine.res_mgr.get::<UColorUbo>(&h) {
         Some(r) => r,
@@ -375,10 +376,10 @@ fn create_u_color_ubo(c: &CgColor, engine: &mut Engine) -> Share<dyn UniformBuff
 
 // 修改颜色， 返回是否存在宏的修改(不是class中的颜色)
 #[inline]
-fn modify_color(
+fn modify_color<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     dirty: usize,
     layout: &Layout,
     unit_quad: &Share<GeometryRes>,
@@ -412,10 +413,10 @@ fn modify_color(
 
 // class bgcolor
 #[inline]
-fn modify_class_color(
+fn modify_class_color<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     dirty: usize,
     share_bg: &VecMap<Share<dyn UniformBuffer>>,
     class_id: usize,
@@ -499,11 +500,8 @@ fn modify_matrix(
     }
 }
 
-unsafe impl Sync for BackgroundColorSys{}
-unsafe impl Send for BackgroundColorSys{}
-
 impl_system!{
-    BackgroundColorSys,
+    BackgroundColorSys<C> where [C: HalContext + 'static],
     true,
     {
         SingleCaseListener<ClassSheet, CreateEvent>

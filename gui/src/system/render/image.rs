@@ -1,6 +1,8 @@
 /**
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
+use std::marker::PhantomData;
+
 use share::Share;
 use std::hash::{ Hasher, Hash };
 
@@ -45,14 +47,15 @@ const GEO_DIRTY: usize =StyleType::BorderRadius as usize |
                         StyleType::ImageClip as usize |
                         StyleType::ObjectFit as usize;
 
-pub struct ImageSys{
+pub struct ImageSys<C>{
     render_map: VecMap<usize>,
     default_sampler: Share<SamplerRes>,
     unit_geo: Share<GeometryRes>, // 含uv， index， pos  
+    marker: PhantomData<C>,
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a> Runner<'a> for ImageSys{
+impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -68,7 +71,7 @@ impl<'a> Runner<'a> for ImageSys{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, border_radiuss, z_depths, images, image_clips, object_fits, world_matrixs, transforms, opacitys, style_marks, default_table, dirty_list, default_state) = read;
         let (render_objs, engine) = write;
@@ -93,17 +96,24 @@ impl<'a> Runner<'a> for ImageSys{
             }
 
             // Image脏， 如果不存在Image的本地样式和class样式， 删除渲染对象
-            if dirty & StyleType::Image as usize != 0 && style_mark.local_style & StyleType::Image as usize == 0 && style_mark.class_style & StyleType::Image as usize == 0 {
-                self.remove_render_obj(*id, render_objs);
-                continue;
-            }
-
-            // 不存在渲染对象， 创建
-            let render_index = match self.render_map.get_mut(*id) {
-                Some(r) => *r,
-                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            let render_index = if dirty & StyleType::Image as usize != 0 {
+                if style_mark.local_style & StyleType::Image as usize == 0 && style_mark.class_style & StyleType::Image as usize == 0{
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                }
+                
+                // 不存在渲染对象， 创建
+                match self.render_map.get_mut(*id) {
+                    Some(r) => *r,
+                    None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+                }
+            } else {
+                match self.render_map.get_mut(*id) {
+                    Some(r) => *r,
+                    None => continue,
+                }
             };
-        
+
             let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 
             let border_radius = border_radiuss.get(*id);
@@ -165,8 +175,8 @@ impl<'a> Runner<'a> for ImageSys{
     }
 }
 
-impl ImageSys {
-    pub fn new(engine: &mut Engine) -> Self{
+impl<C: HalContext + 'static> ImageSys<C> {
+    pub fn new(engine: &mut Engine<C>) -> Self{
         let default_sampler = SamplerDesc::default();
         let mut hasher = FxHasher32::default();
         default_sampler.hash(&mut hasher);
@@ -188,6 +198,7 @@ impl ImageSys {
             render_map: VecMap::default(),
             default_sampler: default_sampler,
             unit_geo: Share::new(GeometryRes{geo: geo, buffers: vec![positions.clone(), indices, positions]}),  
+            marker: PhantomData,
         }
     }
 
@@ -244,14 +255,14 @@ impl ImageSys {
 }
 
 #[inline]
-fn update_geo<'a>(
+fn update_geo<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     border_radius: Option<&BorderRadius>,
     layout: &Layout,
     image: &Image,
     image_clip: Option<&ImageClip>,
     object_fit: Option<&ObjectFit>,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
 ) -> (bool, Aabb2)  {
     let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
@@ -262,16 +273,16 @@ fn update_geo<'a>(
         use_layout_pos(render_obj, uv, layout, &radius, engine); // 有圆角
         (true, pos)
     }else{
-        update_geo_no_radius(render_obj, &uv, image_clip, engine, unit_geo); // 没有圆角
+        update_geo_quad(render_obj, &uv, image_clip, engine, unit_geo); // 没有圆角
         (false, pos)
     } 
 }
 
-fn update_geo_no_radius<'a>(
+fn update_geo_quad<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     uv: &Aabb2,
     image_clip: Option<&ImageClip>,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
 ) {
     match image_clip {
@@ -299,7 +310,7 @@ fn cal_uv_hash(uv: &Aabb2) -> u64 {
     hasher.finish()
 }
 
-fn create_uv_buffer<'a>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine) -> Share<HalBuffer> {
+fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine<C>) -> Share<HalBuffer> {
     match engine.res_mgr.get::<HalBuffer>(&uv_hash) {
         Some(r) => r,
         None => {
@@ -310,7 +321,7 @@ fn create_uv_buffer<'a>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine) -> Share<
     }
 }
 
-fn create_geo<'a>(uv_hash: &u64, geo_res: GeometryRes, engine: &mut Engine) -> Share<GeometryRes> {
+fn create_geo<C: HalContext + 'static>(uv_hash: &u64, geo_res: GeometryRes, engine: &mut Engine<C>) -> Share<GeometryRes> {
     let mut hasher = FxHasher32::default();
     uv_hash.hash(&mut hasher);
     POSITIONUNIT.hash(&mut hasher);
@@ -334,20 +345,19 @@ fn modify_matrix(
     hash_radius: bool,
 ){
     if hash_radius {
-        let arr = create_unit_matrix(pos.max.x - pos.min.x, pos.max.y - pos.min.y, layout, world_matrix, transform, depth);
-        render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
-    } else {
         let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
         render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
+    } else {
+        let arr = create_unit_matrix(pos.max.x - pos.min.x, pos.max.y - pos.min.y, layout, world_matrix, transform, depth);
+        render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     }
 }
 
-fn use_layout_pos<'a>(render_obj: &mut RenderObj, uv: Aabb2, layout: &Layout, radius: &Point2, engine: &mut Engine){
+fn use_layout_pos<C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2, layout: &Layout, radius: &Point2, engine: &mut Engine<C>){
     let start_x = layout.border_left;
     let start_y = layout.border_top;
     let end_x = layout.width - layout.border_right;
     let end_y = layout.height - layout.border_bottom;
-    debug_println!("layout-----------------------------------{:?}", layout);
     let (positions, indices) = if radius.x == 0.0 || layout.width == 0.0 || layout.height == 0.0 {
         (
             vec![
@@ -437,6 +447,7 @@ fn get_pos_uv(img: &Image, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, la
           fill(&size, &mut p1, &mut p2, w, h);
         },
         FitType::Cover => {
+            println!("FitType::Cover--------------------");
           // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
           let rw = size.x/w;
           let rh = size.y/h;
@@ -463,7 +474,10 @@ fn get_pos_uv(img: &Image, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, la
             fill(&size, &mut p1, &mut p2, w, h);
           }
         },
-        _ => () // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
+        FitType::Repeat => panic!("TODO"), // TODO
+        FitType::RepeatX => panic!("TODO"), // TODO
+        FitType::RepeatY => panic!("TODO"), // TODO
+        FitType::Fill => () // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
       },
       // 默认情况是填充
       _ => ()
@@ -486,7 +500,7 @@ fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32){
 }
 
 impl_system!{
-    ImageSys,
+    ImageSys<C> where [C: HalContext + 'static],
     true,
     {
         // MultiCaseListener<Node, Image<C>, CreateEvent>

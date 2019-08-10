@@ -1,6 +1,8 @@
 /**
  *  
  */
+use std::marker::PhantomData;
+
 use share::Share;
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
@@ -19,26 +21,28 @@ lazy_static! {
     static ref HSV_ATTR: Atom = Atom::from("hsvValue");
 }
 
-pub struct NodeAttrSys{
+pub struct NodeAttrSys<C: HalContext + 'static>{
     view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     project_matrix_ubo: Option<Share<dyn UniformBuffer>>,
+    marker: PhantomData<C>,
 }
 
-impl NodeAttrSys {
+impl<C: HalContext + 'static> NodeAttrSys<C> {
     pub fn new() -> Self{
         NodeAttrSys {
             view_matrix_ubo: None,
             project_matrix_ubo: None,
+            marker: PhantomData,
         }
     }
 }
 
-impl<'a> Runner<'a> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  Runner<'a> for NodeAttrSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
     );
-    type WriteData =  &'a mut SingleCaseImpl<Engine>;
+    type WriteData =  &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, _read: Self::ReadData, _write: Self::WriteData){
     }
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData){
@@ -57,7 +61,7 @@ impl<'a> Runner<'a> for NodeAttrSys{
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, CreateEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -65,7 +69,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for NodeAttrSys{
     }
 }
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
@@ -74,14 +78,14 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for NodeAttrSys{
 }
 
 //创建索引
-impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEvent> for NodeAttrSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, HSV>,
         &'a MultiCaseImpl<Node, ZDepth>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, visibilitys, hsvs, z_depths) = read;
         let (render_objs, engine, node_render_map) = write;
@@ -124,9 +128,9 @@ impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for NodeAttrSys{
 }
 
 // 监听is_opacity的修改，修改渲染状态， 创建新的渲染管线
-impl<'a> SingleCaseListener<'a, RenderObjs, ModifyEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = ();
-    type WriteData = ( &'a mut SingleCaseImpl<RenderObjs>,  &'a mut SingleCaseImpl<Engine>);
+    type WriteData = ( &'a mut SingleCaseImpl<RenderObjs>,  &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
         match event.field {
             "is_opacity" => {
@@ -141,7 +145,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, ModifyEvent> for NodeAttrSys{
 }
 
 // 删除索引
-impl<'a> SingleCaseListener<'a, RenderObjs, DeleteEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, DeleteEvent> for NodeAttrSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, node_render_map: Self::WriteData){
@@ -152,7 +156,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, DeleteEvent> for NodeAttrSys{
 }
 
 //深度变化， 修改renderobj的深度值
-impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData){
@@ -169,7 +173,7 @@ impl<'a> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for NodeAttrSys{
 }
 
 //不透明度变化， 设置ubo
-impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Opacity>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData){
@@ -186,7 +190,7 @@ impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for NodeAttrSys{
 }
 
 // 设置visibility
-impl<'a> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, Visibility>;
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, write: Self::WriteData){
@@ -204,9 +208,9 @@ impl<'a> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys{
 }
 
 // 设置hsv
-impl<'a> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys{
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, HSV>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
         let (render_objs, node_render_map, engine) = write;
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
@@ -234,7 +238,7 @@ impl<'a> MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys{
     }
 }
 
-pub fn create_hsv_ubo( engine: &mut Engine, hsv: &HSV) -> Share<dyn UniformBuffer> {
+pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HSV) -> Share<dyn UniformBuffer> {
     let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
     match engine.res_mgr.get::<HsvUbo>(&h) {
         Some(r) => r,
@@ -242,7 +246,7 @@ pub fn create_hsv_ubo( engine: &mut Engine, hsv: &HSV) -> Share<dyn UniformBuffe
     }
 }
 
-fn modify_opacity(engine: &mut Engine, render_obj: &mut RenderObj) {
+fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj) {
     let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
     let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
     if render_obj.is_opacity == false {
@@ -261,11 +265,8 @@ fn modify_opacity(engine: &mut Engine, render_obj: &mut RenderObj) {
     
 }
 
-unsafe impl Sync for NodeAttrSys{}
-unsafe impl Send for NodeAttrSys{}
-
 impl_system!{
-    NodeAttrSys,
+    NodeAttrSys<C> where [C: HalContext + 'static],
     true,
     {
         EntityListener<Node, CreateEvent>

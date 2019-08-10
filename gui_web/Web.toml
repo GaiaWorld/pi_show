@@ -15,8 +15,8 @@
 #             # "-s", "ASSERTIONS=1",
 #             ]
 
-[target.emscripten]
-link-args = [
-            "-O0", 
-            "-g4",
-            ]
+# [target.emscripten]
+# link-args = [
+#             "-O0", 
+#             "-g4",
+#             ]

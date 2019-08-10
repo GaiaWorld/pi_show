@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 // 监听Overflow， 绘制裁剪纹理
 use share::Share;
 
@@ -13,7 +15,7 @@ use render::engine:: { Engine };
 use system::util::*;
 use system::render::shaders::clip::*;
 
-pub struct ClipSys{
+pub struct ClipSys<C>{
     dirty: bool,
     clip_size_ubo: Share<ClipTextureSize>,
     sampler: Share<HalSampler>,
@@ -30,10 +32,11 @@ pub struct ClipSys{
     positions: HalBuffer,
     paramter: Share<dyn ProgramParamter>,
     begin_desc: RenderBeginDesc,
+    marker: PhantomData<C>,
 }
 
-impl ClipSys{
-    pub fn new(engine: &mut Engine, w: u32, h: u32, viewport: &(i32, i32, i32, i32)) -> Self{
+impl<C: HalContext + 'static> ClipSys<C>{
+    pub fn new(engine: &mut Engine<C>, w: u32, h: u32, viewport: &(i32, i32, i32, i32)) -> Self{
         let (rs, mut bs, ss, mut ds) = (RasterStateDesc::default(), BlendStateDesc::default(), StencilStateDesc::default(), DepthStateDesc::default());
         bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
         ds.set_test_enable(false);
@@ -82,7 +85,7 @@ impl ClipSys{
         Self {
             dirty: true,
             clip_size_ubo: Share::new(clip_size_ubo),
-            sampler: create_default_sampler(engine: &mut Engine),
+            sampler: create_default_sampler(engine: &mut Engine<C>),
 
             rs: create_rs_res(engine, rs),
             bs: create_bs_res(engine, bs),
@@ -102,18 +105,19 @@ impl ClipSys{
                 clear_depth: None,
                 clear_stencil: None,
             },
+            marker: PhantomData,
         }
     }
 }
 
-impl<'a> Runner<'a> for ClipSys{
+impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
     type ReadData = (
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<RenderBegin>,
     );
-    type WriteData = &'a mut SingleCaseImpl<Engine>;
+    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
         if self.dirty == false {
             return;
@@ -171,7 +175,7 @@ impl<'a> Runner<'a> for ClipSys{
 }
 
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys{
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, render_objs: Self::WriteData){
@@ -189,7 +193,7 @@ impl<'a> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys{
 }
 
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys{
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
@@ -218,18 +222,13 @@ impl<'a> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys{
 }
 
 
-impl<'a> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys{
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _event: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         self.dirty = true;
     }
 }
-
-unsafe impl Sync for ClipSys{}
-unsafe impl Send for ClipSys{}
-
-
 
 fn next_power_of_two(value: u32) -> u32 {
     let mut value = value - 1;
@@ -243,7 +242,7 @@ fn next_power_of_two(value: u32) -> u32 {
 }
 
 impl_system!{
-    ClipSys,
+    ClipSys<C> where [C: HalContext + 'static],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>

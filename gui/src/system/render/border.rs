@@ -64,7 +64,7 @@ impl<'a, C: Context> Runner<'a> for BorderColorSys{
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrixRender>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs<C>>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (layouts, border_radius, z_depths, world_matrixs) = read;
         let (render_objs, engine) = write;
@@ -121,7 +121,7 @@ impl<'a, C: Context> MultiCaseListener<'a, Node, BorderColor, CreateEvent> for B
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs<C>>,
-        &'a mut SingleCaseImpl<Engine>,
+        &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (border_colors, border_radius, z_depths, layouts, opacitys) = read;

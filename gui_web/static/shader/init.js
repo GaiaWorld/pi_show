@@ -206,3 +206,38 @@ function init_program(gl) {
 
     return program;
 }
+
+function __load_image(gui, image_name){
+    var image = new Image();
+    image.onload = () => {
+        window.__jsObj = image;
+        window.__jsObj1 = image_name;
+        var opacity = 0;
+        if (image_name.endsWith("png")) {
+            opacity = 1;
+        }
+        Module._load_image_success(gui, opacity , 0);
+    };
+    image.src = "./xxx.png";
+}
+
+var YGEdgeLeft = 0;
+var YGEdgeTop = 1;
+var YGEdgeRight = 2;
+var YGEdgeBottom = 3;
+var YGEdgeStart = 4;
+var YGEdgeEnd = 5;
+var YGEdgeHorizontal = 6;
+var YGEdgeVertical = 7;
+var YGEdgeAll = 8;
+
+var YGWrapNoWrap = 0;
+var YGWrapWrap = 1; 
+var YGWrapWrapReverse = 2;
+
+var RUST_BACKTRACE = 1;
+var FitType_None = 0;
+var FitType_Fill = 1;
+var FitType_Contain = 2;
+var FitType_Cover = 3;
+var FitType_ScaleDown = 4;

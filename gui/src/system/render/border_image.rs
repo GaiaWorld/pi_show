@@ -2,6 +2,7 @@
  *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
  */
 use std::hash::{ Hasher, Hash };
+use std::marker::PhantomData;
 
 use fxhash::FxHasher32;
 
@@ -42,13 +43,14 @@ lazy_static! {
     static ref BORDER_IMAGE: Atom = Atom::from("border_image");
 }
 
-pub struct BorderImageSys{
+pub struct BorderImageSys<C: HalContext + 'static>{
     render_map: VecMap<usize>,
     default_sampler: Share<HalSampler>,
+    marker: PhantomData<C>,
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a> Runner<'a> for BorderImageSys{
+impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderImage>,
         &'a MultiCaseImpl<Node, BorderImageClip>,
@@ -63,7 +65,7 @@ impl<'a> Runner<'a> for BorderImageSys{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             border_images,
@@ -167,11 +169,12 @@ impl<'a> Runner<'a> for BorderImageSys{
     }
 }
 
-impl BorderImageSys {
-    pub fn new(engine: &mut Engine) -> Self{
+impl<C: HalContext + 'static> BorderImageSys<C> {
+    pub fn new(engine: &mut Engine<C>) -> Self{
         BorderImageSys {
             render_map: VecMap::default(),
             default_sampler: create_default_sampler(engine),
+            marker: PhantomData,
         }
     }
 
@@ -227,13 +230,13 @@ impl BorderImageSys {
 }
 
 #[inline]
-fn create_geo(
+fn create_geo<C: HalContext + 'static>(
     img: &BorderImage,
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
     layout: &Layout,
-    engine: &mut Engine,
+    engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>>{
     let h = geo_hash(img, clip, slice, repeat, layout);
     match engine.res_mgr.get::<GeometryRes>(&h) {
@@ -505,7 +508,7 @@ fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 
 
 impl_system!{
-    BorderImageSys,
+    BorderImageSys<C> where [C: HalContext + 'static],
     true,
     {
         // MultiCaseListener<Node, BorderImage, CreateEvent>

@@ -7,14 +7,14 @@ use share::Share;
 use hal_core::*;
 use render::res_mgr::ResMgr;
 
-pub struct Engine{
-    pub gl: Share<dyn HalContext + 'static>,
+pub struct Engine<C: HalContext + 'static> {
+    pub gl: C,
     pub res_mgr: ResMgr,
     pub programs: FxHashMap32<u64, Share<HalProgram>>,
 }
 
-impl Engine {
-    pub fn new(gl: Share<dyn HalContext + 'static>, time: u32) -> Self {
+impl<C: HalContext + 'static> Engine<C> {
+    pub fn new(gl: C, time: u32) -> Self {
         Engine{
             gl: gl,
             res_mgr: ResMgr::new(time),
@@ -72,6 +72,3 @@ impl Engine {
         }).clone()
     }
 }
-
-unsafe impl Sync for Engine {}
-unsafe impl Send for Engine {}
