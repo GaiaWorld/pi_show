@@ -26,7 +26,7 @@ use component::{
 use single::class::*;
 use single::*;
 use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit};
-use font::font_sheet::{ get_line_height, SplitResult, split, FontSheet};
+use font::font_sheet::{get_size, SplitResult, split, FontSheet};
 
 const MARK: usize = StyleType::LetterSpacing as usize | 
                     StyleType::WordSpacing as usize | 
@@ -57,18 +57,44 @@ type Read<'a, L> = (
 type Write<'a,L> = (&'a mut MultiCaseImpl<Node, CharBlock<L>>, &'a mut MultiCaseImpl<Node, Layout>, &'a mut SingleCaseImpl<FontSheet>);
 
 pub struct LayoutImpl<L: FlexNode + 'static> {
-    dirty: Vec<usize>, 
-    temp: Vec<usize>,
     read: usize,
     write: usize,
     mark: PhantomData<L>,
 }
 
+pub struct TextGlphySys<L: FlexNode + 'static>(PhantomData<L>);
+
+impl<L: FlexNode + 'static> TextGlphySys<L> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }   
+}
+
+impl<'a, L: FlexNode + 'static> Runner<'a> for TextGlphySys<L> {
+    type ReadData = Read<'a, L>;
+    type WriteData = Write<'a,L>;
+
+    fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+            
+        for id in (read.7).0.iter() {
+            let r = match read.6.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            if r.dirty & MARK == 0 {
+                continue;
+            }
+
+            set_gylph(*id, &read, &mut write);
+        }
+    } 
+}
+
+
 impl<'a, L: FlexNode + 'static> LayoutImpl<L> {
     pub fn new() -> Self{
         LayoutImpl {
-            dirty: Vec::new(), 
-            temp: Vec::new(),
             read: 0,
             write: 0,
             mark: PhantomData,
@@ -80,25 +106,17 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
   type WriteData = Write<'a,L>;
 
   fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
-        for id in self.dirty.iter() {
+        for id in (read.7).0.iter() {
             let r = match read.6.get(*id) {
                 Some(r) => r,
                 None => continue,
             };
-
             if r.dirty & MARK == 0 {
                 continue;
             }
 
-            if calc(*id, &read, &mut write) {
-                self.temp.push(*id)
-            }
+            calc(*id, &read, &mut write);
         }     
-        if self.temp.len() > 0 {
-            let vec = replace(&mut self.temp, Vec::new());
-            let temp = replace(&mut self.dirty, vec);
-            replace(&mut self.temp, temp);
-        }
         let (w, h) = {
             let layout = unsafe{ write.1.get_unchecked(ROOT)};
             (layout.width, layout.height)
@@ -107,21 +125,6 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
         self.write= &mut write as *mut Write<'a,L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
         unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, self as *const LayoutImpl<L> as *const c_void);
-        
-        for id in self.dirty.iter() {
-            let r = match read.6.get(*id) {
-                Some(r) => r,
-                None => continue,
-            };
-
-            if r.dirty & MARK == 0 {
-                continue;
-            }
-
-            set_gylph(*id, &read, &mut write);
-        } 
-
-        self.dirty.clear();
     }
 }
 
@@ -132,7 +135,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateE
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         write.insert(event.id, CharBlock{
             font_size: 16.0,
-            calc_font_size: 16.0,
+            font_height: 16.0,
             stroke_width: 0.0,
             line_height: 20.0,
             chars: Vec::new(),
@@ -223,8 +226,8 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
     let cb = unsafe{ write.0.get_unchecked_mut(id)};
     let scale = unsafe { read.5.get_unchecked(id).y.y };
     
-    cb.calc_font_size = cb.font_size * scale;
     for char_node in cb.chars.iter_mut() {
+        println!("calc_gylph----------------------------");
         let ch_id = write.2.calc_gylph(&char_node.font_name, cb.font_size as usize, cb.stroke_width as usize, scale, char_node.base_width as usize, char_node.ch);
         char_node.ch_id = ch_id;
     }
@@ -245,17 +248,25 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         return true
     }
 
+    let font_info = match write.2.get_font_info(&text_style.font.family) {
+        Some(r) => r,
+        None => {
+            println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
+            return true;
+        },
+    };
     // 获得字体高度
-    cb.font_size = write.2.get_size(&text_style.font.family, &text_style.font.size) as f32;
+    cb.font_size = get_size(font_info.1, &text_style.font.size) as f32;
+    cb.font_height = font_info.0.get_font_height(cb.font_size as usize);
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
         println!("font_size==0.0, family: {:?}", text_style.font.family);
         return true
     }
-    cb.line_height = (get_line_height(cb.font_size as usize, &text_style.text.line_height) * 100.0).round()/100.0;
-    if cb.line_height < cb.font_size{
-        cb.line_height = cb.font_size;
-    }
+    cb.line_height = font_info.0.get_line_height(cb.font_size as usize, &text_style.text.line_height);
+    // if cb.line_height < cb.font_size{
+    //     cb.line_height = cb.font_size;
+    // }
     cb.pos.y = (cb.line_height - cb.font_size)/2.0;
     // match parent_yoga.get_style_justify() {
     //     YGJustify::YGJustifyCenter => text_style.text.text_align = TextAlign::Center,
@@ -380,7 +391,7 @@ fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_sty
         }
         unsafe {cb.chars.set_len(i)};
     }
-    let (node, font_name, is_pixel, base_width) = set_node(cb, text_style, c, w, sw, font, L::new());
+    let (w, node, font_name, is_pixel, base_width) = set_node(cb, text_style, c, w, sw, font, L::new());
     let cn = CharNode {
         ch: c,
         width: w,
@@ -400,9 +411,9 @@ fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_sty
     node
 }
 // 设置节点的宽高
-fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, node: L) -> (L, Atom, bool, f32) {
+fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, Atom, bool, f32) {
     if c > ' ' {
-        let r= font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
+        let r = font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
         node.set_width(r.0.x + text_style.text.letter_spacing);
         node.set_height(cb.line_height);
         match text_style.text.vertical_align {
@@ -410,7 +421,7 @@ fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c:
             VerticalAlign::Top => node.set_align_self(YGAlign::YGAlignFlexStart),
             VerticalAlign::Bottom => node.set_align_self(YGAlign::YGAlignFlexEnd),
         };
-        return (node, r.1.clone(), r.2, r.3)
+        return (r.0.x, node, r.1.clone(), r.2, r.3)
     }
     if c == '\n' {
         node.set_width_percent(100.0);
@@ -421,7 +432,7 @@ fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c:
     }else{ // "\t"
         node.set_width(w);
     }
-    (node, Atom::from(""), false, 0.0)
+    (w, node, Atom::from(""), false, 0.0)
 }
 
 #[derive(Debug)]
@@ -530,7 +541,7 @@ fn update_char1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextS
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
+fn set_node1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
     if c > ' ' {
         let r= font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
        //  w = font.measure(&text_style.font.family, cb.font_size as usize, sw, c).0.x;
@@ -552,7 +563,7 @@ fn set_node1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
             calc.max_w = calc.pos.x
         }
     }
-    (w, Atom::from("".to_string()), false, 0.0)
+    (w , Atom::from("".to_string()), false, 0.0)
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改cb.pos
@@ -746,5 +757,12 @@ impl_system!{
     {
         MultiCaseListener<Node, TextContent, CreateEvent>
         MultiCaseListener<Node, CharBlock<L>, DeleteEvent>
+    }
+}
+
+impl_system!{
+    TextGlphySys<L> where [L: FlexNode],
+    true,
+    {
     }
 }

@@ -1,5 +1,10 @@
 /**
- * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
+ * 样式标记
+ * StyleMarkSys系统会在Node实体创建时， 自动为Node创建一个StyleMark组件， 该组件用于标记了各种样式脏、是否为本地样式
+ * StyleMarkSys系统会监听本地样式的修改，以标记样式的脏， 并覆盖class设置的样式属性（覆盖的方式为：修改该属性的本地样式标记为1）
+ * StyleMarkSys系统会监听ClassName的修改， 遍历class中的属性， 如果该属性没有设置本地样式，将覆盖该属性对应的组件，并标记样式脏
+ * class中的图片， 是一个url， 在设置class时， 该图片资源可能还未加载， StyleMarkSys会将不存在的图片url放入ImageWaitSheet中， 由外部处理ImageWaitSheet中的等待列表，并图片加载完成， 应该将图片放入完成列表中， 并通知ImageWaitSheet修改， 由StyleMarkSys来处理ImageWaitSheet中的完成列表
+ * StyleMarkSys系统监听ImageWaitSheet单例的修改， 将完成加载的图片设置在对应的Node组件上， 并标记样式脏
  */
 use std::marker::PhantomData;
 
@@ -17,6 +22,23 @@ use layout::*;
 use entity::{Node};
 use render::engine::Engine;
 use render::res::*;
+
+const TEXT_DIRTY: usize =   StyleType::LetterSpacing as usize | 
+                            StyleType::WordSpacing as usize | 
+                            StyleType::LineHeight as usize | 
+                            StyleType::Indent as usize |
+                            StyleType::WhiteSpace as usize | 
+                            StyleType::TextAlign as usize | 
+                            StyleType::VerticalAlign as usize |
+                            StyleType::TextShadow as usize |
+                            StyleType::Color as usize | 
+                            StyleType::Stroke as usize;
+const FONT_DIRTY: usize =   StyleType::FontStyle as usize | 
+                            StyleType::FontFamily as usize | 
+                            StyleType::FontSize as usize | 
+                            StyleType::FontWeight as usize; 
+
+const TEXT_STYLE_DIRTY: usize = TEXT_DIRTY | FONT_DIRTY | StyleType::TextShadow as usize;         
 
 pub struct StyleMarkSys<L, C>{
     text_style_mark: usize,
@@ -91,56 +113,58 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> EntityListener<'a, Node
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Text, ModifyEvent> for StyleMarkSys<L, C> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+        println!("TextStyle change");
         let r = match event.field {
             "letter_spacing" => StyleType::LetterSpacing,
             "word_spacing" => StyleType::WordSpacing,
             "line_height" => StyleType::LineHeight,
-            "indent" => StyleType::Indent,
+            "text _indent" => StyleType::Indent,
             "color" => StyleType::Color,
             "stroke" => StyleType::Stroke,
             "text_align" => StyleType::TextAlign,
             "vertical_align" => StyleType::VerticalAlign,
+            "text_shadow" => StyleType::TextShadow,
+            "font_style" => StyleType::FontStyle,
+            "font_weight" => StyleType::FontWeight,
+            "font_size" => StyleType::FontSize,
+            "font_family" => StyleType::FontFamily,
             _ => return
         };
+        println!("style_mark-------------------{:?}", r);
         let (style_marks, dirty_list) = write;
         set_local_dirty(dirty_list, event.id, r as usize, style_marks);
     }
 }
 
-// 监听Font属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Font, ModifyEvent> for StyleMarkSys<L, C> {
+// 监听TextContente属性的改变
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let r = match event.field {
-            "style" => StyleType::FontStyle,
-            "weight" => StyleType::FontWeight,
-            "size" => StyleType::FontSize,
-            "family" => StyleType::FontFamily,
-            _ => return
-        };
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, r as usize, style_marks);
+        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        println!("Text change");
+        set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
     }
 }
 
-// 监听TextShadow属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextShadow, ModifyEvent> for StyleMarkSys<L, C> {
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, StyleType::TextShadow as usize, style_marks);
+        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        println!("Text change");
+        set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
     }
 }
-
 
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, ModifyEvent> for StyleMarkSys<L, C> {
     type ReadData = ();
@@ -392,36 +416,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     }
 }
 
-// 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<L, C> {
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
-
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
-    }
-}
-
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<L, C> {
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
-
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
-    }
-}
-
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = (
         &'a MultiCaseImpl<Node, ClassName>,
         &'a SingleCaseImpl<ClassSheet>
     );
     type WriteData = (
-        // &'a mut MultiCaseImpl<Node, TextStyle>,
+        &'a mut MultiCaseImpl<Node, TextStyle>,
         &'a mut MultiCaseImpl<Node, Image>,
         &'a mut MultiCaseImpl<Node, ImageClip>,
         &'a mut MultiCaseImpl<Node, ObjectFit>,
@@ -446,7 +447,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
         let (class_names, class_sheet) = read;
         let (
-            // text_styles,
+            text_styles,
             images,
             image_clips,
             obj_fits,
@@ -476,79 +477,91 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
 
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
 
-        // if class.text > 0 {
-        //     let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
-        //     if class.class_style_mark & self.text_style_mark != 0 {
-        //         // 文字本地样式不存在
-        //         if style_mark.local_style & self.text_style_mark == 0 {
-        //             text_styles.insert(event.id, c.clone());
-        //         } else {
-        //             let text_style = unsafe { text_styles.get_unchecked_mut(event.id) };
-        //             if class.class_style_mark & StyleType::FontStyle as usize != 0 && style_mark.local_style & StyleType::FontStyle as usize == 0 {
-        //                 text_style.font.style = c.font.style;
-        //                 set_dirty(dirty_list, event.id, StyleType::FontStyle as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::FontWeight as usize != 0 && style_mark.local_style & StyleType::FontWeight as usize == 0 {
-        //                 text_style.font.weight = c.font.weight;
-        //                 set_dirty(dirty_list, event.id, StyleType::FontWeight as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::FontSize as usize != 0 && style_mark.local_style & StyleType::FontSize as usize == 0 {
-        //                 text_style.font.size = c.font.size;
-        //                 set_dirty(dirty_list, event.id, StyleType::FontSize as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::FontFamily as usize != 0 && style_mark.local_style & StyleType::FontFamily as usize == 0 {
-        //                 text_style.font.family = c.font.family.clone();
-        //                 set_dirty(dirty_list, event.id, StyleType::FontFamily as usize, style_mark);
-        //             }
+        if class.text > 0 {
+            let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
+            if class.class_style_mark & self.text_style_mark != 0 {
+                if style_mark.local_style & TEXT_STYLE_DIRTY == 0 {
+                    // 如果本地样式不存在任何文字相关的属性， 直接设置文字组件与class相同
+                    text_styles.insert_no_notify(event.id, c.clone());
+                    set_dirty(dirty_list, event.id, class.class_style_mark & TEXT_STYLE_DIRTY, style_mark);
+                } else {
+                    let text_style = unsafe { text_styles.get_unchecked_mut(event.id) };
+                    // text本地样式不存在
+                    if style_mark.local_style & TEXT_DIRTY == 0 {
+                        text_style.text = c.text.clone();
+                        set_dirty(dirty_list, event.id, class.class_style_mark & TEXT_DIRTY, style_mark);
+                    } else {
+                        if class.class_style_mark & StyleType::LetterSpacing as usize != 0 && style_mark.local_style & StyleType::LetterSpacing as usize == 0 {
+                            text_style.text.letter_spacing = c.text.letter_spacing;
+                            set_dirty(dirty_list, event.id, StyleType::LetterSpacing as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::WordSpacing as usize != 0 && style_mark.local_style & StyleType::WordSpacing as usize == 0 {
+                            text_style.text.word_spacing = c.text.word_spacing;
+                            set_dirty(dirty_list, event.id, StyleType::WordSpacing as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::LineHeight as usize != 0 && style_mark.local_style & StyleType::LineHeight as usize == 0 {
+                            text_style.text.line_height = c.text.line_height;
+                            set_dirty(dirty_list, event.id, StyleType::LineHeight as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::Indent as usize != 0 && style_mark.local_style & StyleType::Indent as usize == 0 {
+                            text_style.text.indent = c.text.indent;
+                            set_dirty(dirty_list, event.id, StyleType::Indent as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::WhiteSpace as usize != 0 && style_mark.local_style & StyleType::WhiteSpace as usize == 0 {
+                            text_style.text.white_space = c.text.white_space;
+                            set_dirty(dirty_list, event.id, StyleType::WhiteSpace as usize, style_mark);
+                        }
 
-        //             if class.class_style_mark & StyleType::LetterSpacing as usize != 0 && style_mark.local_style & StyleType::LetterSpacing as usize == 0 {
-        //                 text_style.text.letter_spacing = c.text.letter_spacing;
-        //                 set_dirty(dirty_list, event.id, StyleType::LetterSpacing as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::WordSpacing as usize != 0 && style_mark.local_style & StyleType::WordSpacing as usize == 0 {
-        //                 text_style.text.word_spacing = c.text.word_spacing;
-        //                 set_dirty(dirty_list, event.id, StyleType::WordSpacing as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::LineHeight as usize != 0 && style_mark.local_style & StyleType::LineHeight as usize == 0 {
-        //                 text_style.text.line_height = c.text.line_height;
-        //                 set_dirty(dirty_list, event.id, StyleType::LineHeight as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::Indent as usize != 0 && style_mark.local_style & StyleType::Indent as usize == 0 {
-        //                 text_style.text.indent = c.text.indent;
-        //                 set_dirty(dirty_list, event.id, StyleType::Indent as usize, style_mark);
-        //             }
-        //             if class.class_style_mark & StyleType::WhiteSpace as usize != 0 && style_mark.local_style & StyleType::WhiteSpace as usize == 0 {
-        //                 text_style.text.white_space = c.text.white_space;
-        //                 set_dirty(dirty_list, event.id, StyleType::WhiteSpace as usize, style_mark);
-        //             }
+                        if class.class_style_mark & StyleType::Color as usize != 0 && style_mark.local_style & StyleType::Color as usize == 0 {
+                            text_style.text.color = c.text.color.clone();
+                            set_dirty(dirty_list, event.id, StyleType::Color as usize, style_mark);
+                        }
 
-        //             if class.class_style_mark & StyleType::Color as usize != 0 && style_mark.local_style & StyleType::Color as usize == 0 {
-        //                 text_style.text.color = c.text.color.clone();
-        //                 set_dirty(dirty_list, event.id, StyleType::Color as usize, style_mark);
-        //             }
+                        if class.class_style_mark & StyleType::Stroke as usize != 0 && style_mark.local_style & StyleType::Stroke as usize == 0 {
+                            text_style.text.stroke = c.text.stroke.clone();
+                            set_dirty(dirty_list, event.id, StyleType::Stroke as usize, style_mark);
+                        }
 
-        //             if class.class_style_mark & StyleType::Stroke as usize != 0 && style_mark.local_style & StyleType::Stroke as usize == 0 {
-        //                 text_style.text.stroke = c.text.stroke.clone();
-        //                 set_dirty(dirty_list, event.id, StyleType::Stroke as usize, style_mark);
-        //             }
+                        if class.class_style_mark & StyleType::TextAlign as usize != 0 && style_mark.local_style & StyleType::TextAlign as usize == 0 {
+                            text_style.text.text_align = c.text.text_align;
+                            set_dirty(dirty_list, event.id, StyleType::TextAlign as usize, style_mark);
+                        }
 
-        //             if class.class_style_mark & StyleType::TextAlign as usize != 0 && style_mark.local_style & StyleType::TextAlign as usize == 0 {
-        //                 text_style.text.text_align = c.text.text_align;
-        //                 set_dirty(dirty_list, event.id, StyleType::TextAlign as usize, style_mark);
-        //             }
+                        if class.class_style_mark & StyleType::VerticalAlign as usize != 0 && style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
+                            text_style.text.vertical_align = c.text.vertical_align;
+                            set_dirty(dirty_list, event.id, StyleType::VerticalAlign as usize, style_mark);
+                        }
+                    }
 
-        //             if class.class_style_mark & StyleType::VerticalAlign as usize != 0 && style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
-        //                 text_style.text.vertical_align = c.text.vertical_align;
-        //                 set_dirty(dirty_list, event.id, StyleType::VerticalAlign as usize, style_mark);
-        //             }
+                    if class.class_style_mark & StyleType::TextShadow as usize != 0 && style_mark.local_style & StyleType::TextShadow as usize == 0 {
+                        text_style.shadow = c.shadow.clone();
+                        set_dirty(dirty_list, event.id, StyleType::TextShadow as usize, style_mark);
+                    }
 
-        //             if class.class_style_mark & StyleType::TextShadow as usize != 0 && style_mark.local_style & StyleType::TextShadow as usize == 0 {
-        //                 text_style.shadow = c.shadow.clone();
-        //                 set_dirty(dirty_list, event.id, StyleType::TextShadow as usize, style_mark);
-        //             }
-        //         }
-        //     } 
-        // }
+                    if style_mark.local_style & FONT_DIRTY == 0 {
+                        text_style.font = c.font.clone();
+                        set_dirty(dirty_list, event.id, class.class_style_mark & FONT_DIRTY, style_mark);
+                    }else{
+                        if class.class_style_mark & StyleType::FontStyle as usize != 0 && style_mark.local_style & StyleType::FontStyle as usize == 0 {
+                            text_style.font.style = c.font.style;
+                            set_dirty(dirty_list, event.id, StyleType::FontStyle as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::FontWeight as usize != 0 && style_mark.local_style & StyleType::FontWeight as usize == 0 {
+                            text_style.font.weight = c.font.weight;
+                            set_dirty(dirty_list, event.id, StyleType::FontWeight as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::FontSize as usize != 0 && style_mark.local_style & StyleType::FontSize as usize == 0 {
+                            text_style.font.size = c.font.size;
+                            set_dirty(dirty_list, event.id, StyleType::FontSize as usize, style_mark);
+                        }
+                        if class.class_style_mark & StyleType::FontFamily as usize != 0 && style_mark.local_style & StyleType::FontFamily as usize == 0 {
+                            text_style.font.family = c.font.family.clone();
+                            set_dirty(dirty_list, event.id, StyleType::FontFamily as usize, style_mark);
+                        }
+                    }
+                }
+            } 
+        }
 
         if class.image > 0 {
             let c = unsafe { class_sheet.image.get_unchecked(class.image) };
@@ -877,10 +890,9 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        // MultiCaseListener<Node, TextContent, CreateEvent>
-        // MultiCaseListener<Node, TextContent, ModifyEvent>
-        // MultiCaseListener<Node, Font, ModifyEvent>
-        // MultiCaseListener<Node, TextShadow, ModifyEvent>
+        MultiCaseListener<Node, TextContent, CreateEvent>
+        MultiCaseListener<Node, TextContent, ModifyEvent>
+        MultiCaseListener<Node, TextStyle, ModifyEvent>
 
         MultiCaseListener<Node, Image, ModifyEvent>
         MultiCaseListener<Node, ImageClip, ModifyEvent>

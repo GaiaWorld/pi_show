@@ -94,6 +94,7 @@ pub enum DirtyType{
     // BoxShadow = 0x8000000,
 }
 
+#[derive(Debug)]
 // 样式类型
 pub enum StyleType{
     Text = 1, // 1表示文字脏
@@ -146,7 +147,7 @@ pub struct StyleMark{
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + 'static> {
   pub font_size: f32, // 字体高度
-  pub calc_font_size: f32, // 字体高度
+  pub font_height: f32, // 字体高度
   pub stroke_width: f32, //描边宽度
   pub line_height: f32,
   pub chars: Vec<CharNode<L>>, // 字符集合
@@ -317,6 +318,13 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[derive(Hash)]
+    struct TextTextureSize {
+        textureSize: UniformValue,
+    }
+}
+
+uniform_buffer! {
+    #[derive(Hash)]
     struct WorldMatrixUbo {
         worldMatrix: UniformValue,
     }
@@ -399,6 +407,7 @@ program_paramter! {
     struct MsdfParamter {
         uColor: UColorUbo,
         stroke: MsdfStrokeUbo,
+        textureSize: TextTextureSize,
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
@@ -437,6 +446,7 @@ program_paramter! {
     struct CanvasTextParamter {
         uColor: UColorUbo,
         strokeColor: CanvasTextStrokeColorUbo,
+        textureSize: TextTextureSize,
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,

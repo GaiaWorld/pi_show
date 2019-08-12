@@ -447,7 +447,6 @@ fn get_pos_uv(img: &Image, clip: Option<&ImageClip>, fit: Option<&ObjectFit>, la
           fill(&size, &mut p1, &mut p2, w, h);
         },
         FitType::Cover => {
-            println!("FitType::Cover--------------------");
           // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
           let rw = size.x/w;
           let rh = size.y/h;

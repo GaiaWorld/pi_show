@@ -33,7 +33,7 @@ const DIRTY_TY: usize = StyleType::Matrix as usize |
                         StyleType::BorderImageSlice as usize |
                         StyleType::BorderImageRepeat as usize;
 
-const GEO_DIRTY: usize =StyleType::Layout as usize |
+const GEO_DIRTY: usize = StyleType::Layout as usize |
                         StyleType::BorderImage as usize |
                         StyleType::BorderImageClip as usize |
                         StyleType::BorderImageSlice as usize |

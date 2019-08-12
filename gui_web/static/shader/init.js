@@ -241,3 +241,43 @@ var FitType_Fill = 1;
 var FitType_Contain = 2;
 var FitType_Cover = 3;
 var FitType_ScaleDown = 4;
+
+// 绘制canvas文字， 并更新到纹理
+window.__draw_text_canvas = function(world, textInfoList, c){
+    this.console.log("-----------------------", textInfoList);
+    for (var j = 0; j < textInfoList.list.length; j++) {
+        
+        var text_info = textInfoList.list[j];
+
+        var k = 0;
+        var canvas = c.canvas;
+        var ctx = c.ctx;
+        var fontName = text_info.font_size + "px " + text_info.font;
+        for (var i = 0; i < text_info.chars.length; i++) {
+            var char_info = text_info.chars[i];
+            canvas.width = char_info.width;
+            canvas.height = text_info.size[1]; 
+            ctx.fillStyle = "#00f"; 
+            ctx.font = fontName;
+            this.console.log("fontName:",ctx.font);
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (text_info.stroke_width > 0.0) {
+                ctx.lineWidth = text_info.stroke_width;
+                ctx.fillStyle = "#0f0";
+                ctx.strokeStyle = "#f00";
+                ctx.textBaseline = "bottom";
+                
+                ctx.strokeText(char_info.ch, text_info.stroke_width, canvas.height);
+                ctx.fillText(char_info.ch, text_info.stroke_width, canvas.height);
+            } else {
+                ctx.fillStyle = "#0f0";
+                ctx.textBaseline = "bottom";
+                ctx.fillText(char_info.ch, 0, canvas.height);
+            }
+            window.__jsObj = canvas;
+            Module._update_canvas_text(world, char_info.x, char_info.y);
+            this.console.log("char_info:", char_info, text_info.size[1]);
+        }
+    }
+    Module._set_render_dirty(world);
+};

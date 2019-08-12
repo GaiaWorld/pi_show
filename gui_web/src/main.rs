@@ -71,7 +71,7 @@ pub mod bc;
 pub mod world;
 
 use bc::YgNode;
-use text::{ DrawTextSys};//, define_draw_canvas
+use text::{ DrawTextSys, define_draw_canvas};//, define_draw_canvas
 
 pub struct GuiWorld {
     pub gui: GuiWorld1<YgNode, WebglHalContext>,
@@ -113,11 +113,19 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     debug_println!("create_gui");
     let mut engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
     
-    let f = Box::new(|name: &Atom, font_size: usize, ch: char| -> f32 {
-        0.0
+    let draw_text_sys = DrawTextSys::new();
+    let c = draw_text_sys.canvas.clone();
+    let f = Box::new(move |name: &Atom, font_size: usize, ch: char| -> f32 {
+        let ch = ch as u32;
+        let font_size = font_size as u32;
+        TryInto::<f64>::try_into( js!{
+            let c = @{&c};
+            c.ctx.font = @{font_size} + "px " + @{name.as_ref()};
+            return c.ctx.measureText(String.fromCharCode(@{ch})).width;
+        }).unwrap() as f32
     });
-    let texture = engine.gl.texture_create_2d(0, 1024, 1024, PixelFormat::RGBA, DataFormat::UnsignedByte, false, None).unwrap();
-    let res = engine.res_mgr.create::<TextureRes>(Atom::from("__$text".to_string()), TextureRes::new(width as usize, height as usize, unsafe{transmute(1 as u8)}, unsafe{transmute(0 as u8)}, texture) );
+    let texture = engine.gl.texture_create_2d(0, 512, 512, PixelFormat::RGBA, DataFormat::UnsignedByte, false, None).unwrap();
+    let res = engine.res_mgr.create::<TextureRes>(Atom::from("__$text".to_string()), TextureRes::new(512, 512, unsafe{transmute(1 as u8)}, unsafe{transmute(0 as u8)}, texture) );
 
     let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res);
     let world =  GuiWorld1::<YgNode, WebglHalContext>::new(world);
@@ -140,7 +148,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     idtree.insert_child(node, 0, 0, None);
     let world = GuiWorld{
         gui: world,
-        draw_text_sys: DrawTextSys::new(),
+        draw_text_sys: draw_text_sys,
     };
     Box::into_raw(Box::new(world)) as u32
 }
@@ -162,7 +170,7 @@ pub fn render(world_id: u32){
     // debug_println!("gui render");
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
     // let time = std::time::Instant::now();
-    // world.draw_text_sys.run(world_id);
+    world.draw_text_sys.run(world_id);
     // println!("cal text canvas---------------{:?}",  std::time::Instant::now() - time);
 	let world = &mut world.gui;
     load_image(world_id);
@@ -297,5 +305,5 @@ fn main(){
     // // let gl: WebGLRenderingContext = unimplemented!();
     // // let fbo: Option<Object> = unimplemented!();
     // // let gl = WebglHalContext::new(gl, fbo, true);
-    // define_draw_canvas();
+    define_draw_canvas();
 }

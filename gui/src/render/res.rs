@@ -47,7 +47,7 @@ pub struct TextureRes {
 
 impl TextureRes {
     // 创建资源
-	pub fn new(width: usize,height: usize, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
+	pub fn new(width: usize, height: usize, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
         TextureRes {
             width: width,
             height: height,

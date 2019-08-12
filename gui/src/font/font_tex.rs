@@ -27,10 +27,11 @@ impl FontTex {
         if line_height %2 != 0 {
             line_height += 1;
         }
-        let v = &mut self.last_v;
+        let v = self.last_v;
+        self.last_v += line_height as f32;
         TexLine {
-            line: self.line_map.entry(line_height).or_insert((Point2::new(0.0, *v), 0)),
-            last_v: v,
+            line: self.line_map.entry(line_height).or_insert((Point2::new(0.0, v), 0)),
+            last_v: &mut self.last_v,
             tex_width: self.texture.width as f32,
             line_height: line_height as f32
         }

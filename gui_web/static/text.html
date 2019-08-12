@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="shader/clip.js"></script>
+    <script src="shader/color.js"></script>
+    <script src="shader/image.js"></script>
+    <script src="shader/text.js"></script>
+    <script src="shader/canvas_text.js"></script>
+    <script src="shader/init.js"></script>
+    <script>
+        var gui = Module._create_gui(engine, 1000, 700);
+        render_fram();
+
+        window.__jsObj = "Arial";
+        Module._add_canvas_font(gui, 1.2);
+
+        window.__jsObj = "common"; //font_face_name
+        window.__jsObj1 = "Arial";
+        Module._add_font_face(gui, 0, 32, 500);
+
+        var body = Module._create_node(gui);
+        Module._set_width(gui, body, 1000);
+        Module._set_height(gui, body, 700);
+        Module._append_child(gui, body, 1);
+        // Module._transform_translate(gui, body, 500, 350);
+        // Module._transform_scale(gui, body, 2, 2);
+
+        // var text_node = Module._create_text_node(gui);
+        // Module._append_child(gui, text_node, body);
+        // // Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
+        // window.__jsObj = "逋";
+        // Module._set_text_content(gui, text_node); // 文字内容
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, text_node);
+        
+        var text_node = Module._create_text_node(gui);
+        Module._append_child(gui, text_node, body);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        window.__jsObj = "测试一";
+        Module._set_text_content(gui, text_node); // 文字内容
+        Module._set_font_size(gui, text_node, 16); // 文字内容
+        window.__jsObj = "common";
+        Module._set_font_family(gui, text_node);
+    </script> 
+</body>
+</html>

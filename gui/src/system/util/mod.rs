@@ -442,12 +442,15 @@ pub fn create_let_top_offset_matrix(
 ) -> Vec<f32> {
     let depth = -depth/Z_MAX;
     let origin = transform.origin.to_value(layout.width, layout.height);
+    println!("matrix----------{:?}", matrix);
+    println!("origin----------{:?}", origin);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32; 16] = matrix.as_ref();
         let mut arr = Vec::from(&slice[..]);
         arr[14] = depth;
         return arr;
     } else {
+       
         let matrix = matrix * WorldMatrix(Matrix4::new(
             1.0,       0.0,       0.0, 0.0,
             0.0,       1.0,       0.0, 0.0,

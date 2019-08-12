@@ -17,6 +17,7 @@ pub struct SamplerUniform {
 pub struct CommonUniform {
     pub slot_uniform: usize,
     pub last: UniformValue, // 上次设置的值
+    pub name: Atom, 
     pub location: WebGLUniformLocation,
 }
 
@@ -142,7 +143,7 @@ impl CommonUniform {
                 gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice());
             },
             _ => {
-                panic!(format!("Invalid Uniform: {:?}", value) )
+                panic!(format!("Invalid Uniform, name: {:?}, value: {:?}", self.name.as_ref(), value) )
             }
         }
     }
@@ -395,6 +396,7 @@ impl WebGLProgramImpl {
             if let Some(index) = location_map.single_uniforms.get(&name) {
                 single_uniforms.push(CommonUniform {
                     slot_uniform: *index,
+                    name: name.clone(),
                     last: value,
                     location: loc,
                 });
@@ -412,6 +414,7 @@ impl WebGLProgramImpl {
                             };
                             ubo.values.push(CommonUniform {
                                 slot_uniform: *j,
+                                name: name.clone(),
                                 last: value,
                                 location: loc,
                             });
@@ -421,6 +424,7 @@ impl WebGLProgramImpl {
                         Some(vi) => {
                             uniforms[*vi].values.push(CommonUniform {
                                 slot_uniform: *j,
+                                name: name.clone(),
                                 last: value,
                                 location: loc,
                             });

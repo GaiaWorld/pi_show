@@ -186,6 +186,8 @@ fn recursive_cal_matrix(
     };
 
     let matrix = if parent == 0 {
+        println!("transform_value_matrix:{:?}", transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top)));
+        println!("transform_value:{:?}", transform_value);
         transform_value.matrix(layout_value.width, layout_value.height, &Point2::new(layout_value.left, layout_value.top))
     }else {
         // let parent_layout = match layout.get(parent) {
@@ -196,12 +198,17 @@ fn recursive_cal_matrix(
         //     Some(r) => r,
         //     None => panic!("parent_world_matrix is no exist, id: {}", id)
         // };
+        
         let parent_layout = unsafe { layout.get_unchecked(parent) };
         let parent_world_matrix = unsafe { world_matrix.get_unchecked(parent) };
         let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
         let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
+        println!("parent_world_matrix:{:?}", parent_world_matrix);
+        println!("transform_value_matrix:{:?}", transform_value.matrix(layout_value.width, layout_value.height, &offset));
+        println!("transform_value:{:?}", transform_value);
         parent_world_matrix * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
+    println!("matrix:{:?}", matrix);
 
     // match world_matrix.get_write(id) {
     //     Some(mut r) => r.modify(|w: &mut WorldMatrix| {

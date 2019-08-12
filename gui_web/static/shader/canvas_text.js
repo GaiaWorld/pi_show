@@ -15,6 +15,7 @@ let canvas_text_vs_code = `
     uniform mat4 worldMatrix;
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
+    uniform vec2 textureSize;
 
     // Varyings
     #ifdef VERTEX_COLOR
@@ -28,7 +29,8 @@ let canvas_text_vs_code = `
     #ifdef VERTEX_COLOR
         vColor = color;
     #endif
-        vUV = uv0;
+        // vUV = vec2(uv0.x/1024.0, uv0.y/1024.0);
+        vUV = vec2(uv0.x/textureSize.x, uv0.y/textureSize.y);
     }
 `;
 let canvas_text_fs_code = `
@@ -199,7 +201,6 @@ let canvas_text_fs_code = `
     #ifdef GRAY
         c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
     #endif
-        
         gl_FragColor = vec4(c.rgb, c.a * alpha);
         if (gl_FragColor.a < 0.02) discard;
     }

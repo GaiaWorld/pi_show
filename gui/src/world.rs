@@ -45,6 +45,7 @@ lazy_static! {
     pub static ref BR_IMAGE_N: Atom = Atom::from("border_image_sys");
     pub static ref IMAGE_N: Atom = Atom::from("image_sys");
     pub static ref CHAR_BLOCK_N: Atom = Atom::from("charblock_sys");
+    pub static ref TEXT_GLPHY_N: Atom = Atom::from("text_glphy_sys");
     pub static ref CHAR_BLOCK_SHADOW_N: Atom = Atom::from("charblock_shadow_sys");
     pub static ref NODE_ATTR_N: Atom = Atom::from("node_attr_sys");
     pub static ref FILTER_N: Atom = Atom::from("filter_sys");
@@ -88,7 +89,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
 
     let default_state = DefaultState::new(&engine.gl);
 
-    // let charblock_sys = CellCharBlockSys::<L>::new(CharBlockSys::new(&mut Engine<C>));
+    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(&mut engine, (font_texture.width, font_texture.height)));
     
 
     // let clip_sys = ClipSys::new(&mut Engine<C>, width as u32, height as u32);
@@ -109,10 +110,8 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
     world.register_multi::<Node, CharBlock<L>>();
-    // world.register_multi::<Node, Text>(); 
     world.register_multi::<Node, TextStyle>();
     world.register_multi::<Node, TextContent>();
-    // world.register_multi::<Node, TextShadow>();
     world.register_multi::<Node, Font>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Image>();
@@ -163,7 +162,9 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
     // world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     world.register_system(IMAGE_N.clone(), image_sys);
-    // world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
+    world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
+    world.register_system(TEXT_GLPHY_N.clone(), CellTextGlphySys::<L>::new(TextGlphySys::new()));
+    
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
     // world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::new(BorderColorSys::new()));
@@ -177,7 +178,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, oct_sys, overflow_sys, background_color_sys, image_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, overflow_sys, background_color_sys, image_sys, charblock_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -205,9 +206,8 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub border_image_clip: Arc<CellMultiCase<Node, BorderImageClip>>,
     pub border_image_slice: Arc<CellMultiCase<Node, BorderImageSlice>>,
     pub border_image_repeat: Arc<CellMultiCase<Node, BorderImageRepeat>>,
-    // pub text: Arc<CellMultiCase<Node, Text>>,
-    // pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
-    // pub text_shadow: Arc<CellMultiCase<Node, TextShadow>>,
+    pub text_style: Arc<CellMultiCase<Node, TextStyle>>,
+    pub text_content: Arc<CellMultiCase<Node, TextContent>>,
     pub font: Arc<CellMultiCase<Node, Font>>,
     pub border_radius: Arc<CellMultiCase<Node, BorderRadius>>,
     pub image: Arc<CellMultiCase<Node, Image>>,
@@ -258,9 +258,8 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
             border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
             border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
-            // text: world.fetch_multi::<Node, Text>().unwrap(),
-            // text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
-            // text_shadow: world.fetch_multi::<Node, TextShadow>().unwrap(),
+            text_content: world.fetch_multi::<Node, TextContent>().unwrap(),
+            text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
             font: world.fetch_multi::<Node, Font>().unwrap(),
             border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
             image: world.fetch_multi::<Node, Image>().unwrap(),

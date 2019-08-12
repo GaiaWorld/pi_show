@@ -7,7 +7,7 @@ use std::hash::{ Hash, Hasher };
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{SingleCaseImpl, MultiCaseImpl, Runner, SingleCaseListener, ModifyEvent};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
@@ -26,9 +26,25 @@ use system::render::shaders::canvas_text::{CANVAS_TEXT_VS_SHADER_NAME, CANVAS_TE
 use font::font_sheet::*;
 use layout::FlexNode;
 
-const TEXT_DIRTY: usize = 0;
+const TEXT_STYLE_DIRTY: usize =     StyleType::LetterSpacing as usize | 
+                                    StyleType::WordSpacing as usize |
+                                    StyleType::LineHeight as usize |
+                                    StyleType::Indent as usize |
+                                    StyleType::WhiteSpace as usize | 
+                                    StyleType::TextAlign as usize | 
+                                    StyleType::VerticalAlign as usize | 
+                                    StyleType::Color as usize | 
+                                    StyleType::Stroke as usize |
+                                    StyleType::FontStyle as usize | 
+                                    StyleType::FontFamily as usize | 
+                                    StyleType::FontSize as usize | 
+                                    StyleType::FontWeight as usize |
+                                    StyleType::TextShadow as usize |
+                                    StyleType::Layout as usize |
+                                    StyleType::Text as usize |
+                                    StyleType::Matrix as usize;
 
-#[derive(Default)]
+#[derive(Default, Clone, Debug)]
 struct I{ text: usize, shadow: usize }
 
 struct RenderCatch{
@@ -40,7 +56,6 @@ struct RenderCatch{
 }
 
 pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
-    dirty_ty: usize,
     render_map: VecMap<I>,
     canvas_bs: Share<HalBlendState>,
     default_sampler: Share<HalSampler>, // 默认采样方式
@@ -50,6 +65,8 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
     default_ubos: RenderCatch,
     index_buffer: Share<HalBuffer>, // 索引 buffer， 长度： 600
     index_len: usize,
+    texture_size_ubo: Share<TextTextureSize>,
+    texture_change: bool,
     mark: PhantomData<(L, C)>,
 } 
 
@@ -88,6 +105,23 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                                 (StyleType::TextAlign as usize) |
                                 (StyleType::VerticalAlign as usize);
 
+        if self.texture_change == true {
+            let t = font_sheet.get_font_tex();
+            self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(t.width as f32, t.height as f32)));
+            for i in self.render_map.iter() {
+                match i {
+                    Some(i) => {
+                        unsafe { render_objs.get_unchecked(i.text)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
+                        if i.shadow > 0 {
+                            unsafe { render_objs.get_unchecked(i.shadow)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
+                        }
+                    },
+                    None => (),
+                }
+            }
+            self.texture_change = false;
+        }
+
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -98,117 +132,132 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 },
             };
 
-            let dirty = style_mark.dirty;
+            let mut dirty = style_mark.dirty;
+            println!("text_dirty1------------------id:{}, dirty:{}", id, dirty);
 
             // 不存在Chablock关心的脏, 跳过
-            if dirty & self.dirty_ty == 0 {
+            if dirty & TEXT_STYLE_DIRTY == 0 {
                 continue;
             }
 
+            
             // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
-            if dirty & StyleType::Text as usize != 0 && style_mark.local_style & StyleType::Text as usize == 0{
-                self.remove_render_obj(*id, render_objs);
-                continue;
-            }
+            let (index, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
+                if style_mark.local_style & StyleType::FontFamily as usize == 0 {
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                } else {
+                    let text_style = unsafe { text_styles.get_unchecked(*id) };
+                    let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
+                    let is_pixel = match font_sheet.get_font(&text_style.font.family) {
+                        Some(r) => r.is_pixel,
+                        None => continue,
+                    };
+                    let r = self.create_render_obj(*id, 0.0, false, render_objs, default_state, have_shadow, is_pixel);
+                    dirty = dirty | TEXT_STYLE_DIRTY;
+                    (r, text_style)
+                }  
+            } else {
+                match self.render_map.get(*id) {
+                    Some(r) => (r.clone(), unsafe { text_styles.get_unchecked(*id) }),
+                    None => continue,
+                }
+            };
+            println!("text_dirty2------------------id:{}, index:{:?}", id, index);
 
             let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
-            let map = &mut self.render_map;
-            let z_depth = unsafe{z_depths.get_unchecked(*id)}.0;
-            let text_style = unsafe { text_styles.get_unchecked(*id) };
-            let index = match map.get_mut(*id) {
-                Some(r) => r,
-                None => {
-                    let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
-                    unsafe {&mut *( self as *const Self as usize as *mut Self ) }.create_render_obj(*id, z_depth, false, charblock, render_objs, default_state, have_shadow)
-                },
-            };
-
             let render_obj = unsafe { &mut *(render_objs.get_unchecked(index.text) as *const RenderObj as usize as *mut RenderObj) };
 
-            let is_pixel = if charblock.chars.len() > 0 {
-                charblock.chars[0].is_pixel
+            let is_pixel = if render_obj.vs_name.get_hash() == CANVAS_TEXT_VS_SHADER_NAME.get_hash() {
+                true
             } else {
                 false
             };
 
-            if dirty!= 0 {
-                let text = unsafe { texts.get_unchecked(*id) };
+            println!("text_dirty3------------------id:{}, is_pixel:{:?}", id, is_pixel);
+            let text = unsafe { texts.get_unchecked(*id) };
+            println!("text--------------------{:?}", text);
 
-                let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
-                    if let Some(ubos) = self.class_ubos.get(class.text) {
-                        ubos
-                    } else {
-                        &self.default_ubos
-                    }
-                }else {
+            let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
+                if let Some(ubos) = self.class_ubos.get(class.text) {
+                    ubos
+                } else {
                     &self.default_ubos
-                };
-
-                let (mut program_change, mut geometry_change) = (false, false);
-                let mut shadow_geometry_change  = false;
-
-                // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记program_change 和 geometry_change脏
-                if dirty& (StyleType::Color as usize) != 0 {
-                    let exchange = modify_color(index.text, charblock, style_mark.local_style, &text_style.text.color, engine, &notify, render_obj, &class_ubo);
-                    program_change = program_change | exchange;
-                    geometry_change = geometry_change | exchange;
                 }
+            }else {
+                &self.default_ubos
+            };
 
-                // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置program_change脏
-                if dirty& (StyleType::Stroke as usize) != 0 {
-                    program_change = program_change | modify_stroke(index.text, &charblock, style_mark.local_style, &text_style.text.stroke, render_obj, engine, &notify, is_pixel, &class_ubo);
-                }
+            let (mut program_change, mut geometry_change) = (false, false);
+            let mut shadow_geometry_change  = false;
 
-                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-                let font_type_change = try_modify_font(dirty, index.text, render_obj, is_pixel, &font_sheet, charblock.font_size, &notify, &self.default_sampler, &self.point_sampler);
-                program_change = program_change | font_type_change;
+            // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记program_change 和 geometry_change脏
+            if dirty & (StyleType::Color as usize) != 0 {
+                let exchange = modify_color(index.text, charblock, style_mark.local_style, &text_style.text.color, engine, &notify, render_obj, &class_ubo);
+                program_change = program_change | exchange;
+                geometry_change = geometry_change | exchange;
+            }
 
-                // 文字内容脏， 这是顶点流脏
-                if dirty& (StyleType::Text as usize) != 0 {
-                    geometry_change = true;
-                    shadow_geometry_change = true;
-                }
-                
-                // 如果渲染管线脏， 重新创建渲染管线
+            // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置program_change脏
+            if dirty & (StyleType::Stroke as usize) != 0 {
+                program_change = program_change | modify_stroke(index.text, &charblock, style_mark.local_style, &text_style.text.stroke, render_obj, engine, &notify, is_pixel, &class_ubo);
+            }
+
+            // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
+            if dirty & (StyleType::FontFamily as usize) != 0 {
+                modify_font(index.text, render_obj, is_pixel, &font_sheet, &notify, &self.default_sampler, &self.point_sampler);
+                program_change = true;
+            }
+
+            // 文字内容脏， 这是顶点流脏
+            if dirty& (StyleType::Text as usize) != 0 {
+                geometry_change = true;
+                shadow_geometry_change = true;
+            }
+            
+            // 如果渲染管线脏， 重新创建渲染管线
+            if program_change {
+                println!("program_change-----------------");
+                modify_program(render_obj, is_pixel, engine, &self.canvas_default_stroke_color);
+            }
+            
+            // 文字属性流改变， 重新生成geometry
+            if geometry_change {
+                println!("geometry_change-----------------");
+                render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, is_pixel, &font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine);
+                render_objs.get_notify().modify_event(index.text, "geometry", 0);
+            }
+
+                // 阴影存在
+            if index.shadow > 0 && dirty & (StyleType::TextShadow as usize) != 0 {
+                let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
+                    // 阴影颜色脏，或描边脏， 修改ubo
+                modify_shadow_color(index.shadow, &charblock, style_mark.local_style, text_style, &notify, render_obj, engine, is_pixel, &class_ubo);
+                // 设置ubo TODO
+
+                // 修改阴影的渲染管线
                 if program_change {
                     modify_program(render_obj, is_pixel, engine, &self.canvas_default_stroke_color);
                 }
-                
-                // 文字属性流改变， 重新生成geometry
-                if geometry_change {
-                    render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, is_pixel, &font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine);
-                    render_objs.get_notify().modify_event(index.text, "geometry", 0);
-                }
 
-                 // 阴影存在
-                if index.shadow > 0 && dirty & (StyleType::TextShadow as usize) != 0 {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
-                     // 阴影颜色脏，或描边脏， 修改ubo
-                    modify_shadow_color(index.shadow, &charblock, style_mark.local_style, text_style, &notify, render_obj, engine, is_pixel, &class_ubo);
-                    // 设置ubo TODO
-
-                    // 修改阴影的渲染管线
-                    if program_change {
-                        modify_program(render_obj, is_pixel, engine, &self.canvas_default_stroke_color);
+                // 修改阴影的顶点流
+                if shadow_geometry_change  {
+                    // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
+                    match &text_style.text.color {
+                        Color::RGBA(_) => render_obj.geometry = render_obj.geometry.clone(),
+                        Color::LinearGradient(_) => {
+                            let color = text_style.shadow.color.clone();
+                            render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, is_pixel, font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine)
+                        },
                     }
-
-                    // 修改阴影的顶点流
-                    if shadow_geometry_change  {
-                        // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
-                        match &text_style.text.color {
-                            Color::RGBA(_) => render_obj.geometry = render_obj.geometry.clone(),
-                            Color::LinearGradient(_) => {
-                                let color = text_style.shadow.color.clone();
-                                render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, is_pixel, font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine)
-                            },
-                        }
-                        notify.modify_event(index.shadow, "geometry", 0);
-                    }
+                    notify.modify_event(index.shadow, "geometry", 0);
                 }
             }
 
+            println!("geo is_some-----------------{}", render_obj.geometry.is_some());
             // 矩阵脏
             if dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::TextShadow as usize) != 0 {
+                println!("matrix-----------------");
                 let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
                 let layout = unsafe{ layouts.get_unchecked(*id) };
                 let transform = match transforms.get(*id){
@@ -225,7 +274,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 }
 
                 if index.shadow > 0 {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
                     modify_matrix(
                         index.shadow,
                         create_let_top_offset_matrix(layout, world_matrix, transform, text_style.shadow.h, text_style.shadow.v, render_obj.depth),
@@ -238,10 +286,19 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
     }
 }
 
+// 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, FontSheet, ModifyEvent> for CharBlockSys<L, C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, _: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        self.texture_change = true;
+    }
+}
+
 impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
     
     #[inline]
-    pub fn new(engine: &mut Engine<C>) -> Self {
+    pub fn new(engine: &mut Engine<C>, texture_size: (usize, usize)) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
         canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
@@ -283,20 +340,6 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         }
 
         Self {
-            dirty_ty:   StyleType::LetterSpacing as usize | 
-                        StyleType::WordSpacing as usize |
-                        StyleType::LineHeight as usize |
-                        StyleType::Indent as usize |
-                        StyleType::WhiteSpace as usize | 
-                        StyleType::TextAlign as usize | 
-                        StyleType::VerticalAlign as usize | 
-                        StyleType::Color as usize | 
-                        StyleType::Stroke as usize |
-                        StyleType::FontStyle as usize | 
-                        StyleType::FontFamily as usize | 
-                        StyleType::FontSize as usize | 
-                        StyleType::FontWeight as usize |
-                        StyleType::TextShadow as usize,
             render_map: VecMap::default(),
             canvas_bs: canvas_bs,
             default_sampler: default_sampler,
@@ -312,6 +355,8 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
             },
             index_buffer: Share::new(create_buffer(&engine.gl, BufferType::Indices, 600, Some(BufferData::Short(index_data.as_slice())), false)),
             index_len: 100,
+            texture_size_ubo: Share::new(TextTextureSize::new(UniformValue::Float2(texture_size.0 as f32, texture_size.1 as f32))),
+            texture_change: false,
             mark: PhantomData,
         }
     }
@@ -322,40 +367,22 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         id: usize,
         z_depth: f32,
         visibility: bool,
-        charblock: &CharBlock<L>,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
         have_shadow: bool,
-    ) -> &mut I {
-
-        let render_obj = RenderObj {
-            depth: z_depth + 0.2,
-            depth_diff: 0.2,
-            visibility: visibility,
-            is_opacity: true,
-            vs_name: CANVAS_TEXT_VS_SHADER_NAME.clone(),
-            fs_name: CANVAS_TEXT_FS_SHADER_NAME.clone(),
-            vs_defines: Box::new(VsDefines::default()),
-            fs_defines: Box::new(FsDefines::default()),
-            paramter: Share::new(MsdfParamter::default()),
-            program_dirty: false,
-
-            program: None,
-            geometry: None,
-            state: State {
-                bs: self.canvas_bs.clone(),
-                rs: default_state.df_rs.clone(),
-                ss: default_state.df_ss.clone(),
-                ds: default_state.tarns_ds.clone(),
-            },
-            context: id,
+        is_pixel: bool
+    ) -> I {
+        let (vs_name, fs_name, paramter, bs) = if is_pixel {
+            let paramter: Share<dyn ProgramParamter> = Share::new(CanvasTextParamter::default());
+            paramter.set_value("strokeColor", self.canvas_default_stroke_color.clone());
+            (CANVAS_TEXT_VS_SHADER_NAME.clone(), CANVAS_TEXT_FS_SHADER_NAME.clone(), paramter, self.canvas_bs.clone())
+        } else {
+            let paramter: Share<dyn ProgramParamter> = Share::new(MsdfParamter::default());
+            (TEXT_VS_SHADER_NAME.clone(), TEXT_FS_SHADER_NAME.clone(), paramter, default_state.df_bs.clone())
         };
 
         let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify.clone()));
-
-        // charblock.clazz.shadow.color == CgColor::new(0.0, 0.0, 0.0, 0.0)
-
+        
         let shadow_index = if !have_shadow{
             0
         }else {
@@ -364,29 +391,55 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
                 depth_diff: 0.1,
                 visibility: visibility,
                 is_opacity: true,
-                vs_name: CANVAS_TEXT_VS_SHADER_NAME.clone(),
-                fs_name: CANVAS_TEXT_FS_SHADER_NAME.clone(),
+                vs_name: vs_name.clone(),
+                fs_name: fs_name.clone(),
                 vs_defines: Box::new(VsDefines::default()),
                 fs_defines: Box::new(FsDefines::default()),
-                paramter: Share::new(CanvasTextParamter::default()),
+                paramter: paramter.clone(),
                 program_dirty: true,
 
                 program: None,
                 geometry: None,
                 state: State {
-                    bs: self.canvas_bs.clone(),
+                    bs: bs.clone(),
                     rs: default_state.df_rs.clone(),
                     ss: default_state.df_ss.clone(),
                     ds: default_state.tarns_ds.clone(),
                 },
                 context: id,
             };
-            render_objs.insert(render_obj, Some(notify))
+            render_obj.paramter.set_value("textureSize", self.texture_size_ubo.clone());
+            render_objs.insert(render_obj, Some(notify.clone()))
         };
 
+        let render_obj = RenderObj {
+            depth: z_depth + 0.2,
+            depth_diff: 0.2,
+            visibility: visibility,
+            is_opacity: true,
+            vs_name: vs_name,
+            fs_name: fs_name,
+            vs_defines: Box::new(VsDefines::default()),
+            fs_defines: Box::new(FsDefines::default()),
+            paramter: paramter,
+            program_dirty: false,
+
+            program: None,
+            geometry: None,
+            state: State {
+                bs: bs,
+                rs: default_state.df_rs.clone(),
+                ss: default_state.df_ss.clone(),
+                ds: default_state.tarns_ds.clone(),
+            },
+            context: id,
+        };
+        render_obj.paramter.set_value("textureSize", self.texture_size_ubo.clone());
+        let index = render_objs.insert(render_obj, Some(notify));
+      
         // 创建RenderObj与Node实体的索引关系， 并设脏
         self.render_map.insert(id, I{text: index, shadow: shadow_index});
-        unsafe { self.render_map.get_unchecked_mut(id)}
+        unsafe { self.render_map.get_unchecked_mut(id).clone() }
     }
 
     #[inline]
@@ -423,7 +476,7 @@ fn modify_stroke<L: FlexNode + 'static, C: HalContext + 'static>(
             let color = &text_stroke.color;
             create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)))
         };
-        render_obj.paramter.set_value("stroke_color", ubo);
+        render_obj.paramter.set_value("strokeColor", ubo);
         return false;
     }
 
@@ -497,37 +550,23 @@ fn modify_color<L: FlexNode, C: HalContext + 'static>(
 }
 
 #[inline]
-fn try_modify_font (
-    modify: usize,
+fn modify_font (
     index: usize,
     render_obj: &mut RenderObj,
     is_pixel: bool,
     font_sheet: &FontSheet,
-    font_size: f32,
     notify: &NotifyImpl,
     default_sampler: &Share<SamplerRes>,
     point_sampler: &Share<SamplerRes>, // 点采样sampler
-) -> bool {
-    let mut change = false;
-    notify.modify_event(index, "", 0);
-    if modify & (StyleType::FontFamily as usize) != 0 {
-        // 如果是canvas 字体绘制类型， 并且绘制fontsize 与字体本身fontsize一致， 应该使用点采样
-        let sampler = if is_pixel  {
-            point_sampler
-        } else {
-            default_sampler
-        };
-        render_obj.paramter.set_texture("texture", ( &font_sheet.get_font_tex().bind , &sampler));
-    }
-    
-    if modify & (StyleType::FontFamily as usize) != 0{
-        if !is_pixel {
-            change = render_obj.vs_name == CANVAS_TEXT_VS_SHADER_NAME.clone();
-        } else {
-            change = render_obj.vs_name == TEXT_VS_SHADER_NAME.clone();
-        }
-    }
-    change
+) {
+    notify.modify_event(index, "ubo", 0);
+    // 如果是canvas 字体绘制类型， 并且绘制fontsize 与字体本身fontsize一致， 应该使用点采样
+    let sampler = if is_pixel  {
+        point_sampler
+    } else {
+        default_sampler
+    };
+    render_obj.paramter.set_texture("texture", ( &font_sheet.get_font_tex().bind , &sampler));
 }
 
 #[inline]
@@ -689,6 +728,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     hash: Option<u64>,
     index_buffer: &Share<HalBuffer>,
 ) -> Option<Share<GeometryRes>> {
+    println!("get_geo_flow------------------------chars.len: {}", len = char_block.chars.len());
     let len = char_block.chars.len();
     let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
@@ -707,14 +747,8 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
-                    // sdf字体， 需要从新计算字形
-                    if !is_pixel {
-                        let r = FontSheet::fix_gylph(&glyph, char_block.calc_font_size);
-                        glyph.width = r.0;
-                        glyph.height = r.1;
-                    }
 
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph); 
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.line_height); 
                 }
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
@@ -739,19 +773,12 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                 let lg_color = vec![LgCfg{unit:4, data: lg_color}];
 
                 for c in char_block.chars.iter() {
-                    let mut glyph = match font_sheet.get_glyph(c.ch_id) {
+                    let glyph = match font_sheet.get_glyph(c.ch_id) {
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
 
-                    // sdf字体， 需要从新计算字形
-                    if !is_pixel {
-                        let r = FontSheet::fix_gylph(&glyph, char_block.calc_font_size);
-                        glyph.width = r.0;
-                        glyph.height = r.1;
-                    }
-
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph);
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.line_height);
                     
                     let (ps, indices_arr) = split_by_lg(
                         positions,
@@ -791,6 +818,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
             }
         }
 
+        println!("charblock---------------------p: {:?}", positions);
+        println!("charblock---------------------uv: {:?}", uvs);
+        println!("char_block-----------------:{:?}", char_block);
+
         let position_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions)), false);
         let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs)), false);
         let position_buffer = engine.res_mgr.add(position_buffer);
@@ -816,46 +847,36 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
     for i in 0..char_block.chars.len() {
-        let pos = &char_block.chars[i].pos;
-        let mut glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
+        let ch = &char_block.chars[i]; 
+        let pos = &ch.pos;
+        let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
             Some(r) => r.1.clone(),
             None => continue,
         };
-        // sdf字体， 需要从新计算字形
-        if !is_pixel {
-            let r = FontSheet::fix_gylph(&glyph, char_block.calc_font_size);
-            glyph.width = r.0;
-            glyph.height = r.1;
-        }
         start = Point2::new(pos.x + glyph.ox, pos.y + glyph.oy);
-        end = Point2::new(start.x + glyph.width, start.y + glyph.height);
+        end = Point2::new(start.x + ch.width, start.y + char_block.line_height);
         j += 1;
         break;
     }
     for i in j..char_block.chars.len() {
-        let pos = &char_block.chars[i].pos;
-        let mut glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
+        let ch = &char_block.chars[i]; 
+        let pos = &ch.pos;
+        let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
             Some(r) => r.1.clone(),
             None => continue,
         };
-        // sdf字体， 需要从新计算字形
-        if !is_pixel {
-            let r = FontSheet::fix_gylph(&glyph, char_block.calc_font_size);
-            glyph.width = r.0;
-            glyph.height = r.1;
-        }
 
         if pos.x < start.x{
             start.x = pos.x;
         }
-        let end_x = pos.x + glyph.width;
+        let end_x = pos.x + ch.width;
         if end_x > end.x {
             end.x = end_x;
         } 
         if pos.y < start.y{
             start.y = pos.y;
         }
-        let end_y = pos.y + char_block.calc_font_size;
+        let end_y = char_block.line_height;
         if end_y > end.y {
             end.y = end_y;
         } 
@@ -940,9 +961,9 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     }
 }
 
-fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph){
+fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, line_height: f32){
     let left_top = (pos.x + offset.0 + glyph.ox, pos.y + offset.1 + glyph.oy);
-    let right_bootom = (left_top.0 + glyph.width, left_top.1 + glyph.height);
+    let right_bootom = (left_top.0 + width, left_top.1 + line_height);
     let ps = [
         left_top.0,     left_top.1,    
         left_top.0,     right_bootom.1,
@@ -962,6 +983,6 @@ impl_system!{
     CharBlockSys<L, C> where [L: FlexNode + 'static, C: HalContext + 'static],
     true,
     {
-
+        SingleCaseListener<FontSheet, ModifyEvent>
     }
 }
