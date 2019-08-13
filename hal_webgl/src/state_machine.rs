@@ -307,27 +307,17 @@ impl StateMachine {
             loc.set_gl_uniform(gl, &singles[loc.slot_uniform]);
         }
         
-        if program.last_pp.is_none() {
-            let pp = pp.get_values();
-            for ubo_loc in program.active_uniforms.iter_mut() {
+        let pp = pp.get_values();
+        for ubo_loc in program.active_uniforms.iter_mut() {
+            let should_set_ubo = ubo_loc.last.as_ref().map_or(true, |v| !Share::ptr_eq(v, &pp[ubo_loc.slot_ubo]));
+            if should_set_ubo {
                 let uniforms = pp[ubo_loc.slot_ubo].get_values();
                 for u_loc in ubo_loc.values.iter_mut() {
                     u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
                 }
-            }
-        } else {
-            let last_pp = program.last_pp.as_ref().unwrap().get_values();
-            let pp = pp.get_values();
-            for ubo_loc in program.active_uniforms.iter_mut() {
-                if !Share::ptr_eq(&last_pp[ubo_loc.slot_ubo], &pp[ubo_loc.slot_ubo]) {
-                    let uniforms = pp[ubo_loc.slot_ubo].get_values();
-                    for u_loc in ubo_loc.values.iter_mut() {
-                        u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
-                    }
-                }
+                ubo_loc.last = Some(pp[ubo_loc.slot_ubo].clone());
             }
         }
-        program.last_pp = Some(pp.clone());
 
         tex_change_count
     }

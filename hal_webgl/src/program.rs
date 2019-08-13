@@ -25,6 +25,7 @@ pub struct CommonUbo {
     // 针对UniformLayout的紧凑结构
     pub slot_ubo: usize,
     pub values: Vec<CommonUniform>,
+    pub last: Option<Share<dyn UniformBuffer>>,
 }
 
 pub struct WebGLProgramImpl {
@@ -33,8 +34,6 @@ pub struct WebGLProgramImpl {
     pub active_uniforms: Vec<CommonUbo>,
     pub active_single_uniforms: Vec<CommonUniform>,
     pub active_textures: Vec<SamplerUniform>,
-    
-    pub last_pp: Option<Share<dyn ProgramParamter>>, // 上次设置的Uniforms，对应接口的概念
 }
 
 impl SamplerUniform {
@@ -218,24 +217,7 @@ impl WebGLProgramImpl {
             active_uniforms: uniforms,
             active_single_uniforms: single_uniforms,
             active_textures: textures,
-            last_pp: None,
         })
-        // match WebGLProgramImpl::init_uniform(gl, &program_handle, location_map) {
-        //     Err(e) => {
-        //         gl.delete_program(Some(&program_handle));
-        //         Err("WebGLProgramImpl failed, invalid uniforms".to_string())
-        //     },
-        //     Ok((uniforms, single_uniforms, textures)) => {
-                
-        //         Ok(WebGLProgramImpl {
-        //             handle: program_handle,
-        //             active_uniforms: uniforms,
-        //             active_single_uniforms: single_uniforms,
-        //             active_textures: textures,
-        //             last_pp: None,
-        //         })
-        //     }
-        // }
     }
 
     pub fn delete(&self, gl: &WebGLRenderingContext) {
@@ -411,6 +393,7 @@ impl WebGLProgramImpl {
                             let mut ubo = CommonUbo {
                                 slot_ubo: *i, 
                                 values: vec![],
+                                last: None,
                             };
                             ubo.values.push(CommonUniform {
                                 slot_uniform: *j,
