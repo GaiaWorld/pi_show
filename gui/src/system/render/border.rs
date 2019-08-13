@@ -102,7 +102,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
             let mut dirty = style_mark.dirty;
 
-            // 不存在BuckgroundColor关心的脏, 跳过
+            // 不存在BorderColor关心的脏, 跳过
             if dirty & DIRTY_TY == 0 {
                 continue;
             }
@@ -138,11 +138,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
                 notify.modify_event(render_index, "is_opacity", 0);
+                modify_opacity(engine, render_obj);
             }
 
             // 颜色修改， 设置ucolor ubo
             if dirty & StyleType::BorderColor as usize != 0 {
-                to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
+                // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(color, engine));
             }
 
@@ -204,7 +205,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
         default_state:  &DefaultState
     ) -> usize {
 
-        let render_obj = RenderObj {
+        let mut render_obj = RenderObj {
             depth:          z_depth - 0.2,
             depth_diff:     -0.2,
             visibility:     visibility,
@@ -227,6 +228,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
             context:        id
         };
         render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
+        render_obj.fs_defines.add("UCOLOR");
 
         let notify = render_objs.get_notify();
         let index = render_objs.insert(render_obj, Some(notify));
@@ -261,8 +263,6 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
 #[inline]
 fn create_geo<C: HalContext + 'static>(radiu: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine<C>) -> Share<GeometryRes>{
     let buffer = get_geo_flow(radiu, layout);
-    println!("border positions:{:?}", &buffer.0);
-    println!("border index:{:?}", &buffer.1);
     Share::new(create_p_i_geometry(buffer.0.as_slice(), buffer.1.as_slice(), engine))
 }
 

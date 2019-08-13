@@ -113,34 +113,6 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
             render_obj.fs_defines.add("HSV");
             paramter.set_value("hsv", create_hsv_ubo(engine, hsv)); // hsv
         }
-        
-        // 如果透明， 修改bs和ds(bug, 某些透明物体的混合模式非BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha， 如canvas_text)
-        if !render_obj.is_opacity {
-            let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
-            let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
-            bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-            ds.set_write_enable(false);
-            
-            render_obj.state.bs = create_bs_res(engine, bs);
-            render_obj.state.ds = create_ds_res(engine, ds);
-        }
-    }
-}
-
-// 监听is_opacity的修改，修改渲染状态， 创建新的渲染管线
-impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = ();
-    type WriteData = ( &'a mut SingleCaseImpl<RenderObjs>,  &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
-        match event.field {
-            "is_opacity" => {
-                let (render_objs, engine) = write;
-                let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-                modify_opacity(engine, render_obj);
-                render_objs.get_notify().modify_event(event.id, "state", 0);
-            },
-            _ => (),
-        }
     }
 }
 
@@ -246,25 +218,6 @@ pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HS
     }
 }
 
-fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj) {
-    let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
-    let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
-    if render_obj.is_opacity == false {
-        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-        ds.set_write_enable(false);
-        
-        render_obj.state.bs = create_bs_res(engine, bs);
-        render_obj.state.ds = create_ds_res(engine, ds);
-    }else {
-        bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
-        ds.set_write_enable(true);
-        
-        render_obj.state.bs = create_bs_res(engine, bs);
-        render_obj.state.ds = create_ds_res(engine, ds);
-    }
-    
-}
-
 impl_system!{
     NodeAttrSys<C> where [C: HalContext + 'static],
     true,
@@ -272,7 +225,7 @@ impl_system!{
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
-        SingleCaseListener<RenderObjs, ModifyEvent>
+        // SingleCaseListener<RenderObjs, ModifyEvent>
         SingleCaseListener<RenderObjs, DeleteEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>

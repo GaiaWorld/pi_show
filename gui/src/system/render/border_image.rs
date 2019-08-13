@@ -95,7 +95,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                 },
             };
             let mut dirty = style_mark.dirty;
-            println!("border_image--------------------------------{}", id);
 
             // 不存在Image关心的脏, 跳过
             if dirty & DIRTY_TY == 0 {
@@ -104,13 +103,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
             let render_index = if dirty & StyleType::BorderImage as usize != 0 {
-                println!("border_image--------------------------------iamge dirty");
                 if style_mark.local_style & StyleType::BorderImage as usize == 0 && style_mark.class_style & StyleType::BorderImage as usize == 0  {
                     self.remove_render_obj(*id, render_objs);
-                    println!("border_image1--------------------------------iamge dirty");
                     continue;
                 } else {
-                    println!("border_image2--------------------------------iamge dirty");
                     match self.render_map.get_mut(*id) {
                         Some(r) => *r,
                         None => {
@@ -120,7 +116,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                     }
                 }  
             } else {
-                println!("border_image3--------------------------------iamge dirty");
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
                     None => continue,
@@ -141,7 +136,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
             
             if dirty & GEO_DIRTY != 0 {
-                println!("border_image4--------------------------------GEO_DIRTY");
                 let h = geo_hash(image, image_clip, image_slice, image_repeat, layout);
                 match engine.res_mgr.get::<GeometryRes>(&h) {
                     Some(r) => render_obj.geometry = Some(r),
@@ -154,10 +148,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                     render_obj.paramter.set_texture("texture", (&image.src.bind, &self.default_sampler));
                     notify.modify_event(render_index, "ubo", 0);
                 }
-                println!("border_image5--------------------------------GEO_DIRTY, {}", render_obj.geometry.is_some());
                 notify.modify_event(render_index, "geometry", 0);
             }
-            println!("style_marke1: {:?}, {}", style_mark, style_mark.dirty & StyleType::Matrix as usize);
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
                 modify_matrix(
@@ -180,6 +172,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                 };
                 render_obj.is_opacity = is_opacity;
                 notify.modify_event(render_index, "is_opacity", 0);
+                modify_opacity(engine, render_obj);
             }
         }
     }
@@ -259,9 +252,6 @@ fn create_geo<C: HalContext + 'static>(
         Some(r) => Some(r.clone()),
         None => {
             let (positions, uvs, indices) = get_border_image_stream(img, clip, slice, repeat, layout, Vec::new(), Vec::new(), Vec::new());
-            println!("border_image positions: {:?}", positions);
-            println!("border_image uvs: {:?}", uvs);
-            println!("border_image indices: {:?}", indices);
             let p_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions[..])), false));
             let u_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs[..])), false));
             let i_buffer = Share::new(create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices[..])), false));
@@ -347,7 +337,6 @@ fn get_border_image_stream (
         ),
     };
 
-    // debug_println!("start 111111: {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?} {:?}",
     //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
     // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
     // 先将16个顶点和uv放入数组，记录偏移量

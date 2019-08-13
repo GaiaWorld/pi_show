@@ -6,7 +6,7 @@ use map::{vecmap::VecMap};
 use ecs::component::Component;
 use atom::Atom;
 
-use share::{ Share, ShareWeak };
+use share::{ Share };
 use hal_core::*;
 
 use super::user::*;

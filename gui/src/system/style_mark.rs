@@ -118,7 +118,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        println!("TextStyle change");
         let r = match event.field {
             "letter_spacing" => StyleType::LetterSpacing,
             "word_spacing" => StyleType::WordSpacing,
@@ -135,7 +134,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             "font_family" => StyleType::FontFamily,
             _ => return
         };
-        println!("style_mark-------------------{:?}", r);
         let (style_marks, dirty_list) = write;
         set_local_dirty(dirty_list, event.id, r as usize, style_marks);
     }
@@ -149,7 +147,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        println!("Text change");
         set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
     }
 }
@@ -161,7 +158,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        println!("Text change");
         set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
     }
 }
@@ -412,9 +408,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        println!("style_marke---------------------WorldMatrix modify");
         set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
-        println!("style_marke: {:?}, {}", style_mark, style_mark.dirty & StyleType::Matrix as usize);
     }
 }
 
@@ -697,7 +691,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
         for wait in image_wait_sheet.finish.iter() {
             
             for image_wait in wait.2.iter() {
-                println!("wait------------------------{:?}", image_wait.ty);
                 // 图片加载完成后， 节点可能已经删除， 因此跳过
                 if !entitys.is_exist(image_wait.id) {
                     continue;
@@ -727,7 +720,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
                         }
                     },
                     ImageType::BorderImageLocal => {
-                        println!("border_images insert------------------------");
                         border_images.insert(image_wait.id, BorderImage{src: wait.1.clone(), url: wait.0.clone()});
                         set_local_dirty(dirty_list, image_wait.id, StyleType::BorderImage as usize, style_marks);
                     },

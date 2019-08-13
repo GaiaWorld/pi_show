@@ -534,3 +534,22 @@ pub fn create_p_i_geometry<C: HalContext + 'static>(positions: &[f32], indices: 
     engine.gl.geometry_set_indices_short(&geo, &i_buffer).unwrap();
     GeometryRes{geo: geo, buffers: vec![Share::new(p_buffer), Share::new(i_buffer)]}
 }
+
+pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj) {
+    let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
+    let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
+    if render_obj.is_opacity == false {
+        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        ds.set_write_enable(false);
+        
+        render_obj.state.bs = create_bs_res(engine, bs);
+        render_obj.state.ds = create_ds_res(engine, ds);
+    }else {
+        bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
+        ds.set_write_enable(true);
+        
+        render_obj.state.bs = create_bs_res(engine, bs);
+        render_obj.state.ds = create_ds_res(engine, ds);
+    }
+    
+}

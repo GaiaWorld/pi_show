@@ -134,6 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = background_is_opacity(opacity, color);
                 notify.modify_event(render_index, "is_opacity", 0);
+                modify_opacity(engine, render_obj);
             }
 
             let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 

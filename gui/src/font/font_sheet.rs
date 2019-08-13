@@ -106,7 +106,6 @@ impl  FontSheet {
     
     // 设置FontFace
     pub fn set_face(&mut self, family: Atom, oblique: f32, size: usize, weight: usize, src: String) {
-        println!("set_face----------------family:{:?}, src:{:?}", family, src);
         let mut v = Vec::new();
         for s in src.split(',') {
             v.push(Atom::from(s.trim_start().trim_end()))
@@ -164,7 +163,6 @@ impl  FontSheet {
                 }
             }
         }
-        println!("measure text fail, font_face: {:?}, char: {:?}", font_face.as_ref(), c);
         (Vector2::new(0.0, 0.0), Atom::from("".to_string()), false, 0.0)
     }
 

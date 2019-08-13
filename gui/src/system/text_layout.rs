@@ -227,7 +227,6 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
     let scale = unsafe { read.5.get_unchecked(id).y.y };
     
     for char_node in cb.chars.iter_mut() {
-        println!("calc_gylph----------------------------");
         let ch_id = write.2.calc_gylph(&char_node.font_name, cb.font_size as usize, cb.stroke_width as usize, scale, char_node.base_width as usize, char_node.ch);
         char_node.ch_id = ch_id;
     }

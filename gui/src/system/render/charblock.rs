@@ -73,7 +73,6 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBlockSys<L, C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -88,7 +87,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (z_depths, world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
+        let (world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
@@ -107,12 +106,10 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
         if self.texture_change == true {
             let t = font_sheet.get_font_tex();
-            println!("texture_change---------------{}, {}", t.width, t.height);
             self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(t.width as f32, t.height as f32)));
             for i in self.render_map.iter() {
                 match i {
                     Some(i) => {
-                        println!("texture_change1--------------------------");
                         unsafe { render_objs.get_unchecked(i.text)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
                         if i.shadow > 0 {
                             unsafe { render_objs.get_unchecked(i.shadow)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
@@ -136,7 +133,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             };
 
             let mut dirty = style_mark.dirty;
-            println!("text_dirty1------------------id:{}, dirty:{}", id, dirty);
 
             // 不存在Chablock关心的脏, 跳过
             if dirty & TEXT_STYLE_DIRTY == 0 {
@@ -166,7 +162,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                     None => continue,
                 }
             };
-            println!("text_dirty2------------------id:{}, index:{:?}", id, index);
 
             let charblock = unsafe { charblocks.get_unchecked_mut(*id) };
             let render_obj = unsafe { &mut *(render_objs.get_unchecked(index.text) as *const RenderObj as usize as *mut RenderObj) };
@@ -177,9 +172,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 false
             };
 
-            println!("text_dirty3------------------id:{}, is_pixel:{:?}", id, is_pixel);
             let text = unsafe { texts.get_unchecked(*id) };
-            println!("text--------------------{:?}", text);
 
             let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
                 if let Some(ubos) = self.class_ubos.get(class.text) {
@@ -196,14 +189,14 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
             // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记program_change 和 geometry_change脏
             if dirty & (StyleType::Color as usize) != 0 {
-                let exchange = modify_color(index.text, charblock, style_mark.local_style, &text_style.text.color, engine, &notify, render_obj, &class_ubo);
+                let exchange = modify_color(index.text, style_mark.local_style, &text_style.text.color, engine, &notify, render_obj, &class_ubo);
                 program_change = program_change | exchange;
                 geometry_change = geometry_change | exchange;
             }
 
             // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置program_change脏
             if dirty & (StyleType::Stroke as usize) != 0 {
-                program_change = program_change | modify_stroke(index.text, &charblock, style_mark.local_style, &text_style.text.stroke, render_obj, engine, &notify, is_pixel, &class_ubo);
+                program_change = program_change | modify_stroke(index.text, style_mark.local_style, &text_style.text.stroke, render_obj, engine, &notify, is_pixel, &class_ubo);
             }
 
             // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
@@ -220,14 +213,12 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             
             // 如果渲染管线脏， 重新创建渲染管线
             if program_change {
-                println!("program_change-----------------");
                 modify_program(render_obj, is_pixel, engine, &self.canvas_default_stroke_color);
             }
             
             // 文字属性流改变， 重新生成geometry
             if geometry_change {
-                println!("geometry_change-----------------");
-                render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, is_pixel, &font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine);
+                render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, &font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine);
                 render_objs.get_notify().modify_event(index.text, "geometry", 0);
             }
 
@@ -235,7 +226,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             if index.shadow > 0 && dirty & (StyleType::TextShadow as usize) != 0 {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
                     // 阴影颜色脏，或描边脏， 修改ubo
-                modify_shadow_color(index.shadow, &charblock, style_mark.local_style, text_style, &notify, render_obj, engine, is_pixel, &class_ubo);
+                modify_shadow_color(index.shadow, style_mark.local_style, text_style, &notify, render_obj, engine, is_pixel, &class_ubo);
                 // 设置ubo TODO
 
                 // 修改阴影的渲染管线
@@ -250,14 +241,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         Color::RGBA(_) => render_obj.geometry = render_obj.geometry.clone(),
                         Color::LinearGradient(_) => {
                             let color = text_style.shadow.color.clone();
-                            render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, is_pixel, font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine)
+                            render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, font_sheet, text_layout_dirty, class_ubo, &self.index_buffer, engine)
                         },
                     }
                     notify.modify_event(index.shadow, "geometry", 0);
                 }
             }
 
-            println!("geo is_some-----------------{}", render_obj.geometry.is_some());
             // 矩阵脏
             if dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::TextShadow as usize) != 0 {
                 let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
@@ -293,7 +283,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
-        println!("FontSheet modify");
         self.texture_change = true;
     }
 }
@@ -459,9 +448,8 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
 }
 
 #[inline]
-fn modify_stroke<L: FlexNode + 'static, C: HalContext + 'static>(
+fn modify_stroke<C: HalContext + 'static>(
     index: usize,
-    charblock: &CharBlock<L>,
     local_style: usize,
     text_stroke: &Stroke,
     render_obj: &mut RenderObj,
@@ -506,9 +494,8 @@ fn modify_stroke<L: FlexNode + 'static, C: HalContext + 'static>(
 }
 
 #[inline]
-fn modify_color<L: FlexNode, C: HalContext + 'static>(
+fn modify_color<C: HalContext + 'static>(
     index: usize,
-    charblock: &CharBlock<L>,
     local_style: usize,
     color: &Color,
     engine: &mut Engine<C>,
@@ -528,25 +515,11 @@ fn modify_color<L: FlexNode, C: HalContext + 'static>(
             notify.modify_event(index, "", 0);
 
             // 如果未找到UCOLOR宏， 表示修改之前的颜色不为RGBA， 应该删除VERTEX_COLOR宏， 添加UCOLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-            match render_obj.fs_defines.add("UCOLOR") {
-                Some(_) => false,
-                None => {
-                    render_obj.fs_defines.remove("VERTEX_COLOR");
-                    render_obj.vs_defines.remove("VERTEX_COLOR");
-                    true
-                },
-            }
+            to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut())
         },
         Color::LinearGradient(_) => {
             // 如果未找到VERTEX_COLOR宏， 表示修改之前的颜色不为LinearGradient， 应该删除UCOLOR宏， 添加VERTEX_COLOR宏，并尝试设顶点脏， 否则， 不需要做任何处理
-            match render_obj.vs_defines.add("VERTEX_COLOR") {
-                Some(_) => false,
-                None => {
-                    render_obj.fs_defines.remove("UCOLOR");
-                    render_obj.fs_defines.add("VERTEX_COLOR");
-                    true
-                }
-            }
+            to_vex_color_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut())
         },
     };
     change
@@ -573,9 +546,8 @@ fn modify_font (
 }
 
 #[inline]
-fn modify_shadow_color<L: FlexNode + 'static, C: HalContext + 'static>(
+fn modify_shadow_color<C: HalContext + 'static>(
     index: usize,
-    charblock: &CharBlock<L>,
     local_style: usize,
     text_style: &TextStyle,
     notify: &NotifyImpl,
@@ -639,7 +611,6 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
     color: &Color,
     text: &TextContent,
     text_style: &TextStyle,
-    is_pixel: bool,
     font_sheet: &FontSheet,
     text_layout_dirty: usize,
     share_data: &RenderCatch,
@@ -671,10 +642,10 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
         }
 
         // 缓存中不存在 对应的geo， 创建geo并缓存
-        get_geo_flow(char_block, color, is_pixel, font_sheet, engine, Some(hash), share_index_buffer)
+        get_geo_flow(char_block, color, font_sheet, engine, Some(hash), share_index_buffer)
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
-        get_geo_flow(char_block, color, is_pixel, font_sheet, engine, None, share_index_buffer)
+        get_geo_flow(char_block, color, font_sheet, engine, None, share_index_buffer)
     }
 }
 
@@ -725,17 +696,15 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
 fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     char_block: &CharBlock<L>,
     color: &Color,
-    is_pixel: bool,
     font_sheet: &FontSheet,
     engine: &mut Engine<C>,
     hash: Option<u64>,
     index_buffer: &Share<HalBuffer>,
 ) -> Option<Share<GeometryRes>> {
-    println!("get_geo_flow------------------------chars.len: {}", len = char_block.chars.len());
     let len = char_block.chars.len();
     let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
-    let font_size = char_block.font_size;
+    // let font_size = char_block.font_size;
     let mut i = 0;
     let offset = (char_block.pos.x, char_block.pos.y);
 
@@ -746,7 +715,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
         match color {
             Color::RGBA(_) => {
                 for c in char_block.chars.iter() {
-                    let mut glyph = match font_sheet.get_glyph(c.ch_id) {
+                    let glyph = match font_sheet.get_glyph(c.ch_id) {
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
@@ -758,7 +727,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
             Color::LinearGradient(color) => {
                 let mut colors = vec![Vec::new()];
                 let mut indices = Vec::with_capacity(6 * len);
-                let (start, end) = cal_all_size(char_block, font_sheet, is_pixel); // 渐变范围
+                let (start, end) = cal_all_size(char_block, font_sheet); // 渐变范围
                 //渐变端点
                 let endp = find_lg_endp(&[
                     start.x, start.y + offset.1,
@@ -821,10 +790,6 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
             }
         }
 
-        println!("charblock---------------------p: {:?}", positions);
-        println!("charblock---------------------uv: {:?}", uvs);
-        println!("char_block-----------------:{:?}", char_block);
-
         let position_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions)), false);
         let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs)), false);
         let position_buffer = engine.res_mgr.add(position_buffer);
@@ -845,7 +810,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
 
 
 #[inline]
-fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &FontSheet, is_pixel: bool) -> (Point2, Point2) {
+fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &FontSheet) -> (Point2, Point2) {
     let mut start = Point2::new(0.0, 0.0);
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
@@ -864,10 +829,10 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
     for i in j..char_block.chars.len() {
         let ch = &char_block.chars[i]; 
         let pos = &ch.pos;
-        let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
-            Some(r) => r.1.clone(),
-            None => continue,
-        };
+        // let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
+        //     Some(r) => r.1.clone(),
+        //     None => continue,
+        // };
 
         if pos.x < start.x{
             start.x = pos.x;
@@ -912,16 +877,13 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
             uvs[uvi + 5]
         ),
     );
-    debug_println!("p1: {}, {}, p4: {}, {}, u1: {},{}, u4: {}, {}", p1.0, p1.1, p4.0, p4.1, u1.0, u1.1, u4.0, u4.1);
     if len > 8 {
         let mut i = pi + 8;
         for _j in 0..(len - 8)/2 {
             let pos_x = positions[i];
             let pos_y = positions[i + 1];
-            debug_println!("pos_x: {}, pos_y: {}, i:derive_deref{}", pos_x, pos_y, i);
             let uv;
             if (pos_x - p1.0).abs() < 0.001{
-                debug_println!("pos_x == p1.0, i: {}, pos_x: {}, p1.0: {}", i, pos_x, p1.0);
                 let base = p4.1 - p1.1;
                 let ratio = if base == 0.0 {
                     0.0
@@ -930,7 +892,6 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
                 };
                 uv = (u1.0, u1.1 * (1.0 - ratio) + u4.1 * ratio );
             }else if (pos_x - p4.0).abs() < 0.001{
-                debug_println!("pos_x == p4.0, i: {}, pos_x: {}, p4.0:{}", i, pos_x, p4.0);
                 let base = p4.1 - p1.1;
                 let ratio = if base == 0.0 {
                     0.0
@@ -958,7 +919,6 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
             }
             uvs.push(uv.0);
             uvs.push(uv.1);
-            debug_println!("uvs: {}, {}", uv.0, uv.1);
             i += 2;
         }
     }

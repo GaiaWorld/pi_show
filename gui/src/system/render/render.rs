@@ -7,7 +7,6 @@ use std::marker::PhantomData;
 
 use hal_core::*;
 use ecs::{SingleCaseImpl, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
-use share::Share;
 
 use render::engine::Engine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
