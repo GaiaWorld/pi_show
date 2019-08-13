@@ -275,7 +275,7 @@ window.__draw_text_canvas = function(world, textInfoList, c){
                 ctx.fillText(char_info.ch, 0, canvas.height);
             }
             window.__jsObj = canvas;
-            Module._update_canvas_text(world, char_info.x, char_info.y);
+            Module._update_canvas_text(world, char_info.x, char_info.y, canvas.height);
             this.console.log("char_info:", char_info, text_info.size[1]);
         }
     }

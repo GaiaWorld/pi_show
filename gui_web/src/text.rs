@@ -6,6 +6,7 @@ use stdweb::{Object};
 
 use atom::Atom;
 use ecs::{LendMut};
+use hal_core::*;
 use gui::component::user::*;
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
@@ -236,16 +237,29 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32){
 // __jsObj: canvas
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn update_canvas_text(world: u32, u: u32, v: u32) {
+pub fn update_canvas_text(world: u32, u: u32, v: u32, height: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let font_sheet = world.font_sheet.lend_mut();
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
     
+    let mut end_v = v + height;
+    println!("update_canvas_text: {}, {}", end_v, texture.height);
+    if end_v > texture.height as u32 {
+        end_v = next_power_of_two(end_v);
+        if end_v > 2048 {
+            println!("update_canvas_text fail, height overflow");  
+        }
+        println!("update_canvas_text1: {}, {}", texture.width, end_v);
+        engine.gl.texture_extend(&texture.bind, texture.width as u32, end_v);
+        texture.update_size(texture.width, end_v as usize);
+        font_sheet.get_notify().modify_event(0, "", 0);
+        println!("update_canvas_text2 ");
+    }
+    println!("update_canvas_text3: {}, {}", u, v);
     engine.gl.texture_update_webgl(&texture.bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
 }
-
 
 #[derive(Debug, Serialize)]
 pub struct TextInfo {
@@ -372,4 +386,15 @@ pub fn define_draw_canvas(){
             Module._set_render_dirty(world);
         };
     }
+}
+
+fn next_power_of_two(value: u32) -> u32 {
+    let mut value = value - 1;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value += 1;
+    value
 }

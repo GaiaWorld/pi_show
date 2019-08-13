@@ -124,8 +124,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
             return c.ctx.measureText(String.fromCharCode(@{ch})).width;
         }).unwrap() as f32
     });
-    let texture = engine.gl.texture_create_2d(0, 512, 512, PixelFormat::RGBA, DataFormat::UnsignedByte, false, None).unwrap();
-    let res = engine.res_mgr.create::<TextureRes>(Atom::from("__$text".to_string()), TextureRes::new(512, 512, unsafe{transmute(1 as u8)}, unsafe{transmute(0 as u8)}, texture) );
+    let texture = engine.gl.texture_create_2d(0, 512, 32, PixelFormat::RGBA, DataFormat::UnsignedByte, false, None).unwrap();
+    let res = engine.res_mgr.create::<TextureRes>(Atom::from("__$text".to_string()), TextureRes::new(512, 32, unsafe{transmute(1 as u8)}, unsafe{transmute(0 as u8)}, texture) );
 
     let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res);
     let world =  GuiWorld1::<YgNode, WebglHalContext>::new(world);

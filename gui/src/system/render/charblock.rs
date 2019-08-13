@@ -107,10 +107,12 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
         if self.texture_change == true {
             let t = font_sheet.get_font_tex();
+            println!("texture_change---------------{}, {}", t.width, t.height);
             self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(t.width as f32, t.height as f32)));
             for i in self.render_map.iter() {
                 match i {
                     Some(i) => {
+                        println!("texture_change1--------------------------");
                         unsafe { render_objs.get_unchecked(i.text)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
                         if i.shadow > 0 {
                             unsafe { render_objs.get_unchecked(i.shadow)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
@@ -291,6 +293,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     type ReadData = ();
     type WriteData = ();
     fn listen(&mut self, _: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
+        println!("FontSheet modify");
         self.texture_change = true;
     }
 }

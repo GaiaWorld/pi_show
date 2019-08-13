@@ -178,9 +178,10 @@ let canvas_text_fs_code = `
         c = c * uColor;
     #endif
     
-    vec3 sample = texture2D(texture, vUV).rgb;
+    vec4 sample = texture2D(texture, vUV);
     c = sample.r * strokeColor + sample.g * c;
-    c.a = 1.0 - sample.b; 
+    // c.a = 1.0 - sample.b;
+    c.a = clamp(sample.a - sample.b, 0.0, 1.0); // 应该 c.a = 1.0 - sample.b, 由于纹理坐标误差， 导致采样到纹理的空白处（rgba都为0）， 会看到一条黑线
     
     #ifdef HSV
         vec3 hsv = rgb2hsv(c.rgb);
@@ -202,6 +203,7 @@ let canvas_text_fs_code = `
         c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
     #endif
         gl_FragColor = vec4(c.rgb, c.a * alpha);
+        // gl_FragColor = vec4(sample.rgb, 1.0);
         if (gl_FragColor.a < 0.02) discard;
     }
 `;

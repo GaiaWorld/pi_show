@@ -56,6 +56,12 @@ impl TextureRes {
             bind: bind,
         }
     }
+
+    pub fn update_size(&self, width: usize, height: usize) {
+        let s = unsafe {&mut *( self as *const Self as *mut Self) };
+        s.width = width;
+        s.height = height;
+    }
 }
 
 impl Res for TextureRes {
