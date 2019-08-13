@@ -117,6 +117,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         if i.shadow > 0 {
                             unsafe { render_objs.get_unchecked(i.shadow)  }.paramter.set_value("textureSize", self.texture_size_ubo.clone());
                         }
+                        notify.modify_event(i.text, "ubo", 0);
                     },
                     None => (),
                 }
