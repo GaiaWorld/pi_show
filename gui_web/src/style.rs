@@ -4,8 +4,11 @@ use stdweb::web::TypedArray;
 use stdweb::unstable::TryInto;
 
 use ecs::{LendMut};
+use atom::Atom;
 
 use gui::component::user::*;
+use gui::render::res::{TextureRes};
+use gui::single::*;
 use GuiWorld;
 
 #[macro_use()]
@@ -276,4 +279,31 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
     }
     let value = Filter{hue_rotate: h/360.0, saturate: s/100.0, bright_ness: i/100.0};
     insert_attr!(world, node, Filter, value, filter);
+}
+
+// __jsObj: image_name(String)
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_border_image(world: u32, node: u32){
+
+    let node = node as usize;
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+
+	let name: String = js!{return __jsObj}.try_into().unwrap();
+	let name = Atom::from(name);
+	let engine = world.engine.lend_mut();
+
+	match engine.res_mgr.get::<TextureRes>(&name) {
+		Some(r) => {
+			let border_image = world.border_image.lend_mut();
+			border_image.insert(node, BorderImage{src: r, url: name});
+		},
+		None => {
+            println!("border wait-----------------");
+			// 异步加载图片
+			let image_wait_sheet = world.image_wait_sheet.lend_mut();
+			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::BorderImageLocal})
+		},
+	}
 }

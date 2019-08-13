@@ -133,6 +133,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             if dirty & StyleType::BackgroundColor as usize != 0 || dirty & StyleType::Opacity as usize != 0 {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = background_is_opacity(opacity, color);
+                notify.modify_event(render_index, "is_opacity", 0);
             }
 
             let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
@@ -365,15 +366,6 @@ fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bo
     background_color.0.is_opaque()
 }
 
-#[inline]
-fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
-    let h = f32_4_hash(c.r, c.g, c.b, c.a);
-    match engine.res_mgr.get::<UColorUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
-    }
-}
-
 // 修改颜色， 返回是否存在宏的修改(不是class中的颜色)
 #[inline]
 fn modify_color<C: HalContext + 'static>(
@@ -450,30 +442,6 @@ fn modify_class_color<C: HalContext + 'static>(
         },
     };
     change
-}
-
-#[inline]
-fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
-    match fs_defines.add("UCOLOR") {
-        Some(_) => false,
-        None => {
-            vs_defines.remove("VERTEX_COLOR");
-            fs_defines.remove("VERTEX_COLOR");
-            true
-        },
-    }
-}
-
-#[inline]
-fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
-    match vs_defines.add("VERTEX_COLOR") {
-        Some(_) => false,
-        None => {
-            fs_defines.add("VERTEX_COLOR");
-            fs_defines.remove("UCOLOR");
-            true
-        }
-    }
 }
 
 #[inline]

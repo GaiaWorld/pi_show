@@ -52,7 +52,7 @@ impl<C: HalContext + 'static> ClipSys<C>{
             indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
         }
 
-        let p_buffer = create_buffer(&engine.gl, BufferType::Attribute, 128, None, false);
+        let p_buffer = create_buffer(&engine.gl, BufferType::Attribute, 128, None, true);
         let m_buffer = create_buffer(&engine.gl, BufferType::Attribute, mumbers.len(), Some(BufferData::Float(mumbers.as_slice())), false);
         let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
 
@@ -137,14 +137,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
                 positions[i * 8 + 0] = p[0].x;
                 positions[i * 8 + 1] = p[0].y;
 
-                positions[i * 8 + 3] = p[1].x;
-                positions[i * 8 + 4] = p[1].y;
+                positions[i * 8 + 2] = p[1].x;
+                positions[i * 8 + 3] = p[1].y;
 
-                positions[i * 8 + 6] = p[2].x;
-                positions[i * 8 + 7] = p[2].y;
+                positions[i * 8 + 4] = p[2].x;
+                positions[i * 8 + 5] = p[2].y;
 
-                positions[i * 8 + 9] = p[3].x;
-                positions[i * 8 + 10] = p[3].y;
+                positions[i * 8 + 6] = p[3].x;
+                positions[i * 8 + 7] = p[3].y;
             }
             gl.buffer_update(&self.positions, 0, BufferData::Float(&positions[..]));
         }
@@ -177,16 +177,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 //创建RenderObj， 为renderobj添加裁剪宏及ubo
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
+        let (render_objs, engine) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let node_id = render_obj.context;
         let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
         if by_overflow > 0 {
             render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+            render_obj.paramter.set_texture("clipTexture",  (engine.gl.rt_get_color_texture(&self.render_target, 0).unwrap(), &self.sampler) );
+            render_obj.paramter.set_value("clipTextureSize",  self.clip_size_ubo.clone());
             // 插入裁剪ubo 插入裁剪宏
             if let None = render_obj.fs_defines.add("CLIP") {
-                render_objs.get_notify().modify_event(node_id, "program_dirty", 0);
+                render_objs.get_notify().modify_event(event.id, "program_dirty", 0);
             }
         }
     }
@@ -195,8 +198,9 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
 //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>);
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, render_objs: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        let (render_objs, engine) = write;
         let (by_overflows, node_render_map) = read;
         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
@@ -212,6 +216,8 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, Modify
             for id in obj_ids.iter() {
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
                 render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+                render_obj.paramter.set_texture("clipTexture",  (engine.gl.rt_get_color_texture(&self.render_target, 0).unwrap(), &self.sampler) );
+                render_obj.paramter.set_value("clipTextureSize",  self.clip_size_ubo.clone());
                 // 插入裁剪ubo 插入裁剪宏
                 if let None = render_obj.fs_defines.add("CLIP") {
                     render_objs.get_notify().modify_event(*id, "program_dirty", 0);

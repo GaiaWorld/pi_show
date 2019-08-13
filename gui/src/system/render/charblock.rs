@@ -260,7 +260,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             println!("geo is_some-----------------{}", render_obj.geometry.is_some());
             // 矩阵脏
             if dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::TextShadow as usize) != 0 {
-                println!("matrix-----------------");
                 let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
                 let layout = unsafe{ layouts.get_unchecked(*id) };
                 let transform = match transforms.get(*id){
@@ -394,7 +393,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
                 depth: z_depth + 0.1,
                 depth_diff: 0.1,
                 visibility: visibility,
-                is_opacity: true,
+                is_opacity: false,
                 vs_name: vs_name.clone(),
                 fs_name: fs_name.clone(),
                 vs_defines: Box::new(VsDefines::default()),
@@ -420,7 +419,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
             depth: z_depth + 0.2,
             depth_diff: 0.2,
             visibility: visibility,
-            is_opacity: true,
+            is_opacity: false,
             vs_name: vs_name,
             fs_name: fs_name,
             vs_defines: Box::new(VsDefines::default()),

@@ -5,7 +5,7 @@ let color_vs_code = `
     precision highp float;
 
     // Attributes
-    attribute vec3 position;
+    attribute vec2 position;
     
     #ifdef VERTEX_COLOR
         attribute vec4 color;

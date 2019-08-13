@@ -98,6 +98,7 @@ impl ImageWaitSheet {
     }
 }
 
+#[derive(Debug)]
 pub enum ImageType {
     ImageClass,
     ImageLocal,
@@ -105,6 +106,7 @@ pub enum ImageType {
     BorderImageLocal,
 }
 
+#[derive(Debug)]
 pub struct ImageWait {
     pub ty: ImageType,
     pub id: usize,
@@ -147,10 +149,7 @@ impl DefaultState {
             tarns_ds: Share::new(gl.ds_create(tarns_ds).unwrap()),
         }
     }
-}
-
-unsafe impl Sync for DefaultState {}
-unsafe impl Send for DefaultState {}    
+} 
 
 pub struct Data<C>{
     map: Slab<C>,
@@ -238,14 +237,8 @@ pub struct RenderObj{
     pub context: usize,
 }
 
-unsafe impl Sync for RenderObj {}
-unsafe impl Send for RenderObj {}
-
 #[derive(Deref, DerefMut)]
 pub struct RenderObjs(pub Slab<RenderObj>);
-
-unsafe impl Sync for RenderObjs {}
-unsafe impl Send for RenderObjs {}
 
 impl Default for RenderObjs {
     fn default() -> Self {
@@ -324,9 +317,6 @@ impl NodeRenderMap {
 
 pub struct RenderBegin(pub Share<RenderBeginDesc>);
 
-unsafe impl Sync for RenderBegin {}
-unsafe impl Send for RenderBegin {}
-
 pub struct DefaultTable(FxHashMap32<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
@@ -364,6 +354,3 @@ impl DefaultTable {
         self.0.remove(&TypeId::of::<T>());
     }
 }
-
-unsafe impl Sync for DefaultTable {}
-unsafe impl Send for DefaultTable {}

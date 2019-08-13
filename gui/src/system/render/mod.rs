@@ -1,5 +1,5 @@
 pub mod shaders;
-// mod border;
+mod border;
 mod border_image;
 mod background_color;
 // mod box_shadow;
@@ -12,11 +12,11 @@ pub mod res_release;
 pub mod util;
 
 
-// pub use system::render::clip::*;
+pub use system::render::clip::*;
 pub use system::render::charblock::*;
 // pub use system::render::charblock_shadow::*;
-// pub use system::render::border::*;
-// pub use system::render::border_image::*;
+pub use system::render::border::*;
+pub use system::render::border_image::*;
 pub use system::render::background_color::*;
 pub use system::render::image::*;
 pub use system::render::node_attr::*;

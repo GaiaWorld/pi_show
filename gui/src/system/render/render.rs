@@ -161,7 +161,6 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
             &render_begin.0);
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            // println!("draw opacity_list-------------------------depth: {}, id: {}", obj.depth,  obj.HalContext);
             render(gl, obj); 
         }
 

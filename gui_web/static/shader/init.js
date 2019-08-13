@@ -218,7 +218,7 @@ function __load_image(gui, image_name){
         }
         Module._load_image_success(gui, opacity , 0);
     };
-    image.src = "./xxx.png";
+    image.src = image_name;
 }
 
 var YGEdgeLeft = 0;

@@ -5,7 +5,7 @@ let canvas_text_vs_code = `
     precision highp float;
 
     // Attributes
-    attribute vec3 position;
+    attribute vec2 position;
     attribute vec2 uv0;
     #ifdef VERTEX_COLOR
     attribute vec4 color;

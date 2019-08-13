@@ -70,7 +70,7 @@ impl WebGLBufferImpl {
         match data {
             BufferData::Float(v) => {
                 let offset = 4 * offset;
-                debug_assert!(self.is_updatable && offset < self.size && offset + 4 * v.len() < self.size, "WebGLBufferImpl update failed");
+                debug_assert!(self.is_updatable && offset < self.size && offset + 4 * v.len() <= self.size, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()) );
 
                 let buffer = unsafe { UnsafeTypedArray::new(v) };
                 js! {
@@ -79,7 +79,7 @@ impl WebGLBufferImpl {
             }
             BufferData::Short(v) => {
                 let offset = 2 * offset;
-                debug_assert!(self.is_updatable && offset < self.size && offset + 2 * v.len() < self.size, "WebGLBufferImpl update failed");
+                debug_assert!(self.is_updatable && offset < self.size && offset + 2 * v.len() <= self.size, "WebGLBufferImpl update failed");
 
                 let buffer = unsafe { UnsafeTypedArray::new(v) };
                 

@@ -122,7 +122,7 @@ impl TextureCache {
             return (unit as u32, true);
         }
     
-        panic!("not found");
+        panic!("not found texture or sampler, texture: {:?}, sampler: {:?}", texture, sampler);
     }
 }
 

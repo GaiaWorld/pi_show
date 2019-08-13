@@ -3,7 +3,7 @@ use share::{Share};
 use common::*;
 use traits::uniform_buffer::{ProgramParamter};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HalItem {
     pub index: u32, 
     pub use_count: u32,

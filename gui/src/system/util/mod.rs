@@ -17,6 +17,7 @@ use component::calc::*;
 // use system::util::constant::{WORLD_MATRIX, CLIP_INDICES, CLIP};
 use render::engine::Engine;
 use render::res_mgr::*;
+use render::res::GeometryRes;
 use single::*;
 use entity::Node;
 use system::util::constant::*;
@@ -440,10 +441,9 @@ pub fn create_let_top_offset_matrix(
     v: f32,
     depth: f32,
 ) -> Vec<f32> {
-    let depth = -depth/Z_MAX;
+    let depth1 = -depth/(Z_MAX + 1.0);
+    let depth = depth1;
     let origin = transform.origin.to_value(layout.width, layout.height);
-    println!("matrix----------{:?}", matrix);
-    println!("origin----------{:?}", origin);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32; 16] = matrix.as_ref();
         let mut arr = Vec::from(&slice[..]);
@@ -480,6 +480,39 @@ pub fn geo_box(layout: &Layout) -> Aabb2{
     Aabb2::new(Point2::new(layout.border_left, layout.border_top), Point2::new(layout.width - layout.border_right, layout.height - layout.border_bottom))
 }
 
+#[inline]
+pub fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
+    match fs_defines.add("UCOLOR") {
+        Some(_) => false,
+        None => {
+            vs_defines.remove("VERTEX_COLOR");
+            fs_defines.remove("VERTEX_COLOR");
+            true
+        },
+    }
+}
+
+#[inline]
+pub fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines) -> bool {
+    match vs_defines.add("VERTEX_COLOR") {
+        Some(_) => false,
+        None => {
+            fs_defines.add("VERTEX_COLOR");
+            fs_defines.remove("UCOLOR");
+            true
+        }
+    }
+}
+
+#[inline]
+pub fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+    let h = f32_4_hash(c.r, c.g, c.b, c.a);
+    match engine.res_mgr.get::<UColorUbo>(&h) {
+        Some(r) => r,
+        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
+    }
+}
+
 pub fn create_default_sampler<C: HalContext + 'static>(engine: &mut Engine<C>) -> Share<HalSampler> {
     let default_sampler = SamplerDesc::default();
     let mut hasher = FxHasher32::default();
@@ -489,4 +522,15 @@ pub fn create_default_sampler<C: HalContext + 'static>(engine: &mut Engine<C>) -
         Some(r) => r,
         None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
     }
+}
+
+// 用位置流和索引流创建一个geometry
+pub fn create_p_i_geometry<C: HalContext + 'static>(positions: &[f32], indices: &[u16], engine: &mut Engine<C>) -> GeometryRes {
+    let p_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions)), false);
+    let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices)), false);
+    let geo = create_geometry(&engine.gl);
+    engine.gl.geometry_set_vertex_count(&geo, (positions.len()/2) as u32);
+    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &p_buffer, 2).unwrap();
+    engine.gl.geometry_set_indices_short(&geo, &i_buffer).unwrap();
+    GeometryRes{geo: geo, buffers: vec![Share::new(p_buffer), Share::new(i_buffer)]}
 }

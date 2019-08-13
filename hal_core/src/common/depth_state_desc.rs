@@ -21,7 +21,7 @@ impl DepthStateDesc {
         Self {
             is_depth_test_enable: true,
             is_depth_write_enable: true,
-            depth_test_func: CompareFunc::Less,
+            depth_test_func: CompareFunc::LEqual,
         }
     }
 

@@ -94,7 +94,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                     continue;
                 },
             };
-            let dirty = style_mark.dirty;
+            let mut dirty = style_mark.dirty;
+            println!("border_image--------------------------------{}", id);
 
             // 不存在Image关心的脏, 跳过
             if dirty & DIRTY_TY == 0 {
@@ -102,15 +103,28 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             }
 
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
-            if dirty & StyleType::BorderImage as usize != 0 && style_mark.local_style & StyleType::BorderImage as usize == 0 && style_mark.class_style & StyleType::BorderImage as usize == 0 {
-                self.remove_render_obj(*id, render_objs);
-                continue;
-            }
-
-            // 不存在渲染对象， 创建
-            let render_index = match self.render_map.get_mut(*id) {
-                Some(r) => *r,
-                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            let render_index = if dirty & StyleType::BorderImage as usize != 0 {
+                println!("border_image--------------------------------iamge dirty");
+                if style_mark.local_style & StyleType::BorderImage as usize == 0 && style_mark.class_style & StyleType::BorderImage as usize == 0  {
+                    self.remove_render_obj(*id, render_objs);
+                    println!("border_image1--------------------------------iamge dirty");
+                    continue;
+                } else {
+                    println!("border_image2--------------------------------iamge dirty");
+                    match self.render_map.get_mut(*id) {
+                        Some(r) => *r,
+                        None => {
+                            dirty |= DIRTY_TY;
+                            self.create_render_obj(*id, 0.0, false, render_objs, default_state)
+                        },
+                    }
+                }  
+            } else {
+                println!("border_image3--------------------------------iamge dirty");
+                match self.render_map.get_mut(*id) {
+                    Some(r) => *r,
+                    None => continue,
+                }
             };
 
             let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
@@ -127,6 +141,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
             
             if dirty & GEO_DIRTY != 0 {
+                println!("border_image4--------------------------------GEO_DIRTY");
                 let h = geo_hash(image, image_clip, image_slice, image_repeat, layout);
                 match engine.res_mgr.get::<GeometryRes>(&h) {
                     Some(r) => render_obj.geometry = Some(r),
@@ -139,9 +154,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                     render_obj.paramter.set_texture("texture", (&image.src.bind, &self.default_sampler));
                     notify.modify_event(render_index, "ubo", 0);
                 }
+                println!("border_image5--------------------------------GEO_DIRTY, {}", render_obj.geometry.is_some());
                 notify.modify_event(render_index, "geometry", 0);
             }
-
+            println!("style_marke1: {:?}, {}", style_mark, style_mark.dirty & StyleType::Matrix as usize);
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
                 modify_matrix(
@@ -243,6 +259,9 @@ fn create_geo<C: HalContext + 'static>(
         Some(r) => Some(r.clone()),
         None => {
             let (positions, uvs, indices) = get_border_image_stream(img, clip, slice, repeat, layout, Vec::new(), Vec::new(), Vec::new());
+            println!("border_image positions: {:?}", positions);
+            println!("border_image uvs: {:?}", uvs);
+            println!("border_image indices: {:?}", indices);
             let p_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions[..])), false));
             let u_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs[..])), false));
             let i_buffer = Share::new(create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices[..])), false));
@@ -468,10 +487,10 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> f32 {
 // 将指定区域按u切开
 fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
   p1: u16, p2: u16, p3: u16, p4: u16, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
-  let y1 = point_arr[p1 as usize *3 + 1];
-  let y2 = point_arr[p2 as usize *3 + 1];
-  let mut cur = point_arr[p1 as usize *3] + step;
-  let max = point_arr[p3 as usize *3];
+  let y1 = point_arr[p1 as usize *2 + 1];
+  let y2 = point_arr[p2 as usize *2 + 1];
+  let mut cur = point_arr[p1 as usize *2] + step;
+  let max = point_arr[p3 as usize *2];
   let mut pt1 = p1;
   let mut pt2 = p2;
   while cur < max {
@@ -488,10 +507,10 @@ fn push_u_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec
 // 将指定区域按v切开
 fn push_v_arr(point_arr: &mut Polygon, uv_arr: &mut Polygon, index_arr: &mut Vec<u16>,
   p1: u16, p2: u16, p3: u16, p4: u16, u1: f32, v1: f32, u2: f32, v2: f32, step: f32, i: &mut u16){
-  let x1 = point_arr[p1 as usize *3];
-  let x2 = point_arr[p4 as usize *3];
-  let mut cur = point_arr[p1 as usize *3 + 1] + step;
-  let max = point_arr[p3 as usize *3 + 1];
+  let x1 = point_arr[p1 as usize *2];
+  let x2 = point_arr[p4 as usize *2];
+  let mut cur = point_arr[p1 as usize *2 + 1] + step;
+  let max = point_arr[p3 as usize *2 + 1];
   let mut pt1 = p1;
   let mut pt4 = p4;
   while cur < max {
