@@ -277,7 +277,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 //     oblique * font_size * char_width // TODO FIX!!!
 // }
 
-#[derive(Clone]
+#[derive(Clone)]
 pub struct TexFont {
     pub name: Atom,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理

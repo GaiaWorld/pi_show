@@ -52,7 +52,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, ClassName>,
         &'a MultiCaseImpl<Node, StyleMark>,
 
         &'a SingleCaseImpl<DefaultTable>,
@@ -73,7 +72,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
             z_depths,
             transforms,
-            classes,
             style_marks,
 
             default_table,
@@ -294,8 +292,8 @@ fn create_shadow_geo<C: HalContext + 'static>(
     let polygon_bg = Polygon2d::new(convert_to_point(bg.0.as_slice()));
     
     let mut curr_index = 0;
-    let pts: Vec<f32> = vec![];
-    let indices: Vec<u16> = vec![];
+    let mut pts: Vec<f32> = vec![];
+    let mut indices: Vec<u16> = vec![];
     for p in Polygon2d::boolean(&polygon_shadow, &polygon_bg, BooleanOperation::Difference) {
         pts.extend_from_slice( convert_to_f32(p.vertices.as_slice()) );
         
