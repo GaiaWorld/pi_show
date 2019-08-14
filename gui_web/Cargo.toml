@@ -29,7 +29,7 @@ ordered-float = "1.0"
 
 [profile.release]
 lto = true
-opt-level = "s"
+opt-level = "z"
 panic = 'abort'
 codegen-units = 1
 

@@ -5,7 +5,6 @@
 
 use std::{
     os::raw::{c_void},
-    mem::replace,
     marker::PhantomData,
 };
 
@@ -26,7 +25,7 @@ use component::{
 use single::class::*;
 use single::*;
 use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit};
-use font::font_sheet::{get_size, SplitResult, split, FontSheet};
+use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont};
 
 const MARK: usize = StyleType::LetterSpacing as usize | 
                     StyleType::WordSpacing as usize | 
@@ -247,7 +246,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         return true
     }
 
-    let font_info = match write.2.get_font_info(&text_style.font.family) {
+    let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r,
         None => {
             println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
@@ -255,14 +254,14 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         },
     };
     // 获得字体高度
-    cb.font_size = get_size(font_info.1, &text_style.font.size) as f32;
-    cb.font_height = font_info.0.get_font_height(cb.font_size as usize);
+    cb.font_size = get_size(tex_font.1, &text_style.font.size) as f32;
+    cb.font_height = tex_font.0.get_font_height(cb.font_size as usize);
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
         println!("font_size==0.0, family: {:?}", text_style.font.family);
         return true
     }
-    cb.line_height = font_info.0.get_line_height(cb.font_size as usize, &text_style.text.line_height);
+    cb.line_height = tex_font.0.get_line_height(cb.font_size as usize, &text_style.text.line_height);
     // if cb.line_height < cb.font_size{
     //     cb.line_height = cb.font_size;
     // }
@@ -298,11 +297,14 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     Some(w) => w.y.y,
     //     _ => 1.0
     // };
+    let tex_font = tex_font.0.clone();
+    let tex_param = TexParam {cb: cb, tex_font: &tex_font, text_style: text_style};
+    let TexParam {cb, tex_font, text_style} = tex_param;
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
         // let old = yoga.get_layout();
         let old_size = cb.wrap_size;
-        calc_text(cb, &text_style, text, sw, write.2);
+        calc_text(&tex_param, text, sw, write.2);
         if old_size.x != cb.wrap_size.x || old_size.y != cb.wrap_size.y {
             yoga.set_width(cb.wrap_size.x);
             yoga.set_height(cb.wrap_size.y);
@@ -340,22 +342,22 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     for cr in split(text, true, text_style.text.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
-                update_char(id, cb, text_style, '\n', 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
-                update_char(id, cb, text_style, '\t', text_style.text.indent, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, &tex_param, '\n', 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, &tex_param, '\t', text_style.text.indent, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为半高, 高度0
-                update_char(id, cb, text_style, ' ', cb.font_size/2.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, &tex_param, ' ', cb.font_size/2.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Word(c) => {
-                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, &tex_param, c, 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::WordStart(c) => {
-                word = update_char(0, cb, text_style, char::from(0), 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
-                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
+                word = update_char(0, &tex_param, char::from(0), 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, &tex_param, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
             },
             SplitResult::WordNext(c) =>{
-                update_char(id, cb, text_style, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
+                update_char(id, &tex_param, c, 0.0, sw, write.2, &mut index, &word, &mut word_index);
             },
             SplitResult::WordEnd =>{
                     word = L::new_null();
@@ -375,7 +377,8 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     false
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
+fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, index: &mut usize, parent: &L, yg_index: &mut usize) -> L {
+    let TexParam {cb, tex_font, text_style} = tex_param;
     let i = *index;
     if i < cb.chars.len() {
         let cn = &cb.chars[i];
@@ -390,7 +393,7 @@ fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_sty
         }
         unsafe {cb.chars.set_len(i)};
     }
-    let (w, node, font_name, is_pixel, base_width) = set_node(cb, text_style, c, w, sw, font, L::new());
+    let (w, node, font_name, is_pixel, base_width) = set_node(tex_param, c, w, sw, font, L::new());
     let cn = CharNode {
         ch: c,
         width: w,
@@ -410,9 +413,10 @@ fn update_char<L: FlexNode + 'static>(id: usize, cb: &mut CharBlock<L>, text_sty
     node
 }
 // 设置节点的宽高
-fn set_node<L: FlexNode + 'static>(cb: &CharBlock<L>, text_style: &TextStyle, c: char, mut w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, Atom, bool, f32) {
+fn set_node<L: FlexNode + 'static>(tex_param: &TexParam<L>, c: char, mut w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, Atom, bool, f32) {
+    let TexParam {cb, tex_font, text_style} = tex_param;
     if c > ' ' {
-        let r = font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
+        let r = font.measure(tex_font, cb.font_size as usize, sw, c);
         node.set_width(r.0.x + text_style.text.letter_spacing);
         node.set_height(cb.line_height);
         match text_style.text.vertical_align {
@@ -442,7 +446,8 @@ struct Calc {
     word: usize,
 }
 
-fn calc_text<'a, L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, text: &'a str, sw: usize, font: &mut FontSheet) {
+fn calc_text<'a, L: FlexNode + 'static>(tex_param: &TexParam<L>, text: &'a str, sw: usize, font: &mut FontSheet) {
+    let TexParam {cb, tex_font, text_style} = tex_param;
     let mut calc = Calc{
         index: 0,
         pos: Point2::default(),
@@ -458,29 +463,29 @@ fn calc_text<'a, L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Text
                 cb.lines.push(cb.last_line.clone());
                 cb.last_line = (0, 0, 0.0);
                 cb.line_count += 1;
-                update_char1(cb, text_style, '\n', 0.0, sw, font, &mut calc);
+                update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
                 // 行首缩进
                 calc.pos.x += text_style.text.indent;
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
-                update_char1(cb, text_style, ' ', cb.font_size, sw, font, &mut calc);
+                update_char1(tex_param, ' ', cb.font_size, sw, font, &mut calc);
                 calc.pos.x += text_style.text.letter_spacing;
                 cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
-                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
+                update_char1(tex_param, c, 0.0, sw, font, &mut calc);
                 calc.pos.x += text_style.text.letter_spacing;
                 cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
                 calc.word = calc.index;
-                update_char1(cb, text_style, 0 as char, 0.0, sw, font, &mut calc);
-                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
+                update_char1(tex_param, 0 as char, 0.0, sw, font, &mut calc);
+                update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordNext(c) =>{
                 calc.pos.x += text_style.text.letter_spacing;
-                update_char1(cb, text_style, c, 0.0, sw, font, &mut calc);
+                update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordEnd =>{
                 let node = unsafe {cb.chars.get_unchecked_mut(calc.word)};
@@ -506,7 +511,8 @@ fn calc_text<'a, L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Text
     cb.wrap_size = cb.size;
 }
 // 更新字符，如果字符不同，则清空后重新插入
-fn update_char1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet,  calc: &mut Calc) {
+fn update_char1<L: FlexNode + 'static>(tex_param: &TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet,  calc: &mut Calc) {
+    let TexParam {cb, tex_font, text_style} = tex_param;
     if calc.index < cb.chars.len() {
         // let line_height = cb.line_height;
         let cn = &cb.chars[calc.index];
@@ -526,7 +532,7 @@ fn update_char1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextS
         }
     }
     let p = calc.pos;
-    let (w, font_name, is_pixel, base_width) = set_node1(cb, text_style, c, w, sw, font, calc);
+    let (w, font_name, is_pixel, base_width) = set_node1(tex_param, c, w, sw, font, calc);
     cb.chars.push(CharNode {
         ch: c,
         width: w,
@@ -540,9 +546,10 @@ fn update_char1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextS
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
+fn set_node1<L: FlexNode + 'static>(tex_param: &TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
+    let TexParam {cb, tex_font, text_style} = tex_param;
     if c > ' ' {
-        let r= font.measure(&text_style.font.family, cb.font_size as usize, sw, c);
+        let r= font.measure(tex_font, cb.font_size as usize, sw, c);
        //  w = font.measure(&text_style.font.family, cb.font_size as usize, sw, c).0.x;
         if r.0.x != cb.font_size && cb.fix_width {
             cb.fix_width = false
@@ -748,6 +755,12 @@ fn get_center_fix(limit_width: f32, line_width: f32) -> f32 {
 #[inline]
 fn get_right_fix(limit_width: f32, line_width: f32) -> f32 {
     limit_width - line_width
+}
+
+struct TexParam<'a, L: FlexNode> {
+    cb: &'a mut CharBlock<L>,
+    text_style: &'a TextStyle,
+    tex_font: &'a TexFont,
 }
 
 impl_system!{

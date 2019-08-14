@@ -244,7 +244,6 @@ var FitType_ScaleDown = 4;
 
 // 绘制canvas文字， 并更新到纹理
 window.__draw_text_canvas = function(world, textInfoList, c){
-    this.console.log("-----------------------", textInfoList);
     for (var j = 0; j < textInfoList.list.length; j++) {
         
         var text_info = textInfoList.list[j];
@@ -259,7 +258,6 @@ window.__draw_text_canvas = function(world, textInfoList, c){
             canvas.height = text_info.size[1]; 
             ctx.fillStyle = "#00f"; 
             ctx.font = fontName;
-            this.console.log("fontName:",ctx.font);
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             if (text_info.stroke_width > 0.0) {
                 ctx.lineWidth = text_info.stroke_width;
@@ -276,7 +274,6 @@ window.__draw_text_canvas = function(world, textInfoList, c){
             }
             window.__jsObj = canvas;
             Module._update_canvas_text(world, char_info.x, char_info.y, canvas.height);
-            this.console.log("char_info:", char_info, text_info.size[1]);
         }
     }
     Module._set_render_dirty(world);

@@ -245,19 +245,15 @@ pub fn update_canvas_text(world: u32, u: u32, v: u32, height: u32) {
     let texture = font_sheet.get_font_tex();
     
     let mut end_v = v + height;
-    println!("update_canvas_text: {}, {}", end_v, texture.height);
     if end_v > texture.height as u32 {
         end_v = next_power_of_two(end_v);
         if end_v > 2048 {
             println!("update_canvas_text fail, height overflow");  
         }
-        println!("update_canvas_text1: {}, {}", texture.width, end_v);
         engine.gl.texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
         font_sheet.get_notify().modify_event(0, "", 0);
-        println!("update_canvas_text2 ");
     }
-    println!("update_canvas_text3: {}, {}", u, v);
     engine.gl.texture_update_webgl(&texture.bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
 }
 
@@ -349,10 +345,10 @@ impl DrawTextSys {
 
 pub fn define_draw_canvas(){
     js!{
-        window.__draw_text_canvas = function(world, textInfoList, c){
-            for (var i = 0; i < textInfoList.list.length; i++) {
+        __draw_text_canvas = function(world, textInfoList, c){
+            for (var j = 0; j < textInfoList.list.length; j++) {
                 
-                var text_info = textInfoList.list[i];
+                var text_info = textInfoList.list[j];
 
                 var k = 0;
                 var canvas = c.canvas;
@@ -364,7 +360,6 @@ pub fn define_draw_canvas(){
                     canvas.height = text_info.size[1]; 
                     ctx.fillStyle = "#00f"; 
                     ctx.font = fontName;
-                    this.console.log("fontName:",ctx.font);
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     if (text_info.stroke_width > 0.0) {
                         ctx.lineWidth = text_info.stroke_width;
@@ -380,7 +375,7 @@ pub fn define_draw_canvas(){
                         ctx.fillText(char_info.ch, 0, canvas.height);
                     }
                     window.__jsObj = canvas;
-                    Module._update_canvas_text(world, char_info.x, char_info.y);
+                    Module._update_canvas_text(world, char_info.x, char_info.y, canvas.height);
                 }
             }
             Module._set_render_dirty(world);

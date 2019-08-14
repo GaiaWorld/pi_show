@@ -119,7 +119,7 @@ impl  FontSheet {
         self.face_map.insert(family.clone(), face);
     }
 
-    // 字体名称
+    // 取字体信息
     pub fn get_font(&self, font_face: &Atom) -> Option<&TexFont> {
         match self.face_map.get(font_face){
             Some(face) => {
@@ -135,31 +135,19 @@ impl  FontSheet {
     }
     // TODO 改成返回一个查询器， 这样在多个字符查询时，少很多hash查找
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
-    pub fn measure(&mut self, font_face: &Atom, font_size: usize, sw: usize, c: char) -> (Vector2, Atom, bool, f32) {
-        match self.char_w_map.entry((font_face.clone(), c)) {
+    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2, Atom, bool, f32) {
+        match self.char_w_map.entry((font.name.clone(), c)) {
             Entry::Occupied(e) => {
                 let r = e.get();
                 let sw = (sw + sw) as f32;
                 return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw, r.2 * font_size as f32 + sw), r.1.clone(), r.3, r.0)
             },
             Entry::Vacant(r) => {
-                match self.face_map.get(font_face) {
-                    Some(face) => {;
-                        for name in &face.src {
-                            match self.src_map.get(name) {
-                                Some(font) => {
-                                    let w = self.measure_char.as_ref()(name, FONT_SIZE as usize, c);
-                                    let sw = sw as f32 + sw as f32;
-                                    if w > 0.0 {
-                                        r.insert((w, name.clone(), font.factor, font.is_pixel));
-                                        return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw, font.factor * font_size as f32 + sw), name.clone(), font.is_pixel, w)
-                                    }
-                                },
-                                _ => ()
-                            }
-                        }
-                    },
-                    _ => ()
+                let w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
+                let sw = sw as f32 + sw as f32;
+                if w > 0.0 {
+                    r.insert((w, font.name.clone(), font.factor, font.is_pixel));
+                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw, font.factor * font_size as f32 + sw), font.name.clone(), font.is_pixel, w)
                 }
             }
         }
@@ -289,7 +277,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 //     oblique * font_size * char_width // TODO FIX!!!
 // }
 
-
+#[derive(Clone]
 pub struct TexFont {
     pub name: Atom,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
