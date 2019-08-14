@@ -1,3 +1,5 @@
+/// 将设置布局属性的接口导出到js
+
 use std::mem::transmute;
 
 use ecs::{LendMut};
@@ -16,7 +18,7 @@ macro_rules! func_enum {
             let value = unsafe{transmute(value)};
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+	        let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
@@ -32,7 +34,7 @@ macro_rules! func_value {
         pub fn $func(world: u32, node_id: u32, value: f32){
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+	        let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(value);
                 true
@@ -49,7 +51,7 @@ macro_rules! func_enum_value {
             let edge = unsafe{transmute(edge)};
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+	        let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func(edge, value);
                 true
@@ -65,7 +67,7 @@ macro_rules! func_auto {
         pub fn $func(world: u32, node_id: u32){
             let node_id = node_id as usize;
             let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+	        let world = &mut world.gui;
             unsafe {world.yoga.lend_mut().get_unchecked_write(node_id)}.modify(|s| {
                 s.$func();
                 true

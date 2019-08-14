@@ -5,6 +5,7 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom = {path="../../pi_lib/atom"}
+data_view = {path="../../pi_lib/data_view"}
 share = {path="../../pi_lib/share"}
 ecs = {path="../../pi_lib/ecs"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
@@ -36,3 +37,8 @@ codegen-units = 1
 # [profile.dev]
 # debug = 2
 # opt-level = 3
+
+[features]
+default = ["no_debug", "no_define_js"]
+no_debug = []
+no_define_js = []

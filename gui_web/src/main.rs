@@ -35,6 +35,7 @@ extern crate fx_hashmap;
 #[macro_use]
 extern crate serde_derive;
 extern crate ordered_float;
+extern crate data_view;
 
 use std::mem::transmute;
 
@@ -47,7 +48,7 @@ use share::Share;
 use atom::Atom;
 use hal_webgl::*;
 use hal_core::*;
-use ecs::{ LendMut, Lend};
+use ecs::{ LendMut};
 use gui::layout::{ YGAlign, FlexNode };
 use gui::world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::*;
@@ -56,8 +57,6 @@ use gui::single::RenderBegin;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
-use gui::render::res_mgr::ResMgr;
-
 
 pub mod class;
 pub mod style;
@@ -65,53 +64,43 @@ pub mod node;
 pub mod text;
 pub mod layout;
 pub mod transform;
+#[cfg(not(feature = "no_debug"))]
 pub mod debug;
 pub mod yoga;
 pub mod bc;
 pub mod world;
+#[cfg(not(feature = "no_define_js"))]
+pub mod rs_call_js;
 
 use bc::YgNode;
-use text::{ DrawTextSys, define_draw_canvas};//, define_draw_canvas
+use text::{ DrawTextSys};
+#[cfg(not(feature = "no_define_js"))]
+use rs_call_js::define_js;
 
 pub struct GuiWorld {
     pub gui: GuiWorld1<YgNode, WebglHalContext>,
     pub draw_text_sys: DrawTextSys,
 }
 
-// pub struct XX{
-//     pub gl: Share<HalContext + 'static>,
-//     pub res_mgr: ResMgr,
-//     pub map: fx_hashmap::FxHashMap32<u64, Share<HalProgram>>,
-// }
-
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn create_engine(mut res_cush_time: u32) -> u32{
-    // debug_println!("create_engine");
+pub fn create_engine(mut res_cush_time: u32/* 资源销毁默认延迟时间 */) -> u32{
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
     let gl = WebglHalContext::new(gl, fbo, true);
 
-    if res_cush_time < 500 {
-        res_cush_time = 500;
+    if res_cush_time < 1000 {
+        res_cush_time = 1000;
     }
-    // let mgr = ResMgr::new(res_cush_time);
-    // let s: Share<HalContext + 'static> = Share::new(gl);
-    // // let map: fx_hashmap::FxHashMap32<u64, Share<HalProgram>> = fx_hashmap::FxHashMap32::default();
-    // let r = XX{
-    //     gl: s,
-    //     res_mgr: unimplemented!(),
-    //     map: unimplemented!(),
-    // };
     let engine = Engine::new(gl, res_cush_time);
-    // 1
     Box::into_raw(Box::new(engine)) as u32
 }
+
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
-    debug_println!("create_gui");
-    let mut engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
+    // 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
+    let mut engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; 
     
     let draw_text_sys = DrawTextSys::new();
     let c = draw_text_sys.canvas.clone();
@@ -153,6 +142,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     Box::into_raw(Box::new(world)) as u32
 }
 
+// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
@@ -163,29 +153,22 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
     Share::make_mut(&mut render_begin.0).clear_color = Some((OrderedFloat(r), OrderedFloat(g), OrderedFloat(b), OrderedFloat(a))); 
 }
 
-// 渲染gui
+// 渲染gui， 通常每帧调用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn render(world_id: u32){
-    // debug_println!("gui render");
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
-    // let time = std::time::Instant::now();
     world.draw_text_sys.run(world_id);
-    // println!("cal text canvas---------------{:?}",  std::time::Instant::now() - time);
 	let world = &mut world.gui;
     load_image(world_id);
     world.world.run(&RENDER_DISPATCH);
 }
 
-// 计算布局
+// 强制计算一次布局
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn cal_layout(world_id: u32){
-    debug_println!("cal_layout");
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
-    // let time = std::time::Instant::now();
-    // world.draw_text_sys.run(world_id);
-    // println!("cal text canvas1---------------{:?}",  std::time::Instant::now() - time);
 	let world = &mut world.gui;
     world.world.run(&LAYOUT_DISPATCH);
 }
@@ -201,57 +184,7 @@ pub fn set_shader(engine: u32){
     engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 
-#[no_mangle]
-pub fn has_texture_res(world: u32, key: String) -> bool{
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let engine = world.engine.lend();
-    let key = Atom::from(key);
-    match engine.res_mgr.get::<TextureRes>(&key) {
-        Some(_res) => true,
-        None => false,
-    }
-}
-
-#[no_mangle]
-pub fn get_texture_res(world: u32, key: String) -> u32{
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let engine = world.engine.lend();
-    let key = Atom::from(key);
-    match engine.res_mgr.get::<TextureRes>(&key) {
-        Some(res) => Box::into_raw(Box::new(res)) as u32,
-        None => 0,
-    }
-}
-
-#[no_mangle]
-pub fn release_texture_res(texture: u32){
-    unsafe { Box::from_raw(texture as usize as *mut Share<TextureRes>) };
-}
-
-//__jsObj: image,  __jsObj1: key
-#[no_mangle]
-pub fn create_texture_res(world: u32, opacity: u8, compress: u8) -> u32{
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let engine = world.engine.lend_mut();
-    let name: String = js!{return __jsObj1}.try_into().unwrap();
-    let name = Atom::from(name);
-
-    let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-    let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
-
-    let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
-        Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-        Err(_) => panic!("set_src error"),
-    };
-
-    let res = engine.res_mgr.create::<TextureRes>(name, TextureRes::new(width as usize, height as usize, unsafe{transmute(opacity)}, unsafe{transmute(compress)}, texture) );
-    Box::into_raw(Box::new(res)) as u32
-}
-
-
+// 加载图片成功后调用
 // image_name可以使用hash值与高层交换 TODO
 // __jsObj: image, __jsObj1: image_name(String)
 #[no_mangle]
@@ -281,6 +214,7 @@ pub fn load_image_success(world_id: u32, opacity: u8, compress: u8){
     image_wait_sheet.get_notify().modify_event(0, "", 0);
 }
 
+// 加载图片，调用高层接口，加载所有等待中的图片
 fn load_image(world_id: u32) {
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
 
@@ -297,13 +231,9 @@ fn load_image(world_id: u32) {
     image_wait_sheet.loads.clear();
 }
 
-fn main(){
-    // let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    // let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
-    // let gl = WebglHalContext::new(gl, fbo, true);
 
-    // // let gl: WebGLRenderingContext = unimplemented!();
-    // // let fbo: Option<Object> = unimplemented!();
-    // // let gl = WebglHalContext::new(gl, fbo, true);
-    define_draw_canvas();
+fn main(){
+    // 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）
+    #[cfg(not(feature = "no_define_js"))]
+    define_js();
 }

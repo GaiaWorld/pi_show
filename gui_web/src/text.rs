@@ -1,3 +1,4 @@
+/// 将设置文本属性的接口导出到js
 use std::mem::{transmute};
 
 use stdweb::unstable::TryInto;
@@ -5,9 +6,11 @@ use stdweb::web::{ TypedArray };
 use stdweb::{Object};
 
 use atom::Atom;
+use data_view::GetView;
 use ecs::{LendMut};
 use hal_core::*;
 use gui::component::user::*;
+use gui::font::font_sheet::{ FontSheet, TexFont, Glyph };
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
 
@@ -160,42 +163,27 @@ pub fn set_font_family(world: u32, node_id: u32){
     debug_println!("set_font_family"); 
 }
 
-//           配置       图片                     图片名称
-//__jsObj: uv cfg, __jsObj1: image | canvas, __jsObj2: name(String)
+//           配置       图片
+//__jsObj: glyph cfg, __jsObj1: image
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn add_sdf_font_res(_world: u32, _dyn_type: u32) {
-    // if dyn_type > 0 {
-    //     js!{
-    //         var ctx = __jsObj1.getContext("2d");
-    //         ctx.fillStyle = "#00f";
-	// 	    ctx.fillRect(0, 0, __jsObj1.width, __jsObj1.height);
-    //     }
-    // }
-    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	// let world = &mut world.gui;
-    // let name: String = js!(return __jsObj2;).try_into().unwrap();
-    // let name = Atom::from(name);
-    // let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
-    // let cfg = cfg.to_vec();
-    // let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
-    // let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
-    // let engine = world.engine.lend_mut();
-    // let font_sheet = world.font_sheet.lend_mut();
+pub fn add_msdf_font_res(world_id: u32) {
+    let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    let cfg = cfg.to_vec();
+    let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
+    let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
+    let engine = world.engine.lend_mut();
+    let font_sheet = world.font_sheet.lend_mut();
+    
+    if width > 2048 {
+        println!("add_msdf_font_res fail, width > 2048");
+    }
 
-    // let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj1};}) {
-    //     Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-    //     Err(_) => panic!("set_src error"),
-    // };
+    update_text_texture(world_id, 0, 0, height);
 
-    // let texture_res = TextureRes::new(width as usize, height as usize, unsafe{transmute(Opacity::Translucent)}, unsafe{transmute(0 as u8)}, texture);
-    // let texture_res = engine.res_mgr.create(name, texture_res);
-    // // new_width_data
-    // let mut sdf_font = DefaultSdfFont::new(texture_res, dyn_type as usize);
-    // sdf_font.parse(cfg.as_slice()).unwrap();
-    // // _println!("sdf_font parse end: name: {:?}, {:?}", &sdf_font.name, &sdf_font.glyph_table);
-
-    // font_sheet.set_src(sdf_font.name(), Share::new(sdf_font));
+    parse_msdf_font_res(cfg.as_slice(), font_sheet).unwrap();
 }
 
 // __jsObj 文字字符串
@@ -237,7 +225,7 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32){
 // __jsObj: canvas
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn update_canvas_text(world: u32, u: u32, v: u32, height: u32) {
+pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let font_sheet = world.font_sheet.lend_mut();
@@ -260,7 +248,6 @@ pub fn update_canvas_text(world: u32, u: u32, v: u32, height: u32) {
 #[derive(Debug, Serialize)]
 pub struct TextInfo {
     pub font: String,
-    pub factor: f32,
     pub font_size: f32,
     pub stroke_width: usize,
     pub size: (f32, f32),
@@ -310,7 +297,6 @@ impl DrawTextSys {
             info_list.list.push(
                 TextInfo{
                     font: font_sheet.wait_draw.font.as_ref().to_string(),
-                    factor: font_sheet.wait_draw.factor,
                     font_size: font_sheet.wait_draw.font_size,
                     stroke_width: font_sheet.wait_draw.stroke_width,
                     size: (font_sheet.wait_draw.size.x, font_sheet.wait_draw.size.y),
@@ -325,7 +311,6 @@ impl DrawTextSys {
                 info_list.list.push(
                     TextInfo{
                         font: wait_draw.font.as_ref().to_string(),
-                        factor: wait_draw.factor,
                         font_size: wait_draw.font_size,
                         stroke_width: wait_draw.stroke_width,
                         size: (wait_draw.size.x, wait_draw.size.y),
@@ -343,46 +328,6 @@ impl DrawTextSys {
     }
 }
 
-pub fn define_draw_canvas(){
-    js!{
-        __draw_text_canvas = function(world, textInfoList, c){
-            for (var j = 0; j < textInfoList.list.length; j++) {
-                
-                var text_info = textInfoList.list[j];
-
-                var k = 0;
-                var canvas = c.canvas;
-                var ctx = c.ctx;
-                var fontName = text_info.font_size + "px " + text_info.font;
-                for (var i = 0; i < text_info.chars.length; i++) {
-                    var char_info = text_info.chars[i];
-                    canvas.width = char_info.width;
-                    canvas.height = text_info.size[1]; 
-                    ctx.fillStyle = "#00f"; 
-                    ctx.font = fontName;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    if (text_info.stroke_width > 0.0) {
-                        ctx.lineWidth = text_info.stroke_width;
-                        ctx.fillStyle = "#0f0";
-                        ctx.strokeStyle = "#f00";
-                        ctx.textBaseline = "bottom";
-                        
-                        ctx.strokeText(char_info.ch, text_info.stroke_width, canvas.height);
-                        ctx.fillText(char_info.ch, text_info.stroke_width, canvas.height);
-                    } else {
-                        ctx.fillStyle = "#0f0";
-                        ctx.textBaseline = "bottom";
-                        ctx.fillText(char_info.ch, 0, canvas.height);
-                    }
-                    window.__jsObj = canvas;
-                    Module._update_canvas_text(world, char_info.x, char_info.y, canvas.height);
-                }
-            }
-            Module._set_render_dirty(world);
-        };
-    }
-}
-
 fn next_power_of_two(value: u32) -> u32 {
     let mut value = value - 1;
     value |= value >> 1;
@@ -392,4 +337,46 @@ fn next_power_of_two(value: u32) -> u32 {
     value |= value >> 16;
     value += 1;
     value
+}
+
+// 解析msdf文字配置
+#[inline]
+fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), String>{
+    let mut offset = 12;
+    let mut tex_font = TexFont{
+        name: Atom::from(""),
+        is_pixel: false,
+        factor: 1.0,
+    };
+
+    match String::from_utf8(Vec::from(&value[0..11])) {
+        Ok(s) => if s != "GLYPL_TABLE".to_string() {
+            return Err("parse error, it's not GLYPL_TABLE".to_string());
+        },
+        Err(s) => return Err(s.to_string()),
+    };
+    
+    let name_len = value.get_u8(offset);
+    offset += 1;
+    let name_str = match String::from_utf8(Vec::from(&value[offset..offset + name_len as usize])) {
+        Ok(s) => s,
+        Err(s) => return Err(s.to_string()),
+    };
+    offset += name_len as usize;
+    tex_font.name = Atom::from(name_str);
+
+    
+    offset += 13; // 遵循 旧的配置表结构， 若配置表结构更新， 再来改此处 TODO
+    //字符uv表
+    loop {
+        if offset >= value.len() {
+            break;
+        }
+        let ch = unsafe{transmute( value.get_lu16(offset) as u32 )} ;
+        offset += 2;
+        let glyph = Glyph::parse(value, &mut offset);
+        let index = font_sheet.char_slab.insert((ch, glyph));
+        font_sheet.char_map.insert((tex_font.name.clone(), 0, 0, ch), index);
+    }
+    Ok(())
 }

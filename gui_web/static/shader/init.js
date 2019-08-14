@@ -207,20 +207,6 @@ function init_program(gl) {
     return program;
 }
 
-function __load_image(gui, image_name){
-    var image = new Image();
-    image.onload = () => {
-        window.__jsObj = image;
-        window.__jsObj1 = image_name;
-        var opacity = 0;
-        if (image_name.endsWith("png")) {
-            opacity = 1;
-        }
-        Module._load_image_success(gui, opacity , 0);
-    };
-    image.src = image_name;
-}
-
 var YGEdgeLeft = 0;
 var YGEdgeTop = 1;
 var YGEdgeRight = 2;
@@ -243,15 +229,16 @@ var FitType_Cover = 3;
 var FitType_ScaleDown = 4;
 
 // 绘制canvas文字， 并更新到纹理
-window.__draw_text_canvas = function(world, textInfoList, c){
+function __draw_text_canvas(world, textInfoList, c){
     for (var j = 0; j < textInfoList.list.length; j++) {
         
         var text_info = textInfoList.list[j];
 
-        var k = 0;
         var canvas = c.canvas;
         var ctx = c.ctx;
         var fontName = text_info.font_size + "px " + text_info.font;
+        var hal_stroke_width = text_info.stroke_width/2;
+        var bottom = text_info.size[1] - hal_stroke_width;
         for (var i = 0; i < text_info.chars.length; i++) {
             var char_info = text_info.chars[i];
             canvas.width = char_info.width;
@@ -265,16 +252,31 @@ window.__draw_text_canvas = function(world, textInfoList, c){
                 ctx.strokeStyle = "#f00";
                 ctx.textBaseline = "bottom";
                 
-                ctx.strokeText(char_info.ch, text_info.stroke_width, canvas.height);
-                ctx.fillText(char_info.ch, text_info.stroke_width, canvas.height);
+                ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
+                ctx.fillText(char_info.ch, hal_stroke_width, bottom);
             } else {
                 ctx.fillStyle = "#0f0";
                 ctx.textBaseline = "bottom";
-                ctx.fillText(char_info.ch, 0, canvas.height);
+                ctx.fillText(char_info.ch, 0, bottom);
+
             }
             window.__jsObj = canvas;
-            Module._update_canvas_text(world, char_info.x, char_info.y, canvas.height);
+            Module._update_text_texture(world, char_info.x, char_info.y, canvas.height);
         }
     }
     Module._set_render_dirty(world);
 };
+
+function __load_image(gui, image_name){
+    var image = new Image();
+    image.onload = () => {
+        window.__jsObj = image;
+        window.__jsObj1 = image_name;
+        var opacity = 0;
+        if (image_name.endsWith("png")) {
+            opacity = 1;
+        }
+        Module._load_image_success(gui, opacity , 0);
+    };
+    image.src = image_name;
+}
