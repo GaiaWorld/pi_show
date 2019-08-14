@@ -40,7 +40,7 @@ pub fn define_js(){
             Module._set_render_dirty(world);
         };
 
-        window.__load_image(gui, image_name){
+        window.__load_image = function(gui, image_name){
             var image = new Image();
             image.onload = () => {
                 window.__jsObj = image;

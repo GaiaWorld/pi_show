@@ -38,7 +38,7 @@ const SDF_FONT_SIZE: f32 = 32.0;
 pub struct FontSheet {
     size: f32,
     color: CgColor,
-    src_map: FxHashMap32<Atom, TexFont>,
+    pub src_map: FxHashMap32<Atom, TexFont>,
     face_map: FxHashMap32<Atom, FontFace>,
     char_w_map: FxHashMap32<(Atom, char), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
     pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
