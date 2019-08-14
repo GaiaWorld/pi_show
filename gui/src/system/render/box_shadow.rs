@@ -1,17 +1,14 @@
 /**
  * Box Shadow
  */
-use std::marker::PhantomData;
 use share::Share;
-use std::hash::{ Hasher, Hash };
-use fxhash::FxHasher32;
-use fnv::{ FnvHashMap, FnvHasher };
-use ecs::{ CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner };
+use std::slice;
+use std::marker::PhantomData;
+use ecs::{ SingleCaseImpl, MultiCaseImpl, Runner };
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
-use atom::Atom;
 use polygon::*;
-
+use cg2d::{Point2, Polygon as Polygon2d, BooleanOperation};
 use component::user::*;
 use component::calc::*;
 use component::calc::{ Opacity };
@@ -20,17 +17,15 @@ use single::*;
 use render::engine::{ Engine };
 use render::res::GeometryRes;
 use system::util::*;
-use system::util::constant::*;
 use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
-use system::render::util::*;
 
-pub struct BoxShadowSys {
+pub struct BoxShadowSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
     dirty_ty: usize,
-    
+    marker: std::marker::PhantomData<C>,
 }
 
-impl Default for BoxShadowSys {
+impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
     fn default() -> Self {
         let dirty_ty = StyleType::BoxShadow as usize 
             | StyleType::Matrix as usize 
@@ -41,13 +36,13 @@ impl Default for BoxShadowSys {
         Self {
             dirty_ty,
             render_map: VecMap::default(),
-            
+            marker: PhantomData,
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a> Runner<'a> for BoxShadowSys {
+impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -143,8 +138,7 @@ impl<'a> Runner<'a> for BoxShadowSys {
                 to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
-                // TODO
-                // render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
+                render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
             }
 
             // 渲染管线脏， 创建渲染管线
@@ -161,34 +155,22 @@ impl<'a> Runner<'a> for BoxShadowSys {
                 ));
             }
             
-            // TODO 矩阵脏，或者布局脏
-            // if dirty & StyleType::Matrix as usize != 0 
-            // || dirty & StyleType::Layout as usize != 0 {
-            //     let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
-            //     let transform =  match transforms.get(*id) {
-            //         Some(r) => r,
-            //         None => default_transform,
-            //     };
-            //     let depth = unsafe{z_depths.get_unchecked(*id)}.0;
-            //     let is_unit_geo = match &color.0 {
-            //         Color::RGBA(_) => {
-            //             let radius = cal_border_radius(border_radius, layout);
-            //             let g_b = geo_box(layout);
-            //             if radius.x <= g_b.min.x {
-            //                 true
-            //             } else {
-            //                 false
-            //             }
-            //         },
-            //         Color::LinearGradient(_) => false,
-            //     };
-            //     modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
-            // }
+            // 矩阵脏，或者布局脏
+            if dirty & StyleType::Matrix as usize != 0 
+            || dirty & StyleType::Layout as usize != 0 {
+                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let transform =  match transforms.get(*id) {
+                    Some(r) => r,
+                    None => default_transform,
+                };
+                let depth = unsafe{z_depths.get_unchecked(*id)}.0;
+                modify_matrix(render_obj, depth, world_matrix, transform, layout);
+            }
         }
     }
 }
 
-impl BoxShadowSys {
+impl<C: HalContext + 'static> BoxShadowSys<C> {
 
     #[inline]
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
@@ -201,7 +183,6 @@ impl BoxShadowSys {
         };
     }
 
-        #[inline]
     fn create_render_obj(
         &mut self,
         id: usize,
@@ -209,7 +190,7 @@ impl BoxShadowSys {
         visibility: bool,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
-    ) -> usize{
+    ) -> usize {
         
         let render_obj = RenderObj {
             depth: z_depth - 0.3,
@@ -243,17 +224,19 @@ impl BoxShadowSys {
 }
 
 #[inline]
-fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
-    opacity == 1.0 && color.a == 1.0
+fn modify_matrix(
+    render_obj: &mut RenderObj,
+    depth: f32,
+    world_matrix: &WorldMatrix,
+    transform: &Transform,
+    layout: &Layout) {
+        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
+        render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
 }
 
 #[inline]
-fn create_u_color_ubo(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
-    let h = f32_4_hash(c.r, c.g, c.b, c.a);
-    match engine.res_mgr.get::<UColorUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
-    }
+fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
+    opacity == 1.0 && color.a == 1.0
 }
 
 #[inline]
@@ -268,56 +251,84 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
     }
 }
 
-// #[inline]
-// fn create_shadow_geo(
-//     engine: &mut Engine<C>,
-//     layout: &Layout,
-//     shadow: &BoxShadow,
-//     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
+#[inline]
+fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
+    let h = f32_4_hash(c.r, c.g, c.b, c.a);
+    match engine.res_mgr.get::<UColorUbo>(&h) {
+        Some(r) => r,
+        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
+    }
+}
+
+fn create_shadow_geo<C: HalContext + 'static>(
+    engine: &mut Engine<C>,
+    layout: &Layout,
+    shadow: &BoxShadow,
+    border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
     
-//     let radius = cal_border_radius(border_radius, layout);
-//     let g_b = geo_box(layout);
-//     if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
-//         return None;
-//     }
+    let radius = cal_border_radius(border_radius, layout);
+    let g_b = geo_box(layout);
+    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+        return None;
+    }
 
-//     if radius.x <= g_b.min.x {
-//         return Some(unit_quad.clone());
-//     } else {
-//         let mut hasher = FxHasher32::default();
-//         radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
-//         let hash = hasher.finish();
-//         match engine.res_mgr.get::<GeometryRes>(&hash) {
-//             Some(r) => Some(r.clone()),
-//             None => {
-//                 println!("g_b: {:?}, radius.x - g_b.min.x: {}", g_b, radius.x - g_b.min.x);
-//                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
-//                 println!("r: {:?}", r);
-//                 if r.0.len() == 0 {
-//                     return None;
-//                 } else {
-//                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-//                     println!("indices: {:?}", indices);
-//                     // 创建geo， 设置attribut
-//                     let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
-//                     let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-//                     let geo = create_geometry(&engine.gl);
-//                     engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
-//                     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
-//                     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+    let x = g_b.min.x;
+    let y = g_b.min.y;
+    let w = g_b.max.x - g_b.min.x;
+    let h = g_b.max.y - g_b.min.y;
+    let bg = split_by_radius(x, y, w, h, radius.x, None);
+    if bg.0.len() == 0 {
+        return None;
+    }
+    
+    let x = g_b.min.x + shadow.h;
+    let y = g_b.min.y + shadow.v;
+    let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread;
+    let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread;
+    let shadow = split_by_radius(x, y, w, h, radius.x, None);
+    if shadow.0.len() == 0 {
+        return None;
+    }
+    
+    let polygon_shadow = Polygon2d::new(convert_to_point(shadow.0.as_slice()));
+    let polygon_bg = Polygon2d::new(convert_to_point(bg.0.as_slice()));
+    
+    let mut curr_index = 0;
+    let pts: Vec<f32> = vec![];
+    let indices: Vec<u16> = vec![];
+    for p in Polygon2d::boolean(&polygon_shadow, &polygon_bg, BooleanOperation::Difference) {
+        pts.extend_from_slice( convert_to_f32(p.vertices.as_slice()) );
+        
+        let tri_indices = p.triangulation();
+        indices.extend_from_slice(tri_indices.iter().map(|&v| (v + curr_index) as u16).collect::<Vec<u16>>().as_slice());
+        
+        curr_index += p.vertices.len();
+    }
 
-//                     // 创建缓存
-//                     let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
-//                     let share_geo = engine.res_mgr.create(hash, geo_res);
-//                     return Some(share_geo);
-//                 }
-//             }
-//         }
-//     }
-// }
+    if pts.len() == 0 {
+        return None;
+    }
 
-impl_system!{
-    BoxShadowSys,
+    let geo = create_p_i_geometry(pts.as_slice(), indices.as_slice(), engine);
+    Some(Share::new(geo))
+}
+
+#[inline]
+fn convert_to_point(pts: &[f32]) -> &[Point2<f32>] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const Point2<f32>;
+    unsafe { slice::from_raw_parts(ptr, pts.len() / 2) }
+}
+
+#[inline]
+fn convert_to_f32(pts: &[Point2<f32>]) -> &[f32] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const f32;
+    unsafe { slice::from_raw_parts(ptr, 2 * pts.len()) }
+}
+
+impl_system! {
+    BoxShadowSys<C> where [C: HalContext + 'static],
     true,
     {
     }
