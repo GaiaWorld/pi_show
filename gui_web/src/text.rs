@@ -163,18 +163,17 @@ pub fn set_font_family(world: u32, node_id: u32){
     debug_println!("set_font_family"); 
 }
 
-//           配置       图片
-//__jsObj: glyph cfg, __jsObj1: image
+// 图片            配置       
+//__jsObj: image , __jsObj1: glyph cfg
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_msdf_font_res(world_id: u32) {
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
-    let cfg: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    let cfg: TypedArray<u8> = js!(return __jsObj1;).try_into().unwrap();
     let cfg = cfg.to_vec();
-    let width: u32 = js!(return __jsObj1.width;).try_into().unwrap();
-    let height: u32 = js!(return __jsObj1.height;).try_into().unwrap();
-    let engine = world.engine.lend_mut();
+    let width: u32 = js!(return __jsObj.width;).try_into().unwrap();
+    let height: u32 = js!(return __jsObj.height;).try_into().unwrap();
     let font_sheet = world.font_sheet.lend_mut();
     
     if width > 2048 {
@@ -378,5 +377,6 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), S
         let index = font_sheet.char_slab.insert((ch, glyph));
         font_sheet.char_map.insert((tex_font.name.clone(), 0, 0, ch), index);
     }
+    font_sheet.src_map.insert(tex_font.name.clone(), tex_font);
     Ok(())
 }

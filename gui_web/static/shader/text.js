@@ -15,6 +15,7 @@ let text_vs_code = `
     uniform mat4 worldMatrix;
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
+    uniform vec2 textureSize;
 
     // Varyings
     #ifdef VERTEX_COLOR
@@ -28,7 +29,8 @@ let text_vs_code = `
     #ifdef VERTEX_COLOR
         vColor = color;
     #endif
-        vUV = uv0;
+        // vUV = uv0;
+        vUV = vec2(uv0.x/textureSize.x, uv0.y/textureSize.y);
     }
 `;
 let text_fs_code = `

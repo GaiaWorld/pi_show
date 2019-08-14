@@ -38,7 +38,7 @@ codegen-units = 1
 # debug = 2
 # opt-level = 3
 
-[features]
-default = ["no_debug", "no_define_js"]
-no_debug = []
-no_define_js = []
+# [features]
+# default = ["no_debug", "no_define_js"]
+# no_debug = []
+# no_define_js = []
