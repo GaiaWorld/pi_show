@@ -260,7 +260,6 @@ pub fn update_canvas_text(world: u32, u: u32, v: u32, height: u32) {
 #[derive(Debug, Serialize)]
 pub struct TextInfo {
     pub font: String,
-    pub factor: f32,
     pub font_size: f32,
     pub stroke_width: usize,
     pub size: (f32, f32),
@@ -310,7 +309,6 @@ impl DrawTextSys {
             info_list.list.push(
                 TextInfo{
                     font: font_sheet.wait_draw.font.as_ref().to_string(),
-                    factor: font_sheet.wait_draw.factor,
                     font_size: font_sheet.wait_draw.font_size,
                     stroke_width: font_sheet.wait_draw.stroke_width,
                     size: (font_sheet.wait_draw.size.x, font_sheet.wait_draw.size.y),
@@ -325,7 +323,6 @@ impl DrawTextSys {
                 info_list.list.push(
                     TextInfo{
                         font: wait_draw.font.as_ref().to_string(),
-                        factor: wait_draw.factor,
                         font_size: wait_draw.font_size,
                         stroke_width: wait_draw.stroke_width,
                         size: (wait_draw.size.x, wait_draw.size.y),

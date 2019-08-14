@@ -61,7 +61,6 @@ impl  FontSheet {
             char_slab: Slab::default(),
             wait_draw: TextInfo {
                 font: Atom::from(""),
-                factor: 1.0,
                 font_size: 0.0,
                 stroke_width: 0,
                 size: Vector2::default(),
@@ -89,6 +88,7 @@ impl  FontSheet {
         self.src_map.get(name)
     }
 
+    // 取字体详情
     pub fn get_font_info(&self, font_face: &Atom) -> Option<(&TexFont, usize/* font_size */)> {
         match self.face_map.get(font_face) {
             Some(face) => {;
@@ -155,79 +155,74 @@ impl  FontSheet {
     }
 
     // 添加一个字形信息, 
-    pub fn calc_gylph(&mut self, font_name: &Atom, font_size: usize, stroke_width: usize, scale: f32, base_width: usize, c: char) -> usize {
-        match self.src_map.get(font_name) {
-            Some(font) => if font.is_pixel {// 像素纹理
-                //let fs = font_size as f32 * font.factor;
-                let fs_scale = (font_size as f32 * scale).round() as usize;
-                // 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
-                let sw = if stroke_width != 0 {
-                    let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
-                    if r == 0 {1}else{r} // 保证最少1个像素
-                // }else if fs_scale < SMALL_FONT {
-                //     1
-                // }else{
-                //     2
-                } else {
-                    0
-                };
-                // 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
-                let id = match self.char_map.entry((font_name.clone(), fs_scale, sw, c)) {
-                    Entry::Occupied(e) => *e.get(),
-                    Entry::Vacant(r) => {
-   
-                        // 在指定字体及字号下，查找该字符的宽度
-                        let mut w = (base_width as f32 * (fs_scale as f32)/FONT_SIZE).ceil(); 
-                        w += (sw + sw) as f32;
-                        // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-                        let height = (fs_scale as f32 * font.factor).round() as usize + sw + sw;
-                        let mut line = self.font_tex.alloc_line(height);
-                        let p = line.alloc(w);
-                        let id = self.char_slab.insert((c, Glyph{
-                            x: p.x,
-                            y: p.y,
-                            ox: 0.0, 
-                            oy: 0.0,
-                            width: w, 
-                            height: height as f32,
-                            advance: w,
-                        }));
-                        // 将需要渲染的字符放入等待队列
-                        if self.wait_draw.font != *font_name || self.wait_draw.font_size != fs_scale as f32 || self.wait_draw.stroke_width != sw {
-                            if self.wait_draw.chars.len() > 0 {
-                                let info = replace(&mut self.wait_draw, TextInfo{
-                                    font: font_name.clone(),
-                                    factor: font.factor,
-                                    font_size: fs_scale as f32 ,
-                                    stroke_width: sw,
-                                    size: Vector2::new(w, height as f32),
-                                    chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
-                                });
-                                self.wait_draw_list.push(info);
-                            }else{
-                                self.wait_draw.font = font_name.clone();
-                                self.wait_draw.factor = font.factor;
-                                self.wait_draw.font_size = fs_scale as f32 ;
-                                self.wait_draw.stroke_width = sw;
-                                self.wait_draw.size = Vector2::new(w, height as f32);
-                                self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
-                            }
+    pub fn calc_gylph(&mut self, font: &TexFont, font_size: usize, stroke_width: usize, scale: f32, base_width: usize, c: char) -> usize {
+        if font.is_pixel {// 像素纹理
+            //let fs = font_size as f32 * font.factor;
+            let fs_scale = (font_size as f32 * scale).round() as usize;
+            // 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
+            let sw = if stroke_width != 0 {
+                let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
+                if r == 0 {1}else{r} // 保证最少1个像素
+            // }else if fs_scale < SMALL_FONT {
+            //     1
+            // }else{
+            //     2
+            } else {
+                0
+            };
+            // 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
+            let id = match self.char_map.entry((font.name.clone(), fs_scale, sw, c)) {
+                Entry::Occupied(e) => *e.get(),
+                Entry::Vacant(r) => {
+
+                    // 在指定字体及字号下，查找该字符的宽度
+                    let mut w = (base_width as f32 * (fs_scale as f32)/FONT_SIZE).ceil(); 
+                    w += (sw + sw) as f32;
+                    // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
+                    let height = (fs_scale as f32 * font.factor).round() as usize + sw + sw;
+                    let mut line = self.font_tex.alloc_line(height);
+                    let p = line.alloc(w);
+                    let id = self.char_slab.insert((c, Glyph{
+                        x: p.x,
+                        y: p.y,
+                        ox: 0.0, 
+                        oy: 0.0,
+                        width: w, 
+                        height: height as f32,
+                        advance: w,
+                    }));
+                    // 将需要渲染的字符放入等待队列
+                    if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale as f32 || self.wait_draw.stroke_width != sw {
+                        if self.wait_draw.chars.len() > 0 {
+                            let info = replace(&mut self.wait_draw, TextInfo{
+                                font: font.name.clone(),
+                                font_size: fs_scale as f32 ,
+                                stroke_width: sw,
+                                size: Vector2::new(w, height as f32),
+                                chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
+                            });
+                            self.wait_draw_list.push(info);
                         }else{
-                            self.wait_draw.size.x += w;
-                            self.wait_draw.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});
+                            self.wait_draw.font = font.name.clone();
+                            self.wait_draw.font_size = fs_scale as f32 ;
+                            self.wait_draw.stroke_width = sw;
+                            self.wait_draw.size = Vector2::new(w, height as f32);
+                            self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
                         }
-                        r.insert(id);
-                        id
+                    }else{
+                        self.wait_draw.size.x += w;
+                        self.wait_draw.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});
                     }
-                };
-                return id;
-            }else{// SDF 字体， 根据字形Glyph计算宽度
-                match self.char_map.get(&(font_name.clone(), 0, 0, c)) {
-                    Some(id) => return *id,
-                    _ => ()
+                    r.insert(id);
+                    id
                 }
-            },
-            _ => ()
+            };
+            return id;
+        }else{// SDF 字体， 根据字形Glyph计算宽度
+            match self.char_map.get(&(font.name.clone(), 0, 0, c)) {
+                Some(id) => return *id,
+                _ => ()
+            }
         }
         0
     }
@@ -277,7 +272,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 //     oblique * font_size * char_width // TODO FIX!!!
 // }
 
-#[derive(Clone]
+#[derive(Clone)]
 pub struct TexFont {
     pub name: Atom,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
@@ -342,7 +337,6 @@ impl Glyph {
 
 pub struct TextInfo {
     pub font: Atom,
-    pub factor: f32,
     pub font_size: f32,
     pub stroke_width: usize,
     pub size: Vector2,

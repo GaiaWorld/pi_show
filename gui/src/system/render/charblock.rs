@@ -656,21 +656,22 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
     unsafe { NotNan::unchecked_new(text_style.letter_spacing).hash(hasher) };
     unsafe { NotNan::unchecked_new(text_style.indent).hash(hasher) };
     unsafe { NotNan::unchecked_new(text_style.word_spacing).hash(hasher) };
-    match text_style.line_height {
-        LineHeight::Normal => 0.hash(hasher),
-        LineHeight::Length(r) => {
-            1.hash(hasher);
-            unsafe { NotNan::unchecked_new(r).hash(hasher) };
-        },
-        LineHeight::Number(r) => {
-            2.hash(hasher);
-            unsafe { NotNan::unchecked_new(r).hash(hasher) };
-        },
-        LineHeight::Percent(r) => {
-            3.hash(hasher);
-            unsafe { NotNan::unchecked_new(r).hash(hasher) };
-        },
-    };
+    // TODO
+    // match text_style.line_height {
+    //     LineHeight::Normal => 0.hash(hasher),
+    //     LineHeight::Length(r) => {
+    //         1.hash(hasher);
+    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //     },
+    //     LineHeight::Number(r) => {
+    //         2.hash(hasher);
+    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //     },
+    //     LineHeight::Percent(r) => {
+    //         3.hash(hasher);
+    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //     },
+    // };
     text_style.text_align.hash(hasher);
     text_style.white_space.hash(hasher);
     text_style.vertical_align.hash(hasher);
@@ -704,7 +705,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     let len = char_block.chars.len();
     let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
-    // let font_size = char_block.font_size;
+    // let font_height = char_block.font_height;
     let mut i = 0;
     let offset = (char_block.pos.x, char_block.pos.y);
 
@@ -719,8 +720,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
-
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.line_height); 
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
@@ -750,7 +750,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         None => continue,
                     };
 
-                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.line_height);
+                    push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height);
                     
                     let (ps, indices_arr) = split_by_lg(
                         positions,
@@ -822,7 +822,7 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
             None => continue,
         };
         start = Point2::new(pos.x + glyph.ox, pos.y + glyph.oy);
-        end = Point2::new(start.x + ch.width, start.y + char_block.line_height);
+        end = Point2::new(start.x + ch.width, start.y + char_block.font_height);
         j += 1;
         break;
     }
@@ -844,7 +844,7 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
         if pos.y < start.y{
             start.y = pos.y;
         }
-        let end_y = char_block.line_height;
+        let end_y = char_block.font_height;
         if end_y > end.y {
             end.y = end_y;
         } 
@@ -924,9 +924,9 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     }
 }
 
-fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, line_height: f32){
+fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, font_height: f32){
     let left_top = (pos.x + offset.0 + glyph.ox, pos.y + offset.1 + glyph.oy);
-    let right_bootom = (left_top.0 + width, left_top.1 + line_height);
+    let right_bootom = (left_top.0 + width, left_top.1 + font_height);
     let ps = [
         left_top.0,     left_top.1,    
         left_top.0,     right_bootom.1,
