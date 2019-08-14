@@ -264,7 +264,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     };
     // 获得字体高度
     cb.font_size = get_size(tex_font.1, &text_style.font.size) as f32;
-    cb.font_height = tex_font.0.get_font_height(cb.font_size as usize);
+    cb.font_height = tex_font.0.get_font_height(cb.font_size as usize, text_style.text.stroke.width);
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
         println!("font_size==0.0, family: {:?}", text_style.font.family);
@@ -275,7 +275,6 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     cb.line_height = cb.font_size;
     // }
     cb.pos.y = (cb.line_height - cb.font_height)/2.0;
-    println!("cb.pos.y-----------------{}, {}, {}", cb.line_height, cb.font_height, cb.pos.y);
     // match parent_yoga.get_style_justify() {
     //     YGJustify::YGJustifyCenter => text_style.text.text_align = TextAlign::Center,
     //     YGJustify::YGJustifyFlexEnd => text_style.text.text_align = TextAlign::Right,
@@ -598,8 +597,8 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
         cb.wrap_size.x = w;
     }
     cb.pos.x = x;
-    cb.pos.y = y + (cb.line_height - cb.font_size)/2.0;
-    
+    cb.pos.y += y;
+
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
         match text_style.text.vertical_align {
             VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,

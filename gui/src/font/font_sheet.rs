@@ -41,8 +41,8 @@ pub struct FontSheet {
     src_map: FxHashMap32<Atom, TexFont>,
     face_map: FxHashMap32<Atom, FontFace>,
     char_w_map: FxHashMap32<(Atom, char), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
-    char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
-    char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
+    pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
+    pub char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
     pub wait_draw: TextInfo,
     pub wait_draw_list: Vec<TextInfo>,
     measure_char: Box<dyn Fn(&Atom, usize, char)-> f32>,
@@ -135,19 +135,17 @@ impl  FontSheet {
     }
     // TODO 改成返回一个查询器， 这样在多个字符查询时，少很多hash查找
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
-    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2, Atom, bool, f32) {
+    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2/*width,height*/, Atom/*font_name*/, bool/*is_pixel*/, f32/*base_width*/) {
         match self.char_w_map.entry((font.name.clone(), c)) {
             Entry::Occupied(e) => {
                 let r = e.get();
-                let sw = (sw + sw) as f32;
-                return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw, r.2 * font_size as f32 + sw), r.1.clone(), r.3, r.0)
+                return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw as f32, r.2 * font_size as f32 + sw as f32), r.1.clone(), r.3, r.0)
             },
             Entry::Vacant(r) => {
                 let w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
-                let sw = sw as f32 + sw as f32;
                 if w > 0.0 {
                     r.insert((w, font.name.clone(), font.factor, font.is_pixel));
-                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw, font.factor * font_size as f32 + sw), font.name.clone(), font.is_pixel, w)
+                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw as f32, font.factor * font_size as f32 + sw as f32), font.name.clone(), font.is_pixel, w)
                 }
             }
         }
@@ -177,9 +175,9 @@ impl  FontSheet {
 
                     // 在指定字体及字号下，查找该字符的宽度
                     let mut w = (base_width as f32 * (fs_scale as f32)/FONT_SIZE).ceil(); 
-                    w += (sw + sw) as f32;
+                    w += sw as f32;
                     // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-                    let height = (fs_scale as f32 * font.factor).round() as usize + sw + sw;
+                    let height = (fs_scale as f32 * font.factor).round() as usize + sw;
                     let mut line = self.font_tex.alloc_line(height);
                     let p = line.alloc(w);
                     let id = self.char_slab.insert((c, Glyph{
@@ -282,13 +280,13 @@ pub struct TexFont {
 impl TexFont {
     #[inline]
     pub fn get_line_height(&self, font_size: usize, line_height: &LineHeight) -> f32 {
-        (get_line_height(font_size, line_height) * self.factor * 100.0 ).round() / 100.0
+        (get_line_height(font_size, line_height) * 100.0 ).round() / 100.0
     }
     
     #[inline]
     //  获得字体大小, 0表示没找到该font_face
-    pub fn get_font_height(&self, size: usize) -> f32 {
-        size as f32 * self.factor
+    pub fn get_font_height(&self, size: usize, stroke_width: f32) -> f32 {
+        size as f32 * self.factor + stroke_width
     }
 }
 
@@ -304,9 +302,11 @@ pub struct Glyph {
 }
 
 impl Glyph {
+
     pub fn get_uv(&self, tex_size: &Vector2) -> Aabb2 {
         Aabb2::new(Point2::new(self.x / tex_size.x, self.y/ tex_size.y), Point2::new((self.x + self.width) / tex_size.x, (self.y + self.height) / tex_size.y))
     }
+
     pub fn parse(value: &[u8], offset: &mut usize) -> Self {
         let x = value.get_lu16(*offset);
         *offset += 2;

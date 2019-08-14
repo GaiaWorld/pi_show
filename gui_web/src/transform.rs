@@ -1,5 +1,6 @@
-use std::mem::transmute;
+/// 将设置几何变换属性的接口导出到js
 
+use std::mem::transmute;
 
 use ecs::{LendMut};
 

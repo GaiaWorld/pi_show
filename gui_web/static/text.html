@@ -24,7 +24,7 @@
         render_fram();
 
         window.__jsObj = "Arial";
-        Module._add_canvas_font(gui, 1.05);
+        Module._add_canvas_font(gui, 1.12);
 
         window.__jsObj = "common"; //font_face_name
         window.__jsObj1 = "Arial";
@@ -38,20 +38,21 @@
         var node1 = Module._create_node(gui);
         Module._set_width(gui, node1, 100);
         Module._set_height(gui, node1, 100);
+        Module._set_margin(gui, node1, YGEdgeAll, 100);
         Module._set_background_rgba_color(gui, node1, 1.0, 1.0, 0.0, 1.0);
         Module._append_child(gui, node1, body);
 
         // Module._transform_translate(gui, body, 500, 350);
-        // Module._transform_scale(gui, body, 2, 2);
+        Module._transform_scale(gui, node1, 2, 2);
         
         var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, body);
+        Module._append_child(gui, text_node, node1);
         // Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
         window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
         Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
         window.__jsObj = "逋";
         Module._set_text_content(gui, text_node); // 文字内容
-        // Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
+        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_line_height(gui, text_node, 100); // 行高， 该函数设置行高的像素值
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);

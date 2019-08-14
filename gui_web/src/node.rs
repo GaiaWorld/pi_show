@@ -1,20 +1,17 @@
+/// 将设置节点属性的接口导出到js
+
 use std::{
   usize::MAX as UMAX,
   f32::INFINITY as FMAX,
-  mem::transmute,
 };
 
 use stdweb::unstable::TryInto;
-use stdweb::Object;
 
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::idtree::{InsertType};
-use hal_core::*;
-use hal_webgl::*;
 use atom::Atom;
 use octree::intersects;
 use cg2d::{include_quad2, InnOuter};
-use share::Share;
 
 use gui::component::user::*;
 use gui::component::calc::*;
@@ -22,18 +19,14 @@ use gui::single::*;
 use gui::entity::Node;
 use gui::system::util::get_or_default;
 use gui::render::res::{TextureRes};
-use gui::layout::*;
 use gui::Z_MAX;
 
 use GuiWorld;
-use yoga as yoga1;
-
 
 fn create(world: &GuiWorld) -> usize {
     let world = &world.gui;
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
-    // println!("!!!!!!create----{}", node);
     let border_radius = world.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
     world.class_name.lend_mut().insert(node, ClassName(0));
@@ -57,7 +50,6 @@ fn insert_child(world: u32, child: u32, parent: u32, index: usize){
 pub fn create_node(world: u32) -> u32{
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
-    debug_println!("create_node, node:{}", node);
     node as u32
 }
 
@@ -66,7 +58,6 @@ pub fn create_node(world: u32) -> u32{
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
-    debug_println!("create_text_node, node:{}", node);
     node as u32
 }
 
@@ -76,7 +67,6 @@ pub fn create_text_node(world: u32) -> u32 {
 pub fn create_image_node(world: u32) -> u32{
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
-    debug_println!("create_image_node, node:{}", node);
     node as u32
 }
 
@@ -84,43 +74,33 @@ pub fn create_image_node(world: u32) -> u32{
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
-    // println!("!!!!!!append----parent: {}, child:{}", parent, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
-    // println!("xxxxxxxxxxxxxxxxx, append_child, child: {}, parent: {}", child, parent);
-    debug_println!("append_child"); 
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
-    // println!("!!!!!!insert before----brother: {}, child:{}", brother, child);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
-    // println!("xxxxxxxxxxxxxxxxx, insert_before, child: {}, brother: {}", child, brother);
-    debug_println!("insert_before"); 
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn remove_child(world: u32, node_id: u32){
-    // println!("!!!!!!remove_child----{}", node_id);
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     let node = world.node.lend_mut();
-    // idtree.remove(node as usize, Some(&notify));
     idtree.destroy(node_id as usize, true, Some(&notify));
-    node.delete(node_id as usize);
-    // println!("xxxxxxxxxxxxxxxxx, remove: {}", node);
-    debug_println!("remove_child: {}", node_id);  
+    node.delete(node_id as usize); 
 }
 
 // __jsObj: image_name(String)

@@ -1,4 +1,7 @@
 #![allow(non_snake_case, non_camel_case_types, non_upper_case_globals)]
+
+/// 对yoga bc的封装， 将静态函数封装为结构体的成员方法
+
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_float, c_void};
 

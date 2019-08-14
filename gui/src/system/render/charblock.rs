@@ -778,6 +778,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     indices = mult_to_triangle(&indices_arr, indices);
                     i = positions.len() as u16 / 2;
                 }
+
                 let colors = colors.pop().unwrap();
                 let color_buffer = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(&colors)), false);
                 let color_buffer = engine.res_mgr.add(color_buffer);

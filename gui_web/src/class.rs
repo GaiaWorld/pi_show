@@ -1,15 +1,10 @@
-use std::mem::transmute;
-use std::str::FromStr;
-
 use stdweb::unstable::TryInto;
 
-use ecs::{LendMut};
+use ecs::LendMut;
 
-use gui::component::user::*;
 use gui::component::calc::StyleType;
-use gui::single::class::*;
-use gui::single::style_parse::{Attribute, parse_class_from_string};
-pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
+use gui::single::{ class::*, style_parse::{Attribute, parse_class_from_string} };
+pub use gui::layout::{ YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType };
 use GuiWorld;
 
 
