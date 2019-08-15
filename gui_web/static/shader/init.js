@@ -228,6 +228,11 @@ var FitType_Contain = 2;
 var FitType_Cover = 3;
 var FitType_ScaleDown = 4;
 
+var Text_Align_Left = 0;
+var Text_Align_Right = 1;
+var Text_Align_Center = 2;
+var Text_Align_Justify = 3;
+
 // 绘制canvas文字， 并更新到纹理
 function __draw_text_canvas(world, textInfoList, c){
     for (var j = 0; j < textInfoList.list.length; j++) {

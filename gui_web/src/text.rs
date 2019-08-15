@@ -85,6 +85,12 @@ pub fn set_text_indent(world: u32, node_id: u32, value: f32){
 
 #[allow(unused_attributes)]
 #[no_mangle]
+pub fn set_text_align(world: u32, node_id: u32, value: u8){
+    set_attr!(world, node_id, TextStyle, text, text_align, "text_align", unsafe { transmute(value) } , text_style);
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: f32, a: f32){
     set_attr!(world, node_id, TextStyle, text, stroke, "stroke", Stroke {
         width,

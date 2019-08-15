@@ -99,7 +99,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             };
 
             let dirty = style_mark.dirty;
-
+        
             // 不存在BuckgroundColor关心的脏, 跳过
             if dirty & self.dirty_ty == 0 {
                 continue;

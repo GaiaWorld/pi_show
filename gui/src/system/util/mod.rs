@@ -442,8 +442,10 @@ pub fn create_let_top_offset_matrix(
     v: f32,
     depth: f32,
 ) -> Vec<f32> {
+    println!("create_let_top_offset_matrix-------------depth: {}", depth);
     let depth1 = -depth/(Z_MAX + 1.0);
     let depth = depth1;
+    
     let origin = transform.origin.to_value(layout.width, layout.height);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32; 16] = matrix.as_ref();
