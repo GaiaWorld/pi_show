@@ -248,7 +248,7 @@ function __draw_text_canvas(world, textInfoList, c){
 
         var canvas = c.canvas;
         var ctx = c.ctx;
-        var fontName = text_info.font_size + "px " + text_info.font;
+        var fontName = "" + text_info.weight + text_info.font_size + "px " + text_info.font;
         var hal_stroke_width = text_info.stroke_width/2;
         var bottom = text_info.size[1] - hal_stroke_width;
         for (var i = 0; i < text_info.chars.length; i++) {
@@ -264,8 +264,9 @@ function __draw_text_canvas(world, textInfoList, c){
                 ctx.strokeStyle = "#f00";
                 ctx.textBaseline = "bottom";
                 
-                ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
+                //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText
                 ctx.fillText(char_info.ch, hal_stroke_width, bottom);
+                ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
             } else {
                 ctx.fillStyle = "#0f0";
                 ctx.textBaseline = "bottom";
@@ -273,6 +274,7 @@ function __draw_text_canvas(world, textInfoList, c){
 
             }
             window.__jsObj = canvas;
+            document.body.append(canvas);
             Module._update_text_texture(world, char_info.x, char_info.y, canvas.height);
         }
     }

@@ -41,7 +41,7 @@ pub struct FontSheet {
     pub src_map: FxHashMap32<Atom, TexFont>,
     face_map: FxHashMap32<Atom, FontFace>,
     char_w_map: FxHashMap32<(Atom, char), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
-    pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
+    pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ usize, /* weight */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
     pub char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
     pub wait_draw: TextInfo,
     pub wait_draw_list: Vec<TextInfo>,
@@ -63,6 +63,7 @@ impl  FontSheet {
                 font: Atom::from(""),
                 font_size: 0.0,
                 stroke_width: 0,
+                weight: 500,
                 size: Vector2::default(),
                 chars: Vec::new(),
             },
@@ -153,7 +154,7 @@ impl  FontSheet {
     }
 
     // 添加一个字形信息, 
-    pub fn calc_gylph(&mut self, font: &TexFont, font_size: usize, stroke_width: usize, scale: f32, base_width: usize, c: char) -> usize {
+    pub fn calc_gylph(&mut self, font: &TexFont, font_size: usize, stroke_width: usize, weight: usize, scale: f32, base_width: usize, c: char) -> usize {
         if font.is_pixel {// 像素纹理
             //let fs = font_size as f32 * font.factor;
             let fs_scale = (font_size as f32 * scale).round() as usize;
@@ -169,7 +170,7 @@ impl  FontSheet {
                 0
             };
             // 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
-            let id = match self.char_map.entry((font.name.clone(), fs_scale, sw, c)) {
+            let id = match self.char_map.entry((font.name.clone(), fs_scale, sw, weight, c)) {
                 Entry::Occupied(e) => *e.get(),
                 Entry::Vacant(r) => {
 
@@ -196,6 +197,7 @@ impl  FontSheet {
                                 font: font.name.clone(),
                                 font_size: fs_scale as f32 ,
                                 stroke_width: sw,
+                                weight: weight,
                                 size: Vector2::new(w, height as f32),
                                 chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
                             });
@@ -217,7 +219,7 @@ impl  FontSheet {
             };
             return id;
         }else{// SDF 字体， 根据字形Glyph计算宽度
-            match self.char_map.get(&(font.name.clone(), 0, 0, c)) {
+            match self.char_map.get(&(font.name.clone(), 0, 0, 0, c)) {
                 Some(id) => return *id,
                 _ => ()
             }
@@ -339,6 +341,7 @@ pub struct TextInfo {
     pub font: Atom,
     pub font_size: f32,
     pub stroke_width: usize,
+    pub weight: usize,
     pub size: Vector2,
     pub chars: Vec<WaitChar>,
 }

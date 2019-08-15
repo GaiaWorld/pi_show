@@ -234,8 +234,10 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         },
     };
 
+    let weight = text_style.font.weight;
+
     for char_node in cb.chars.iter_mut() {
-        let ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, scale, char_node.base_width as usize, char_node.ch);
+        let ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width as usize, char_node.ch);
         char_node.ch_id = ch_id;
     }
 }
@@ -264,13 +266,13 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     };
     // 获得字体高度
     cb.font_size = get_size(tex_font.1, &text_style.font.size) as f32;
+    cb.font_height = tex_font.0.get_font_height(cb.font_size as usize, text_style.text.stroke.width);
     if cb.font_size == 0.0 {
         #[cfg(feature = "warning")]
         println!("font_size==0.0, family: {:?}", text_style.font.family);
         return true
     }
-    cb.font_height = tex_font.0.get_font_height(cb.font_size as usize, text_style.text.stroke.width);
-    cb.line_height = tex_font.0.get_line_height(cb.font_height as usize, &text_style.text.line_height);
+    cb.line_height = tex_font.0.get_line_height(cb.font_size as usize, &text_style.text.line_height);
     // if cb.line_height < cb.font_size{
     //     cb.line_height = cb.font_size;
     // }
@@ -357,9 +359,9 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
                 update_char(id, tex_param, '\t', text_style.text.indent, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Whitespace =>{
-                let font_height = tex_param.cb.font_height;
+                let font_size = tex_param.cb.font_size;
                 // 设置成宽度为半高, 高度0
-                update_char(id, tex_param, ' ', font_height/2.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
+                update_char(id, tex_param, ' ', font_size/2.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
             },
             SplitResult::Word(c) => {
                 update_char(id, tex_param, c, 0.0, sw, write.2, &mut index, &parent_yoga, &mut yg_index);
@@ -464,12 +466,10 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         max_w: 0.0,
         word: 0,
     };
-    // println!("calc_text: {:?}, sw: {}", text, sw);
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
     for cr in split(text, true, tex_param.text_style.text.white_space.preserve_spaces()) {
         match cr {
             SplitResult::Newline =>{
-                // println!("Newline: start: {}, end: {}, count: {}, width: {:?}", tex_param.cb.last_line.0, tex_param.cb.chars.len(), tex_param.cb.last_line.1, calc.pos.x);
                 tex_param.cb.last_line.2 = calc.pos.x;
                 tex_param.cb.lines.push(tex_param.cb.last_line.clone());
                 tex_param.cb.last_line = (tex_param.cb.chars.len(), 0, 0.0);
@@ -480,13 +480,13 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
-                update_char1(tex_param, ' ', tex_param.cb.font_height, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                update_char1(tex_param, ' ', tex_param.cb.font_size, sw, font, &mut calc);
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
@@ -495,7 +495,7 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordNext(c) =>{
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordEnd =>{
@@ -509,7 +509,6 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         }
     }
     tex_param.cb.last_line.2 = calc.pos.x;
-    // println!("Lastline: start: {}, end: {}, count: {}, width: {:?}", tex_param.cb.last_line.0, tex_param.cb.chars.len(), tex_param.cb.last_line.1, calc.pos.x);
     //清除多余的CharNode
     if calc.index < tex_param.cb.chars.len() {
         for i in calc.index..tex_param.cb.chars.len() {
@@ -640,7 +639,6 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
 }
 fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
     let (end, mut start, mut word_count, line_width) = line_info(cb, line);
-    // println!("end: {}, start: {}, word_count: {}, line_width: {}", end, start, word_count, line_width);
     let mut x_fix = 0.0;
     let mut w = 0.0;
     while line_width + x_fix > limit_width && start < end {

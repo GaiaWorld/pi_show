@@ -138,8 +138,8 @@ pub fn set_font_style(world: u32, node_id: u32, value: u8){
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_font_weight(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, font, weight, "font_weight", value, text_style);
+pub fn set_font_weight(world: u32, node_id: u32, value: u32){
+    set_attr!(world, node_id, TextStyle, font, weight, "font_weight", value as usize, text_style);
 }
 
 #[allow(unused_attributes)]
@@ -255,6 +255,7 @@ pub struct TextInfo {
     pub font: String,
     pub font_size: f32,
     pub stroke_width: usize,
+    pub weight: usize,
     pub size: (f32, f32),
     pub chars: Vec<WaitChar>,
 }
@@ -304,6 +305,7 @@ impl DrawTextSys {
                     font: font_sheet.wait_draw.font.as_ref().to_string(),
                     font_size: font_sheet.wait_draw.font_size,
                     stroke_width: font_sheet.wait_draw.stroke_width,
+                    weight: font_sheet.wait_draw.weight,
                     size: (font_sheet.wait_draw.size.x, font_sheet.wait_draw.size.y),
                     chars: unsafe { std::mem::transmute(std::mem::replace(&mut font_sheet.wait_draw.chars, Vec::default())) },
                 }
@@ -318,6 +320,7 @@ impl DrawTextSys {
                         font: wait_draw.font.as_ref().to_string(),
                         font_size: wait_draw.font_size,
                         stroke_width: wait_draw.stroke_width,
+                        weight: font_sheet.wait_draw.weight,
                         size: (wait_draw.size.x, wait_draw.size.y),
                         chars: unsafe { std::mem::transmute(std::mem::replace(&mut wait_draw.chars, Vec::default())) },
                     }
@@ -381,7 +384,7 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), S
         offset += 2;
         let glyph = Glyph::parse(value, &mut offset);
         let index = font_sheet.char_slab.insert((ch, glyph));
-        font_sheet.char_map.insert((tex_font.name.clone(), 0, 0, ch), index);
+        font_sheet.char_map.insert((tex_font.name.clone(), 0, 0, 0, ch), index);
     }
     font_sheet.src_map.insert(tex_font.name.clone(), tex_font);
     Ok(())

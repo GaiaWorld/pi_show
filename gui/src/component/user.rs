@@ -148,7 +148,7 @@ pub struct TextShadow{
 #[derive(Component, Debug, Clone, Default)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
-    pub weight: f32, //	规定字体粗细。参阅：font-weight 中可能的值。
+    pub weight: usize, //	规定字体粗细。参阅：font-weight 中可能的值。
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }

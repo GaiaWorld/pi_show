@@ -19,9 +19,9 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 320px"> text-align </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 400px"> line-height </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 480px"> text-shadow </div>
-    <div style="position: absolute;width: 100%; height: 20px;top: 480px"> white-space </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 560px"> white-space </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 640px"> font-weight </div>
     
-
     <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
     <script src="shader/clip.js"></script>
     <script src="shader/color.js"></script>
@@ -73,6 +73,7 @@
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
+        Module._set_font_size(gui, text_node, 16);
     </script>
 
     <script>
@@ -123,51 +124,16 @@
         // Module._set_background_rgba_color(gui, body, 0.0, 1.0, 0.0, 1.0);
         Module._append_child(gui, body, 1);
 
-        var node = Module._create_node(gui);
-        Module._set_width(gui, node, 120);
-        Module._set_height(gui, node, 100);
-        Module._append_child(gui, node, body);
-
         var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, node);
+        Module._append_child(gui, text_node, body);
         window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
         Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
         window.__jsObj = "1像素红色描边";
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        Module._set_font_size(gui, text_node, 16);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
-
-        var node = Module._create_node(gui);
-        Module._set_width(gui, node, 150);
-        Module._set_height(gui, node, 100);
-        Module._append_child(gui, node, body);
-
-        var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, node);
-        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        window.__jsObj = "2像素绿色描边";
-        Module._set_text_content(gui, text_node); // 文字内容
-        window.__jsObj = "common";
-        Module._set_font_family(gui, text_node);
-        Module._set_font_size(gui, text_node, 20);
-        Module._set_text_stroke(gui, text_node, 2, 0.0, 0.0, 1.0, 1.0);
-
-        var node = Module._create_node(gui);
-        Module._set_width(gui, node, 200);
-        Module._set_height(gui, node, 100);
-        Module._append_child(gui, node, body);
-
-        var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, node);
-        Module._set_text_rgba_color(gui, text_node, 0.0, 1.0, 0.0, 0.5); // r, g, b, a
-        window.__jsObj = "4像素红色描边";
-        Module._set_text_content(gui, text_node); // 文字内容
-        window.__jsObj = "common";
-        Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
+        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
     </script>
 
     <script>
@@ -193,7 +159,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 16);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
         Module._set_letter_spacing(gui, text_node, 1); // 字符间距
 
         var node = Module._create_node(gui);
@@ -209,7 +174,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 20);
-        Module._set_text_stroke(gui, text_node, 2, 0.0, 0.0, 1.0, 1.0);
         Module._set_letter_spacing(gui, text_node, 4); // 字符间距
 
         var node = Module._create_node(gui);
@@ -225,7 +189,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_letter_spacing(gui, text_node, 6); // 字符间距
     </script>
 
@@ -253,7 +216,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 16);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Left);
 
         var node = Module._create_node(gui);
@@ -271,7 +233,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 20);
-        Module._set_text_stroke(gui, text_node, 2, 0.0, 0.0, 1.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Center);
 
         var node = Module._create_node(gui);
@@ -289,7 +250,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Right);
 
         var node = Module._create_node(gui);
@@ -308,7 +268,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Justify);
     </script>
 
@@ -336,7 +295,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 16);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Left);
         Module._set_line_height_normal(gui, text_node);
 
@@ -356,7 +314,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_line_height_percent(gui, text_node, 150);
 
         var node = Module._create_node(gui);
@@ -374,8 +331,9 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_line_height(gui, text_node, 60);
+        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
+        
 
         // bug 两段对齐 TODO
         var node = Module._create_node(gui);
@@ -393,7 +351,6 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_align(gui, text_node, Text_Align_Justify);
         Module._set_line_height(gui, text_node, 60);
     </script>
@@ -419,7 +376,6 @@
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
         Module._set_text_shadow(gui, text_node, 5, 5, 0.0, 1.0, 0.0, 1.0, 5); // h, v, r, g, b, a, blur, (blur似乎暂时还没有效果)
     </script>
 
@@ -480,6 +436,26 @@
         Module._set_font_family(gui, text_node);
         Module._set_white_space(gui, text_node, WhiteSpace_Nowrap);
         
+        //bug TODO
+        // var node = Module._create_node(gui);
+        // Module._set_width(gui, node, 200);
+        // Module._set_height(gui, node, 60);
+        // Module._set_margin(gui, node, YGEdgeLeft, 10);
+        // Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
+        // Module._append_child(gui, node, body);
+
+        // var text_node = Module._create_text_node(gui);
+        // Module._append_child(gui, text_node, node);
+        // Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
+        // window.__jsObj = `pre-wrap重复重
+        // 复重复重复重复重复重复重复重复复重复复重复复重复`;
+        // Module._set_text_content(gui, text_node); // 文字内容
+        // Module._set_font_size(gui, text_node, 16);
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, text_node);
+        // Module._set_white_space(gui, text_node, WhiteSpace_PreWrap); 
+
+        // bug, 多个空白符存在时， 只保留了一个空白符 TODO
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
         Module._set_height(gui, node, 60);
@@ -490,47 +466,69 @@
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
-        window.__jsObj = `pre-wrap重复重
-        复重复重复重复重复重复重复重复复重复复重复复重复`;
+        window.__jsObj = `pre重复重
+        复重复重复       重复重复重复重复重复复重复复重复复重复`;
         Module._set_text_content(gui, text_node); // 文字内容
         Module._set_font_size(gui, text_node, 16);
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        Module._set_white_space(gui, text_node, WhiteSpace_PreWrap); 
+        Module._set_white_space(gui, text_node, WhiteSpace_Pre);
+
+        // bug 多个空白符加换行符，在保留换行符的同时， 也保留了一个其他空白符。 TODO
+        var node = Module._create_node(gui);
+        Module._set_width(gui, node, 200);
+        Module._set_height(gui, node, 60);
+        Module._set_margin(gui, node, YGEdgeLeft, 10);
+        Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
+        Module._append_child(gui, node, body);
+
+        var text_node = Module._create_text_node(gui);
+        Module._append_child(gui, text_node, node);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
+        window.__jsObj = `pre_line重复重复
+        重复重复               重复重复重复重复重复`;
+        Module._set_text_content(gui, text_node); // 文字内容
+        Module._set_font_size(gui, text_node, 16);
+        window.__jsObj = "common";
+        Module._set_font_family(gui, text_node);
+        Module._set_white_space(gui, text_node, WhiteSpace_PreLine);
     </script>
 
-    <!-- <script>
-        var node1 = Module._create_node(gui);
-        Module._set_width(gui, node1, 100);
-        Module._set_height(gui, node1, 100);
-        Module._set_margin(gui, node1, YGEdgeAll, 100);
-        Module._set_background_rgba_color(gui, node1, 1.0, 1.0, 0.0, 1.0);
-        Module._append_child(gui, node1, body);
+    <script>
+        // 测试text-shadow
+        var body = Module._create_node(gui);
+        Module._set_position(gui, body, 1, 655.0);
+        Module._set_position_type(gui, body, 1);
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height(gui, body, 100.0);
+        Module._append_child(gui, body, 1);
 
-        // Module._transform_scale(gui, node1, 2, 2);
-        
+        var node = Module._create_node(gui);
+        Module._set_width(gui, node, 300);
+        Module._set_height(gui, node, 60);
+        Module._append_child(gui, node, body);
+
         var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, node1);
-        // Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
-        window.__jsObj = "逋";
+        Module._append_child(gui, text_node, node);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 0.5); // r, g, b, a
+        window.__jsObj = "粗细500";
         Module._set_text_content(gui, text_node); // 文字内容
-        Module._set_text_stroke(gui, text_node, 3, 1.0, 0.0, 0.0, 1.0);
-        Module._set_line_height(gui, text_node, 100); // 行高， 该函数设置行高的像素值
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        
-        
+
+        var node = Module._create_node(gui);
+        Module._set_width(gui, node, 300);
+        Module._set_height(gui, node, 60);
+        Module._append_child(gui, node, body);
+
         var text_node = Module._create_text_node(gui);
-        Module._append_child(gui, text_node, body);
-        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        window.__jsObj = "测试一下";
+        Module._append_child(gui, text_node, node);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 0.5); // r, g, b, a
+        window.__jsObj = "粗细900";
         Module._set_text_content(gui, text_node); // 文字内容
-        Module._set_text_shadow(gui, text_node, 5, 5, 0.0, 0.0, 1.0, 1.0, 5); // h, v, r, g, b, a, blur, (blur似乎暂时还没有效果)
-        Module._set_font_size(gui, text_node, 16); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-    </script>  -->
+        Module._set_font_weight(gui, text_node, 900);
+    </script>
 </body>
 </html>

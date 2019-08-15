@@ -655,7 +655,7 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
     text_style.text_align.hash(hasher);
     text_style.white_space.hash(hasher);
     text_style.vertical_align.hash(hasher);
-    unsafe { NotNan::unchecked_new(font.weight).hash(hasher) };
+    font.weight.hash(hasher);
     match font.size {
         FontSize::None => 0.hash(hasher),
         FontSize::Length(r) => {
