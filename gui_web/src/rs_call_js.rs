@@ -2,14 +2,14 @@
 
 pub fn define_js(){
     js!{
-        window.__draw_text_canvas = function(world, textInfoList, c){
+        window.__draw_text_canvas(world, textInfoList, c){
             for (var j = 0; j < textInfoList.list.length; j++) {
                 
                 var text_info = textInfoList.list[j];
 
                 var canvas = c.canvas;
                 var ctx = c.ctx;
-                var fontName = text_info.font_size + "px " + text_info.font;
+                var fontName = text_info.weight + " " + text_info.font_size + "px " + text_info.font;
                 var hal_stroke_width = text_info.stroke_width/2;
                 var bottom = text_info.size[1] - hal_stroke_width;
                 for (var i = 0; i < text_info.chars.length; i++) {
@@ -35,6 +35,7 @@ pub fn define_js(){
 
                     }
                     window.__jsObj = canvas;
+                    document.body.append(canvas);
                     Module._update_text_texture(world, char_info.x, char_info.y, canvas.height);
                 }
             }

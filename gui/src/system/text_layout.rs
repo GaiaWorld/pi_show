@@ -427,7 +427,7 @@ fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &mut TexParam<L>, c:
 fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, f32) {
     let TexParam {cb, tex_font, text_style, word_margin} = tex_param;
     if c > ' ' {
-        let r = font.measure(tex_font, cb.font_size as usize, sw, c);
+        let r = font.measure(tex_font, cb.font_size as usize, sw, text_style.font.weight, c);
         node.set_width(r.0.x);
         node.set_height(cb.line_height);
         node.set_margin(YGEdge::YGEdgeLeft, *word_margin);
@@ -556,7 +556,7 @@ fn update_char1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: 
 // 设置节点的宽高
 fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, f32) {
     if c > ' ' {
-        let r= font.measure(tex_param.tex_font, tex_param.cb.font_size as usize, sw, c);
+        let r= font.measure(tex_param.tex_font, tex_param.cb.font_size as usize, sw, tex_param.text_style.font.weight, c);
        //  w = font.measure(&text_style.font.family, tex_param.cb.font_size as usize, sw, c).0.x;
         if r.0.x != tex_param.cb.font_size && tex_param.cb.fix_width {
             tex_param.cb.fix_width = false
