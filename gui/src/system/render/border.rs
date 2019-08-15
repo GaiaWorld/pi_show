@@ -117,7 +117,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                         Some(r) => *r,
                         None => {
                             dirty |= DIRTY_TY;
-                            self.create_render_obj(*id, 0.0, false, render_objs, default_state)
+                            self.create_render_obj(*id, render_objs, default_state)
                         },
                     }
                 } 
@@ -199,41 +199,22 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
     fn create_render_obj(
         &mut            self,
         id:             usize,
-        z_depth:        f32,
-        visibility:     bool,
         render_objs:    &mut SingleCaseImpl<RenderObjs>,
         default_state:  &DefaultState
     ) -> usize {
-
-        let mut render_obj = RenderObj {
-            depth:          z_depth - 0.2,
-            depth_diff:     -0.2,
-            visibility:     visibility,
-            is_opacity:     true,
-            vs_name:        COLOR_VS_SHADER_NAME.clone(),
-            fs_name:        COLOR_FS_SHADER_NAME.clone(),
-            vs_defines:     Box::new( VsDefines::default() ),
-            fs_defines:     Box::new( FsDefines::default() ),
-            paramter:       Share::new( ColorParamter::default() ),
-            program_dirty:  false,
-
-            program:        None,
-            geometry:       None,
-            state:          State {
-                                bs: default_state.df_bs.clone(),
-                                rs: default_state.df_rs.clone(),
-                                ss: default_state.df_ss.clone(),
-                                ds: default_state.df_ds.clone()
-                            },
-            context:        id
-        };
+        let index = create_render_obj(
+            id,
+            -0.1,
+            true,
+            COLOR_VS_SHADER_NAME.clone(),
+            COLOR_FS_SHADER_NAME.clone(),
+            Share::new(ColorParamter::default()),
+            default_state, render_objs,
+            &mut self.render_map
+        );
+        let render_obj = unsafe{ render_objs.get_unchecked_mut(index) };
         render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
         render_obj.fs_defines.add("UCOLOR");
-
-        let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.render_map.insert(id, index);
         index
     }
 }

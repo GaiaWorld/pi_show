@@ -14,7 +14,6 @@ use ecs::{
     component::MultiCaseImpl,
     single::SingleCaseImpl,
 };
-use atom::Atom;
 
 use ROOT;
 use entity::{Node};
@@ -146,6 +145,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateE
             line_count: 1,
             fix_width: true,
             style_class: 0,
+            is_pixel: false,
         });
     }
 }
@@ -307,6 +307,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     _ => 1.0
     // };
     let tex_font = tex_font.0.clone();
+    cb.is_pixel = tex_font.is_pixel;
     let mut tex_param = TexParam {cb: cb, tex_font: &tex_font, text_style: text_style, word_margin: text_style.text.letter_spacing / 2.0 - text_style.text.stroke.width};
     let tex_param = &mut tex_param;
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
@@ -403,14 +404,12 @@ fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &mut TexParam<L>, c:
         }
         unsafe {tex_param.cb.chars.set_len(i)};
     }
-    let (w, node, font_name, is_pixel, base_width) = set_node(tex_param, c, w, sw, font, L::new());
+    let (w, node, base_width) = set_node(tex_param, c, w, sw, font, L::new());
     let cn = CharNode {
         ch: c,
         width: w,
         pos: Point2::default(),
         ch_id: id,
-        is_pixel: is_pixel,
-        font_name: font_name,
         base_width: base_width,
         node: node.clone(),
     };
@@ -423,7 +422,7 @@ fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &mut TexParam<L>, c:
     node
 }
 // 设置节点的宽高
-fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, Atom, bool, f32) {
+fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, node: L) -> (f32, L, f32) {
     let TexParam {cb, tex_font, text_style, word_margin} = tex_param;
     if c > ' ' {
         let r = font.measure(tex_font, cb.font_size as usize, sw, c);
@@ -436,7 +435,7 @@ fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32,
             VerticalAlign::Top => node.set_align_self(YGAlign::YGAlignFlexStart),
             VerticalAlign::Bottom => node.set_align_self(YGAlign::YGAlignFlexEnd),
         };
-        return (r.0.x, node, r.1.clone(), r.2, r.3)
+        return (r.0.x, node, r.1)
     }
     if c == '\n' {
         node.set_width_percent(100.0);
@@ -447,7 +446,7 @@ fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32,
     }else{ // "\t"
         node.set_width(w);
     }
-    (w, node, Atom::from(""), false, 0.0)
+    (w, node, 0.0)
 }
 
 #[derive(Debug)]
@@ -542,21 +541,19 @@ fn update_char1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: 
         }
     }
     let p = calc.pos;
-    let (w, font_name, is_pixel, base_width) = set_node1(tex_param, c, w, sw, font, calc);
+    let (w, base_width) = set_node1(tex_param, c, w, sw, font, calc);
     tex_param.cb.chars.push(CharNode {
         ch: c,
         width: w,
         pos: p,
         ch_id: 0,
-        is_pixel: is_pixel,
-        font_name: font_name,
         base_width: base_width,
         node: L::new_null(),
     });
     calc.index += 1;
 }
 // 设置节点的宽高
-fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, Atom, bool, f32) {
+fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32, sw: usize, font: &mut FontSheet, calc: &mut Calc) -> (f32, f32) {
     if c > ' ' {
         let r= font.measure(tex_param.tex_font, tex_param.cb.font_size as usize, sw, c);
        //  w = font.measure(&text_style.font.family, tex_param.cb.font_size as usize, sw, c).0.x;
@@ -567,7 +564,7 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
         if calc.max_w < calc.pos.x {
             calc.max_w = calc.pos.x
         }
-        return (r.0.x, r.1, r.2, r.3)
+        return (r.0.x, r.1)
     }
     if c == '\n' {
         calc.pos.x = 0.0;
@@ -578,7 +575,7 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
             calc.max_w = calc.pos.x
         }
     }
-    (w , Atom::from("".to_string()), false, 0.0)
+    (w, 0.0)
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos

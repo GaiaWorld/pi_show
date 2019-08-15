@@ -135,21 +135,21 @@ impl  FontSheet {
     }
     // TODO 改成返回一个查询器， 这样在多个字符查询时，少很多hash查找
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
-    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2/*width,height*/, Atom/*font_name*/, bool/*is_pixel*/, f32/*base_width*/) {
+    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2/*width,height*/, f32/*base_width*/) {
         match self.char_w_map.entry((font.name.clone(), c)) {
             Entry::Occupied(e) => {
                 let r = e.get();
-                return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw as f32, r.2 * font_size as f32 + sw as f32), r.1.clone(), r.3, r.0)
+                return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw as f32, r.2 * font_size as f32 + sw as f32), r.0)
             },
             Entry::Vacant(r) => {
                 let w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
                 if w > 0.0 {
                     r.insert((w, font.name.clone(), font.factor, font.is_pixel));
-                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw as f32, font.factor * font_size as f32 + sw as f32), font.name.clone(), font.is_pixel, w)
+                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw as f32, font.factor * font_size as f32 + sw as f32), w)
                 }
             }
         }
-        (Vector2::new(0.0, 0.0), Atom::from("".to_string()), false, 0.0)
+        (Vector2::new(0.0, 0.0), 0.0)
     }
 
     // 添加一个字形信息, 
