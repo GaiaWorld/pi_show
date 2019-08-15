@@ -234,8 +234,10 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         },
     };
 
+    let weight = text_style.font.weight;
+
     for char_node in cb.chars.iter_mut() {
-        let ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, scale, char_node.base_width as usize, char_node.ch);
+        let ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width as usize, char_node.ch);
         char_node.ch_id = ch_id;
     }
 }
@@ -480,12 +482,12 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
                 update_char1(tex_param, ' ', tex_param.cb.font_size, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
@@ -494,7 +496,7 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordNext(c) =>{
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width - tex_param.cb.stroke_width;
+                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordEnd =>{

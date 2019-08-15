@@ -25,8 +25,9 @@ pub fn define_js(){
                         ctx.strokeStyle = "#f00";
                         ctx.textBaseline = "bottom";
                         
-                        ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
+                        //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText
                         ctx.fillText(char_info.ch, hal_stroke_width, bottom);
+                        ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
                     } else {
                         ctx.fillStyle = "#0f0";
                         ctx.textBaseline = "bottom";

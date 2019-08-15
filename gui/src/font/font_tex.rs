@@ -28,9 +28,17 @@ impl FontTex {
             line_height += 1;
         }
         let v = self.last_v;
-        self.last_v += line_height as f32;
+        let mut is_new = false;
+        let line = self.line_map.entry(line_height).or_insert_with(|| {
+            is_new = true;
+            (Point2::new(0.0, v), 0)
+        });
+        // 如果是新分配的行， self.last_v + line_height
+        if is_new {
+            self.last_v += line_height as f32;
+        }
         TexLine {
-            line: self.line_map.entry(line_height).or_insert((Point2::new(0.0, v), 0)),
+            line: line,
             last_v: &mut self.last_v,
             tex_width: self.texture.width as f32,
             line_height: line_height as f32
