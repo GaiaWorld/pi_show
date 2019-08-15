@@ -105,7 +105,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
                 // 不存在渲染对象， 创建
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
-                    None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+                    None => self.create_render_obj(*id, render_objs, default_state),
                 }
             } else {
                 match self.render_map.get_mut(*id) {
@@ -218,40 +218,19 @@ impl<C: HalContext + 'static> ImageSys<C> {
     fn create_render_obj(
         &mut self,
         id: usize,
-        z_depth: f32,
-        visibility: bool,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
-    ) -> usize{
-        
-        let render_obj = RenderObj {
-            depth: z_depth - 0.1,
-            depth_diff: -0.1,
-            visibility: visibility,
-            is_opacity: true,
-            vs_name: IMAGE_VS_SHADER_NAME.clone(),
-            fs_name: IMAGE_FS_SHADER_NAME.clone(),
-            vs_defines: Box::new(VsDefines::default()),
-            fs_defines: Box::new(FsDefines::default()),
-            paramter: Share::new(ImageParamter::default()),
-            program_dirty: true,
-
-            program: None,
-            geometry: None,
-            state: State {
-                bs: default_state.df_bs.clone(),
-                rs: default_state.df_rs.clone(),
-                ss: default_state.df_ss.clone(),
-                ds: default_state.df_ds.clone(),
-            },
-            context: id,
-        };
-
-        let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.render_map.insert(id, index);
-        index
+    ) -> usize{    
+        create_render_obj(
+            id,
+            -0.1,
+            true,
+            IMAGE_VS_SHADER_NAME.clone(),
+            IMAGE_FS_SHADER_NAME.clone(),
+            Share::new(ImageParamter::default()),
+            default_state, render_objs,
+            &mut self.render_map
+        )
     }
 }
 

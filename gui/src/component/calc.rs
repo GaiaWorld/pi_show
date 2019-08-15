@@ -159,6 +159,7 @@ pub struct CharBlock<L: FlexNode + 'static> {
   pub line_count: usize, // 行数，
   pub fix_width: bool, // 如果有字宽不等于font_size
   pub style_class: usize, // 使用的那个样式类
+  pub is_pixel: bool,
 }
 
 #[derive(Debug)]
@@ -167,9 +168,7 @@ pub struct CharNode<L: FlexNode + 'static> {
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置
   pub ch_id: usize, // 字符id
-  pub is_pixel: bool, //是否为像素
   pub base_width: f32, // font_size 为32 的字符宽度
-  pub font_name: Atom,
   pub node: L, // 对应的yoga节点
 }
 

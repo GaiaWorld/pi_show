@@ -7,10 +7,11 @@ use std::mem::transmute;
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{Component, MultiCaseImpl};
+use ecs::{Component, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use atom::Atom;
+use map::vecmap::VecMap;
 
 use component::user::*;
 use component::calc::*;
@@ -552,4 +553,51 @@ pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_ob
         render_obj.state.ds = create_ds_res(engine, ds);
     }
     
+}
+
+#[inline]
+pub fn new_render_obj(context: usize, depth_diff: f32, is_opacity: bool, vs_name: Atom, fs_name: Atom, paramter: Share<dyn ProgramParamter>, state: State) -> RenderObj{
+    RenderObj {
+        depth: 0.0,
+        program_dirty: true,
+        visibility: false,
+        vs_defines: Box::new(VsDefines::default()),
+        fs_defines: Box::new(FsDefines::default()),
+        program: None,
+        geometry: None,
+        depth_diff,
+        is_opacity,
+        vs_name,
+        fs_name,
+        paramter,
+        state,
+        context,       
+    }
+}
+
+#[inline]
+pub fn create_render_obj(
+    context: usize,
+    depth_diff: f32,
+    is_opacity: bool,
+    vs_name: Atom,
+    fs_name: Atom,
+    paramter: Share<dyn ProgramParamter>,
+    default_state: &DefaultState,
+    render_objs: &mut SingleCaseImpl<RenderObjs>,
+    render_map: &mut VecMap<usize>,
+) -> usize{
+    let state = State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+    let notify = render_objs.get_notify();
+    let render_index = render_objs.insert(
+        new_render_obj(context, depth_diff, is_opacity, vs_name, fs_name, paramter, state),
+        Some(notify)
+    );
+    render_map.insert(context, render_index);
+    render_index
 }
