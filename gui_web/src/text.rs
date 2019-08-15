@@ -320,7 +320,7 @@ impl DrawTextSys {
                         font: wait_draw.font.as_ref().to_string(),
                         font_size: wait_draw.font_size,
                         stroke_width: wait_draw.stroke_width,
-                        weight: font_sheet.wait_draw.weight,
+                        weight: wait_draw.weight,
                         size: (wait_draw.size.x, wait_draw.size.y),
                         chars: unsafe { std::mem::transmute(std::mem::replace(&mut wait_draw.chars, Vec::default())) },
                     }

@@ -5,6 +5,7 @@ use std::{
   mem::transmute,
   hash::{Hash, Hasher},
 };
+use std::default::Default;
 
 use ordered_float::NotNan;
 
@@ -145,12 +146,23 @@ pub struct TextShadow{
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 
-#[derive(Component, Debug, Clone, Default)]
+#[derive(Component, Debug, Clone)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize, //	规定字体粗细。参阅：font-weight 中可能的值。
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
+}
+
+impl Default for Font {
+    fn default() -> Self {
+        Self {
+            style: FontStyle::default(),
+            weight: 500,
+            size: FontSize::default(),
+            family: Atom::default(),
+        }
+    }
 }
 
 //================================== 枚举

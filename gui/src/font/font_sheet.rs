@@ -29,6 +29,12 @@ const SMALL_FONT: usize = 20;
 // 默认sdf字体的大小， 用于作为基准
 const SDF_FONT_SIZE: f32 = 32.0;
 
+// 粗体字的font-weight
+const BLOD_WEIGHT: usize = 700;
+
+// 粗体字的放大因子
+const BLOD_FACTOR: f32 = 1.13;
+
 // TODO 将字体样式和字符做为键，查hashmap，获得slab id，slab中放字符和字形信息， 其他地方仅使用id
 // TODO pixel font 和 xysdf font, 都使用一个文字纹理。 也是预处理的纹理。 
 // 相同的font_farmly在不同的字符上也可能使用不同的font， text_layout需要根据pixel和sdf分成char_blocks 的2个arr
@@ -40,7 +46,7 @@ pub struct FontSheet {
     color: CgColor,
     pub src_map: FxHashMap32<Atom, TexFont>,
     face_map: FxHashMap32<Atom, FontFace>,
-    char_w_map: FxHashMap32<(Atom, char), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
+    char_w_map: FxHashMap32<(Atom, char, bool/*是否为加粗字体*/), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
     pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ usize, /* weight */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
     pub char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
     pub wait_draw: TextInfo,
@@ -136,15 +142,19 @@ impl  FontSheet {
     }
     // TODO 改成返回一个查询器， 这样在多个字符查询时，少很多hash查找
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
-    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, c: char) -> (Vector2/*width,height*/, f32/*base_width*/) {
-        match self.char_w_map.entry((font.name.clone(), c)) {
+    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, weight: usize, c: char) -> (Vector2/*width,height*/, f32/*base_width*/) {
+        let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
+        match self.char_w_map.entry((font.name.clone(), c, is_blod)) {
             Entry::Occupied(e) => {
                 let r = e.get();
                 return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw as f32, r.2 * font_size as f32 + sw as f32), r.0)
             },
             Entry::Vacant(r) => {
-                let w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
+                let mut w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
                 if w > 0.0 {
+                    if is_blod {
+                        w = w * BLOD_FACTOR;
+                    }
                     r.insert((w, font.name.clone(), font.factor, font.is_pixel));
                     return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw as f32, font.factor * font_size as f32 + sw as f32), w)
                 }
@@ -191,7 +201,7 @@ impl  FontSheet {
                         advance: w,
                     }));
                     // 将需要渲染的字符放入等待队列
-                    if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale as f32 || self.wait_draw.stroke_width != sw {
+                    if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale as f32 || self.wait_draw.stroke_width != sw || self.wait_draw.weight != weight {
                         if self.wait_draw.chars.len() > 0 {
                             let info = replace(&mut self.wait_draw, TextInfo{
                                 font: font.name.clone(),

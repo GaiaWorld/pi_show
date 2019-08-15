@@ -248,7 +248,7 @@ function __draw_text_canvas(world, textInfoList, c){
 
         var canvas = c.canvas;
         var ctx = c.ctx;
-        var fontName = "" + text_info.weight + text_info.font_size + "px " + text_info.font;
+        var fontName = text_info.weight + " " + text_info.font_size + "px " + text_info.font;
         var hal_stroke_width = text_info.stroke_width/2;
         var bottom = text_info.size[1] - hal_stroke_width;
         for (var i = 0; i < text_info.chars.length; i++) {
