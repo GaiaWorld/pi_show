@@ -90,6 +90,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         let (opacitys, visibilitys, hsvs, z_depths) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+        let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
         
