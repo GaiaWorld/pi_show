@@ -107,6 +107,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         render_obj.visibility = visibility;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
+        println!("render_obj.depth-------------depth: {}, id: {}, context: {}, render_obj.depth: {}", z_depth, event.id, render_obj.context, render_obj.depth);
 
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
@@ -139,6 +140,7 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, ZDepth, ModifyEve
         for id in obj_ids.iter() {
             let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
             render_obj.depth = z_depth + render_obj.depth_diff;
+            println!("!!!!!!!, id:{}, context:{}, z_depth: {}", *id, render_obj.context, z_depth);
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }
     }
