@@ -19,9 +19,8 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 320px"> text-align </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 400px"> line-height </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 480px"> text-shadow </div>
-    <div style="position: absolute;width: 100%; height: 20px;top: 480px"> white-space </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 560px"> white-space </div>
     
-
     <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
     <script src="shader/clip.js"></script>
     <script src="shader/color.js"></script>
@@ -480,6 +479,26 @@
         Module._set_font_family(gui, text_node);
         Module._set_white_space(gui, text_node, WhiteSpace_Nowrap);
         
+        //bug TODO
+        // var node = Module._create_node(gui);
+        // Module._set_width(gui, node, 200);
+        // Module._set_height(gui, node, 60);
+        // Module._set_margin(gui, node, YGEdgeLeft, 10);
+        // Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
+        // Module._append_child(gui, node, body);
+
+        // var text_node = Module._create_text_node(gui);
+        // Module._append_child(gui, text_node, node);
+        // Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
+        // window.__jsObj = `pre-wrap重复重
+        // 复重复重复重复重复重复重复重复复重复复重复复重复`;
+        // Module._set_text_content(gui, text_node); // 文字内容
+        // Module._set_font_size(gui, text_node, 16);
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, text_node);
+        // Module._set_white_space(gui, text_node, WhiteSpace_PreWrap); 
+
+        // bug, 多个空白符存在时， 只保留了一个空白符 TODO
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
         Module._set_height(gui, node, 60);
@@ -490,13 +509,32 @@
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
-        window.__jsObj = `pre-wrap重复重
-        复重复重复重复重复重复重复重复复重复复重复复重复`;
+        window.__jsObj = `pre重复重
+        复重复重复       重复重复重复重复重复复重复复重复复重复`;
         Module._set_text_content(gui, text_node); // 文字内容
         Module._set_font_size(gui, text_node, 16);
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        Module._set_white_space(gui, text_node, WhiteSpace_PreWrap); 
+        Module._set_white_space(gui, text_node, WhiteSpace_Pre);
+
+        // bug 多个空白符加换行符，在保留换行符的同时， 也保留了一个其他空白符。 TODO
+        var node = Module._create_node(gui);
+        Module._set_width(gui, node, 200);
+        Module._set_height(gui, node, 60);
+        Module._set_margin(gui, node, YGEdgeLeft, 10);
+        Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
+        Module._append_child(gui, node, body);
+
+        var text_node = Module._create_text_node(gui);
+        Module._append_child(gui, text_node, node);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
+        window.__jsObj = `pre_line重复重复
+        重复重复               重复重复重复重复重复`;
+        Module._set_text_content(gui, text_node); // 文字内容
+        Module._set_font_size(gui, text_node, 16);
+        window.__jsObj = "common";
+        Module._set_font_family(gui, text_node);
+        Module._set_white_space(gui, text_node, WhiteSpace_PreLine);
     </script>
 
     <!-- <script>
