@@ -123,7 +123,6 @@ impl WebGLTextureImpl {
         match webgl_object {
             Some((x, y, object)) => {
                 js! {
-                    console.log( @{object} );
                     @{&gl}.texSubImage2D(@{WebGLRenderingContext::TEXTURE_2D}, @{mipmap_level}, @{x}, @{y}, @{p}, @{d}, @{object}.wrap);
                 }
             }

@@ -89,7 +89,6 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, visibilitys, hsvs, z_depths) = read;
         let (render_objs, engine, node_render_map) = write;
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
@@ -99,6 +98,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         paramter.set_value("viewMatrix", self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         paramter.set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
+        let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
         let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
         paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
@@ -107,7 +107,6 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         render_obj.visibility = visibility;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
-        println!("render_obj.depth-------------depth: {}, id: {}, context: {}, render_obj.depth: {}", z_depth, event.id, render_obj.context, render_obj.depth);
 
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
