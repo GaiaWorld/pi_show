@@ -81,7 +81,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         ) = read;
 
         let (render_objs, engine) = write;
-        
+        let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
         
         for id in dirty_list.0.iter() {
@@ -101,18 +101,23 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 continue;
             }
 
-            // 阴影脏，如果不存在BoxShadow本地样式和class样式， 删除渲染对象
-            if dirty & StyleType::BoxShadow as usize != 0 
-            && style_mark.local_style & StyleType::BoxShadow as usize == 0 
-            && style_mark.class_style & StyleType::BoxShadow as usize == 0 {
-                self.remove_render_obj(*id, render_objs);
-                continue;
-            }
-
-            // 不存在，则创建渲染对象
-            let render_index = match self.render_map.get_mut(*id) {
-                Some(r) => *r,
-                None => self.create_render_obj(*id, 0.0, false, render_objs, default_state),
+            // 阴影脏
+            let render_index = if dirty & StyleType::BoxShadow as usize != 0 {
+                // 如果不存在BoxShadow本地样式和class样式， 删除渲染对象
+                if style_mark.local_style & StyleType::BoxShadow as usize == 0 && style_mark.class_style & StyleType::BoxShadow as usize == 0 {
+                    self.remove_render_obj(*id, render_objs);
+                    continue;
+                } else {
+                    match self.render_map.get_mut(*id) {
+                        Some(r) => *r,
+                        None => self.create_render_obj(*id, render_objs, default_state),
+                    }
+                }
+            } else {
+                match self.render_map.get_mut(*id) {
+                    Some(r) => *r,
+                    None => continue,
+                }
             };
 
             // 从组件中取出对应的数据
@@ -127,6 +132,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             || dirty & StyleType::BoxShadow as usize != 0 {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = color_is_opacity(opacity, &shadow.color);
+                notify.modify_event(render_index, "is_opacity", 0);
+                modify_opacity(engine, render_obj);
             }
 
             // 如果阴影脏，或者边框半径改变，则重新创建geometry
@@ -181,43 +188,23 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
         };
     }
 
+    #[inline]
     fn create_render_obj(
         &mut self,
         id: usize,
-        z_depth: f32,
-        visibility: bool,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
     ) -> usize {
-        
-        let render_obj = RenderObj {
-            depth: z_depth - 0.3,
-            depth_diff: -0.3,
-            visibility: visibility,
-            is_opacity: true,
-            vs_name: COLOR_VS_SHADER_NAME.clone(),
-            fs_name: COLOR_FS_SHADER_NAME.clone(),
-            vs_defines: Box::new(VsDefines::default()),
-            fs_defines: Box::new(FsDefines::default()),
-            paramter: Share::new(ColorParamter::default()),
-            program_dirty: true,
-
-            program: None,
-            geometry: None,
-            state: State {
-                bs: default_state.df_bs.clone(),
-                rs: default_state.df_rs.clone(),
-                ss: default_state.df_ss.clone(),
-                ds: default_state.df_ds.clone(),
-            },
-            context: id,
-        };
-
-        let notify = render_objs.get_notify();
-        let index = render_objs.insert(render_obj, Some(notify));
-        // 创建RenderObj与Node实体的索引关系， 并设脏
-        self.render_map.insert(id, index);
-        index
+        create_render_obj(
+            id,
+            -0.3,
+            true,
+            COLOR_VS_SHADER_NAME.clone(),
+            COLOR_FS_SHADER_NAME.clone(),
+            Share::new(ColorParamter::default()),
+            default_state, render_objs,
+            &mut self.render_map
+        )
     }
 }
 
@@ -274,16 +261,16 @@ fn create_shadow_geo<C: HalContext + 'static>(
     let y = g_b.min.y;
     let w = g_b.max.x - g_b.min.x;
     let h = g_b.max.y - g_b.min.y;
-    let bg = split_by_radius(x, y, w, h, radius.x, None);
+    let bg = split_by_radius(x, y, w, h, radius.x, Some(16));
     if bg.0.len() == 0 {
         return None;
     }
     
-    let x = g_b.min.x + shadow.h;
-    let y = g_b.min.y + shadow.v;
+    let x = g_b.min.x + shadow.h - shadow.spread;
+    let y = g_b.min.y + shadow.v - shadow.spread;
     let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread;
     let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread;
-    let shadow = split_by_radius(x, y, w, h, radius.x, None);
+    let shadow = split_by_radius(x, y, w, h, radius.x, Some(16));
     if shadow.0.len() == 0 {
         return None;
     }
@@ -307,6 +294,7 @@ fn create_shadow_geo<C: HalContext + 'static>(
         return None;
     }
 
+    debug_println!("create_shadow_geo: pts = {:?}, indices = {:?}", pts.as_slice(), indices.as_slice());
     let geo = create_p_i_geometry(pts.as_slice(), indices.as_slice(), engine);
     Some(Share::new(geo))
 }

@@ -120,6 +120,13 @@ pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f3
 
 #[allow(unused_attributes)]
 #[no_mangle]
+pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
+    let spread = 0;
+    set_attr!(world, node, BoxShadow, spread, value, box_shadow);
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
     let blur = 0;
     set_attr!(world, node, BoxShadow, blur, value, box_shadow);

@@ -170,7 +170,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
     world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::<C>::new(BorderColorSys::new()));
     world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(border_image_sys));
-    // world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::new(BoxShadowSys::new()));
+    world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::<C>::new(BoxShadowSys::default()));
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
@@ -179,7 +179,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, overflow_sys, background_color_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, node_attr_sys, clip_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, node_attr_sys, clip_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();

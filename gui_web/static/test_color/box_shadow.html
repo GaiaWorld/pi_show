@@ -34,54 +34,66 @@
         var gui = Module._create_gui(engine, 1000, 700);
 
         //普通阴影
-        var node2 = Module._create_node(gui);
-        Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node2, 100.0);
-        Module._set_height(gui, node2, 100.0);
-        Module._set_box_shadow_color(gui, node2, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node2, 5.0);
-        Module._set_box_shadow_h(gui, node2, 20);
-        Module._set_box_shadow_v(gui, node2, 20);
-        Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
+        var node1 = Module._create_node(gui);
+        Module._append_child(gui, node1, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_margin(gui, node1, YGEdgeLeft, 150);
+        Module._set_margin(gui, node1, YGEdgeTop, 300);
+        Module._set_width(gui, node1, 100.0);
+        Module._set_height(gui, node1, 100.0);
+        Module._set_opacity(gui, node1, 1.0);
+        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
+        Module._set_box_shadow_h(gui, node1, 10);
+        Module._set_box_shadow_v(gui, node1, 10);
+        Module._set_box_shadow_blur(gui, node1, 0.0);
+        Module._set_box_shadow_spread(gui, node1, 0.0);
+        Module._set_box_shadow_color(gui, node1, 0.0, 0.0, 1.0, 1.0);
+
+        setTimeout(() => {
+            Module._set_opacity(gui, node1, 0.5);
+            Module._set_box_shadow_spread(gui, node1, -15.0);
+            Module._set_box_shadow_color(gui, node1, 0.0, 1.0, 1.0, 1.0);
+        }, 3000);
 
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node2, 100.0);
         Module._set_height(gui, node2, 100.0);
-        Module._set_box_shadow_color(gui, node2, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node2, 5.0);
-        Module._set_box_shadow_h(gui, node2, 20);
-        Module._set_box_shadow_v(gui, node2, 20);
         Module._set_margin(gui, node2, YGEdgeLeft, 50);
         Module._set_background_rgba_color(gui, node2, 1.0, 0.0, 0.0, 1.0);
+        Module._set_box_shadow_h(gui, node2, 20);
+        Module._set_box_shadow_v(gui, node2, 20);
+        Module._set_box_shadow_blur(gui, node2, 0.0);
+        Module._set_box_shadow_spread(gui, node2, 0.0);
+        Module._set_box_shadow_color(gui, node2, 0.0, 0.0, 1.0, 1.0);
 
-        //圆角阴影
+        // 圆角阴影
         var node3 = Module._create_node(gui);
         Module._append_child(gui, node3, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node3, 100.0);
         Module._set_height(gui, node3, 100.0);
         Module._set_margin(gui, node3, YGEdgeLeft, 50);
-        Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node3, 5.0);
-        Module._set_box_shadow_h(gui, node3, 20);
-        Module._set_box_shadow_v(gui, node3, 20);
         Module._set_border_radius(gui, node3, 20, 20);
         Module._set_background_rgba_color(gui, node3, 1.0, 0.0, 0.0, 1.0);
-
-        //圆角阴影
-        var node3 = Module._create_node(gui);
-        Module._append_child(gui, node3, 1); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node3, 100.0);
-        Module._set_height(gui, node3, 100.0);
-        Module._set_margin(gui, node3, YGEdgeLeft, 50);
-        Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
-        Module._set_box_shadow_blur(gui, node3, 5.0);
         Module._set_box_shadow_h(gui, node3, 20);
         Module._set_box_shadow_v(gui, node3, 20);
-        Module._set_border_radius(gui, node3, 20, 20);
-        Module._set_background_rgba_color(gui, node3, 1.0, 0.0, 0.0, 1.0);
+        Module._set_box_shadow_blur(gui, node3, 0.0);
+        Module._set_box_shadow_spread(gui, node3, 0.0);
+        Module._set_box_shadow_color(gui, node3, 0.0, 0.0, 1.0, 1.0);
+                
+        // 圆角阴影
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node4, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node4, 100.0);
+        Module._set_height(gui, node4, 100.0);
+        Module._set_margin(gui, node4, YGEdgeLeft, 50);
+        Module._set_background_rgba_color(gui, node4, 1.0, 0.0, 0.0, 1.0);
+        Module._set_box_shadow_h(gui, node4, 20);
+        Module._set_box_shadow_v(gui, node4, 20);
+        Module._set_box_shadow_blur(gui, node4, 5.0);
+        Module._set_border_radius(gui, node4, 20, 20);
+        Module._set_box_shadow_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
 
-        Module._render(gui);
+        render_fram();
     </script>
 </body>
 </html>
