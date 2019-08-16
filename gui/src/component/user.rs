@@ -498,9 +498,9 @@ impl WhiteSpace {
         match *self {
             WhiteSpace::Normal |
             WhiteSpace::Nowrap |
-            WhiteSpace::PreLine => false,
+            WhiteSpace::PreLine => true,
             WhiteSpace::Pre |
-            WhiteSpace::PreWrap => true,
+            WhiteSpace::PreWrap => false,
         }
     }
 }

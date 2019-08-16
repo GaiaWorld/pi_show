@@ -142,12 +142,12 @@ impl  FontSheet {
     }
     // TODO 改成返回一个查询器， 这样在多个字符查询时，少很多hash查找
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
-    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, weight: usize, c: char) -> (Vector2/*width,height*/, f32/*base_width*/) {
+    pub fn measure(&mut self, font: &TexFont, font_size: usize, sw: usize, weight: usize, c: char) -> (f32/*width,height*/, f32/*base_width*/) {
         let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
         match self.char_w_map.entry((font.name.clone(), c, is_blod)) {
             Entry::Occupied(e) => {
                 let r = e.get();
-                return (Vector2::new(r.0 * font_size as f32 / FONT_SIZE + sw as f32, r.2 * font_size as f32 + sw as f32), r.0)
+                return ((r.0 * font_size as f32 / FONT_SIZE).round() + sw as f32, r.0)
             },
             Entry::Vacant(r) => {
                 let mut w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
@@ -156,18 +156,19 @@ impl  FontSheet {
                         w = w * BLOD_FACTOR;
                     }
                     r.insert((w, font.name.clone(), font.factor, font.is_pixel));
-                    return (Vector2::new(w * font_size as f32 / FONT_SIZE + sw as f32, font.factor * font_size as f32 + sw as f32), w)
+                    return ((w * font_size as f32 / FONT_SIZE).round() + sw as f32, w)
                 }
             }
         }
-        (Vector2::new(0.0, 0.0), 0.0)
+        (0.0, 0.0)
     }
 
     // 添加一个字形信息, 
-    pub fn calc_gylph(&mut self, font: &TexFont, font_size: usize, stroke_width: usize, weight: usize, scale: f32, base_width: usize, c: char) -> usize {
+    pub fn calc_gylph(&mut self, font: &TexFont, font_size: usize, stroke_width: usize, weight: usize, scale: f32, base_width: f32, c: char) -> usize {
         if font.is_pixel {// 像素纹理
             //let fs = font_size as f32 * font.factor;
-            let fs_scale = (font_size as f32 * scale).round() as usize;
+            let fs_scale_f = font_size as f32 * scale;
+            let fs_scale = fs_scale_f.round() as usize;
             // 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
             let sw = if stroke_width != 0 {
                 let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
@@ -185,10 +186,9 @@ impl  FontSheet {
                 Entry::Vacant(r) => {
 
                     // 在指定字体及字号下，查找该字符的宽度
-                    let mut w = (base_width as f32 * (fs_scale as f32)/FONT_SIZE).ceil(); 
-                    w += sw as f32;
+                    let w = ((base_width as f32 * font_size as f32/ FONT_SIZE).round() * scale).ceil()  + stroke_width as f32; 
                     // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-                    let height = (fs_scale as f32 * font.factor).round() as usize + sw;
+                    let height = (((font_size as f32 * font.factor).round() * scale).ceil() + stroke_width as f32) as usize;
                     let mut line = self.font_tex.alloc_line(height);
                     let p = line.alloc(w);
                     let id = self.char_slab.insert((c, Glyph{
@@ -289,16 +289,11 @@ pub struct TexFont {
     pub factor: f32, // 像素纹理字体大小有时超出，需要一个字体的修正系数
 }
 
-impl TexFont {
-    #[inline]
-    pub fn get_line_height(&self, font_size: usize, line_height: &LineHeight) -> f32 {
-        (get_line_height(font_size, line_height) * 100.0 ).round() / 100.0
-    }
-    
+impl TexFont { 
     #[inline]
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_font_height(&self, size: usize, stroke_width: f32) -> f32 {
-        size as f32 * self.factor + stroke_width
+        (size as f32 * self.factor).round() + stroke_width
     }
 }
 

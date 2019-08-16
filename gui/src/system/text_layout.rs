@@ -24,7 +24,7 @@ use component::{
 use single::class::*;
 use single::*;
 use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, /*YGJustify,*/ YGWrap, YGUnit, YGEdge};
-use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont};
+use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont, get_line_height};
 
 const MARK: usize = StyleType::LetterSpacing as usize | 
                     StyleType::WordSpacing as usize | 
@@ -237,8 +237,9 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
     let weight = text_style.font.weight;
 
     for char_node in cb.chars.iter_mut() {
-        let ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width as usize, char_node.ch);
-        char_node.ch_id = ch_id;
+        if char_node.ch > ' ' {
+            char_node.ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width, char_node.ch);
+        }
     }
 }
 
@@ -272,11 +273,10 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         println!("font_size==0.0, family: {:?}", text_style.font.family);
         return true
     }
-    cb.line_height = tex_font.0.get_line_height(cb.font_size as usize, &text_style.text.line_height);
+    cb.line_height = get_line_height(cb.font_size as usize, &text_style.text.line_height);
     // if cb.line_height < cb.font_size{
     //     cb.line_height = cb.font_size;
     // }
-    cb.pos.y = (cb.line_height - cb.font_height)/2.0;
     // match parent_yoga.get_style_justify() {
     //     YGJustify::YGJustifyCenter => text_style.text.text_align = TextAlign::Center,
     //     YGJustify::YGJustifyFlexEnd => text_style.text.text_align = TextAlign::Right,
@@ -304,6 +304,8 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     };
     let sw = text_style.text.stroke.width as usize;
     cb.stroke_width = sw as f32;
+    cb.pos.y = (cb.line_height - cb.font_height)/2.0;
+    cb.pos.x = -cb.stroke_width/2.0;
     // let scale = match read.7.get(id) {
     //     Some(w) => w.y.y,
     //     _ => 1.0
@@ -428,7 +430,7 @@ fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32,
     let TexParam {cb, tex_font, text_style, word_margin} = tex_param;
     if c > ' ' {
         let r = font.measure(tex_font, cb.font_size as usize, sw, text_style.font.weight, c);
-        node.set_width(r.0.x);
+        node.set_width(r.0);
         node.set_height(cb.line_height);
         node.set_margin(YGEdge::YGEdgeLeft, *word_margin);
         node.set_margin(YGEdge::YGEdgeRight, *word_margin);
@@ -437,7 +439,7 @@ fn set_node<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32,
             VerticalAlign::Top => node.set_align_self(YGAlign::YGAlignFlexStart),
             VerticalAlign::Bottom => node.set_align_self(YGAlign::YGAlignFlexEnd),
         };
-        return (r.0.x, node, r.1)
+        return (r.0, node, r.1)
     }
     if c == '\n' {
         node.set_width_percent(100.0);
@@ -471,9 +473,8 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         match cr {
             SplitResult::Newline =>{
                 tex_param.cb.last_line.2 = calc.pos.x;
-                tex_param.cb.last_line.0 = tex_param.cb.chars.len();
                 tex_param.cb.lines.push(tex_param.cb.last_line.clone());
-                tex_param.cb.last_line = (0, 0, 0.0);
+                tex_param.cb.last_line = (tex_param.cb.chars.len(), 0, 0.0);
                 tex_param.cb.line_count += 1;
                 update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
                 // 行首缩进
@@ -481,7 +482,7 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
-                update_char1(tex_param, ' ', tex_param.cb.font_size, sw, font, &mut calc);
+                update_char1(tex_param, ' ', tex_param.cb.font_size/2.0, sw, font, &mut calc);
                 calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
                 tex_param.cb.last_line.1 += 1;
             },
@@ -559,14 +560,14 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
     if c > ' ' {
         let r= font.measure(tex_param.tex_font, tex_param.cb.font_size as usize, sw, tex_param.text_style.font.weight, c);
        //  w = font.measure(&text_style.font.family, tex_param.cb.font_size as usize, sw, c).0.x;
-        if r.0.x != tex_param.cb.font_size && tex_param.cb.fix_width {
+        if r.0 != tex_param.cb.font_size && tex_param.cb.fix_width {
             tex_param.cb.fix_width = false
         }
-        calc.pos.x += r.0.x;
+        calc.pos.x += r.0;
         if calc.max_w < calc.pos.x {
             calc.max_w = calc.pos.x
         }
-        return (r.0.x, r.1)
+        return (r.0, r.1)
     }
     if c == '\n' {
         calc.pos.x = 0.0;
@@ -595,7 +596,7 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
         cb.wrap_size.y += y_fix;
         cb.wrap_size.x = w;
     }
-    cb.pos.x = x;
+    cb.pos.x += x;
     cb.pos.y += y;
 
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
