@@ -60,7 +60,7 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         "text-align" => show_attr.push(Attribute::TextAlign( parse_text_align(value)? )),
         "text-indent" => show_attr.push(Attribute::TextIndent( parse_f32(value)? )),
         "text-shadow" => show_attr.push(Attribute::TextShadow( parse_text_shadow(value)? )),
-        "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "white-space" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "word-spacing" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
 
@@ -69,7 +69,7 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         "font-style" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "font-weight" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "font-size" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "font-family" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "font-family" => show_attr.push(Attribute::FontFamily( Atom::from(value) )),
 
         "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
         "height" => layout_attr.push(LayoutAttr::Height(parse_unity(value)?)),

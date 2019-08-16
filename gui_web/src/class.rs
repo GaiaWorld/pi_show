@@ -3,6 +3,7 @@ use stdweb::unstable::TryInto;
 use ecs::LendMut;
 
 use gui::component::calc::StyleType;
+use gui::component::user::*;
 use gui::single::{ class::*, style_parse::{Attribute, parse_class_from_string} };
 pub use gui::layout::{ YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType };
 use GuiWorld;
@@ -43,6 +44,16 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
                 class.background_color = class_sheet.background_color.insert(r);
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             },
+            Attribute::Color(r) => {
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.color = r;
+                class.class_style_mark |= StyleType::Color as usize;
+            },
+            Attribute::FontFamily(r) => {
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.font.family = r;
+                class.class_style_mark |= StyleType::FontFamily as usize;
+            },
             _ => println!("set_class error"),
         }
     }
@@ -53,4 +64,13 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
 
     let notify = class_sheet.get_notify();
     notify.create_event(c);
+}
+
+fn or_insert_text_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassSheet) -> &'a mut TextStyle{
+    if class.text == 0 {
+        let i = class_sheet.text.insert(TextStyle::default());
+        class.text = i;
+
+    }
+    unsafe { class_sheet.text.get_unchecked_mut(class.text) }
 }

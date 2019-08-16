@@ -141,7 +141,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
             // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
             let (index, charblock, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
-                if style_mark.local_style & StyleType::FontFamily as usize == 0 {
+                if style_mark.local_style & StyleType::FontFamily as usize == 0 && style_mark.class_style & StyleType::FontFamily as usize == 0 {
                     self.remove_render_obj(*id, render_objs);
                     continue;
                 } else {
@@ -219,7 +219,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 render_objs.get_notify().modify_event(index.text, "geometry", 0);
             }
 
-             // 阴影存在
+            // 阴影存在
             if index.shadow > 0 {
                 let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
                 if dirty & (StyleType::TextShadow as usize) != 0 {            
@@ -485,12 +485,13 @@ fn modify_color<C: HalContext + 'static>(
 ) -> bool {
     let change = match color {
         Color::RGBA(c) => {
-            // 如果是class样式中的颜色， 直接使用class_ubo.fill_color_ubo
-            let ubo = if local_style & (StyleType::Color as usize) == 0 {
-                class_ubo.fill_color_ubo.clone()
-            } else {
-                create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)))
-            };
+            // // 如果是class样式中的颜色， 直接使用class_ubo.fill_color_ubo
+            // let ubo = if local_style & (StyleType::Color as usize) == 0 {
+            //     class_ubo.fill_color_ubo.clone()
+            // } else {
+            //     create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)))
+            // };
+            let ubo = create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)));
             render_obj.paramter.set_value("uColor", ubo );
             notify.modify_event(index, "", 0);
 

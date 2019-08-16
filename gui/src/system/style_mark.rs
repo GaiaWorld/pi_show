@@ -472,7 +472,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
         };
 
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-
         if class.text > 0 {
             let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
             if class.class_style_mark & self.text_style_mark != 0 {

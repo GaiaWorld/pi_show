@@ -11,7 +11,7 @@
     </script>
 </head>
 <body>
-    <canvas id="canvas" width = "1000px" height="1000px"></canvas>
+    <canvas id="canvas" width = "1200px" height="1000px"></canvas>
     <div style="position: absolute;width: 100%; height: 20px;top: 0px;"> color </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 80px"> font_size </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 160px"> stroke </div>
@@ -23,6 +23,7 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 640px"> font-weight </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 720px"> word-space </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 800px"> 文字放大， 保持清晰度 </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 900px"> class设置 </div>
     
     <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
     <script src="shader/clip.js"></script>
@@ -32,7 +33,7 @@
     <script src="shader/canvas_text.js"></script>
     <script src="shader/init.js"></script>
     <script>
-        var gui = Module._create_gui(engine, 1000, 1000);
+        var gui = Module._create_gui(engine, 1200, 1000);
         render_fram();
 
         window.__jsObj = "Arial";
@@ -42,7 +43,7 @@
         window.__jsObj1 = "Arial";
         Module._add_font_face(gui, 0, 32, 500);
     </script>
-    <script>
+    <!-- <script>
         // 测试color
         var body = Module._create_node(gui);
         Module._set_position(gui, body, 1, 15.0);
@@ -569,6 +570,34 @@
         Module._set_font_size(gui, text_node, 16);
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
+    </script> -->
+
+    <script>
+
+        // class设置
+        var body = Module._create_node(gui);
+        Module._set_position(gui, body, 1, 915.0);
+        Module._set_position_type(gui, body, 1);
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height(gui, body, 100.0);
+        Module._append_child(gui, body, 1);
+
+        var node = Module._create_node(gui);
+        Module._set_width(gui, node, 1000);
+        Module._set_height(gui, node, 60);
+        Module._append_child(gui, node, body);
+
+        window.__jsObj = "color: #00f;font-family:common;";
+        let class1 = Module._create_class(gui, 1);
+
+        // 纹理采样bug， TODO
+        var text_node = Module._create_text_node(gui);
+        Module._append_child(gui, text_node, node);
+        Module._set_class(gui, text_node, 1);
+        window.__jsObj = "使用class设置的样式";
+        Module._set_text_content(gui, text_node); // 文字内容
+        // window.__jsObj = "common";
+        // Module._set_font_family(gui, text_node);
     </script>
 
 </body>
