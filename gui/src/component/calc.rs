@@ -167,7 +167,7 @@ pub struct CharNode<L: FlexNode + 'static> {
   pub ch: char, // 字符
   pub width: f32, // 字符宽度
   pub pos: Point2, // 位置
-  pub ch_id: usize, // 字符id
+  pub ch_id_or_count: usize, // 字符id或单词的字符数量
   pub base_width: f32, // font_size 为32 的字符宽度
   pub node: L, // 对应的yoga节点
 }

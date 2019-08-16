@@ -238,7 +238,7 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
 
     for char_node in cb.chars.iter_mut() {
         if char_node.ch > ' ' {
-            char_node.ch_id = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width, char_node.ch);
+            char_node.ch_id_or_count = write.2.calc_gylph(&tex_font, cb.font_size as usize, cb.stroke_width as usize, weight, scale, char_node.base_width, char_node.ch);
         }
     }
 }
@@ -413,7 +413,7 @@ fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &mut TexParam<L>, c:
         ch: c,
         width: w,
         pos: Point2::default(),
-        ch_id: id,
+        ch_id_or_count: id,
         base_width: base_width,
         node: node.clone(),
     };
@@ -468,6 +468,9 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         max_w: 0.0,
         word: 0,
     };
+    let letter_spacing = tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
+    let word_spacing = tex_param.text_style.text.word_spacing;
+    let mut pre_is_word_end = false;
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
     for cr in split(text, true, tex_param.text_style.text.white_space.preserve_spaces()) {
         match cr {
@@ -483,33 +486,39 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
                 update_char1(tex_param, ' ', tex_param.cb.font_size/2.0, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
+                if pre_is_word_end == true {
+                    calc.pos.x += word_spacing;
+                    pre_is_word_end = false;
+                }
+                calc.pos.x += letter_spacing;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::Word(c) => {
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
+                calc.pos.x += letter_spacing;
                 tex_param.cb.last_line.1 += 1;
             },
             SplitResult::WordStart(c) => {
                 calc.word = calc.index;
                 update_char1(tex_param, 0 as char, 0.0, sw, font, &mut calc);
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
+                calc.pos.x += letter_spacing;
             },
             SplitResult::WordNext(c) =>{
-                calc.pos.x += tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
+                calc.pos.x += letter_spacing;
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
             },
             SplitResult::WordEnd =>{
                 let node = unsafe {tex_param.cb.chars.get_unchecked_mut(calc.word)};
                 node.width = calc.pos.x - node.pos.x;
-                node.pos.y = (calc.index - calc.word) as f32;
+                node.ch_id_or_count = calc.index - calc.word - 1;
                 calc.word = 0;
-                calc.pos.x += tex_param.text_style.text.word_spacing;
                 tex_param.cb.last_line.1 += 1;
+                pre_is_word_end = true;
             },
         }
     }
+
     tex_param.cb.last_line.2 = calc.pos.x;
     //清除多余的CharNode
     if calc.index < tex_param.cb.chars.len() {
@@ -549,7 +558,7 @@ fn update_char1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: 
         ch: c,
         width: w,
         pos: p,
-        ch_id: 0,
+        ch_id_or_count: 0,
         base_width: base_width,
         node: L::new_null(),
     });
@@ -640,7 +649,7 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
     };
 }
 fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
-    let (end, mut start, mut word_count, line_width) = line_info(cb, line);
+    let (end, mut start, word_count, line_width) = line_info(cb, line);
     let mut x_fix = 0.0;
     let mut w = 0.0;
     while line_width + x_fix > limit_width && start < end {
@@ -650,16 +659,11 @@ fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
             if n.pos.x + x_fix + n.width > limit_width && x_fix != -w {
                 break
             }
-
-            n.pos.x += x_fix;
-            n.pos.y += y_fix;
+ 
             start += 1;
-            if n.ch >= ' ' {
-                word_count -= 1;
-            }else if n.ch == '\n' {
-            }else if n.ch == char::from(0) {
+            if n.ch == char::from(0) {
                 if x_fix < 0.0 || y_fix > 0.0 {
-                    let end = start + n.pos.y as usize;
+                    let end = start + n.ch_id_or_count;
                     while start < end {
                         let n = unsafe {cb.chars.get_unchecked_mut(start)};
                         n.pos.x += x_fix;
@@ -667,9 +671,11 @@ fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
                         start += 1;
                     }
                 }else {
-                    start += n.pos.y as usize;
+                    start += n.ch_id_or_count;
                 }
-                word_count -= 1;
+            } else {
+                n.pos.x += x_fix;
+                n.pos.y += y_fix;
             }
         }
         y_fix += cb.line_height;

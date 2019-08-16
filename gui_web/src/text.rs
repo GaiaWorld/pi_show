@@ -45,6 +45,12 @@ pub fn set_letter_spacing(world: u32, node_id: u32, value: f32){
 
 #[allow(unused_attributes)]
 #[no_mangle]
+pub fn set_word_spacing(world: u32, node_id: u32, value: f32){
+    set_attr!(world, node_id, TextStyle, text, word_spacing, "word_spacing", value, text_style);
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
     set_attr!(world, node_id, TextStyle, text, color, "color", Color::RGBA(CgColor::new(r, g, b, a)), text_style);
 }

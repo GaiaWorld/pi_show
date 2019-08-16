@@ -696,7 +696,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
         match color {
             Color::RGBA(_) => {
                 for c in char_block.chars.iter() {
-                    let glyph = match font_sheet.get_glyph(c.ch_id) {
+                    if c.ch <= ' ' {
+                        continue;
+                    }
+                    let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
@@ -725,7 +728,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                 let lg_color = vec![LgCfg{unit:4, data: lg_color}];
 
                 for c in char_block.chars.iter() {
-                    let glyph = match font_sheet.get_glyph(c.ch_id) {
+                    if c.ch <= ' ' {
+                        continue;
+                    }
+                    let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
                         Some(r) => r.1.clone(),
                         None => continue,
                     };
@@ -796,21 +802,24 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
     let mut end = Point2::new(0.0, 0.0);
     let mut j = 0;
     for i in 0..char_block.chars.len() {
-        let ch = &char_block.chars[i]; 
-        let pos = &ch.pos;
-        let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
+        let c = &char_block.chars[i]; 
+        let pos = &c.pos;
+        if c.ch <= ' ' {
+            continue;
+        }
+        let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
             Some(r) => r.1.clone(),
             None => continue,
         };
         start = Point2::new(pos.x + glyph.ox, pos.y + glyph.oy);
-        end = Point2::new(start.x + ch.width, start.y + char_block.font_height);
+        end = Point2::new(start.x + c.width, start.y + char_block.font_height);
         j += 1;
         break;
     }
     for i in j..char_block.chars.len() {
         let ch = &char_block.chars[i]; 
         let pos = &ch.pos;
-        // let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id) {
+        // let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id_or_count) {
         //     Some(r) => r.1.clone(),
         //     None => continue,
         // };
