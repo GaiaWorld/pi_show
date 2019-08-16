@@ -237,11 +237,11 @@ var WhiteSpace_Normal = 0; //	默认。空白会被浏览器忽略(其实是所�
 var WhiteSpace_Nowrap = 1; //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
 var WhiteSpace_PreWrap = 2; //	保留所有空白符序列，超出范围会换行。
 var WhiteSpace_Pre = 3; //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
-var WhiteSpace_PreLine = 3; //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
+var WhiteSpace_PreLine = 4; //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
  
 
 // 绘制canvas文字， 并更新到纹理
-function __draw_text_canvas(world, textInfoList, c){
+window.__draw_text_canvas = function(world, textInfoList, c){
     for (var j = 0; j < textInfoList.list.length; j++) {
         
         var text_info = textInfoList.list[j];
@@ -281,7 +281,7 @@ function __draw_text_canvas(world, textInfoList, c){
     Module._set_render_dirty(world);
 };
 
-function __load_image(gui, image_name){
+window.__load_image = function(gui, image_name){
     var image = new Image();
     image.onload = () => {
         window.__jsObj = image;

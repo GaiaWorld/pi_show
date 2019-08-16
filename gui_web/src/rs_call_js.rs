@@ -2,7 +2,7 @@
 
 pub fn define_js(){
     js!{
-        window.__draw_text_canvas(world, textInfoList, c){
+        window.__draw_text_canvas = function(world, textInfoList, c){
             for (var j = 0; j < textInfoList.list.length; j++) {
                 
                 var text_info = textInfoList.list[j];
