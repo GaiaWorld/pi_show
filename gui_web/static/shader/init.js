@@ -245,7 +245,6 @@ window.__draw_text_canvas = function(world, textInfoList, c){
     for (var j = 0; j < textInfoList.list.length; j++) {
         
         var text_info = textInfoList.list[j];
-
         var canvas = c.canvas;
         var ctx = c.ctx;
         var fontName = text_info.weight + " " + text_info.font_size + "px " + text_info.font;

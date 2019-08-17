@@ -45,11 +45,72 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             },
             Attribute::Color(r) => {
+                println!("set color");
                 let t = or_insert_text_style(&mut class, class_sheet);
                 t.text.color = r;
                 class.class_style_mark |= StyleType::Color as usize;
             },
+            Attribute::LetterSpacing(r) => {
+                println!("set LetterSpacing");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.letter_spacing = r;
+                class.class_style_mark |= StyleType::LetterSpacing as usize;
+            },
+            Attribute::WordSpacing(r) => {
+                println!("set WordSpacing");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.word_spacing = r;
+                class.class_style_mark |= StyleType::WordSpacing as usize;
+            },
+            Attribute::LineHeight(r) => {
+                println!("set LineHeight");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.line_height = r;
+                class.class_style_mark |= StyleType::LineHeight as usize;
+            },
+            Attribute::TextAlign(r) => {
+                println!("set TextAlign");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.text_align = r;
+                class.class_style_mark |= StyleType::TextAlign as usize;
+            },
+            Attribute::TextIndent(r) => {
+                // let t = or_insert_text_style(&mut class, class_sheet);
+                // t.text.indent = r;
+                // class.class_style_mark |= StyleType::Tex as usize;
+            },
+            Attribute::TextShadow(r) => {
+                println!("set TextShadow");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.shadow = r;
+                class.class_style_mark |= StyleType::TextShadow as usize;
+            },
+            Attribute::WhiteSpace(r) => {
+                println!("set WhiteSpace");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.white_space = r;
+                class.class_style_mark |= StyleType::WhiteSpace as usize;
+            },
+            Attribute::TextStroke(r) => {
+                println!("set TextStroke");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.text.stroke = r;
+                class.class_style_mark |= StyleType::Stroke as usize;
+            },
+            Attribute::FontWeight(r) => {
+                println!("set FontWeight");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.font.weight = r as usize;
+                class.class_style_mark |= StyleType::FontWeight as usize;
+            },
+            Attribute::FontSize(r) => {
+                println!("set FontSize");
+                let t = or_insert_text_style(&mut class, class_sheet);
+                t.font.size = r;
+                class.class_style_mark |= StyleType::FontSize as usize;
+            },
             Attribute::FontFamily(r) => {
+                println!("set FontFamily");
                 let t = or_insert_text_style(&mut class, class_sheet);
                 t.font.family = r;
                 class.class_style_mark |= StyleType::FontFamily as usize;
@@ -72,5 +133,7 @@ fn or_insert_text_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassShee
         class.text = i;
 
     }
-    unsafe { class_sheet.text.get_unchecked_mut(class.text) }
+    let t = unsafe { class_sheet.text.get_unchecked_mut(class.text) };
+    println!("t ================================{:?}", t);
+    t
 }

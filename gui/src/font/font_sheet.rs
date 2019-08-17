@@ -216,6 +216,7 @@ impl  FontSheet {
                             self.wait_draw.font = font.name.clone();
                             self.wait_draw.font_size = fs_scale as f32 ;
                             self.wait_draw.stroke_width = sw;
+                            self.wait_draw.weight = weight;
                             self.wait_draw.size = Vector2::new(w, height as f32);
                             self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
                         }

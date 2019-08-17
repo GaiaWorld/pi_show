@@ -1,5 +1,5 @@
 use std::mem::transmute;
-use std::str::{FromStr, Split};
+use std::str::{FromStr};
 
 use atom::Atom;
 
@@ -55,20 +55,20 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         },
 
         "color" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "letter-spacing" => show_attr.push(Attribute::LetterSpacing( parse_f32(value)? )),
+        "letter-spacing" => show_attr.push(Attribute::LetterSpacing( parse_px(value)? )),
         "line-height" => show_attr.push(Attribute::LineHeight( parse_line_height(value)? )),
         "text-align" => show_attr.push(Attribute::TextAlign( parse_text_align(value)? )),
-        "text-indent" => show_attr.push(Attribute::TextIndent( parse_f32(value)? )),
+        "text-indent" => show_attr.push(Attribute::TextIndent( parse_px(value)? )),
         "text-shadow" => show_attr.push(Attribute::TextShadow( parse_text_shadow(value)? )),
         // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "white-space" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "word-spacing" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "white-space" => show_attr.push(Attribute::WhiteSpace( pasre_white_space(value)? )),
+        "word-spacing" => show_attr.push(Attribute::WordSpacing( parse_px(value)? )),
 
-        "text-stroke" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "text-stroke" => show_attr.push(Attribute::TextStroke( parse_text_stroke(value)? )),
 
-        "font-style" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "font-weight" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "font-size" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
+        "font-weight" => show_attr.push(Attribute::FontWeight( parse_f32(value)? )),
+        "font-size" => show_attr.push(Attribute::FontSize( parse_font_size(value)? )),
         "font-family" => show_attr.push(Attribute::FontFamily( Atom::from(value) )),
 
         "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
@@ -106,6 +106,18 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         _ => (),
     };
     Ok(())
+}
+
+fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
+    let r = match value {
+        "normal" => WhiteSpace::Normal,
+        "pre" => WhiteSpace::Pre,
+        "nowrap" => WhiteSpace::Nowrap,
+        "pre-wrap" => WhiteSpace::PreWrap,
+        "pre-line" => WhiteSpace::PreLine,
+        _ =>  return Err( format!("pasre_white_space_err:{}", value) ),
+    };
+    Ok(r)
 }
 
 fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
@@ -219,32 +231,69 @@ fn parse_text_align(value: &str) -> Result<TextAlign, String>{
     }
 }
 
+fn parse_font_size(value: &str) -> Result<FontSize, String> {
+    if value.ends_with("%") {
+        let v = match f32::from_str(value) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(FontSize::Percent(v/100.0))
+    } else if value.ends_with("px") {
+        let v = match f32::from_str(&value[0..value.len() - 2]) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(FontSize::Length(v))
+    }else {
+        Err("parse_font_size error".to_string())
+    }
+}
+
 fn parse_text_shadow(value: &str) -> Result<TextShadow, String>{
-    let mut it = value.split(" ");
+    let mut i = 0;
     let mut shadow = TextShadow::default();
-    // shadow.h = parse_px(iter(&mut it, "")?)?;
-    // shadow.v = parse_px(iter(&mut it, "")?)?;
-    // match iter(&mut it, "") {
-    //     Ok(r) => match parse_px(r) {
-    //         Ok(r) => shadow.blur = r,
-    //         Err(_) => shadow.color = parse_color_string(r)?,
-    //     },
-    //     _ => (),
-    // };
+    shadow.h = parse_px(iter_by_space(value, &mut i)?)?;
+    shadow.v = parse_px(iter_by_space(value, &mut i)?)?;
+    match iter_by_space(value, &mut i) {
+        Ok(r) => match parse_px(r) {
+            Ok(r) => {
+                shadow.blur = r;
+                match iter_by_space(value, &mut i){
+                    Ok(r) => shadow.color = parse_color_string(r)?,
+                    Err(_) => (),
+                };
+            },
+            Err(_) => shadow.color = parse_color_string(r)?,
+        },
+        _ => (),
+    };
     Ok(shadow)
 }
 
-fn iter<'a, 'b>(it: &'a mut Split<&'a str>, no: &'b str) -> Result<&'a str, String> {
-    loop {
-        match it.next() {
-            Some(r) => if no != r{
-                return Ok(r.trim())
-            } else {
-                continue;
-            },
-            None => return Err("iter err".to_string()),
-        }
-    }
+fn parse_text_stroke(value: &str) -> Result<Stroke, String>{
+    let mut i = 0;
+    let mut stroke = Stroke::default();
+    stroke.width = parse_px(iter_by_space(value, &mut i)?)?;
+    stroke.color = parse_color_string(iter_by_space(value, &mut i)?)?;
+    Ok(stroke)
+}
+
+fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, String> {
+    let value = &value[*i..];
+    let first = match value.find(" ") {
+        Some(r) => r,
+        None => if value.len() == 0 {
+            return Err("".to_string());
+        } else {
+            return Ok(value)
+        },
+    };
+    *i += first;
+    let pre = &value[0..first];
+    let next = &value[first..];
+    let r = next.trim();
+    *i += next.len() - r.len();
+    Ok(pre)
 }
 
 fn parser_color_stop_last(v: f32, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32, last_color: Option<CgColor>) -> Result<(), String>{
@@ -595,7 +644,7 @@ pub enum Attribute {
 
     FontStyle(FontStyle),
     FontWeight(f32),
-    FontSize(f32),
+    FontSize(FontSize),
     FontFamily(Atom),
 
     ZIndex(usize),

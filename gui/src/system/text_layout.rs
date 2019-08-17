@@ -505,8 +505,8 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
                 calc.pos.x += letter_spacing;
             },
             SplitResult::WordNext(c) =>{
-                calc.pos.x += letter_spacing;
                 update_char1(tex_param, c, 0.0, sw, font, &mut calc);
+                calc.pos.x += letter_spacing;
             },
             SplitResult::WordEnd =>{
                 let node = unsafe {tex_param.cb.chars.get_unchecked_mut(calc.word)};

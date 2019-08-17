@@ -85,6 +85,7 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBlockSys<L, C>{
     type ReadData = (
+        &'a MultiCaseImpl<Node, ClassName>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -99,7 +100,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
+        let (class_names, world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
@@ -222,7 +223,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             // 阴影存在
             if index.shadow > 0 {
                 let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
-                if dirty & (StyleType::TextShadow as usize) != 0 {            
+                if dirty & (StyleType::TextShadow as usize) != 0 { 
+                              
                     // 阴影颜色脏，或描边脏， 修改ubo
                     modify_shadow_color(index.shadow, style_mark.local_style, text_style, &notify, shadow_render_obj, engine, charblock.is_pixel, &class_ubo);
                     // 设置ubo TODO
@@ -441,12 +443,14 @@ fn modify_stroke<C: HalContext + 'static>(
     notify.modify_event(index, "", 0);
     // canvas 字体
     if is_pixel {
-        let ubo = if local_style & (StyleType::Stroke as usize) == 0 {
-            class_ubo.stroke_color_ubo.clone()
-        } else {
-            let color = &text_stroke.color;
-            create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)))
-        };
+        // let ubo = if local_style & (StyleType::Stroke as usize) == 0 {
+        //     class_ubo.stroke_color_ubo.clone()
+        // } else {
+        //     let color = &text_stroke.color;
+        //     create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)))
+        // };
+        let color = &text_stroke.color;
+        let ubo = create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)));
         render_obj.paramter.set_value("strokeColor", ubo);
         return false;
     }
@@ -476,12 +480,12 @@ fn modify_stroke<C: HalContext + 'static>(
 #[inline]
 fn modify_color<C: HalContext + 'static>(
     index: usize,
-    local_style: usize,
+    _local_style: usize,
     color: &Color,
     engine: &mut Engine<C>,
     notify: &NotifyImpl,
     render_obj: &mut RenderObj,
-    class_ubo: &RenderCatch,
+    _class_ubo: &RenderCatch,
 ) -> bool {
     let change = match color {
         Color::RGBA(c) => {
@@ -529,23 +533,24 @@ fn modify_font (
 #[inline]
 fn modify_shadow_color<C: HalContext + 'static>(
     index: usize,
-    local_style: usize,
+    _local_style: usize,
     text_style: &TextStyle,
     notify: &NotifyImpl,
     render_obj: &mut RenderObj,
     engine: &mut Engine<C>,
     is_pixel: bool,
-    class_ubo: &RenderCatch,
+    _class_ubo: &RenderCatch,
 ) {
     let c = &text_style.shadow.color;
     if text_style.text.stroke.width > 0.0 && is_pixel {
         render_obj.paramter.set_value("strokeColor", create_hash_res(engine,  CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) ));
     }
-    let ubo = if local_style & (StyleType::TextShadow as usize) == 0 {
-        class_ubo.shadow_color_ubo.clone()
-    } else {
-        create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
-    };
+    // let ubo = if local_style & (StyleType::TextShadow as usize) == 0 {
+    //     class_ubo.shadow_color_ubo.clone()
+    // } else {
+    //     create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
+    // };
+    let ubo  = create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) );
     render_obj.paramter.set_value("uColor", ubo);
     render_obj.fs_defines.add("UCOLOR");
     notify.modify_event(index, "ubo", 0);
