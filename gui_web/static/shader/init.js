@@ -243,6 +243,8 @@ var WhiteSpace_PreLine = 4; //	合并空白符序列，如果存在换行符，�
 // 绘制canvas文字， 并更新到纹理
 window.__draw_text_canvas = function(world, textInfoList, c){
     setTimeout(function(){
+        console.log(textInfoList);
+        let time = performance.now();
         for (var j = 0; j < textInfoList.list.length; j++) {
         
             var text_info = textInfoList.list[j];
@@ -251,33 +253,37 @@ window.__draw_text_canvas = function(world, textInfoList, c){
             var fontName = text_info.weight + " " + text_info.font_size + "px " + text_info.font;
             var hal_stroke_width = text_info.stroke_width/2;
             var bottom = text_info.size[1] - hal_stroke_width;
-            for (var i = 0; i < text_info.chars.length; i++) {
-                var char_info = text_info.chars[i];
-                canvas.width = char_info.width;
-                canvas.height = text_info.size[1]; 
-                ctx.fillStyle = "#00f"; 
-                ctx.font = fontName;
+            canvas.width = text_info.size[0];
+            canvas.height = text_info.size[1]; 
+            if (text_info.chars.length > 0) {
+                ctx.fillStyle = "#00f";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.font = fontName;
+                ctx.fillStyle = "#0f0";
+                ctx.textBaseline = "bottom";
+                let first = text_info.chars[0];
                 if (text_info.stroke_width > 0.0) {
                     ctx.lineWidth = text_info.stroke_width;
-                    ctx.fillStyle = "#0f0";
                     ctx.strokeStyle = "#f00";
-                    ctx.textBaseline = "bottom";
-                    
-                    //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText
-                    ctx.fillText(char_info.ch, hal_stroke_width, bottom);
-                    ctx.strokeText(char_info.ch, hal_stroke_width, bottom);
+                    for (var i = 0; i < text_info.chars.length; i++) {
+                        var char_info = text_info.chars[i];
+                        var x = char_info.x + hal_stroke_width - first.x;
+                        //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText
+                        ctx.fillText(char_info.ch, x, bottom);
+                        ctx.strokeText(char_info.ch, x, bottom);
+                    }
                 } else {
-                    ctx.fillStyle = "#0f0";
-                    ctx.textBaseline = "bottom";
-                    ctx.fillText(char_info.ch, 0, bottom);
-    
+                    for (var i = 0; i < text_info.chars.length; i++) {  
+                        var char_info = text_info.chars[i];
+                        ctx.fillText(char_info.ch, char_info.x - first.x, bottom);
+                    }
                 }
+                let pos = text_info.chars[0];
                 window.__jsObj = canvas;
-                // document.body.append(canvas);
-                Module._update_text_texture(world, char_info.x, char_info.y, canvas.height);
+                Module._update_text_texture(world, pos.x, pos.y, canvas.height);
             }
         }
+        console.log(performance.now() - time);
         Module._set_render_dirty(world);
     }, 0);
 };

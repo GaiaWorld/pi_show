@@ -4,7 +4,6 @@ use std::ops::{Deref, DerefMut, Mul};
 
 use map::{vecmap::VecMap};
 use ecs::component::Component;
-use atom::Atom;
 
 use share::{ Share };
 use hal_core::*;

@@ -259,7 +259,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
 #[derive(Debug, Serialize)]
 pub struct TextInfo {
     pub font: String,
-    pub font_size: f32,
+    pub font_size: usize,
     pub stroke_width: usize,
     pub weight: usize,
     pub size: (f32, f32),
@@ -305,18 +305,6 @@ impl DrawTextSys {
         let font_sheet = world.font_sheet.lend_mut();
 
         let mut info_list = TextInfoList{list: Vec::default()};
-        if font_sheet.wait_draw.chars.len() > 0 {
-            info_list.list.push(
-                TextInfo{
-                    font: font_sheet.wait_draw.font.as_ref().to_string(),
-                    font_size: font_sheet.wait_draw.font_size,
-                    stroke_width: font_sheet.wait_draw.stroke_width,
-                    weight: font_sheet.wait_draw.weight,
-                    size: (font_sheet.wait_draw.size.x, font_sheet.wait_draw.size.y),
-                    chars: unsafe { std::mem::transmute(std::mem::replace(&mut font_sheet.wait_draw.chars, Vec::default())) },
-                }
-            );
-        }
 
         if font_sheet.wait_draw_list.len() > 0 {
             let list = std::mem::replace(&mut font_sheet.wait_draw_list, Vec::default());
@@ -335,6 +323,7 @@ impl DrawTextSys {
         }
         
         if info_list.list.len() > 0 {
+            font_sheet.wait_draw_map.clear();
             js!{
                 window.__draw_text_canvas(@{world_id}, @{info_list}, @{&self.canvas});
             }

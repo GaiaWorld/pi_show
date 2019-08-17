@@ -2,7 +2,7 @@
 use std::{
     default::Default,
     str::Chars,
-    mem::replace,
+    // mem::replace,
     collections::hash_map::Entry,
 };
 use atom::{Atom};
@@ -49,8 +49,8 @@ pub struct FontSheet {
     char_w_map: FxHashMap32<(Atom, char, bool/*是否为加粗字体*/), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
     pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ usize, /* weight */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
     pub char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
-    pub wait_draw: TextInfo,
     pub wait_draw_list: Vec<TextInfo>,
+    pub wait_draw_map: FxHashMap32<(Atom, usize/*font_size*/, usize /*stroke_width*/, usize /*font_weight */), (usize/* TextInfo_Index */, f32/* v */)>,
     measure_char: Box<dyn Fn(&Atom, usize, char)-> f32>,
     font_tex: FontTex,
 }
@@ -65,15 +65,16 @@ impl  FontSheet {
             char_w_map: FxHashMap32::default(),
             char_map: FxHashMap32::default(),
             char_slab: Slab::default(),
-            wait_draw: TextInfo {
-                font: Atom::from(""),
-                font_size: 0.0,
-                stroke_width: 0,
-                weight: 500,
-                size: Vector2::default(),
-                chars: Vec::new(),
-            },
+            // wait_draw: TextInfo {
+            //     font: Atom::from(""),
+            //     font_size: 0,
+            //     stroke_width: 0,
+            //     weight: 500,
+            //     size: Vector2::default(),
+            //     chars: Vec::new(),
+            // },
             wait_draw_list: Vec::new(),
+            wait_draw_map: FxHashMap32::default(),
             measure_char: measure,
             font_tex: FontTex::new(texture),
         }
@@ -168,7 +169,7 @@ impl  FontSheet {
         if font.is_pixel {// 像素纹理
             //let fs = font_size as f32 * font.factor;
             let fs_scale_f = font_size as f32 * scale;
-            let fs_scale = fs_scale_f.round() as usize;
+            let fs_scale = fs_scale_f.floor() as usize;
             // 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
             let sw = if stroke_width != 0 {
                 let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
@@ -201,29 +202,61 @@ impl  FontSheet {
                         advance: w,
                     }));
                     // 将需要渲染的字符放入等待队列
-                    if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale as f32 || self.wait_draw.stroke_width != sw || self.wait_draw.weight != weight {
-                        if self.wait_draw.chars.len() > 0 {
-                            let info = replace(&mut self.wait_draw, TextInfo{
+                    match self.wait_draw_map.entry((font.name.clone(), fs_scale, sw, weight)) {
+                        Entry::Occupied(mut e) => {
+                            let mut r = *e.get_mut();
+                            if r.1 == p.y {
+                                let info = &mut self.wait_draw_list[r.0];
+                                info.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});  
+                                info.size.x += w;
+                            } else {
+                                r.0 = self.wait_draw_list.len();
+                                r.1 = p.y;
+                                self.wait_draw_list.push(TextInfo{
+                                    font: font.name.clone(),
+                                    font_size: fs_scale ,
+                                    stroke_width: sw,
+                                    weight: weight,
+                                    size: Vector2::new(w, height as f32),
+                                    chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
+                                });
+                            }
+                        },
+                        Entry::Vacant(r) => {
+                            r.insert((self.wait_draw_list.len(), p.y));
+                            self.wait_draw_list.push(TextInfo{
                                 font: font.name.clone(),
-                                font_size: fs_scale as f32 ,
+                                font_size: fs_scale ,
                                 stroke_width: sw,
                                 weight: weight,
                                 size: Vector2::new(w, height as f32),
                                 chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
                             });
-                            self.wait_draw_list.push(info);
-                        }else{
-                            self.wait_draw.font = font.name.clone();
-                            self.wait_draw.font_size = fs_scale as f32 ;
-                            self.wait_draw.stroke_width = sw;
-                            self.wait_draw.weight = weight;
-                            self.wait_draw.size = Vector2::new(w, height as f32);
-                            self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
                         }
-                    }else{
-                        self.wait_draw.size.x += w;
-                        self.wait_draw.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});
                     }
+                    // if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale || self.wait_draw.stroke_width != sw || self.wait_draw.weight != weight {
+                    //     if self.wait_draw.chars.len() > 0 {
+                    //         let info = replace(&mut self.wait_draw, TextInfo{
+                    //             font: font.name.clone(),
+                    //             font_size: fs_scale ,
+                    //             stroke_width: sw,
+                    //             weight: weight,
+                    //             size: Vector2::new(w, height as f32),
+                    //             chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
+                    //         });
+                    //         self.wait_draw_list.push(info);
+                    //     }else{
+                    //         self.wait_draw.font = font.name.clone();
+                    //         self.wait_draw.font_size = fs_scale;
+                    //         self.wait_draw.stroke_width = sw;
+                    //         self.wait_draw.weight = weight;
+                    //         self.wait_draw.size = Vector2::new(w, height as f32);
+                    //         self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
+                    //     }
+                    // }else{
+                    //     self.wait_draw.size.x += w;
+                    //     self.wait_draw.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});
+                    // }
                     r.insert(id);
                     id
                 }
@@ -252,6 +285,8 @@ impl  FontSheet {
         (gylph.width * radio, gylph.width * radio)
     }
 }
+
+
 
 // 字体表现
 #[derive(Default, Debug)]
@@ -345,7 +380,7 @@ impl Glyph {
 
 pub struct TextInfo {
     pub font: Atom,
-    pub font_size: f32,
+    pub font_size: usize,
     pub stroke_width: usize,
     pub weight: usize,
     pub size: Vector2,

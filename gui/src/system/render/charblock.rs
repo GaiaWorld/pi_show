@@ -85,7 +85,6 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBlockSys<L, C>{
     type ReadData = (
-        &'a MultiCaseImpl<Node, ClassName>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Layout>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -100,7 +99,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (class_names, world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
+        let (world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
@@ -711,6 +710,9 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
+                println!("char_block.chars:{:?}", char_block.chars);
+                println!("char_block.uvs:{:?}", uvs);
+                println!("char_block.positions:{:?}", positions);
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {

@@ -25,7 +25,7 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 800px"> 文字放大， 保持清晰度 </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 900px"> class设置 </div>
     
-    <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
     <script src="shader/clip.js"></script>
     <script src="shader/color.js"></script>
     <script src="shader/image.js"></script>
@@ -588,7 +588,7 @@
         Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
         Module._append_child(gui, node, body);
 
-        window.__jsObj = "color: #00f;letter-spacing:5px;word-spacing: 10px;font-family:common;font-weight:900;font-size:20px;text-align:center;line-height:60px;text-shadow:5px 5px 2px #f00;text-stroke:1px #f0f;";
+        window.__jsObj = "color: #00f;letter-spacing:5px;word-spacing: 10px;font-family:common;font-weight:900;font-size:20px;text-align:center;line-height:60px;text-stroke:1px #f0f;text-shadow:5px 5px 2px #f00;";
         let class1 = Module._create_class(gui, 1);
 
         // 纹理采样bug， TODO
