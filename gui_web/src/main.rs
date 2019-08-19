@@ -161,7 +161,7 @@ pub fn render(world_id: u32){
     world.draw_text_sys.run(world_id);
 	let world = &mut world.gui;
     load_image(world_id);
-    world.world.run(&RENDER_DISPATCH);
+    world.world.run(&RENDER_DISPATCH);;
 }
 
 // 强制计算一次布局

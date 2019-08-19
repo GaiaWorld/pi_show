@@ -23,45 +23,44 @@ use entity::{Node};
 use render::engine::Engine;
 use render::res::*;
 
-const TEXT_DIRTY: usize =   StyleType::LetterSpacing as usize | 
-                            StyleType::WordSpacing as usize | 
-                            StyleType::LineHeight as usize | 
-                            StyleType::Indent as usize |
-                            StyleType::WhiteSpace as usize | 
-                            StyleType::TextAlign as usize | 
-                            StyleType::VerticalAlign as usize |
-                            StyleType::TextShadow as usize |
-                            StyleType::Color as usize | 
-                            StyleType::Stroke as usize;
-const FONT_DIRTY: usize =   StyleType::FontStyle as usize | 
-                            StyleType::FontFamily as usize | 
-                            StyleType::FontSize as usize | 
-                            StyleType::FontWeight as usize; 
+//文字样式脏
+const TEXT_DIRTY: usize =       StyleType::LetterSpacing as usize | 
+                                StyleType::WordSpacing as usize | 
+                                StyleType::LineHeight as usize | 
+                                StyleType::Indent as usize |
+                                StyleType::WhiteSpace as usize | 
+                                StyleType::TextAlign as usize | 
+                                StyleType::VerticalAlign as usize |
+                                StyleType::TextShadow as usize |
+                                StyleType::Color as usize | 
+                                StyleType::Stroke as usize;
+
+//字体脏
+const FONT_DIRTY: usize =       StyleType::FontStyle as usize | 
+                                StyleType::FontFamily as usize | 
+                                StyleType::FontSize as usize | 
+                                StyleType::FontWeight as usize;
+
+// 节点属性脏（不包含text， image， background等渲染属性）
+const NODE_DIRTY: usize =       StyleType::Transform as usize | 
+                                StyleType::Filter as usize | 
+                                StyleType::Opacity as usize | 
+                                StyleType::BorderRadius as usize; 
+// 节点属性脏（不包含text， image， background等渲染属性）
+const NODE_DIRTY1: usize =      StyleType1::Visibility as usize | 
+                                StyleType1::Enable as usize | 
+                                StyleType1::ZIndex as usize |
+                                StyleType1::Display as usize;
 
 const TEXT_STYLE_DIRTY: usize = TEXT_DIRTY | FONT_DIRTY | StyleType::TextShadow as usize;         
 
 pub struct StyleMarkSys<L, C>{
-    text_style_mark: usize,
     mark: PhantomData<(L, C)>,
 }
 
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> StyleMarkSys<L, C> {
     pub fn new() -> Self {
         Self{
-            text_style_mark:StyleType::LetterSpacing as usize | 
-                            StyleType::WordSpacing as usize | 
-                            StyleType::LineHeight as usize | 
-                            StyleType::Indent as usize |
-                            StyleType::WhiteSpace as usize | 
-                            StyleType::TextAlign as usize | 
-                            StyleType::VerticalAlign as usize |
-                            StyleType::TextShadow as usize |
-                            StyleType::Color as usize | 
-                            StyleType::Stroke as usize |
-                            StyleType::FontStyle as usize | 
-                            StyleType::FontFamily as usize | 
-                            StyleType::FontSize as usize | 
-                            StyleType::FontWeight as usize ,
             mark: PhantomData,
         }
     }
@@ -75,6 +74,16 @@ fn set_local_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_marks
     }
     style_mark.dirty |= ty;
     style_mark.local_style |= ty;
+}
+
+#[inline]
+fn set_local_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_marks: &mut MultiCaseImpl<Node, StyleMark> ) {
+    let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+    if style_mark.dirty == 0 {
+        dirty_list.0.push(id);
+    }
+    style_mark.dirty |= ty;
+    style_mark.local_style1 |= ty;
 }
 
 #[inline]
@@ -434,6 +443,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
         &'a mut MultiCaseImpl<Node, Transform>,
         &'a mut MultiCaseImpl<Node, BorderRadius>,
         &'a mut MultiCaseImpl<Node, Filter>,
+        &'a mut MultiCaseImpl<Node, ZIndex>,
+        &'a mut MultiCaseImpl<Node, Show>,
         &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut MultiCaseImpl<Node, L>,
         &'a mut SingleCaseImpl<Engine<C>>,
@@ -459,6 +470,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             transforms,
             border_radiuses,
             filters,
+            zindexs,
+            shows,
             style_marks,
             yogas,
             engine,
@@ -474,7 +487,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
         if class.text > 0 {
             let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
-            if class.class_style_mark & self.text_style_mark != 0 {
+            if class.class_style_mark & TEXT_DIRTY != 0 {
                 if style_mark.local_style & TEXT_STYLE_DIRTY == 0 {
                     // 如果本地样式不存在任何文字相关的属性， 直接设置文字组件与class相同
                     text_styles.insert_no_notify(event.id, c.clone());
@@ -634,29 +647,60 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             }
         }
 
-        if class.class_style_mark & StyleType::Opacity as usize != 0 && style_mark.local_style & StyleType::Opacity as usize == 0{
-            opacitys.insert(event.id, Opacity(class.opacity));
-            // set_dirty(dirty_list, event.id, StyleType::Opacity as usize, style_mark); 不需要设脏，opacity还需要通过级联计算得到最终值， 监听到该值的变化才会设脏
+        if class.class_style_mark & NODE_DIRTY as usize != 0 {
+            if class.class_style_mark & StyleType::Opacity as usize != 0 && style_mark.local_style & StyleType::Opacity as usize == 0 {
+                opacitys.insert(event.id, Opacity(class.opacity));
+                // set_dirty(dirty_list, event.id, StyleType::Opacity as usize, style_mark); 不需要设脏，opacity还需要通过级联计算得到最终值， 监听到该值的变化才会设脏
+            }
+
+            if class.class_style_mark & StyleType::Transform as usize != 0 && style_mark.local_style & StyleType::Transform as usize == 0{
+                transforms.insert(event.id, class.transform.clone());;
+                set_dirty(dirty_list, event.id, StyleType::Transform as usize, style_mark);
+            }
+
+            if class.class_style_mark & StyleType::BorderRadius as usize != 0 && style_mark.local_style & StyleType::BorderRadius as usize == 0{
+                border_radiuses.insert(event.id, class.border_radius.clone());
+                set_dirty(dirty_list, event.id, StyleType::BorderRadius as usize, style_mark);
+            }
+
+            if class.class_style_mark & StyleType::Filter as usize != 0 && style_mark.local_style & StyleType::Filter as usize == 0{
+                filters.insert(event.id, class.filter.clone());;
+                set_dirty(dirty_list, event.id, StyleType::Filter as usize, style_mark);
+            }
         }
 
-        if class.class_style_mark & StyleType::Transform as usize != 0 && style_mark.local_style & StyleType::Transform as usize == 0{
-            transforms.insert(event.id, class.transform.clone());;
-            set_dirty(dirty_list, event.id, StyleType::Transform as usize, style_mark);
-        }
+        if class.class_style_mark1 & NODE_DIRTY1 as usize != 0 {
+            let show = match shows.get_mut(event.id) {
+                Some(r) => r,
+                None => {
+                    shows.insert_no_notify(event.id, Show::default());
+                    unsafe { shows.get_unchecked_mut(event.id) }
+                },
+            };
+            if class.class_style_mark1 & StyleType1::Enable as usize != 0 && style_mark.local_style1 & StyleType1::Enable as usize == 0{
+                show.set_enable(class.enable);
+                set_dirty(dirty_list, event.id, StyleType1::Enable as usize, style_mark);
+            }
 
-        if class.class_style_mark & StyleType::BorderRadius as usize != 0 && style_mark.local_style & StyleType::BorderRadius as usize == 0{
-            border_radiuses.insert(event.id, class.border_radius.clone());
-            set_dirty(dirty_list, event.id, StyleType::BorderRadius as usize, style_mark);
-        }
+            if class.class_style_mark1 & StyleType1::Display as usize != 0 && style_mark.local_style1 & StyleType1::Display as usize == 0{
+                show.set_display(class.display);
+                set_dirty(dirty_list, event.id, StyleType1::Display as usize, style_mark);
+            }
 
-        if class.class_style_mark & StyleType::Filter as usize != 0 && style_mark.local_style & StyleType::Filter as usize == 0{
-            filters.insert(event.id, class.filter.clone());;
-            set_dirty(dirty_list, event.id, StyleType::Filter as usize, style_mark);
+            if class.class_style_mark1 & StyleType1::Visibility as usize != 0 && style_mark.local_style1 & StyleType1::Visibility as usize == 0{
+                show.set_visibility(class.visibility);
+                set_dirty(dirty_list, event.id, StyleType1::Visibility as usize, style_mark);
+            }
+
+            if class.class_style_mark & StyleType1::ZIndex as usize != 0 && style_mark.local_style & StyleType1::ZIndex as usize == 0 {
+                zindexs.insert(event.id, ZIndex(class.z_index));
+            }
         }
+        
 
         // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
         let yoga = unsafe {yogas.get_unchecked(event.id)};
-        set_layout_style(class, yoga);
+        set_layout_style(class, yoga, style_mark);
 
         style_mark.class_style = class.class_style_mark;
     }
@@ -747,136 +791,211 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     }
 }
 
-fn set_layout_style<L: FlexNode>(class: &Class, yoga: &L){
+fn set_layout_style<L: FlexNode>(class: &Class, yoga: &L, style_mark: &mut StyleMark){
     for layout_attr in class.layout.iter() {
         match layout_attr.clone() {
-            LayoutAttr::AlignContent(r) => yoga.set_align_content(r),
-            LayoutAttr::AlignItems(r) => yoga.set_align_items(r),
-            LayoutAttr::AlignSelf(r) => yoga.set_align_self(r),
-            LayoutAttr::JustifyContent(r) => yoga.set_justify_content(r),
-            LayoutAttr::FlexDirection(r) => yoga.set_flex_direction(r),
-            LayoutAttr::FlexWrap(r) => yoga.set_flex_wrap(r),
-            LayoutAttr::PositionType(r) => yoga.set_position_type(r),
-            LayoutAttr::Width(r) => match r {
-                ValueUnit::Auto => yoga.set_width_auto(),
-                ValueUnit::Undefined => yoga.set_width_auto(),
-                ValueUnit::Pixel(r) => yoga.set_width(r),
-                ValueUnit::Percent(r) => yoga.set_width_percent(r),
+            LayoutAttr::AlignContent(r) => if StyleType1::AlignContent as usize & style_mark.local_style1 != 0 {yoga.set_align_content(r)},
+            LayoutAttr::AlignItems(r) => if StyleType1::AlignItems as usize & style_mark.local_style1 != 0 {yoga.set_align_items(r)},
+            LayoutAttr::AlignSelf(r) => if StyleType1::AlignSelf as usize & style_mark.local_style1 != 0 {yoga.set_align_self(r)},
+            LayoutAttr::JustifyContent(r) => if StyleType1::JustifyContent as usize & style_mark.local_style1 != 0 {yoga.set_justify_content(r)},
+            LayoutAttr::FlexDirection(r) => if StyleType1::FlexDirection as usize & style_mark.local_style1 != 0 {yoga.set_flex_direction(r)},
+            LayoutAttr::FlexWrap(r) => if StyleType1::FlexWrap as usize & style_mark.local_style1 != 0 {yoga.set_flex_wrap(r)},
+            LayoutAttr::PositionType(r) => if StyleType1::PositionType as usize & style_mark.local_style1 != 0 {yoga.set_position_type(r)},
+            LayoutAttr::Width(r) => if StyleType1::Width as usize & style_mark.local_style1 != 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_width_auto(),
+                    ValueUnit::Undefined => yoga.set_width_auto(),
+                    ValueUnit::Pixel(r) => yoga.set_width(r),
+                    ValueUnit::Percent(r) => yoga.set_width_percent(r),
+                }
             },
-            LayoutAttr::Height(r) => match r {
-                ValueUnit::Auto => yoga.set_height_auto(),
-                ValueUnit::Undefined => yoga.set_height_auto(),
-                ValueUnit::Pixel(r) => yoga.set_height(r),
-                ValueUnit::Percent(r) => yoga.set_height_percent(r),
+            LayoutAttr::Height(r) => if StyleType1::Height as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_height_auto(),
+                    ValueUnit::Undefined => yoga.set_height_auto(),
+                    ValueUnit::Pixel(r) => yoga.set_height(r),
+                    ValueUnit::Percent(r) => yoga.set_height_percent(r),
+                }
             },
-            LayoutAttr::MarginLeft(r) => match r {
-                ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
-                ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
-                ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeLeft, r),
-                ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeLeft, r),
+            LayoutAttr::MarginLeft(r) => if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
+                    ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
+                    ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeLeft, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeLeft, r),
+                }
             },
-            LayoutAttr::MarginTop(r) => match r {
-                ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeTop, r),
-                ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeTop, r),
+            LayoutAttr::MarginTop(r) => if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeTop),
+                    ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeTop),
+                    ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeTop, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeTop, r),
+                }
             },
-            LayoutAttr::MarginBottom(r) => match r {
-                ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeTop, r),
-                ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeTop, r),
+            LayoutAttr::MarginBottom(r) => if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeBottom),
+                    ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeBottom),
+                    ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeBottom, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeBottom, r),
+                }
             },
-            LayoutAttr::MarginRight(r) => match r {
-                ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeRight),
-                ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeRight),
-                ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeRight, r),
-                ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeRight, r),
+            LayoutAttr::MarginRight(r) => if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeRight),
+                    ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeRight),
+                    ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeRight, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeRight, r),
+                }
             },
-            LayoutAttr::Margin(r) => match r {
-                ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeAll),
-                ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeAll),
-                ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeAll, r),
-                ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeAll, r),
+            LayoutAttr::Margin(r) => if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto | ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeAll),
+                    ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeAll, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeAll, r),
+                }
             },
-            LayoutAttr::PaddingLeft(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeLeft, r),
-                ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeLeft, r),
-                _ => (),
+            LayoutAttr::PaddingLeft(r) => if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeLeft, r),
+                    ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeLeft, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::PaddingTop(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeTop, r),
-                ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeTop, r),
-                _ => (),
+            LayoutAttr::PaddingTop(r) => if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeTop, r),
+                    ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeTop, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::PaddingBottom(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeTop, r),
-                ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeTop, r),
-                _ => (),
+            LayoutAttr::PaddingBottom(r) => if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeBottom, r),
+                    ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeBottom, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::PaddingRight(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeRight, r),
-                ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeRight, r),
-                _ => (),
+            LayoutAttr::PaddingRight(r) => if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeRight, r),
+                    ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeRight, r),
+                    _ => (), 
+                }
             },
-            LayoutAttr::Padding(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeAll, r),
-                ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeAll, r),
-                _ => (),
+            LayoutAttr::Padding(r) => if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeAll, r),
+                    ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeAll, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::BorderLeft(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeLeft, r),
-                // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeLeft, r),
-                _ => (),
+            LayoutAttr::BorderLeft(r) => if StyleType1::Border as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeLeft, r),
+                    // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeLeft, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::BorderTop(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeTop, r),
-                // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, r),
-                _ => (),
+            LayoutAttr::BorderTop(r) => if StyleType1::Border as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeTop, r),
+                    // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::BorderBottom(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeTop, r),
-                // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, r),
-                _ => (),
+            LayoutAttr::BorderBottom(r) => if StyleType1::Border as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeBottom, r),
+                    // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::BorderRight(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeRight, r),
-                // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeRight, r),
-                _ => (),
+            LayoutAttr::BorderRight(r) => if StyleType1::Border as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeRight, r),
+                    // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeRight, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::Border(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeAll, r),
-                // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeAll, r),
-                _ => (),
+            LayoutAttr::Border(r) => if StyleType1::Border as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeAll, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::MinWidth(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_min_width(r),
-                ValueUnit::Percent(r) => yoga.set_min_width_percent(r),
-                _ => (),
+            LayoutAttr::PositionLeft(r) => if StyleType1::Position as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeLeft, r),
+                    ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeLeft, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::MinHeight(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_min_height(r),
-                ValueUnit::Percent(r) => yoga.set_min_height_percent(r),
-                _ => (),
+            LayoutAttr::PositionTop(r) => if StyleType1::Position as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeTop, r),
+                    ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeTop, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::MaxHeight(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_max_height(r),
-                ValueUnit::Percent(r) => yoga.set_max_height_percent(r),
-                _ => (),
+            LayoutAttr::PositionRight(r) => if StyleType1::Position as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeRight, r),
+                    ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeRight, r),
+                    _ => (),
+                }
             },
-            LayoutAttr::MaxWidth(r) => match r {
-                ValueUnit::Pixel(r) => yoga.set_max_width(r),
-                ValueUnit::Percent(r) => yoga.set_max_width_percent(r),
-                _ => (),
+            LayoutAttr::PositionBottom(r) => if StyleType1::Position as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeBottom, r),
+                    ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeBottom, r),
+                    _ => (), 
+                }
             },
-            LayoutAttr::FlexBasis(r) => match r {
-                ValueUnit::Auto => yoga.set_flex_basis_auto(),
-                ValueUnit::Undefined => yoga.set_flex_basis_auto(),
-                ValueUnit::Pixel(r) => yoga.set_flex_basis(r),
-                ValueUnit::Percent(r) => yoga.set_flex_basis_percent(r),
+            LayoutAttr::MinWidth(r) => if StyleType1::MinWidth as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_min_width(r),
+                    ValueUnit::Percent(r) => yoga.set_min_width_percent(r),
+                    _ => (),
+                    
+                }
             },
-            LayoutAttr::FlexShrink(r) => yoga.set_flex_shrink(r),
-            LayoutAttr::FlexGrow(r) => yoga.set_flex_grow(r),
+            LayoutAttr::MinHeight(r) => if StyleType1::MinHeight as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_min_height(r),
+                    ValueUnit::Percent(r) => yoga.set_min_height_percent(r),
+                    _ => (),
+                }
+            },
+            LayoutAttr::MaxHeight(r) => if StyleType1::MaxHeight as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_max_height(r),
+                    ValueUnit::Percent(r) => yoga.set_max_height_percent(r),
+                    _ => (),
+                }
+            },
+            LayoutAttr::MaxWidth(r) => if StyleType1::MaxWidth as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Pixel(r) => yoga.set_max_width(r),
+                    ValueUnit::Percent(r) => yoga.set_max_width_percent(r),
+                    _ => (),
+                }
+            },
+            LayoutAttr::FlexBasis(r) => if StyleType1::FlexBasis as usize & style_mark.local_style1 == 0 {
+                match r {
+                    ValueUnit::Auto => yoga.set_flex_basis_auto(),
+                    ValueUnit::Undefined => yoga.set_flex_basis_auto(),
+                    ValueUnit::Pixel(r) => yoga.set_flex_basis(r),
+                    ValueUnit::Percent(r) => yoga.set_flex_basis_percent(r),
+                }
+            },
+            LayoutAttr::FlexShrink(r) => if StyleType1::FlexShrink as usize & style_mark.local_style1 == 0 {
+                yoga.set_flex_shrink(r)
+            },
+            LayoutAttr::FlexGrow(r) => if StyleType1::FlexGrow as usize & style_mark.local_style1 == 0 {
+                yoga.set_flex_grow(r)
+            },
         }
     }
 }

@@ -413,7 +413,7 @@ enum ShowType{
   Enable = 12, // 0表示no Enable
 }
 
-#[derive(Debug, Clone, EnumDefault)]
+#[derive(Debug, Clone, EnumDefault, Copy)]
 pub enum EnableType{
     Auto = 0, 
     None = 1,
@@ -573,6 +573,12 @@ impl Default for ImageClip {
   fn default() -> ImageClip {
     ImageClip(Aabb2{min:Point2::new(0.0,0.0), max:Point2::new(1.0,1.0)})
   }
+}
+
+impl Default for BorderImageClip {
+    fn default() -> Self {
+        Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
+    }
 }
 
 #[derive(Clone, Debug)]

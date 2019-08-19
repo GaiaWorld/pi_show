@@ -318,7 +318,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 //     oblique * font_size * char_width // TODO FIX!!!
 // }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TexFont {
     pub name: Atom,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
@@ -378,6 +378,7 @@ impl Glyph {
     }
 }
 
+#[derive(Debug)]
 pub struct TextInfo {
     pub font: Atom,
     pub font_size: usize,
@@ -387,11 +388,12 @@ pub struct TextInfo {
     pub chars: Vec<WaitChar>,
 }
 
+#[derive(Debug)]
 pub struct WaitChar {
-    ch: char,
-    width: f32,
-    x: u32,
-    y: u32,
+    pub ch: char,
+    pub width: f32,
+    pub x: u32,
+    pub y: u32,
 }
 
 // 劈分结果

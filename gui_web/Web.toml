@@ -12,6 +12,7 @@
 #             "-s", "ENVIRONMENT=web",
 #             "-s", "INLINING_LIMIT=1",
 #             "-s", "NO_FILESYSTEM=1",
+            
 #             # "-s", "ASSERTIONS=1",
 #             ]
 

@@ -11,9 +11,9 @@ use component::user::*;
 #[derive(Default)]
 pub struct ClassSheet {
     pub transform: Slab<Transform>,
-    pub layout_common: Slab<LayoutCommonUse>,
-    pub layout_box_pattern: Slab<LayoutBoxPattern>,
-    pub layout_adaption: Slab<LayoutAdaption>,
+    // pub layout_common: Slab<LayoutCommonUse>,
+    // pub layout_box_pattern: Slab<LayoutBoxPattern>,
+    // pub layout_adaption: Slab<LayoutAdaption>,
     
     pub background_color: Slab<BackgroundColorClass>,
     pub border_color: Slab<BorderColor>,
@@ -34,48 +34,48 @@ pub enum ValueUnit {
     Percent(f32),
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct LayoutCommonUse {
-    pub width: ValueUnit,
-    pub height: ValueUnit,
-    pub position_type: YGPositionType,
-    pub margin_left: ValueUnit,
-    pub margin_right: ValueUnit,
-    pub margin_top: ValueUnit,
-    pub margin_bottom: ValueUnit,
-    pub flex_wrap: YGWrap,
-    pub flex_direction: YGFlexDirection,
+// #[derive(Debug, Clone, Default)]
+// pub struct LayoutCommonUse {
+//     pub width: ValueUnit,
+//     pub height: ValueUnit,
+//     pub position_type: YGPositionType,
+//     pub margin_left: ValueUnit,
+//     pub margin_right: ValueUnit,
+//     pub margin_top: ValueUnit,
+//     pub margin_bottom: ValueUnit,
+//     pub flex_wrap: YGWrap,
+//     pub flex_direction: YGFlexDirection,
 
-    pub align_content: YGAlign,
-    pub align_items: YGAlign,
-    pub justify_content: YGJustify,
-    pub align_self: YGAlign,
-}
+//     pub align_content: YGAlign,
+//     pub align_items: YGAlign,
+//     pub justify_content: YGJustify,
+//     pub align_self: YGAlign,
+// }
 
-#[derive(Debug, Clone, Default)]
-pub struct LayoutAdaption {
-    pub min_width: ValueUnit,
-    pub min_height: ValueUnit,
-    pub max_width: ValueUnit,
-    pub max_height: ValueUnit,
+// #[derive(Debug, Clone, Default)]
+// pub struct LayoutAdaption {
+//     pub min_width: ValueUnit,
+//     pub min_height: ValueUnit,
+//     pub max_width: ValueUnit,
+//     pub max_height: ValueUnit,
 
-    pub flex_basis: ValueUnit,
-    pub flex_shrink: ValueUnit,
-    pub flex_grow: ValueUnit,
-}
+//     pub flex_basis: ValueUnit,
+//     pub flex_shrink: ValueUnit,
+//     pub flex_grow: ValueUnit,
+// }
 
-#[derive(Debug, Clone, Default)]
-pub struct LayoutBoxPattern {
-    pub padding_left: ValueUnit,
-    pub padding_right: ValueUnit,
-    pub padding_top: ValueUnit,
-    pub padding_bottom: ValueUnit,
+// #[derive(Debug, Clone, Default)]
+// pub struct LayoutBoxPattern {
+//     pub padding_left: ValueUnit,
+//     pub padding_right: ValueUnit,
+//     pub padding_top: ValueUnit,
+//     pub padding_bottom: ValueUnit,
 
-    pub border_left: ValueUnit,
-    pub border_right: ValueUnit,
-    pub border_top: ValueUnit,
-    pub border_bottom: ValueUnit,
-}
+//     pub border_left: ValueUnit,
+//     pub border_right: ValueUnit,
+//     pub border_top: ValueUnit,
+//     pub border_bottom: ValueUnit,
+// }
 
 #[derive(Debug, Clone)]
 pub enum LayoutAttr {
@@ -110,13 +110,17 @@ pub enum LayoutAttr {
     AlignItems(YGAlign),
     AlignSelf(YGAlign),
     JustifyContent(YGJustify),
+    PositionLeft(ValueUnit),
+    PositionTop(ValueUnit),
+    PositionRight(ValueUnit),
+    PositionBottom(ValueUnit),
 }
 
 // 显示样式， 不包含布局
 #[derive(Debug, Clone, Default)]
 pub struct Class {
     // 节点属性
-    pub z_index: usize,
+    pub z_index: isize,
     pub enable: EnableType,
     pub display: Display,
     pub visibility: bool,
@@ -140,7 +144,7 @@ pub struct Class {
     pub box_shadow: usize,
 
     pub class_style_mark: usize, // 标记class中的有效属性
-    pub class_layout_mark: u32, // 标记class中布局的有效属性
+    pub class_style_mark1: usize, // 标记class中布局的有效属性
 }
 
 // pub enum DirtyType1 {
@@ -180,12 +184,14 @@ pub struct Class {
 //     // Filter = 0x200000000,
 // }
 
+#[derive(Default)]
 pub struct ImageClass {
     pub image: Atom,
     pub obj_fit: FitType,
     pub image_clip: ImageClip,
 }
 
+#[derive(Default)]
 pub struct BorderImageClass {
     pub border_image: Atom,
     pub border_image_slice: BorderImageSlice,

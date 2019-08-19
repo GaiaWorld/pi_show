@@ -219,6 +219,16 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 render_objs.get_notify().modify_event(index.text, "geometry", 0);
             }
 
+            // 矩阵脏 
+            if dirty & (StyleType::Matrix as usize) != 0 {
+                modify_matrix(
+                    index.text,
+                    create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
+                    render_obj,
+                    &notify,
+                );
+            } 
+
             // 阴影存在
             if index.shadow > 0 {
                 let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
@@ -265,18 +275,9 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         &notify,
                     );
                 }
-            }
-
-            // 矩阵脏 
-            if dirty & (StyleType::Matrix as usize) != 0 {
-                modify_matrix(
-                    index.text,
-                    create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
-                    render_obj,
-                    &notify,
-                );
-            }    
+            }   
         }
+        // println!("run---------------------------{:?}", std::time::Instant::now() - time);
     }
 }
 
@@ -710,9 +711,6 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
-                println!("char_block.chars:{:?}", char_block.chars);
-                println!("char_block.uvs:{:?}", uvs);
-                println!("char_block.positions:{:?}", positions);
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {

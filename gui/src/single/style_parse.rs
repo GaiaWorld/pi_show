@@ -42,6 +42,9 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
             }
         },
 
+        "border-color" => show_attr.push(Attribute::BorderColor( BorderColor(parse_color_string(value)?))),
+        "box-shadow" => show_attr.push(Attribute::BoxShadow( parse_box_shadow(value)?)),
+
         "background-image" => show_attr.push(Attribute::ImageUrl( parse_url(value)? )),
         "background-image-clip" => show_attr.push(Attribute::ImageClip( unsafe { transmute(parse_f32_4(value)?) } )),
         "object-fit" =>  show_attr.push(Attribute::ObjectFit( ObjectFit(parse_object_fit(value)?) )),
@@ -71,8 +74,27 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         "font-size" => show_attr.push(Attribute::FontSize( parse_font_size(value)? )),
         "font-family" => show_attr.push(Attribute::FontFamily( Atom::from(value) )),
 
+        "border-radius" => {
+            let v = parse_len_or_percent(value)?;
+            show_attr.push(Attribute::BorderRadius( BorderRadius{
+                x: v.clone(),
+                y: v,
+            }))
+        },
+        "opacity" => show_attr.push(Attribute::Opacity( Opacity(parse_f32(value)? ))),
+        "transform" => show_attr.push(Attribute::TransformFunc( parse_transform(value)? )),
+        "transform-origin" => show_attr.push(Attribute::TransformOrigin( parse_transform_origin(value)? )),
+        "z-index" => show_attr.push(Attribute::ZIndex( parse_f32(value)? as isize )),
+        "visibility" => show_attr.push(Attribute::Visibility( parse_bool(value)? )),
+        "pointer-events" => show_attr.push(Attribute::Enable( parse_enable(value)? )),
+        "display" => show_attr.push(Attribute::Display( parse_display(value)? )),
+
         "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
         "height" => layout_attr.push(LayoutAttr::Height(parse_unity(value)?)),
+        "left" => layout_attr.push(LayoutAttr::PositionLeft(parse_unity(value)?)),
+        "bottom" => layout_attr.push(LayoutAttr::PositionBottom(parse_unity(value)?)),
+        "right" => layout_attr.push(LayoutAttr::PositionRight(parse_unity(value)?)),
+        "top" => layout_attr.push(LayoutAttr::PositionTop(parse_unity(value)?)),
         "margin-left" => layout_attr.push(LayoutAttr::MarginLeft(parse_unity(value)?)),
         "margin-bottom" => layout_attr.push(LayoutAttr::MarginBottom(parse_unity(value)?)),
         "margin-right" => layout_attr.push(LayoutAttr::MarginRight(parse_unity(value)?)),
@@ -106,6 +128,23 @@ fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr
         _ => (),
     };
     Ok(())
+}
+
+fn parse_enable(value: &str) -> Result<EnableType, String>{
+    match value {
+        "auto" => Ok(EnableType::Auto),
+        "none" => Ok(EnableType::None),
+        "visible" => Ok(EnableType::Visible),
+        _ => return Err( format!("parse_enable:{}", value) ),
+    }
+}
+
+fn parse_display(value: &str) -> Result<Display, String>{
+    match value {
+        "flex" => Ok(Display::Flex),
+        "none" => Ok(Display::None),
+        _ => return Err( format!("parse_display:{}", value) ),
+    }
 }
 
 fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
@@ -166,6 +205,22 @@ fn parser_color_stop(value: &str, list: &mut Vec<CgColor>, color_stop: &mut Vec<
     }
     list.push(parse_color_string(value.trim())?);
     Ok(())
+}
+
+fn parse_f32_2(value: &str, split: &str) -> Result<[f32; 2], String> {
+    let mut r = [0.0, 0.0];
+    let mut i = 0;
+    for v in value.split(split) {
+        if i > 1 {
+            return Err(format!("parse_f32_2 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r[i] = parse_f32(v)?;
+            i += 1;
+        }
+    }
+    Ok(r)
 }
 
 fn parse_f32_4(value: &str) -> Result<[f32; 4], String> {
@@ -270,12 +325,84 @@ fn parse_text_shadow(value: &str) -> Result<TextShadow, String>{
     Ok(shadow)
 }
 
+fn parse_box_shadow(value: &str) -> Result<BoxShadow, String>{
+    let mut i = 0;
+    let mut shadow = BoxShadow::default();
+    shadow.h = parse_px(iter_by_space(value, &mut i)?)?;
+    shadow.v = parse_px(iter_by_space(value, &mut i)?)?;
+    let r = match iter_by_space(value, &mut i) {
+        Ok(r) => match parse_px(r) {
+            Ok(r) => {
+                shadow.blur = r;
+                match iter_by_space(value, &mut i){
+                    Ok(r) => match parse_px(r) {
+                        Ok(r) => {
+                            shadow.spread = r;
+                            iter_by_space(value, &mut i)?
+                        },
+                        Err(_) => r,
+                    },
+                    Err(_) => return Err("".to_string()),
+                }
+            },
+            Err(_) => r,
+        },
+        _ => return Err("".to_string()),
+    };
+    shadow.color = parse_color_string(r)?;
+    Ok(shadow)
+}
+
 fn parse_text_stroke(value: &str) -> Result<Stroke, String>{
     let mut i = 0;
     let mut stroke = Stroke::default();
     stroke.width = parse_px(iter_by_space(value, &mut i)?)?;
     stroke.color = parse_color_string(iter_by_space(value, &mut i)?)?;
     Ok(stroke)
+}
+
+fn parse_transform(value: &str) -> Result<Vec<TransformFunc>, String>{
+    let mut i = 0;
+    let mut transforms = Vec::default();
+    loop {
+        match iter_fun(value, &mut i) {
+            Ok((n, v)) => transforms.push(parse_transform_fun(n, v)?),
+            Err(_) => break,
+        }
+    }
+    Ok(transforms)
+}
+
+fn parse_transform_origin(value: &str) -> Result<TransformOrigin, String>{
+    let mut i = 0;
+    Ok(TransformOrigin::XY(parse_transform_origin1(iter_by_space(value, &mut i)?)?, parse_transform_origin1(iter_by_space(value, &mut i)?)?))
+}
+
+fn parse_transform_origin1(value: &str) -> Result<LengthUnit, String>{
+    match value {
+        "center" => Ok(LengthUnit::Percent(50.0)),
+        n @ _ => parse_len_or_percent(n),
+    }
+}
+
+fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String>{
+    let r = match key {
+        "scale" => {
+            let r = parse_f32_2(value, ",")?;
+            TransformFunc::Scale(r[0], r[1])
+        },
+        "scaleX" => TransformFunc::ScaleX(parse_f32(value)?),
+        "scaleY" => TransformFunc::ScaleY(parse_f32(value)?),
+        "translate" => {
+            let r = parse_f32_2(value, ",")?;
+            TransformFunc::Translate(r[0], r[1])
+        },
+        "translateX" => TransformFunc::TranslateX(parse_f32(value)?),
+        "translateY" => TransformFunc::TranslateY(parse_f32(value)?),
+        "rotate" => TransformFunc::RotateZ(parse_f32(value)?),
+        _ => return Err(format!("parse_transform_fun error, key: {}, value: {}", key, value)),
+    };
+    Ok(r)
 }
 
 fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, String> {
@@ -294,6 +421,41 @@ fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, St
     let r = next.trim();
     *i += next.len() - r.len();
     Ok(pre)
+}
+
+fn iter_fun<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<(&'a str, &'a str), String> {
+    // let value = &value[*i..];
+    let len = value.len();
+    let mut n = value;
+    let mut v = value;
+    let mut is_success = false;
+    for j in *i..len {
+        if &value[j..j+1] != "" {
+            *i = j;
+            break;
+        }
+    }
+
+    for j in *i..len {
+        if &value[j..j+1] == "(" {
+            n = &value[*i..j];
+            *i = j + 1;
+            break;
+        }
+    }
+
+    for j in *i..len {
+        if &value[*i..*i+1] == ")" {
+            v = &value[*i..j];
+            *i = j + 1;
+            is_success = true;
+            break;
+        }
+    }
+    if is_success == false {
+        return Err("iter_fun error".to_string());
+    }
+    Ok((n, v.trim()))
 }
 
 fn parser_color_stop_last(v: f32, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32, last_color: Option<CgColor>) -> Result<(), String>{
@@ -512,6 +674,24 @@ fn parse_unity(value: &str) -> Result<ValueUnit, String> {
     }
 }
 
+fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {
+    if value.ends_with("%") {
+        let v = match f32::from_str(value) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(LengthUnit::Percent(v/100.0))
+    }else if value.ends_with("px") {
+        let v = match f32::from_str(&value[0..value.len() - 2]) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(LengthUnit::Pixel(v))
+    }else {
+        Err("parse_unity error".to_string())
+    }
+}
+
 fn parse_px(value: &str) -> Result<f32, String> {
     if value.ends_with("px") {
         let v = match f32::from_str(&value[0..value.len() - 2]) {
@@ -536,6 +716,14 @@ fn parse_f32(value: &str) -> Result<f32, String> {
     match f32::from_str(value) {
         Ok(r) => Ok(r),
         Err(e) => Err(format!("{:?}: {}", e.to_string(), value) ),
+    }
+}
+
+fn parse_bool(value: &str) -> Result<bool, String> {
+    match value {
+        "true" => Ok(true),
+        "false" => Ok(false),
+        _ => Err(format!("parse_bool error {}", value)) 
     }
 }
 
@@ -621,6 +809,7 @@ fn from_hex(c: u8) -> Result<u8, String> {
 pub enum Attribute {
     BGColor(BackgroundColor),
     BorderColor(BorderColor),
+    BoxShadow(BoxShadow),
 
     ImageUrl(Atom),
     ImageClip(ImageClip),
@@ -647,13 +836,14 @@ pub enum Attribute {
     FontSize(FontSize),
     FontFamily(Atom),
 
-    ZIndex(usize),
+    ZIndex(isize),
     Enable(EnableType),
     Display(Display),
     Visibility(bool),
     BorderRadius(BorderRadius),
     Opacity(Opacity),
-    Transform(Transform),
+    TransformFunc(Vec<TransformFunc>),
+    TransformOrigin(TransformOrigin),
     Filter(Filter),
 }
 
