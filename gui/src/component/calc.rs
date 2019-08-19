@@ -366,6 +366,7 @@ defines! {
     #[derive(Clone)]
     struct VsDefines {
         VERTEX_COLOR: String,
+        BOX_SHADOW_BLUR: String,
     }
 }
 
@@ -374,6 +375,7 @@ defines! {
     struct FsDefines {
         UCOLOR: String,
         VERTEX_COLOR: String,
+        BOX_SHADOW_BLUR: String,
         CLIP: String,
         HSV: String,
         GRAY: String,
@@ -468,6 +470,7 @@ program_paramter! {
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         alpha: UniformValue,
+        uRect: UniformValue,
         blur: UniformValue,
     }
 }
