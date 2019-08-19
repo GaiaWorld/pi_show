@@ -332,7 +332,7 @@ fn modify_matrix(
         let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
         render_obj.paramter.set_value("worldMatrix", Share::new(  WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     } else {
-        let arr = create_unit_matrix(pos.max.x - pos.min.x, pos.max.y - pos.min.y, layout, world_matrix, transform, depth);
+        let arr = create_unit_offset_matrix(pos.max.x - pos.min.x, pos.max.y - pos.min.y, 0.0, 0.0, layout, world_matrix, transform, depth);
         render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     }
 }

@@ -405,13 +405,15 @@ pub fn create_unit_matrix_by_layout(
     let width = layout.width - layout.border_left - layout.border_right;
     let height = layout.height - layout.border_top - layout.border_bottom;
 
-    create_unit_matrix(width, height, layout, matrix, transform, depth)
+    create_unit_offset_matrix(width, height, layout.border_left, layout.border_top, layout, matrix, transform, depth)
 }
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
-pub fn create_unit_matrix(
+pub fn create_unit_offset_matrix(
     width: f32,
     height: f32,
+    h: f32, 
+    v: f32,
     layout: &Layout,
     matrix: &WorldMatrix,
     transform: &Transform,
@@ -424,7 +426,7 @@ pub fn create_unit_matrix(
         width,     0.0,                0.0, 0.0,
         0.0,       height,            0.0, 0.0,
         0.0,       0.0,                1.0, 0.0,
-        -origin.x,  -origin.y, 0.0, 1.0,
+        -origin.x + h,  -origin.y + v, 0.0, 1.0,
     ), false);
     let slice: &[f32; 16] = matrix.as_ref();
     let mut arr = Vec::from(&slice[..]);
