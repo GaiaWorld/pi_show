@@ -69,13 +69,13 @@ impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, CreateEvent> for Nod
     }
 }
 
-impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
-        unsafe { node_render_map.destroy_unchecked(event.id) };
-    }
-}
+// impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
+//     type ReadData = ();
+//     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
+//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
+//         unsafe { node_render_map.destroy_unchecked(event.id) };
+//     }
+// }
 
 //创建索引
 impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEvent> for NodeAttrSys<C>{
@@ -174,7 +174,7 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Visibility, Modif
             let notify = render_objs.get_notify();
             let mut render_obj = unsafe {render_objs.get_unchecked_write(*id, &notify)};
             render_obj.set_visibility(visibility);
-            debug_println!("id: {}, visibility: {:?}", render_obj.value.context, visibility);
+            println!("id: {}, visibility: {:?}", render_obj.value.context, visibility);
         }
     }
 }
@@ -223,7 +223,7 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
+        // EntityListener<Node, DeleteEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
         // SingleCaseListener<RenderObjs, ModifyEvent>
         SingleCaseListener<RenderObjs, DeleteEvent>

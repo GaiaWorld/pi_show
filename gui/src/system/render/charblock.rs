@@ -7,7 +7,7 @@ use std::hash::{ Hash, Hasher };
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{SingleCaseImpl, MultiCaseImpl, Runner, SingleCaseListener, ModifyEvent};
+use ecs::{SingleCaseImpl, MultiCaseImpl, Runner, SingleCaseListener, MultiCaseListener, DeleteEvent, ModifyEvent};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
@@ -125,11 +125,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => {
-                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                },
+                None => continue,
             };
 
             let mut dirty = style_mark.dirty;
@@ -287,6 +283,14 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     type WriteData = ();
     fn listen(&mut self, _: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData){
         self.texture_change = true;
+    }
+}
+
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<L, C>{
+    type ReadData = ();
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
+        self.remove_render_obj(event.id, render_objs)
     }
 }
 
@@ -943,5 +947,6 @@ impl_system!{
     true,
     {
         SingleCaseListener<FontSheet, ModifyEvent>
+        MultiCaseListener<Node, TextStyle, DeleteEvent>
     }
 }

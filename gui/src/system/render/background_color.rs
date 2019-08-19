@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use fxhash::FxHasher32;
 use map::vecmap::VecMap;
 
-use ecs::{CreateEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use hal_core::*;
 use atom::Atom;
 use polygon::*;
@@ -91,11 +91,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => {
-                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                },
+                None => continue,
             };
 
             let dirty = style_mark.dirty;
@@ -189,6 +185,14 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent
                 self.share_ucolor_ubo.insert(event.id, create_u_color_ubo(c, engine));
             }
         }
+    }
+}
+
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
+    type ReadData = ();
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
+        self.remove_render_obj(event.id, render_objs)
     }
 }
 
@@ -455,5 +459,6 @@ impl_system!{
     true,
     {
         SingleCaseListener<ClassSheet, CreateEvent>
+        MultiCaseListener<Node, BackgroundColor, DeleteEvent>
     }
 }

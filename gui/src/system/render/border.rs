@@ -8,7 +8,7 @@ use share::Share;
 // use ordered_float::NotNan;
 // use fxhash::FxHasher32;
 
-use ecs::{SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use map::{ vecmap::VecMap } ;
 use hal_core::*;
 use polygon::*;
@@ -93,11 +93,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => {
-                    // 如果style_mark不存在， node也一定不存在， 应该删除对应的渲染对象
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                },
+                None => continue,
             };
 
             let mut dirty = style_mark.dirty;
@@ -168,6 +164,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                 );
             }
         }
+    }
+}
+
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderColor, DeleteEvent> for BorderColorSys<C>{
+    type ReadData = ();
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData){
+        self.remove_render_obj(event.id, render_objs)
     }
 }
 
@@ -295,6 +299,6 @@ impl_system!{
     BorderColorSys<C> where [C: HalContext + 'static],
     true,
     {
-        
+        MultiCaseListener<Node, BorderColor, DeleteEvent>
     }
 }
