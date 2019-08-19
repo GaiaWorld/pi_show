@@ -127,11 +127,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             if dirty & StyleType::Opacity as usize != 0
             || dirty & StyleType::BoxShadow as usize != 0 {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
-                render_obj.is_opacity = color_is_opacity(opacity, &shadow.color);
+                render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj);
             }
-
+            
             // 如果阴影脏，或者边框半径改变，则重新创建geometry
             if style_mark.dirty & StyleType::BoxShadow as usize != 0
             || style_mark.dirty & StyleType::BorderRadius as usize != 0 {
@@ -139,12 +139,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
-                render_obj.geometry = create_shadow_geo(engine, layout, shadow, border_radius);
+                render_obj.geometry = create_shadow_geo(engine, render_obj, layout, shadow, border_radius);
             }
 
             // 渲染管线脏， 创建渲染管线
-            if render_obj.program_dirty {
-                render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(1.0));
+            if render_obj.program_dirty {                
                 render_obj.program = Some(engine.create_program(
                     COLOR_VS_SHADER_NAME.get_hash(),
                     COLOR_FS_SHADER_NAME.get_hash(),
@@ -224,8 +223,8 @@ fn modify_matrix(
 }
 
 #[inline]
-fn color_is_opacity(opacity: f32, color: &CgColor) -> bool {
-    opacity == 1.0 && color.a == 1.0
+fn color_is_opacity(opacity: f32, color: &CgColor, blur: f32) -> bool {
+    opacity == 1.0 && color.a == 1.0 && blur == 0.0
 }
 
 #[inline]
@@ -251,8 +250,9 @@ fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<
 
 fn create_shadow_geo<C: HalContext + 'static>(
     engine: &mut Engine<C>,
+    render_obj: &mut RenderObj,
     layout: &Layout,
-    shadow: &BoxShadow,
+    shadow: &BoxShadow, 
     border_radius: Option<&BorderRadius>) -> Option<Share<GeometryRes>> {
     
     let radius = cal_border_radius(border_radius, layout);
@@ -270,16 +270,16 @@ fn create_shadow_geo<C: HalContext + 'static>(
         return None;
     }
     
-    let x = g_b.min.x + shadow.h - shadow.spread;
-    let y = g_b.min.y + shadow.v - shadow.spread;
-    let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread;
-    let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread;
-    let shadow = split_by_radius(x, y, w, h, radius.x, Some(16));
-    if shadow.0.len() == 0 {
+    let x = g_b.min.x + shadow.h - shadow.spread - shadow.blur;
+    let y = g_b.min.y + shadow.v - shadow.spread - shadow.blur;
+    let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread + 2.0 * shadow.blur;
+    let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread + 2.0 * shadow.blur;
+    let shadow_pts = split_by_radius(x, y, w, h, radius.x, Some(16));
+    if shadow_pts.0.len() == 0 {
         return None;
     }
     
-    let polygon_shadow = Polygon2d::new(convert_to_point(shadow.0.as_slice()));
+    let polygon_shadow = Polygon2d::new(convert_to_point(shadow_pts.0.as_slice()));
     let polygon_bg = Polygon2d::new(convert_to_point(bg.0.as_slice()));
     
     let mut curr_index = 0;
@@ -297,7 +297,23 @@ fn create_shadow_geo<C: HalContext + 'static>(
     if pts.len() == 0 {
         return None;
     }
+    
+    render_obj.paramter.as_ref().set_single_uniform("blur", UniformValue::Float1(if shadow.blur > 0.0 { shadow.blur } else { 1.0 } ));
 
+    if shadow.blur > 0.0 {
+        render_obj.vs_defines.add("BOX_SHADOW_BLUR");
+        render_obj.fs_defines.add("BOX_SHADOW_BLUR");
+        
+        let x = g_b.min.x + shadow.h - shadow.spread;
+        let y = g_b.min.y + shadow.v - shadow.spread;
+        let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread;
+        let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread;
+        render_obj.paramter.as_ref().set_single_uniform("uRect", UniformValue::Float4(x, y, x + w, y + h));
+    } else {
+        render_obj.fs_defines.add("BOX_SHADOW_BLUR");
+        render_obj.fs_defines.remove("BOX_SHADOW_BLUR");
+    }
+    
     debug_println!("create_shadow_geo: pts = {:?}, indices = {:?}", pts.as_slice(), indices.as_slice());
     let geo = create_p_i_geometry(pts.as_slice(), indices.as_slice(), engine);
     Some(Share::new(geo))
