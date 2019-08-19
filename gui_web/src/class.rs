@@ -2,7 +2,7 @@ use stdweb::unstable::TryInto;
 
 use ecs::LendMut;
 
-use gui::component::calc::StyleType;
+use gui::component::calc::{StyleType, StyleType1};
 use gui::component::user::*;
 use gui::single::{ class::*, style_parse::{Attribute, parse_class_from_string} };
 pub use gui::layout::{ YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType };
@@ -104,6 +104,86 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
                 t.font.family = r;
                 class.class_style_mark |= StyleType::FontFamily as usize;
             },
+
+            Attribute::BorderImageUrl(r) => {
+                let t = or_insert_border_image_style(&mut class, class_sheet);
+                t.border_image = r;
+                class.class_style_mark |= StyleType::BorderImage as usize;
+            },
+            Attribute::BorderImageClip(r) => {
+                let t = or_insert_border_image_style(&mut class, class_sheet);
+                t.border_image_clip = r;
+                class.class_style_mark |= StyleType::BorderImageClip as usize;
+            },
+            Attribute::BorderImageSlice(r) => {
+                let t = or_insert_border_image_style(&mut class, class_sheet);
+                t.border_image_slice = r;
+                class.class_style_mark |= StyleType::BorderImageSlice as usize;
+            },
+            Attribute::BorderImageRepeat(r) => {
+                let t = or_insert_border_image_style(&mut class, class_sheet);
+                t.border_image_repeat = r;
+                class.class_style_mark |= StyleType::BorderImageRepeat as usize;
+            },
+
+            Attribute::ImageUrl(r) => {
+                let t = or_insert_image_style(&mut class, class_sheet);
+                t.image = r;
+                class.class_style_mark |= StyleType::Image as usize;
+            },
+            Attribute::ImageClip(r) => {
+                let t = or_insert_image_style(&mut class, class_sheet);
+                t.image_clip = r;
+                class.class_style_mark |= StyleType::ImageClip as usize;
+            },
+            Attribute::ObjectFit(r) => {
+                let t = or_insert_image_style(&mut class, class_sheet);
+                t.obj_fit = r.0;
+                class.class_style_mark |= StyleType::ObjectFit as usize;
+            },
+
+            Attribute::BorderColor(r) => {
+                class.border_color = class_sheet.border_color.insert(r);
+                class.class_style_mark |= StyleType::BorderColor as usize;
+            },
+
+
+            Attribute::TransformFunc(r) => {
+                class.transform.funcs = r;
+                class.class_style_mark |= StyleType::Transform as usize;
+            },
+            Attribute::TransformOrigin(r) => {
+                class.transform.origin = r;
+                class.class_style_mark |= StyleType::Transform as usize;
+            },
+            Attribute::ZIndex(r) => {
+                class.z_index = r;
+                class.class_style_mark |= StyleType1::ZIndex as usize;
+            },
+            Attribute::Visibility(r) => {
+                class.visibility = r;
+                class.class_style_mark |= StyleType1::Visibility as usize;
+            },
+            Attribute::Enable(r) => {
+                class.enable = r;
+                class.class_style_mark |= StyleType1::Enable as usize;
+            },
+            Attribute::Display(r) => {
+                class.display = r;
+                class.class_style_mark |= StyleType1::Display as usize;
+            },
+            Attribute::Filter(r) => {
+                class.filter = r;
+                class.class_style_mark |= StyleType::Filter as usize;
+            },
+            Attribute::Opacity(r) => {
+                class.opacity = r.0;
+                class.class_style_mark |= StyleType::Opacity as usize;
+            },  
+            Attribute::BorderRadius(r) => {
+                class.border_radius = r;
+                class.class_style_mark |= StyleType::BorderRadius as usize;
+            },
             _ => println!("set_class error"),
         }
     }
@@ -123,4 +203,22 @@ fn or_insert_text_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassShee
 
     }
     unsafe { class_sheet.text.get_unchecked_mut(class.text) }
+}
+
+fn or_insert_border_image_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassSheet) -> &'a mut BorderImageClass{
+    if class.border_image == 0 {
+        let i = class_sheet.border_image.insert(BorderImageClass::default());
+        class.border_image = i;
+
+    }
+    unsafe { class_sheet.border_image.get_unchecked_mut(class.border_image) }
+}
+
+fn or_insert_image_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassSheet) -> &'a mut ImageClass{
+    if class.image == 0 {
+        let i = class_sheet.image.insert(ImageClass::default());
+        class.image = i;
+
+    }
+    unsafe { class_sheet.image.get_unchecked_mut(class.image) }
 }

@@ -57,60 +57,24 @@ pub struct HSV {
 //     pub ubo: usize, //geometry 对象
 // }
 
-pub enum DirtyType{
-    Text = 1, // 1表示文字脏
-    StyleClass = 2, // 表示样式类脏
-    FontStyle = 4, // 表示局部样式脏
-    FontWeight = 8, // 表示局部样式脏
-    FontSize = 0x10, // 表示局部样式脏
-    FontFamily = 0x20, // 表示局部样式脏
-    LetterSpacing = 0x40, // 表示局部样式脏
-    WordSpacing = 0x80, // 表示局部样式脏
-    LineHeight = 0x100, // 表示局部样式脏
-    Indent = 0x200, // 表示局部样式脏
-    WhiteSpace = 0x400, // 表示局部样式脏
-    TextAlign = 0x800, // 表示局部样式脏
-    VerticalAlign = 0x1000, // 表示局部样式脏
-    Color = 0x2000, // 表示局部样式脏
-    Stroke = 0x4000, // 表示局部样式脏
-    ShadowColor = 0x8000, // 表示局部样式脏
-    ShadowHV = 0x10000,
-    ShadowBlur = 0x20000,
-
-    // Image = 0x40000,
-    // ImageClip = 0x80000,
-    // ObjectFit = 0x100000,
-
-    // BorderImage = 0x200000,
-    // BorderImageClip = 0x400000,
-    // BorderImageSlice = 0x800000,
-    // BorderImageRepeat = 0x1000000,
-
-    // BorderColor = 0x2000000,
-
-    // BackgroundColor = 0x4000000,
-
-    // BoxShadow = 0x8000000,
-}
-
 #[derive(Debug)]
 // 样式类型
 pub enum StyleType{
-    Text = 1, // 1表示文字脏
-    FontStyle = 2, // 表示局部样式脏
-    FontWeight = 4, // 表示局部样式脏
-    FontSize = 0x8, // 表示局部样式脏
-    FontFamily = 0x10, // 表示局部样式脏
-    LetterSpacing = 0x20, // 表示局部样式脏
-    WordSpacing = 0x40, // 表示局部样式脏
-    LineHeight = 0x80, // 表示局部样式脏
-    Indent = 0x100, // 表示局部样式脏
-    WhiteSpace = 0x200, // 表示局部样式脏
-    TextAlign = 0x400, // 表示局部样式脏
-    VerticalAlign = 0x800, // 表示局部样式脏
-    Color = 0x1000, // 表示局部样式脏
-    Stroke = 0x2000, // 表示局部样式脏
-    TextShadow = 0x4000, // 表示局部样式脏
+    Text = 1,
+    FontStyle = 2, 
+    FontWeight = 4, 
+    FontSize = 0x8, 
+    FontFamily = 0x10, 
+    LetterSpacing = 0x20, 
+    WordSpacing = 0x40, 
+    LineHeight = 0x80, 
+    Indent = 0x100, 
+    WhiteSpace = 0x200, 
+    TextAlign = 0x400, 
+    VerticalAlign = 0x800, 
+    Color = 0x1000, 
+    Stroke = 0x2000, 
+    TextShadow = 0x4000, 
 
     Image = 0x8000,
     ImageClip = 0x10000,
@@ -135,12 +99,42 @@ pub enum StyleType{
     Filter = 0x40000000,
 }
 
+#[derive(Debug)]
+// 样式类型
+pub enum StyleType1{
+    Width = 1,
+    Height = 2, 
+    Margin = 4,  
+    Padding = 8, 
+    Border = 0x10, 
+    Position = 0x20,
+    MinWidth = 0x40, 
+    MinHeight = 0x80,
+    MaxHeight = 0x100,
+    MaxWidth = 0x200,
+    FlexBasis = 0x400,
+    FlexShrink = 0x800,
+    FlexGrow = 0x1000,
+    PositionType = 0x2000,
+    FlexWrap = 0x4000,
+    FlexDirection = 0x8000,
+    AlignContent = 0x10000,
+    AlignItems = 0x20000,
+    AlignSelf = 0x40000,
+    JustifyContent = 0x80000,
+
+    Display = 0x100000,
+    Visibility = 0x200000,
+    Enable = 0x400000,
+    ZIndex = 0x800000,
+}
+
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark{
     pub dirty: usize,
     pub local_style: usize,
     pub class_style: usize,
-    pub local_layout: usize,
+    pub local_style1: usize,
 }
 
 #[derive(Component, Debug)]

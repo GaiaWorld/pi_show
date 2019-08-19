@@ -122,7 +122,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             self.texture_change = false;
         }
 
-        let time = std::time::Instant::now();
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
