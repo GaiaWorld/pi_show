@@ -419,9 +419,7 @@ pub fn create_unit_offset_matrix(
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
-    println!("depth----------------------:::::{}",depth );
     let depth = -depth/(Z_MAX + 1.0);
-    println!("depth1----------------------::::{}",depth );
     let origin = transform.origin.to_value(layout.width, layout.height);
 
     let matrix = matrix * WorldMatrix(Matrix4::new(

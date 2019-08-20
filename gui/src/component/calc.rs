@@ -477,7 +477,7 @@ program_paramter! {
         projectMatrix: ProjectMatrixUbo,
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
-        clipTexture_size: ClipTextureSize,
+        clipTextureSize: ClipTextureSize,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
