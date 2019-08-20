@@ -349,7 +349,7 @@ impl Res for UColorUbo {
 uniform_buffer! {
     #[derive(Hash)]
     struct HsvUbo {
-        hsv: UniformValue,
+        hsvValue: UniformValue,
     }
 }
 impl Res for HsvUbo {
@@ -405,6 +405,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
+        hsvValue: HsvUbo,
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
@@ -443,6 +444,7 @@ program_paramter! {
         textureSize: TextTextureSize,
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
+        hsvValue: HsvUbo,
         projectMatrix: ProjectMatrixUbo,
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
@@ -460,6 +462,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
+        hsvValue: HsvUbo,
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
@@ -475,6 +478,7 @@ program_paramter! {
         worldMatrix: WorldMatrixUbo,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
+        hsvValue: HsvUbo,
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
