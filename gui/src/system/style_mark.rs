@@ -425,7 +425,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
-        println!("ZDepth---------------------modify");
         let (style_marks, dirty_list) = write;
         let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
         set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
@@ -1051,7 +1050,6 @@ impl_system!{
         MultiCaseListener<Node, Filter, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent> 
-
         SingleCaseListener<ImageWaitSheet, ModifyEvent>
     }
 }
