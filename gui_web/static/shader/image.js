@@ -18,7 +18,7 @@ let image_vs_code = `
     
     void main(void) {
         vec4 p = (projectMatrix * viewMatrix * worldMatrix) * vec4(position.x, position.y, 1.0, 1.0);
-        gl_Position = vec4(p.x, p.y, floor(worldMatrix[3].z), 1.0);
+        gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
         vuv = uv0;
     }
 `;
