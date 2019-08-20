@@ -23,7 +23,7 @@
     <script src="shader/text.js"></script>
     <script src="shader/canvas_text.js"></script>
     <script src="shader/init.js"></script>
-    <!-- <script>
+    <script>
         var gui = Module._create_gui(engine, 1000, 1000);
         Module._set_clear_color(gui, 1, 1, 0, 0);
         Module._set_flex_wrap(gui, 1, YGWrapWrap);
@@ -37,7 +37,7 @@
 
         var node = Module._create_image_node(gui);
         Module._append_child(gui, node, body);
-        window.__jsObj = "./xxx.png";
+        window.__jsObj = "./res/xxx.png";
         Module._set_src(gui, node);
         Module._set_object_fit(gui, node, FitType_Fill);
         Module._set_width(gui, node, 150); // 图片不设置宽高， 默认为0
@@ -55,7 +55,7 @@
 
         var node = Module._create_image_node(gui);
         Module._append_child(gui, node, body);
-        window.__jsObj = "./xxx.png";
+        window.__jsObj = "./res/xxx.png";
         Module._set_src(gui, node);
         Module._set_object_fit(gui, node, FitType_Contain);
         Module._set_width(gui, node, 150); // 图片不设置宽高， 默认为0
@@ -73,36 +73,30 @@
 
         var node = Module._create_image_node(gui);
         Module._append_child(gui, node, body);
-        window.__jsObj = "./xxx.png";
+        window.__jsObj = "./res/xxx.png";
         Module._set_src(gui, node);
         Module._set_object_fit(gui, node, FitType_Cover);
         Module._set_width(gui, node, 150); // 图片不设置宽高， 默认为0
         Module._set_height(gui, node, 150);
         // Module._set_border_radius(gui, node, 20);
 
-    </script> -->
+    </script>
 
 <script>  
-        var gui = Module._create_gui(engine, 1000, 1000);
-        Module._set_clear_color(gui, 1, 1, 0, 0);
-        render_fram();
-
         var body = Module._create_node(gui);
         Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
         Module._set_position(gui, body, 1, 615.0);
         Module._set_position_type(gui, body, 1);
-        Module._set_overflow(gui, body, true);
         Module._set_background_rgba_color(gui, body, 0.0, 0.0, 0.0, 1.0);
 
         var node = Module._create_image_node(gui);
         Module._append_child(gui, node, body);
-        window.__jsObj = "./test_image/xxx.png";
+        window.__jsObj = "./res/xxx.png";
         Module._set_src(gui, node);
-        // Module._set_object_fit(gui, node, FitType_ScaleDown);
+        Module._set_object_fit(gui, node, FitType_ScaleDown);
         Module._set_width(gui, node, 150); // 图片不设置宽高， 默认为0
         Module._set_height(gui, node, 150);
         // Module._set_border_radius(gui, node, 20);
-        Module._render(gui);
 
     </script>
 </body>

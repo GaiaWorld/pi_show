@@ -111,7 +111,7 @@
         }
 
         var xmlhttp = newXMLHttpRequest();
-        xmlhttp.open("GET","./test_text/36779_37232.json.bin",true);
+        xmlhttp.open("GET","./res/36779_37232.json.bin",true);
         xmlhttp.onreadystatechange=function(){
             if (xmlhttp.readyState==4 && xmlhttp.status==200){
                 cfg = new Uint8Array(xmlhttp.response);
@@ -131,7 +131,7 @@
                 load_ok()
             }
         };
-        image.src = "./test_text/36779_37232.png";
+        image.src = "./res/36779_37232.png";
             
     </script> 
 </body>
