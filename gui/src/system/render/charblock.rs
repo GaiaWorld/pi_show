@@ -777,28 +777,24 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
 
                 let colors = colors.pop().unwrap();
                 let color_buffer = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(&colors)), false);
-                let color_buffer = engine.res_mgr.add(color_buffer);
                 let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices)), false);
-                let index_buffer = engine.res_mgr.add(i_buffer);
                 engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::Color, &color_buffer, 4).unwrap();
                 engine.gl.geometry_set_indices_short(&geo_res.geo, &index_buffer).unwrap();
-                geo_res.buffers.push(index_buffer);
-                geo_res.buffers.push(color_buffer);
+                geo_res.buffers.push(Share::new(i_buffer));
+                geo_res.buffers.push(Share::new(color_buffer));
             }
         }
 
         let position_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions)), false);
         let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs)), false);
-        let position_buffer = engine.res_mgr.add(position_buffer);
-        let uv_buffer = engine.res_mgr.add(uv_buffer);
         engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::Position, &position_buffer, 2).unwrap();
         engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
-        geo_res.buffers.push(uv_buffer);
-        geo_res.buffers.push(position_buffer);
+        geo_res.buffers.push(Share::new(uv_buffer));
+        geo_res.buffers.push(Share::new(position_buffer));
         
         Some(match hash {
             Some(hash) => engine.res_mgr.create::<GeometryRes>(hash, geo_res),
-            None => engine.res_mgr.add::<GeometryRes>(geo_res)
+            None => Share::new(geo_res),
         })
     } else {
         None

@@ -1,4 +1,7 @@
-// 显卡资源管理器
+/// 资源管理器， 
+/// 定期将不被使用的资源移动到预释放列表， 延迟资源的释放
+/// 定期扫描预释放列表， 如果超时， 资源未被再利用， 直接从该列表中删除资源， 并从资源表（tables）中删除， 否则将资源转移到res_array中
+
 use std::hash::Hash;
 use std::any::{ TypeId, Any };
 
@@ -13,22 +16,22 @@ pub trait Res{
 pub struct ResMgr{
     tables: FnvHashMap<TypeId, Share<dyn Any>>,
     timeout: u32, // 默认超时时间
-    release_array: Vec<Box<dyn Release>>,
+    prepare_release_array: Vec<Box<dyn Release>>,
     res_array: Vec<Box<dyn Release>>,
-    other_res: Vec<Box<dyn Release>>, // 不会被共享， 仅仅为了管理显卡资源的生命周期
 }
 
 impl ResMgr {
+    // 创建资源管理器
     pub fn new(timeout: u32) -> Self{
         ResMgr{
             timeout,
             tables: FnvHashMap::default(),
-            release_array: Vec::default(),
+            prepare_release_array: Vec::default(),
             res_array: Vec::default(),
-            other_res: Vec::default(),
         }
     }
 
+    // 获取资源
     pub fn get<T: Res + 'static>(&self, name: &<T as Res>::Key) -> Option<Share<T>>{
         match self.tables.get(&TypeId::of::<T>()) {
             Some(map) => {
@@ -44,14 +47,7 @@ impl ResMgr {
         }
     }
 
-    // 添加一个资源， 但不会有任何方法能取到该资源， 仅仅用来管理显卡资源的生命周期
-    #[inline]
-    pub fn add<T: Res + 'static>(&mut self, value: T ) -> Share<T> {
-        let v = Share::new(value);
-        self.other_res.push(Box::new(ReleaseRes1(v.clone())));
-        v
-    }
-
+    // 创建资源
     #[inline]
     pub fn create<T: Res + 'static>(&mut self, name: T::Key, value: T) -> Share<T>{
         let r = self.tables.entry(TypeId::of::<T>()).or_insert(Share::new(ResMap::<T>::new())).clone().downcast::<ResMap<T>>().unwrap().create(name.clone(), value);
@@ -63,6 +59,7 @@ impl ResMgr {
         r
     }
 
+    // 移除资源
     #[inline]
     pub fn remove<T: Res + 'static>(&mut self, name: &<T as Res>::Key) {
         match self.tables.get(&TypeId::of::<T>()) {
@@ -86,7 +83,7 @@ impl ResMgr {
                     let r = self.res_array.swap_remove(i);
                     let time = now + (self.timeout);
                     r.set_release_time(time);
-                    self.release_array.push(r);
+                    self.prepare_release_array.push(r);
                     if *min_release_time > time {
                         *min_release_time = time;
                     }
@@ -104,23 +101,11 @@ impl ResMgr {
     pub fn conllect(&mut self, now: u32, min_release_time: &mut u32) {
         let mut i = 0;
         loop {
-            if i < self.release_array.len() {
-                match self.release_array[i].release(unsafe{&mut *(self as *const Self as usize as *mut Self)}, now, min_release_time) {
-                    ReleaseType::Success => {self.release_array.swap_remove(i);}, // 释放成功， 从释放列表中移除
-                    ReleaseType::Fail => self.res_array.push(self.release_array.swap_remove(i)), // 无法释放， 将资源重新放入资源列表中
+            if i < self.prepare_release_array.len() {
+                match self.prepare_release_array[i].release(unsafe{&mut *(self as *const Self as usize as *mut Self)}, now, min_release_time) {
+                    ReleaseType::Success => {self.prepare_release_array.swap_remove(i);}, // 释放成功， 从释放列表中移除
+                    ReleaseType::Fail => self.res_array.push(self.prepare_release_array.swap_remove(i)), // 无法释放， 将资源重新放入资源列表中
                     ReleaseType::None => i += 1, // 未到释放时间， 跳过
-                }
-            } else {
-                break;
-            }
-        }
-
-        loop {
-            if i < self.other_res.len() {
-                if self.other_res[i].strong_count() == 1 {
-                    self.release_array.swap_remove(i);
-                } else {
-                    i += 1;
                 }
             } else {
                 break;

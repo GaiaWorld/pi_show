@@ -371,22 +371,17 @@ fn use_layout_pos<C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2
         uvs.push(v[0][i]);
     }
 
-    let buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
-    let pos_buffer = engine.res_mgr.add(buffer);
-
-    let buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(uvs.as_slice())), false);
-    let uv_buffer = engine.res_mgr.add(buffer);
-
-    let buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-    let indices_buffer = engine.res_mgr.add(buffer);
+    let pos_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
+    let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(uvs.as_slice())), false);
+    let indices_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
 
     let geo = create_geometry(&engine.gl);
     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &pos_buffer, 2).unwrap();
     engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
     engine.gl.geometry_set_indices_short(&geo, &indices_buffer).unwrap();
 
-    let geo_res = GeometryRes{geo: geo, buffers: vec![pos_buffer, indices_buffer, uv_buffer]};
-    render_obj.geometry = Some(engine.res_mgr.add(geo_res));
+    let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(pos_buffer), Share::new(indices_buffer), Share::new(uv_buffer)]};
+    render_obj.geometry = Some(Share::new(geo_res));
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
