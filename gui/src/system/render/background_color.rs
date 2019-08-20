@@ -24,7 +24,6 @@ use render::res::*;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 
-
 lazy_static! {
     static ref GRADUAL: Atom = Atom::from("GRADUAL");
 }
@@ -168,6 +167,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                     Color::LinearGradient(_) => false,
                 };
                 modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
+                notify.modify_event(render_index, "ubos", 0);
             }
         }
     }
@@ -446,7 +446,7 @@ fn modify_matrix(
             transform,
             depth,
         );
-
+        
         render_obj.paramter.set_value("worldMatrix", Share::new( WorldMatrixUbo::new(UniformValue::MatrixV4(arr)) ));
     } else {
         let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
