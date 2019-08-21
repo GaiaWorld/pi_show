@@ -174,7 +174,6 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Visibility, Modif
             let notify = render_objs.get_notify();
             let mut render_obj = unsafe {render_objs.get_unchecked_write(*id, &notify)};
             render_obj.set_visibility(visibility);
-            println!("id: {}, visibility: {:?}", render_obj.value.context, visibility);
         }
     }
 }

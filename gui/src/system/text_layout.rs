@@ -471,10 +471,11 @@ struct Calc {
 fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a str, sw: usize, font: &mut FontSheet) {
     let mut calc = Calc{
         index: 0,
-        pos: Point2::default(),
+        pos: Point2::new(tex_param.text_style.text.indent, 0.0), // 首行缩进
         max_w: 0.0,
         word: 0,
     };
+
     let letter_spacing = tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
     let word_spacing = tex_param.text_style.text.word_spacing;
     let mut pre_is_word_end = false;
@@ -487,8 +488,6 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
                 tex_param.cb.last_line = (tex_param.cb.chars.len(), 0, 0.0);
                 tex_param.cb.line_count += 1;
                 update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
-                // 行首缩进
-                calc.pos.x += tex_param.text_style.text.indent;
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
