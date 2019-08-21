@@ -170,6 +170,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj);
             }
+            notify.modify_event(render_index, "", 0);
         }
     }
 }

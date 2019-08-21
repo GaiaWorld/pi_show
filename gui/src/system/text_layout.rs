@@ -26,21 +26,22 @@ use single::*;
 use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit, YGEdge};
 use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont, get_line_height};
 
-const MARK: usize = StyleType::LetterSpacing as usize | 
+const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize | 
                     StyleType::WordSpacing as usize | 
                     StyleType::LineHeight as usize | 
                     StyleType::Indent as usize |
                     StyleType::WhiteSpace as usize | 
                     StyleType::TextAlign as usize | 
                     StyleType::VerticalAlign as usize |
-                    StyleType::TextShadow as usize |
-                    StyleType::Color as usize | 
                     StyleType::Stroke as usize |
                     StyleType::FontStyle as usize | 
                     StyleType::FontFamily as usize | 
                     StyleType::FontSize as usize | 
-                    StyleType::FontWeight as usize |
+                    StyleType::FontWeight as usize;
+
+const MARK: usize = MARK_LAYOUT |
                     StyleType::Text as usize;
+
 
 type Read<'a, L> = (
     &'a SingleCaseImpl<ClassSheet>,
@@ -312,6 +313,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         Some(t) => t.0.as_ref(),
         _ => "",
     };
+
     let sw = text_style.text.stroke.width as usize;
     cb.stroke_width = sw as f32;
     cb.pos.y = (cb.line_height - cb.font_height)/2.0;
@@ -320,10 +322,20 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     Some(w) => w.y.y,
     //     _ => 1.0
     // };
+    if style_mark.dirty & MARK_LAYOUT != 0{
+        for i in 0..cb.chars.len() {
+            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+        }
+        unsafe{cb.chars.set_len(0)};
+    }
+    
     let tex_font = tex_font.0.clone();
     cb.is_pixel = tex_font.is_pixel;
     let mut tex_param = TexParam {cb: cb, tex_font: &tex_font, text_style: text_style, word_margin: text_style.text.letter_spacing / 2.0 - text_style.text.stroke.width};
     let tex_param = &mut tex_param;
+
+    
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
         // let old = yoga.get_layout();
@@ -408,9 +420,9 @@ fn update_char<L: FlexNode + 'static>(id: usize, tex_param: &mut TexParam<L>, c:
     if i < tex_param.cb.chars.len() {
         let cn = &tex_param.cb.chars[i];
         if cn.ch == c {
-        *index = i + 1;
-        *yg_index += 1;
-        return cn.node.clone()
+            *index = i + 1;
+            *yg_index += 1;
+            return cn.node.clone();
         }
         // 字符不同，将当前的，和后面的节点都释放掉
         for j in i..tex_param.cb.chars.len() {

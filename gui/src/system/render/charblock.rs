@@ -53,7 +53,13 @@ const TEXT_LAYOUT_DIRTY: usize =    StyleType::FontStyle as usize |
                                     StyleType::Indent as usize |
                                     StyleType::WhiteSpace as usize |
                                     StyleType::TextAlign as usize |
+                                    StyleType::Text as usize |
                                     StyleType::VerticalAlign as usize;
+
+const FONT_DIRTY: usize =   StyleType::FontStyle as usize |
+                            StyleType::FontWeight as usize |
+                            StyleType::FontSize as usize |
+                            StyleType::FontFamily as usize;
 
 #[derive(Default, Clone, Debug)]
 struct I{ text: usize, shadow: usize }
@@ -192,13 +198,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             }
 
             // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-            if dirty & (StyleType::FontFamily as usize) != 0 {
+            if dirty & FONT_DIRTY != 0 {
                 modify_font(index.text, render_obj, charblock.is_pixel, &font_sheet, &notify, &self.default_sampler, &self.point_sampler);
                 program_change = true;
             }
 
             // 文字内容脏， 这是顶点流脏
-            if dirty& (StyleType::Text as usize) != 0 {
+            if dirty & TEXT_LAYOUT_DIRTY != 0 {
                 geometry_change = true;
                 shadow_geometry_change = true;
             }
@@ -223,7 +229,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                     render_obj,
                     &notify,
                 );
-            } 
+            }
+            notify.modify_event(index.text, "", 0);
 
             // 阴影存在
             if index.shadow > 0 {
@@ -235,7 +242,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                     // 设置ubo TODO
 
                     // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-                    if dirty & (StyleType::FontFamily as usize) != 0 {
+                    if dirty & FONT_DIRTY != 0 {
                         modify_font(index.text, shadow_render_obj, charblock.is_pixel, &font_sheet, &notify, &self.default_sampler, &self.point_sampler);
                     }
 
@@ -271,7 +278,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         &notify,
                     );
                 }
-            }   
+                notify.modify_event(index.shadow, "", 0);
+            } 
         }
         // println!("run---------------------------{:?}", std::time::Instant::now() - time);
     }
@@ -920,7 +928,7 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
     }
 }
 
-fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, font_height: f32){
+fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, _font_height: f32){
     let ratio = width/glyph.advance;
     let left_top = (pos.x + offset.0 + ratio * glyph.ox, pos.y + offset.1 + glyph.oy * ratio);
     let right_bootom = (left_top.0 + glyph.width * ratio, left_top.1 + glyph.height * ratio);
@@ -937,7 +945,6 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.x + glyph.width, glyph.y,
     ]);
     positions.extend_from_slice(&ps[..]);
-    println!("{:?}, {:?}", positions, uvs);
 }
 
 impl_system!{

@@ -198,6 +198,7 @@ pub fn add_msdf_font_res(world_id: u32) {
     update_text_texture(world_id, 0, 0, height);
 
     parse_msdf_font_res(cfg.as_slice(), font_sheet).unwrap();
+    font_sheet.font_tex.last_v += height as f32;
 }
 
 // __jsObj 文字字符串

@@ -163,6 +163,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                     &notify,
                 );
             }
+
+            notify.modify_event(render_index, "", 0);
         }
     }
 }

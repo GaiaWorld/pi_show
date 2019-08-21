@@ -134,7 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             
             // 如果阴影脏，或者边框半径改变，则重新创建geometry
             if style_mark.dirty & StyleType::BoxShadow as usize != 0
-            || style_mark.dirty & StyleType::BorderRadius as usize != 0 {
+            || style_mark.dirty & StyleType::BorderRadius as usize != 0 || style_mark.dirty & StyleType::Layout as usize != 0{
                 render_obj.program_dirty =  true;
                 to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
@@ -166,6 +166,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 let depth = unsafe{z_depths.get_unchecked(*id)}.0;
                 modify_matrix(render_obj, depth, world_matrix, transform, layout);
             }
+            notify.modify_event(render_index, "", 0);
         }
     }
 }
