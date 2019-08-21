@@ -221,7 +221,10 @@ fn update<'a, L: FlexNode + 'static>(mut node: L, id: usize, char_index: usize, 
 
 // 设置字形的id
 fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>) {
-    let cb = unsafe{ write.0.get_unchecked_mut(id)};
+    let cb = match write.0.get_mut(id) {
+        Some(r) => r,
+        None => return, 
+    };
     let scale = unsafe { read.4.get_unchecked(id).y.y };
     let text_style = unsafe{ write.3.get_unchecked(id)};
 
