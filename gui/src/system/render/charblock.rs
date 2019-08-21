@@ -921,8 +921,9 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize){
 }
 
 fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offset: &(f32, f32), glyph: &Glyph, width: f32, font_height: f32){
-    let left_top = (pos.x + offset.0 + glyph.ox, pos.y + offset.1 + glyph.oy);
-    let right_bootom = (left_top.0 + width, left_top.1 + font_height);
+    let ratio = width/glyph.advance;
+    let left_top = (pos.x + offset.0 + ratio * glyph.ox, pos.y + offset.1 + glyph.oy * ratio);
+    let right_bootom = (left_top.0 + glyph.width * ratio, left_top.1 + glyph.height * ratio);
     let ps = [
         left_top.0,     left_top.1,    
         left_top.0,     right_bootom.1,
@@ -936,6 +937,7 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.x + glyph.width, glyph.y,
     ]);
     positions.extend_from_slice(&ps[..]);
+    println!("{:?}, {:?}", positions, uvs);
 }
 
 impl_system!{
