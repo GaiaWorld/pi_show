@@ -263,7 +263,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn draw_canvas_text(world_id: u32, data: u32) {
-    let t = std::time::Instant::now();
+    // let t = std::time::Instant::now();
     let text_info_list = unsafe {Box::from_raw(data as usize as *mut Vec<TextInfo1>)};
     let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
     let canvas = &world.draw_text_sys.canvas;
@@ -368,7 +368,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
         engine.gl.texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
     }
 
-    println!("time: {:?}", std::time::Instant::now() - t);
+    // println!("time: {:?}", std::time::Instant::now() - t);
     set_render_dirty(world_id);
 }
 
