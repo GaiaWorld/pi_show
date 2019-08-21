@@ -111,7 +111,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             render_obj.fs_defines.add("HSV");
-            paramter.set_value("hsv", create_hsv_ubo(engine, hsv)); // hsv
+            paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv
         }
     }
 }
@@ -193,7 +193,7 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent>
                 let notify = render_objs.get_notify();
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
                 render_obj.fs_defines.add("HSV");
-                render_obj.paramter.set_value("hsv", create_hsv_ubo(engine, hsv)); // hsv            
+                render_obj.paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv            
                 notify.modify_event(*id, "paramter", 0);
                 notify.modify_event(*id, "fs_defines", 0);
             }
