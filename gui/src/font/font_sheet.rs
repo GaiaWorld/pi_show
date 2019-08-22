@@ -52,7 +52,7 @@ pub struct FontSheet {
     pub wait_draw_list: Vec<TextInfo>,
     pub wait_draw_map: FxHashMap32<(Atom, usize/*font_size*/, usize /*stroke_width*/, usize /*font_weight */), (usize/* TextInfo_Index */, f32/* v */)>,
     measure_char: Box<dyn Fn(&Atom, usize, char)-> f32>,
-    font_tex: FontTex,
+    pub font_tex: FontTex,
 }
 
 impl  FontSheet {

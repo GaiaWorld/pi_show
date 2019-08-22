@@ -163,6 +163,7 @@ pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32)
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32){
+    // println!("set_border_image_clip: {:?}, {}, {}, {}", u1, v1, u2, v2);
     insert_value!(world, node, BorderImageClip, Aabb2{min: Point2::new(u1, v1), max: Point2::new(u2, v2)}, border_image_clip);
 }
 //设置border_image_slice
@@ -293,7 +294,6 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image(world: u32, node: u32){
-
     let node = node as usize;
 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;

@@ -8,7 +8,7 @@ use component::user::{Point2};
 pub struct FontTex{
     pub texture: Share<TextureRes>,
     line_map: FxHashMap32<usize, (Point2, usize)>,
-    last_v: f32,
+    pub last_v: f32,
 }
 
 impl FontTex {

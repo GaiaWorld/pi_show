@@ -132,11 +132,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
             
             if dirty & GEO_DIRTY != 0 {
-                let h = geo_hash(image, image_clip, image_slice, image_repeat, layout);
-                match engine.res_mgr.get::<GeometryRes>(&h) {
-                    Some(r) => render_obj.geometry = Some(r),
-                    None => render_obj.geometry = create_geo(image, image_clip, image_slice, image_repeat, layout, &mut engine),
-                };
+                render_obj.geometry = create_geo(image, image_clip, image_slice, image_repeat, layout, &mut engine);
                 
                 // BorderImage修改， 修改texture
                 if dirty & StyleType::BorderImage as usize != 0 {
@@ -170,6 +166,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj);
             }
+            notify.modify_event(render_index, "", 0);
         }
     }
 }

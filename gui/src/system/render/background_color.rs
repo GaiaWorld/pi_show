@@ -132,7 +132,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 modify_opacity(engine, render_obj);
             }
 
-            let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0{ 
+            let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0 { 
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
             } else {
@@ -169,6 +169,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 modify_matrix(render_obj, depth, world_matrix, transform, layout, is_unit_geo);
                 notify.modify_event(render_index, "ubos", 0);
             }
+            notify.modify_event(render_index, "", 0);
         }
     }
 }
@@ -371,7 +372,7 @@ fn modify_color<C: HalContext + 'static>(
                 render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(c, engine));
             }
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & StyleType::BorderRadius as usize != 0 {    
+            if change || dirty & StyleType::BorderRadius as usize != 0 || dirty & StyleType::Layout as usize != 0 {    
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
             }
         },
