@@ -328,7 +328,7 @@ pub fn set_border_image(world: u32, node: u32){
 }
 
 /**
- * 设置默认样式
+ * 设置默认样式, 暂支持布局属性、 文本属性的设置
  * __jsObj: class样式的文本描述
  */ 
 #[allow(unused_attributes)]
