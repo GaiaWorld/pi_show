@@ -115,7 +115,7 @@ pub fn set_white_space(world: u32, node_id: u32, value: u8){
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32, b: f32, a: f32, blur: f32){
+pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, blur: f32, r: f32, g: f32, b: f32, a: f32){
     let value = TextShadow {
         h: h,
         v: v,

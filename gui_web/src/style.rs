@@ -12,27 +12,27 @@ use gui::render::res::{TextureRes};
 use gui::single::*;
 use GuiWorld;
 
-#[macro_use()]
-macro_rules! set_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-		let world = &mut world.gui;
-        let attr = world.$key.lend_mut();
-        let value = $value;
-        $crate::paste::item! {
-            match attr.get_write(node_id) {
-                Some(mut r) => r.[<set_ $name>](value),
-                _ =>{
-                    let mut v = $tt::default();
-                    v.$name = value;
-                    attr.insert(node_id, v);
-                }
-            }
-        }
-        debug_println!("set_{}", $name);
-    };
-}
+// #[macro_use()]
+// macro_rules! set_attr {
+//     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
+//         let node_id = $node_id as usize;
+//         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+// 		let world = &mut world.gui;
+//         let attr = world.$key.lend_mut();
+//         let value = $value;
+//         $crate::paste::item! {
+//             match attr.get_write(node_id) {
+//                 Some(mut r) => r.[<set_ $name>](value),
+//                 _ =>{
+//                     let mut v = $tt::default();
+//                     v.$name = value;
+//                     attr.insert(node_id, v);
+//                 }
+//             }
+//         }
+//         debug_println!("set_{}", $name);
+//     };
+// }
 #[macro_use()]
 macro_rules! insert_value {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
@@ -110,43 +110,54 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32){
     insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Percent(x), y: LengthUnit::Percent(y)}, border_radius);
 }
 
-// 设置阴影颜色
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let color = 0;
-    set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
-}
+// // 设置阴影颜色
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
+//     let color = 0;
+//     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
+// }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
-    let spread = 0;
-    set_attr!(world, node, BoxShadow, spread, value, box_shadow);
-}
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
+//     let spread = 0;
+//     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
+// }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
-    let blur = 0;
-    set_attr!(world, node, BoxShadow, blur, value, box_shadow);
-}
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
+//     let blur = 0;
+//     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
+// }
 
-// 设置阴影h
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
-    let h = 0;
-    set_attr!(world, node, BoxShadow, h, value, box_shadow);
-}
+// // 设置阴影h
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
+//     let h = 0;
+//     set_attr!(world, node, BoxShadow, h, value, box_shadow);
+// }
+
+// // 设置阴影v
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
+//     let v = 0;
+//     set_attr!(world, node, BoxShadow, v, value, box_shadow);
+// }
 
 // 设置阴影v
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
-    let v = 0;
-    set_attr!(world, node, BoxShadow, v, value, box_shadow);
+pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: f32, r: f32, g: f32, b: f32, a: f32){
+    // let v = 0;
+    insert_attr!(world, node, BoxShadow, BoxShadow{
+        h: h, v: v, blur: blur, spread: spread, color: CgColor::new(r, g, b, a)
+    }, box_shadow);
 }
+
 //设置object_fit
 #[allow(unused_attributes)]
 #[no_mangle]
