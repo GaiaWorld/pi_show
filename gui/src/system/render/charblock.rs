@@ -391,9 +391,9 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         let shadow_index = if !have_shadow{
             0
         }else {
-            self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.1)
+            self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.0)
         };
-        let index = self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.0);
+        let index = self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.1);
 
         // 创建RenderObj与Node实体的索引关系， 并设脏
         self.render_map.insert(id, I{text: index, shadow: shadow_index});

@@ -213,23 +213,24 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     // let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
     if b == 0 {  
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
-        // if let Some(cb) = write.0.get_mut(id) {
+        if let Some(_cb) = write.0.get_mut(id) {
             // let text_style = unsafe { write.3.get_unchecked(id) };
             // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             // let node = node.get_parent();
-            // if node.get_child_count() == 1 {
+            if node.get_child_count() != 1 {
+                return;
             //     match node.get_style_width_unit() {
             //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
             //             calc_wrap_align(cb, &text_style, &node.get_layout());
             //         },
             //         _ => ()
             //     }
-            // }
+            }
         //     unsafe { write.0.get_unchecked_write(id).modify(|_|{
         //         return true;
         //     }) };
         //     return;
-        // }
+        }
         let layout = node.get_layout();
         if &layout == unsafe {write.1.get_unchecked(id)} {
             return;
