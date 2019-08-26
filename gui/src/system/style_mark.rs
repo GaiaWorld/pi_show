@@ -710,7 +710,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
 
         // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
         let yoga = unsafe {yogas.get_unchecked(event.id)};
-        set_layout_style(class, yoga, style_mark);
+        set_layout_style(&class.layout, yoga, style_mark);
 
         style_mark.class_style = class.class_style_mark;
     }
@@ -801,8 +801,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     }
 }
 
-fn set_layout_style<L: FlexNode>(class: &Class, yoga: &L, style_mark: &mut StyleMark){
-    for layout_attr in class.layout.iter() {
+pub fn set_layout_style<L: FlexNode>(layout_attrs: &Vec<LayoutAttr>, yoga: &L, style_mark: &mut StyleMark){
+    for layout_attr in layout_attrs.iter() {
         match layout_attr.clone() {
             LayoutAttr::AlignContent(r) => if StyleType1::AlignContent as usize & style_mark.local_style1 != 0 {yoga.set_align_content(r)},
             LayoutAttr::AlignItems(r) => if StyleType1::AlignItems as usize & style_mark.local_style1 != 0 {yoga.set_align_items(r)},

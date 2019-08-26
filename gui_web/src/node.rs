@@ -19,18 +19,21 @@ use gui::single::*;
 use gui::entity::Node;
 use gui::system::util::get_or_default;
 use gui::render::res::{TextureRes};
+use gui::system::set_layout_style;
 use gui::Z_MAX;
 
 use GuiWorld;
 
 fn create(world: &GuiWorld) -> usize {
-    let world = &world.gui;
-    let idtree = world.idtree.lend_mut();
-    let node = world.node.lend_mut().create();
-    let border_radius = world.border_radius.lend_mut();
+    let gui = &world.gui;
+    let idtree = gui.idtree.lend_mut();
+    let node = gui.node.lend_mut().create();
+    let border_radius = gui.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
-    world.class_name.lend_mut().insert(node, ClassName(0));
+    gui.class_name.lend_mut().insert(node, ClassName(0));
     idtree.create(node);
+
+    set_layout_style(&world.default_layout_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
 }
 
@@ -59,6 +62,7 @@ pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     world.gui.text_content.lend_mut().insert(node, TextContent("".to_string(), Atom::from("")));
+    // world.gui.text_style.lend_mut().insert_no_notify(node, world.default_text_style.clone());
     node as u32
 }
 

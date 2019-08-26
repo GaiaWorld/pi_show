@@ -5,7 +5,7 @@ use serde::{Serialize};
 use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
-use gui::single::Oct;
+// use gui::single::Oct;
 // use gui::layout::FlexNode;
 use GuiWorld;
 
@@ -106,10 +106,10 @@ pub fn node_info(world: u32, node: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn overflow_clip(world: u32) {
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let overflow_clip = world.overflow_clip.lend();
+pub fn overflow_clip(_world: u32) {
+    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
+    // let overflow_clip = world.overflow_clip.lend();
     // js!{
     //     console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
     // }

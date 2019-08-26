@@ -10,6 +10,7 @@ use atom::Atom;
 use gui::component::user::*;
 use gui::render::res::{TextureRes};
 use gui::single::*;
+use gui::single::style_parse::{Attribute, parse_class_from_string};
 use GuiWorld;
 
 // #[macro_use()]
@@ -324,4 +325,52 @@ pub fn set_border_image(world: u32, node: u32){
 			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::BorderImageLocal})
 		},
 	}
+}
+
+/**
+ * 设置默认样式
+ * __jsObj: class样式的文本描述
+ */ 
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_default_style(world: u32){
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let r = match parse_class_from_string(value.as_str()) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{:?}", e);
+            return;
+        },
+    };
+
+    let mut text_style = TextStyle::default();
+    // let mut border_color = BorderColor::default();
+    // let mut bg_color = BackgroundColor::default();
+    // let mut box_shadow = BoxShadow::default();
+
+    for attr in r.0.into_iter() {
+        match attr {
+            // Attribute::BGColor(r) => bg_color = r,
+            Attribute::Color(r) => text_style.text.color = r,
+            Attribute::LetterSpacing(r) => text_style.text.letter_spacing = r,
+            Attribute::WordSpacing(r) => text_style.text.word_spacing = r,
+            Attribute::LineHeight(r) => text_style.text.line_height = r,
+            Attribute::TextAlign(r) => text_style.text.text_align = r,
+            Attribute::TextIndent(r) => text_style.text.indent = r,
+            Attribute::TextShadow(r) => text_style.shadow = r,
+            Attribute::WhiteSpace(r) => text_style.text.white_space = r,
+            Attribute::TextStroke(r) => text_style.text.stroke = r,
+            Attribute::FontWeight(r) => text_style.font.weight = r as usize,
+            Attribute::FontSize(r) => text_style.font.size = r,
+            Attribute::FontFamily(r) => text_style.font.family = r,
+
+            // Attribute::BorderColor(r) => border_color = r,
+            _ => println!("set_class error"),
+        }
+    }
+
+    world.default_text_style = text_style;
+    world.default_layout_attr = r.1;
 }
