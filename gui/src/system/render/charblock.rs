@@ -391,9 +391,9 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         let shadow_index = if !have_shadow{
             0
         }else {
-            self.create_render_obj1(id, render_objs, default_state, is_pixel)
+            self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.1)
         };
-        let index = self.create_render_obj1(id, render_objs, default_state, is_pixel);
+        let index = self.create_render_obj1(id, render_objs, default_state, is_pixel, 0.0);
 
         // 创建RenderObj与Node实体的索引关系， 并设脏
         self.render_map.insert(id, I{text: index, shadow: shadow_index});
@@ -406,6 +406,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
         is_pixel: bool,
+        depth_diff: f32,
     ) -> usize {
         let (vs_name, fs_name, paramter, bs) = if is_pixel {
             let paramter: Share<dyn ProgramParamter> = Share::new(CanvasTextParamter::default());
@@ -422,7 +423,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
             ss: default_state.df_ss.clone(),
             ds: default_state.tarns_ds.clone(),
         };
-        let render_obj = new_render_obj(id, 0.1, false, vs_name, fs_name, paramter, state);
+        let render_obj = new_render_obj(id, depth_diff, false, vs_name, fs_name, paramter, state);
         render_obj.paramter.set_value("textureSize", self.texture_size_ubo.clone());
         let notify = render_objs.get_notify();
         render_objs.insert(render_obj, Some(notify))
@@ -755,8 +756,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     };
 
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height);
-                    
-                    println!("positions: {:?}, uvs: {:?}", positions, uvs);
+                
                     let (ps, indices_arr) = split_by_lg(
                         positions,
                         vec![i, i + 1, i + 2, i + 3],
@@ -766,10 +766,8 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     );
                     positions = ps;
                     
-                    println!("split_by_lg, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, indices_arr);
                     // 尝试为新增的点计算uv
                     fill_uv(&mut positions, &mut uvs, i as usize);
-                    println!("fill_uv, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, indices_arr);
 
                     // 颜色插值
                     colors = interp_mult_by_lg(
@@ -782,10 +780,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         endp.1.clone(),
                     );
 
-                    println!("interp_mult_by_lg, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, colors: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, colors, indices_arr);
-
                     indices = mult_to_triangle(&indices_arr, indices);
-                    println!("indices--------------{:?}", indices);
                     i = positions.len() as u16 / 2;
                 }
 

@@ -23,7 +23,7 @@ use component::{
 };
 use single::class::*;
 use single::*;
-use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit, YGEdge};
+use layout::*;
 use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont, get_line_height};
 
 const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize | 
@@ -103,7 +103,8 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
   type ReadData = Read<'a, L>;
   type WriteData = Write<'a,L>;
 
-  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
+  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+        let c = self as *mut LayoutImpl<L> as *mut c_void;
         for id in (read.6).0.iter() {
             let r = match read.5.get(*id) {
                 Some(r) => r,
@@ -113,7 +114,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
                 continue;
             }
 
-            calc(*id, &read, &mut write);
+            calc(*id, &read, &mut write, c);
         }     
         let (w, h) = {
             let layout = unsafe{ write.1.get_unchecked(ROOT)};
@@ -122,7 +123,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
         self.read= &read as *const Read<'a, L> as usize;
         self.write= &mut write as *mut Write<'a,L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, self as *const LayoutImpl<L> as *const c_void);
+        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, c);
     }
 }
 
@@ -165,6 +166,42 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     }
 }
 
+extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, height: f32, _height_mode: YGMeasureMode) -> YGSize {
+    // println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
+    // println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
+    // println!("layout: {:?}", get_layout(node));
+    let b = node.get_bind() as usize;
+    node.set_bind(0 as * mut c_void);
+    if b == 0 {
+        YGSize { 
+            width: 0.0, 
+            height: 0.0, 
+        }
+    } else {
+        let id = node.get_context() as usize;
+        let layout_impl = unsafe{ &mut *(b as *mut LayoutImpl<L>) };
+        let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
+
+        let cb = unsafe { write.0.get_unchecked_mut(id) };
+        let text_style = unsafe { write.3.get_unchecked(id) };
+        // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+        calc_wrap_align(cb, &text_style, width/100.0, height/100.0);
+        // let w = match width_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => width,
+        //     _ => cb.wrap_size.x,
+        // };
+
+        // let h = match height_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => height,
+        //     _ => cb.wrap_size.y,
+        // };
+        YGSize { 
+            width: width.max(cb.wrap_size.x), 
+            height: height.max(cb.wrap_size.y), 
+        } 
+    }
+}
+
 //================================ 内部静态方法
 //回调函数
 extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_void) {
@@ -176,23 +213,23 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     // let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
     if b == 0 {  
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
-        if let Some(cb) = write.0.get_mut(id) {
-            let text_style = unsafe { write.3.get_unchecked(id) };
-            // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-            let node = node.get_parent();
-            if node.get_child_count() == 1 {
-                match node.get_style_width_unit() {
-                    YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                        calc_wrap_align(cb, &text_style, &node.get_layout());
-                    },
-                    _ => ()
-                }
-            }
-            unsafe { write.0.get_unchecked_write(id).modify(|_|{
-                return true;
-            }) };
-            return;
-        }
+        // if let Some(cb) = write.0.get_mut(id) {
+            // let text_style = unsafe { write.3.get_unchecked(id) };
+            // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+            // let node = node.get_parent();
+            // if node.get_child_count() == 1 {
+            //     match node.get_style_width_unit() {
+            //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
+            //             calc_wrap_align(cb, &text_style, &node.get_layout());
+            //         },
+            //         _ => ()
+            //     }
+            // }
+        //     unsafe { write.0.get_unchecked_write(id).modify(|_|{
+        //         return true;
+        //     }) };
+        //     return;
+        // }
         let layout = node.get_layout();
         if &layout == unsafe {write.1.get_unchecked(id)} {
             return;
@@ -247,7 +284,7 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
 }
 
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>) -> bool {
+fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>, c: *mut c_void) -> bool {
     let cb = match write.0.get_mut(id) {
         Some(r) => r,
         None => return false, 
@@ -339,22 +376,24 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
         // let old = yoga.get_layout();
-        let old_size = tex_param.cb.wrap_size;
+        // let old_size = tex_param.cb.wrap_size;
         calc_text(tex_param, text, sw, write.2);
-        if old_size.x != tex_param.cb.wrap_size.x || old_size.y != tex_param.cb.wrap_size.y {
-            yoga.set_width(tex_param.cb.wrap_size.x);
-            yoga.set_height(tex_param.cb.wrap_size.y);
-        }else{
-            match parent_yoga.get_style_width_unit() {
-                YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                    calc_wrap_align(tex_param.cb, text_style, &parent_yoga.get_layout());
-                },
-                _ => ()
-            }
-            unsafe { write.0.get_unchecked_write(id).modify(|_|{
-                return true;
-            }) };
-        }
+        yoga.set_measure_func(Some(text_callback));
+        yoga.set_bind(c);
+        // if old_size.x != tex_param.cb.wrap_size.x || old_size.y != tex_param.cb.wrap_size.y {
+        //     yoga.set_width(tex_param.cb.wrap_size.x);
+        //     yoga.set_height(tex_param.cb.wrap_size.y);
+        // }else{
+        //     match parent_yoga.get_style_width_unit() {
+        //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
+        //             calc_wrap_align(tex_param.cb, text_style, &parent_yoga.get_layout());
+        //         },
+        //         _ => ()
+        //     }
+        //     unsafe { write.0.get_unchecked_write(id).modify(|_|{
+        //         return true;
+        //     }) };
+        // }
         return false
     }
     if text_style.text.white_space.allow_wrap() {
@@ -612,11 +651,11 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos
-fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, layout: &Layout) {
-    let x = layout.border_left + layout.padding_left;
-    let w = layout.width - x - layout.border_right - layout.padding_right;
-    let y = layout.border_top + layout.padding_top;
-    let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
+fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32, h: f32) {
+    // let x = layout.border_left + layout.padding_left;
+    // let w = layout.width - x - layout.border_right - layout.padding_right;
+    // let y = layout.border_top + layout.padding_top;
+    // let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
     if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
@@ -624,12 +663,9 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
             y_fix = wrap_line(cb, text_style, i, w, y_fix)
         }
         cb.wrap_size.y += y_fix;
-        cb.wrap_size.x = w;
-    } else {
-        
     }
-    cb.pos.x += x;
-    cb.pos.y += y;
+    // cb.pos.x += x;
+    // cb.pos.y += y;
 
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
         match text_style.text.vertical_align {
@@ -640,6 +676,7 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
     }
 
     if cb.wrap_size.y > cb.size.y {
+        cb.wrap_size.x = w;
         // 如果换行则返回
         return;
     }

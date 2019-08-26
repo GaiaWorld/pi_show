@@ -114,12 +114,14 @@ impl<C: HalContext + 'static> ClipSys<C>{
     ){
         match aabb {
             Some(item) => {
-                render_obj.paramter.set_value("clipBox", item.1.clone());
-                if let None = render_obj.fs_defines.add("CLIP_BOX") {
-                    render_obj.vs_defines.add("CLIP_BOX");
-                    render_obj.fs_defines.remove("CLIP");
-                    notify.modify_event(id, "program_dirty", 0);
-                } 
+                if render_obj.visibility {
+                    render_obj.paramter.set_value("clipBox", item.1.clone());
+                    if let None = render_obj.fs_defines.add("CLIP_BOX") {
+                        render_obj.vs_defines.add("CLIP_BOX");
+                        render_obj.fs_defines.remove("CLIP");
+                        notify.modify_event(id, "program_dirty", 0);
+                    }
+                }
             },
             None => {
                 render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
@@ -374,6 +376,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEve
 //     }
 // }
 
+// 是否相交
 #[inline]
 fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
     if a.min.x >= b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y{
@@ -382,6 +385,16 @@ fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
         true
     }
 }
+
+// // a是否包含b
+// #[inline]
+// fn is_include(a: &Aabb3, b: &Aabb3) -> bool {
+//     if a.min.x <= b.min.x && a.max.x >= b.max.x && a.min.y <= b.min.y && a.max.y >= b.max.y {
+//         return true;
+//     } else {
+//         false
+//     }
+// }
 
 
 // // aabb相交
