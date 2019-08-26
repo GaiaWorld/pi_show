@@ -15,6 +15,10 @@ let color_vs_code = `
     uniform mat4 worldMatrix;
     uniform mat4 viewMatrix;
     uniform mat4 projectMatrix;
+
+    #ifdef CLIP_BOX
+        uniform vec4 clipBox;
+    #endif
     
     #ifdef VERTEX_COLOR
         varying vec4 vColor; 
@@ -23,9 +27,14 @@ let color_vs_code = `
     #ifdef BOX_SHADOW_BLUR
         varying vec2 vPosition; 
     #endif
+
+    #ifdef CLIP_BOX
+        varying vec2 vClipBox;
+    #endif
     
     void main(void) {
-        vec4 p = (projectMatrix * viewMatrix * worldMatrix) * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p1 = worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p = (projectMatrix * viewMatrix) * p1;
         
         gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
 
@@ -35,6 +44,10 @@ let color_vs_code = `
 
         #ifdef BOX_SHADOW_BLUR
             vPosition = position;
+        #endif
+
+        #ifdef CLIP_BOX
+            vClipBox = vec2((p1.x - clipBox.x)/clipBox.z, (p1.y - clipBox.y)/clipBox.w);
         #endif
     }
 `;
@@ -83,6 +96,10 @@ let color_fs_code = `
 
     #ifdef BOX_SHADOW_BLUR
         varying vec2 vPosition; 
+    #endif
+
+    #ifdef CLIP_BOX
+        varying vec2 vClipBox;
     #endif
 
     #ifdef BOX_SHADOW_BLUR
@@ -191,8 +208,7 @@ let color_fs_code = `
         }
     #endif
 
-    void main(void) {
-
+    void main(void) { 
         #ifdef CLIP
         
             vec2 clipCoord = gl_FragCoord.xy / clipTextureSize;
@@ -277,6 +293,14 @@ let color_fs_code = `
         #endif
 
         c.a = c.a * alpha * blur_size;
+
+        #ifdef CLIP_BOX
+            float factor = min(1.0-abs(vClipBox.x), 1.0-abs(vClipBox.y));
+            c.a *= step(0.0, factor);
+        #endif
+
         gl_FragColor = c;
+
+        if (gl_FragColor.a == 0.0) discard;
     }
 `;

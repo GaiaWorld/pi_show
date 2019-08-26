@@ -1,5 +1,5 @@
 //八叉树系统
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 
 use component::calc::{WorldMatrix};
@@ -79,19 +79,20 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys{
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OctSys{
-    type ReadData = (
-        &'a SingleCaseImpl<IdTree>,
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
-    }
-}
+
+// impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OctSys{
+//     type ReadData = (
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a SingleCaseImpl<DefaultTable>,
+//     );
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+//         OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
+//     }
+// }
 
 impl_system!{
     OctSys,
@@ -100,7 +101,7 @@ impl_system!{
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        SingleCaseListener<IdTree, CreateEvent>
+        // SingleCaseListener<IdTree, CreateEvent>
     }
 }
 

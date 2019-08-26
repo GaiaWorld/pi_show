@@ -308,7 +308,6 @@ pub fn set_border_image(world: u32, node: u32){
 			border_image.insert(node, BorderImage{src: r, url: name});
 		},
 		None => {
-            println!("border wait-----------------");
 			// 异步加载图片
 			let image_wait_sheet = world.image_wait_sheet.lend_mut();
 			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::BorderImageLocal})

@@ -25,6 +25,10 @@ pub struct WorldMatrix(pub Matrix4, pub bool);
 #[derive(Deref, DerefMut, Component, Debug, Default)]
 pub struct Visibility(pub bool);
 
+// 是否在裁剪平面的可视范围内
+#[derive(Component, Debug)]
+pub struct Culling(pub bool);
+
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Opacity(pub f32);
@@ -310,6 +314,13 @@ uniform_buffer! {
 
 uniform_buffer! {
     #[derive(Hash)]
+    struct ClipBox {
+        clipBox: UniformValue,
+    }
+}
+
+uniform_buffer! {
+    #[derive(Hash)]
     struct TextTextureSize {
         textureSize: UniformValue,
     }
@@ -360,6 +371,7 @@ defines! {
     #[derive(Clone)]
     struct VsDefines {
         VERTEX_COLOR: String,
+        CLIP_BOX: String,
         BOX_SHADOW_BLUR: String,
     }
 }
@@ -371,6 +383,7 @@ defines! {
         VERTEX_COLOR: String,
         BOX_SHADOW_BLUR: String,
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -380,6 +393,7 @@ defines! {
     #[derive(Clone)]
     struct FsBaseDefines {
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -409,6 +423,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -421,6 +436,7 @@ defines! {
         UCOLOR: String,
         VERTEX_COLOR: String,
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -449,6 +465,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -466,6 +483,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         alpha: UniformValue,
         uRect: UniformValue,
         blur: UniformValue,
@@ -482,6 +500,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -500,6 +519,7 @@ defines! {
     #[derive(Clone)]
     struct ImageFsDefines {
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }

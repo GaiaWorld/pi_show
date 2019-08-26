@@ -549,7 +549,8 @@ pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_ob
         render_obj.state.bs = create_bs_res(engine, bs);
         render_obj.state.ds = create_ds_res(engine, ds);
     }else {
-        bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
+        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        // bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
         ds.set_write_enable(true);
         
         render_obj.state.bs = create_bs_res(engine, bs);

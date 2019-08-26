@@ -131,7 +131,8 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, Layout>();
     world.register_multi::<Node, L>();
-    world.register_multi::<Node, HSV>(); 
+    world.register_multi::<Node, HSV>();
+    world.register_multi::<Node, Culling>(); 
     //single
     // world.register_single::<ClipUbo>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());

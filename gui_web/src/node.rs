@@ -465,11 +465,11 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
 /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
 fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
   let xy = Point2::new(x, y);
-  for i in 0..overflow_clip.id_vec.len() {
+  for (i, c) in overflow_clip.clip.iter() {
     // debug_println!("i + 1---------------------------{}",i + 1);
     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
-    if (by_overflow & (1<<i)) != 0 && overflow_clip.id_vec[i] > 0 {
-      let p = &overflow_clip.clip[i];
+    if (by_overflow & (1<<i)) != 0  {
+      let p = &c.view;
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
         _ => {
@@ -481,3 +481,23 @@ fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize,
   }
   return true
 }
+
+// /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
+// fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
+//   let xy = Point2::new(x, y);
+//   for i in 0..overflow_clip.id_vec.len() {
+//     // debug_println!("i + 1---------------------------{}",i + 1);
+//     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
+//     if (by_overflow & (1<<i)) != 0 && overflow_clip.id_vec[i] > 0 {
+//       let p = &overflow_clip.clip[i];
+//       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
+//         InnOuter::Inner => (),
+//         _ => {
+//             // println!("overflow----------clip: {:?},x: {}, y: {}", p[0], x, y);
+//             return false
+//         }
+//       }
+//     }
+//   }
+//   return true
+// }

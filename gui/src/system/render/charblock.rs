@@ -756,6 +756,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
 
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height);
                     
+                    println!("positions: {:?}, uvs: {:?}", positions, uvs);
                     let (ps, indices_arr) = split_by_lg(
                         positions,
                         vec![i, i + 1, i + 2, i + 3],
@@ -765,8 +766,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     );
                     positions = ps;
                     
+                    println!("split_by_lg, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, indices_arr);
                     // 尝试为新增的点计算uv
                     fill_uv(&mut positions, &mut uvs, i as usize);
+                    println!("fill_uv, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, indices_arr);
 
                     // 颜色插值
                     colors = interp_mult_by_lg(
@@ -779,7 +782,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         endp.1.clone(),
                     );
 
+                    println!("interp_mult_by_lg, positions: {:?}, uvs: {:?}, lg_pos: {:?}, endp: {:?}, colors: {:?}, indices_arr: {:?}", positions, uvs, lg_pos, endp, colors, indices_arr);
+
                     indices = mult_to_triangle(&indices_arr, indices);
+                    println!("indices--------------{:?}", indices);
                     i = positions.len() as u16 / 2;
                 }
 
@@ -787,7 +793,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                 let color_buffer = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(&colors)), false);
                 let i_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices)), false);
                 engine.gl.geometry_set_attribute(&geo_res.geo, &AttributeName::Color, &color_buffer, 4).unwrap();
-                engine.gl.geometry_set_indices_short(&geo_res.geo, &index_buffer).unwrap();
+                engine.gl.geometry_set_indices_short(&geo_res.geo, &i_buffer).unwrap();
                 geo_res.buffers.push(Share::new(i_buffer));
                 geo_res.buffers.push(Share::new(color_buffer));
             }

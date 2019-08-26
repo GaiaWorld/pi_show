@@ -318,6 +318,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
             var ctx = c.ctx;
             ctx.fillStyle = "#00f";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            console.log(canvas);
         }
         let mut start: (i32, i32) = (-1, -1);
         for i in (indexs.1).0.iter(){

@@ -84,10 +84,11 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, HSV>,
         &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, Culling>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        let (opacitys, visibilitys, hsvs, z_depths) = read;
+        let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
         let (render_objs, engine, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
@@ -104,7 +105,8 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
 
         let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
-        render_obj.visibility = visibility;
+        let culling = unsafe { cullings.get_unchecked(render_obj.context) }.0;
+        render_obj.visibility = visibility & !culling;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
 
@@ -163,18 +165,19 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Opacity, ModifyEv
 
 // 设置visibility
 impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Visibility, ModifyEvent> for NodeAttrSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, Visibility>;
+    type ReadData = (&'a MultiCaseImpl<Node, Visibility>, &'a MultiCaseImpl<Node, Culling>);
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
-    fn listen(&mut self, event: &ModifyEvent, visibilitys: Self::ReadData, write: Self::WriteData){
-        let (render_objs, node_render_map) = write;
-        let visibility = unsafe { visibilitys.get_unchecked(event.id).0 };
-        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        modify_visible(event.id, read, write);
+    }
+}
 
-        for id in obj_ids.iter() {
-            let notify = render_objs.get_notify();
-            let mut render_obj = unsafe {render_objs.get_unchecked_write(*id, &notify)};
-            render_obj.set_visibility(visibility);
-        }
+// 设置culling
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Culling, ModifyEvent> for NodeAttrSys<C>{
+    type ReadData = (&'a MultiCaseImpl<Node, Visibility>, &'a MultiCaseImpl<Node, Culling>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        modify_visible(event.id, read, write);
     }
 }
 
@@ -217,6 +220,23 @@ pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HS
     }
 }
 
+type ReadData<'a> = (&'a MultiCaseImpl<Node, Visibility>, &'a MultiCaseImpl<Node, Culling>);
+type WriteData<'a> = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
+
+fn modify_visible(id: usize, read: ReadData, write: WriteData) {
+    let (visibilitys, cullings) = read;
+    let (render_objs, node_render_map) = write;
+    let visibility = unsafe { visibilitys.get_unchecked(id).0 };
+    let culling = unsafe { cullings.get_unchecked(id).0 };
+    let obj_ids = unsafe{ node_render_map.get_unchecked(id) };
+
+    for id in obj_ids.iter() {
+        let notify = render_objs.get_notify();
+        let mut render_obj = unsafe {render_objs.get_unchecked_write(*id, &notify)};
+        render_obj.set_visibility(visibility & !culling);
+    }
+}
+
 impl_system!{
     NodeAttrSys<C> where [C: HalContext + 'static],
     true,
@@ -228,6 +248,7 @@ impl_system!{
         SingleCaseListener<RenderObjs, DeleteEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>
+        MultiCaseListener<Node, Culling, ModifyEvent>
         MultiCaseListener<Node, HSV, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
     }
