@@ -25,13 +25,7 @@ macro_rules! set_attr {
         let attr = world.gui.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
-            let r = match attr.get_mut(node_id) {
-                Some(r) => r,
-                None => {
-                    attr.insert_no_notify(node_id, world.default_text_style.clone());
-                    unsafe { attr.get_unchecked_mut(node_id) }
-                }
-            };
+            let r = unsafe { attr.get_unchecked_mut(node_id) };
             r.$name.$name1 = value;
             attr.get_notify_ref().modify_event(node_id, $name2, 0);
         }

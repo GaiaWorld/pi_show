@@ -62,7 +62,7 @@ pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     world.gui.text_content.lend_mut().insert(node, TextContent("".to_string(), Atom::from("")));
-    // world.gui.text_style.lend_mut().insert_no_notify(node, world.default_text_style.clone());
+    world.gui.text_style.lend_mut().insert_no_notify(node, world.default_text_style.clone());
     node as u32
 }
 

@@ -499,9 +499,12 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             let c = unsafe { class_sheet.text.get_unchecked(class.text) }; 
             if class.class_style_mark & TEXT_DIRTY != 0 {
                 if style_mark.local_style & TEXT_STYLE_DIRTY == 0 {
-                    // 如果本地样式不存在任何文字相关的属性， 直接设置文字组件与class相同
-                    text_styles.insert_no_notify(event.id, c.clone());
-                    set_dirty(dirty_list, event.id, class.class_style_mark & TEXT_STYLE_DIRTY, style_mark);
+                    // 如果本地样式不存在任何文字相关的属性， 直接设置文字组件与class相同, 但若TextStyle组件不存在， 表示该节点不是文本节点， 不需要设置文本属性
+                    if let Some(_) = text_styles.get(event.id) {  
+                        text_styles.insert_no_notify(event.id, c.clone());
+                        set_dirty(dirty_list, event.id, class.class_style_mark & TEXT_STYLE_DIRTY, style_mark);
+                    }
+                    
                 } else {
                     let text_style = unsafe { text_styles.get_unchecked_mut(event.id) };
                     // text本地样式不存在
