@@ -322,12 +322,22 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                 start.1 = first.y as i32;
             }
             let hal_stroke_width = text_info.stroke_width/2;
-            let bottom = text_info.size.y as u32 - hal_stroke_width as u32; 
+            let bottom = text_info.size.y as u32 - hal_stroke_width as u32;  
             js!{
                 
                 var c = @{canvas};
                 var ctx = c.ctx;
-                ctx.font = @{text_info.weight as u32} + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
+                var weight;
+                if (@{text_info.weight as u32} <= 300 ) {
+                    weight = "lighter";
+                } else if (@{text_info.weight as u32} < 700 ) {
+                    weight = "normal";
+                } else if (@{text_info.weight as u32} < 900 ) {
+                    weight = "bold";
+                } else {
+                    weight = "bolder";
+                }
+                ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
                 ctx.fillStyle = "#0f0";
                 ctx.textBaseline = "bottom";
             }
