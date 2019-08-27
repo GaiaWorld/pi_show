@@ -166,7 +166,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     }
 }
 
-extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, height: f32, _height_mode: YGMeasureMode) -> YGSize {
+extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, width_mode: YGMeasureMode, height: f32, height_mode: YGMeasureMode) -> YGSize {
     // println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
     // println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
     // println!("layout: {:?}", get_layout(node));
@@ -184,6 +184,10 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_m
 
         let cb = unsafe { write.0.get_unchecked_mut(id) };
         let text_style = unsafe { write.3.get_unchecked(id) };
+        // let h = match height_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => height/100.0,
+        //     _ => 0.0,
+        // };
         // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
         calc_wrap_align(cb, &text_style, width/100.0, height/100.0);
         // let w = match width_mode {
@@ -539,10 +543,10 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         match cr {
             SplitResult::Newline =>{
                 tex_param.cb.last_line.2 = calc.pos.x;
+                update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
                 tex_param.cb.lines.push(tex_param.cb.last_line.clone());
                 tex_param.cb.last_line = (tex_param.cb.chars.len(), 0, 0.0);
                 tex_param.cb.line_count += 1;
-                update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
@@ -653,10 +657,6 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos
 fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32, h: f32) {
-    // let x = layout.border_left + layout.padding_left;
-    // let w = layout.width - x - layout.border_right - layout.padding_right;
-    // let y = layout.border_top + layout.padding_top;
-    // let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
     if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
@@ -665,8 +665,6 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
         }
         cb.wrap_size.y += y_fix;
     }
-    // cb.pos.x += x;
-    // cb.pos.y += y;
 
     if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
         match text_style.text.vertical_align {
