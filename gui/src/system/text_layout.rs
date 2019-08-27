@@ -388,6 +388,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         calc_text(tex_param, text, sw, write.2);
         yoga.set_measure_func(Some(text_callback));
         yoga.set_bind(c);
+        yoga.mark_dirty();
         // if old_size.x != tex_param.cb.wrap_size.x || old_size.y != tex_param.cb.wrap_size.y {
         //     yoga.set_width(tex_param.cb.wrap_size.x);
         //     yoga.set_height(tex_param.cb.wrap_size.y);
