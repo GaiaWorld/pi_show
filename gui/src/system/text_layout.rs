@@ -173,7 +173,6 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, width_mo
     let b = node.get_bind() as usize;
     node.set_bind(0 as * mut c_void);
     if b == 0 {
-        println!("rx--------------------");
         YGSize { 
             width: 0.0, 
             height: 0.0, 
@@ -205,7 +204,6 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, width_mo
             width: width.max(cb.wrap_size.x * 100.0), 
             height: height.max(cb.wrap_size.y * 100.0), 
         } ;
-        println!("r: {:?}", r);
         r
     }
 }
@@ -241,7 +239,6 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
         }
 
         let layout = node.get_layout();
-        println!("layout--------------------{:?}", layout);
         if &layout == unsafe {write.1.get_unchecked(id)} {
             return;
         }
