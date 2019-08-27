@@ -472,7 +472,7 @@ fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize,
   for (i, c) in overflow_clip.clip.iter() {
     // debug_println!("i + 1---------------------------{}",i + 1);
     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
-    if (by_overflow & (1<<i)) != 0  {
+    if (by_overflow & (1<<(i -1))) != 0  {
       let p = &c.view;
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
