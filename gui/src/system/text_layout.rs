@@ -220,7 +220,7 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
         if let Some(_cb) = write.0.get_mut(id) {
             // let text_style = unsafe { write.3.get_unchecked(id) };
             // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-            // let node = node.get_parent();
+            let node = node.get_parent();
             if node.get_child_count() != 1 {
                 return;
             //     match node.get_style_width_unit() {
