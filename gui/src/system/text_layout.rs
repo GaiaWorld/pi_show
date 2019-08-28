@@ -190,21 +190,25 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, width_mo
         // };
         
         // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-        calc_wrap_align(cb, &text_style, width/100.0, height/100.0);
+        calc_wrap_align(cb, &text_style, width/100.0);
 
-        let w = match width_mode {
-            YGMeasureMode::YGMeasureModeExactly => width,
-            _ => cb.wrap_size.x * 100.0,
-        };
+        // let w = match width_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => width,
+        //     _ => cb.wrap_size.x * 100.0,
+        // };
 
         let r = YGSize { 
-            width: w, 
-            height: height.min(cb.wrap_size.y * 100.0), 
+            width: cb.wrap_size.x * 100.0, 
+            height: cb.wrap_size.y * 100.0, 
         };
 
-        node.set_width(r.width/100.0);
-        node.set_height(r.height/100.0);
-
+        node.set_width(cb.wrap_size.x);
+        node.set_height(cb.wrap_size.y);
+        
+        // if cb.chars.len() > 0 && cb.chars[0].ch == '购' {
+        //     println!("{:?}, {:?}", node.get_parent().get_style_align_items(), node.get_parent().get_style_align_content());
+        // }
+        
         // let h = match height_mode {
         //     YGMeasureMode::YGMeasureModeExactly => height,
         //     _ => cb.wrap_size.y,
@@ -350,13 +354,19 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     
     if style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
         match parent_yoga.get_style_align_content() {
-            YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+            YGAlign::YGAlignCenter => {
+                text_style.text.vertical_align = VerticalAlign::Middle;
+                parent_yoga.set_align_items(YGAlign::YGAlignCenter);
+            },
             YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
             _ => (),
         };
 
         match parent_yoga.get_style_align_items() {
-            YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+            YGAlign::YGAlignCenter => {
+                text_style.text.vertical_align = VerticalAlign::Middle;
+                parent_yoga.set_align_content(YGAlign::YGAlignCenter);
+            },
             YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
             _ => (),
         };
@@ -669,7 +679,7 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos
-fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32, h: f32) {
+fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32) {
     if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
