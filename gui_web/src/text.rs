@@ -303,7 +303,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
 
     for indexs in map.iter() {
         js!{
-                
+        
             var c = @{canvas};
             var canvas = c.canvas;
             canvas.width = @{(indexs.1).1.x as u32 };
