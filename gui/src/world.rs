@@ -162,7 +162,6 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
-    world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     world.register_system(IMAGE_N.clone(), image_sys);
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     world.register_system(TEXT_GLPHY_N.clone(), CellTextGlphySys::<L>::new(TextGlphySys::new()));
@@ -174,6 +173,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::<C>::new(BoxShadowSys::default()));
     world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
+    world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
     world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
     world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<L, C>::new(StyleMarkSys::new()));

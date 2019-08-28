@@ -206,11 +206,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
-        debug_println!("view_matrix: {:?}", &slice[..]);
 
         let slice: &[f32; 16] = projection_matrix.0.as_ref();
         let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
-        debug_println!("projection_matrix: {:?}", &slice[..]);
 
         self.paramter.set_value("viewMatrix", Share::new(view_matrix_ubo)); // VIEW_MATRIX
         self.paramter.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX

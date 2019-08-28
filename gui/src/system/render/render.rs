@@ -63,6 +63,7 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
                 render_obj.paramter.as_ref(),
             );
             render_obj.program = Some(program);
+            render_obj.program_dirty = false;
         }
 
         self.program_dirtys.clear();
