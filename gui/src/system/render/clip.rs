@@ -140,20 +140,74 @@ impl<C: HalContext + 'static> ClipSys<C>{
 
 impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
     type ReadData = (
+        &'a MultiCaseImpl<Node, ByOverflow>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<Oct>,
+        &'a SingleCaseImpl<NodeRenderMap>,
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
         &'a SingleCaseImpl<ViewMatrix>,
-        &'a SingleCaseImpl<RenderBegin>,    
+        &'a SingleCaseImpl<RenderBegin>,
     );
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
-    fn run(&mut self, read: Self::ReadData, engine: Self::WriteData){
+    type WriteData = (
+        &'a mut SingleCaseImpl<OverflowClip>, 
+        &'a mut MultiCaseImpl<Node, Culling>, 
+        &'a mut SingleCaseImpl<RenderObjs>, 
+        &'a mut SingleCaseImpl<Engine<C>>,
+    );
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let (by_overflows, style_marks, dirty_list, octree, node_render_map, overflow, _projection, _view, _view_port) = read;
+        let (overflow_clip, cullings, render_objs, engine) = write;
+
+        let notify = render_objs.get_notify();
+        let mut pre_by_overflow = 0;
+        let mut aabb = None;
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            let by_overflow = unsafe {by_overflows.get_unchecked(*id)}.0;
+            let obj_ids = unsafe{ node_render_map.get_unchecked(*id) };
+
+            if style_mark.dirty & StyleType::Matrix as usize != 0 || style_mark.dirty & StyleType::ByOverflow as usize != 0 {
+                if by_overflow > 0 {
+                    if by_overflow != pre_by_overflow {
+                        pre_by_overflow = by_overflow;
+                        aabb = overflow_clip.clip_map.get(&by_overflow);
+                    }
+                    // 裁剪剔除
+                    if let Some(item) = aabb {
+                        unsafe { cullings.get_unchecked_write(*id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(*id) }.0));
+                    }
+                    for id in obj_ids.iter() {
+                        let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                        self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
+                    }
+                }
+            }
+
+            if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
+                // 裁剪剔除
+                unsafe {cullings.get_unchecked_write(*id) }.set_0(false);
+                for id in obj_ids.iter() {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                    render_obj.vs_defines.remove("CLIP_BOX");
+                    render_obj.fs_defines.remove("CLIP_BOX");
+                    render_obj.fs_defines.remove("CLIP");
+                    render_objs.get_notify().modify_event(*id, "program_dirty", 0);
+                }
+            }  
+        }
+
         if !self.dirty {
             return;
         }
+
         self.dirty = false;
 
-        let (overflow, _projection, _view, _view_port) = read;
-        
         let mut positions = Vec::default();
         for (_i, c) in overflow.clip.iter() {
             if c.has_rotate {
@@ -202,7 +256,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
     }
     
     fn setup(&mut self, read: Self::ReadData, _engine: Self::WriteData){
-        let ( _, view_matrix, projection_matrix, _) = read;
+        let ( _, _, _, _, _, _, view_matrix, projection_matrix, _) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
@@ -217,85 +271,85 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
  
 }
 
-//创建RenderObj， 为renderobj添加裁剪宏及ubo
-impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
-    type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<OverflowClip>);
-    fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
-        let (render_objs, engine, overflow_clip) = write;
-        let notify = render_objs.get_notify();
-        let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-        let node_id = render_obj.context;
-        let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
-        if by_overflow > 0 {
-            let aabb = overflow_clip.clip_map.get(&by_overflow);
-            self.set_clip_uniform(event.id, by_overflow, aabb, &notify, render_obj, engine);
-        }
-    }
-}
+// //创建RenderObj， 为renderobj添加裁剪宏及ubo
+// impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
+//     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<OverflowClip>);
+//     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
+//         let (render_objs, engine, overflow_clip) = write;
+//         let notify = render_objs.get_notify();
+//         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+//         let node_id = render_obj.context;
+//         let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
+//         if by_overflow > 0 {
+//             let aabb = overflow_clip.clip_map.get(&by_overflow);
+//             self.set_clip_uniform(event.id, by_overflow, aabb, &notify, render_obj, engine);
+//         }
+//     }
+// }
 
 
-//by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>, &'a SingleCaseImpl<OverflowClip>, &'a SingleCaseImpl<Oct>);
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, Culling>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        let (by_overflows, node_render_map, overflow_clip, octree) = read;
-        let (render_objs, engine, cullings) = write;
-        let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
-        let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-        let notify = render_objs.get_notify();
-        // ByOverflow
-        if by_overflow == 0 {
-            // 裁剪剔除
-            unsafe {cullings.get_unchecked_write(event.id) }.set_0(false);
-            for id in obj_ids.iter() {
-                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                render_obj.vs_defines.add("CLIP_BOX");
-                render_obj.fs_defines.add("CLIP_BOX");
-                render_obj.fs_defines.remove("CLIP");
-                render_objs.get_notify().modify_event(*id, "program_dirty", 0);
-            }
-        } else {
-            let mut aabb = None;
-            // 裁剪剔除
-            if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
-                unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
-                aabb = Some(item);
-            }
-            for id in obj_ids.iter() {
-                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
-            }
-        }
-    }
-}
+// //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
+// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
+//     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>, &'a SingleCaseImpl<OverflowClip>, &'a SingleCaseImpl<Oct>);
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, Culling>);
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+//         let (by_overflows, node_render_map, overflow_clip, octree) = read;
+//         let (render_objs, engine, cullings) = write;
+//         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
+//         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+//         let notify = render_objs.get_notify();
+//         // ByOverflow
+//         if by_overflow == 0 {
+//             // 裁剪剔除
+//             unsafe {cullings.get_unchecked_write(event.id) }.set_0(false);
+//             for id in obj_ids.iter() {
+//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+//                 render_obj.vs_defines.add("CLIP_BOX");
+//                 render_obj.fs_defines.add("CLIP_BOX");
+//                 render_obj.fs_defines.remove("CLIP");
+//                 render_objs.get_notify().modify_event(*id, "program_dirty", 0);
+//             }
+//         } else {
+//             let mut aabb = None;
+//             // 裁剪剔除
+//             if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
+//                 unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
+//                 aabb = Some(item);
+//             }
+//             for id in obj_ids.iter() {
+//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+//                 self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
+//             }
+//         }
+//     }
+// }
 
-// 世界矩阵改变， 如果该节点by_overflow > 0, 应该判断其是否被裁剪平面剔除
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for ClipSys<C>{
-    type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<NodeRenderMap>);
-    type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, Culling>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        let (by_overflows, octree, node_render_map) = read;
-        let (overflow_clip, cullings, render_objs, engine) = write;
+// // 世界矩阵改变， 如果该节点by_overflow > 0, 应该判断其是否被裁剪平面剔除
+// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for ClipSys<C>{
+//     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<NodeRenderMap>);
+//     type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, Culling>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+//         let (by_overflows, octree, node_render_map) = read;
+//         let (overflow_clip, cullings, render_objs, engine) = write;
 
-        let by_overflow = unsafe {by_overflows.get_unchecked(event.id)}.0;
-        if by_overflow > 0 {
-            let notify = render_objs.get_notify();
-            let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-            let mut aabb = None;
-            // 裁剪剔除
-            if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
-                unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
-                aabb = Some(item);
-            }
-            for id in obj_ids.iter() {
-                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
-            }
-        }
-    }
-}
+//         let by_overflow = unsafe {by_overflows.get_unchecked(event.id)}.0;
+//         if by_overflow > 0 {
+//             let notify = render_objs.get_notify();
+//             let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
+//             let mut aabb = None;
+//             // 裁剪剔除
+//             if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
+//                 unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
+//                 aabb = Some(item);
+//             }
+//             for id in obj_ids.iter() {
+//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+//                 self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
+//             }
+//         }
+//     }
+// }
 
 
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
@@ -384,15 +438,15 @@ fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
     }
 }
 
-// // a是否包含b
-// #[inline]
-// fn is_include(a: &Aabb3, b: &Aabb3) -> bool {
-//     if a.min.x <= b.min.x && a.max.x >= b.max.x && a.min.y <= b.min.y && a.max.y >= b.max.y {
-//         return true;
-//     } else {
-//         false
-//     }
-// }
+// a是否包含b
+#[inline]
+fn is_include(a: &Aabb3, b: &Aabb3) -> bool {
+    if a.min.x <= b.min.x && a.max.x >= b.max.x && a.min.y <= b.min.y && a.max.y >= b.max.y {
+        return true;
+    } else {
+        false
+    }
+}
 
 
 // // aabb相交
@@ -434,9 +488,9 @@ impl_system!{
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
-        SingleCaseListener<RenderObjs, CreateEvent>
-        MultiCaseListener<Node, ByOverflow, ModifyEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>  
+        // SingleCaseListener<RenderObjs, CreateEvent>
+        // MultiCaseListener<Node, ByOverflow, ModifyEvent>
+        // MultiCaseListener<Node, Oct, ModifyEvent>  
         EntityListener<Node, CreateEvent>
     }
 }

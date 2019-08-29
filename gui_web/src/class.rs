@@ -149,27 +149,27 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
 
             Attribute::TransformFunc(r) => {
                 class.transform.funcs = r;
-                class.class_style_mark |= StyleType::Transform as usize;
+                class.class_style_mark1 |= StyleType1::Transform as usize;
             },
             Attribute::TransformOrigin(r) => {
                 class.transform.origin = r;
-                class.class_style_mark |= StyleType::Transform as usize;
+                class.class_style_mark1 |= StyleType1::Transform as usize;
             },
             Attribute::ZIndex(r) => {
                 class.z_index = r;
-                class.class_style_mark |= StyleType1::ZIndex as usize;
+                class.class_style_mark1 |= StyleType1::ZIndex as usize;
             },
             Attribute::Visibility(r) => {
                 class.visibility = r;
-                class.class_style_mark |= StyleType1::Visibility as usize;
+                class.class_style_mark1 |= StyleType1::Visibility as usize;
             },
             Attribute::Enable(r) => {
                 class.enable = r;
-                class.class_style_mark |= StyleType1::Enable as usize;
+                class.class_style_mark1 |= StyleType1::Enable as usize;
             },
             Attribute::Display(r) => {
                 class.display = r;
-                class.class_style_mark |= StyleType1::Display as usize;
+                class.class_style_mark1 |= StyleType1::Display as usize;
             },
             Attribute::Filter(r) => {
                 class.filter = r;

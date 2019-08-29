@@ -61,6 +61,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
+        &'a MultiCaseImpl<Node, Culling>,
+
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
@@ -77,6 +79,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             transforms,
             opacitys,
             style_marks,
+            cullings,
+
             default_table,
             dirty_list,
             default_state,
@@ -121,17 +125,27 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 
             let layout = unsafe { layouts.get_unchecked(*id) };
-            let image = unsafe { border_images.get_unchecked(*id) };
-            let image_clip = border_image_clips.get(*id);
-            let image_slice = border_image_slices.get(*id);
-            let image_repeat = border_image_repeats.get(*id);
             let transform =  match transforms.get(*id) {
                 Some(r) => r,
                 None => default_transform,
             };
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
-            
+
+            // 世界矩阵脏， 设置世界矩阵ubo
+            if dirty & StyleType::Matrix as usize != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
+                modify_matrix(
+                    render_index,
+                    create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
+                    render_obj,
+                    &notify,
+                );
+            }
+
+            let image = unsafe { border_images.get_unchecked(*id) };
             if dirty & GEO_DIRTY != 0 {
+                let image_clip = border_image_clips.get(*id);
+                let image_slice = border_image_slices.get(*id);
+                let image_repeat = border_image_repeats.get(*id);
                 render_obj.geometry = create_geo(image, image_clip, image_slice, image_repeat, layout, &mut engine);
                 
                 // BorderImage修改， 修改texture
@@ -141,15 +155,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
                     notify.modify_event(render_index, "ubo", 0);
                 }
                 notify.modify_event(render_index, "geometry", 0);
-            }
-            // 世界矩阵脏， 设置世界矩阵ubo
-            if dirty & StyleType::Matrix as usize != 0 {
-                modify_matrix(
-                    render_index,
-                    create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
-                    render_obj,
-                    &notify,
-                );
             }
 
             // 不透明度脏或图片脏， 设置is_opacity

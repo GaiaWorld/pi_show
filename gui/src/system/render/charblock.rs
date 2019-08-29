@@ -97,6 +97,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         &'a MultiCaseImpl<Node, TextContent>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a MultiCaseImpl<Node, TextStyle>,
+        &'a MultiCaseImpl<Node, Culling>,
+
         &'a SingleCaseImpl<FontSheet>,
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DefaultState>,
@@ -105,7 +107,20 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (world_matrixs, layouts, transforms, texts, style_marks, text_styles, font_sheet, default_table, default_state, class_sheet, dirty_list) = read;
+        let (
+            world_matrixs, 
+            layouts, 
+            transforms, 
+            texts, 
+            style_marks, 
+            text_styles, 
+            cullings,
+            font_sheet, 
+            default_table, 
+            default_state, 
+            class_sheet, 
+            dirty_list,
+        ) = read;
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
@@ -222,7 +237,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             }
 
             // 矩阵脏 
-            if dirty & (StyleType::Matrix as usize) != 0 {
+            if dirty & (StyleType::Matrix as usize) != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
                 modify_matrix(
                     index.text,
                     create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
@@ -235,42 +250,38 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             // 阴影存在
             if index.shadow > 0 {
                 let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
+
                 if dirty & (StyleType::TextShadow as usize) != 0 { 
                               
                     // 阴影颜色脏，或描边脏， 修改ubo
                     modify_shadow_color(index.shadow, style_mark.local_style, text_style, &notify, shadow_render_obj, engine, charblock.is_pixel, &class_ubo);
                     // 设置ubo TODO
-
-                    // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-                    if dirty & FONT_DIRTY != 0 {
-                        modify_font(index.text, shadow_render_obj, charblock.is_pixel, &font_sheet, &notify, &self.default_sampler, &self.point_sampler);
-                    }
-
-                    // // 修改阴影的渲染管线
-                    // if program_change {
-                    //     modify_program(shadow_render_obj, charblock.is_pixel, engine, &self.canvas_default_stroke_color);
-                    // }
-                    if program_change {
-                        notify.modify_event(index.shadow, "program_dirty", 0);
-                        // modify_program(render_obj, charblock.is_pixel, engine, &self.canvas_default_stroke_color);
-                    }
-
-                    // 修改阴影的顶点流
-                    if shadow_geometry_change  {
-                        // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
-                        match &text_style.text.color {
-                            Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
-                            Color::LinearGradient(_) => {
-                                let color = text_style.shadow.color.clone();
-                                shadow_render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, font_sheet, class_ubo, &self.index_buffer, engine)
-                            },
-                        }
-                        notify.modify_event(index.shadow, "geometry", 0);
-                    }
-
                 }
+
+                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
+                if dirty & FONT_DIRTY != 0 {
+                    modify_font(index.text, shadow_render_obj, charblock.is_pixel, &font_sheet, &notify, &self.default_sampler, &self.point_sampler);
+                }
+
+                if program_change {
+                    notify.modify_event(index.shadow, "program_dirty", 0);
+                }
+
+                // 修改阴影的顶点流
+                if shadow_geometry_change  {
+                    // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
+                    match &text_style.text.color {
+                        Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
+                        Color::LinearGradient(_) => {
+                            let color = text_style.shadow.color.clone();
+                            shadow_render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, font_sheet, class_ubo, &self.index_buffer, engine)
+                        },
+                    }
+                    notify.modify_event(index.shadow, "geometry", 0);
+                }
+
                 
-                if dirty & (StyleType::Matrix as usize) != 0 {
+                if (dirty & (StyleType::Matrix as usize) != 0  || dirty & (StyleType::TextShadow as usize) != 0 ) && !unsafe{cullings.get_unchecked(*id)}.0 {
                     modify_matrix(
                         index.shadow,
                         create_let_top_offset_matrix(layout, world_matrix, transform, text_style.shadow.h, text_style.shadow.v, shadow_render_obj.depth),

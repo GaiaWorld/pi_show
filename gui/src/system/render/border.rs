@@ -55,6 +55,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
         &'a MultiCaseImpl<Node, BorderColor>,
         &'a MultiCaseImpl<Node, StyleMark>,
+        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
@@ -79,6 +80,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
             border_colors,
             style_marks,
+            cullings,
 
             default_table,
             dirty_list,
@@ -149,7 +151,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 如果矩阵脏， 更新worldMatrix ubo
-            if dirty & StyleType::Matrix as usize != 0 {
+            if dirty & StyleType::Matrix as usize != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
                 let world_matrix = unsafe{ world_matrixs.get_unchecked(*id) };
                 
                 let transform = match transforms.get(*id){

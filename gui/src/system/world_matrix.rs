@@ -54,6 +54,7 @@ impl WorldMatrixSys{
     ){  
         let mut count = 0;
         // let time = std::time::Instant::now();
+        let default_transform = default_table.get_unchecked::<Transform>();
         for id in self.dirty.iter() {
             {
                 let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
@@ -71,8 +72,12 @@ impl WorldMatrixSys{
                 None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
             };
             // let parent_id = unsafe { idtree.get_unchecked(*id).parent };
-            let transform_value = get_or_default(parent_id, transform, default_table);
-            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_table.get_unchecked(), &mut count);
+            // let transform_value = get_or_default(parent_id, transform, default_table);
+            let transform_value = match transform.get(parent_id) {
+                Some(r) => r,
+                None => default_transform,
+            };
+            recursive_cal_matrix(&mut self.dirty_mark_list, parent_id, *id, transform_value, idtree, transform, layout, world_matrix, default_transform, &mut count);
         }
         self.dirty.clear();
     }
@@ -168,7 +173,7 @@ fn recursive_cal_matrix(
     default_transform: &Transform,
     count: &mut usize,
 ){
-    *count = 1 + *count;
+    // *count = 1 + *count;
     // match dirty_mark_list.get_mut(id) {
     //     Some(r) => *r = false,
     //     None => panic!("dirty_mark_list is no exist, id: {}", id),

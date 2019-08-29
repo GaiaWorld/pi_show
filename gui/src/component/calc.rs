@@ -99,7 +99,7 @@ pub enum StyleType{
     Opacity = 0x4000000,
     Layout = 0x8000000,
     BorderRadius = 0x10000000,
-    Transform = 0x20000000,
+    ByOverflow = 0x20000000,
     Filter = 0x40000000,
 }
 
@@ -131,11 +131,13 @@ pub enum StyleType1{
     Visibility = 0x200000,
     Enable = 0x400000,
     ZIndex = 0x800000,
+    Transform = 0x1000000,
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark{
     pub dirty: usize,
+    pub dirty1: usize,
     pub local_style: usize,
     pub class_style: usize,
     pub local_style1: usize,
@@ -293,11 +295,14 @@ impl<'a> Mul<&'a Vector4> for WorldMatrix{
     }
 }
 
-impl Mul<Vector4> for WorldMatrix{
+impl<'a> Mul<Vector4> for &'a WorldMatrix{
     type Output = Vector4;
-    fn mul(self, other: Vector4) -> Vector4 {
+    fn mul(self, mut other: Vector4) -> Vector4 {
         if self.1 == false {
-            Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
+            other.x = other.x * self.x.x + self.w.x;
+            other.y = other.y * self.y.y + self.w.y;
+            other.z = other.z * self.z.z + self.w.z;
+            other
         } else {
             self * other
         }

@@ -42,14 +42,14 @@ const FONT_DIRTY: usize =       StyleType::FontStyle as usize |
                                 StyleType::FontWeight as usize;
 
 // 节点属性脏（不包含text， image， background等渲染属性）
-const NODE_DIRTY: usize =       StyleType::Transform as usize | 
-                                StyleType::Filter as usize | 
+const NODE_DIRTY: usize =       StyleType::Filter as usize | 
                                 StyleType::Opacity as usize | 
                                 StyleType::BorderRadius as usize; 
 // 节点属性脏（不包含text， image， background等渲染属性）
 const NODE_DIRTY1: usize =      StyleType1::Visibility as usize | 
                                 StyleType1::Enable as usize | 
                                 StyleType1::ZIndex as usize |
+                                StyleType1::Transform as usize | 
                                 StyleType1::Display as usize;
 
 const TEXT_STYLE_DIRTY: usize = TEXT_DIRTY | FONT_DIRTY | StyleType::TextShadow as usize;         
@@ -364,21 +364,40 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Transform, ModifyEvent> for StyleMarkSys<L, C>{
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, StyleType::Transform as usize, style_marks);
+        set_local_dirty(dirty_list, event.id, StyleType::ByOverflow as usize, style_marks);
     }
 }
+
+// RenderObjs 创建， 设置ByOverflow脏
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for StyleMarkSys<L, C> {
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::ByOverflow as usize, style_marks);
+    }
+}
+
+// impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Transform, ModifyEvent> for StyleMarkSys<L, C>{
+//     type ReadData = ();
+//     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+//     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
+//         let (style_marks, dirty_list) = write;
+//         set_local_dirty1(dirty_list, event.id, StyleType1::Transform as usize, style_marks);
+//     }
+// }
 
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, StyleType::Transform as usize, style_marks);
+        set_local_dirty(dirty_list, event.id, StyleType::BorderRadius as usize, style_marks);
     }
 }
 
@@ -387,7 +406,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, StyleType::Transform as usize, style_marks);
+        set_local_dirty(dirty_list, event.id, StyleType::Filter as usize, style_marks);
     }
 }
 
@@ -666,11 +685,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
                 // set_dirty(dirty_list, event.id, StyleType::Opacity as usize, style_mark); 不需要设脏，opacity还需要通过级联计算得到最终值， 监听到该值的变化才会设脏
             }
 
-            if class.class_style_mark & StyleType::Transform as usize != 0 && style_mark.local_style & StyleType::Transform as usize == 0{
-                transforms.insert(event.id, class.transform.clone());;
-                set_dirty(dirty_list, event.id, StyleType::Transform as usize, style_mark);
-            }
-
             if class.class_style_mark & StyleType::BorderRadius as usize != 0 && style_mark.local_style & StyleType::BorderRadius as usize == 0{
                 border_radiuses.insert(event.id, class.border_radius.clone());
                 set_dirty(dirty_list, event.id, StyleType::BorderRadius as usize, style_mark);
@@ -692,21 +706,26 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             };
             if class.class_style_mark1 & StyleType1::Enable as usize != 0 && style_mark.local_style1 & StyleType1::Enable as usize == 0{
                 show.set_enable(class.enable);
-                set_dirty(dirty_list, event.id, StyleType1::Enable as usize, style_mark);
+                // set_dirty(dirty_list, event.id, StyleType1::Enable as usize, style_mark);
             }
 
             if class.class_style_mark1 & StyleType1::Display as usize != 0 && style_mark.local_style1 & StyleType1::Display as usize == 0{
                 show.set_display(class.display);
-                set_dirty(dirty_list, event.id, StyleType1::Display as usize, style_mark);
+                // set_dirty(dirty_list, event.id, StyleType1::Display as usize, style_mark);
             }
 
             if class.class_style_mark1 & StyleType1::Visibility as usize != 0 && style_mark.local_style1 & StyleType1::Visibility as usize == 0{
                 show.set_visibility(class.visibility);
-                set_dirty(dirty_list, event.id, StyleType1::Visibility as usize, style_mark);
+                // set_dirty(dirty_list, event.id, StyleType1::Visibility as usize, style_mark);
             }
 
-            if class.class_style_mark & StyleType1::ZIndex as usize != 0 && style_mark.local_style & StyleType1::ZIndex as usize == 0 {
+            if class.class_style_mark1 & StyleType1::ZIndex as usize != 0 && style_mark.local_style1 & StyleType1::ZIndex as usize == 0 {
                 zindexs.insert(event.id, ZIndex(class.z_index));
+            }
+
+            if class.class_style_mark1 & StyleType1::Transform as usize != 0 && style_mark.local_style1 & StyleType1::Transform as usize == 0{
+                transforms.insert(event.id, class.transform.clone());;
+                // set_dirty1(dirty_list, event.id, StyleType1::Transform as usize, style_mark);
             }
         }
         
@@ -1049,10 +1068,12 @@ impl_system!{
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>   
         MultiCaseListener<Node, BorderRadius, ModifyEvent>
-        MultiCaseListener<Node, Transform, ModifyEvent>  
+        // MultiCaseListener<Node, Transform, ModifyEvent>  
         MultiCaseListener<Node, Filter, ModifyEvent>
+        MultiCaseListener<Node, ByOverflow, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent> 
         SingleCaseListener<ImageWaitSheet, ModifyEvent>
+        SingleCaseListener<RenderObjs, CreateEvent>
     }
 }
