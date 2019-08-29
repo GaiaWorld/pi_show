@@ -17,7 +17,6 @@ use gui::component::user::*;
 use gui::component::calc::*;
 use gui::single::*;
 use gui::entity::Node;
-use gui::system::util::get_or_default;
 use gui::render::res::{TextureRes};
 use gui::system::set_layout_style;
 use gui::Z_MAX;
@@ -231,28 +230,36 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 
 #[no_mangle]
 pub fn offset_document(world: u32, node_id: u32) {
-  let node_id = node_id as usize;
-  let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-  let layouts = world.layout.lend();
-  let world_matrixs = world.world_matrix.lend();
-  let transforms = world.transform.lend();
-  let default_table = world.default_table.lend();
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = &mut world.gui;
+    let layouts = world.layout.lend();
+    let world_matrixs = world.world_matrix.lend();
+    let transforms = world.transform.lend();
 
-  let transform = get_or_default(node_id, transforms, default_table);
-  let layout = unsafe {layouts.get_unchecked(node_id)};
-  let origin = transform.origin.to_value(layout.width, layout.height);
+    let transform;
+    let transform1;
+    match transforms.get(node_id) {
+        Some(r) => transform = r,
+        None => {
+            transform1 = Transform::default();
+            transform = &transform1;
+        },
+    };
+    
+    let layout = unsafe {layouts.get_unchecked(node_id)};
+    let origin = transform.origin.to_value(layout.width, layout.height);
 
-  let world_matrix = unsafe {world_matrixs.get_unchecked(node_id)};
-  let point = Vector4::new(-origin.x + layout.border_left + layout.padding_left, -origin.y + layout.border_top+ layout.padding_top, 1.0, 1.0);
-  let left_top = world_matrix.0 * point;
+    let world_matrix = unsafe {world_matrixs.get_unchecked(node_id)};
+    let point = Vector4::new(-origin.x + layout.border_left + layout.padding_left, -origin.y + layout.border_top+ layout.padding_top, 1.0, 1.0);
+    let left_top = world_matrix.0 * point;
 
-  js!{
-    __jsObj.left = @{left_top.x};
-    __jsObj.top = @{left_top.y};
-    __jsObj.width = @{layout.width - layout.border_left - layout.padding_left};
-    __jsObj.height = @{layout.height - layout.border_top- layout.padding_top};
-  }
+    js!{
+        __jsObj.left = @{left_top.x};
+        __jsObj.top = @{left_top.y};
+        __jsObj.width = @{layout.width - layout.border_left - layout.padding_left};
+        __jsObj.height = @{layout.height - layout.border_top- layout.padding_top};
+    }
 }
 
 // #[no_mangle]

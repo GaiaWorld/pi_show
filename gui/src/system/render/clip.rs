@@ -5,7 +5,7 @@ use share::Share;
 
 use ordered_float::OrderedFloat;
 
-use ecs::{ModifyEvent, CreateEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{ModifyEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use map::vecmap::VecMap;
@@ -135,7 +135,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,
-        &'a SingleCaseImpl<Oct>,
         &'a SingleCaseImpl<NodeRenderMap>,
         &'a SingleCaseImpl<OverflowClip>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -149,7 +148,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
         &'a mut SingleCaseImpl<Engine<C>>,
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (by_overflows, style_marks, dirty_list, octree, node_render_map, overflow, _projection, _view, _view_port) = read;
+        let (by_overflows, style_marks, dirty_list, node_render_map, overflow, _projection, _view, _view_port) = read;
         let (overflow_clip, cullings, render_objs, engine) = write;
 
         let notify = render_objs.get_notify();
@@ -241,7 +240,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
     }
     
     fn setup(&mut self, read: Self::ReadData, _engine: Self::WriteData){
-        let ( _, _, _, _, _, _, view_matrix, projection_matrix, _) = read;
+        let ( _, _, _, _, _, view_matrix, projection_matrix, _) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));

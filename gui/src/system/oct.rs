@@ -1,5 +1,5 @@
 //八叉树系统
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, DeleteEvent, EntityListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 
 use component::calc::{WorldMatrix, StyleMark, StyleType};
@@ -7,7 +7,6 @@ use component::user::*;
 use single::oct::Oct;
 use single::*;
 use entity::{Node};
-use system::util::get_or_default;
 use Z_MAX;
 
 #[derive(Default)]

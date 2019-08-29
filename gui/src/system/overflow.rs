@@ -17,9 +17,6 @@ use component::{
   calc::*,
 };
 use single::{ OverflowClip, DefaultTable, Clip, Oct, DirtyList };
-use system::util::get_or_default;
-
-
 
 pub struct OverflowImpl;
 
@@ -201,7 +198,11 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
 fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>) {
     let world_matrix = unsafe{ read.2.get_unchecked(id)};
     let layout = unsafe{ read.4.get_unchecked(id)};
-    let origin = get_or_default(id, read.3, read.5).origin.to_value(layout.width, layout.height);
+    let origin = match read.3.get(id) {
+        Some(r) => r.origin.clone(),
+        None => TransformOrigin::Center,
+    };
+    let origin = origin.to_value(layout.width, layout.height);
     let c = unsafe { clip.clip.get_unchecked_mut(i) };
     *c = Clip{
         view: calc_point(layout, world_matrix, &origin),
@@ -220,7 +221,11 @@ fn create_clip(id: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>) 
     }
     let world_matrix = unsafe{ read.2.get_unchecked(id)};
     let layout = unsafe{ read.4.get_unchecked(id)};
-    let origin = get_or_default(id, read.3, read.5).origin.to_value(layout.width, layout.height);
+    let origin = match read.3.get(id) {
+        Some(r) => r.origin.clone(),
+        None => TransformOrigin::Center,
+    };
+    let origin = origin.to_value(layout.width, layout.height);
     let i = clip.clip.insert(Clip{
         view: calc_point(layout, world_matrix, &origin),
         has_rotate: world_matrix.1,

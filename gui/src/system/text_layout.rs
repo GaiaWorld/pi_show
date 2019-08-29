@@ -166,7 +166,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     }
 }
 
-extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, width_mode: YGMeasureMode, height: f32, _height_mode: YGMeasureMode) -> YGSize {
+extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, _height: f32, _height_mode: YGMeasureMode) -> YGSize {
     // println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
     // println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
     // println!("layout: {:?}", get_layout(node));
@@ -790,7 +790,7 @@ fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
                     start+=1;
                 }
             // },
-            _ => (),
+            // _ => (),
         };
     }
     

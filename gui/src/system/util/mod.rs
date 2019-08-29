@@ -7,7 +7,7 @@ use std::mem::transmute;
 use ordered_float::NotNan;
 use fxhash::FxHasher32;
 
-use ecs::{Component, MultiCaseImpl, SingleCaseImpl};
+use ecs::{MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use atom::Atom;
@@ -268,12 +268,12 @@ pub fn find_item_from_vec<T: Eq>(vec: &Vec<T>, r: &T) -> usize{
     return 0;
 }
 
-pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>, table: &'a DefaultTable) -> &'a T{
-    match c.get(id) {
-        Some(r) => r,
-        None => table.get_unchecked::<T>(),
-    }
-}
+// pub fn get_or_default<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>, table: &'a DefaultTable) -> &'a T{
+//     match c.get(id) {
+//         Some(r) => r,
+//         None => table.get_unchecked::<T>(),
+//     }
+// }
 
 
 // pub fn get_or_default_value<'a, T: Component>(id: usize, c: &'a MultiCaseImpl<Node, T>, value: &'a T) -> &'a T{

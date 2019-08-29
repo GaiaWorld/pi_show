@@ -9,7 +9,6 @@ use dirty::LayerDirty;
 use component::user::{ Transform };
 use component::calc::{ WorldMatrix, WorldMatrixWrite };
 use single::DefaultTable;
-use system::util::get_or_default;
 use map::vecmap::{VecMap};
 
 use component::user::*;
