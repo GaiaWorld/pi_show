@@ -3,7 +3,7 @@
 // 因为很少来回变动，所以直接根据变化进行设置，不采用dirty
 
 use ecs::{
-  system::{MultiCaseListener, SingleCaseListener, EntityListener},
+  system::{MultiCaseListener, SingleCaseListener, EntityListener, Runner},
   monitor::{CreateEvent, DeleteEvent, ModifyEvent},
   component::MultiCaseImpl,
   single::SingleCaseImpl,
@@ -16,20 +16,61 @@ use component::{
   user::*,
   calc::*,
 };
-use single::{ OverflowClip, DefaultTable, Clip, Oct };
+use single::{ OverflowClip, DefaultTable, Clip, Oct, DirtyList };
 use system::util::get_or_default;
 
 
 
 pub struct OverflowImpl;
 
+impl<'a> Runner<'a> for OverflowImpl{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ByOverflow>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+        &'a SingleCaseImpl<DirtyList>,
+        &'a SingleCaseImpl<Oct>,
+    );
+    type WriteData = (
+        &'a mut SingleCaseImpl<OverflowClip>, 
+        &'a mut MultiCaseImpl<Node, Culling>, 
+    );
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let (by_overflows, style_marks, dirty_list, octree) = read;
+        let (overflow_clip, cullings) = write;
+
+        let mut pre_by_overflow = 0;
+        let mut aabb = None;
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            if style_mark.dirty & StyleType::Matrix as usize != 0 || style_mark.dirty & StyleType::ByOverflow as usize != 0 {
+                let by_overflow = unsafe {by_overflows.get_unchecked(*id)}.0;
+                if by_overflow > 0 {
+                    if by_overflow != pre_by_overflow {
+                        pre_by_overflow = by_overflow;
+                        aabb = overflow_clip.clip_map.get(&by_overflow);
+                    }
+                    // 裁剪剔除
+                    if let Some(item) = aabb {
+                        unsafe { cullings.get_unchecked_write(*id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(*id) }.0));
+                    }
+                }    
+            } 
+        }
+    }
+}
+
 impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
     type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Overflow>, &'a mut MultiCaseImpl<Node, ByOverflow>);
+    type WriteData = (&'a mut MultiCaseImpl<Node, Overflow>, &'a mut MultiCaseImpl<Node, ByOverflow>, &'a mut MultiCaseImpl<Node, Culling>);
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         write.1.insert(event.id, ByOverflow::default());
         write.0.insert(event.id, Overflow::default());
+        write.2.insert(event.id, Culling(false));
     }
 }
 
@@ -371,7 +412,7 @@ fn intersect(a: &Aabb3, b: &Aabb3) -> Aabb3 {
 
 impl_system!{
     OverflowImpl,
-    false,
+    true,
     {
       EntityListener<Node, CreateEvent>
       MultiCaseListener<Node, Overflow, ModifyEvent>

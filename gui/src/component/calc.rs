@@ -290,7 +290,7 @@ impl<'a> Mul<&'a Vector4> for WorldMatrix{
         if self.1 == false {
             Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
         } else {
-            self * other
+            self.0 * other
         }
     }
 }
@@ -304,7 +304,7 @@ impl<'a> Mul<Vector4> for &'a WorldMatrix{
             other.z = other.z * self.z.z + self.w.z;
             other
         } else {
-            self * other
+            self.0 * other
         }
     }
 }

@@ -375,11 +375,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
 
 // RenderObjs 创建， 设置ByOverflow脏
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for StyleMarkSys<L, C> {
-    type ReadData = ();
+    type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, render_objs: Self::ReadData, write: Self::WriteData){
         let (style_marks, dirty_list) = write;
-        set_local_dirty(dirty_list, event.id, StyleType::ByOverflow as usize, style_marks);
+        let id = unsafe { render_objs.get_unchecked(event.id) }.context;
+        let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+        set_dirty(dirty_list, id, StyleType::ByOverflow as usize, style_mark);
     }
 }
 

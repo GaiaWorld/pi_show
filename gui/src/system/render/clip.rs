@@ -37,14 +37,6 @@ pub struct ClipSys<C>{
     marker: PhantomData<C>,
 }
 
-impl<'a, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent> for ClipSys<C>{
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, Culling>;
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.insert(event.id, Culling(false));
-    }
-}
-
 impl<C: HalContext + 'static> ClipSys<C>{
     pub fn new(engine: &mut Engine<C>, w: u32, h: u32, viewport: &(i32, i32, i32, i32)) -> Self{
         let (rs, mut bs, ss, mut ds) = (RasterStateDesc::default(), BlendStateDesc::default(), StencilStateDesc::default(), DepthStateDesc::default());
@@ -172,24 +164,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
             let by_overflow = unsafe {by_overflows.get_unchecked(*id)}.0;
             let obj_ids = unsafe{ node_render_map.get_unchecked(*id) };
 
-            if style_mark.dirty & StyleType::Matrix as usize != 0 || style_mark.dirty & StyleType::ByOverflow as usize != 0 {
-                if by_overflow > 0 {
-                    if by_overflow != pre_by_overflow {
-                        pre_by_overflow = by_overflow;
-                        aabb = overflow_clip.clip_map.get(&by_overflow);
-                    }
-                    // 裁剪剔除
-                    if let Some(item) = aabb {
-                        unsafe { cullings.get_unchecked_write(*id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(*id) }.0));
-                    }
-                    for id in obj_ids.iter() {
-                        let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-                        self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
-                    }
+            if (style_mark.dirty & StyleType::Matrix as usize != 0 || style_mark.dirty & StyleType::ByOverflow as usize != 0) && by_overflow > 0 {
+                if by_overflow != pre_by_overflow {
+                    pre_by_overflow = by_overflow;
+                    aabb = overflow_clip.clip_map.get(&by_overflow);
                 }
-            }
 
-            if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
+                for id in obj_ids.iter() {
+                    let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                    self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
+                }
+            } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
                 // 裁剪剔除
                 unsafe {cullings.get_unchecked_write(*id) }.set_0(false);
                 for id in obj_ids.iter() {
@@ -491,6 +476,6 @@ impl_system!{
         // SingleCaseListener<RenderObjs, CreateEvent>
         // MultiCaseListener<Node, ByOverflow, ModifyEvent>
         // MultiCaseListener<Node, Oct, ModifyEvent>  
-        EntityListener<Node, CreateEvent>
+        // EntityListener<Node, CreateEvent>
     }
 }
