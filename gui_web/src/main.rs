@@ -54,6 +54,7 @@ use gui::world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::*;
 use gui::component::calc::Visibility;
 use gui::single::RenderBegin;
+use gui::single::class::LayoutAttr;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
@@ -80,6 +81,8 @@ use rs_call_js::define_js;
 pub struct GuiWorld {
     pub gui: GuiWorld1<YgNode, WebglHalContext>,
     pub draw_text_sys: DrawTextSys,
+    pub default_text_style: TextStyle,
+    pub default_layout_attr: Vec<LayoutAttr>,
 }
 
 #[allow(unused_attributes)]
@@ -138,6 +141,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let world = GuiWorld{
         gui: world,
         draw_text_sys: draw_text_sys,
+        default_text_style: TextStyle::default(),
+        default_layout_attr: Vec::default(),
     };
     Box::into_raw(Box::new(world)) as u32
 }

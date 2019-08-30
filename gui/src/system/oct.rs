@@ -1,22 +1,41 @@
 //八叉树系统
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, DeleteEvent, EntityListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 
-use component::calc::{WorldMatrix};
+use component::calc::{WorldMatrix, StyleMark, StyleType};
 use component::user::*;
 use single::oct::Oct;
-use single::DefaultTable;
+use single::*;
 use entity::{Node};
-use system::util::get_or_default;
 use Z_MAX;
 
 #[derive(Default)]
 pub struct OctSys;
 
 impl<'a> Runner<'a> for OctSys{
-    type ReadData = ();
+    type ReadData = (
+        &'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, Transform>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+        &'a SingleCaseImpl<DefaultTable>,
+        &'a SingleCaseImpl<IdTree>,
+        &'a SingleCaseImpl<DirtyList>,
+    );
     type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, _read: Self::ReadData, oct: Self::WriteData){
+    fn run(&mut self, read: Self::ReadData, oct: Self::WriteData){
+        let (world_matrixs, layouts, transforms, style_marks, default_table, id_tree, dirty_list) = read;
+        let default_transform = default_table.get_unchecked::<Transform>();
+        for id in dirty_list.0.iter() {
+            let style_mark = match style_marks.get(*id) {
+                Some(r) => r,
+                None => continue,
+            };
+        
+            if style_mark.dirty & StyleType::Matrix as usize != 0 {
+                OctSys::modify_oct(*id, id_tree, world_matrixs, layouts, transforms, default_transform, oct);
+            }
+        }
         oct.collect();
     }
 }
@@ -28,16 +47,22 @@ impl OctSys {
         world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
         layouts: &MultiCaseImpl<Node, Layout>,
         transforms: &MultiCaseImpl<Node, Transform>,
-        default_table: &SingleCaseImpl<DefaultTable>,
+        default_transform: &Transform,
+        // default_table: &SingleCaseImpl<DefaultTable>,
         octree:  &mut SingleCaseImpl<Oct>,
     ){
         if idtree.get(id).is_none() {
             return;
         };
 
+        let transform = match transforms.get(id) {
+            Some(r) => r,
+            None => default_transform,
+        };
+
         let world_matrix = unsafe {world_matrixs.get_unchecked(id)};
         let layout = unsafe {layouts.get_unchecked(id)};
-        let transform = get_or_default(id, transforms, default_table);
+        // let transform = get_or_default(id, transforms, default_table);
 
         let origin = transform.origin.to_value(layout.width, layout.height);
         let aabb = cal_bound_box((layout.width, layout.height), world_matrix, &origin);
@@ -65,33 +90,34 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys{
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys{
-    type ReadData = (
-        &'a SingleCaseImpl<IdTree>,
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
-    }
-}
+// impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys{
+//     type ReadData = (
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a SingleCaseImpl<DefaultTable>,
+//     );
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+//         OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
+//     }
+// }
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OctSys{
-    type ReadData = (
-        &'a SingleCaseImpl<IdTree>,
-        &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Layout>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a SingleCaseImpl<DefaultTable>,
-    );
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
-    }
-}
+
+// impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OctSys{
+//     type ReadData = (
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, Layout>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a SingleCaseImpl<DefaultTable>,
+//     );
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+//         OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
+//     }
+// }
 
 impl_system!{
     OctSys,
@@ -99,12 +125,12 @@ impl_system!{
     {
         EntityListener<Node, CreateEvent>
         EntityListener<Node, DeleteEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        SingleCaseListener<IdTree, CreateEvent>
+        // MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+        // SingleCaseListener<IdTree, CreateEvent>
     }
 }
 
-fn cal_bound_box(size: (f32, f32), matrix: &Matrix4, origin: &Point2) -> Aabb3{
+fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb3{
     let start = (- origin.x, - origin.y);
     let left_top = matrix * Vector4::new(start.0, start.1, 0.0, 1.0);
     let right_top = matrix * Vector4::new(start.0 + size.0, start.1, 0.0, 1.0);

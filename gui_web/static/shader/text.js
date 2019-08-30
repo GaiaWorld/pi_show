@@ -17,20 +17,34 @@ let text_vs_code = `
     uniform mat4 projectMatrix;
     uniform vec2 textureSize;
 
+    #ifdef CLIP_BOX
+        uniform vec4 clipBox;
+    #endif
+
     // Varyings
     #ifdef VERTEX_COLOR
-    varying vec4 vColor;
+        varying vec4 vColor;
     #endif
+
+    #ifdef CLIP_BOX
+        varying vec2 vClipBox;
+    #endif
+
     varying vec2 vUV;
 
     void main() {
-        vec4 p = projectMatrix * viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p1 = worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p = projectMatrix * viewMatrix * p1;
         gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
     #ifdef VERTEX_COLOR
         vColor = color;
     #endif
         // vUV = uv0;
         vUV = vec2(uv0.x/textureSize.x, uv0.y/textureSize.y);
+
+        #ifdef CLIP_BOX
+            vClipBox = vec2((p1.x - clipBox.x)/clipBox.z, (p1.y - clipBox.y)/clipBox.w);
+        #endif
     }
 `;
 let text_fs_code = `
@@ -59,6 +73,10 @@ let text_fs_code = `
     uniform float clipIndices;
     uniform sampler2D clipTexture;
     uniform float clipTextureSize;
+    #endif
+
+    #ifdef CLIP_BOX
+        varying vec2 vClipBox;
     #endif
 
     // Varyings
@@ -219,6 +237,11 @@ let text_fs_code = `
 
     #ifdef GRAY
         c.rgb = vec3(c.r * 0.299 + c.g * 0.587 + c.b * 0.114);
+    #endif
+
+    #ifdef CLIP_BOX
+        float factor = min(1.0-abs(vClipBox.x), 1.0-abs(vClipBox.y));
+        c.a *= step(0.0, factor);
     #endif
 
     gl_FragColor = vec4(c.rgb, a * c.a * alpha);

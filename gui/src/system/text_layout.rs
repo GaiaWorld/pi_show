@@ -23,7 +23,7 @@ use component::{
 };
 use single::class::*;
 use single::*;
-use layout::{YGDirection, YGFlexDirection, FlexNode, YGAlign, YGJustify, YGWrap, YGUnit, YGEdge};
+use layout::*;
 use font::font_sheet::{get_size, SplitResult, split, FontSheet, TexFont, get_line_height};
 
 const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize | 
@@ -103,7 +103,8 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
   type ReadData = Read<'a, L>;
   type WriteData = Write<'a,L>;
 
-  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {;
+  fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+        let c = self as *mut LayoutImpl<L> as *mut c_void;
         for id in (read.6).0.iter() {
             let r = match read.5.get(*id) {
                 Some(r) => r,
@@ -113,7 +114,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
                 continue;
             }
 
-            calc(*id, &read, &mut write);
+            calc(*id, &read, &mut write, c);
         }     
         let (w, h) = {
             let layout = unsafe{ write.1.get_unchecked(ROOT)};
@@ -122,7 +123,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
         self.read= &read as *const Read<'a, L> as usize;
         self.write= &mut write as *mut Write<'a,L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, self as *const LayoutImpl<L> as *const c_void);
+        unsafe{ read.1.get_unchecked(ROOT)}.calculate_layout_by_callback(w, h, YGDirection::YGDirectionLTR, callback::<L>, c);
     }
 }
 
@@ -165,6 +166,62 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     }
 }
 
+extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, _height: f32, _height_mode: YGMeasureMode) -> YGSize {
+    // println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
+    // println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
+    // println!("layout: {:?}", get_layout(node));
+    let b = node.get_bind() as usize;
+    node.set_bind(0 as * mut c_void);
+    if b == 0 {
+        YGSize { 
+            width: 0.0, 
+            height: 0.0, 
+        }
+    } else {
+        let id = node.get_context() as usize;
+        let layout_impl = unsafe{ &mut *(b as *mut LayoutImpl<L>) };
+        let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
+
+        let cb = unsafe { write.0.get_unchecked_mut(id) };
+        let text_style = unsafe { write.3.get_unchecked(id) };
+        // let h = match height_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => height/100.0,
+        //     _ => 0.0,
+        // };
+        
+        // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+        calc_wrap_align(cb, &text_style, width/100.0);
+
+        // let w = match width_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => width,
+        //     _ => cb.wrap_size.x * 100.0,
+        // };
+
+        let r = YGSize { 
+            width: cb.wrap_size.x * 100.0, 
+            height: cb.wrap_size.y * 100.0, 
+        };
+
+        node.set_width(cb.wrap_size.x);
+        node.set_height(cb.wrap_size.y);
+        
+        // if cb.chars.len() > 0 && cb.chars[0].ch == '购' {
+        //     println!("{:?}, {:?}", node.get_parent().get_style_align_items(), node.get_parent().get_style_align_content());
+        // }
+        
+        // let h = match height_mode {
+        //     YGMeasureMode::YGMeasureModeExactly => height,
+        //     _ => cb.wrap_size.y,
+        // };
+        
+        // let r = YGSize { 
+        //     width: w, 
+        //     height: height.min(cb.wrap_size.y * 100.0), 
+        // };
+        r
+    }
+}
+
 //================================ 内部静态方法
 //回调函数
 extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_void) {
@@ -176,23 +233,26 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     // let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
     if b == 0 {  
         //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
-        if let Some(cb) = write.0.get_mut(id) {
-            let text_style = unsafe { write.3.get_unchecked(id) };
-            // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-            let node = node.get_parent();
-            if node.get_child_count() == 1 {
-                match node.get_style_width_unit() {
-                    YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                        calc_wrap_align(cb, &text_style, &node.get_layout());
-                    },
-                    _ => ()
-                }
+        if let Some(_cb) = write.0.get_mut(id) {
+            // let text_style = unsafe { write.3.get_unchecked(id) };
+            // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+            let p = node.get_parent();
+            if p.get_child_count() != 1 {
+                return;
+            //     match node.get_style_width_unit() {
+            //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
+            //             calc_wrap_align(cb, &text_style, &node.get_layout());
+            //         },
+            //         _ => ()
+            //     }
             }
-            unsafe { write.0.get_unchecked_write(id).modify(|_|{
-                return true;
-            }) };
-            return;
+            // println!("id: {}, layout: {:?}", id, node.get_layout());
+        //     unsafe { write.0.get_unchecked_write(id).modify(|_|{
+        //         return true;
+        //     }) };
+        //     return;
         }
+
         let layout = node.get_layout();
         if &layout == unsafe {write.1.get_unchecked(id)} {
             return;
@@ -247,7 +307,7 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
 }
 
 // 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>) -> bool {
+fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<L>, c: *mut c_void) -> bool {
     let cb = match write.0.get_mut(id) {
         Some(r) => r,
         None => return false, 
@@ -294,13 +354,19 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     
     if style_mark.local_style & StyleType::VerticalAlign as usize == 0 {
         match parent_yoga.get_style_align_content() {
-            YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+            YGAlign::YGAlignCenter => {
+                text_style.text.vertical_align = VerticalAlign::Middle;
+                parent_yoga.set_align_items(YGAlign::YGAlignCenter);
+            },
             YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
             _ => (),
         };
 
         match parent_yoga.get_style_align_items() {
-            YGAlign::YGAlignCenter => text_style.text.vertical_align = VerticalAlign::Middle,
+            YGAlign::YGAlignCenter => {
+                text_style.text.vertical_align = VerticalAlign::Middle;
+                parent_yoga.set_align_content(YGAlign::YGAlignCenter);
+            },
             YGAlign::YGAlignFlexEnd => text_style.text.vertical_align = VerticalAlign::Bottom,
             _ => (),
         };
@@ -322,7 +388,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     Some(w) => w.y.y,
     //     _ => 1.0
     // };
-    if style_mark.dirty & MARK_LAYOUT != 0{
+    if style_mark.dirty & MARK != 0{
         for i in 0..cb.chars.len() {
             cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
             // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
@@ -338,23 +404,24 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     
     // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
-        // let old = yoga.get_layout();
-        let old_size = tex_param.cb.wrap_size;
+        match text_style.text.text_align {
+            TextAlign::Center => {
+                // println!("xxxxxxxxxxxxxxxxxxx: {:?}", text);
+                parent_yoga.set_justify_content(YGJustify::YGJustifyCenter);
+            },
+            TextAlign::Right => parent_yoga.set_justify_content(YGJustify::YGJustifyFlexEnd),
+            _ => parent_yoga.set_justify_content(YGJustify::YGJustifyFlexStart),
+        };
+        // parent_yoga.set_justify_content(YGJustify::YGJustifyFlexStart);
+        // parent_yoga.set_align_content(YGAlign::YGAlignFlexStart);
+        // parent_yoga.set_align_items(YGAlign::YGAlignFlexStart);
         calc_text(tex_param, text, sw, write.2);
-        if old_size.x != tex_param.cb.wrap_size.x || old_size.y != tex_param.cb.wrap_size.y {
-            yoga.set_width(tex_param.cb.wrap_size.x);
-            yoga.set_height(tex_param.cb.wrap_size.y);
-        }else{
-            match parent_yoga.get_style_width_unit() {
-                YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-                    calc_wrap_align(tex_param.cb, text_style, &parent_yoga.get_layout());
-                },
-                _ => ()
-            }
-            unsafe { write.0.get_unchecked_write(id).modify(|_|{
-                return true;
-            }) };
-        }
+        // println!("cb: {:?}", boundBox:);
+        yoga.set_measure_func(Some(text_callback));
+        yoga.set_width(std::f32::NAN);
+        yoga.set_height(std::f32::NAN);
+        yoga.set_bind(c);
+        yoga.mark_dirty();
         return false
     }
     if text_style.text.white_space.allow_wrap() {
@@ -499,10 +566,10 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
         match cr {
             SplitResult::Newline =>{
                 tex_param.cb.last_line.2 = calc.pos.x;
+                update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
                 tex_param.cb.lines.push(tex_param.cb.last_line.clone());
                 tex_param.cb.last_line = (tex_param.cb.chars.len(), 0, 0.0);
                 tex_param.cb.line_count += 1;
-                update_char1(tex_param, '\n', 0.0, sw, font, &mut calc);
             },
             SplitResult::Whitespace =>{
                 // 设置成宽度为默认字宽, 高度0
@@ -612,11 +679,7 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
 }
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos
-fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, layout: &Layout) {
-    let x = layout.border_left + layout.padding_left;
-    let w = layout.width - x - layout.border_right - layout.padding_right;
-    let y = layout.border_top + layout.padding_top;
-    let h = layout.height - y - layout.border_bottom - layout.padding_bottom;
+fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32) {
     if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
@@ -624,48 +687,48 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
             y_fix = wrap_line(cb, text_style, i, w, y_fix)
         }
         cb.wrap_size.y += y_fix;
-        cb.wrap_size.x = w;
-    } else {
-        
     }
-    cb.pos.x += x;
-    cb.pos.y += y;
 
-    if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
-        match text_style.text.vertical_align {
-            VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
-            VerticalAlign::Bottom => cb.pos.y += h - cb.wrap_size.y,
-            _ => (),
-        }
-    }
+    // if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
+    //     match text_style.text.vertical_align {
+    //         VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
+    //         VerticalAlign::Bottom => cb.pos.y += h - cb.wrap_size.y,
+    //         _ => (),
+    //     }
+    // }
 
     if cb.wrap_size.y > cb.size.y {
+        cb.wrap_size.x = w;
         // 如果换行则返回
         return;
     }
 
     if cb.line_count == 1 { // 单行优化
         match text_style.text.text_align {
-            TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
-            TextAlign::Right => cb.pos.x += w - cb.size.x,
-            TextAlign::Justify => justify_line(cb, line_info(cb, 0), w, 0.0, 0.0),
+            // TextAlign::Center => cb.pos.x += (w - cb.size.x) / 2.0,
+            // TextAlign::Right => cb.pos.x += w - cb.size.x,
+            TextAlign::Justify => {
+                cb.wrap_size.x = w; 
+                justify_line(cb, line_info(cb, 0), w, 0.0, 0.0);
+            },
             _ => (),
         };
         return
     }
     // 多行的3种布局的处理
     match text_style.text.text_align {
-        TextAlign::Center => {
-            for i in 0..cb.lines.len() + 1 {
-                align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_center_fix)
-            }
-        },
-        TextAlign::Right => {
-            for i in 0..cb.lines.len() + 1 {
-                align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_right_fix)
-            }
-        },
+        // TextAlign::Center => {
+        //     for i in 0..cb.lines.len() + 1 {
+        //         align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_center_fix)
+        //     }
+        // },
+        // TextAlign::Right => {
+        //     for i in 0..cb.lines.len() + 1 {
+        //         align_line(cb, line_info(cb, i), w, 0.0, 0.0, get_right_fix)
+        //     }
+        // },
         TextAlign::Justify =>{
+            cb.wrap_size.x = w;
             for i in 0..cb.lines.len() + 1 {
                 justify_line(cb, line_info(cb, i), w, 0.0, 0.0)
             }
@@ -706,27 +769,30 @@ fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
         y_fix += cb.line_height;
         x_fix = -w;
     }
-    // 剩余的宽度， 需要计算行对齐
-    match text_style.text.text_align {
-        TextAlign::Center => {
-            align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_center_fix)
-        },
-        TextAlign::Right => {
-            align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_right_fix)
-        },
-        TextAlign::Justify =>{
-            justify_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix)
-        },
-        _ if x_fix < 0.0 || y_fix > 0.0  => { // 如果x或者y需要修正
-            while start < end {
-                let n = unsafe {cb.chars.get_unchecked_mut(start)};
-                n.pos.x += x_fix;
-                n.pos.y += y_fix;
-                start+=1;
-            }
-        },
-        _ => (),
-    };
+    if x_fix < 0.0 || y_fix > 0.0 { // 如果x或者y需要修正
+        // 剩余的宽度， 需要计算行对齐
+        match text_style.text.text_align {
+            TextAlign::Center => {
+                align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_center_fix)
+            },
+            TextAlign::Right => {
+                align_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix, get_right_fix)
+            },
+            TextAlign::Justify =>{
+                justify_line(cb, (end, start, word_count, line_width + x_fix), limit_width, x_fix, y_fix)
+            },
+            _ =>
+            // _ if x_fix < 0.0 || y_fix > 0.0  => { // 如果x或者y需要修正
+                while start < end {
+                    let n = unsafe {cb.chars.get_unchecked_mut(start)};
+                    n.pos.x += x_fix;
+                    n.pos.y += y_fix;
+                    start+=1;
+                }
+            // },
+            // _ => (),
+        };
+    }
     
     // while w > limit_width {
     //     // 计算折行

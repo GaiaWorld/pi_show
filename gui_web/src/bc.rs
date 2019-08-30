@@ -4,7 +4,7 @@ use std::mem::transmute;
 
 use ecs::component::Component;
 use map::vecmap::VecMap;
-use gui::layout:: {FlexNode, YGCalcCallbackFunc};
+use gui::layout:: {FlexNode, YGCalcCallbackFunc, YGMeasureFunc};
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType, YGUnit};
 use gui::component::user::Layout;
 
@@ -261,6 +261,10 @@ impl FlexNode for YgNode {
 
     fn calculate_layout_by_callback(&self, width: f32, height:f32, direction: YGDirection, callback: YGCalcCallbackFunc<Self>, arg: *const c_void) {
         yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction as u32) }, unsafe { std::mem::transmute(callback) }, arg);
+    }
+
+    fn set_measure_func(&self, func: YGMeasureFunc<Self>) {
+        yoga::yg_node_set_measure_func(self.0, unsafe { std::mem::transmute(func) });
     }
 
     fn get_layout(&self) -> Layout {

@@ -36,11 +36,11 @@
         var gui = Module._create_gui(engine, 1200, 1000);
         // render_fram();
 
-        window.__jsObj = "Arial";
+        window.__jsObj = "kaiti";
         Module._add_canvas_font(gui, 1.12);
 
         window.__jsObj = "common"; //font_face_name
-        window.__jsObj1 = "Arial";
+        window.__jsObj1 = "kaiti";
         Module._add_font_face(gui, 0, 32, 500);
     </script>
     <script>
@@ -54,9 +54,9 @@
 
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, body);
-        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
-        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
-        // Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
+        // Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
         window.__jsObj = "渐变颜色";
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";

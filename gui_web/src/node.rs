@@ -17,20 +17,22 @@ use gui::component::user::*;
 use gui::component::calc::*;
 use gui::single::*;
 use gui::entity::Node;
-use gui::system::util::get_or_default;
 use gui::render::res::{TextureRes};
+use gui::system::set_layout_style;
 use gui::Z_MAX;
 
 use GuiWorld;
 
 fn create(world: &GuiWorld) -> usize {
-    let world = &world.gui;
-    let idtree = world.idtree.lend_mut();
-    let node = world.node.lend_mut().create();
-    let border_radius = world.border_radius.lend_mut();
+    let gui = &world.gui;
+    let idtree = gui.idtree.lend_mut();
+    let node = gui.node.lend_mut().create();
+    let border_radius = gui.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
-    world.class_name.lend_mut().insert(node, ClassName(0));
+    gui.class_name.lend_mut().insert(node, ClassName(0));
     idtree.create(node);
+
+    set_layout_style(&world.default_layout_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
 }
 
@@ -59,6 +61,7 @@ pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     world.gui.text_content.lend_mut().insert(node, TextContent("".to_string(), Atom::from("")));
+    world.gui.text_style.lend_mut().insert_no_notify(node, world.default_text_style.clone());
     node as u32
 }
 
@@ -227,28 +230,36 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 
 #[no_mangle]
 pub fn offset_document(world: u32, node_id: u32) {
-  let node_id = node_id as usize;
-  let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-  let layouts = world.layout.lend();
-  let world_matrixs = world.world_matrix.lend();
-  let transforms = world.transform.lend();
-  let default_table = world.default_table.lend();
+    let node_id = node_id as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = &mut world.gui;
+    let layouts = world.layout.lend();
+    let world_matrixs = world.world_matrix.lend();
+    let transforms = world.transform.lend();
 
-  let transform = get_or_default(node_id, transforms, default_table);
-  let layout = unsafe {layouts.get_unchecked(node_id)};
-  let origin = transform.origin.to_value(layout.width, layout.height);
+    let transform;
+    let transform1;
+    match transforms.get(node_id) {
+        Some(r) => transform = r,
+        None => {
+            transform1 = Transform::default();
+            transform = &transform1;
+        },
+    };
+    
+    let layout = unsafe {layouts.get_unchecked(node_id)};
+    let origin = transform.origin.to_value(layout.width, layout.height);
 
-  let world_matrix = unsafe {world_matrixs.get_unchecked(node_id)};
-  let point = Vector4::new(-origin.x + layout.border_left + layout.padding_left, -origin.y + layout.border_top+ layout.padding_top, 1.0, 1.0);
-  let left_top = world_matrix.0 * point;
+    let world_matrix = unsafe {world_matrixs.get_unchecked(node_id)};
+    let point = Vector4::new(-origin.x + layout.border_left + layout.padding_left, -origin.y + layout.border_top+ layout.padding_top, 1.0, 1.0);
+    let left_top = world_matrix.0 * point;
 
-  js!{
-    __jsObj.left = @{left_top.x};
-    __jsObj.top = @{left_top.y};
-    __jsObj.width = @{layout.width - layout.border_left - layout.padding_left};
-    __jsObj.height = @{layout.height - layout.border_top- layout.padding_top};
-  }
+    js!{
+        __jsObj.left = @{left_top.x};
+        __jsObj.top = @{left_top.y};
+        __jsObj.width = @{layout.width - layout.border_left - layout.padding_left};
+        __jsObj.height = @{layout.height - layout.border_top- layout.padding_top};
+    }
 }
 
 // #[no_mangle]
@@ -465,11 +476,11 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
 /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
 fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
   let xy = Point2::new(x, y);
-  for i in 0..overflow_clip.id_vec.len() {
+  for (i, c) in overflow_clip.clip.iter() {
     // debug_println!("i + 1---------------------------{}",i + 1);
     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
-    if (by_overflow & (1<<i)) != 0 && overflow_clip.id_vec[i] > 0 {
-      let p = &overflow_clip.clip[i];
+    if (by_overflow & (1<<(i -1))) != 0  {
+      let p = &c.view;
       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
         InnOuter::Inner => (),
         _ => {
@@ -481,3 +492,23 @@ fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize,
   }
   return true
 }
+
+// /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
+// fn in_overflow(overflow_clip: &SingleCaseImpl<OverflowClip>, by_overflow: usize, x: f32, y: f32) -> bool{
+//   let xy = Point2::new(x, y);
+//   for i in 0..overflow_clip.id_vec.len() {
+//     // debug_println!("i + 1---------------------------{}",i + 1);
+//     // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
+//     if (by_overflow & (1<<i)) != 0 && overflow_clip.id_vec[i] > 0 {
+//       let p = &overflow_clip.clip[i];
+//       match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
+//         InnOuter::Inner => (),
+//         _ => {
+//             // println!("overflow----------clip: {:?},x: {}, y: {}", p[0], x, y);
+//             return false
+//         }
+//       }
+//     }
+//   }
+//   return true
+// }

@@ -45,27 +45,27 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             },
             Attribute::Color(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.color = r;
                 class.class_style_mark |= StyleType::Color as usize;
             },
             Attribute::LetterSpacing(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.letter_spacing = r;
                 class.class_style_mark |= StyleType::LetterSpacing as usize;
             },
             Attribute::WordSpacing(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.word_spacing = r;
                 class.class_style_mark |= StyleType::WordSpacing as usize;
             },
             Attribute::LineHeight(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.line_height = r;
                 class.class_style_mark |= StyleType::LineHeight as usize;
             },
             Attribute::TextAlign(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.text_align = r;
                 class.class_style_mark |= StyleType::TextAlign as usize;
             },
@@ -75,32 +75,32 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
             //     // class.class_style_mark |= StyleType::Tex as usize;
             // },
             Attribute::TextShadow(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.shadow = r;
                 class.class_style_mark |= StyleType::TextShadow as usize;
             },
             Attribute::WhiteSpace(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.white_space = r;
                 class.class_style_mark |= StyleType::WhiteSpace as usize;
             },
             Attribute::TextStroke(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.text.stroke = r;
                 class.class_style_mark |= StyleType::Stroke as usize;
             },
             Attribute::FontWeight(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.font.weight = r as usize;
                 class.class_style_mark |= StyleType::FontWeight as usize;
             },
             Attribute::FontSize(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.font.size = r;
                 class.class_style_mark |= StyleType::FontSize as usize;
             },
             Attribute::FontFamily(r) => {
-                let t = or_insert_text_style(&mut class, class_sheet);
+                let t = or_insert_text_style(&mut class, class_sheet, &world.default_text_style);
                 t.font.family = r;
                 class.class_style_mark |= StyleType::FontFamily as usize;
             },
@@ -147,30 +147,29 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
                 class.class_style_mark |= StyleType::BorderColor as usize;
             },
 
-
             Attribute::TransformFunc(r) => {
                 class.transform.funcs = r;
-                class.class_style_mark |= StyleType::Transform as usize;
+                class.class_style_mark1 |= StyleType1::Transform as usize;
             },
             Attribute::TransformOrigin(r) => {
                 class.transform.origin = r;
-                class.class_style_mark |= StyleType::Transform as usize;
+                class.class_style_mark1 |= StyleType1::Transform as usize;
             },
             Attribute::ZIndex(r) => {
                 class.z_index = r;
-                class.class_style_mark |= StyleType1::ZIndex as usize;
+                class.class_style_mark1 |= StyleType1::ZIndex as usize;
             },
             Attribute::Visibility(r) => {
                 class.visibility = r;
-                class.class_style_mark |= StyleType1::Visibility as usize;
+                class.class_style_mark1 |= StyleType1::Visibility as usize;
             },
             Attribute::Enable(r) => {
                 class.enable = r;
-                class.class_style_mark |= StyleType1::Enable as usize;
+                class.class_style_mark1 |= StyleType1::Enable as usize;
             },
             Attribute::Display(r) => {
                 class.display = r;
-                class.class_style_mark |= StyleType1::Display as usize;
+                class.class_style_mark1 |= StyleType1::Display as usize;
             },
             Attribute::Filter(r) => {
                 class.filter = r;
@@ -196,9 +195,9 @@ fn set_class(world: u32, class_id: u32, r: (Vec<Attribute>, Vec<LayoutAttr>)) {
     notify.create_event(c);
 }
 
-fn or_insert_text_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassSheet) -> &'a mut TextStyle{
+fn or_insert_text_style<'a>(class: &'a mut Class, class_sheet: &'a mut ClassSheet, default_value: &TextStyle) -> &'a mut TextStyle{
     if class.text == 0 {
-        let i = class_sheet.text.insert(TextStyle::default());
+        let i = class_sheet.text.insert(default_value.clone());
         class.text = i;
 
     }

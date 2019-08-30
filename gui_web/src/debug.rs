@@ -5,6 +5,7 @@ use serde::{Serialize};
 use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
+// use gui::single::Oct;
 // use gui::layout::FlexNode;
 use GuiWorld;
 
@@ -90,9 +91,8 @@ pub fn node_info(world: u32, node: u32) {
     // let yogas = world.yoga.lend();
     // let yoga = unsafe { yogas.get_unchecked(node) };
 
-    // let octs = world.fetch_single::<Oct>().unwrap();
-    // let octs = octs.lend();
-    // let oct = unsafe { octs.get_unchecked(node) };
+    let octs = world.oct.lend();
+    let oct = unsafe { octs.get_unchecked(node) };
 
     js!{
         window.__jsObj = @{info};
@@ -100,19 +100,19 @@ pub fn node_info(world: u32, node: u32) {
         // console.log("node_info:", window.__jsObj);
         // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
         // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
-        // console.log("boundBox:", @{format!( "{:?}", oct )});
+        console.log("boundBox:", @{format!( "{:?}", oct )});
     }
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn overflow_clip(world: u32) {
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let overflow_clip = world.overflow_clip.lend();
-    js!{
-        console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
-    }
+pub fn overflow_clip(_world: u32) {
+    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	// let world = &mut world.gui;
+    // let overflow_clip = world.overflow_clip.lend();
+    // js!{
+    //     console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
+    // }
 }
 
 // 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染

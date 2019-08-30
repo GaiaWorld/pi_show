@@ -19,20 +19,13 @@ use fx_hashmap::FxHashMap32;
 
 #[macro_use()]
 macro_rules! set_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $name1:ident, $name2: expr, $value:expr, $key: ident) => {
+    ($world:ident, $node_id:ident, $name:ident, $name1:ident, $name2: expr, $value:expr, $key: ident) => {
         let node_id = $node_id as usize;
         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-		let world = &mut world.gui;
-        let attr = world.$key.lend_mut();
+        let attr = world.gui.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
-            let r = match attr.get_mut(node_id) {
-                Some(r) => r,
-                None => {
-                    attr.insert_no_notify(node_id, $tt::default());
-                    unsafe { attr.get_unchecked_mut(node_id) }
-                }
-            };
+            let r = unsafe { attr.get_unchecked_mut(node_id) };
             r.$name.$name1 = value;
             attr.get_notify_ref().modify_event(node_id, $name2, 0);
         }
@@ -43,19 +36,19 @@ macro_rules! set_attr {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_letter_spacing(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, text, letter_spacing, "letter_spacing", value, text_style);
+    set_attr!(world, node_id, text, letter_spacing, "letter_spacing", value, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_word_spacing(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, text, word_spacing, "word_spacing", value, text_style);
+    set_attr!(world, node_id, text, word_spacing, "word_spacing", value, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
-    set_attr!(world, node_id, TextStyle, text, color, "color", Color::RGBA(CgColor::new(r, g, b, a)), text_style);
+    set_attr!(world, node_id, text, color, "color", Color::RGBA(CgColor::new(r, g, b, a)), text_style);
 }
 
 // __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
@@ -64,44 +57,44 @@ pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: 
 pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions.to_vec(), direction));
-    set_attr!(world, node_id, TextStyle, text, color, "color", value, text_style);
+    set_attr!(world, node_id, text, color, "color", value, text_style);
 }
 
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height_normal(world: u32, node_id: u32){
-    set_attr!(world, node_id, TextStyle, text, line_height, "line_height", LineHeight::Normal, text_style);
+    set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Normal, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, text, line_height, "line_height", LineHeight::Length(value), text_style);
+    set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Length(value), text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height_percent(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, text, line_height, "line_height", LineHeight::Percent(value), text_style);
+    set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Percent(value), text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_indent(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, text, indent, "text_indent", value, text_style);
+    set_attr!(world, node_id, text, indent, "text_indent", value, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_align(world: u32, node_id: u32, value: u8){
-    set_attr!(world, node_id, TextStyle, text, text_align, "text_align", unsafe { transmute(value) } , text_style);
+    set_attr!(world, node_id, text, text_align, "text_align", unsafe { transmute(value) } , text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: f32, a: f32){
-    set_attr!(world, node_id, TextStyle, text, stroke, "stroke", Stroke {
+    set_attr!(world, node_id, text, stroke, "stroke", Stroke {
         width,
         color: CgColor::new(r, g, b, a),
     }, text_style);
@@ -110,12 +103,12 @@ pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_white_space(world: u32, node_id: u32, value: u8){
-    set_attr!(world, node_id, TextStyle, text, white_space, "white_space", unsafe {transmute(value)}, text_style);
+    set_attr!(world, node_id, text, white_space, "white_space", unsafe {transmute(value)}, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32, b: f32, a: f32, blur: f32){
+pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, blur: f32, r: f32, g: f32, b: f32, a: f32){
     let value = TextShadow {
         h: h,
         v: v,
@@ -142,31 +135,31 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, r: f32, g: f32,
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_style(world: u32, node_id: u32, value: u8){
-    set_attr!(world, node_id, TextStyle, font, style, "font_style",  unsafe {transmute(value)}, text_style);
+    set_attr!(world, node_id, font, style, "font_style",  unsafe {transmute(value)}, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_weight(world: u32, node_id: u32, value: u32){
-    set_attr!(world, node_id, TextStyle, font, weight, "font_weight", value as usize, text_style);
+    set_attr!(world, node_id, font, weight, "font_weight", value as usize, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_none(world: u32, node_id: u32){
-    set_attr!(world, node_id, TextStyle, font, size, "font_size", FontSize::None, text_style);
+    set_attr!(world, node_id, font, size, "font_size", FontSize::None, text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, font, size, "font_size", FontSize::Length(value), text_style);
+    set_attr!(world, node_id, font, size, "font_size", FontSize::Length(value), text_style);
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
-    set_attr!(world, node_id, TextStyle, font, size, "font_size", FontSize::Percent(value), text_style);
+    set_attr!(world, node_id, font, size, "font_size", FontSize::Percent(value), text_style);
 }
 
 // __jsObj: family name
@@ -174,7 +167,7 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
 #[no_mangle]
 pub fn set_font_family(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
-    set_attr!(world, node_id, TextStyle, font, family, "font_family", Atom::from(value), text_style);
+    set_attr!(world, node_id, font, family, "font_family", Atom::from(value), text_style);
     debug_println!("set_font_family"); 
 }
 
@@ -310,7 +303,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
 
     for indexs in map.iter() {
         js!{
-                
+        
             var c = @{canvas};
             var canvas = c.canvas;
             canvas.width = @{(indexs.1).1.x as u32 };
@@ -328,12 +321,22 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                 start.1 = first.y as i32;
             }
             let hal_stroke_width = text_info.stroke_width/2;
-            let bottom = text_info.size.y as u32 - hal_stroke_width as u32; 
+            let bottom = text_info.size.y as u32 - hal_stroke_width as u32;  
             js!{
                 
                 var c = @{canvas};
                 var ctx = c.ctx;
-                ctx.font = @{text_info.weight as u32} + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
+                var weight;
+                if (@{text_info.weight as u32} <= 300 ) {
+                    weight = "lighter";
+                } else if (@{text_info.weight as u32} < 700 ) {
+                    weight = "normal";
+                } else if (@{text_info.weight as u32} < 900 ) {
+                    weight = "bold";
+                } else {
+                    weight = "bolder";
+                }
+                ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
                 ctx.fillStyle = "#0f0";
                 ctx.textBaseline = "bottom";
             }
@@ -406,7 +409,7 @@ impl DrawTextSys {
     pub fn new() -> Self {
         let obj: Object = TryInto::try_into(js!{
             var c = document.createElement("canvas");
-            document.body.append(c);// 查看效果 
+            // document.body.append(c);// 查看效果 
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};
         }).unwrap();

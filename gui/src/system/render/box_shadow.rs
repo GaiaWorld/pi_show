@@ -53,6 +53,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
+        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<ClassSheet>,
@@ -73,6 +74,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             z_depths,
             transforms,
             style_marks,
+            cullings,
 
             default_table,
             _class_sheet,
@@ -156,8 +158,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             }
             
             // 矩阵脏，或者布局脏
-            if dirty & StyleType::Matrix as usize != 0 
-            || dirty & StyleType::Layout as usize != 0 {
+            if (dirty & StyleType::Matrix as usize != 0 
+            || dirty & StyleType::Layout as usize != 0)
+            && !unsafe{cullings.get_unchecked(*id)}.0 {
                 let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
                 let transform =  match transforms.get(*id) {
                     Some(r) => r,

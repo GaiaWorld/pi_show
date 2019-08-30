@@ -16,40 +16,69 @@ use map::vecmap::VecMap;
 use fx_hashmap::FxHashMap32;
 
 use component::user::*;
+use component::calc::ClipBox;
+
 use render::res::*;
 
 pub use single::oct::Oct;
 pub use single::class::*;
 
-#[derive(Debug)]
 pub struct OverflowClip{
-    pub id_vec: [usize;16],
-    pub clip: [[Point2;4];16],
+    pub id_map: FxHashMap32<usize, usize>,
+    pub clip: Slab<Clip>, //[[Point2;4];16], //Vec<(clip_view, has_rotate, old_has_rotate)> 最多32个
+    pub clip_map: FxHashMap32<usize, (Aabb3, Share<dyn UniformBuffer>)>,
+    // pub id_vec: [usize;16],
+    // pub clip: [[Point2;4];16],
 }
+
+#[derive(Debug)]
+pub struct Clip {
+    pub view: [Point2;4],
+    pub has_rotate: bool,
+    pub old_has_rotate: bool,
+    pub node_id: usize,
+}
+
+impl OverflowClip {
+    pub fn insert_aabb(&mut self, key: usize, value: Aabb3) {
+        let (w, h) = ((value.max.x - value.min.x) / 2.0, (value.max.y - value.min.y) / 2.0 );
+        let ubo = ClipBox::new(UniformValue::Float4(value.min.x + w, value.min.y + h, w, h));
+        self.clip_map.insert(key, (value, Share::new(ubo)));
+    }
+}
+
+// pub struct ClipIndex {
+    
+// }
 
 impl Default for OverflowClip {
     fn default() -> Self {
-        Self {
-            id_vec: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            clip: [
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-                [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
-            ],
-        }
+        let mut r = Self {
+            id_map: FxHashMap32::default(),
+            clip: Slab::default(),
+            clip_map: FxHashMap32::default(),
+            // id_vec: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // clip: [
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
+            // ],
+        };
+        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)));
+        r
     }
 }
 
@@ -130,9 +159,11 @@ pub struct DefaultState{
 impl DefaultState {
     pub fn new<C: HalContext + 'static>(gl: &C) -> Self {
         let df_rs = RasterStateDesc::default();
-        let df_bs = BlendStateDesc::default();
+        let mut df_bs = BlendStateDesc::default();
         let df_ss = StencilStateDesc::default();
         let df_ds = DepthStateDesc::default();
+
+        df_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
 
         let mut tarns_bs = BlendStateDesc::default();
         tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);

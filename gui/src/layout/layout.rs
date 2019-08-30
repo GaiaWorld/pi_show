@@ -59,6 +59,7 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn is_dirty(&self) -> bool;
     fn calculate_layout(&self, _width: f32, _height:f32, _direction: YGDirection);
     fn calculate_layout_by_callback(&self, _width: f32, _height:f32, _direction: YGDirection, _callback: YGCalcCallbackFunc<Self>, _callback_args: *const c_void);
+    fn set_measure_func(&self, func: YGMeasureFunc<Self>);
     fn get_layout(&self) -> Layout;
     fn get_layout_margin(&self, edge: YGEdge) -> f32;
     fn get_layout_border(&self, edge: YGEdge) -> f32;
@@ -199,4 +200,11 @@ pub enum YGWrap {
     YGWrapWrapReverse = 2,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct YGSize {
+    pub width: f32,
+    pub height: f32,
+}
+
 pub type YGCalcCallbackFunc<T> = unsafe extern "C" fn(node: T, args: *const c_void);
+pub type YGMeasureFunc<T> = Option<unsafe extern "C" fn(node: T, width: f32, widthMode: YGMeasureMode, height: f32, heightMode: YGMeasureMode) -> YGSize>;

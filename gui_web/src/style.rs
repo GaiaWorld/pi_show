@@ -10,29 +10,30 @@ use atom::Atom;
 use gui::component::user::*;
 use gui::render::res::{TextureRes};
 use gui::single::*;
+use gui::single::style_parse::{Attribute, parse_class_from_string};
 use GuiWorld;
 
-#[macro_use()]
-macro_rules! set_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-		let world = &mut world.gui;
-        let attr = world.$key.lend_mut();
-        let value = $value;
-        $crate::paste::item! {
-            match attr.get_write(node_id) {
-                Some(mut r) => r.[<set_ $name>](value),
-                _ =>{
-                    let mut v = $tt::default();
-                    v.$name = value;
-                    attr.insert(node_id, v);
-                }
-            }
-        }
-        debug_println!("set_{}", $name);
-    };
-}
+// #[macro_use()]
+// macro_rules! set_attr {
+//     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
+//         let node_id = $node_id as usize;
+//         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
+// 		let world = &mut world.gui;
+//         let attr = world.$key.lend_mut();
+//         let value = $value;
+//         $crate::paste::item! {
+//             match attr.get_write(node_id) {
+//                 Some(mut r) => r.[<set_ $name>](value),
+//                 _ =>{
+//                     let mut v = $tt::default();
+//                     v.$name = value;
+//                     attr.insert(node_id, v);
+//                 }
+//             }
+//         }
+//         debug_println!("set_{}", $name);
+//     };
+// }
 #[macro_use()]
 macro_rules! insert_value {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
@@ -110,43 +111,54 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32){
     insert_attr!(world, node, BorderRadius, BorderRadius{x: LengthUnit::Percent(x), y: LengthUnit::Percent(y)}, border_radius);
 }
 
-// 设置阴影颜色
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-    let color = 0;
-    set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
-}
+// // 设置阴影颜色
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
+//     let color = 0;
+//     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
+// }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
-    let spread = 0;
-    set_attr!(world, node, BoxShadow, spread, value, box_shadow);
-}
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
+//     let spread = 0;
+//     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
+// }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
-    let blur = 0;
-    set_attr!(world, node, BoxShadow, blur, value, box_shadow);
-}
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
+//     let blur = 0;
+//     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
+// }
 
-// 设置阴影h
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
-    let h = 0;
-    set_attr!(world, node, BoxShadow, h, value, box_shadow);
-}
+// // 设置阴影h
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
+//     let h = 0;
+//     set_attr!(world, node, BoxShadow, h, value, box_shadow);
+// }
+
+// // 设置阴影v
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
+//     let v = 0;
+//     set_attr!(world, node, BoxShadow, v, value, box_shadow);
+// }
 
 // 设置阴影v
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
-    let v = 0;
-    set_attr!(world, node, BoxShadow, v, value, box_shadow);
+pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: f32, r: f32, g: f32, b: f32, a: f32){
+    // let v = 0;
+    insert_attr!(world, node, BoxShadow, BoxShadow{
+        h: h, v: v, blur: blur, spread: spread, color: CgColor::new(r, g, b, a)
+    }, box_shadow);
 }
+
 //设置object_fit
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -308,10 +320,57 @@ pub fn set_border_image(world: u32, node: u32){
 			border_image.insert(node, BorderImage{src: r, url: name});
 		},
 		None => {
-            println!("border wait-----------------");
 			// 异步加载图片
 			let image_wait_sheet = world.image_wait_sheet.lend_mut();
 			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::BorderImageLocal})
 		},
 	}
+}
+
+/**
+ * 设置默认样式, 暂支持布局属性、 文本属性的设置
+ * __jsObj: class样式的文本描述
+ */ 
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_default_style(world: u32){
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+
+    let value: String = js!(return __jsObj;).try_into().unwrap();
+    let r = match parse_class_from_string(value.as_str()) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("{:?}", e);
+            return;
+        },
+    };
+
+    let mut text_style = TextStyle::default();
+    // let mut border_color = BorderColor::default();
+    // let mut bg_color = BackgroundColor::default();
+    // let mut box_shadow = BoxShadow::default();
+
+    for attr in r.0.into_iter() {
+        match attr {
+            // Attribute::BGColor(r) => bg_color = r,
+            Attribute::Color(r) => text_style.text.color = r,
+            Attribute::LetterSpacing(r) => text_style.text.letter_spacing = r,
+            Attribute::WordSpacing(r) => text_style.text.word_spacing = r,
+            Attribute::LineHeight(r) => text_style.text.line_height = r,
+            Attribute::TextAlign(r) => text_style.text.text_align = r,
+            Attribute::TextIndent(r) => text_style.text.indent = r,
+            Attribute::TextShadow(r) => text_style.shadow = r,
+            Attribute::WhiteSpace(r) => text_style.text.white_space = r,
+            Attribute::TextStroke(r) => text_style.text.stroke = r,
+            Attribute::FontWeight(r) => text_style.font.weight = r as usize,
+            Attribute::FontSize(r) => text_style.font.size = r,
+            Attribute::FontFamily(r) => text_style.font.family = r,
+
+            // Attribute::BorderColor(r) => border_color = r,
+            _ => println!("set_class error"),
+        }
+    }
+
+    world.default_text_style = text_style;
+    world.default_layout_attr = r.1;
 }

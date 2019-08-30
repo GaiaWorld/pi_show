@@ -25,6 +25,10 @@ pub struct WorldMatrix(pub Matrix4, pub bool);
 #[derive(Deref, DerefMut, Component, Debug, Default)]
 pub struct Visibility(pub bool);
 
+// 是否在裁剪平面的可视范围内
+#[derive(Component, Debug)]
+pub struct Culling(pub bool);
+
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Opacity(pub f32);
@@ -95,7 +99,7 @@ pub enum StyleType{
     Opacity = 0x4000000,
     Layout = 0x8000000,
     BorderRadius = 0x10000000,
-    Transform = 0x20000000,
+    ByOverflow = 0x20000000,
     Filter = 0x40000000,
 }
 
@@ -127,11 +131,13 @@ pub enum StyleType1{
     Visibility = 0x200000,
     Enable = 0x400000,
     ZIndex = 0x800000,
+    Transform = 0x1000000,
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark{
     pub dirty: usize,
+    pub dirty1: usize,
     pub local_style: usize,
     pub class_style: usize,
     pub local_style1: usize,
@@ -284,18 +290,21 @@ impl<'a> Mul<&'a Vector4> for WorldMatrix{
         if self.1 == false {
             Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
         } else {
-            self * other
+            self.0 * other
         }
     }
 }
 
-impl Mul<Vector4> for WorldMatrix{
+impl<'a> Mul<Vector4> for &'a WorldMatrix{
     type Output = Vector4;
-    fn mul(self, other: Vector4) -> Vector4 {
+    fn mul(self, mut other: Vector4) -> Vector4 {
         if self.1 == false {
-            Vector4::new(other.x * self.x.x + self.w.x, other.y * self.y.y + self.w.y, other.z * self.z.z + self.w.z, other.w)
+            other.x = other.x * self.x.x + self.w.x;
+            other.y = other.y * self.y.y + self.w.y;
+            other.z = other.z * self.z.z + self.w.z;
+            other
         } else {
-            self * other
+            self.0 * other
         }
     }
 }
@@ -305,6 +314,13 @@ uniform_buffer! {
     #[derive(Hash)]
     struct ClipTextureSize {
         clipTextureSize: UniformValue,
+    }
+}
+
+uniform_buffer! {
+    #[derive(Hash)]
+    struct ClipBox {
+        clipBox: UniformValue,
     }
 }
 
@@ -360,6 +376,7 @@ defines! {
     #[derive(Clone)]
     struct VsDefines {
         VERTEX_COLOR: String,
+        CLIP_BOX: String,
         BOX_SHADOW_BLUR: String,
     }
 }
@@ -371,6 +388,7 @@ defines! {
         VERTEX_COLOR: String,
         BOX_SHADOW_BLUR: String,
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -380,6 +398,7 @@ defines! {
     #[derive(Clone)]
     struct FsBaseDefines {
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -409,6 +428,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -421,6 +441,7 @@ defines! {
         UCOLOR: String,
         VERTEX_COLOR: String,
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }
@@ -449,6 +470,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -466,6 +488,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         alpha: UniformValue,
         uRect: UniformValue,
         blur: UniformValue,
@@ -482,6 +505,7 @@ program_paramter! {
         clipIndices: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
     }
@@ -500,6 +524,7 @@ defines! {
     #[derive(Clone)]
     struct ImageFsDefines {
         CLIP: String,
+        CLIP_BOX: String,
         HSV: String,
         GRAY: String,
     }

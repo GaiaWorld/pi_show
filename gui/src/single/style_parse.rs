@@ -186,7 +186,6 @@ fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
 
     parser_color_stop_last(1.0, &mut list, &mut color.list, &mut pre_percent, None)?;
     
-    println!("color: {:?}, ", color);
     Ok(Color::LinearGradient(color))
 }
 
@@ -459,7 +458,6 @@ fn iter_fun<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<(&'a str, &'a st
 }
 
 fn parser_color_stop_last(v: f32, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32, last_color: Option<CgColor>) -> Result<(), String>{
-    println!("v: {}, len: {}", v, list.len());
     if list.len() > 0 {
         let pos = (v - *pre_percent) / list.len() as f32;
         if color_stop.len() != 0 {

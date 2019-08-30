@@ -65,14 +65,6 @@ impl  FontSheet {
             char_w_map: FxHashMap32::default(),
             char_map: FxHashMap32::default(),
             char_slab: Slab::default(),
-            // wait_draw: TextInfo {
-            //     font: Atom::from(""),
-            //     font_size: 0,
-            //     stroke_width: 0,
-            //     weight: 500,
-            //     size: Vector2::default(),
-            //     chars: Vec::new(),
-            // },
             wait_draw_list: Vec::new(),
             wait_draw_map: FxHashMap32::default(),
             measure_char: measure,
@@ -234,29 +226,6 @@ impl  FontSheet {
                             });
                         }
                     }
-                    // if self.wait_draw.font != font.name || self.wait_draw.font_size != fs_scale || self.wait_draw.stroke_width != sw || self.wait_draw.weight != weight {
-                    //     if self.wait_draw.chars.len() > 0 {
-                    //         let info = replace(&mut self.wait_draw, TextInfo{
-                    //             font: font.name.clone(),
-                    //             font_size: fs_scale ,
-                    //             stroke_width: sw,
-                    //             weight: weight,
-                    //             size: Vector2::new(w, height as f32),
-                    //             chars: vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}],
-                    //         });
-                    //         self.wait_draw_list.push(info);
-                    //     }else{
-                    //         self.wait_draw.font = font.name.clone();
-                    //         self.wait_draw.font_size = fs_scale;
-                    //         self.wait_draw.stroke_width = sw;
-                    //         self.wait_draw.weight = weight;
-                    //         self.wait_draw.size = Vector2::new(w, height as f32);
-                    //         self.wait_draw.chars = vec![WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32}];
-                    //     }
-                    // }else{
-                    //     self.wait_draw.size.x += w;
-                    //     self.wait_draw.chars.push(WaitChar {ch: c, width: w, x: p.x as u32, y: p.y as u32});
-                    // }
                     r.insert(id);
                     id
                 }
