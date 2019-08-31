@@ -415,6 +415,16 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     }
 }
 
+// visibility修改， 设置ByOverflow脏（clipsys 使用， dirty上没有位置容纳Visibility脏了， 因此设置在ByOverflow上）
+impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for StyleMarkSys<L, C>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
+        let (style_marks, dirty_list) = write;
+        set_local_dirty(dirty_list, event.id, StyleType::ByOverflow as usize, style_marks);
+    }
+}
+
 // RenderObjs 创建， 设置ByOverflow脏
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for StyleMarkSys<L, C> {
     type ReadData = &'a SingleCaseImpl<RenderObjs>;
@@ -1464,6 +1474,7 @@ impl_system!{
         // MultiCaseListener<Node, Transform, ModifyEvent>  
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>
+        MultiCaseListener<Node, Visibility, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent> 
         SingleCaseListener<ImageWaitSheet, ModifyEvent>
