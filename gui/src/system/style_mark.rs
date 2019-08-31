@@ -197,8 +197,9 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (text_styles, style_marks, dirty_list) = write;
         text_styles.insert_no_notify(event.id, self.default_text.clone());
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        set_dirty(dirty_list, event.id, StyleType::Text as usize | StyleType::FontFamily as usize, style_mark);
+        // let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        // println!("StyleType::FontFamily1--------------------{}", event.id);
+        set_local_dirty(dirty_list, event.id, StyleType::Text as usize | StyleType::FontFamily as usize, style_marks);
     }
 }
 

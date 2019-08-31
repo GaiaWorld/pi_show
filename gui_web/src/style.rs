@@ -344,7 +344,6 @@ pub fn set_default_style(world: u32){
             return;
         },
     };
-
     let mut text_style = TextStyle::default();
     // let mut border_color = BorderColor::default();
     // let mut bg_color = BackgroundColor::default();
