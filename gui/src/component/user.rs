@@ -56,8 +56,15 @@ pub struct Transform {
 #[derive(Debug, Clone, Component, Default)]
 pub struct BackgroundColor(pub Color);
 
+// #[derive(Debug, Clone, Component, Default)]
+// pub struct ClassName(pub usize);
+
 #[derive(Debug, Clone, Component, Default)]
-pub struct ClassName(pub usize);
+pub struct ClassName {
+    pub one: usize,
+    pub two: usize,
+    pub other: Vec<usize>,
+}
 
 #[derive(Debug, Clone, Component, Default)]
 pub struct BorderColor(pub CgColor);
@@ -77,10 +84,10 @@ pub struct Filter {
 }
 
 //ObjectFit
-#[derive(Deref, DerefMut, Clone, Component, Default)]
+#[derive(Debug, Deref, DerefMut, Clone, Component, Default)]
 pub struct ObjectFit(pub FitType);
 
-#[derive(Deref, DerefMut, Clone, Component)]
+#[derive(Debug, Deref, DerefMut, Clone, Component)]
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
@@ -89,14 +96,14 @@ pub struct BorderImage{
   pub url: Atom,
 }
 
-#[derive(Deref, DerefMut, Clone, Component)]
+#[derive(Debug, Deref, DerefMut, Clone, Component)]
 pub struct BorderImageClip(pub Aabb2);
 
-#[derive(Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct BorderImageSlice{
   pub top: f32, pub right: f32, pub bottom: f32, pub left: f32, pub fill: bool,
 }
-#[derive(Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 #[derive(Debug, Clone, Component, Default)]

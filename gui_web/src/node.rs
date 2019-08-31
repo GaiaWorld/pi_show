@@ -18,7 +18,8 @@ use gui::component::calc::*;
 use gui::single::*;
 use gui::entity::Node;
 use gui::render::res::{TextureRes};
-use gui::system::set_layout_style;
+// use gui::
+// use gui::system::set_layout_style;
 use gui::Z_MAX;
 
 use GuiWorld;
@@ -29,10 +30,9 @@ fn create(world: &GuiWorld) -> usize {
     let node = gui.node.lend_mut().create();
     let border_radius = gui.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
-    gui.class_name.lend_mut().insert(node, ClassName(0));
     idtree.create(node);
 
-    set_layout_style(&world.default_layout_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
+    // set_layout_style(&world.default_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
 }
 
@@ -61,7 +61,6 @@ pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
     let node = create(world);
     world.gui.text_content.lend_mut().insert(node, TextContent("".to_string(), Atom::from("")));
-    world.gui.text_style.lend_mut().insert_no_notify(node, world.default_text_style.clone());
     node as u32
 }
 
@@ -381,21 +380,43 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn set_class(world: u32, node_id: u32, key: u32){
+pub fn add_class(world: u32, node_id: u32, key: u32, index: u32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
     
+    if index == 0 {
+        unsafe { world.gui.class_name.lend_mut().get_unchecked_mut(node_id as usize) } .one = key as usize;
+    } else if index == 1 {
+        unsafe { world.gui.class_name.lend_mut().get_unchecked_mut(node_id as usize) } .two = key as usize;
+    }if index > 2 {
+        unsafe { world.gui.class_name.lend_mut().get_unchecked_mut(node_id as usize) } .other.push(key as usize);
+    }
+}
 
-    let class_sheet = world.class_sheet.lend();
-    match class_sheet.class_map.get(&(key as usize)) {
-        Some(class_id) => {
-            // 插入className
-            world.class_name.lend_mut().insert(node_id, ClassName(*class_id) );
-        },
-        None => (),
-    };
-    debug_println!("set_class"); 
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn add_class_end(world: u32, node_id: u32, old: u32) {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    world.gui.class_name.lend_mut().get_notify_ref().modify_event(node_id as usize, "", old as usize);
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn add_class_start(world: u32, node_id: u32) -> u32 {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    Box::into_raw(Box::new(world.gui.class_name.lend_mut().insert_no_notify(node_id as usize, ClassName::default()).unwrap())) as u32
+}
+
+pub fn define_set_class(){
+    js! {
+        Module._set_class = function(world, node, class_arr){
+            var old = Module._add_class_start(world, node);
+            for (var i = 0; i < class_arr.length; i++) {
+                Module._add_class(world, node, class_arr[i], i);
+            }
+            Module._add_class_end(world, node, old);
+        }
+    }
 }
 
 /// aabb的查询函数的参数

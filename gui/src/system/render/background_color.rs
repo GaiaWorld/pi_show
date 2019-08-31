@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use fxhash::FxHasher32;
 use map::vecmap::VecMap;
 
-use ecs::{CreateEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
+use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use hal_core::*;
 use atom::Atom;
 use polygon::*;
@@ -76,7 +76,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             opacitys,
             border_radiuses,
             background_colors,
-            classes,
+            _classes,
             style_marks,
             cullings,
 
@@ -138,7 +138,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
             } else {
-                let class_id = unsafe { classes.get_unchecked(*id) }.0;
+                // let class_id = unsafe { classes.get_unchecked(*id) }.0;
+                let class_id = 0;
                 // 尝试修改颜色， 以及颜色所对应的geo
                 modify_class_color(render_obj, color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
             };
@@ -176,20 +177,20 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
     }
 }
 
-// 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
-impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys<C>{
-    type ReadData = &'a SingleCaseImpl<ClassSheet>;
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
-    fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
-        let class = unsafe { class_sheet.class.get_unchecked(event.id)};
+// // 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
+// impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys<C>{
+//     type ReadData = &'a SingleCaseImpl<ClassSheet>;
+//     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+//     fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
+//         let class = unsafe { class_sheet.class.get_unchecked(event.id)};
 
-        if class.background_color > 0 {
-            if let Color::RGBA(c) = unsafe { &class_sheet.background_color.get_unchecked(class.background_color).0 } {
-                self.share_ucolor_ubo.insert(event.id, create_u_color_ubo(c, engine));
-            }
-        }
-    }
-}
+//         if class.background_color > 0 {
+//             if let Color::RGBA(c) = unsafe { &class_sheet.background_color.get_unchecked(class.background_color).0 } {
+//                 self.share_ucolor_ubo.insert(event.id, create_u_color_ubo(c, engine));
+//             }
+//         }
+//     }
+// }
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent> for BackgroundColorSys<C>{
     type ReadData = ();
@@ -461,7 +462,7 @@ impl_system!{
     BackgroundColorSys<C> where [C: HalContext + 'static],
     true,
     {
-        SingleCaseListener<ClassSheet, CreateEvent>
+        // SingleCaseListener<ClassSheet, CreateEvent>
         MultiCaseListener<Node, BackgroundColor, DeleteEvent>
     }
 }

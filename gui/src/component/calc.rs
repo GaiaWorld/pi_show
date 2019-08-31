@@ -140,6 +140,7 @@ pub struct StyleMark{
     pub dirty1: usize,
     pub local_style: usize,
     pub class_style: usize,
+    pub class_style1: usize,
     pub local_style1: usize,
 }
 

@@ -53,8 +53,8 @@ use gui::layout::{ YGAlign, FlexNode };
 use gui::world::{ create_world, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::*;
 use gui::component::calc::Visibility;
+use gui::single::Class;
 use gui::single::RenderBegin;
-use gui::single::class::LayoutAttr;
 use gui::render::engine::Engine;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
@@ -77,12 +77,13 @@ use bc::YgNode;
 use text::{ DrawTextSys};
 #[cfg(not(feature = "no_define_js"))]
 use rs_call_js::define_js;
+use node::define_set_class;
 
 pub struct GuiWorld {
     pub gui: GuiWorld1<YgNode, WebglHalContext>,
     pub draw_text_sys: DrawTextSys,
     pub default_text_style: TextStyle,
-    pub default_layout_attr: Vec<LayoutAttr>,
+    pub default_attr: Class,
 }
 
 #[allow(unused_attributes)]
@@ -90,7 +91,9 @@ pub struct GuiWorld {
 pub fn create_engine(mut res_cush_time: u32/* 资源销毁默认延迟时间 */) -> u32{
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
-    let gl = WebglHalContext::new(gl, fbo, true);
+    let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
+
+    let gl = WebglHalContext::new(gl, fbo, use_vao);
 
     if res_cush_time < 1000 {
         res_cush_time = 1000;
@@ -125,7 +128,6 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
     let node = world.node.lend_mut().create();
     let border_radius = world.border_radius.lend_mut();
     border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
-    world.class_name.lend_mut().insert(node, ClassName(0));
 
     let visibilitys = world.visibility.lend_mut();
     visibilitys.insert(node, Visibility(true));
@@ -142,7 +144,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32{
         gui: world,
         draw_text_sys: draw_text_sys,
         default_text_style: TextStyle::default(),
-        default_layout_attr: Vec::default(),
+        default_attr: Class::default(),
     };
     Box::into_raw(Box::new(world)) as u32
 }
@@ -241,4 +243,5 @@ fn main(){
     // 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）
     #[cfg(not(feature = "no_define_js"))]
     define_js();
+    define_set_class();
 }

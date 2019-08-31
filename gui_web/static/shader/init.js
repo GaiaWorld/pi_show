@@ -5,7 +5,7 @@ window.__fbo = undefined;
 // 测试：渲染GUI到fbo
 // window.__fbo = init_fbo(gl, 1000, 700);
 
-var engine = Module._create_engine();
+var engine = Module._create_engine(10);
 
 // 设置图片shader
 var __jsObj = color_vs_shader_name;

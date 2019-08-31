@@ -4,19 +4,20 @@ use std::str::{FromStr};
 use atom::Atom;
 
 use component::user::*;
+use component::calc::*;
+use component::user::Opacity;
 use single::class::*;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 
-pub fn parse_class_from_string(value: &str) -> Result<(Vec<Attribute>, Vec<LayoutAttr>), String> {
-    let mut show_attr = Vec::new();
-    let mut layout_attr = Vec::new();
+pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
+    let mut class = Class::default();
     for p in value.split(";") {
         match p.find(":") {
             Some(index) => {
                 let p = p.split_at(index);
                 let key = p.0.trim();
                 let value = p.1[1..p.1.len()].trim();
-                match match_key(key, value, &mut show_attr, &mut layout_attr) {
+                match match_key(key, value, &mut class) {
                     Err(r) => return Err(format!("{}, key: {}, value: {}", r, key, value)),
                     _ => (),
                 };
@@ -27,104 +28,295 @@ pub fn parse_class_from_string(value: &str) -> Result<(Vec<Attribute>, Vec<Layou
         }
         
     }
-    Ok((show_attr, layout_attr))
+    Ok(class)
 }
 
-fn match_key(key: &str, value: &str, show_attr: &mut Vec<Attribute>, layout_attr: &mut Vec<LayoutAttr>) -> Result<(), String> {
+fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
     match key {
-        "background-color" => show_attr.push(Attribute::BGColor( BackgroundColor(Color::RGBA(parse_color_string(value)?)))),
+        "background-color" => {
+            class.attrs3.push(Attribute3::BGColor( BackgroundColor(Color::RGBA(parse_color_string(value)?))));
+            class.class_style_mark |= StyleType::BackgroundColor as usize;
+        },
         "background" => {
             if value.starts_with("linear-gradient") {
-                show_attr.push(Attribute::BGColor( BackgroundColor(parse_linear_gradient_color_string(value)?)));
+                class.attrs3.push(Attribute3::BGColor( BackgroundColor(parse_linear_gradient_color_string(value)?)));
+                class.class_style_mark |= StyleType::BackgroundColor as usize;
             } else {
                 println!("background err: {}", value);
                 return Ok(());
             }
         },
 
-        "border-color" => show_attr.push(Attribute::BorderColor( BorderColor(parse_color_string(value)?))),
-        "box-shadow" => show_attr.push(Attribute::BoxShadow( parse_box_shadow(value)?)),
-
-        "background-image" => show_attr.push(Attribute::ImageUrl( parse_url(value)? )),
-        "background-image-clip" => show_attr.push(Attribute::ImageClip( unsafe { transmute(parse_f32_4(value)?) } )),
-        "object-fit" =>  show_attr.push(Attribute::ObjectFit( ObjectFit(parse_object_fit(value)?) )),
-
-        "border-image" => show_attr.push(Attribute::BorderImageUrl( parse_url(value)? )),
-        "border-image-clip" => show_attr.push(Attribute::BorderImageClip( unsafe { transmute(parse_f32_4(value)?) } )),
-        "border-image-slice" => show_attr.push(Attribute::BorderImageSlice( unsafe { transmute(parse_f32_5(value)?) } )),
-        "border-image-repeat" => {
-            let ty = parse_border_image_repeat(value)?;
-            show_attr.push(Attribute::BorderImageRepeat( BorderImageRepeat(ty, ty) ));
+        "border-color" => {
+            class.attrs3.push(Attribute3::BorderColor( BorderColor(parse_color_string(value)?)));
+            class.class_style_mark |= StyleType::BorderColor as usize;
+        },
+        "box-shadow" => {
+            class.attrs3.push(Attribute3::BoxShadow( parse_box_shadow(value)?));
+            class.class_style_mark |= StyleType::BoxShadow as usize;
         },
 
-        "color" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "letter-spacing" => show_attr.push(Attribute::LetterSpacing( parse_px(value)? )),
-        "line-height" => show_attr.push(Attribute::LineHeight( parse_line_height(value)? )),
-        "text-align" => show_attr.push(Attribute::TextAlign( parse_text_align(value)? )),
-        "text-indent" => show_attr.push(Attribute::TextIndent( parse_px(value)? )),
-        "text-shadow" => show_attr.push(Attribute::TextShadow( parse_text_shadow(value)? )),
-        // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
-        "white-space" => show_attr.push(Attribute::WhiteSpace( pasre_white_space(value)? )),
-        "word-spacing" => show_attr.push(Attribute::WordSpacing( parse_px(value)? )),
+        "background-image" => {
+            class.attrs2.push(Attribute2::ImageUrl( parse_url(value)? ));
+            class.class_style_mark |= StyleType::Image as usize;
+        },
+        "background-image-clip" => {
+            class.attrs3.push(Attribute3::ImageClip( unsafe { transmute(parse_f32_4(value)?) } ));
+            class.class_style_mark |= StyleType::BackgroundColor as usize;
+        },
+        "object-fit" =>  {
+            class.attrs1.push(Attribute1::ObjectFit( ObjectFit(parse_object_fit(value)?) ));
+            class.class_style_mark |= StyleType::ObjectFit as usize;
+        },
 
-        "text-stroke" => show_attr.push(Attribute::TextStroke( parse_text_stroke(value)? )),
+        "border-image" => {
+            class.attrs2.push(Attribute2::BorderImageUrl( parse_url(value)? ));
+            class.class_style_mark |= StyleType::BorderImage as usize;
+        },
+        "border-image-clip" => {
+            class.attrs3.push(Attribute3::BorderImageClip( unsafe { transmute(parse_f32_4(value)?) } ));
+            class.class_style_mark |= StyleType::BorderImageClip as usize;
+        },
+        "border-image-slice" => {
+            class.attrs3.push(Attribute3::BorderImageSlice( unsafe { transmute(parse_f32_5(value)?) } ));
+            class.class_style_mark |= StyleType::BorderImageSlice as usize;
+        },
+        "border-image-repeat" => {
+            let ty = parse_border_image_repeat(value)?;
+            class.attrs2.push(Attribute2::BorderImageRepeat( BorderImageRepeat(ty, ty) ));
+            class.class_style_mark |= StyleType::BackgroundColor as usize;
+        },
+
+        "color" => {
+            class.attrs3.push(Attribute3::Color( Color::RGBA(parse_color_string(value)?) ));
+            class.class_style_mark |= StyleType::Color as usize;
+        },
+        "letter-spacing" => {
+            class.attrs2.push(Attribute2::LetterSpacing( parse_px(value)? ));
+            class.class_style_mark |= StyleType::LetterSpacing as usize;
+        },
+        "line-height" => {
+            class.attrs2.push(Attribute2::LineHeight( parse_line_height(value)? ));
+            class.class_style_mark |= StyleType::LineHeight as usize;
+        },
+        "text-align" => {
+            class.attrs1.push(Attribute1::TextAlign( parse_text_align(value)? ));
+            class.class_style_mark |= StyleType::TextAlign as usize;
+        },
+        "text-indent" => {
+            class.attrs2.push(Attribute2::TextIndent( parse_px(value)? ));
+            class.class_style_mark |= StyleType::Indent as usize;
+        },
+        "text-shadow" => {
+            class.attrs3.push(Attribute3::TextShadow( parse_text_shadow(value)? ));
+            class.class_style_mark |= StyleType::TextShadow as usize;
+        },
+        // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
+        "white-space" => {
+            class.attrs1.push(Attribute1::WhiteSpace( pasre_white_space(value)? ));
+            class.class_style_mark |= StyleType::WhiteSpace as usize;
+        },
+        "word-spacing" => {
+            class.attrs2.push(Attribute2::WordSpacing( parse_px(value)? ));
+            class.class_style_mark |= StyleType::WordSpacing as usize;
+        },
+
+        "text-stroke" => {
+            class.attrs3.push(Attribute3::TextStroke( parse_text_stroke(value)? ));
+            class.class_style_mark |= StyleType::Stroke as usize;
+        },
 
         // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
-        "font-weight" => show_attr.push(Attribute::FontWeight( parse_f32(value)? )),
-        "font-size" => show_attr.push(Attribute::FontSize( parse_font_size(value)? )),
-        "font-family" => show_attr.push(Attribute::FontFamily( Atom::from(value) )),
+        "font-weight" => {
+            class.attrs2.push(Attribute2::FontWeight( parse_f32(value)? ));
+            class.class_style_mark |= StyleType::FontWeight as usize;
+        },
+        "font-size" => {
+            class.attrs2.push(Attribute2::FontSize( parse_font_size(value)? ));
+            class.class_style_mark |= StyleType::FontSize as usize;
+        },
+        "font-family" => {
+            class.attrs2.push(Attribute2::FontFamily( Atom::from(value) ));
+            class.class_style_mark |= StyleType::FontFamily as usize;
+        },
 
         "border-radius" => {
             let v = parse_len_or_percent(value)?;
-            show_attr.push(Attribute::BorderRadius( BorderRadius{
+            class.attrs3.push(Attribute3::BorderRadius( BorderRadius{
                 x: v.clone(),
                 y: v,
-            }))
+            }));
+            class.class_style_mark |= StyleType::BorderRadius as usize;
         },
-        "opacity" => show_attr.push(Attribute::Opacity( Opacity(parse_f32(value)? ))),
-        "transform" => show_attr.push(Attribute::TransformFunc( parse_transform(value)? )),
-        "transform-origin" => show_attr.push(Attribute::TransformOrigin( parse_transform_origin(value)? )),
-        "z-index" => show_attr.push(Attribute::ZIndex( parse_f32(value)? as isize )),
-        "visibility" => show_attr.push(Attribute::Visibility( parse_bool(value)? )),
-        "pointer-events" => show_attr.push(Attribute::Enable( parse_enable(value)? )),
-        "display" => show_attr.push(Attribute::Display( parse_display(value)? )),
+        "opacity" => {
+            class.attrs2.push(Attribute2::Opacity( Opacity(parse_f32(value)? )));
+            class.class_style_mark |= StyleType::Opacity as usize;
+        },
+        "transform" => {
+            class.attrs3.push(Attribute3::TransformFunc( parse_transform(value)? ));
+            class.class_style_mark1 |= StyleType1::Transform as usize;
+        },
+        "transform-origin" => {
+            class.attrs3.push(Attribute3::TransformOrigin( parse_transform_origin(value)? ));
+            class.class_style_mark1 |= StyleType1::Transform as usize;
+        },
+        "z-index" => {
+            class.attrs2.push(Attribute2::ZIndex( parse_f32(value)? as isize ));
+            class.class_style_mark1 |= StyleType1::ZIndex as usize;
+        },
+        "visibility" => {
+            class.attrs1.push(Attribute1::Visibility( parse_bool(value)? ));
+            class.class_style_mark1 |= StyleType1::Visibility as usize;
+        },
+        "pointer-events" => {
+            class.attrs1.push(Attribute1::Enable( parse_enable(value)? ));
+            class.class_style_mark1 |= StyleType1::Enable as usize;
+        },
+        "display" => {
+            class.attrs1.push(Attribute1::Display( parse_display(value)? ));
+            class.class_style_mark1 |= StyleType1::Display as usize;
+        },
 
-        "width" => layout_attr.push(LayoutAttr::Width(parse_unity(value)?)),
-        "height" => layout_attr.push(LayoutAttr::Height(parse_unity(value)?)),
-        "left" => layout_attr.push(LayoutAttr::PositionLeft(parse_unity(value)?)),
-        "bottom" => layout_attr.push(LayoutAttr::PositionBottom(parse_unity(value)?)),
-        "right" => layout_attr.push(LayoutAttr::PositionRight(parse_unity(value)?)),
-        "top" => layout_attr.push(LayoutAttr::PositionTop(parse_unity(value)?)),
-        "margin-left" => layout_attr.push(LayoutAttr::MarginLeft(parse_unity(value)?)),
-        "margin-bottom" => layout_attr.push(LayoutAttr::MarginBottom(parse_unity(value)?)),
-        "margin-right" => layout_attr.push(LayoutAttr::MarginRight(parse_unity(value)?)),
-        "margin-top" => layout_attr.push(LayoutAttr::MarginTop(parse_unity(value)?)),
-        "margin" => layout_attr.push(LayoutAttr::Margin(parse_unity(value)?)),
-        "padding-left" => layout_attr.push(LayoutAttr::PaddingLeft(parse_unity(value)?)),
-        "padding-bottom" => layout_attr.push(LayoutAttr::PaddingBottom(parse_unity(value)?)),
-        "padding-right" => layout_attr.push(LayoutAttr::PaddingRight(parse_unity(value)?)),
-        "padding-top" => layout_attr.push(LayoutAttr::PaddingTop(parse_unity(value)?)),
-        "padding" => layout_attr.push(LayoutAttr::Padding(parse_unity(value)?)),
-        "border-left" => layout_attr.push(LayoutAttr::BorderLeft(parse_unity(value)?)),
-        "border-bottom" => layout_attr.push(LayoutAttr::BorderBottom(parse_unity(value)?)),
-        "border-right" => layout_attr.push(LayoutAttr::BorderRight(parse_unity(value)?)),
-        "border-top" => layout_attr.push(LayoutAttr::BorderTop(parse_unity(value)?)),
-        "border" => layout_attr.push(LayoutAttr::Border(parse_unity(value)?)),
-        "min-width" => layout_attr.push(LayoutAttr::MinWidth(parse_unity(value)?)),
-        "min-height" => layout_attr.push(LayoutAttr::MinHeight(parse_unity(value)?)),
-        "max-width" => layout_attr.push(LayoutAttr::MaxWidth(parse_unity(value)?)),
-        "max-height" => layout_attr.push(LayoutAttr::MaxHeight(parse_unity(value)?)),
-        "flex-basis" => layout_attr.push(LayoutAttr::FlexBasis(parse_unity(value)?)),
-        "flex-shrink" => layout_attr.push(LayoutAttr::FlexShrink(parse_f32(value)?)),
-        "flex-grow" => layout_attr.push(LayoutAttr::FlexGrow(parse_f32(value)?)),
-
-        "position" => layout_attr.push(LayoutAttr::PositionType(unsafe {transmute(parse_u8(value)?)})),
-        "flex-wrap" => layout_attr.push(LayoutAttr::FlexWrap(unsafe {transmute(parse_u8(value)?)})),
-        "flex-direction" => layout_attr.push(LayoutAttr::FlexDirection(unsafe {transmute(parse_u8(value)?)})),
-        "align-content" => layout_attr.push(LayoutAttr::AlignContent(unsafe {transmute(parse_u8(value)?)})),
-        "align-items" => layout_attr.push(LayoutAttr::AlignItems(unsafe {transmute(parse_u8(value)?)})),
-        "align-self" => layout_attr.push(LayoutAttr::AlignSelf(unsafe {transmute(parse_u8(value)?)})),
-        "justify-content" => layout_attr.push(LayoutAttr::JustifyContent(unsafe {transmute(parse_u8(value)?)})),
+        "width" => {
+            class.attrs2.push(Attribute2::Width(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Width as usize;
+        },
+        "height" => {
+            class.attrs2.push(Attribute2::Height(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Height as usize;
+        },
+        "left" => {
+            class.attrs2.push(Attribute2::PositionLeft(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Position as usize;
+        },
+        "bottom" => {
+            class.attrs2.push(Attribute2::PositionBottom(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Position as usize;
+        },
+        "right" => {
+            class.attrs2.push(Attribute2::PositionRight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Position as usize;
+        },
+        "top" => {
+            class.attrs2.push(Attribute2::PositionTop(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Position as usize;
+        },
+        "margin-left" => {
+            class.attrs2.push(Attribute2::MarginLeft(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Margin as usize;
+        },
+        "margin-bottom" => {
+            class.attrs2.push(Attribute2::MarginBottom(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Margin as usize;
+        },
+        "margin-right" => {
+            class.attrs2.push(Attribute2::MarginRight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Margin as usize;
+        },
+        "margin-top" => {
+            class.attrs2.push(Attribute2::MarginTop(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Margin as usize;
+        },
+        "margin" => {
+            class.attrs2.push(Attribute2::Margin(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Margin as usize;
+        },
+        "padding-left" => {
+            class.attrs2.push(Attribute2::PaddingLeft(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Padding as usize;
+        }
+        "padding-bottom" => {
+            class.attrs2.push(Attribute2::PaddingBottom(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Padding as usize;
+        },
+        "padding-right" => {
+            class.attrs2.push(Attribute2::PaddingRight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Padding as usize;
+        },
+        "padding-top" => {
+            class.attrs2.push(Attribute2::PaddingTop(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Padding as usize;
+        },
+        "padding" => {
+            class.attrs2.push(Attribute2::Padding(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Padding as usize;
+        },
+        "border-left" => {
+            class.attrs2.push(Attribute2::BorderLeft(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Border as usize;
+        }
+        "border-bottom" => {
+            class.attrs2.push(Attribute2::BorderBottom(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Border as usize;
+        },
+        "border-right" => {
+            class.attrs2.push(Attribute2::BorderRight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Border as usize;
+        },
+        "border-top" => {
+            class.attrs2.push(Attribute2::BorderTop(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Border as usize;
+        },
+        "border" => {
+            class.attrs2.push(Attribute2::Border(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::Border as usize;
+        },
+        "min-width" => {
+            class.attrs2.push(Attribute2::MinWidth(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::MinWidth as usize;
+        },
+        "min-height" => {
+            class.attrs2.push(Attribute2::MinHeight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::MinHeight as usize;
+        },
+        "max-width" => {
+            class.attrs2.push(Attribute2::MaxWidth(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::MaxWidth as usize;
+        },
+        "max-height" => {
+            class.attrs2.push(Attribute2::MaxHeight(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::MaxHeight as usize;
+        },
+        "flex-basis" => {
+            class.attrs2.push(Attribute2::FlexBasis(parse_unity(value)?));
+            class.class_style_mark1 |= StyleType1::FlexBasis as usize;
+        },
+        "flex-shrink" => {
+            class.attrs2.push(Attribute2::FlexShrink(parse_f32(value)?));
+            class.class_style_mark1 |= StyleType1::FlexShrink as usize;
+        },
+        "flex-grow" => {
+            class.attrs2.push(Attribute2::FlexGrow(parse_f32(value)?));
+            class.class_style_mark1 |= StyleType1::FlexGrow as usize;
+        },
+        "position" => {
+            class.attrs1.push(Attribute1::PositionType(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::PositionType as usize;
+        },
+        "flex-wrap" => {
+            class.attrs1.push(Attribute1::FlexWrap(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::FlexWrap as usize;
+        },
+        "flex-direction" => {
+            class.attrs1.push(Attribute1::FlexDirection(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::FlexDirection as usize;
+        },
+        "align-content" => {
+            class.attrs1.push(Attribute1::AlignContent(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::AlignContent as usize;
+        },
+        "align-items" => {
+            class.attrs1.push(Attribute1::AlignItems(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::AlignItems as usize;
+        },
+        "align-self" => {
+            class.attrs1.push(Attribute1::AlignSelf(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::AlignSelf as usize;
+        },
+        "justify-content" => {
+            class.attrs1.push(Attribute1::JustifyContent(unsafe {transmute(parse_u8(value)?)}));
+            class.class_style_mark1 |= StyleType1::JustifyContent as usize;
+        },
         _ => (),
     };
     Ok(())

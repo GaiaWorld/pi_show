@@ -118,7 +118,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             font_sheet, 
             default_table, 
             default_state, 
-            class_sheet, 
+            _class_sheet, 
             dirty_list,
         ) = read;
         let (render_objs, engine, charblocks) = write;
@@ -187,15 +187,17 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
             let text = unsafe { texts.get_unchecked(*id) };
 
-            let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
-                if let Some(ubos) = self.class_ubos.get(class.text) {
-                    ubos
-                } else {
-                    &self.default_ubos
-                }
-            }else {
-                &self.default_ubos
-            };
+            // let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
+            //     if let Some(ubos) = self.class_ubos.get(class.text) {
+            //         ubos
+            //     } else {
+            //         &self.default_ubos
+            //     }
+            // }else {
+            //     &self.default_ubos
+            // };
+
+            let class_ubo = &self.default_ubos;
 
             let (mut program_change, mut geometry_change) = (false, false);
             let mut shadow_geometry_change  = false;
