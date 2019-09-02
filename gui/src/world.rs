@@ -93,7 +93,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     let border_image_sys = BorderImageSys::<C>::new(&mut engine);
     
 
-    let clip_sys = ClipSys::new(&mut engine, width as u32, height as u32, &(0, 0, width as i32, height as i32));
+    let clip_sys = ClipSys::<C>::new();
     let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
 
     //user
@@ -188,7 +188,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     // world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("text_layout_sys, world_matrix_sys, oct_sys".to_string(), &world);
+    dispatch.build("text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys".to_string(), &world);
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     world
