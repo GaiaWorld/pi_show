@@ -146,7 +146,10 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => continue,
+                None => {
+                    self.remove_render_obj(*id, render_objs);
+                    continue
+                },
             };
 
             let mut dirty = style_mark.dirty;
@@ -158,17 +161,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
             // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
             let (index, charblock, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
-                if style_mark.local_style & StyleType::FontFamily as usize == 0 && style_mark.class_style & StyleType::FontFamily as usize == 0 {
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                } else {
-                    let text_style = unsafe { text_styles.get_unchecked(*id) };
-                    let charblock = unsafe { charblocks.get_unchecked(*id) };
-                    let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
-                    let r = self.create_render_obj(*id, render_objs, default_state, have_shadow, charblock.is_pixel);
-                    dirty = dirty | TEXT_STYLE_DIRTY;
-                    (r, charblock, text_style)
-                }  
+                self.remove_render_obj(*id, render_objs);// 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
+                let text_style = unsafe { text_styles.get_unchecked(*id) };
+                let charblock = unsafe { charblocks.get_unchecked(*id) };
+                let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
+                let r = self.create_render_obj(*id, render_objs, default_state, have_shadow, charblock.is_pixel);
+                dirty = dirty | TEXT_STYLE_DIRTY;
+                (r, charblock, text_style) 
             } else {
                 match self.render_map.get(*id) {
                     Some(r) => (r.clone(), unsafe { charblocks.get_unchecked(*id) }, unsafe { text_styles.get_unchecked(*id) }),
@@ -737,6 +736,9 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
+                // println!("char_block : {:?}", char_block);
+                // println!("positions : {:?}", positions);
+                // println!("uvs : {:?}", uvs);
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {

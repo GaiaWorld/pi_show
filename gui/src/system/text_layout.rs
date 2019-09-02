@@ -294,7 +294,7 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r.0.clone(),
         None => {
-            println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
+            println!("font is not exist, face_name: {:?}, id: {:?}", text_style.font.family.as_ref(), id);
             return;
         },
     };
@@ -327,7 +327,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r,
         None => {
-            println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
+            println!("font is not exist, face_name: {:?}, id: {:?}", text_style.font.family.as_ref(), id);
             return true;
         },
     };
@@ -392,8 +392,10 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     // };
     if style_mark.dirty & MARK != 0{
         for i in 0..cb.chars.len() {
-            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
-            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            if !cb.chars[i].node.is_null() {
+                cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+                // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            }
         }
         unsafe{cb.chars.set_len(0)};
     }

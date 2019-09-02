@@ -164,6 +164,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+        
         let r = match event.field {
             "letter_spacing" => StyleType::LetterSpacing,
             "word_spacing" => StyleType::WordSpacing,
@@ -197,9 +198,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (text_styles, style_marks, dirty_list) = write;
         text_styles.insert_no_notify(event.id, self.default_text.clone());
-        // let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
-        // println!("StyleType::FontFamily1--------------------{}", event.id);
-        set_local_dirty(dirty_list, event.id, StyleType::Text as usize | StyleType::FontFamily as usize, style_marks);
+        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        set_dirty(dirty_list, event.id, TEXT_STYLE_DIRTY | StyleType::Text as usize, style_mark);
     }
 }
 
@@ -590,6 +590,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             
         }
 
+        
         // 重置旧的class中设置的属性
         if old_style > 0 || old_style1 > 0 {
             reset_attr(event.id, read, &mut write, old_style, old_style1, &self.default_text);
@@ -710,7 +711,6 @@ fn reset_attr<L: FlexNode, C: HalContext>(
         ) = write;
     
     let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
-
     // old_style中为1， class_style和local_style不为1的属性, 应该删除
     let old_style = !(!old_style | (old_style & (style_mark.class_style | style_mark.local_style) ));
     let old_style1 = !(!old_style1 | (old_style1 & (style_mark.class_style1 | style_mark.local_style1)));
@@ -1116,7 +1116,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
             Attribute2::FontFamily(r) => if style_mark.local_style & StyleType::FontFamily as usize == 0 {
                 text_style.font.family = r.clone();
                 set_dirty(dirty_list, id, StyleType::FontFamily as usize, style_mark);
-            },
+            } ,
             Attribute2::ZIndex(r) => if style_mark.local_style1 & StyleType1::ZIndex as usize == 0 {
                 zindexs.insert(id, ZIndex(*r));
             },

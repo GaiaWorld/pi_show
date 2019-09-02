@@ -142,6 +142,7 @@ pub struct TextContent(pub String, pub Atom);
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,
+
     pub shadow: TextShadow,
 }
 
@@ -160,6 +161,7 @@ pub struct Font{
     pub size: FontSize, //
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
+
 
 impl Default for Font {
     fn default() -> Self {

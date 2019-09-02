@@ -89,7 +89,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
-                None => continue,
+                None => {
+                    self.remove_render_obj(*id, render_objs);
+                    continue
+                },
             };
 
             let dirty = style_mark.dirty;
