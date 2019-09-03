@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    
+    <script src="../target/asmjs-unknown-emscripten/release/css_serialize.js"></script>
+    <script>
+        var __jsObj = ".1{color: #00f;letter-spacing:5px;word-spacing: 10px;font-weight:900;font-size:20px;text-align:center;line-height:60px;text-stroke:1px #f0f;text-shadow:5px 5px 2px #f00;}";
+        Module._serialize_class_map();
+        console.log(__jsObj);
+        var time = performance.now();
+        Module._deserialize_class_map();
+        console.log("time: ", performance.now() - time);
+        var time = performance.now();
+        Module._deserialize_class_map();
+        console.log("time: ", performance.now() - time);
+        var time = performance.now();
+        for(var i = 0; i < 3000; i++){
+            Module._deserialize_class_map();
+        }
+        
+        console.log("time: ", performance.now() - time);
+    </script>
+</body>
+</html>

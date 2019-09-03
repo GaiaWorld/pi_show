@@ -8,7 +8,7 @@ use fx_hashmap::FxHashMap32;
 use component::user::*;
 
 // 显示样式， 不包含布局
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Class {
     pub attrs1: Vec<Attribute1>,
     pub attrs2: Vec<Attribute2>,
@@ -18,13 +18,13 @@ pub struct Class {
     pub class_style_mark1: usize, // 标记class中布局的有效属性
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClassSheet {
     pub class_map: FxHashMap32<usize, Class>,
 }
 
 // 最小尺寸的style属性
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Attribute1 {
     PositionType(YGPositionType),
     FlexWrap(YGWrap),
@@ -44,7 +44,7 @@ pub enum Attribute1 {
     Visibility(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Attribute2 {
     LetterSpacing(f32),
     LineHeight(LineHeight),
@@ -90,7 +90,7 @@ pub enum Attribute2 {
     PositionBottom(ValueUnit),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Attribute3 {
     BGColor(BackgroundColor),
     BorderColor(BorderColor),
@@ -111,7 +111,7 @@ pub enum Attribute3 {
     Filter(Filter),
 }
 
-#[derive(Debug, Clone, EnumDefault)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum ValueUnit {
     Undefined,
     Auto,

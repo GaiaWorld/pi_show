@@ -8,6 +8,19 @@ use component::calc::*;
 use component::user::Opacity;
 use single::class::*;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
+use fx_hashmap::FxHashMap32;
+
+pub fn parse_class_map_from_string(value: &str) -> Result<FxHashMap32<usize, Class>, String> {
+    let mut parser = ClassMapParser(value);
+    let mut map = FxHashMap32::default();
+    loop {
+        match parser.next_class() {
+            Some(r) => {map.insert(r.0, parse_class_from_string(r.1)?);},
+            None => break,
+        }
+    }
+    Ok(map)
+}
 
 pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
     let mut class = Class::default();
@@ -29,6 +42,26 @@ pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
         
     }
     Ok(class)
+}
+
+struct ClassMapParser<'a> (&'a str);
+
+impl<'a> ClassMapParser<'a> {
+    fn next_class(&mut self) -> Option<(usize, &'a str)> {
+        let i = self.0.find("{");
+        let j = self.0.find("}");
+        match (i, j) {
+            (Some(i), Some(j)) => {
+                let r = (match usize::from_str(&self.0[..i].trim()[1..]){
+                    Ok(r) => r,
+                    Err(_) => return None,
+                }, self.0[i + 1..j].trim());
+                self.0 = &self.0[j+1..];
+                Some(r)
+            },
+            _ => None
+        }
+    }
 }
 
 fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {

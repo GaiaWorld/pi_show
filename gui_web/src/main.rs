@@ -11,6 +11,7 @@
 #![feature(rustc_private)]
 #![recursion_limit="512"]
 
+#[macro_use]
 extern crate serde;
 extern crate stdweb_derive;
 extern crate webgl_rendering_context;
@@ -32,8 +33,6 @@ extern crate octree;
 extern crate cg2d;
 extern crate share;
 extern crate fx_hashmap;
-#[macro_use]
-extern crate serde_derive;
 extern crate ordered_float;
 extern crate data_view;
 

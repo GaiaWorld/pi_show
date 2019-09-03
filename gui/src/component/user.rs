@@ -33,40 +33,40 @@ pub struct Layout{
     pub padding_right: f32,
     pub padding_bottom: f32,
 }
-#[derive(Deref, DerefMut, Clone, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
-#[derive(Deref, DerefMut, Clone, Component, Default)]
+#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
 pub struct Overflow(pub bool);
 //不透明度
-#[derive(Deref, DerefMut, Clone, Component, Debug)]
+#[derive(Deref, DerefMut, Clone, Component, Debug, Serialize, Deserialize)]
 pub struct Opacity(pub f32);
 
-#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq)]
+#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Show(pub usize);
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
 }
 
 // 背景色和class
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BackgroundColor(pub Color);
 
 // #[derive(Debug, Clone, Component, Default)]
 // pub struct ClassName(pub usize);
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ClassName {
     pub one: usize,
     pub two: usize,
     pub other: Vec<usize>,
 }
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderColor(pub CgColor);
 
 #[derive(Clone, Component)]
@@ -76,7 +76,7 @@ pub struct Image{
 }
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
-#[derive(Clone, Debug, Component,Default)]
+#[derive(Clone, Debug, Component,Default, Serialize, Deserialize)]
 pub struct Filter {
   pub hue_rotate: f32, //色相转换  -0.5 ~ 0.5 , 对应ps的-180 ~180
   pub saturate: f32, // 饱和度  -1。0 ~1.0 ， 对应ps的 -100 ~ 100
@@ -84,10 +84,10 @@ pub struct Filter {
 }
 
 //ObjectFit
-#[derive(Debug, Deref, DerefMut, Clone, Component, Default)]
+#[derive(Debug, Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ObjectFit(pub FitType);
 
-#[derive(Debug, Deref, DerefMut, Clone, Component)]
+#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
 pub struct ImageClip(pub Aabb2);
 
 #[derive(Clone, Component)]
@@ -96,24 +96,24 @@ pub struct BorderImage{
   pub url: Atom,
 }
 
-#[derive(Debug, Deref, DerefMut, Clone, Component)]
+#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
 pub struct BorderImageClip(pub Aabb2);
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderImageSlice{
   pub top: f32, pub right: f32, pub bottom: f32, pub left: f32, pub fill: bool,
 }
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderRadius{
   pub x: LengthUnit,
   pub y: LengthUnit,
 }
 
 // 参考CSS的box-shadow的语法
-#[derive(Debug, Clone, Default, Component)]
+#[derive(Debug, Clone, Default, Component, Serialize, Deserialize)]
 pub struct BoxShadow{
     pub h: f32,    // 水平偏移，正右负左
     pub v: f32,    // 垂直偏移，正下负上
@@ -122,7 +122,7 @@ pub struct BoxShadow{
     pub color: CgColor, // 阴影颜色
 }
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct Text{
     pub letter_spacing: f32, //字符间距， 单位：像素
     pub word_spacing: f32, //字符间距， 单位：像素
@@ -135,10 +135,10 @@ pub struct Text{
     pub vertical_align: VerticalAlign,
 }
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct TextContent(pub String, pub Atom);
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,
@@ -146,7 +146,7 @@ pub struct TextStyle {
     pub shadow: TextShadow,
 }
 
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct TextShadow{
     pub h: f32, //	必需。水平阴影的位置。允许负值。	测试
     pub v: f32, //	必需。垂直阴影的位置。允许负值。	测试
@@ -154,7 +154,7 @@ pub struct TextShadow{
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Font{
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize, //	规定字体粗细。参阅：font-weight 中可能的值。
@@ -162,6 +162,16 @@ pub struct Font{
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
 
+// will-change属性， 目前仅支持Transform, bool值代表Transform是否will-change， 未来可能支持其他属性， TODO
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+pub struct TransformWillChange(pub Transform);
+
+// pub enum WillChangeType {
+//     Transform,
+//     // Opacity,
+//     // ScrollPosition,
+//     // Contents
+// }
 
 impl Default for Font {
     fn default() -> Self {
@@ -194,19 +204,19 @@ pub enum LengthUnitType{
     Pixel,
     Percent
 }
-#[derive(Clone, Copy, Debug, EnumDefault)]
+#[derive(Clone, Copy, Debug, EnumDefault, Serialize, Deserialize)]
 pub enum LengthUnit {
 	Pixel(f32),
 	Percent(f32),
 }
 
-#[derive(Clone, Copy, Debug, EnumDefault)]
+#[derive(Clone, Copy, Debug, EnumDefault, Serialize, Deserialize)]
 pub enum Display{
   Flex,
   None,
 }
 
-#[derive(Debug, Clone, EnumDefault)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum Color{
     // RGB(CgColor),
     RGBA(CgColor),
@@ -239,7 +249,7 @@ impl Color {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LinearGradientColor{
     pub direction: f32,
     pub list: Vec<ColorAndPosition>,
@@ -258,7 +268,7 @@ impl Hash for LinearGradientColor {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RadialGradientColor{
     pub center: (f32, f32),
     pub shape: RadialGradientShape,
@@ -266,13 +276,15 @@ pub struct RadialGradientColor{
     pub list: Vec<ColorAndPosition>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorAndPosition{
     pub position: f32,
     pub rgba: CgColor,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
+
+
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum RadialGradientSize{
     ClosestSide,
     FarthesSide,
@@ -280,7 +292,7 @@ pub enum RadialGradientSize{
     Farthescorner,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum RadialGradientShape{
     Ellipse,
     Circle,
@@ -329,14 +341,14 @@ pub fn to_radial_gradient_color(color_and_positions: Vec<f32>, center_x: f32, ce
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct Stroke{
     pub width: f32, //	描边宽度
     pub color: CgColor, //	描边颜色
 }
 
 // 图像填充的方式
-#[derive(Debug, Clone, EnumDefault)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum FitType {
   None,
   Fill,
@@ -348,14 +360,14 @@ pub enum FitType {
   RepeatY,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum BorderImageRepeatType {
   Stretch, // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
   Repeat, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
   Round, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
   Space, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
 }
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum FontSize {
     None,	// 默认尺寸。
     Length(f32),	//把 font-size 设置为一个固定的值。
@@ -363,7 +375,7 @@ pub enum FontSize {
 }
 
 //设置行高
-#[derive(Debug, Clone, Copy, EnumDefault)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum LineHeight{
     Normal, //设置合理的行间距（等于font-size）
     Length(f32), //固定像素
@@ -371,7 +383,7 @@ pub enum LineHeight{
     Percent(f32),   //	基于当前字体尺寸的百分比行间距.
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransformFunc {
     TranslateX(f32),
     TranslateY(f32),
@@ -389,7 +401,7 @@ pub enum TransformFunc {
     RotateZ(f32),
 }
 
-#[derive(Debug, Clone, EnumDefault)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum TransformOrigin{
     Center,
     XY(LengthUnit, LengthUnit),
@@ -422,7 +434,7 @@ enum ShowType{
   Enable = 12, // 0表示no Enable
 }
 
-#[derive(Debug, Clone, EnumDefault, Copy)]
+#[derive(Debug, Clone, EnumDefault, Copy, Serialize, Deserialize)]
 pub enum EnableType{
     Auto = 0, 
     None = 1,
@@ -465,7 +477,7 @@ impl Transform {
 }
 
 //对齐元素中的文本
-#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash, Serialize, Deserialize)]
 pub enum TextAlign{
     Left,	//把文本排列到左边。默认值：由浏览器决定。
     Right,	//把文本排列到右边。
@@ -474,7 +486,7 @@ pub enum TextAlign{
 }
 
 //设置元素中空白的处理方式
-#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash, Serialize, Deserialize)]
 pub enum WhiteSpace{
     Normal, //	默认。空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围会换行。
     Nowrap, //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
@@ -514,13 +526,13 @@ impl WhiteSpace {
     }
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash, Serialize, Deserialize)]
 pub enum FontStyle{
     Normal, //	默认值。标准的字体样式。
     Ttalic, //	斜体的字体样式。
     Oblique, //	倾斜的字体样式。
 }
-#[derive(Debug, Clone, Copy, EnumDefault, Hash)]
+#[derive(Debug, Clone, Copy, EnumDefault, Hash, Serialize, Deserialize)]
 pub enum VerticalAlign{
     Top,
     Middle,
@@ -590,7 +602,7 @@ impl Default for BorderImageClip {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum FilterFun{
   GrayScale(f32), //将图像转换为灰度图像。值定义转换的比例。值为100%则完全转为灰度图像，值为0%图像无变化
   HueRotate(f32),//给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg

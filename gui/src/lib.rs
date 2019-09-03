@@ -26,6 +26,7 @@ extern crate debug_info;
 #[macro_use]
 extern crate hal_derive;
 pub extern crate paste;
+#[macro_use]
 extern crate serde;
  
 extern crate share;
@@ -51,6 +52,7 @@ extern crate hashmap;
 extern crate ordered_float;
 extern crate fxhash;
 extern crate fx_hashmap;
+extern crate densevec;
 
 pub mod system;
 pub mod component;

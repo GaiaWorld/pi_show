@@ -73,7 +73,7 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn free_recursive(&self);
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGAlign {
     YGAlignAuto = 0,
     YGAlignFlexStart = 1,
@@ -91,21 +91,21 @@ pub enum YGDimension {
     YGDimensionHeight = 1,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGDirection {
     YGDirectionInherit = 0,
     YGDirectionLTR = 1,
     YGDirectionRTL = 2,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGDisplay {
     YGDisplayFlex = 0,
     YGDisplayNone = 1,
 }
 
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGEdge {
     YGEdgeLeft = 0,
     YGEdgeTop = 1,
@@ -124,7 +124,7 @@ pub enum YGExperimentalFeature {
     YGExperimentalFeatureWebFlexBasis = 0,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGFlexDirection {
     YGFlexDirectionColumn = 0,
     YGFlexDirectionColumnReverse = 1,
@@ -132,7 +132,7 @@ pub enum YGFlexDirection {
     YGFlexDirectionRowReverse = 3,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGJustify {
     YGJustifyFlexStart = 0,
     YGJustifyCenter = 1,
@@ -172,7 +172,7 @@ pub enum YGOverflow {
     YGOverflowScroll = 2,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGPositionType {
     YGPositionTypeRelative = 0,
     YGPositionTypeAbsolute = 1,
@@ -185,7 +185,7 @@ pub enum YGPrintOptions {
     YGPrintOptionsChildren = 4,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGUnit {
     YGUnitUndefined = 0,
     YGUnitPoint = 1,
@@ -193,7 +193,7 @@ pub enum YGUnit {
     YGUnitAuto = 3,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGWrap {
     YGWrapNoWrap = 0,
     YGWrapWrap = 1,

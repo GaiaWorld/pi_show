@@ -124,7 +124,7 @@ fn set_local_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark
 }
 
 #[inline]
-fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark ) {
+fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
     if style_mark.dirty == 0 {
         dirty_list.0.push(id);
     }
@@ -169,7 +169,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
             "letter_spacing" => StyleType::LetterSpacing,
             "word_spacing" => StyleType::WordSpacing,
             "line_height" => StyleType::LineHeight,
-            "text _indent" => StyleType::Indent,
+            "text_indent" => StyleType::Indent,
             "color" => StyleType::Color,
             "stroke" => StyleType::Stroke,
             "text_align" => StyleType::TextAlign,
