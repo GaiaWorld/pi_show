@@ -10,7 +10,7 @@ use atom::Atom;
 use gui::component::user::*;
 use gui::render::res::{TextureRes};
 use gui::single::*;
-use gui::single::style_parse::{Attribute, parse_class_from_string};
+use gui::single::style_parse::{parse_class_from_string};
 use GuiWorld;
 
 // #[macro_use()]
@@ -340,37 +340,55 @@ pub fn set_default_style(world: u32){
     let r = match parse_class_from_string(value.as_str()) {
         Ok(r) => r,
         Err(e) => {
-            println!("{:?}", e);
+            println!("set_default_style error, {:?}", e);
             return;
         },
     };
-
     let mut text_style = TextStyle::default();
     // let mut border_color = BorderColor::default();
     // let mut bg_color = BackgroundColor::default();
     // let mut box_shadow = BoxShadow::default();
 
-    for attr in r.0.into_iter() {
+    for attr in r.attrs1.into_iter() {
         match attr {
             // Attribute::BGColor(r) => bg_color = r,
-            Attribute::Color(r) => text_style.text.color = r,
-            Attribute::LetterSpacing(r) => text_style.text.letter_spacing = r,
-            Attribute::WordSpacing(r) => text_style.text.word_spacing = r,
-            Attribute::LineHeight(r) => text_style.text.line_height = r,
-            Attribute::TextAlign(r) => text_style.text.text_align = r,
-            Attribute::TextIndent(r) => text_style.text.indent = r,
-            Attribute::TextShadow(r) => text_style.shadow = r,
-            Attribute::WhiteSpace(r) => text_style.text.white_space = r,
-            Attribute::TextStroke(r) => text_style.text.stroke = r,
-            Attribute::FontWeight(r) => text_style.font.weight = r as usize,
-            Attribute::FontSize(r) => text_style.font.size = r,
-            Attribute::FontFamily(r) => text_style.font.family = r,
+            Attribute1::TextAlign(r) => text_style.text.text_align = r,
+            Attribute1::WhiteSpace(r) => text_style.text.white_space = r,
 
             // Attribute::BorderColor(r) => border_color = r,
             _ => println!("set_class error"),
         }
     }
 
+    for attr in r.attrs2.into_iter() {
+        match attr {
+            Attribute2::LetterSpacing(r) => text_style.text.letter_spacing = r,
+            Attribute2::WordSpacing(r) => text_style.text.word_spacing = r,
+            Attribute2::LineHeight(r) => text_style.text.line_height = r,
+            Attribute2::TextIndent(r) => text_style.text.indent = r,
+            
+            Attribute2::FontWeight(r) => text_style.font.weight = r as usize,
+            Attribute2::FontSize(r) => text_style.font.size = r,
+            Attribute2::FontFamily(r) => text_style.font.family = r,
+
+            // Attribute::BorderColor(r) => border_color = r,
+            _ => println!("set_class error"),
+        }
+    }
+
+    for attr in r.attrs3.into_iter() {
+        match attr {
+            Attribute3::Color(r) => text_style.text.color = r,
+            Attribute3::TextShadow(r) => text_style.shadow = r,
+            Attribute3::TextStroke(r) => text_style.text.stroke = r,
+            // Attribute::BorderColor(r) => border_color = r,
+            _ => println!("set_class error"),
+        }
+    }
+
     world.default_text_style = text_style;
-    world.default_layout_attr = r.1;
+    let default_table = world.gui.default_table.lend_mut();
+    default_table.set(world.default_text_style.clone());
+    default_table.get_notify().modify_event(0, "", 0);
+    // world.default_layout_attr = r.1;
 }

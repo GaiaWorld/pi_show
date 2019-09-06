@@ -522,10 +522,11 @@ pub fn create_default_sampler<C: HalContext + 'static>(engine: &mut Engine<C>) -
     let mut hasher = FxHasher32::default();
     default_sampler.hash(&mut hasher);
     let hash = hasher.finish();
-    match engine.res_mgr.get::<HalSampler>(&hash) {
+    let r = match engine.res_mgr.get::<HalSampler>(&hash) {
         Some(r) => r,
         None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
-    }
+    };
+    r
 }
 
 // 用位置流和索引流创建一个geometry

@@ -4,8 +4,9 @@ use std::ops::{Deref, DerefMut, Mul};
 
 use map::{vecmap::VecMap};
 use ecs::component::Component;
-
 use share::{ Share };
+use densevec::DenseVecMap;
+
 use hal_core::*;
 
 use super::user::*;
@@ -132,6 +133,7 @@ pub enum StyleType1{
     Enable = 0x400000,
     ZIndex = 0x800000,
     Transform = 0x1000000,
+    TransformWillChange = 0x2000000,
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]
@@ -140,6 +142,7 @@ pub struct StyleMark{
     pub dirty1: usize,
     pub local_style: usize,
     pub class_style: usize,
+    pub class_style1: usize,
     pub local_style1: usize,
 }
 
@@ -170,6 +173,10 @@ pub struct CharNode<L: FlexNode + 'static> {
   pub base_width: f32, // font_size 为32 的字符宽度
   pub node: L, // 对应的yoga节点
 }
+
+#[derive(Component, Debug, Clone, Default)]
+#[storage(DenseVecMap)] 
+pub struct TransformWillChangeMatrix (pub WorldMatrix);
 
 impl Default for Enable {
   fn default() -> Self{

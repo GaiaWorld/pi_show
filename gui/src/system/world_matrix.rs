@@ -24,8 +24,12 @@ impl WorldMatrixSys{
     fn marked_dirty(&mut self, id: usize, id_tree: &SingleCaseImpl<IdTree>){
         match id_tree.get(id) {
             Some(r) => {
-                *unsafe {self.dirty_mark_list.get_unchecked_mut(id)} = true;
-                self.dirty.mark(id, r.layer)
+                let d = unsafe {self.dirty_mark_list.get_unchecked_mut(id)};
+                if *d == false {
+                    *d = true;
+                    self.dirty.mark(id, r.layer);
+                }
+                
             },
             _ => ()
         };

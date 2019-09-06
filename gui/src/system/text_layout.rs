@@ -8,6 +8,8 @@ use std::{
     marker::PhantomData,
 };
 
+use cgmath::InnerSpace;
+
 use ecs::{
     system::{Runner, MultiCaseListener},
     monitor::{CreateEvent, DeleteEvent},
@@ -191,7 +193,6 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_m
         
         // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
         calc_wrap_align(cb, &text_style, width/100.0);
-
         // let w = match width_mode {
         //     YGMeasureMode::YGMeasureModeExactly => width,
         //     _ => cb.wrap_size.x * 100.0,
@@ -286,13 +287,14 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         Some(r) => r,
         None => return, 
     };
-    let scale = unsafe { read.4.get_unchecked(id).y.y };
+    let scale = unsafe { read.4.get_unchecked(id).y.magnitude() };
+    // let scale = unsafe { read.4.get_unchecked(id).y.y };
     let text_style = unsafe{ write.3.get_unchecked(id)};
 
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r.0.clone(),
         None => {
-            println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
+            println!("font is not exist, face_name: {:?}, id: {:?}", text_style.font.family.as_ref(), id);
             return;
         },
     };
@@ -325,7 +327,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r,
         None => {
-            println!("font is not exist, face_name: {:?}", text_style.font.family.as_ref());
+            println!("font is not exist, face_name: {:?}, id: {:?}", text_style.font.family.as_ref(), id);
             return true;
         },
     };
@@ -390,8 +392,10 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     // };
     if style_mark.dirty & MARK != 0{
         for i in 0..cb.chars.len() {
-            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
-            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            if !cb.chars[i].node.is_null() {
+                cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+                // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            }
         }
         unsafe{cb.chars.set_len(0)};
     }

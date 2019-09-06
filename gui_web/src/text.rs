@@ -168,7 +168,6 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
 pub fn set_font_family(world: u32, node_id: u32){
     let value: String = js!(return __jsObj;).try_into().unwrap();
     set_attr!(world, node_id, font, family, "font_family", Atom::from(value), text_style);
-    debug_println!("set_font_family"); 
 }
 
 // 图片            配置       

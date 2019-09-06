@@ -9,11 +9,6 @@ share = { path = "../../pi_lib/share" }
 ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
-cg2d = { path = "../../pi_math_hal/cg2d" }
-color = { path = "../../pi_math_hal/color" }
-cgmath = { path = "../../pi_math_hal/cgmath" }
-octree = { path = "../../pi_math_hal/octree" }
-collision = { path = "../../pi_math_hal/collision" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
 util = {path="../../pi_lib/util"}
@@ -22,14 +17,20 @@ hashmap = {path="../../pi_lib/hashmap"}
 fx_hashmap = {path="../../pi_lib/fx_hashmap"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
-atom = {path="../../pi_lib/atom"}
+atom = {path="../../pi_lib/atom", features = ["serde"] }
 ucd = {path="../../pi_lib/ucd"}
 data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
 dirty = {path="../../pi_lib/dirty"}
+densevec = {path="../../pi_lib/densevec"}
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
 polygon = {path="../../pi_math_hal/polygon"}
+cg2d = { path = "../../pi_math_hal/cg2d"}
+color = { path = "../../pi_math_hal/color", features = ["serde"] }
+cgmath = { path = "../../pi_math_hal/cgmath", features = ["serde"]  }
+octree = { path = "../../pi_math_hal/octree" }
+collision = { path = "../../pi_math_hal/collision", features = ["serde"] }
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
