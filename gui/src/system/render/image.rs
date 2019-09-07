@@ -67,7 +67,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
@@ -86,12 +85,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
             transforms, 
             opacitys, 
             style_marks, 
-            cullings,
 
             default_table, 
             dirty_list, 
             default_state
         ) = read;
+        if dirty_list.0.len() == 0 {
+            return;
+        }
+        
         let (render_objs, engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();
         let notify = render_objs.get_notify();
@@ -162,7 +164,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
             }
 
             // 世界矩阵脏， 设置世界矩阵ubo
-            if dirty & StyleType::Matrix as usize != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
+            if dirty & StyleType::Matrix as usize != 0 {
                 let (pos, _uv) = get_pos_uv(image, image_clip, object_fit, layout);
                 let radius = cal_border_radius(border_radius, layout);
                 let mut has_radius = false;

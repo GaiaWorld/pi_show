@@ -5,6 +5,7 @@ pub mod style_parse;
 use share::Share;
 use std::any::{TypeId, Any};
 use std::default::Default;
+// use std::collections::hash_map::Entry;
 
 use cgmath::Ortho;
 use slab::Slab;
@@ -16,7 +17,7 @@ use map::vecmap::VecMap;
 use fx_hashmap::FxHashMap32;
 
 use component::user::*;
-use component::calc::ClipBox;
+use component::calc::{ClipBox, WorldMatrix};
 
 use render::res::*;
 
@@ -40,10 +41,23 @@ pub struct Clip {
 }
 
 impl OverflowClip {
-    pub fn insert_aabb(&mut self, key: usize, value: Aabb3) {
-        let (w, h) = ((value.max.x - value.min.x) / 2.0, (value.max.y - value.min.y) / 2.0 );
-        let ubo = ClipBox::new(UniformValue::Float4(value.min.x + w, value.min.y + h, w, h));
+    pub fn insert_aabb(&mut self, key: usize, value: Aabb3, view_matrix: &WorldMatrix) -> &(Aabb3, Share<dyn UniformBuffer>) {
+        let min = view_matrix * Vector4::new(value.min.x, value.min.y, 0.0, 0.0);
+        let max = view_matrix * Vector4::new(value.max.x, value.max.y, 0.0, 0.0);
+        let (w, h) = ((max.x - min.x) / 2.0, (max.y - min.y) / 2.0 );
+        let ubo = ClipBox::new(UniformValue::Float4(min.x + w, min.y + h, w, h));
+
+        // self.clip_map.entry(key).and_modify(|e|{
+        //     *e = (value, Share::new(ubo))
+        // }).or {
+        //     Entry::Occupied(mut r) => {
+        //         r.insert((value, Share::new(ubo)));
+        //         r.get()
+        //     },
+        //     Entry::Vacant(r) => r.insert((value, Share::new(ubo))),
+        // }
         self.clip_map.insert(key, (value, Share::new(ubo)));
+        self.clip_map.get(&key).unwrap()
     }
 }
 
@@ -77,16 +91,16 @@ impl Default for OverflowClip {
             //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
             // ],
         };
-        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)));
+        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)), &WorldMatrix::default());
         r
     }
 }
 
 #[derive(Debug)]
-pub struct ViewMatrix(pub Matrix4);
+pub struct ViewMatrix(pub WorldMatrix);
 
 #[derive(Clone)]
-pub struct ProjectionMatrix(pub Matrix4);
+pub struct ProjectionMatrix(pub WorldMatrix);
 
 impl ProjectionMatrix {
     pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix{
@@ -98,7 +112,7 @@ impl ProjectionMatrix {
             near: near,
             far: far,
         };
-        ProjectionMatrix(Matrix4::from(ortho))
+        ProjectionMatrix(WorldMatrix(Matrix4::from(ortho), false))
         // let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
         // ProjectionMatrix(Matrix4::new(
         //         2.0 / (right - left),                  0.0,                               0.0,                        0.0,

@@ -120,14 +120,14 @@ impl<C: HalContext + 'static> ClipSys<C>{
     ){
         match aabb {
             Some(item) => {
-                if render_obj.visibility {
+                // if render_obj.visibility {
                     render_obj.paramter.set_value("clipBox", item.1.clone());
                     if let None = render_obj.fs_defines.add("CLIP_BOX") {
                         render_obj.vs_defines.add("CLIP_BOX");
                         render_obj.fs_defines.remove("CLIP");
                         notify.modify_event(id, "program_dirty", 0);
                     }
-                }
+                // }
             },
             None => {
                 render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));

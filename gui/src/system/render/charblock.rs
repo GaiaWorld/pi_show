@@ -97,7 +97,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         &'a MultiCaseImpl<Node, TextContent>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a MultiCaseImpl<Node, TextStyle>,
-        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<FontSheet>,
         &'a SingleCaseImpl<DefaultTable>,
@@ -114,13 +113,16 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             texts, 
             style_marks, 
             text_styles, 
-            cullings,
             font_sheet, 
             default_table, 
             default_state, 
             _class_sheet, 
             dirty_list,
         ) = read;
+        if dirty_list.0.len() == 0 && !self.texture_change {
+            return;
+        } 
+
         let (render_objs, engine, charblocks) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
@@ -238,7 +240,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             }
 
             // 矩阵脏 
-            if dirty & (StyleType::Matrix as usize) != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
+            if dirty & (StyleType::Matrix as usize) != 0 {
                 modify_matrix(
                     index.text,
                     create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),
@@ -282,7 +284,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 }
 
                 
-                if (dirty & (StyleType::Matrix as usize) != 0  || dirty & (StyleType::TextShadow as usize) != 0 ) && !unsafe{cullings.get_unchecked(*id)}.0 {
+                if dirty & (StyleType::Matrix as usize) != 0  || dirty & (StyleType::TextShadow as usize) != 0  {
                     modify_matrix(
                         index.shadow,
                         create_let_top_offset_matrix(layout, world_matrix, transform, text_style.shadow.h, text_style.shadow.v, shadow_render_obj.depth),

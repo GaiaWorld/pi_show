@@ -61,7 +61,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
@@ -79,16 +78,18 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             transforms,
             opacitys,
             style_marks,
-            cullings,
 
             default_table,
             dirty_list,
             default_state,
         ) = read;
+        if dirty_list.0.len() == 0 {
+            return;
+        }
+
         let (render_objs, mut engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();
         let notify = render_objs.get_notify();
-
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -135,7 +136,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
             let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
 
             // 世界矩阵脏， 设置世界矩阵ubo
-            if dirty & StyleType::Matrix as usize != 0 && !unsafe{cullings.get_unchecked(*id)}.0 {
+            if dirty & StyleType::Matrix as usize != 0 {
                 modify_matrix(
                     render_index,
                     create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, render_obj.depth),

@@ -392,3 +392,23 @@ pub fn set_default_style(world: u32){
     default_table.get_notify().modify_event(0, "", 0);
     // world.default_layout_attr = r.1;
 }
+
+#[allow(unused_attributes)]
+#[no_mangle] 
+pub fn set_transform_will_change(world: u32, node_id: u32, value: u8){
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let node_id = node_id as usize;
+    let transforms = world.gui.transform.lend_mut();
+    let transform_will_changes = world.gui.transform_will_change.lend_mut();
+    if value == 0 {
+        if transform_will_changes.get(node_id).is_some() {
+            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
+        }
+    } else {
+        if transforms.get(node_id).is_some() {
+            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
+        } else {
+            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()) );
+        }
+    }
+}

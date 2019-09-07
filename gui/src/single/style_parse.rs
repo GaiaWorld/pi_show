@@ -31,7 +31,7 @@ pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
                 let key = p.0.trim();
                 let value = p.1[1..p.1.len()].trim();
                 match match_key(key, value, &mut class) {
-                    Err(r) => return Err(format!("{}, key: {}, value: {}", r, key, value)),
+                    Err(r) => println!("err: {}, key: {}, value: {}", r, key, value),
                     _ => (),
                 };
             },
@@ -54,7 +54,10 @@ impl<'a> ClassMapParser<'a> {
             (Some(i), Some(j)) => {
                 let r = (match usize::from_str(&self.0[..i].trim()[1..]){
                     Ok(r) => r,
-                    Err(_) => return None,
+                    Err(_) => {
+                        println!("usize::from_str fail: {:?}", &self.0[..i].trim()[1..]);
+                        return None;
+                    },
                 }, self.0[i + 1..j].trim());
                 self.0 = &self.0[j+1..];
                 Some(r)
@@ -251,7 +254,11 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::Margin as usize;
         },
         "margin" => {
-            class.attrs2.push(Attribute2::Margin(parse_unity(value)?));
+            let [r1, r2, r3, r4] = parse_four_f32(value)?;
+            class.attrs2.push(Attribute2::MarginTop(r1));
+            class.attrs2.push(Attribute2::MarginRight(r2));
+            class.attrs2.push(Attribute2::MarginBottom(r3));
+            class.attrs2.push(Attribute2::MarginLeft(r4));
             class.class_style_mark1 |= StyleType1::Margin as usize;
         },
         "padding-left" => {
@@ -271,7 +278,11 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::Padding as usize;
         },
         "padding" => {
-            class.attrs2.push(Attribute2::Padding(parse_unity(value)?));
+            let [r1, r2, r3, r4] = parse_four_f32(value)?;
+            class.attrs2.push(Attribute2::PaddingTop(r1));
+            class.attrs2.push(Attribute2::PaddingRight(r2));
+            class.attrs2.push(Attribute2::PaddingBottom(r3));
+            class.attrs2.push(Attribute2::PaddingLeft(r4));
             class.class_style_mark1 |= StyleType1::Padding as usize;
         },
         "border-left" => {
@@ -291,7 +302,8 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "border" => {
-            class.attrs2.push(Attribute2::Border(parse_unity(value)?));
+            let [r1, _, _, _] = parse_four_f32(value)?;
+            class.attrs2.push(Attribute2::Border(r1));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "min-width" => {
@@ -323,31 +335,31 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::FlexGrow as usize;
         },
         "position" => {
-            class.attrs1.push(Attribute1::PositionType(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::PositionType(parse_yg_position_type(value)?));
             class.class_style_mark1 |= StyleType1::PositionType as usize;
         },
         "flex-wrap" => {
-            class.attrs1.push(Attribute1::FlexWrap(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::FlexWrap(parse_yg_wrap(value)?));
             class.class_style_mark1 |= StyleType1::FlexWrap as usize;
         },
         "flex-direction" => {
-            class.attrs1.push(Attribute1::FlexDirection(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::FlexDirection(parse_yg_direction(value)?));
             class.class_style_mark1 |= StyleType1::FlexDirection as usize;
         },
         "align-content" => {
-            class.attrs1.push(Attribute1::AlignContent(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::AlignContent(parse_yg_align(value)?));
             class.class_style_mark1 |= StyleType1::AlignContent as usize;
         },
         "align-items" => {
-            class.attrs1.push(Attribute1::AlignItems(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::AlignItems(parse_yg_align(value)?));
             class.class_style_mark1 |= StyleType1::AlignItems as usize;
         },
         "align-self" => {
-            class.attrs1.push(Attribute1::AlignSelf(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::AlignSelf(parse_yg_align(value)?));
             class.class_style_mark1 |= StyleType1::AlignSelf as usize;
         },
         "justify-content" => {
-            class.attrs1.push(Attribute1::JustifyContent(unsafe {transmute(parse_u8(value)?)}));
+            class.attrs1.push(Attribute1::JustifyContent(parse_yg_justify(value)?));
             class.class_style_mark1 |= StyleType1::JustifyContent as usize;
         },
         _ => (),
@@ -371,6 +383,19 @@ fn parse_display(value: &str) -> Result<Display, String>{
         _ => return Err( format!("parse_display:{}", value) ),
     }
 }
+
+// fn parse_enum_to_u8(value: &str) -> Result<u8, String>{
+//     match value {
+//         "relative" | "column" | "start" | "auto"  => Ok(0),
+//         "absolute" | "column-reverse" | "center" | "" => Ok(1),
+//         "row" | "end" => Ok(2),
+//         "absolute" | "row-reverse" | "space-between" => Ok(3),
+//         "space-around" => Ok(4),
+//         "space-evenly" => Ok(5),
+//         _ => return Err( format!("parse_enum_to_u8:{}", value) ),
+//     }
+// }
+
 
 fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
     let r = match value {
@@ -510,6 +535,72 @@ fn parse_text_align(value: &str) -> Result<TextAlign, String>{
     }
 }
 
+fn parse_yg_align(value: &str) -> Result<YGAlign, String> {
+    match value {
+        "auto" => Ok(YGAlign::YGAlignAuto),
+        "flex-start" => Ok(YGAlign::YGAlignFlexStart),
+        "center" => Ok(YGAlign::YGAlignCenter),
+        "flex-end" => Ok(YGAlign::YGAlignFlexEnd),
+        "stretch" => Ok(YGAlign::YGAlignStretch),
+        "baseline" => Ok(YGAlign::YGAlignBaseline),
+        "space-between" => Ok(YGAlign::YGAlignSpaceBetween),
+        "space-around" => Ok(YGAlign::YGAlignSpaceAround),
+        _ => Err(format!("parse_yg_align error, value: {}", value))
+    }
+}
+
+// fn parse_yg_align(value: &str) -> Result<TextAlign, String> {
+//     match value {
+//         "auto" => Ok(YGAlign::YGAlignAuto),
+//         "flex-start" => Ok(YGAlign::YGAlignFlexStart),
+//         "center" => Ok(YGAlign::YGAlignCenter),
+//         "flex-end" => Ok(YGAlign::YGAlignFlexEnd),
+//         "stretch" => Ok(YGAlign::YGAlignStretch),
+//         "baseline" => Ok(YGAlign::YGAlignBaseline),
+//         "space-between" => Ok(YGAlign::YGAlignSpaceBetween),
+//         "space-around" => Ok(YGAlign::YGAlignSpaceAround),
+//         _ => Err(format!("parse_yg_align error, value: {}", value))
+//     }
+// }
+
+fn parse_yg_direction(value: &str) -> Result<YGFlexDirection, String> {
+    match value {
+        "column" => Ok(YGFlexDirection::YGFlexDirectionColumn),
+        "column-reverse" => Ok(YGFlexDirection::YGFlexDirectionColumnReverse),
+        "row" => Ok(YGFlexDirection::YGFlexDirectionRow),
+        "row-reverse" => Ok(YGFlexDirection::YGFlexDirectionRowReverse),
+        _ => Err(format!("parse_yg_direction error, value: {}", value))
+    }
+}
+
+fn parse_yg_justify(value: &str) -> Result<YGJustify, String> {
+    match value {
+        "flex-start" => Ok(YGJustify::YGJustifyFlexStart),
+        "center" => Ok(YGJustify::YGJustifyCenter),
+        "flex-end" => Ok(YGJustify::YGJustifyFlexEnd),
+        "space-between" => Ok(YGJustify::YGJustifySpaceBetween),
+        "space-around" => Ok(YGJustify::YGJustifySpaceAround),
+        _ => Err(format!("parse_yg_justify error, value: {}", value))
+    }
+}
+
+fn parse_yg_position_type(value: &str) -> Result<YGPositionType, String> {
+    match value {
+        "relative" => Ok(YGPositionType::YGPositionTypeRelative),
+        "absolute" => Ok(YGPositionType::YGPositionTypeAbsolute),
+        _ => Err(format!("parse_yg_position_type error, value: {}", value))
+    }
+}
+
+fn parse_yg_wrap(value: &str) -> Result<YGWrap, String> {
+    match value {
+        "no-wrap" => Ok(YGWrap::YGWrapNoWrap),
+        "wrap" => Ok(YGWrap::YGWrapWrap),
+        "wrap-reverse" => Ok(YGWrap::YGWrapWrapReverse),
+        _ => Err(format!("parse_yg_wrap error, value: {}", value))
+    }
+}
+
 fn parse_font_size(value: &str) -> Result<FontSize, String> {
     if value.ends_with("%") {
         let v = match f32::from_str(value) {
@@ -636,6 +727,7 @@ fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, St
         None => if value.len() == 0 {
             return Err("".to_string());
         } else {
+            *i += value.len();
             return Ok(value)
         },
     };
@@ -877,9 +969,47 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
     Ok(color)
 }
 
+// 上右下左
+fn parse_four_f32(value: &str) -> Result<[ValueUnit; 4], String> {
+    let r;
+    let mut i = 0;
+    let mut arr = Vec::default();
+    loop {
+        match iter_by_space(value, &mut i) {
+            Ok(r) => {
+                arr.push(r);
+            },
+            Err(_) => break,
+        }
+    }
+    if arr.len() == 0 {
+        return Err(format!("parse_four_f32 error: {}", value));
+    }
+
+    if arr.len() == 1 {
+        let v = parse_unity(arr[0])?;
+        r = [v.clone(), v.clone(), v.clone(), v];
+    } else if arr.len() == 2 {
+        let v = parse_unity(arr[0])?;
+        let v1 = parse_unity(arr[1])?;
+        r = [v.clone(), v, v1.clone(), v1];
+    } else if arr.len() == 3 {
+        let v = parse_unity(arr[0])?;
+        let v1 = parse_unity(arr[1])?;
+        let v2 = parse_unity(arr[2])?;
+        r = [v, v1.clone(), v2, v1];
+    } else if arr.len() == 4 {
+        r = [parse_unity(arr[0])?, parse_unity(arr[1])?, parse_unity(arr[2])?, parse_unity(arr[3])?];
+    } else {
+        return Err(format!("parse_four_f32 error: {}", value));
+    }
+
+    Ok(r)
+}
+
 fn parse_unity(value: &str) -> Result<ValueUnit, String> {
     if value.ends_with("%") {
-        let v = match f32::from_str(value) {
+        let v = match f32::from_str(&value[..value.len() - 1]) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };

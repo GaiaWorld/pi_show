@@ -19,17 +19,19 @@ use fx_hashmap::FxHashMap32;
 #[no_mangle]
 pub fn serialize_class_map() {
     let value: String = js!(return __jsObj;).try_into().unwrap();
-    if let Ok(r) = parse_class_map_from_string(value.as_str()) {
-        if let Ok(bin) = bincode::serialize(&r) {
-            let bin = TypedArray::<u8>::from(bin.as_slice());
-            js!{
-                __jsObj = @{bin};
-            }
-            return;
-        }
-        
-    }
-    js!{__jsObj = null;};
+    match parse_class_map_from_string(value.as_str()) {
+        Ok(r) => match bincode::serialize(&r) {
+            Ok(bin) => {
+                let bin = TypedArray::<u8>::from(bin.as_slice());
+                js!{
+                    __jsObj = @{bin};
+                }
+                return;
+            },
+            Err(r) => {js!{__jsObj = @{r.to_string()};};}
+        },
+        Err(r) => {js!{__jsObj = @{r};};},
+    };
 }
 
 #[allow(unused_attributes)]
