@@ -67,6 +67,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        if (read.12).0.len() == 0 {
+            return;
+        }
         let (
             layouts,
             z_depths,
@@ -84,10 +87,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
             dirty_list,
             default_state,
         ) = read;
-
-        if dirty_list.0.len() == 0 {
-            return;
-        }
         
         let (render_objs, engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();

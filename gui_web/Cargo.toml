@@ -12,6 +12,7 @@ ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }
 debug_info = { path = "../../pi_lib/debug_info" }
 fx_hashmap = { path = "../../pi_lib/fx_hashmap" }
+bincode = {path="../../pi_lib/bincode"}
 hal_webgl = {path="../hal_webgl"}
 hal_core = {path="../hal_core"}
 cg2d = { path = "../../pi_math_hal/cg2d" }

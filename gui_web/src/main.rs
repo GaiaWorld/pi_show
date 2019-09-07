@@ -35,6 +35,7 @@ extern crate share;
 extern crate fx_hashmap;
 extern crate ordered_float;
 extern crate data_view;
+extern crate bincode;
 
 use std::mem::transmute;
 
