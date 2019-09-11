@@ -17,7 +17,6 @@ use gui::component::user::*;
 use gui::component::calc::*;
 use gui::single::*;
 use gui::entity::Node;
-use gui::render::res::{TextureRes};
 // use gui::
 // use gui::system::set_layout_style;
 use gui::Z_MAX;
@@ -119,7 +118,7 @@ pub fn set_src(world: u32, node: u32){
 	let name = Atom::from(name);
 	let engine = world.engine.lend_mut();
 
-	match engine.res_mgr.get::<TextureRes>(&name) {
+	match engine.texture_res_map.get(&name) {
 		Some(r) => {
 			let image = world.image.lend_mut();
 			image.insert(node, Image{src: r, url: name});

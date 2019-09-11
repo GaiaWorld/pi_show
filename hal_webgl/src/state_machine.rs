@@ -340,10 +340,10 @@ impl StateMachine {
                     for (i, v) in gimpl.attributes.iter().enumerate() {
                         if let Some(v) = v {
                             if let Some(a) = get_ref(buffer_slab, v.handle.0, v.handle.1) {
-                                if !self.enable_attrib_indices[i] {
+                                // if !self.enable_attrib_indices[i] {
                                     self.enable_attrib_indices[i] = true;
                                     gl.enable_vertex_attrib_array(i as u32);
-                                }
+                                // }
                                 gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&a.handle));
                                 gl.vertex_attrib_pointer(i as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
                             }
@@ -411,10 +411,10 @@ impl StateMachine {
         let is_vao_extension = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         if !is_vao_extension {
             for (i, v) in self.enable_attrib_indices.iter_mut().enumerate() {
-                if *v {
+                // if *v {
                     *v = false;
                     gl.disable_vertex_attrib_array(i as u32);
-                }
+                // }
             }
         }
         self.tex_caches.reset(texture_slab);

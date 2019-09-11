@@ -6,7 +6,7 @@ use share::Share;
 // use std::hash::{ Hasher, Hash };
 
 // use ordered_float::NotNan;
-// use fxhash::FxHasher32;
+// use hash::XHashMap;
 
 use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use map::{ vecmap::VecMap } ;
@@ -18,7 +18,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{ Engine};
+use render::engine::{Engine, AttributeDecs};
 use render::res::GeometryRes;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
@@ -147,7 +147,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             // 颜色修改， 设置ucolor ubo
             if dirty & StyleType::BorderColor as usize != 0 {
                 // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
-                render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(color, engine));
+                render_obj.paramter.as_ref().set_value("uColor", engine.create_u_color_ubo(color));
             }
 
             // 布局或圆角修改， 重新创建geometry
@@ -238,7 +238,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
 // // 计算
 // fn geometry_hash(radiu: Option<&BorderRadius>, layout: &Layout) -> u64 {
 //     let radius     = cal_border_radius(radiu, layout);
-//     let mut hasher = FxHasher32::default();
+//     let mut hasher = XHashMap::default();
 
 //     BORDER_COLOR.hash(&mut hasher);
 
@@ -257,7 +257,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
 #[inline]
 fn create_geo<C: HalContext + 'static>(radiu: Option<&BorderRadius>, layout: &Layout, engine: &mut Engine<C>) -> Share<GeometryRes>{
     let buffer = get_geo_flow(radiu, layout);
-    Share::new(create_p_i_geometry(buffer.0.as_slice(), buffer.1.as_slice(), engine))
+	engine.create_geo_res(0, buffer.1.as_slice(), &[AttributeDecs::new(AttributeName::Position, buffer.0.as_slice(), 2)])
 }
 
 #[inline]

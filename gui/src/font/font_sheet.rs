@@ -15,7 +15,7 @@ use render::res::{TextureRes};
 
 use component::user::*;
 use font::font_tex::*;
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
 pub const FONT_SIZE: f32 = 32.0;
 
@@ -44,13 +44,13 @@ const BLOD_FACTOR: f32 = 1.13;
 pub struct FontSheet {
     size: f32,
     color: CgColor,
-    pub src_map: FxHashMap32<Atom, TexFont>,
-    face_map: FxHashMap32<Atom, FontFace>,
-    char_w_map: FxHashMap32<(Atom, char, bool/*是否为加粗字体*/), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
-    pub char_map: FxHashMap32<(Atom, usize, /* font_size */ usize, /* stroke_width */ usize, /* weight */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
+    pub src_map: XHashMap<Atom, TexFont>,
+    face_map: XHashMap<Atom, FontFace>,
+    char_w_map: XHashMap<(Atom, char, bool/*是否为加粗字体*/), (f32,/* char width */ Atom, /* font */ f32,/* factor */ bool), >,
+    pub char_map: XHashMap<(Atom, usize, /* font_size */ usize, /* stroke_width */ usize, /* weight */ char, ), usize, /* slab id */>, // key (font, stroke_width, char) // 永不回收
     pub char_slab: Slab<(char, Glyph)>, // 永不回收 (char, Glyph, font_size, stroke_width) // 永不回收
     pub wait_draw_list: Vec<TextInfo>,
-    pub wait_draw_map: FxHashMap32<(Atom, usize/*font_size*/, usize /*stroke_width*/, usize /*font_weight */), (usize/* TextInfo_Index */, f32/* v */)>,
+    pub wait_draw_map: XHashMap<(Atom, usize/*font_size*/, usize /*stroke_width*/, usize /*font_weight */), (usize/* TextInfo_Index */, f32/* v */)>,
     measure_char: Box<dyn Fn(&Atom, usize, char)-> f32>,
     pub font_tex: FontTex,
 }
@@ -60,13 +60,13 @@ impl  FontSheet {
         FontSheet {
             size: FONT_SIZE,
             color: CgColor::default(),
-            src_map: FxHashMap32::default(),
-            face_map: FxHashMap32::default(),
-            char_w_map: FxHashMap32::default(),
-            char_map: FxHashMap32::default(),
+            src_map: XHashMap::default(),
+            face_map: XHashMap::default(),
+            char_w_map: XHashMap::default(),
+            char_map: XHashMap::default(),
             char_slab: Slab::default(),
             wait_draw_list: Vec::new(),
-            wait_draw_map: FxHashMap32::default(),
+            wait_draw_map: XHashMap::default(),
             measure_char: measure,
             font_tex: FontTex::new(texture),
         }

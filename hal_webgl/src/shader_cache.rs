@@ -4,7 +4,7 @@ use webgl_rendering_context::{
     WebGLShader,
     WebGLRenderingContext,
 };
-use fx_hashmap::{FxHashMap32};
+use hash::XHashMap;
 
 use atom::{Atom};
 use hal_core::*;
@@ -21,9 +21,9 @@ pub struct Shader {
 
 #[derive(Debug)]
 pub struct LayoutLocation {
-    pub textures: FxHashMap32<Atom, usize>,
-    pub uniforms: FxHashMap32<Atom, (usize, usize)>,
-    pub single_uniforms: FxHashMap32<Atom, usize>,
+    pub textures: XHashMap<Atom, usize>,
+    pub uniforms: XHashMap<Atom, (usize, usize)>,
+    pub single_uniforms: XHashMap<Atom, usize>,
 }
 
 /**
@@ -35,11 +35,11 @@ pub struct LayoutLocation {
 pub struct ShaderCache {
     
     // 代码缓存
-    code_caches: FxHashMap32<Atom, String>,
+    code_caches: XHashMap<Atom, String>,
 
-    shader_caches: FxHashMap32<u64, Shader>,
+    shader_caches: XHashMap<u64, Shader>,
 
-    location_caches: FxHashMap32<(Atom, Atom), LayoutLocation>,
+    location_caches: XHashMap<(Atom, Atom), LayoutLocation>,
 }
 
 impl ShaderCache {
@@ -50,9 +50,9 @@ impl ShaderCache {
      */
     pub fn new() -> ShaderCache {
         ShaderCache {
-            code_caches: FxHashMap32::default(),
-            shader_caches: FxHashMap32::default(),
-            location_caches: FxHashMap32::default(),
+            code_caches: XHashMap::default(),
+            shader_caches: XHashMap::default(),
+            location_caches: XHashMap::default(),
         }
     }
 
@@ -67,19 +67,19 @@ impl ShaderCache {
         let vs_fs = (vs_name.clone(), fs_name.clone());
         
         if self.location_caches.get(&vs_fs).is_none() {
-            let mut uniforms = FxHashMap32::default();
+            let mut uniforms = XHashMap::default();
             for (i, ubo) in layout.uniforms.iter().enumerate() {
                 for (j, u) in ubo.iter().enumerate() {
                     uniforms.insert(Atom::from(*u), (i, j));
                 }
             }
             
-            let mut single_uniforms = FxHashMap32::default();
+            let mut single_uniforms = XHashMap::default();
             for (i, u) in layout.single_uniforms.iter().enumerate() {
                 single_uniforms.insert(Atom::from(*u), i);
             }
 
-            let mut textures = FxHashMap32::default();
+            let mut textures = XHashMap::default();
             for (i, u) in layout.textures.iter().enumerate() {
                 textures.insert(Atom::from(*u), i);
             }

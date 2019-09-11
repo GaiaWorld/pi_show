@@ -64,7 +64,7 @@
     <script src="shader/canvas_text.js"></script>
     <script src="shader/init.js"></script>
     <script>
-        var gui = Module._create_gui(engine, 1000, 700);
+        var gui = create_gui(1000, 700);
 
         var body = Module._create_node(gui);
         Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒

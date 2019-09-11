@@ -9,12 +9,13 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListen
 use ecs::idtree::IdTree;
 use hal_core::*;
 use atom::Atom;
+use res::{ResMap, ResMgr};
 
 use system::util::*;
 use component::calc::*;
 use entity::{Node};
 use single::*;
-use render::engine::Engine;
+use render::engine::{Engine, UnsafeMut};
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
@@ -26,16 +27,26 @@ pub struct NodeAttrSys<C: HalContext + 'static>{
     view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     project_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     transform_will_change_matrix_dirtys: Vec<usize>,
+    hsv_ubo_map: UnsafeMut<ResMap<HsvUbo>>,
     marker: PhantomData<C>,
 }
 
 impl<C: HalContext + 'static> NodeAttrSys<C> {
-    pub fn new() -> Self{
+    pub fn new(res_mgr: &ResMgr) -> Self{
         NodeAttrSys {
             view_matrix_ubo: None,
             project_matrix_ubo: None,
             transform_will_change_matrix_dirtys: Vec::default(),
+            hsv_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<HsvUbo>().unwrap()),
             marker: PhantomData,
+        }
+    }
+
+    pub fn create_hsv_ubo(&mut self, hsv: &HSV) -> Share<dyn UniformBuffer> {
+        let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
+        match self.hsv_ubo_map.get(&h) {
+            Some(r) => r,
+            None => self.hsv_ubo_map.create(h, HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v)), 0, 0), // TODO cost
         }
     }
 }
@@ -162,10 +173,10 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Culling>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
-        let (render_objs, engine, node_render_map) = write;
+        let (render_objs, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
@@ -189,7 +200,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             render_obj.fs_defines.add("HSV");
-            paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv
+            paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
         }
     }
 }
@@ -260,9 +271,9 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Culling, ModifyEv
 // 设置hsv
 impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, HSV>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
-        let (render_objs, node_render_map, engine) = write;
+        let (render_objs, node_render_map) = write;
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
@@ -271,7 +282,7 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent>
                 let notify = render_objs.get_notify();
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
                 render_obj.fs_defines.add("HSV");
-                render_obj.paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv            
+                render_obj.paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv            
                 notify.modify_event(*id, "paramter", 0);
                 notify.modify_event(*id, "fs_defines", 0);
             }
@@ -285,14 +296,6 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent>
             }
         }
         
-    }
-}
-
-pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HSV) -> Share<dyn UniformBuffer> {
-    let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
-    match engine.res_mgr.get::<HsvUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v))),
     }
 }
 

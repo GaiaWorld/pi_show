@@ -244,8 +244,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
                         // println!("set texture fail, name: {:?}, self_layout: {:?}", name, self.get_texture_layout());
                         return false
                     },
-                };
-                true
+                }
             }
         }
     }
@@ -444,6 +443,7 @@ impl<'a> ToTokens for TextureSetValueMatch<'a> {
                     #field_name_str => {
                         s.textures[#index].0 = (value.0.item.index, value.0.item.use_count);
                         s.textures[#index].1 = (value.1.item.index, value.1.item.use_count);
+                        true
                     },
                 });
                 i += 1;

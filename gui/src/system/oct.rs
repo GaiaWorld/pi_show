@@ -90,46 +90,6 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys{
     }
 }
 
-// impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys{
-//     type ReadData = (
-//         &'a SingleCaseImpl<IdTree>,
-//         &'a MultiCaseImpl<Node, WorldMatrix>,
-//         &'a MultiCaseImpl<Node, Layout>,
-//         &'a MultiCaseImpl<Node, Transform>,
-//         &'a SingleCaseImpl<DefaultTable>,
-//     );
-//     type WriteData = &'a mut SingleCaseImpl<Oct>;
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-//         OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
-//     }
-// }
-
-
-// impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OctSys{
-//     type ReadData = (
-//         &'a SingleCaseImpl<IdTree>,
-//         &'a MultiCaseImpl<Node, WorldMatrix>,
-//         &'a MultiCaseImpl<Node, Layout>,
-//         &'a MultiCaseImpl<Node, Transform>,
-//         &'a SingleCaseImpl<DefaultTable>,
-//     );
-//     type WriteData = &'a mut SingleCaseImpl<Oct>;
-//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-//         OctSys::modify_oct(event.id, read.0, read.1, read.2, read.3, read.4, write);
-//     }
-// }
-
-impl_system!{
-    OctSys,
-    true,
-    {
-        EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
-        // MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        // SingleCaseListener<IdTree, CreateEvent>
-    }
-}
-
 fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb3{
     let start = (- origin.x, - origin.y);
     let left_top = matrix * Vector4::new(start.0, start.1, 0.0, 1.0);
@@ -152,6 +112,14 @@ fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aab
     Aabb3::new(min, max)
 }
 
+impl_system!{
+    OctSys,
+    true,
+    {
+        EntityListener<Node, CreateEvent>
+        EntityListener<Node, DeleteEvent>
+    }
+}
 
 #[cfg(test)]
 use ecs::{World, LendMut, SeqDispatcher, Dispatcher};

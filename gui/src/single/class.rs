@@ -3,7 +3,7 @@
 use layout::*;
 use atom::Atom;
 
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
 use component::user::*;
 
@@ -20,7 +20,7 @@ pub struct Class {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClassSheet {
-    pub class_map: FxHashMap32<usize, Class>,
+    pub class_map: XHashMap<usize, Class>,
 }
 
 // 最小尺寸的style属性

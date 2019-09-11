@@ -33,11 +33,13 @@ let canvas_text_vs_code = `
     varying vec2 vUV;
 
     void main() {
-        vec4 p1 = viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+		vec4 p1 = worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+		p1.x = ceil(p1.x);
+		p1.y = ceil(p1.y);
+		p1 = viewMatrix * p1;
         vec4 p = projectMatrix * p1;
 
-        // p1.x = ceil(p1.x);
-        // p1.y = ceil(p1.y);
+        
         // vec4 p = projectMatrix * viewMatrix * p1;
         gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
     #ifdef VERTEX_COLOR

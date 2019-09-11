@@ -6,7 +6,7 @@ use std::hash::{ Hasher, Hash };
 use std::marker::PhantomData;
 
 use ordered_float::NotNan;
-use fxhash::FxHasher32;
+use hash::DefaultHasher;
 use map::vecmap::VecMap;
 
 use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
@@ -19,7 +19,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::*;
 use single::*;
-use render::engine::Engine;
+use render::engine::*;
 use render::res::*;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
@@ -35,8 +35,8 @@ pub struct BackgroundColorSys<C: HalContext + 'static>{
     marker: std::marker::PhantomData<C>,
 }
 
-impl<C: HalContext + 'static> Default for BackgroundColorSys<C> {
-    fn default() -> Self {
+impl<C: HalContext + 'static> BackgroundColorSys<C> {
+    pub fn new() -> Self {
         BackgroundColorSys {
             render_map: VecMap::default(),
             dirty_ty: StyleType::BackgroundColor as usize | StyleType::Matrix as usize | StyleType::BorderRadius as usize | StyleType::Opacity as usize | StyleType::Layout as usize,
@@ -139,15 +139,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
                 modify_opacity(engine, render_obj);
             }
 
-            let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0 { 
-                // 尝试修改颜色， 以及颜色所对应的geo
-                modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
-            } else {
-                // let class_id = unsafe { classes.get_unchecked(*id) }.0;
-                let class_id = 0;
-                // 尝试修改颜色， 以及颜色所对应的geo
-                modify_class_color(render_obj, color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
-            };
+			let program_dirty = modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius);
+            // let program_dirty = if style_mark.local_style & StyleType::BackgroundColor as usize != 0 { 
+            //     // 尝试修改颜色， 以及颜色所对应的geo
+            //     modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius)
+            // } else {
+            //     // let class_id = unsafe { classes.get_unchecked(*id) }.0;
+            //     let class_id = 0;
+            //     // 尝试修改颜色， 以及颜色所对应的geo
+            //     modify_class_color(render_obj, color, engine, dirty, &self.share_ucolor_ubo, class_id, layout, &unit_quad.0, border_radius)
+            // };
             
             // program管线脏, 通知
             if program_dirty {
@@ -249,10 +250,10 @@ fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>
     if radius.x <= g_b.min.x {
         return Some(unit_quad.clone());
     } else {
-        let mut hasher = FxHasher32::default();
+        let mut hasher = DefaultHasher::default();
         radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
         let hash = hasher.finish();
-        match engine.res_mgr.get::<GeometryRes>(&hash) {
+        match engine.geometry_res_map.get(&hash) {
             Some(r) => Some(r.clone()),
             None => {
                 let r = split_by_radius(g_b.min.x, g_b.min.y, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y, radius.x - g_b.min.x, None);
@@ -260,18 +261,7 @@ fn create_rgba_geo<C: HalContext + 'static>(border_radius: Option<&BorderRadius>
                     return None;
                 } else {
                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-                    // 创建geo， 设置attribut
-                    let positions = create_buffer(&engine.gl, BufferType::Attribute, r.0.len(), Some(BufferData::Float(r.0.as_slice())), false);
-                    let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-                    let geo = create_geometry(&engine.gl);
-                    engine.gl.geometry_set_vertex_count(&geo, (r.0.len()/2) as u32);
-                    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
-                    engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
-
-                    // 创建缓存
-                    let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
-                    let share_geo = engine.res_mgr.create(hash, geo_res);
-                    return Some(share_geo);
+                    return Some(engine.create_geo_res(hash, indices.as_slice(), &[AttributeDecs::new(AttributeName::Position, r.0.as_slice(), 2)]));
                 }
             }
         }
@@ -286,7 +276,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
     }
 
     // 圆角 + 渐变hash
-    let mut hasher = FxHasher32::default();
+    let mut hasher = DefaultHasher::default();
     GRADUAL.hash(&mut hasher);
     unsafe { NotNan::unchecked_new(color.direction).hash(&mut hasher) };
     for c in color.list.iter() {
@@ -300,7 +290,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
     radius_quad_hash(&mut hasher, radius.x - g_b.min.x, g_b.max.x - g_b.min.x, g_b.max.y - g_b.min.y);
     let hash = hasher.finish();
 
-    match engine.res_mgr.get::<GeometryRes>(&hash) {
+    match engine.geometry_res_map.get(&hash) {
         Some(r) => Some(r.clone()),
         None => {
             let (positions, indices) = if radius.x <= g_b.min.x {
@@ -337,18 +327,13 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(color: &LinearGradientCol
             let colors = colors.pop().unwrap();
 
             // 创建geo， 设置attribut
-            let positions = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
-            let colors = create_buffer(&engine.gl, BufferType::Attribute, colors.len(), Some(BufferData::Float(colors.as_slice())), false);
-            let indices = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-            let geo = create_geometry(&engine.gl);
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::Color, &colors, 4).unwrap();
-            engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
-
-            // 创建缓存
-            let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(positions), Share::new(indices)]};
-            let share_geo = engine.res_mgr.create(hash, geo_res);
-            return Some(share_geo);
+            Some(engine.create_geo_res( hash, 
+                                        indices.as_slice(), 
+                                        &[
+                                            AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
+                                            AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
+                                        ]
+                                        ))
         }
     }
 }
@@ -377,10 +362,10 @@ fn modify_color<C: HalContext + 'static>(
         Color::RGBA(c) => {
             if dirty & StyleType::BackgroundColor as usize != 0 {
                 change = to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
-                render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(c, engine));
+                render_obj.paramter.as_ref().set_value("uColor", engine.create_u_color_ubo(c));
             }
             // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change || dirty & StyleType::BorderRadius as usize != 0 || dirty & StyleType::Layout as usize != 0 {    
+            if change || dirty & StyleType::BorderRadius as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
             }
         },

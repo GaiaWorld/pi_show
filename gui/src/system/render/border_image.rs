@@ -4,7 +4,7 @@
 use std::hash::{ Hasher, Hash };
 use std::marker::PhantomData;
 
-use fxhash::FxHasher32;
+use hash::DefaultHasher;
 
 use share::Share;
 use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
@@ -20,8 +20,8 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{Engine};
-use render::res::{Opacity as ROpacity, GeometryRes};
+use render::engine::{Engine, AttributeDecs};
+use render::res::{Opacity as ROpacity, GeometryRes, SamplerRes};
 use system::util::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 
@@ -45,7 +45,7 @@ lazy_static! {
 
 pub struct BorderImageSys<C: HalContext + 'static>{
     render_map: VecMap<usize>,
-    default_sampler: Share<HalSampler>,
+    default_sampler: Share<SamplerRes>,
     marker: PhantomData<C>,
 }
 
@@ -192,7 +192,7 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
     pub fn new(engine: &mut Engine<C>) -> Self{
         BorderImageSys {
             render_map: VecMap::default(),
-            default_sampler: create_default_sampler(engine),
+            default_sampler: engine.create_sampler_res(SamplerDesc::default()),
             marker: PhantomData,
         }
     }
@@ -238,19 +238,14 @@ fn create_geo<C: HalContext + 'static>(
     engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>>{
     let h = geo_hash(img, clip, slice, repeat, layout);
-    match engine.res_mgr.get::<GeometryRes>(&h) {
+    match engine.geometry_res_map.get(&h) {
         Some(r) => Some(r.clone()),
         None => {
             let (positions, uvs, indices) = get_border_image_stream(img, clip, slice, repeat, layout, Vec::new(), Vec::new(), Vec::new());
-            let p_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(&positions[..])), false));
-            let u_buffer = Share::new(create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(&uvs[..])), false));
-            let i_buffer = Share::new(create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(&indices[..])), false));
-            let geo = create_geometry(&engine.gl);
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &p_buffer, 2).unwrap();
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &u_buffer, 2).unwrap();
-            engine.gl.geometry_set_indices_short(&geo, &i_buffer).unwrap();
-            let geo_res = GeometryRes{geo: geo, buffers: vec![p_buffer, u_buffer, i_buffer]};
-            Some(engine.res_mgr.create(h, geo_res))
+            Some(engine.create_geo_res(h, indices.as_slice(), &[
+                AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
+                AttributeDecs::new(AttributeName::UV0, uvs.as_slice(), 2)
+            ]))
         }
     }
 }
@@ -263,7 +258,7 @@ fn geo_hash(
     repeat: Option<&BorderImageRepeat>,
     layout: &Layout,
 ) -> u64 {
-    let mut hasher = FxHasher32::default();
+    let mut hasher = DefaultHasher::default();
     BORDER_IMAGE.hash(&mut hasher);
     img.url.hash(&mut hasher);
     match clip {

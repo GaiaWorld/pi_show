@@ -12,7 +12,7 @@ use hal_core::*;
 
 use super::user::*;
 use layout::FlexNode;
-use render::res_mgr::*;
+use res::Res;
 
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ZDepth(pub f32);

@@ -8,11 +8,11 @@ use component::calc::*;
 use component::user::Opacity;
 use single::class::*;
 pub use layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
-pub fn parse_class_map_from_string(value: &str) -> Result<FxHashMap32<usize, Class>, String> {
+pub fn parse_class_map_from_string(value: &str) -> Result<XHashMap<usize, Class>, String> {
     let mut parser = ClassMapParser(value);
-    let mut map = FxHashMap32::default();
+    let mut map = XHashMap::default();
     loop {
         match parser.next_class() {
             Some(r) => {map.insert(r.0, parse_class_from_string(r.1)?);},
@@ -97,7 +97,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::Image as usize;
         },
         "background-image-clip" => {
-            class.attrs3.push(Attribute3::ImageClip( unsafe { transmute(parse_f32_4(value)?) } ));
+            class.attrs3.push(Attribute3::ImageClip( unsafe { transmute(parse_f32_4(value, " ")?) } ));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
         },
         "object-fit" =>  {
@@ -110,7 +110,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::BorderImage as usize;
         },
         "border-image-clip" => {
-            class.attrs3.push(Attribute3::BorderImageClip( unsafe { transmute(parse_f32_4(value)?) } ));
+            class.attrs3.push(Attribute3::BorderImageClip( unsafe { transmute(parse_f32_4(value, " ")?) } ));
             class.class_style_mark |= StyleType::BorderImageClip as usize;
         },
         "border-image-slice" => {
@@ -201,7 +201,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::ZIndex as usize;
         },
         "visibility" => {
-            class.attrs1.push(Attribute1::Visibility( parse_bool(value)? ));
+            class.attrs1.push(Attribute1::Visibility( parse_visibility(value)? ));
             class.class_style_mark1 |= StyleType1::Visibility as usize;
         },
         "pointer-events" => {
@@ -286,24 +286,31 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::Padding as usize;
         },
         "border-left" => {
-            class.attrs2.push(Attribute2::BorderLeft(parse_unity(value)?));
+			let r = parse_border(value)?;
+            class.attrs2.push(Attribute2::BorderLeft(r.0));
+			class.attrs3.push(Attribute3::BorderColor(BorderColor(r.1)));
             class.class_style_mark1 |= StyleType1::Border as usize;
+			class.class_style_mark |= StyleType::BorderColor as usize;
         }
         "border-bottom" => {
-            class.attrs2.push(Attribute2::BorderBottom(parse_unity(value)?));
+			let r = parse_border(value)?;
+            class.attrs2.push(Attribute2::BorderBottom(r.0));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "border-right" => {
-            class.attrs2.push(Attribute2::BorderRight(parse_unity(value)?));
+			let r = parse_border(value)?;
+            class.attrs2.push(Attribute2::BorderRight(r.0));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "border-top" => {
-            class.attrs2.push(Attribute2::BorderTop(parse_unity(value)?));
+			let r = parse_border(value)?;
+            class.attrs2.push(Attribute2::BorderTop(r.0));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "border" => {
-            let [r1, _, _, _] = parse_four_f32(value)?;
-            class.attrs2.push(Attribute2::Border(r1));
+			let r = parse_border(value)?;
+			class.attrs3.push(Attribute3::BorderColor(BorderColor(r.1)));
+            class.attrs2.push(Attribute2::Border(r.0));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
         "min-width" => {
@@ -368,34 +375,29 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
 }
 
 fn parse_enable(value: &str) -> Result<EnableType, String>{
-    match value {
-        "auto" => Ok(EnableType::Auto),
-        "none" => Ok(EnableType::None),
-        "visible" => Ok(EnableType::Visible),
-        _ => return Err( format!("parse_enable:{}", value) ),
-    }
+	match value {
+		"auto" => Ok(EnableType::Auto),
+		"none" => Ok(EnableType::None),
+		"visible" => Ok(EnableType::Visible),
+		_ => return Err( format!("parse_enable:{}", value)),
+	}
+}
+
+fn parse_visibility(value: &str) -> Result<bool, String>{
+	match value {
+		"hidden" => Ok(false),
+		"visible" => Ok(true),
+		_ => return Err( format!("parse_visibility:{}", value)),
+	}
 }
 
 fn parse_display(value: &str) -> Result<Display, String>{
-    match value {
-        "flex" => Ok(Display::Flex),
-        "none" => Ok(Display::None),
-        _ => return Err( format!("parse_display:{}", value) ),
-    }
+	match value {
+		"flex" => Ok(Display::Flex),
+		"none" => Ok(Display::None),
+		_ => Ok(Display::Flex), // 默认情况
+	}
 }
-
-// fn parse_enum_to_u8(value: &str) -> Result<u8, String>{
-//     match value {
-//         "relative" | "column" | "start" | "auto"  => Ok(0),
-//         "absolute" | "column-reverse" | "center" | "" => Ok(1),
-//         "row" | "end" => Ok(2),
-//         "absolute" | "row-reverse" | "space-between" => Ok(3),
-//         "space-around" => Ok(4),
-//         "space-evenly" => Ok(5),
-//         _ => return Err( format!("parse_enum_to_u8:{}", value) ),
-//     }
-// }
-
 
 fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
     let r = match value {
@@ -472,10 +474,26 @@ fn parse_f32_2(value: &str, split: &str) -> Result<[f32; 2], String> {
     Ok(r)
 }
 
-fn parse_f32_4(value: &str) -> Result<[f32; 4], String> {
+fn parse_f32_3(value: &str, split: &str) -> Result<[f32; 3], String> {
+    let mut r = [0.0, 0.0, 0.0];
+    let mut i = 0;
+    for v in value.split(split) {
+        if i > 2 {
+            return Err(format!("parse_f32_2 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r[i] = parse_f32(v)?;
+            i += 1;
+        }
+    }
+    Ok(r)
+}
+
+fn parse_f32_4(value: &str, split: &str) -> Result<[f32; 4], String> {
     let mut r = [0.0, 0.0, 0.0, 0.0];
     let mut i = 0;
-    for v in value.split(" ") {
+    for v in value.split(split) {
         if i > 3 {
             return Err(format!("parse_f32_4 error, value: {:?}", value));
         }
@@ -594,7 +612,7 @@ fn parse_yg_position_type(value: &str) -> Result<YGPositionType, String> {
 
 fn parse_yg_wrap(value: &str) -> Result<YGWrap, String> {
     match value {
-        "no-wrap" => Ok(YGWrap::YGWrapNoWrap),
+        "nowrap" => Ok(YGWrap::YGWrapNoWrap),
         "wrap" => Ok(YGWrap::YGWrapWrap),
         "wrap-reverse" => Ok(YGWrap::YGWrapWrapReverse),
         _ => Err(format!("parse_yg_wrap error, value: {}", value))
@@ -700,6 +718,25 @@ fn parse_transform_origin1(value: &str) -> Result<LengthUnit, String>{
     }
 }
 
+fn parse_deg(value: &str) -> Result<f32, String>{
+	if value.ends_with("deg") {
+		return Ok(parse_f32(&value[0..value.len() - 3])?)
+	} else {
+		return Err(format!("parse_deg err: {}", value));
+	}
+}
+
+fn parse_border(value: &str) -> Result<(ValueUnit, CgColor), String>{
+	let mut i = 0;
+	let width = parse_unity(iter_by_space(value, &mut i)?)?;
+	iter_by_space(value, &mut i)?;
+	let color = parse_color_string(iter_by_space(value, &mut i)?)?;
+	Ok((
+		width,
+		color,
+	))
+}
+
 fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String>{
     let r = match key {
         "scale" => {
@@ -709,12 +746,28 @@ fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String>{
         "scaleX" => TransformFunc::ScaleX(parse_f32(value)?),
         "scaleY" => TransformFunc::ScaleY(parse_f32(value)?),
         "translate" => {
-            let r = parse_f32_2(value, ",")?;
-            TransformFunc::Translate(r[0], r[1])
+            let r = parse_len_or_percent_2(value, ",")?;
+			match (r[0], r[1]) {
+				(LengthUnit::Percent(r), LengthUnit::Percent(r1)) => TransformFunc::TranslatePercent(r, r1),
+				(LengthUnit::Pixel(r), LengthUnit::Pixel(r1)) => TransformFunc::Translate(r, r1),
+				_ => return Err(format!("parse_transform_fun error, key: {}, value: {}", key, value)),
+			}
         },
-        "translateX" => TransformFunc::TranslateX(parse_f32(value)?),
-        "translateY" => TransformFunc::TranslateY(parse_f32(value)?),
-        "rotate" => TransformFunc::RotateZ(parse_f32(value)?),
+        "translateX" => {
+			let r = parse_len_or_percent(value)?;
+			match r {
+				LengthUnit::Percent(r) => TransformFunc::TranslateXPercent(r),
+				LengthUnit::Pixel(r) => TransformFunc::TranslateX(r)
+			}
+		},
+        "translateY" => {
+			let r = parse_len_or_percent(value)?;
+			match r {
+				LengthUnit::Percent(r) => TransformFunc::TranslateYPercent(r),
+				LengthUnit::Pixel(r) => TransformFunc::TranslateY(r)
+			}
+		},
+        "rotate" | "rotateZ" => TransformFunc::RotateZ(parse_deg(value)?),
         _ => return Err(format!("parse_transform_fun error, key: {}, value: {}", key, value)),
     };
     Ok(r)
@@ -746,12 +799,11 @@ fn iter_fun<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<(&'a str, &'a st
     let mut v = value;
     let mut is_success = false;
     for j in *i..len {
-        if &value[j..j+1] != "" {
+        if &value[j..j+1] != " " {
             *i = j;
             break;
         }
     }
-
     for j in *i..len {
         if &value[j..j+1] == "(" {
             n = &value[*i..j];
@@ -761,7 +813,7 @@ fn iter_fun<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<(&'a str, &'a st
     }
 
     for j in *i..len {
-        if &value[*i..*i+1] == ")" {
+        if &value[j..j+1] == ")" {
             v = &value[*i..j];
             *i = j + 1;
             is_success = true;
@@ -956,13 +1008,12 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
         "transparent" => rgba(0, 0, 0, 0),
         _ => if value.starts_with("#") {
             parse_color_hex(&value[1..])?
-        } 
-        // else if value.starts_with("rgba") {
-
-        // } else if value.starts_with("rgb") {
-
-        // } 
-        else {
+        } else if value.starts_with("rgb") {
+			match iter_fun(value, &mut 0) {
+				Ok((n, v)) => parse_color_fun(n, v)?,
+				Err(_) => return Err(format!("parse color err: '{}'", value)),
+			}
+        }else {
             return Err(format!("parse color err: '{}'", value))
         },
     };
@@ -1023,8 +1074,25 @@ fn parse_unity(value: &str) -> Result<ValueUnit, String> {
         };
         Ok(ValueUnit::Pixel(v))
     }else {
-        Err("parse_unity error".to_string())
+		// 如果value不符合css规范，直接解析成0px（css默认值）
+        Ok(ValueUnit::Pixel(0.0))
     }
+}
+
+fn parse_len_or_percent_2(value: &str, split: &str) -> Result<[LengthUnit; 2], String> {
+    let mut r = [LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0)];
+    let mut i = 0;
+    for v in value.split(split) {
+        if i > 1 {
+            return Err(format!("parse_f32_2 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r[i] = parse_len_or_percent(v)?;
+            i += 1;
+        }
+    }
+    Ok(r)
 }
 
 fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {
@@ -1115,6 +1183,21 @@ fn parse_border_image_repeat(value: &str) -> Result<BorderImageRepeatType, Strin
     Ok(r)
 }
 
+fn parse_color_fun(key: &str, value: &str) -> Result<CgColor, String>{
+    let r = match key {
+        "rgba" => {
+            let r = parse_f32_4(value, ",")?;
+			rgba(r[0] as u8, r[1] as u8, r[2] as u8, r[3] as u8)
+        },
+        "rgb" => {
+			let r = parse_f32_3(value, ",")?;
+            rgb(r[0] as u8, r[1] as u8, r[2] as u8)
+		},
+        _ => return Err(format!("parse_color_fun error, key: {}, value: {}", key, value)),
+    };
+    Ok(r)
+}
+
 fn parse_color_hex(value: &str) -> Result<CgColor, String> {
     let value = value.as_bytes();
     match value.len() {
@@ -1148,6 +1231,10 @@ fn parse_color_hex(value: &str) -> Result<CgColor, String> {
 
 fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> CgColor {
     CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, alpha as f32 / 255.0)
+}
+
+fn rgb(red: u8, green: u8, blue: u8) -> CgColor {
+    CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, 1.0)
 }
 
 fn from_hex(c: u8) -> Result<u8, String> {

@@ -15,7 +15,7 @@ use component::user::{Aabb3};
 use entity::{Node};
 use single::*;
 use render::engine:: { Engine };
-use system::util::*;
+use render::res::*;
 use system::render::shaders::clip::*;
 
 pub struct ClipSys<C>{
@@ -28,12 +28,12 @@ pub struct ClipSys<C>{
 
 struct ClipTextureRender{
     clip_size_ubo: Share<ClipTextureSize>,
-    sampler: Share<HalSampler>,
+    sampler: Share<SamplerRes>,
 
-    rs: Share<HalRasterState>,
-    bs: Share<HalBlendState>,
-    ss: Share<HalStencilState>,
-    ds: Share<HalDepthState>,
+    rs: Share<RasterStateRes>,
+    bs: Share<BlendStateRes>,
+    ss: Share<StencilStateRes>,
+    ds: Share<DepthStateRes>,
     render_target: HalRenderTarget,
     program: Share<HalProgram>,
     geometry: HalGeometry,
@@ -51,7 +51,7 @@ impl<C: HalContext + 'static> ClipSys<C>{
 
         let paramter = ClipParamter::default();
 
-        let geo = create_geometry(&engine.gl);
+        let geo = engine.create_geometry();
 
         let program = engine.create_program(
             CLIP_VS_SHADER_NAME.get_hash(),
@@ -79,12 +79,12 @@ impl<C: HalContext + 'static> ClipSys<C>{
 
         self.render_obj = Some(ClipTextureRender {
             clip_size_ubo: Share::new(clip_size_ubo),
-            sampler: create_default_sampler(engine: &mut Engine<C>),
+            sampler: engine.create_sampler_res(SamplerDesc::default()),
 
-            rs: create_rs_res(engine, rs),
-            bs: create_bs_res(engine, bs),
-            ss: create_ss_res(engine, ss),
-            ds: create_ds_res(engine, ds),
+            rs: engine.create_rs_res(rs),
+            bs: engine.create_bs_res(bs),
+            ss: engine.create_ss_res(ss),
+            ds: engine.create_ds_res(ds),
 
             render_target: target,
             program: program,
@@ -188,8 +188,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
                     positions.push(p[3].y);
                 } 
             }
-    
-            let gl = &mut engine.gl;
 
             let mut mumbers: Vec<f32> = Vec::new();
             let mut indices: Vec<u16> = Vec::new();
@@ -204,21 +202,21 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
                 indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
             }
 
-            let p_buffer = create_buffer(gl, BufferType::Attribute, 128, None, false);
-            let m_buffer = create_buffer(gl, BufferType::Attribute, mumbers.len(), Some(BufferData::Float(mumbers.as_slice())), false);
-            let i_buffer = create_buffer(gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
+            let p_buffer = engine.create_buffer(BufferType::Attribute, 128, None, false);
+            let m_buffer = engine.create_buffer(BufferType::Attribute, mumbers.len(), Some(BufferData::Float(mumbers.as_slice())), false);
+            let i_buffer = engine.create_buffer(BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
             
-            gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::Position, &p_buffer, 2).unwrap();
-            gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::SkinIndex, &m_buffer, 1).unwrap();
-            gl.geometry_set_indices_short(&clip_render.geometry, &i_buffer).unwrap();
+            engine.gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::Position, &p_buffer, 2).unwrap();
+            engine.gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::SkinIndex, &m_buffer, 1).unwrap();
+            engine.gl.geometry_set_indices_short(&clip_render.geometry, &i_buffer).unwrap();
             clip_render.paramter.set_single_uniform("meshNum", UniformValue::Float1(count as f32));
 
             // 渲染裁剪平面
-            gl.render_begin(&clip_render.render_target, &clip_render.begin_desc);
-            gl.render_set_program(&clip_render.program);
-            gl.render_set_state(&clip_render.bs, &clip_render.ds, &clip_render.rs, &clip_render.ss);
-            gl.render_draw(&clip_render.geometry, &clip_render.paramter);
-            gl.render_end();
+            engine.gl.render_begin(&clip_render.render_target, &clip_render.begin_desc);
+            engine.gl.render_set_program(&clip_render.program);
+            engine.gl.render_set_state(&clip_render.bs, &clip_render.ds, &clip_render.rs, &clip_render.ss);
+            engine.gl.render_draw(&clip_render.geometry, &clip_render.paramter);
+            engine.gl.render_end();
         } 
 
         let notify = render_objs.get_notify();

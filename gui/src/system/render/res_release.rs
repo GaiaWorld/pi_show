@@ -1,57 +1,46 @@
 /**
- *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
+ *  资源释放， 
  */
 use std::time::SystemTime;
-use std::marker::PhantomData;
+use std::cell::RefCell;
 
 use ecs::{SingleCaseImpl, Runner};
+use res::ResMgr;
+use share::Share;
 
-use render::engine::Engine;
-use hal_core::*;
-
-pub struct ResReleaseSys<C>{
+pub struct ResReleaseSys{
     system_time: SystemTime,
-    conllect_time: u32, // 整理时间
-    prepare_conllect: u32, // 预整理时间
-    marker: PhantomData<C>,
-    
+    collect_time: usize, // 整理时间
+    collect_interval: usize,
 }
 
-impl<C: HalContext + 'static
-> ResReleaseSys<C> {
+impl ResReleaseSys {
     pub fn new() -> Self {
+        let system_time = SystemTime::now();
+        let now = system_time.elapsed().unwrap().as_secs() as usize * 1000;
         Self{
-            system_time: SystemTime::now(),
-            conllect_time: std::u32::MAX,
-            prepare_conllect: 3000, // 3秒钟扫描一次预整理列表
-            marker: PhantomData,
+            system_time: system_time,
+            collect_time: now,
+            collect_interval: 1000, // 3秒钟扫描一次预整理列表
         }
     }
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, C: HalContext + 'static>  Runner<'a> for ResReleaseSys<C>{
+impl<'a>  Runner<'a> for ResReleaseSys{
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
-    fn run(&mut self, _: Self::ReadData, engine: Self::WriteData){
-        let now = self.system_time.elapsed().unwrap().as_secs() as u32 * 1000;
-
-        if now >= self.prepare_conllect {
-            engine.res_mgr.prepare_conllect(now, &mut self.conllect_time);
-            self.prepare_conllect += 3000;
-        }
-
-        if now >= self.conllect_time {
-            let mut conllect_time = std::u32::MAX;
-            let engine1 = unsafe{&mut *( engine as *const SingleCaseImpl<Engine<C>> as usize as *mut SingleCaseImpl<Engine<C>>)};
-            engine1.res_mgr.conllect(now, &mut conllect_time);
-            self.conllect_time = conllect_time;
+    type WriteData = &'a mut SingleCaseImpl<Share<RefCell<ResMgr>>>;
+    fn run(&mut self, _: Self::ReadData, res_mgr: Self::WriteData){
+        let now = self.system_time.elapsed().unwrap().as_secs() as usize * 1000;
+        if now >= self.collect_time {
+            self.collect_time += self.collect_interval;
+            res_mgr.borrow_mut().collect(now);
         }
     }
 }
 
 impl_system!{
-    ResReleaseSys<C> where [C: HalContext + 'static],
+    ResReleaseSys,
     true,
     {
 

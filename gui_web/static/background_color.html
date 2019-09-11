@@ -14,7 +14,7 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 0px;"> 背景style</div>
     <div style="position: absolute;width: 100%; height: 20px;top: 150px"> 背景class</div>
     
-    <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
     <script src="shader/clip.js"></script>
     <script src="shader/color.js"></script>
     <script src="shader/image.js"></script>
@@ -23,7 +23,7 @@
     <script src="shader/init.js"></script>
 
     <script>
-        var gui = Module._create_gui(engine, 1000, 1000);
+        var gui = create_gui(1000, 1000);
         render_fram();
     </script>
 
@@ -99,19 +99,19 @@
 
         var node1 = Module._create_node(gui);
         Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_class(gui, node1, 1);
+        Module._set_class(gui, node1, [1]);
 
         var node2 = Module._create_node(gui);
         Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_class(gui, node2, 2);
+        Module._set_class(gui, node2, [2]);
 
         var node3 = Module._create_node(gui);
         Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_class(gui, node3, 3);
+        Module._set_class(gui, node3, [3]);
 
         var node4 = Module._create_node(gui);
         Module._append_child(gui, node4, body); // 接口已修改， node和parent顺序颠倒
-        Module._set_class(gui, node4, 3);
+        Module._set_class(gui, node4, [3]);
         Module._set_background_rgba_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
     </script>
 </body>

@@ -13,8 +13,7 @@ deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
 util = {path="../../pi_lib/util"}
 map = {path="../../pi_lib/map"}
-hashmap = {path="../../pi_lib/hashmap"}
-fx_hashmap = {path="../../pi_lib/fx_hashmap"}
+hash = {path="../../pi_lib/hash"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
 atom = {path="../../pi_lib/atom", features = ["serde"] }
@@ -25,6 +24,7 @@ dirty = {path="../../pi_lib/dirty"}
 densevec = {path="../../pi_lib/densevec"}
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
+res = {path="../../pi_lib/res"}
 polygon = {path="../../pi_math_hal/polygon"}
 cg2d = { path = "../../pi_math_hal/cg2d"}
 color = { path = "../../pi_math_hal/color", features = ["serde"] }

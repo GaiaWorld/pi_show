@@ -7,7 +7,7 @@ use share::Share;
 use std::hash::{ Hasher, Hash };
 
 // use ordered_float::NotNan;
-use fxhash::FxHasher32;
+use hash::DefaultHasher;
 
 use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use map::{ vecmap::VecMap } ;
@@ -20,7 +20,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{ Engine};
+use render::engine::{ Engine, AttributeDecs };
 use render::res::*;
 use render::res::{Opacity as ROpacity};
 use system::util::*;
@@ -206,19 +206,12 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent
 
 impl<C: HalContext + 'static> ImageSys<C> {
     pub fn new(engine: &mut Engine<C>) -> Self{
-        let default_sampler = SamplerDesc::default();
-        let mut hasher = FxHasher32::default();
-        default_sampler.hash(&mut hasher);
-        let hash = hasher.finish();
-        let default_sampler = match engine.res_mgr.get::<HalSampler>(&hash) {
-            Some(r) => r,
-            None => engine.res_mgr.create(hash, create_sampler(&engine.gl, default_sampler)),
-        };
+        let default_sampler = engine.create_sampler_res(SamplerDesc::default());
 
-        let positions = engine.res_mgr.get::<HalBuffer>(&POSITIONUNIT.get_hash()).unwrap();
-        let indices = engine.res_mgr.get::<HalBuffer>(&INDEXUNIT.get_hash()).unwrap();
+        let positions = engine.buffer_res_map.get(&POSITIONUNIT.get_hash()).unwrap();
+        let indices = engine.buffer_res_map.get(&INDEXUNIT.get_hash()).unwrap();
 
-        let geo = create_geometry(&engine.gl);
+        let geo = engine.create_geometry();
         engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
         engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &positions, 2).unwrap();
         engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
@@ -226,7 +219,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
         ImageSys {
             render_map: VecMap::default(),
             default_sampler: default_sampler,
-            unit_geo: Share::new(GeometryRes{geo: geo, buffers: vec![positions.clone(), indices, positions]}),  
+            unit_geo: Share::new(GeometryRes{geo: geo, buffers: vec![indices, positions.clone(), positions]}),  
             marker: PhantomData,
         }
     }
@@ -297,10 +290,10 @@ fn update_geo_quad<C: HalContext + 'static>(
         Some(_clip) => {
             let uv_hash = cal_uv_hash(uv);
             let uv_buffer = create_uv_buffer(uv_hash, &uv, engine);
-            let geo = create_geometry(&engine.gl);
-            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &unit_geo.buffers[0], 2).unwrap();
+            let geo = engine.create_geometry();
+            engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &unit_geo.buffers[1], 2).unwrap();
             engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
-            engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[1]).unwrap();
+            engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[0]).unwrap();
             let geo_res = GeometryRes{geo: geo, buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), uv_buffer]};
             render_obj.geometry = Some(create_geo(&uv_hash, geo_res, engine));
         },
@@ -312,33 +305,32 @@ fn update_geo_quad<C: HalContext + 'static>(
 
 #[inline]
 fn cal_uv_hash(uv: &Aabb2) -> u64 {
-    let mut hasher = FxHasher32::default();
+    let mut hasher = DefaultHasher::default();
     UV.hash(&mut hasher);
     f32_4_hash_(uv.min.x, uv.min.y, uv.max.x, uv.max.y, &mut hasher);
     hasher.finish()
 }
 
-fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine<C>) -> Share<HalBuffer> {
-    match engine.res_mgr.get::<HalBuffer>(&uv_hash) {
+fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engine: &mut Engine<C>) -> Share<BufferRes> {
+    match engine.buffer_res_map.get(&uv_hash) {
         Some(r) => r,
         None => {
             let uvs = [uv.min.x, uv.min.y, uv.min.x, uv.max.y, uv.max.x, uv.max.y, uv.max.x, uv.min.y];
-            let buffer = create_buffer(&engine.gl, BufferType::Attribute, 8, Some(BufferData::Float(&uvs[..])), false);
-            engine.res_mgr.create(uv_hash, buffer)
+            engine.create_buffer_res(uv_hash, BufferType::Attribute, 8, Some(BufferData::Float(&uvs[..])), false)
         }
     }
 }
 
 fn create_geo<C: HalContext + 'static>(uv_hash: &u64, geo_res: GeometryRes, engine: &mut Engine<C>) -> Share<GeometryRes> {
-    let mut hasher = FxHasher32::default();
+    let mut hasher = DefaultHasher::default();
     uv_hash.hash(&mut hasher);
     POSITIONUNIT.hash(&mut hasher);
     INDEXUNIT.hash(&mut hasher);
     let hash = hasher.finish();
 
-    match engine.res_mgr.get::<GeometryRes>(&hash) {
+    match engine.geometry_res_map.get(&hash) {
         Some(r) => r,
-        None => engine.res_mgr.create(hash, geo_res)
+        None => engine.geometry_res_map.create(hash, geo_res, 0, 0)
     }
 }
 
@@ -395,17 +387,13 @@ fn use_layout_pos<C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2
         uvs.push(v[0][i]);
     }
 
-    let pos_buffer = create_buffer(&engine.gl, BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
-    let uv_buffer = create_buffer(&engine.gl, BufferType::Attribute, uvs.len(), Some(BufferData::Float(uvs.as_slice())), false);
-    let indices_buffer = create_buffer(&engine.gl, BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-
-    let geo = create_geometry(&engine.gl);
-    engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &pos_buffer, 2).unwrap();
-    engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
-    engine.gl.geometry_set_indices_short(&geo, &indices_buffer).unwrap();
-
-    let geo_res = GeometryRes{geo: geo, buffers: vec![Share::new(pos_buffer), Share::new(indices_buffer), Share::new(uv_buffer)]};
-    render_obj.geometry = Some(Share::new(geo_res));
+    render_obj.geometry = Some(engine.create_geo_res( 0, 
+                                        indices.as_slice(), 
+                                        &[
+                                            AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
+                                            AttributeDecs::new(AttributeName::UV0, uvs.as_slice(), 2),
+                                        ]
+                                        ));
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb

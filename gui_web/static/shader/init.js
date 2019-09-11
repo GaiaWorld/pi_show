@@ -5,7 +5,17 @@ window.__fbo = undefined;
 // 测试：渲染GUI到fbo
 // window.__fbo = init_fbo(gl, 1000, 700);
 
-var engine = Module._create_engine(10);
+var res_mgr = Module._create_res_mgr(100 * 1024 * 1024); // 缓存总容量， 100M
+
+// var res_mgr = Module._create_res_mgr(153600); // 缓存总容量， 15k
+
+// 可以配置纹理的缓冲， 最多可将纹理缓冲分为三类， min_capacity1, max_capacity1, timeout1,min_capacity2, max_capacity2, timeout2,min_capacity3, max_capacity3, timeout3
+// 如果不配置， 默认仅支持第一种纹理缓冲， min_capacity1 = 10M, max_capacity1 = 50M, timeout1 = 5Minute
+// Module._set_texture_catch_cfg(res_mgr, 102400, 102400, 5 * 6000, 0, 0, 0, 0, 0, 0);
+
+// var res_mgr1 = Module._clone_res_mgr(res_mgr); // 如果还有其他gui上下文需要共享该资源管理器， 应该克隆一份给出
+
+var engine = Module._create_engine(res_mgr);
 
 // 设置图片shader
 var __jsObj = color_vs_shader_name;
@@ -52,6 +62,10 @@ Module._set_shader(engine);
 var __jsObj = clip_fs_shader_name;
 var __jsObj1 = clip_fs_code;
 Module._set_shader(engine);
+
+function create_gui(width, height) {
+	return Module._create_gui(engine, res_mgr, width, height)
+}
 
 function init_fbo(gl, width, height) {
     var fbo = gl.createFramebuffer();
@@ -297,7 +311,7 @@ window.__load_image = function(gui, image_name){
         if (image_name.endsWith("png")) {
             opacity = 1;
         }
-        Module._load_image_success(gui, opacity , 0);
+        Module._load_image_success(gui, opacity/*透明类型*/, 0/*压缩格式*/, 0/*缓存类型*/);
     };
     image.src = image_name;
 }

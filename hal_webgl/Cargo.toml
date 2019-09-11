@@ -11,7 +11,7 @@ share={path="../../pi_lib/share"}
 slab={path="../../pi_lib/slab"}
 deque = {path="../../pi_lib/deque"}
 hal_core={path="../hal_core"}
-fx_hashmap={path="../../pi_lib/fx_hashmap"}
+hash={path="../../pi_lib/hash"}
 ordered-float = "1.0"
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
