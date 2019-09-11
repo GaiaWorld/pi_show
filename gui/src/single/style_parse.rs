@@ -729,8 +729,10 @@ fn parse_deg(value: &str) -> Result<f32, String>{
 fn parse_border(value: &str) -> Result<(ValueUnit, CgColor), String>{
 	let mut i = 0;
 	let width = parse_unity(iter_by_space(value, &mut i)?)?;
-	iter_by_space(value, &mut i)?;
-	let color = parse_color_string(iter_by_space(value, &mut i)?)?;
+	let color = match iter_by_space(value, &mut i) {
+		Ok(r) => parse_color_string(r)?,
+		Err(_) => parse_color_string(iter_by_space(value, &mut i)?)?,
+	};
 	Ok((
 		width,
 		color,
