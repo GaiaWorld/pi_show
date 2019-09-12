@@ -1,9 +1,10 @@
+use std::ops::{Deref, DerefMut};
 
 use atom::Atom;
 use hal_core::*;
 
 use share::Share;
-use render::res_mgr::*;
+use res::Res;
 // use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
 #[derive(Debug, Clone, Copy)]
@@ -34,6 +35,8 @@ pub enum Compress {
 pub struct TextureRes {
     pub width: usize,
     pub height: usize,
+    pub pformat: PixelFormat,
+    pub dformat: DataFormat,
     pub opacity: Opacity,
     pub compress: Compress,
     pub bind: HalTexture,
@@ -47,13 +50,9 @@ pub struct TextureRes {
 
 impl TextureRes {
     // 创建资源
-	pub fn new(width: usize, height: usize, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
+	pub fn new(width: usize, height: usize, pformat: PixelFormat, dformat: DataFormat, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
         TextureRes {
-            width: width,
-            height: height,
-            opacity: opacity,
-            compress: compress,
-            bind: bind,
+            width, height, pformat, dformat, opacity, compress, bind
         }
     }
 
@@ -68,39 +67,69 @@ impl Res for TextureRes {
     type Key = Atom;
 }
 
-pub type SamplerRes = HalSampler;
+#[derive(Deref, DerefMut)]
+pub struct SamplerRes(pub HalSampler);
 
-pub type ProgramRes = HalProgram;
+#[derive(Deref, DerefMut)]
+pub struct ProgramRes(pub HalProgram);
 
-impl Res for SamplerRes {
-    type Key = u64;
-}
+#[derive(Deref, DerefMut)]
+pub struct RasterStateRes(pub HalRasterState);
+
+#[derive(Deref, DerefMut)]
+pub struct BlendStateRes(pub HalBlendState);
+
+#[derive(Deref, DerefMut)]
+pub struct StencilStateRes(pub HalStencilState);
+
+#[derive(Deref, DerefMut)]
+pub struct DepthStateRes(pub HalDepthState);
+
+#[derive(Deref, DerefMut)]
+pub struct BufferRes(pub HalBuffer);
 
 pub struct GeometryRes {
     pub geo: HalGeometry,
-    pub buffers: Vec<Share<HalBuffer>>,
+    pub buffers: Vec<Share<BufferRes>>,
+}
+
+impl Deref for GeometryRes {
+    type Target = HalGeometry;
+    fn deref(&self) -> &Self::Target{
+        &self.geo
+    }
+}
+
+impl DerefMut for GeometryRes {
+    fn deref_mut(&mut self) -> &mut Self::Target{
+        &mut self.geo
+    }
+}
+
+impl Res for SamplerRes {
+    type Key = u64;
 }
 
 impl Res for GeometryRes {
     type Key = u64;
 }
 
-impl Res for HalRasterState {
+impl Res for RasterStateRes {
     type Key = u64;
 }
 
-impl Res for HalBlendState {
+impl Res for BlendStateRes {
     type Key = u64;
 }
 
-impl Res for HalStencilState {
+impl Res for StencilStateRes {
     type Key = u64;
 }
 
-impl Res for HalDepthState {
+impl Res for DepthStateRes {
     type Key = u64;
 }
 
-impl Res for HalBuffer {
+impl Res for BufferRes {
     type Key = u64;
 }

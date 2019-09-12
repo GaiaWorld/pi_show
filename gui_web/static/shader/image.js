@@ -25,8 +25,9 @@ let image_vs_code = `
     varying vec2 vuv;
     
     void main(void) {
-        vec4 p1 = worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
-        vec4 p = (projectMatrix * viewMatrix) * p1;
+        vec4 p1 = viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p = projectMatrix * p1;
+        
         gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
         vuv = uv0;
 

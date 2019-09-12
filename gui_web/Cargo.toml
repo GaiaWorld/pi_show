@@ -11,7 +11,9 @@ ecs = {path="../../pi_lib/ecs"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }
 debug_info = { path = "../../pi_lib/debug_info" }
-fx_hashmap = { path = "../../pi_lib/fx_hashmap" }
+hash = { path = "../../pi_lib/hash" }
+bincode = {path="../../pi_lib/bincode"}
+res = {path="../../pi_lib/res"}
 hal_webgl = {path="../hal_webgl"}
 hal_core = {path="../hal_core"}
 cg2d = { path = "../../pi_math_hal/cg2d" }
@@ -37,7 +39,9 @@ codegen-units = 1
 # debug = 2
 # opt-level = 3
 
-# [features]
+[features]
 # default = ["no_debug", "no_define_js"]
-# no_debug = []
-# no_define_js = []
+default = ["create_class_by_str"]
+no_debug = []
+no_define_js = []
+create_class_by_str = []

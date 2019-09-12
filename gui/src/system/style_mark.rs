@@ -9,7 +9,6 @@
 use std::marker::PhantomData;
 
 use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, EntityImpl, Runner};
-
 use hal_core::*;
 
 use component::user::*;
@@ -21,7 +20,6 @@ use single::*;
 use layout::*;
 use entity::{Node};
 use render::engine::Engine;
-use render::res::*;
 
 //文字样式脏
 const TEXT_DIRTY: usize =       StyleType::LetterSpacing as usize | 
@@ -1031,15 +1029,15 @@ pub fn set_attr1<L: FlexNode>(
 ){
     for layout_attr in layout_attrs.iter() {
         match layout_attr {
-            Attribute1::AlignContent(r) => if StyleType1::AlignContent as usize & style_mark.local_style1 != 0 {yoga.set_align_content(*r)},
-            Attribute1::AlignItems(r) => if StyleType1::AlignItems as usize & style_mark.local_style1 != 0 {yoga.set_align_items(*r)},
-            Attribute1::AlignSelf(r) => if StyleType1::AlignSelf as usize & style_mark.local_style1 != 0 {yoga.set_align_self(*r)},
-            Attribute1::JustifyContent(r) => if StyleType1::JustifyContent as usize & style_mark.local_style1 != 0 {yoga.set_justify_content(*r)},
-            Attribute1::FlexDirection(r) => if StyleType1::FlexDirection as usize & style_mark.local_style1 != 0 {yoga.set_flex_direction(*r)},
-            Attribute1::FlexWrap(r) => if StyleType1::FlexWrap as usize & style_mark.local_style1 != 0 {yoga.set_flex_wrap(*r)},
-            Attribute1::PositionType(r) => if StyleType1::PositionType as usize & style_mark.local_style1 != 0 {yoga.set_position_type(*r)},
+            Attribute1::AlignContent(r) => if StyleType1::AlignContent as usize & style_mark.local_style1 == 0 {yoga.set_align_content(*r)},
+            Attribute1::AlignItems(r) => if StyleType1::AlignItems as usize & style_mark.local_style1 == 0 {yoga.set_align_items(*r)},
+            Attribute1::AlignSelf(r) => if StyleType1::AlignSelf as usize & style_mark.local_style1 == 0 {yoga.set_align_self(*r)},
+            Attribute1::JustifyContent(r) => if StyleType1::JustifyContent as usize & style_mark.local_style1 == 0 {yoga.set_justify_content(*r)},
+            Attribute1::FlexDirection(r) => if StyleType1::FlexDirection as usize & style_mark.local_style1 == 0 {yoga.set_flex_direction(*r)},
+            Attribute1::FlexWrap(r) => if StyleType1::FlexWrap as usize & style_mark.local_style1 == 0 {yoga.set_flex_wrap(*r)},
+            Attribute1::PositionType(r) => if StyleType1::PositionType as usize & style_mark.local_style1 == 0 {yoga.set_position_type(*r)},
 
-            Attribute1::ObjectFit(r) => if style_mark.local_style != 0 & StyleType::ObjectFit as usize {
+            Attribute1::ObjectFit(r) => if style_mark.local_style == 0 & StyleType::ObjectFit as usize {
                 obj_fits.insert_no_notify(id, r.clone());
                 set_dirty(dirty_list, id, StyleType::ObjectFit as usize, style_mark);
             },
@@ -1130,7 +1128,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
             },
 
             Attribute2::ImageUrl(r) => if style_mark.local_style & StyleType::Image as usize == 0 {
-                match engine.res_mgr.get::<TextureRes>(r) {
+                match engine.texture_res_map.get(r) {
                     Some(res) => {
                         images.insert_no_notify(id, Image{src: res, url: r.clone()});
                         set_dirty(dirty_list, id, StyleType::Image as usize, style_mark);
@@ -1142,7 +1140,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
                 }
             },
             Attribute2::BorderImageUrl(r) => if style_mark.local_style & StyleType::BorderImage as usize == 0 {
-                match engine.res_mgr.get::<TextureRes>(r) {
+                match engine.texture_res_map.get(r) {
                     Some(res) => {
                         border_images.insert_no_notify(id, BorderImage{src: res, url: r.clone()});
                         set_dirty(dirty_list, id, StyleType::BorderImage as usize, style_mark);
@@ -1154,14 +1152,16 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
                 }
             },
 
-            Attribute2::Width(r) => if StyleType1::Width as usize & style_mark.local_style1 != 0 {
-                match r {
-                    ValueUnit::Auto => yoga.set_width_auto(),
-                    ValueUnit::Undefined => yoga.set_width_auto(),
-                    ValueUnit::Pixel(r) => yoga.set_width(*r),
-                    ValueUnit::Percent(r) => yoga.set_width_percent(*r),
-                }
-            },
+            Attribute2::Width(r) => {
+				if StyleType1::Width as usize & style_mark.local_style1 == 0 {
+					match r {
+						ValueUnit::Auto => yoga.set_width_auto(),
+						ValueUnit::Undefined => yoga.set_width_auto(),
+						ValueUnit::Pixel(r) => yoga.set_width(*r),
+						ValueUnit::Percent(r) => yoga.set_width_percent(*r),
+					}
+				}
+			},
             Attribute2::Height(r) => if StyleType1::Height as usize & style_mark.local_style1 == 0 {
                 match r {
                     ValueUnit::Auto => yoga.set_height_auto(),

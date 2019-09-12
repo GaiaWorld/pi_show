@@ -8,32 +8,10 @@ use ecs::{LendMut};
 use atom::Atom;
 
 use gui::component::user::*;
-use gui::render::res::{TextureRes};
 use gui::single::*;
 use gui::single::style_parse::{parse_class_from_string};
 use GuiWorld;
 
-// #[macro_use()]
-// macro_rules! set_attr {
-//     ($world:ident, $node_id:ident, $tt:ident, $name:ident, $value:expr, $key:ident) => {
-//         let node_id = $node_id as usize;
-//         let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-// 		let world = &mut world.gui;
-//         let attr = world.$key.lend_mut();
-//         let value = $value;
-//         $crate::paste::item! {
-//             match attr.get_write(node_id) {
-//                 Some(mut r) => r.[<set_ $name>](value),
-//                 _ =>{
-//                     let mut v = $tt::default();
-//                     v.$name = value;
-//                     attr.insert(node_id, v);
-//                 }
-//             }
-//         }
-//         debug_println!("set_{}", $name);
-//     };
-// }
 #[macro_use()]
 macro_rules! insert_value {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
@@ -314,7 +292,7 @@ pub fn set_border_image(world: u32, node: u32){
 	let name = Atom::from(name);
 	let engine = world.engine.lend_mut();
 
-	match engine.res_mgr.get::<TextureRes>(&name) {
+	match engine.texture_res_map.get(&name) {
 		Some(r) => {
 			let border_image = world.border_image.lend_mut();
 			border_image.insert(node, BorderImage{src: r, url: name});
@@ -391,4 +369,24 @@ pub fn set_default_style(world: u32){
     default_table.set(world.default_text_style.clone());
     default_table.get_notify().modify_event(0, "", 0);
     // world.default_layout_attr = r.1;
+}
+
+#[allow(unused_attributes)]
+#[no_mangle] 
+pub fn set_transform_will_change(world: u32, node_id: u32, value: u8){
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let node_id = node_id as usize;
+    let transforms = world.gui.transform.lend_mut();
+    let transform_will_changes = world.gui.transform_will_change.lend_mut();
+    if value == 0 {
+        if transform_will_changes.get(node_id).is_some() {
+            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
+        }
+    } else {
+        if transforms.get(node_id).is_some() {
+            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
+        } else {
+            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()) );
+        }
+    }
 }

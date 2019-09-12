@@ -1,5 +1,6 @@
 use std::default::Default;
 use std::sync::Arc;
+use std::cell::RefCell;
 
 use hal_core::*;
 use atom::Atom;
@@ -8,6 +9,7 @@ use cgmath::One;
 use share::Share;
 use ecs::*;
 use ecs::idtree::IdTree;
+use res::ResMgr;
 
 use component::user::*;
 use component::calc::*;
@@ -21,7 +23,6 @@ use render::res::*;
 use system::*;
 use font::font_sheet::FontSheet;
 use Z_MAX;
-use system::util::*;
 use system::util::constant::*;
 
 lazy_static! {
@@ -52,10 +53,31 @@ lazy_static! {
     pub static ref WORLD_MATRIX_RENDER_N: Atom = Atom::from("world_matrix_render");
     pub static ref RES_RELEASE_N: Atom = Atom::from("res_release");
     pub static ref STYLE_MARK_N: Atom = Atom::from("style_mark_sys");
+    pub static ref TRANSFORM_WILL_CHANGE_N: Atom = Atom::from("transform_will_change_sys");
+}
+
+pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
+    let mut res_mgr = ResMgr::with_capacity(total_capacity);
+    res_mgr.register::<TextureRes>([10 * 1024 * 1024,       50 * 1024 * 1024,   5 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<GeometryRes>([20 * 1024,             100 * 1024,         5 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<BufferRes>([20 * 1024,               100 * 1024,         5 * 60000, 0, 0, 0, 0, 0, 0]);
+
+    res_mgr.register::<SamplerRes>([512,					1024,				60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<RasterStateRes>([512,                1024,               60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<BlendStateRes>([512,                 1024,               60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<StencilStateRes>([512,               1024,               60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<DepthStateRes>([512,                 1024,               60 * 60000, 0, 0, 0, 0, 0, 0]);
+
+    res_mgr.register::<UColorUbo>([4 * 1024,                8 * 1024,           60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<HsvUbo>([1 * 1024,                   2 * 1024,			60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<MsdfStrokeUbo>([1 * 1024,            2 * 1024,			60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<CanvasTextStrokeColorUbo>([1 * 1024, 2 * 1024,			60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr
 }
 
 pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     mut engine: Engine<C>,
+    res_mgr: Share<RefCell<ResMgr>>,
     width: f32,
     height: f32,
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
@@ -70,27 +92,27 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     font.family = Atom::from("__$common");
     default_table.set::<Font>(font);
 
-    let positions = create_buffer(&engine.gl, BufferType::Attribute, 8, Some(BufferData::Float(&[
+    let positions = engine.create_buffer_res(POSITIONUNIT.get_hash(), BufferType::Attribute, 8, Some(BufferData::Float(&[
         0.0, 0.0,
         0.0, 1.0,
         1.0, 1.0,
         1.0, 0.0
     ])), false);
-    let indices = create_buffer(&engine.gl, BufferType::Indices, 6, Some(BufferData::Short(&[
+    let indices = engine.create_buffer_res(INDEXUNIT.get_hash(), BufferType::Indices, 6, Some(BufferData::Short(&[
         0, 1, 2, 0, 2, 3
     ])), false);
-    let positions = engine.res_mgr.create(POSITIONUNIT.get_hash(), positions);
-    let indices = engine.res_mgr.create(INDEXUNIT.get_hash(), indices);
-    let geo = create_geometry(&engine.gl);
-    engine.gl.geometry_set_vertex_count(&geo, 4);
+
+    let geo = engine.create_geometry();
     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
-    let unit_quad = UnitQuad(Share::new(GeometryRes{geo: geo, buffers: vec![positions, indices]}));
+    let unit_quad = UnitQuad(Share::new(GeometryRes{geo: geo, buffers: vec![indices, positions]}));
 
     let default_state = DefaultState::new(&engine.gl);
 
-    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(&mut engine, (font_texture.width, font_texture.height)));
+    
+    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(&mut engine, (font_texture.width, font_texture.height), &res_mgr.borrow()));
     let border_image_sys = BorderImageSys::<C>::new(&mut engine);
+    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&res_mgr.borrow()));
     
 
     let clip_sys = ClipSys::<C>::new();
@@ -121,6 +143,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, Filter>();
     world.register_multi::<Node, ClassName>();
     world.register_multi::<Node, StyleMark>();
+    world.register_multi::<Node, TransformWillChange>();
 
     //calc
     world.register_multi::<Node, ZDepth>();
@@ -133,6 +156,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, L>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, Culling>(); 
+    world.register_multi::<Node, TransformWillChangeMatrix>();
     //single
     // world.register_single::<ClipUbo>(ClipUbo(Share::new(engine.gl.create_uniforms())));
     world.register_single::<IdTree>(IdTree::default());
@@ -141,7 +165,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_single::<RenderObjs>(RenderObjs::default());
     world.register_single::<Engine<C>>(engine);
     world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
-    world.register_single::<ViewMatrix>(ViewMatrix(Matrix4::one()));
+    world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
     world.register_single::<RenderBegin>(RenderBegin(Share::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
@@ -151,6 +175,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
     world.register_single::<DirtyList>(DirtyList::default());
+	world.register_single::<Share<RefCell<ResMgr>>>(res_mgr);
     
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
@@ -161,26 +186,27 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::<L>::new()));
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::default()));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
-    world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl));
+    world.register_system(OVERFLOW_N.clone(), CellOverflowImpl::new(OverflowImpl::default()));
     world.register_system(IMAGE_N.clone(), image_sys);
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     world.register_system(TEXT_GLPHY_N.clone(), CellTextGlphySys::<L>::new(TextGlphySys::new()));
+    world.register_system(TRANSFORM_WILL_CHANGE_N.clone(), CellTransformWillChangeSys::new(TransformWillChangeSys::default()));
     
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
-    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::default()));
+    world.register_system(BG_COLOR_N.clone(), CellBackgroundColorSys::<C>::new(BackgroundColorSys::new()));
     world.register_system(BR_COLOR_N.clone(), CellBorderColorSys::<C>::new(BorderColorSys::new()));
     world.register_system(BR_IMAGE_N.clone(), CellBorderImageSys::new(border_image_sys));
     world.register_system(BOX_SHADOW_N.clone(), CellBoxShadowSys::<C>::new(BoxShadowSys::default()));
-    world.register_system(NODE_ATTR_N.clone(), CellNodeAttrSys::<C>::new(NodeAttrSys::new()));
+    world.register_system(NODE_ATTR_N.clone(), node_attr_sys);
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
-    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
+    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::new(ResReleaseSys::new()));
     world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<L, C>::new(StyleMarkSys::new()));
     
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -219,6 +245,7 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub yoga: Arc<CellMultiCase<Node, L>>,
     pub class_name: Arc<CellMultiCase<Node, ClassName>>,
     pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
+    pub transform_will_change: Arc<CellMultiCase<Node, TransformWillChange>>,
 
     //calc
     pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
@@ -271,6 +298,7 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             yoga: world.fetch_multi::<Node, L>().unwrap(),
             class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
             style_mark: world.fetch_multi::<Node, StyleMark>().unwrap(),
+            transform_will_change: world.fetch_multi::<Node, TransformWillChange>().unwrap(),
 
             //calc
             z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),

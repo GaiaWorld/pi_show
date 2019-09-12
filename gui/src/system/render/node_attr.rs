@@ -5,15 +5,17 @@ use std::marker::PhantomData;
 
 use share::Share;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner, EntityImpl};
+use ecs::idtree::IdTree;
 use hal_core::*;
 use atom::Atom;
+use res::{ResMap, ResMgr};
 
 use system::util::*;
 use component::calc::*;
 use entity::{Node};
 use single::*;
-use render::engine::Engine;
+use render::engine::{Engine, UnsafeMut};
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
@@ -24,37 +26,73 @@ lazy_static! {
 pub struct NodeAttrSys<C: HalContext + 'static>{
     view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     project_matrix_ubo: Option<Share<dyn UniformBuffer>>,
+    transform_will_change_matrix_dirtys: Vec<usize>,
+    hsv_ubo_map: UnsafeMut<ResMap<HsvUbo>>,
     marker: PhantomData<C>,
 }
 
 impl<C: HalContext + 'static> NodeAttrSys<C> {
-    pub fn new() -> Self{
+    pub fn new(res_mgr: &ResMgr) -> Self{
         NodeAttrSys {
             view_matrix_ubo: None,
             project_matrix_ubo: None,
+            transform_will_change_matrix_dirtys: Vec::default(),
+            hsv_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<HsvUbo>().unwrap()),
             marker: PhantomData,
+        }
+    }
+
+    pub fn create_hsv_ubo(&mut self, hsv: &HSV) -> Share<dyn UniformBuffer> {
+        let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
+        match self.hsv_ubo_map.get(&h) {
+            Some(r) => r,
+            None => self.hsv_ubo_map.create(h, HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v)), 0, 0), // TODO cost
         }
     }
 }
 
 impl<'a, C: HalContext + 'static>  Runner<'a> for NodeAttrSys<C>{
-    type ReadData = (
+     type ReadData = (
+        &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+        &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
+        &'a SingleCaseImpl<NodeRenderMap>,
+        &'a EntityImpl<Node>,
     );
-    type WriteData =  &'a mut SingleCaseImpl<Engine<C>>;
-    fn run(&mut self, _read: Self::ReadData, _write: Self::WriteData){
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
+        let (transform_will_change_matrixs, idtree, view_matrix, _, node_render_map, nodes) = read;
+        let (render_objs, _) = write;
+        let mut modify = false;
+        for id in self.transform_will_change_matrix_dirtys.iter() {
+            if !nodes.is_exist(*id) {
+                continue;
+            }
+            match transform_will_change_matrixs.get(*id) {
+                Some(transform_will_change_matrix) => {
+                    let m = &view_matrix.0 * &transform_will_change_matrix.0;
+                    let slice: &[f32; 16] = m.0.as_ref();
+                    let view_matrix_ubo: Share<dyn UniformBuffer> = Share::new(ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..]))));
+                    recursive_set_view_matrix(*id, &mut modify, transform_will_change_matrixs, idtree, &view_matrix_ubo, node_render_map, render_objs);
+                },
+                None => recursive_set_view_matrix(*id, &mut modify, transform_will_change_matrixs, idtree, self.view_matrix_ubo.as_ref().unwrap(), node_render_map, render_objs),
+            }   
+        }
+
+        self.transform_will_change_matrix_dirtys.clear();
+        if modify {
+            render_objs.get_notify().modify_event(0, "ubo", 0);
+        }
     }
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData){
-        let (view_matrix, projection_matrix) = read;
+        let (_, _, view_matrix, projection_matrix, _,  _) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
-        debug_println!("view_matrix: {:?}", &slice[..]);
 
         let slice: &[f32; 16] = projection_matrix.0.as_ref();
         let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
-        debug_println!("projection_matrix: {:?}", &slice[..]);
 
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
         self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
@@ -66,6 +104,55 @@ impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, CreateEvent> for Nod
     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
         node_render_map.create(event.id);
+    }
+}
+
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for NodeAttrSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData){
+        self.transform_will_change_matrix_dirtys.push(event.id);
+    }
+}
+
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for NodeAttrSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData){
+        self.transform_will_change_matrix_dirtys.push(event.id);
+    }
+}
+
+impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for NodeAttrSys<C>{
+    type ReadData = ();
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, _: Self::WriteData){
+        self.transform_will_change_matrix_dirtys.push(event.id);
+    }
+}
+
+fn recursive_set_view_matrix (
+    id: usize,
+    modify: &mut bool,
+    transform_will_change_matrixs: &MultiCaseImpl<Node, TransformWillChangeMatrix>,
+    idtree: &IdTree,
+    ubo: &Share<dyn UniformBuffer>,
+    node_render_map: &SingleCaseImpl<NodeRenderMap>,
+    render_objs: &mut SingleCaseImpl<RenderObjs>,
+) {
+    let obj_ids = unsafe{ node_render_map.get_unchecked(id) };
+    for id in obj_ids.iter() {
+        let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
+        render_obj.paramter.set_value("viewMatrix", ubo.clone());
+        *modify = true;
+    }
+
+    let first = unsafe { idtree.get_unchecked(id) }.children.head;
+    for (child_id, _child) in idtree.iter(first) {
+        if let Some(_) = transform_will_change_matrixs.get(child_id) {
+            continue;
+        }
+        recursive_set_view_matrix(child_id, modify, transform_will_change_matrixs, idtree, ubo, node_render_map, render_objs,);
     }
 }
 
@@ -86,10 +173,10 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Culling>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<NodeRenderMap>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
         let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
-        let (render_objs, engine, node_render_map) = write;
+        let (render_objs, node_render_map) = write;
         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
         let notify = node_render_map.get_notify();
         unsafe{ node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
@@ -113,7 +200,7 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEven
         let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             render_obj.fs_defines.add("HSV");
-            paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv
+            paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
         }
     }
 }
@@ -184,9 +271,9 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, Culling, ModifyEv
 // 设置hsv
 impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent> for NodeAttrSys<C>{
     type ReadData = &'a MultiCaseImpl<Node, HSV>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData){
-        let (render_objs, node_render_map, engine) = write;
+        let (render_objs, node_render_map) = write;
         let hsv = unsafe { hsvs.get_unchecked(event.id) };
         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
 
@@ -195,7 +282,7 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent>
                 let notify = render_objs.get_notify();
                 let render_obj = unsafe {render_objs.get_unchecked_mut(*id)};
                 render_obj.fs_defines.add("HSV");
-                render_obj.paramter.set_value("hsvValue", create_hsv_ubo(engine, hsv)); // hsv            
+                render_obj.paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv            
                 notify.modify_event(*id, "paramter", 0);
                 notify.modify_event(*id, "fs_defines", 0);
             }
@@ -209,14 +296,6 @@ impl<'a, C: HalContext + 'static>  MultiCaseListener<'a, Node, HSV, ModifyEvent>
             }
         }
         
-    }
-}
-
-pub fn create_hsv_ubo<C: HalContext + 'static>( engine: &mut Engine<C>, hsv: &HSV) -> Share<dyn UniformBuffer> {
-    let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
-    match engine.res_mgr.get::<HsvUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v))),
     }
 }
 
@@ -251,5 +330,8 @@ impl_system!{
         MultiCaseListener<Node, Culling, ModifyEvent>
         MultiCaseListener<Node, HSV, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
+        MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
+        MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
+        MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
     }
 }

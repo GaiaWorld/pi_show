@@ -9,6 +9,7 @@
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
+#![allow(non_snake_case)]
 
 #[macro_use]
 extern crate ecs;
@@ -28,7 +29,8 @@ extern crate hal_derive;
 pub extern crate paste;
 #[macro_use]
 extern crate serde;
- 
+
+extern crate res;
 extern crate share;
 extern crate deque;
 extern crate cg2d;
@@ -48,10 +50,8 @@ extern crate color;
 extern crate util as lib_util;
 extern crate hal_core;
 extern crate polygon;
-extern crate hashmap;
 extern crate ordered_float;
-extern crate fxhash;
-extern crate fx_hashmap;
+extern crate hash;
 extern crate densevec;
 
 pub mod system;
@@ -72,3 +72,6 @@ pub type IdBind = usize;
 pub const Z_MAX: f32 = 419429.0;
 // pub const Z_MAX: f32 = 10000.0;
 pub const ROOT: usize = 1;
+
+
+

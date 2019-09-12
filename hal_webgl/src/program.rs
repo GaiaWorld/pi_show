@@ -1,4 +1,4 @@
-use fx_hashmap::{FxHashMap32};
+use hash::XHashMap;
 use share::{Share};
 use atom::{Atom};
 use hal_core::*;
@@ -262,7 +262,7 @@ impl WebGLProgramImpl {
                 
         // 用于查找slot_ubo和Vec<CommonUbo>的对应关系的哈希表
         // 键是slot_ubo的索引，值是Vec<CommonUbo>的索引值
-        let mut slot_map = FxHashMap32::default();
+        let mut slot_map = XHashMap::default();
         
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i as u32).unwrap();

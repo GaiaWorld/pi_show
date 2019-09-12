@@ -14,8 +14,8 @@ use component::calc::*;
 use component::calc::{ Opacity };
 use entity::{ Node };
 use single::*;
-use render::engine::{ Engine };
-use render::res::GeometryRes;
+use render::engine::{ Engine, AttributeDecs };
+use render::res::{GeometryRes};
 use system::util::*;
 use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
 
@@ -53,7 +53,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a MultiCaseImpl<Node, Culling>,
 
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<ClassSheet>,
@@ -74,13 +73,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             z_depths,
             transforms,
             style_marks,
-            cullings,
 
             default_table,
             _class_sheet,
             dirty_list,
             default_state,
         ) = read;
+
+        if dirty_list.0.len() == 0 {
+            return;
+        }
 
         let (render_objs, engine) = write;
         let notify = render_objs.get_notify();
@@ -143,27 +145,26 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 render_obj.program_dirty =  true;
                 to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
 
-                render_obj.paramter.as_ref().set_value("uColor", create_u_color_ubo(&shadow.color, engine));
+                render_obj.paramter.as_ref().set_value("uColor", engine.create_u_color_ubo(&shadow.color));
                 render_obj.geometry = create_shadow_geo(engine, render_obj, layout, shadow, border_radius);
             }
 
-            // 渲染管线脏， 创建渲染管线
-            if render_obj.program_dirty {                
-                render_obj.program = Some(engine.create_program(
-                    COLOR_VS_SHADER_NAME.get_hash(),
-                    COLOR_FS_SHADER_NAME.get_hash(),
-                    COLOR_VS_SHADER_NAME.as_ref(),
-                    &*render_obj.vs_defines,
-                    COLOR_FS_SHADER_NAME.as_ref(),
-                    &*render_obj.fs_defines,
-                    render_obj.paramter.as_ref(),
-                ));
-            }
+            // // 渲染管线脏， 创建渲染管线
+            // if render_obj.program_dirty {                
+            //     render_obj.program = Some(ProgramRes(engine.create_program(
+            //         COLOR_VS_SHADER_NAME.get_hash(),
+            //         COLOR_FS_SHADER_NAME.get_hash(),
+            //         COLOR_VS_SHADER_NAME.as_ref(),
+            //         &*render_obj.vs_defines,
+            //         COLOR_FS_SHADER_NAME.as_ref(),
+            //         &*render_obj.fs_defines,
+            //         render_obj.paramter.as_ref(),
+            //     )));
+            // }
             
             // 矩阵脏，或者布局脏
-            if (dirty & StyleType::Matrix as usize != 0 
-            || dirty & StyleType::Layout as usize != 0)
-            && !unsafe{cullings.get_unchecked(*id)}.0 {
+            if dirty & StyleType::Matrix as usize != 0 
+            || dirty & StyleType::Layout as usize != 0{
                 let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
                 let transform =  match transforms.get(*id) {
                     Some(r) => r,
@@ -246,15 +247,6 @@ fn to_ucolor_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn Defines)
     }
 }
 
-#[inline]
-fn create_u_color_ubo<C: HalContext + 'static>(c: &CgColor, engine: &mut Engine<C>) -> Share<dyn UniformBuffer> {
-    let h = f32_4_hash(c.r, c.g, c.b, c.a);
-    match engine.res_mgr.get::<UColorUbo>(&h) {
-        Some(r) => r,
-        None => engine.res_mgr.create(h, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a))),
-    }
-}
-
 fn create_shadow_geo<C: HalContext + 'static>(
     engine: &mut Engine<C>,
     render_obj: &mut RenderObj,
@@ -322,8 +314,7 @@ fn create_shadow_geo<C: HalContext + 'static>(
     }
     
     debug_println!("create_shadow_geo: pts = {:?}, indices = {:?}", pts.as_slice(), indices.as_slice());
-    let geo = create_p_i_geometry(pts.as_slice(), indices.as_slice(), engine);
-    Some(Share::new(geo))
+    Some(engine.create_geo_res(0, indices.as_slice(), &[AttributeDecs::new(AttributeName::Position, pts.as_slice(), 2)]))
 }
 
 #[inline]

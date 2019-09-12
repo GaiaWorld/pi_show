@@ -15,7 +15,7 @@ use gui::font::font_sheet::{ FontSheet, TexFont, Glyph, TextInfo as TextInfo1 };
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
 use debug::set_render_dirty;
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
 #[macro_use()]
 macro_rules! set_attr {
@@ -266,7 +266,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
 
     // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
     let mut end_v = 0;
-    let mut map: FxHashMap32<u32, (Vec<usize>, Vector2)> = FxHashMap32::default();
+    let mut map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
     for i in 0..text_info_list.len() {
         let text_info = &text_info_list[i];
         let first = &text_info.chars[0];
@@ -351,9 +351,9 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                     js!{
                         var c = @{canvas};
                         var ch = String.fromCharCode(@{ch_code});
-                        //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText
+                        //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
+						c.ctx.strokeText(ch, @{x}, @{bottom});
                         c.ctx.fillText(ch, @{x}, @{bottom});
-                        c.ctx.strokeText(ch, @{x}, @{bottom});
                     } 
                 }
             } else {
@@ -408,7 +408,7 @@ impl DrawTextSys {
     pub fn new() -> Self {
         let obj: Object = TryInto::try_into(js!{
             var c = document.createElement("canvas");
-            // document.body.append(c);// 查看效果 
+            document.body.append(c);// 查看效果
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};
         }).unwrap();

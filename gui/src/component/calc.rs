@@ -6,12 +6,13 @@ use map::{vecmap::VecMap};
 use ecs::component::Component;
 use share::{ Share };
 use densevec::DenseVecMap;
+use cgmath::prelude::SquareMatrix;
 
 use hal_core::*;
 
 use super::user::*;
 use layout::FlexNode;
-use render::res_mgr::*;
+use res::Res;
 
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ZDepth(pub f32);
@@ -134,6 +135,7 @@ pub enum StyleType1{
     ZIndex = 0x800000,
     Transform = 0x1000000,
     TransformWillChange = 0x2000000,
+    Overflow = 0x4000000,
 }
 
 #[derive(Component, Debug, Clone, Copy, Default)]
@@ -312,6 +314,24 @@ impl<'a> Mul<Vector4> for &'a WorldMatrix{
             other
         } else {
             self.0 * other
+        }
+    }
+}
+
+impl WorldMatrix {
+    pub fn invert (&self) -> Option<Self> {
+        if !self.1 {
+            Some(Self(Matrix4::new(
+                1.0/self.x.x, 0.0,          0.0,          0.0,
+                0.0,          1.0/self.y.y, 0.0,          0.0,
+                0.0,          0.0,          1.0/self.z.z, 0.0,
+                -self.w.x,    -self.w.y,    -self.w.z,    1.0
+            ), false))
+        } else {
+            match self.0.invert() {
+                Some(r) => Some(Self(r, true)),
+                None => None
+            }
         }
     }
 }

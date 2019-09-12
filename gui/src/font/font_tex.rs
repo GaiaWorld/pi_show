@@ -1,13 +1,13 @@
 use share::{Share};
 
 use render::res::{TextureRes};
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
 use component::user::{Point2};
 
 pub struct FontTex{
     pub texture: Share<TextureRes>,
-    line_map: FxHashMap32<usize, (Point2, usize)>,
+    line_map: XHashMap<usize, (Point2, usize)>,
     pub last_v: f32,
 }
 
@@ -17,7 +17,7 @@ impl FontTex {
         // texture: Share::new(TextureRes::new(Atom::from("FontTex"), TEX_WIDTH as usize, INIT_TEX_HEIGHT as usize, Opacity::Translucent, Compress::None, tex)),
         FontTex {
             texture: texture,
-            line_map: FxHashMap32::default(),
+            line_map: XHashMap::default(),
             last_v: 0.0,
         }
     }

@@ -13,7 +13,7 @@ extern crate slab;
 extern crate atom;
 extern crate deque;
 extern crate share;
-extern crate fx_hashmap;
+extern crate hash;
 #[macro_use]
 extern crate debug_info;
 extern crate hal_core;

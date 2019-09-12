@@ -43,7 +43,7 @@ pub fn define_js(){
             }, 0);
         };
 
-        window.__load_image = function(gui, image_name){
+        window.__load_image = function(gui, image_name, r_type){
             var image = new Image();
             image.onload = () => {
                 window.__jsObj = image;
@@ -52,7 +52,7 @@ pub fn define_js(){
                 if (image_name.endsWith("png")) {
                     opacity = 1;
                 }
-                Module._load_image_success(gui, opacity , 0);
+                Module._load_image_success(gui, opacity, 0, r_type);
             };
             image.src = image_name;
         };

@@ -13,10 +13,10 @@ use hal_core::*;
 use ecs::{ Write };
 use ecs::monitor::NotifyImpl;
 use map::vecmap::VecMap;
-use fx_hashmap::FxHashMap32;
+use hash::XHashMap;
 
 use component::user::*;
-use component::calc::ClipBox;
+use component::calc::{ClipBox, WorldMatrix};
 
 use render::res::*;
 
@@ -24,9 +24,9 @@ pub use single::oct::Oct;
 pub use single::class::*;
 
 pub struct OverflowClip{
-    pub id_map: FxHashMap32<usize, usize>,
+    pub id_map: XHashMap<usize, usize>,
     pub clip: Slab<Clip>, //[[Point2;4];16], //Vec<(clip_view, has_rotate, old_has_rotate)> 最多32个
-    pub clip_map: FxHashMap32<usize, (Aabb3, Share<dyn UniformBuffer>)>,
+    pub clip_map: XHashMap<usize, (Aabb3, Share<dyn UniformBuffer>)>,
     // pub id_vec: [usize;16],
     // pub clip: [[Point2;4];16],
 }
@@ -40,10 +40,23 @@ pub struct Clip {
 }
 
 impl OverflowClip {
-    pub fn insert_aabb(&mut self, key: usize, value: Aabb3) {
-        let (w, h) = ((value.max.x - value.min.x) / 2.0, (value.max.y - value.min.y) / 2.0 );
-        let ubo = ClipBox::new(UniformValue::Float4(value.min.x + w, value.min.y + h, w, h));
+    pub fn insert_aabb(&mut self, key: usize, value: Aabb3, view_matrix: &WorldMatrix) -> &(Aabb3, Share<dyn UniformBuffer>) {
+        let min = view_matrix * Vector4::new(value.min.x, value.min.y, 0.0, 0.0);
+        let max = view_matrix * Vector4::new(value.max.x, value.max.y, 0.0, 0.0);
+        let (w, h) = ((max.x - min.x) / 2.0, (max.y - min.y) / 2.0 );
+        let ubo = ClipBox::new(UniformValue::Float4(min.x + w, min.y + h, w, h));
+
+        // self.clip_map.entry(key).and_modify(|e|{
+        //     *e = (value, Share::new(ubo))
+        // }).or {
+        //     Entry::Occupied(mut r) => {
+        //         r.insert((value, Share::new(ubo)));
+        //         r.get()
+        //     },
+        //     Entry::Vacant(r) => r.insert((value, Share::new(ubo))),
+        // }
         self.clip_map.insert(key, (value, Share::new(ubo)));
+        self.clip_map.get(&key).unwrap()
     }
 }
 
@@ -54,9 +67,9 @@ impl OverflowClip {
 impl Default for OverflowClip {
     fn default() -> Self {
         let mut r = Self {
-            id_map: FxHashMap32::default(),
+            id_map: XHashMap::default(),
             clip: Slab::default(),
-            clip_map: FxHashMap32::default(),
+            clip_map: XHashMap::default(),
             // id_vec: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             // clip: [
             //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
@@ -77,16 +90,16 @@ impl Default for OverflowClip {
             //     [Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)],
             // ],
         };
-        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)));
+        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)), &WorldMatrix::default());
         r
     }
 }
 
 #[derive(Debug)]
-pub struct ViewMatrix(pub Matrix4);
+pub struct ViewMatrix(pub WorldMatrix);
 
 #[derive(Clone)]
-pub struct ProjectionMatrix(pub Matrix4);
+pub struct ProjectionMatrix(pub WorldMatrix);
 
 impl ProjectionMatrix {
     pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix{
@@ -98,7 +111,7 @@ impl ProjectionMatrix {
             near: near,
             far: far,
         };
-        ProjectionMatrix(Matrix4::from(ortho))
+        ProjectionMatrix(WorldMatrix(Matrix4::from(ortho), false))
         // let (left, right, top, bottom, near, far) = (0.0, width, 0.0, height, -8388607.0, 8388608.0);
         // ProjectionMatrix(Matrix4::new(
         //         2.0 / (right - left),                  0.0,                               0.0,                        0.0,
@@ -112,7 +125,7 @@ impl ProjectionMatrix {
 // 图片等待表
 #[derive(Default)]
 pub struct ImageWaitSheet {
-    pub wait: FxHashMap32<Atom, Vec<ImageWait>>,
+    pub wait: XHashMap<Atom, Vec<ImageWait>>,
     pub finish: Vec<(Atom, Share<TextureRes>, Vec<ImageWait>)>,
     pub loads: Vec<Atom>,
 }
@@ -147,13 +160,13 @@ pub struct UnitQuad(pub Share<GeometryRes>);
 pub struct DirtyList(pub Vec<usize>);
 
 pub struct DefaultState{
-    pub df_rs: Share<HalRasterState>,
-    pub df_bs: Share<HalBlendState>,
-    pub df_ss: Share<HalStencilState>,
-    pub df_ds: Share<HalDepthState>,
+    pub df_rs: Share<RasterStateRes>,
+    pub df_bs: Share<BlendStateRes>,
+    pub df_ss: Share<StencilStateRes>,
+    pub df_ds: Share<DepthStateRes>,
 
-    pub tarns_bs: Share<HalBlendState>,
-    pub tarns_ds: Share<HalDepthState>,
+    pub tarns_bs: Share<BlendStateRes>,
+    pub tarns_ds: Share<DepthStateRes>,
 }
 
 impl DefaultState {
@@ -172,15 +185,15 @@ impl DefaultState {
         tarns_ds.set_write_enable(false);
 
         Self {
-            df_rs: Share::new(gl.rs_create(df_rs).unwrap()),
-            df_bs: Share::new(gl.bs_create(df_bs).unwrap()),
-            df_ss: Share::new(gl.ss_create(df_ss).unwrap()),
-            df_ds: Share::new(gl.ds_create(df_ds).unwrap()),
-            tarns_bs: Share::new(gl.bs_create(tarns_bs).unwrap()),
-            tarns_ds: Share::new(gl.ds_create(tarns_ds).unwrap()),
+            df_rs: Share::new(RasterStateRes(gl.rs_create(df_rs).unwrap())),
+            df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
+            df_ss: Share::new(StencilStateRes(gl.ss_create(df_ss).unwrap())),
+            df_ds: Share::new(DepthStateRes(gl.ds_create(df_ds).unwrap())),
+            tarns_bs: Share::new(BlendStateRes(gl.bs_create(tarns_bs).unwrap())),
+            tarns_ds: Share::new(DepthStateRes(gl.ds_create(tarns_ds).unwrap())),
         }
     }
-} 
+}
 
 pub struct Data<C>{
     map: Slab<C>,
@@ -242,10 +255,10 @@ impl<C> Data<C> {
 
 #[derive(Clone)]
 pub struct State{
-    pub rs: Share<HalRasterState>,
-    pub bs: Share<HalBlendState>,
-    pub ss: Share<HalStencilState>,
-    pub ds: Share<HalDepthState>,
+    pub rs: Share<RasterStateRes>,
+    pub bs: Share<BlendStateRes>,
+    pub ss: Share<StencilStateRes>,
+    pub ds: Share<DepthStateRes>,
 }
 
 #[derive(Write)]
@@ -261,7 +274,7 @@ pub struct RenderObj{
     pub paramter: Share<dyn ProgramParamter>,
     pub program_dirty: bool,
 
-    pub program: Option<Share<ProgramRes>>,
+    pub program: Option<Share<HalProgram>>,
     pub geometry: Option<Share<GeometryRes>>,
     pub state: State,
 
@@ -348,11 +361,11 @@ impl NodeRenderMap {
 
 pub struct RenderBegin(pub Share<RenderBeginDesc>);
 
-pub struct DefaultTable(FxHashMap32<TypeId, Box<dyn Any>>);
+pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
     pub fn new() -> Self{
-        Self(FxHashMap32::default())
+        Self(XHashMap::default())
     }
 
     pub fn set<T: 'static + Any>(&mut self, value: T){

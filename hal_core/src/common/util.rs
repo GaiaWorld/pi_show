@@ -48,13 +48,13 @@ pub enum PixelFormat {
  */
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum DataFormat {
-    Byte,
-    UnsignedByte,
-    Short,
-    UnsignedShort,
-    Int,
-    UnsignedInt,
-    Float,
+    Byte, // 每分量一字节
+    UnsignedByte, // 每分量一字节
+    Short, // 每分量两字节
+    UnsignedShort, // 每分量两字节
+    Int, // 每分量4字节
+    UnsignedInt, // 每分量4字节
+    Float, // 每分量4字节
 }
 
 /** 
@@ -140,4 +140,41 @@ pub enum StencilOp {
 pub enum RTAttachementType {
     Color0,
     Depth,
+}
+
+// 每像素字节数
+pub fn pixe_size(pformat: PixelFormat, dformat: DataFormat) -> usize {
+    match (pformat, dformat) {
+       (PixelFormat::RGBA, DataFormat::Byte) |
+       (PixelFormat::RGBA, DataFormat::UnsignedByte) => 4,
+       (PixelFormat::RGBA, DataFormat::Short) |
+       (PixelFormat::RGBA, DataFormat::UnsignedShort) => 8,
+       (PixelFormat::RGBA, DataFormat::Int) |
+       (PixelFormat::RGBA, DataFormat::UnsignedInt) |
+       (PixelFormat::RGBA, DataFormat::Float) => 16,
+
+       (PixelFormat::RGB, DataFormat::Byte) |
+       (PixelFormat::RGB, DataFormat::UnsignedByte) => 3,
+       (PixelFormat::RGB, DataFormat::Short) |
+       (PixelFormat::RGB, DataFormat::UnsignedShort) => 6,
+       (PixelFormat::RGB, DataFormat::Int) |
+       (PixelFormat::RGB, DataFormat::UnsignedInt) |
+       (PixelFormat::RGB, DataFormat::Float) => 9,
+
+       (PixelFormat::ALPHA, DataFormat::Byte) |
+       (PixelFormat::ALPHA, DataFormat::UnsignedByte) => 1,
+       (PixelFormat::ALPHA, DataFormat::Short) |
+       (PixelFormat::ALPHA, DataFormat::UnsignedShort) => 2,
+       (PixelFormat::ALPHA, DataFormat::Int) |
+       (PixelFormat::ALPHA, DataFormat::UnsignedInt) |
+       (PixelFormat::ALPHA, DataFormat::Float) => 4,
+
+       (PixelFormat::DEPTH16, DataFormat::Byte) |
+       (PixelFormat::DEPTH16, DataFormat::UnsignedByte) => 2,
+       (PixelFormat::DEPTH16, DataFormat::Short) |
+       (PixelFormat::DEPTH16, DataFormat::UnsignedShort) => 4,
+       (PixelFormat::DEPTH16, DataFormat::Int) |
+       (PixelFormat::DEPTH16, DataFormat::UnsignedInt) |
+       (PixelFormat::DEPTH16, DataFormat::Float) => 8,
+    }
 }

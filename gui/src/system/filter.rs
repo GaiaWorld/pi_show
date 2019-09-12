@@ -132,30 +132,6 @@ fn cal_range(value: f32, min: f32, max: f32) -> f32{
     }
 }
 
-
-
-// // 计算grayscale， hue的值在0~1度范围内， 大于1.0， 取1.0的值，小于0.0 取0.0
-// fn cal_s_from_saturate(saturate: f32) -> f32{
-//     if saturate  1.0 {
-//         -1.0
-//     }else if grayscale < 0.0{
-//         0.0
-//     } else {
-//         -grayscale
-//     }
-// }
-
-// // 计算明亮度， 值为0-2， 小于0是取0， 如果值是0，会全黑。值是1， 无变化， 大于1会更亮
-// fn cal_v_from_brightness(brightness: f32) -> f32{
-//     if brightness < 0.0 {
-//         0.0
-//     }else if brightness > 2.0 {
-//         2.0
-//     }else {
-//         brightness
-//     }
-// }
-
 impl_system!{
     FilterSys,
     false,

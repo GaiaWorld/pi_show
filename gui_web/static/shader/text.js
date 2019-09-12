@@ -33,12 +33,14 @@ let text_vs_code = `
     varying vec2 vUV;
 
     void main() {
-        vec4 p1 = worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
-        vec4 p = projectMatrix * viewMatrix * p1;
+        vec4 p1 = viewMatrix * worldMatrix * vec4(position.x, position.y, 1.0, 1.0);
+        vec4 p = projectMatrix * p1;
         gl_Position = vec4(p.x, p.y, worldMatrix[3].z, 1.0);
-    #ifdef VERTEX_COLOR
-        vColor = color;
-    #endif
+
+        #ifdef VERTEX_COLOR
+            vColor = color;
+        #endif
+        
         // vUV = uv0;
         vUV = vec2(uv0.x/textureSize.x, uv0.y/textureSize.y);
 
