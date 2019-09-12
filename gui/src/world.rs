@@ -56,7 +56,12 @@ lazy_static! {
 }
 
 pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
-    let mut res_mgr = ResMgr::with_capacity(total_capacity);
+	let mut res_mgr = if total_capacity > 0 {
+		ResMgr::with_capacity(total_capacity)
+	} else {
+		ResMgr::default()
+	};
+
     res_mgr.register::<TextureRes>([10 * 1024 * 1024,       50 * 1024 * 1024,   5 * 60000, 0, 0, 0, 0, 0, 0]);
     res_mgr.register::<GeometryRes>([20 * 1024,             100 * 1024,         5 * 60000, 0, 0, 0, 0, 0, 0]);
     res_mgr.register::<BufferRes>([20 * 1024,               100 * 1024,         5 * 60000, 0, 0, 0, 0, 0, 0]);

@@ -112,6 +112,7 @@ pub fn set_texture_catch_cfg(
 	]);
 }
 
+// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
