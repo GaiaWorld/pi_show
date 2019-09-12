@@ -126,6 +126,7 @@ pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
 	r
 }
 
+// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_render_target(world: u32) -> u32 {
@@ -135,6 +136,13 @@ pub fn create_render_target(world: u32) -> u32 {
 	let engine = world.engine.lend_mut();
 	let rt = engine.gl.rt_create_webgl(fbo); // 创建渲染目标
 	Box::into_raw(Box::new(rt)) as u32
+}
+
+// 销毁渲染目标
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn destroy_render_target(render_target: u32) {
+	unsafe{Box::from_raw(&mut *(render_target as usize as *mut Share<HalRenderTarget>))};
 }
 
 // 绑定rendertarget
@@ -148,7 +156,7 @@ pub fn bind_render_target(world: u32, render_target: u32) {
 	if render_target == 0 {
 		engine.render_target = None;
 	}else {
-		engine.render_target = Some(unsafe{&*(render_target as usize as *mut Share<HalRenderTarget>)}.clone());
+		engine.render_target = Some(unsafe{&*(render_target as usize as *const Share<HalRenderTarget>)}.clone());
 	}
 }
 
