@@ -313,11 +313,6 @@ pub trait HalContext {
      */
     fn render_get_caps(&self) -> &Capabilities;
 
-    /**
-     * 取默认的渲染目标
-     */
-    fn render_get_default_target(&self) -> &HalRenderTarget;
-
     /** 
      * 设置shader代码
      * shader代码不会释放，内部有代码缓存表
@@ -331,10 +326,11 @@ pub trait HalContext {
 
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
+     * 如果render_target传None，默认渲染到创建gl那个环境（canvas，window)
      * 注：begin-end之间，只能调用下面的几个方法，不能再调用任何创建和更新方法。
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn render_begin(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc);
+    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc);
 
     /** 
      * 结束渲染

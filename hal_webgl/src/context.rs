@@ -461,10 +461,6 @@ impl HalContext for WebglHalContext {
         &self.0.caps
     }
 
-    fn render_get_default_target(&self) -> &HalRenderTarget {
-        &self.1
-    }
-
     fn render_set_shader_code(&self, name: &str, code: &str) {
         let cache = convert_to_mut(&self.0.shader_cache);
         cache.set_shader_code(name, code)
@@ -475,7 +471,7 @@ impl HalContext for WebglHalContext {
         context.state_machine.apply_all_state(&context.gl, &mut context.texture_slab, &mut context.rt_slab);
     }
 
-    fn render_begin(&self, render_target: &HalRenderTarget, data: &RenderBeginDesc) {
+    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc) {
         
         // 注：暂时在这里重置所有状态
         self.restore_state();
@@ -485,6 +481,12 @@ impl HalContext for WebglHalContext {
         #[cfg(feature = "frame_stat")]
         context.stat.reset_frame();
 
+        let render_target = if render_target.is_none() {
+            &self.1
+        } else {
+            render_target.unwrap()
+        };
+        
         let rt = get_ref(&context.rt_slab, render_target.item.index, render_target.item.use_count).expect("rt param not found");
         if context.state_machine.set_render_target(&context.gl, render_target, rt) {
             #[cfg(feature = "frame_stat")]
@@ -645,7 +647,7 @@ impl WebglHalContextImpl {
 }
 
 impl WebglHalContext {
-    pub fn new(gl: WebGLRenderingContext, fbo: Option<Object>, use_vao: bool) -> WebglHalContext {
+    pub fn new(gl: WebGLRenderingContext, use_vao: bool) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
         let mut texture_slab = Slab::new();
@@ -677,7 +679,7 @@ impl WebglHalContext {
         let shader_cache = ShaderCache::new();
         let state_machine = StateMachine::new(&gl, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
-        let rt = WebGLRenderTargetImpl::new_default(fbo, 0, 0);
+        let rt = WebGLRenderTargetImpl::new_default(None, 0, 0);
         let (index, use_count) = create_new_slot(&mut rt_slab, rt);
         
         let context_impl = Share::new(WebglHalContextImpl {
@@ -738,6 +740,22 @@ impl WebglHalContext {
         let slab = convert_to_mut(&self.0.texture_slab);
         if let Some(t) = get_mut_ref(slab, texture.item.index, texture.item.use_count) {
             t.update(&self.0.gl, mipmap_level, None, Some((x, y, data)));
+        }
+    }
+
+    /**
+     * 注：WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
+     */
+    pub fn rt_create_webgl(&self, fbo: Object) -> HalRenderTarget {
+        let rt_slab = convert_to_mut(&self.0.rt_slab);
+        
+        let rt = WebGLRenderTargetImpl::new_default(Some(fbo), 0, 0);
+        let (index, use_count) = create_new_slot(rt_slab, rt);
+        
+        let context_impl = self.0.clone();
+        HalRenderTarget {
+            item: HalItem { index, use_count },
+            destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.rt_destroy(index, use_count); }),
         }
     }
 
