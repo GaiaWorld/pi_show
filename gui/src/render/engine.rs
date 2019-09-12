@@ -12,8 +12,12 @@ use component::calc::*;
 use component::user::CgColor;
 use system::util::f32_4_hash;
 
+pub type ShareEngine<C> = UnsafeMut<Engine<C>>;
+
 pub struct Engine<C: HalContext + 'static> {
     pub gl: C,
+	pub res_mgr: ResMgr,
+	pub render_target: Option<Share<HalRenderTarget>>, // 如果是None， 其目标是RenderContext上默认的fbo
     pub programs: XHashMap<u64, Share<HalProgram>>,
     pub texture_res_map: UnsafeMut<ResMap<TextureRes>>,
     pub geometry_res_map: UnsafeMut<ResMap<GeometryRes>>,
@@ -29,8 +33,9 @@ pub struct Engine<C: HalContext + 'static> {
 }
 
 impl<C: HalContext + 'static> Engine<C> {
-    pub fn new(gl: C, res_mgr: &ResMgr) -> Self {
+    pub fn new(gl: C, res_mgr: ResMgr) -> Self {
         Engine{
+			render_target: None,
             gl: gl,
             texture_res_map: UnsafeMut::new(res_mgr.fetch_map::<TextureRes>().unwrap()),
             geometry_res_map: UnsafeMut::new(res_mgr.fetch_map::<GeometryRes>().unwrap()),
@@ -42,6 +47,7 @@ impl<C: HalContext + 'static> Engine<C> {
             sampler_res_map: UnsafeMut::new(res_mgr.fetch_map::<SamplerRes>().unwrap()),
             u_color_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<UColorUbo>().unwrap()),
             programs: XHashMap::default(),
+			res_mgr,
         }
     }
 
@@ -87,7 +93,7 @@ impl<C: HalContext + 'static> Engine<C> {
 
             match gl.program_create_with_vs_fs(vs_id, fs_id, vs_name, vs_defines.list(), fs_name, fs_defines.list(), &uniform_layout) {
                 Ok(r) => Share::new(r),
-                Err(e) => panic!("create_program error: {:?}", e),
+                Err(e) => panic!("create_program error: {:?}, vs_name: {:?}, fs_name: {:?}", e, vs_name, fs_name),
             }
         }).clone()
     }

@@ -20,7 +20,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{Engine, AttributeDecs};
+use render::engine::{ShareEngine, Engine, AttributeDecs};
 use render::res::{Opacity as ROpacity, GeometryRes, SamplerRes};
 use system::util::*;
 use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
@@ -66,7 +66,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             border_images,

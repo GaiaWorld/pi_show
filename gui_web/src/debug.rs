@@ -6,7 +6,7 @@ use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
 // use gui::single::Oct;
-// use gui::layout::FlexNode;
+use gui::layout::FlexNode;
 use GuiWorld;
 
 // 打印节点信息
@@ -137,6 +137,55 @@ pub fn set_render_dirty(world: u32) {
 //         console.log("overflow_clip:", @{format!("{:?}", &overflow_clip.value)});
 //     }
 // }
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn get_world_matrix(world: u32, node: u32) {
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let world_matrixs = world.world_matrix.lend();
+	let world_matrix = match world_matrixs.get(node) {
+		Some(r) => r,
+		None => return,
+	};
+    js!{
+        console.log("world_matrix:", @{format!("{:?}", &world_matrix)});
+    }
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn get_transform(world: u32, node: u32) {
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let transforms = world.transform.lend();
+	let transform = match transforms.get(node) {
+		Some(r) => r,
+		None => return,
+	};
+    js!{
+        console.log("transform:", @{format!("{:?}", &transform)});
+    }
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn get_yoga(world: u32, node: u32) {
+    let node = node as usize;
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let yogas = world.yoga.lend();
+	let (style, layout) = match yogas.get(node) {
+		Some(r) => (r.get_style(), r.get_layout()),
+		None => return,
+	};
+    js!{
+        console.log("style:", @{format!("{:?}", &style)});
+		console.log("layout:", @{format!("{:?}", &layout)});
+    }
+}
 
 #[derive(Serialize)]
 struct Point2{

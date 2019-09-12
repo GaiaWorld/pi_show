@@ -428,6 +428,7 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         yoga.mark_dirty();
         return false
     }
+	yoga.set_display(YGDisplay::YGDisplayNone);
     if text_style.text.white_space.allow_wrap() {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     }else {

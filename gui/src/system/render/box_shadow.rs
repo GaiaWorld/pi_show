@@ -14,7 +14,7 @@ use component::calc::*;
 use component::calc::{ Opacity };
 use entity::{ Node };
 use single::*;
-use render::engine::{ Engine, AttributeDecs };
+use render::engine::{ ShareEngine, Engine, AttributeDecs };
 use render::res::{GeometryRes};
 use system::util::*;
 use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME };
@@ -60,7 +60,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a SingleCaseImpl<DefaultState>,
     );
 
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
 
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (

@@ -53,12 +53,12 @@ use hal_webgl::*;
 use hal_core::*;
 use ecs::{ LendMut};
 use gui::layout::{ YGAlign, FlexNode };
-use gui::world::{ create_world, create_res_mgr as create_res_mgr1, RENDER_DISPATCH, LAYOUT_DISPATCH };
+use gui::world::{ create_world, create_res_mgr, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::*;
 use gui::component::calc::Visibility;
 use gui::single::Class;
 use gui::single::RenderBegin;
-use gui::render::engine::Engine;
+use gui::render::engine::{ShareEngine, Engine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::render::res::TextureRes;
@@ -90,22 +90,6 @@ pub struct GuiWorld {
 	pub default_attr: Class,
 }
 
-// 创建资源管理器
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn create_res_mgr(total_capacity: u32/* 总缓存容量， 单位：字节 */) -> u32 {
-	let r = Box::into_raw(Box::new(Share::new(RefCell::new(create_res_mgr1(total_capacity as usize))))) as u32;
-	println!("create_res_mgr:{}", r);
-	r
-}
-
-// 克隆ResMgr
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn clone_res_mgr(res_mgr: u32/* res_mgr指针 */) -> u32 {
-	Box::into_raw(Box::new(unsafe {&*(res_mgr as *const Share<RefCell<ResMgr>>)}.clone())) as u32
-}
-
 // 设置纹理的缓存配置
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -130,25 +114,53 @@ pub fn set_texture_catch_cfg(
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn create_engine(res_mgr: u32/* 资源管理器的指针 */) -> u32 {
-	println!("create_engine:{}", res_mgr);
+pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
 	let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-	let fbo = TryInto::<Option<Object>>::try_into(js!(return __fbo?{wrap: __fbo}: undefined;)).unwrap();
 	let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
 
-	let gl = WebglHalContext::new(gl, fbo, false);
-	let engine = Engine::new(gl, &unsafe { &*(res_mgr as *const Share<RefCell<ResMgr>>) }.borrow());
-	Box::into_raw(Box::new(engine)) as u32
+	// let gl = WebglHalContext::new(gl, fbo, false);
+	let gl = WebglHalContext::new(gl, use_vao);
+	let engine = Engine::new(gl, create_res_mgr(total_capacity as usize));
+	let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
+	r
 }
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn create_gui(engine: u32, res_mgr: u32, width: f32, height: f32) -> u32 {
-	println!("create_gui:{}", res_mgr);
-	// 安全隐患， 会消耗Engine的所有权， 一旦gui销毁，Engine也会销毁， 因此Engine无法共享， engine应该改为Rc
-	let mut engine = *unsafe { Box::from_raw(engine as usize as *mut Engine<WebglHalContext>)}; 
-	let res_mgr = *unsafe { Box::from_raw(res_mgr as usize as *mut Share<RefCell<ResMgr>>)}; 
-	
+pub fn create_render_target(world: u32) -> u32 {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+	let fbo = TryInto::<Object>::try_into(js!(return {wrap: __fbo};)).unwrap();
+	let engine = world.engine.lend_mut();
+	let rt = engine.gl.rt_create_webgl(fbo); // 创建渲染目标
+	Box::into_raw(Box::new(rt)) as u32
+}
+
+// 绑定rendertarget
+// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须时一个RenderTarget的指针
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn bind_render_target(world: u32, render_target: u32) {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+	let engine = world.engine.lend_mut();
+	if render_target == 0 {
+		engine.render_target = None;
+	}else {
+		engine.render_target = Some(unsafe{&*(render_target as usize as *mut Share<HalRenderTarget>)}.clone());
+	}
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn clone_engine(engine: u32) -> u32 {
+	Box::into_raw(Box::new(unsafe {&*(engine as usize as *mut ShareEngine<WebglHalContext>)}.clone())) as u32
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
+	let mut engine = *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>)}; 
 	let draw_text_sys = DrawTextSys::new();
 	let c = draw_text_sys.canvas.clone();
 	let f = Box::new(move |name: &Atom, font_size: usize, ch: char| -> f32 {
@@ -165,7 +177,7 @@ pub fn create_gui(engine: u32, res_mgr: u32, width: f32, height: f32) -> u32 {
 		Atom::from("__$text".to_string()),
 		TextureRes::new(2048, 32, PixelFormat::RGBA, DataFormat::UnsignedByte, unsafe{transmute(1 as u8)}, unsafe{transmute(0 as u8)}, texture), 0);
 
-	let world = create_world::<YgNode, WebglHalContext>(engine, res_mgr, width, height, f, res);
+	let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res);
 	let world =  GuiWorld1::<YgNode, WebglHalContext>::new(world);
 	let idtree = world.idtree.lend_mut();
 	let node = world.node.lend_mut().create();
@@ -227,10 +239,9 @@ pub fn cal_layout(world_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_shader(engine: u32){
-	debug_println!("set_shader");
 	let shader_name: String = js!(return __jsObj;).try_into().unwrap();
 	let shader_code: String = js!(return __jsObj1;).try_into().unwrap();
-	let engine = unsafe { &mut *(engine as usize as *mut Engine<WebglHalContext>)};
+	let engine = unsafe { &mut *(engine as usize as *mut ShareEngine<WebglHalContext>)};
 	engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 

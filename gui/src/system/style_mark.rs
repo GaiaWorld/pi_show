@@ -19,7 +19,7 @@ use single::class::*;
 use single::*;
 use layout::*;
 use entity::{Node};
-use render::engine::Engine;
+use render::engine::{ ShareEngine, Engine };
 
 //文字样式脏
 const TEXT_DIRTY: usize =       StyleType::LetterSpacing as usize | 
@@ -528,7 +528,7 @@ type WriteData<'a, L, C> = (
     &'a mut MultiCaseImpl<Node, Show>,
     &'a mut MultiCaseImpl<Node, StyleMark>,
     &'a mut MultiCaseImpl<Node, L>,
-    &'a mut SingleCaseImpl<Engine<C>>,
+    &'a mut SingleCaseImpl<ShareEngine<C>>,
     &'a mut SingleCaseImpl<ImageWaitSheet>,
     &'a mut SingleCaseImpl<DirtyList>,
 );
@@ -1083,7 +1083,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
     images: &mut MultiCaseImpl<Node, Image>,
     border_images: &mut MultiCaseImpl<Node, BorderImage>,
     image_wait_sheet: &mut SingleCaseImpl<ImageWaitSheet>,
-    engine: &mut SingleCaseImpl<Engine<C>>,
+    engine: &mut Engine<C>,
 ){
     for layout_attr in layout_attrs.iter() {
         match layout_attr {

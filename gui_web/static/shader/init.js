@@ -5,7 +5,7 @@ window.__fbo = undefined;
 // 测试：渲染GUI到fbo
 // window.__fbo = init_fbo(gl, 1000, 700);
 
-var res_mgr = Module._create_res_mgr(100 * 1024 * 1024); // 缓存总容量， 100M
+//var res_mgr = Module._create_res_mgr(100 * 1024 * 1024); // 缓存总容量， 100M
 
 // var res_mgr = Module._create_res_mgr(153600); // 缓存总容量， 15k
 
@@ -15,7 +15,7 @@ var res_mgr = Module._create_res_mgr(100 * 1024 * 1024); // 缓存总容量， 1
 
 // var res_mgr1 = Module._clone_res_mgr(res_mgr); // 如果还有其他gui上下文需要共享该资源管理器， 应该克隆一份给出
 
-var engine = Module._create_engine(res_mgr);
+var engine = Module._create_engine(100 * 1024 * 1024);
 
 // 设置图片shader
 var __jsObj = color_vs_shader_name;
@@ -64,7 +64,7 @@ var __jsObj1 = clip_fs_code;
 Module._set_shader(engine);
 
 function create_gui(width, height) {
-	return Module._create_gui(engine, res_mgr, width, height)
+	return Module._create_gui(engine, width, height)
 }
 
 function init_fbo(gl, width, height) {

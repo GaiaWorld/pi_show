@@ -1,6 +1,5 @@
 use std::default::Default;
 use std::sync::Arc;
-use std::cell::RefCell;
 
 use hal_core::*;
 use atom::Atom;
@@ -18,7 +17,7 @@ use component::user;
 use single::*;
 use entity::Node;
 use layout::FlexNode;
-use render::engine::Engine;
+use render::engine::ShareEngine;
 use render::res::*;
 use system::*;
 use font::font_sheet::FontSheet;
@@ -76,8 +75,7 @@ pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
 }
 
 pub fn create_world<L: FlexNode, C: HalContext + 'static>(
-    mut engine: Engine<C>,
-    res_mgr: Share<RefCell<ResMgr>>,
+    mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
@@ -110,10 +108,9 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     let default_state = DefaultState::new(&engine.gl);
 
     
-    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(&mut engine, (font_texture.width, font_texture.height), &res_mgr.borrow()));
+    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(&mut engine, (font_texture.width, font_texture.height)));
     let border_image_sys = BorderImageSys::<C>::new(&mut engine);
-    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&res_mgr.borrow()));
-    
+    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr));
 
     let clip_sys = ClipSys::<C>::new();
     let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
@@ -163,7 +160,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs>(RenderObjs::default());
-    world.register_single::<Engine<C>>(engine);
+    world.register_single::<ShareEngine<C>>(engine);
     world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
     world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
@@ -175,8 +172,6 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
     world.register_single::<DirtyList>(DirtyList::default());
-	world.register_single::<Share<RefCell<ResMgr>>>(res_mgr);
-    
     
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -201,7 +196,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(RENDER_N.clone(), CellRenderSys::<C>::new(RenderSys::default()));
     world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
-    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::new(ResReleaseSys::new()));
+    world.register_system(RES_RELEASE_N.clone(), CellResReleaseSys::<C>::new(ResReleaseSys::new()));
     world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<L, C>::new(StyleMarkSys::new()));
     
 
@@ -261,7 +256,7 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub idtree: Arc<CellSingleCase<IdTree>>,
     pub oct: Arc<CellSingleCase<Oct>>,
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
-    pub engine: Arc<CellSingleCase<Engine<C>>>,
+    pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
     pub font_sheet: Arc<CellSingleCase<FontSheet>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
@@ -314,7 +309,7 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             idtree: world.fetch_single::<IdTree>().unwrap(),
             oct: world.fetch_single::<Oct>().unwrap(),
             overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
-            engine: world.fetch_single::<Engine<C>>().unwrap(),
+            engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
             render_objs: world.fetch_single::<RenderObjs>().unwrap(),
             font_sheet: world.fetch_single::<FontSheet>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),

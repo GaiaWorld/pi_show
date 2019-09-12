@@ -20,7 +20,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{ Engine, AttributeDecs };
+use render::engine::{ ShareEngine, Engine, AttributeDecs };
 use render::res::*;
 use render::res::{Opacity as ROpacity};
 use system::util::*;
@@ -72,7 +72,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             layouts, 

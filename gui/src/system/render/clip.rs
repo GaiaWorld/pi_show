@@ -14,7 +14,7 @@ use component::calc::*;
 use component::user::{Aabb3};
 use entity::{Node};
 use single::*;
-use render::engine:: { Engine };
+use render::engine:: { ShareEngine, Engine };
 use render::res::*;
 use system::render::shaders::clip::*;
 
@@ -160,7 +160,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
         &'a mut SingleCaseImpl<OverflowClip>, 
         &'a mut MultiCaseImpl<Node, Culling>, 
         &'a mut SingleCaseImpl<RenderObjs>, 
-        &'a mut SingleCaseImpl<Engine<C>>,
+        &'a mut SingleCaseImpl<ShareEngine<C>>,
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (by_overflows, style_marks, dirty_list, node_render_map, overflow, projection, view, view_port) = read;
@@ -212,7 +212,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
             clip_render.paramter.set_single_uniform("meshNum", UniformValue::Float1(count as f32));
 
             // 渲染裁剪平面
-            engine.gl.render_begin(&clip_render.render_target, &clip_render.begin_desc);
+            engine.gl.render_begin(Some(&clip_render.render_target), &clip_render.begin_desc);
             engine.gl.render_set_program(&clip_render.program);
             engine.gl.render_set_state(&clip_render.bs, &clip_render.ds, &clip_render.rs, &clip_render.ss);
             engine.gl.render_draw(&clip_render.geometry, &clip_render.paramter);
@@ -259,7 +259,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 // //创建RenderObj， 为renderobj添加裁剪宏及ubo
 // impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
 //     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut SingleCaseImpl<OverflowClip>);
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>, &'a mut SingleCaseImpl<OverflowClip>);
 //     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
 //         let (render_objs, engine, overflow_clip) = write;
 //         let notify = render_objs.get_notify();
@@ -277,7 +277,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 // //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
 // impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
 //     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>, &'a SingleCaseImpl<OverflowClip>, &'a SingleCaseImpl<Oct>);
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, Culling>);
+//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>, &'a mut MultiCaseImpl<Node, Culling>);
 //     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
 //         let (by_overflows, node_render_map, overflow_clip, octree) = read;
 //         let (render_objs, engine, cullings) = write;
@@ -313,7 +313,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 // // 世界矩阵改变， 如果该节点by_overflow > 0, 应该判断其是否被裁剪平面剔除
 // impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for ClipSys<C>{
 //     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<NodeRenderMap>);
-//     type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, Culling>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+//     type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, Culling>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
 //     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
 //         let (by_overflows, octree, node_render_map) = read;
 //         let (overflow_clip, cullings, render_objs, engine) = write;

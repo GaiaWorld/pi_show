@@ -65,7 +65,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         if (read.12).0.len() == 0 {
             return;
@@ -186,7 +186,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
 // // 监听一个backgroundColorClass的创建， 如果backgroundColor是rgba类型， 创建一个对应的ubo
 // impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ClassSheet, CreateEvent> for BackgroundColorSys<C>{
 //     type ReadData = &'a SingleCaseImpl<ClassSheet>;
-//     type WriteData = &'a mut SingleCaseImpl<Engine<C>>;
+//     type WriteData = &'a mut SingleCaseImpl<ShareEngine<C>>;
 //     fn listen(&mut self, event: &CreateEvent, class_sheet: Self::ReadData, engine: Self::WriteData){
 //         let class = unsafe { class_sheet.class.get_unchecked(event.id)};
 

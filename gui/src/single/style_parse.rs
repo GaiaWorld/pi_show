@@ -15,9 +15,12 @@ pub fn parse_class_map_from_string(value: &str) -> Result<XHashMap<usize, Class>
     let mut map = XHashMap::default();
     loop {
         match parser.next_class() {
-            Some(r) => {map.insert(r.0, parse_class_from_string(r.1)?);},
-            None => break,
-        }
+			Ok(r) => match r {
+				Some(r) => map.insert(r.0, parse_class_from_string(r.1)?),
+            	None => break,
+			}
+			Err(_) => continue,
+        };
     }
     Ok(map)
 }
@@ -47,24 +50,52 @@ pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
 struct ClassMapParser<'a> (&'a str);
 
 impl<'a> ClassMapParser<'a> {
-    fn next_class(&mut self) -> Option<(usize, &'a str)> {
-        let i = self.0.find("{");
-        let j = self.0.find("}");
-        match (i, j) {
-            (Some(i), Some(j)) => {
-                let r = (match usize::from_str(&self.0[..i].trim()[1..]){
-                    Ok(r) => r,
-                    Err(_) => {
-                        println!("usize::from_str fail: {:?}", &self.0[..i].trim()[1..]);
-                        return None;
-                    },
-                }, self.0[i + 1..j].trim());
-                self.0 = &self.0[j+1..];
-                Some(r)
-            },
-            _ => None
-        }
+	fn next_class(&mut self) -> Result<Option<(usize, &'a str)>, String> {
+		let i = match self.0.find("{") {
+			Some(i) => i,
+			None => return Ok(None),
+		};
+		let j = match find_end(&self.0) {
+			Some(j) => j,
+			None => return Ok(None),
+		};
+
+		let r = (match usize::from_str(&self.0[..i].trim()[1..]){
+			Ok(r) => r,
+			Err(_) => {
+				self.0 = &self.0[j+1..];
+				return Err("".to_string());
+			},
+		},self.0[i + 1..j].trim());
+		self.0 = &self.0[j+1..];
+		Ok(Some(r))
     }
+}
+
+fn find_end(value: &str) -> Option<usize>{
+	let mut j1 = 0;
+	let mut i1 = 0;
+	j1 += match value[j1 + 1..].find("}") {
+		Some(r) => r,
+		None => return None,
+	};
+	loop {
+		i1 += match value[i1 + 1..].find("{") {
+			Some(r) => r + 1,
+			None => j1,
+		};
+		
+		if i1 < j1 {
+			j1 += match value[j1 + 1..].find("}") {
+				Some(r) => r + 1,
+				None => return None,
+			};
+		} else {
+			break;
+		}
+	}
+
+	Some(j1)
 }
 
 fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
@@ -114,7 +145,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::BorderImageClip as usize;
         },
         "border-image-slice" => {
-            class.attrs3.push(Attribute3::BorderImageSlice( unsafe { transmute(parse_f32_5(value)?) } ));
+            class.attrs3.push(Attribute3::BorderImageSlice( parse_border_image_slice(value)? ));
             class.class_style_mark |= StyleType::BorderImageSlice as usize;
         },
         "border-image-repeat" => {
@@ -164,7 +195,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
 
         // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
         "font-weight" => {
-            class.attrs2.push(Attribute2::FontWeight( parse_f32(value)? ));
+            class.attrs2.push(Attribute2::FontWeight( parse_font_weight(value)? ));
             class.class_style_mark |= StyleType::FontWeight as usize;
         },
         "font-size" => {
@@ -522,6 +553,51 @@ fn parse_f32_5(value: &str) -> Result<[f32; 5], String> {
     Ok(r)
 }
 
+fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
+    let mut slice = BorderImageSlice::default();
+	let mut arr = Vec::default();
+    let mut i = 0;
+    for v in value.split(" ") {
+        if i > 4 {
+            return Err(format!("parse_border_image_slice error, value: {:?}", value));
+        }
+        let v = v.trim();
+		match v {
+			"fill" => slice.fill = true,
+			" " => (),
+			_ => {
+				arr.push(v);
+				i += 1;
+			}
+		};
+	}
+	let r = to_four(arr)?;
+	match r[0] {
+		ValueUnit::Percent(r) => slice.top = r,
+		_ => (),
+	};
+	match r[1] {
+		ValueUnit::Percent(r) => slice.right = r,
+		_ => (),
+	};
+	match r[2] {
+		ValueUnit::Percent(r) => slice.bottom = r,
+		_ => (),
+	};
+	match r[3] {
+		ValueUnit::Percent(r) => slice.left = r,
+		_ => (),
+	};
+    Ok(slice)
+}
+
+fn parse_font_weight(value: &str) -> Result<f32, String>{
+	match value {
+		"bold" => Ok(700.0),
+		_ => parse_f32(value),
+	}
+}
+
 fn parse_line_height(value: &str) -> Result<LineHeight, String>{
     let r = if value == "normal" {
         LineHeight::Normal
@@ -661,29 +737,49 @@ fn parse_text_shadow(value: &str) -> Result<TextShadow, String>{
 fn parse_box_shadow(value: &str) -> Result<BoxShadow, String>{
     let mut i = 0;
     let mut shadow = BoxShadow::default();
-    shadow.h = parse_px(iter_by_space(value, &mut i)?)?;
-    shadow.v = parse_px(iter_by_space(value, &mut i)?)?;
-    let r = match iter_by_space(value, &mut i) {
+
+	let r = iter_by_space(value, &mut i)?;
+	match parse_color_string(r) {
+		Ok(r) => {
+			shadow.color = r;
+			parse_box_shadow_number(value, &mut i, &mut shadow)?;
+		},
+		Err(_) => {
+			i = 0;
+			parse_box_shadow_number(value, &mut i, &mut shadow)?;
+			let r = iter_by_space(value, &mut i)?;
+    		shadow.color = parse_color_string(r)?;
+		}
+	};
+    Ok(shadow)
+}
+
+fn parse_box_shadow_number(value:&str, i: &mut usize, shadow: &mut BoxShadow) -> Result<(), String> {
+	shadow.h = parse_px(iter_by_space(value, i)?)?;
+    shadow.v = parse_px(iter_by_space(value, i)?)?;
+	let j = *i;
+	match iter_by_space(value, i) {
         Ok(r) => match parse_px(r) {
             Ok(r) => {
                 shadow.blur = r;
-                match iter_by_space(value, &mut i){
+				let j = *i;
+                match iter_by_space(value, i){
                     Ok(r) => match parse_px(r) {
-                        Ok(r) => {
-                            shadow.spread = r;
-                            iter_by_space(value, &mut i)?
-                        },
-                        Err(_) => r,
+                        Ok(r) => shadow.spread = r,
+                        Err(_) => *i = j,
                     },
-                    Err(_) => return Err("".to_string()),
+                    Err(_) => *i = j,
                 }
             },
-            Err(_) => r,
+            Err(_) => {
+				*i = j
+			},
         },
-        _ => return Err("".to_string()),
+        _ => {
+			return Err("".to_string());
+		}
     };
-    shadow.color = parse_color_string(r)?;
-    Ok(shadow)
+	Ok(())
 }
 
 fn parse_text_stroke(value: &str) -> Result<Stroke, String>{
@@ -1024,7 +1120,6 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
 
 // 上右下左
 fn parse_four_f32(value: &str) -> Result<[ValueUnit; 4], String> {
-    let r;
     let mut i = 0;
     let mut arr = Vec::default();
     loop {
@@ -1039,25 +1134,28 @@ fn parse_four_f32(value: &str) -> Result<[ValueUnit; 4], String> {
         return Err(format!("parse_four_f32 error: {}", value));
     }
 
-    if arr.len() == 1 {
+    to_four(arr)
+}
+
+fn to_four(arr: Vec<&str>) -> Result<[ValueUnit; 4], String> {
+	let r = if arr.len() == 1 {
         let v = parse_unity(arr[0])?;
-        r = [v.clone(), v.clone(), v.clone(), v];
+       [v.clone(), v.clone(), v.clone(), v]
     } else if arr.len() == 2 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;
-        r = [v.clone(), v, v1.clone(), v1];
+        [v.clone(), v, v1.clone(), v1]
     } else if arr.len() == 3 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;
         let v2 = parse_unity(arr[2])?;
-        r = [v, v1.clone(), v2, v1];
+        [v, v1.clone(), v2, v1]
     } else if arr.len() == 4 {
-        r = [parse_unity(arr[0])?, parse_unity(arr[1])?, parse_unity(arr[2])?, parse_unity(arr[3])?];
+        [parse_unity(arr[0])?, parse_unity(arr[1])?, parse_unity(arr[2])?, parse_unity(arr[3])?]
     } else {
-        return Err(format!("parse_four_f32 error: {}", value));
-    }
-
-    Ok(r)
+        return Err(format!("to_four error"));
+    };
+	Ok(r)
 }
 
 fn parse_unity(value: &str) -> Result<ValueUnit, String> {
@@ -1099,7 +1197,7 @@ fn parse_len_or_percent_2(value: &str, split: &str) -> Result<[LengthUnit; 2], S
 
 fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {
     if value.ends_with("%") {
-        let v = match f32::from_str(value) {
+        let v = match f32::from_str(&value[..value.len() - 1]) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };

@@ -18,7 +18,7 @@ use component::calc::*;
 use component::calc::{Opacity};
 use entity::{Node};
 use single::*;
-use render::engine::{Engine, AttributeDecs};
+use render::engine::{ShareEngine, Engine, AttributeDecs};
 use render::res::GeometryRes;
 use system::util::*;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
@@ -62,7 +62,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
-        &'a mut SingleCaseImpl<Engine<C>>
+        &'a mut SingleCaseImpl<ShareEngine<C>>
     );
     /// 将顶点数据改变的渲染对象重新设置索引流和顶点流
     fn run(

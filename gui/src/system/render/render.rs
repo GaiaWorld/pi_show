@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 use hal_core::*;
 use ecs::{SingleCaseImpl, Runner, ModifyEvent, CreateEvent, DeleteEvent, SingleCaseListener};
 
-use render::engine::Engine;
+use render::engine::ShareEngine;
 use single::{ RenderObjs, RenderObj, RenderBegin};
 
 pub struct RenderSys<C: HalContext + 'static>{
@@ -44,7 +44,7 @@ impl<C: HalContext + 'static> Default for RenderSys<C> {
 
 impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
     type ReadData = &'a SingleCaseImpl<RenderBegin>;
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>> );
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>> );
     fn run(&mut self, render_begin: Self::ReadData, write: Self::WriteData){
         let (render_objs, engine) = write;
 
@@ -155,9 +155,13 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
         js!{
             __time = performance.now();
         }
-        let gl = &mut engine.gl;
+		let target = match &engine.render_target {
+			Some(r) => Some(&**r),
+			None => None,
+		};
+		let gl = &engine.gl;
         gl.render_begin(
-            &gl.render_get_default_target(), 
+            target,
             &render_begin.0);
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };

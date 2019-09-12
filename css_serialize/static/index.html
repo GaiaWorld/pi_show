@@ -40679,6 +40679,8 @@
     width: 262px;height: 167px;
 }
 `;
+
+// var __jsObj = `.z{{}{}}`;
         Module._serialize_class_map();
         console.log(__jsObj);
         var time = performance.now();
@@ -40688,9 +40690,9 @@
         Module._deserialize_class_map();
         console.log("time: ", performance.now() - time);
         var time = performance.now();
-        for(var i = 0; i < 3000; i++){
-            Module._deserialize_class_map();
-        }
+        // for(var i = 0; i < 3000; i++){
+        //     Module._deserialize_class_map();
+        // }
         
         console.log("time: ", performance.now() - time);
     </script>

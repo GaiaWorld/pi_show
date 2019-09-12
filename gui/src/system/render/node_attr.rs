@@ -15,7 +15,7 @@ use system::util::*;
 use component::calc::*;
 use entity::{Node};
 use single::*;
-use render::engine::{Engine, UnsafeMut};
+use render::engine::{ShareEngine, UnsafeMut};
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
@@ -60,7 +60,7 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for NodeAttrSys<C>{
         &'a SingleCaseImpl<NodeRenderMap>,
         &'a EntityImpl<Node>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (transform_will_change_matrixs, idtree, view_matrix, _, node_render_map, nodes) = read;
         let (render_objs, _) = write;

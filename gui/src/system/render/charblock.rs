@@ -13,13 +13,13 @@ use hal_core::*;
 use polygon::{mult_to_triangle, interp_mult_by_lg, split_by_lg, LgCfg, find_lg_endp};
 use share::Share;
 use map::vecmap::VecMap;
-use res::{ResMap, ResMgr};
+use res::ResMap;
 
 use component::user::*;
 use single::*;
 use component::calc::*;
 use entity::{Node};
-use render::engine::{ Engine, UnsafeMut, buffer_size, create_hash_res };
+use render::engine::{ ShareEngine, Engine, UnsafeMut, buffer_size, create_hash_res };
 use render::res::*;
 use system::util::*;
 use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
@@ -109,7 +109,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         &'a SingleCaseImpl<ClassSheet>,
         &'a SingleCaseImpl<DirtyList>,
     );
-    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<Engine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>, &'a mut MultiCaseImpl<Node, CharBlock<L>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
         let (
             world_matrixs, 
@@ -324,7 +324,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, N
 impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
     
     #[inline]
-    pub fn new(engine: &mut Engine<C>, texture_size: (usize, usize), res_mgr: &ResMgr) -> Self {
+    pub fn new(engine: &mut Engine<C>, texture_size: (usize, usize)) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
         canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         let canvas_bs = engine.create_bs_res(canvas_bs);
@@ -350,8 +350,8 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
             i += 4;
         }
 
-        let mut msdf_stroke_ubo_map = UnsafeMut::new(res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap());
-        let mut canvas_stroke_ubo_map = UnsafeMut::new(res_mgr.fetch_map::<CanvasTextStrokeColorUbo>().unwrap());
+        let mut msdf_stroke_ubo_map = UnsafeMut::new(engine.res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap());
+        let mut canvas_stroke_ubo_map = UnsafeMut::new(engine.res_mgr.fetch_map::<CanvasTextStrokeColorUbo>().unwrap());
 
         Self {
             render_map: VecMap::default(),
