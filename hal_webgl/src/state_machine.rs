@@ -5,7 +5,6 @@ use ordered_float::{OrderedFloat};
 use stdweb::{Object};
 
 use hal_core::*;
-use extension::{OESVertexArrayObject};
 use convert::*;
 use util::*;
 use buffer::{WebGLBufferImpl};
@@ -58,7 +57,7 @@ impl TextureCache {
     fn new(max_tex_unit_num: usize) -> Self {
         Self {
             curr_gl_unit: 1, // 第0个纹理通道内部使用
-            total_units: max_tex_unit_num,
+            total_units: max_tex_unit_num - 1,
             values: SlabDeque::new(),
         }
     }
@@ -128,7 +127,7 @@ impl TextureCache {
 
 impl StateMachine {
 
-    pub fn new(gl: &WebGLRenderingContext, max_attributes: u32,
+    pub fn new(gl: &WebGLRenderingContext, is_vao_extension: bool, max_attributes: u32, 
         max_tex_unit_num: u32, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) -> StateMachine {
         
         let tex_caches = TextureCache::new(max_tex_unit_num as usize);
@@ -159,7 +158,7 @@ impl StateMachine {
             copy_fbo: gl.create_framebuffer().unwrap(),
         };  
         
-        state.apply_all_state(gl, texture_slab, rt_slab);
+        state.apply_all_state(gl, is_vao_extension, texture_slab, rt_slab);
 
         state
     }
@@ -340,16 +339,18 @@ impl StateMachine {
                     for (i, v) in gimpl.attributes.iter().enumerate() {
                         if let Some(v) = v {
                             if let Some(a) = get_ref(buffer_slab, v.handle.0, v.handle.1) {
-                                // if !self.enable_attrib_indices[i] {
+                                if !self.enable_attrib_indices[i] {
                                     self.enable_attrib_indices[i] = true;
                                     gl.enable_vertex_attrib_array(i as u32);
-                                // }
+                                }
                                 gl.bind_buffer(WebGLRenderingContext::ARRAY_BUFFER, Some(&a.handle));
                                 gl.vertex_attrib_pointer(i as u32, v.item_count as i32, WebGLRenderingContext::FLOAT, false, 0, 0);
                             }
                         } else {
-                            self.enable_attrib_indices[i] = false;
-                            gl.disable_vertex_attrib_array(i as u32);
+                            if self.enable_attrib_indices[i] {
+                                self.enable_attrib_indices[i] = false;
+                                gl.disable_vertex_attrib_array(i as u32);
+                            }
                         }
                     }
                     
@@ -379,7 +380,7 @@ impl StateMachine {
     /** 
      * 全状态设置，仅用于创建State时候
      */
-    pub fn apply_all_state(&mut self, gl: &WebGLRenderingContext,  
+    pub fn apply_all_state(&mut self, gl: &WebGLRenderingContext, is_vao_extension: bool, 
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>) {
         
         gl.enable(WebGLRenderingContext::BLEND);
@@ -408,13 +409,10 @@ impl StateMachine {
         gl.viewport(rect.0, rect.1, rect.2, rect.3);
         gl.scissor(rect.0, rect.1, rect.2, rect.3);
         
-        let is_vao_extension = gl.get_extension::<OESVertexArrayObject>().map_or(false, |_v| true);
         if !is_vao_extension {
             for (i, v) in self.enable_attrib_indices.iter_mut().enumerate() {
-                // if *v {
-                    *v = false;
-                    gl.disable_vertex_attrib_array(i as u32);
-                // }
+                *v = false;
+                gl.disable_vertex_attrib_array(i as u32);
             }
         }
         self.tex_caches.reset(texture_slab);

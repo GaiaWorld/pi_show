@@ -468,12 +468,11 @@ impl HalContext for WebglHalContext {
 
     fn restore_state(&self) {
         let context = convert_to_mut(self.0.as_ref());
-        context.state_machine.apply_all_state(&context.gl, &mut context.texture_slab, &mut context.rt_slab);
+        context.state_machine.apply_all_state(&context.gl, self.0.vao_extension.is_some(), &mut context.texture_slab, &mut context.rt_slab);
     }
 
     fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc) {
         
-        // 注：暂时在这里重置所有状态
         self.restore_state();
         
         let context = convert_to_mut(self.0.as_ref());
@@ -661,9 +660,7 @@ impl WebglHalContext {
         let program_slab = Slab::new();
         
         let caps = WebglHalContext::create_caps(&gl);
-        let vao_extension = if !use_vao || !caps.vertex_array_object {
-            None
-        } else {
+        let vao_extension = if use_vao && caps.vertex_array_object {
             TryInto::<Object>::try_into(js! {
      
                 var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
@@ -673,11 +670,12 @@ impl WebglHalContext {
                 };
                 return vaoExtensionWrap;
             }).ok()
+        } else {
+            None
         };
 
-
         let shader_cache = ShaderCache::new();
-        let state_machine = StateMachine::new(&gl, caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
+        let state_machine = StateMachine::new(&gl, vao_extension.is_some(), caps.max_vertex_attribs, caps.max_textures_image_units, &mut texture_slab, &rt_slab);
 
         let rt = WebGLRenderTargetImpl::new_default(None, 0, 0);
         let (index, use_count) = create_new_slot(&mut rt_slab, rt);
