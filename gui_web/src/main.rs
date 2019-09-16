@@ -135,7 +135,7 @@ pub fn create_render_target(world: u32) -> u32 {
 	let fbo = TryInto::<Object>::try_into(js!(return {wrap: __fbo};)).unwrap();
 	let engine = world.engine.lend_mut();
 	let rt = engine.gl.rt_create_webgl(fbo); // 创建渲染目标
-	Box::into_raw(Box::new(rt)) as u32
+	Box::into_raw(Box::new(Share::new(rt))) as u32
 }
 
 // 销毁渲染目标
