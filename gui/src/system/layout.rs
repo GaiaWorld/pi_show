@@ -1,7 +1,7 @@
 use std::os::raw::{c_void};
 use std::marker::PhantomData;
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, MultiCaseListener};
 use ecs::idtree::{IdTree};
 
 
@@ -31,6 +31,15 @@ impl<'a, L: FlexNode> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
     }
 }
 
+//插入Layout 和 L 组件
+impl<'a, L: FlexNode> MultiCaseListener<'a, Node, L, DeleteEvent> for LayoutSys<L>{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
+		unsafe { write.1.get_unchecked(event.id) }.free();
+    }
+}
+
 impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<L>{
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
@@ -39,6 +48,7 @@ impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<
 				if event.field == "add" {
 					add_yoga(event.id, read.0, read.1);
 				}else if event.field == "remove"{
+					// unsafe { read.1.get_unchecked(event.id) }.free();
 					let parent_yoga = unsafe { read.1.get_unchecked(event.index)};
 					parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id)}.clone());
 				}
@@ -90,7 +100,7 @@ impl_system!{
     false,
     {
 		EntityListener<Node, CreateEvent>
-        // EntityListener<Node, DeleteEvent>
+        MultiCaseListener<Node, L, DeleteEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
 		SingleCaseListener<IdTree, ModifyEvent>

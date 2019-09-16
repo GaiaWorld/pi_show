@@ -371,7 +371,14 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
     let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
 
     for e in entitys.iter() {
-        let oct = unsafe { octree.get_unchecked(e) };
+		let oct = match octree.get(e) {
+			Some(r) => r,
+			None => {
+				println!("query fail, id: {}", e);
+				return 0;
+			},
+		};
+        // let oct = unsafe { octree.get_unchecked(e) };
         ab_query_func(&mut args, e, oct.0, &e);
     }
     args.result as u32

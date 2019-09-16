@@ -162,8 +162,8 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
         let cb = unsafe{ write.get_unchecked(event.id)};
         // 删除所有yoga节点
         for cn in cb.chars.iter() {
-            cn.node.get_parent().remove_child(cn.node);
-            // cn.node.free();
+            // cn.node.get_parent().remove_child(cn.node);
+            cn.node.free();
         }
     }
 }
@@ -393,8 +393,8 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     if style_mark.dirty & MARK != 0{
         for i in 0..cb.chars.len() {
             if !cb.chars[i].node.is_null() {
-                cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
-                // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+                // cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+                cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
             }
         }
         unsafe{cb.chars.set_len(0)};
@@ -478,8 +478,8 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //清除多余的CharNode
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {
-            cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
-            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            // cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
+            cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{cb.chars.set_len(index)};
     }
@@ -616,8 +616,8 @@ fn calc_text<'a, L: FlexNode + 'static>(tex_param: &mut TexParam<L>, text: &'a s
     //清除多余的CharNode
     if calc.index < tex_param.cb.chars.len() {
         for i in calc.index..tex_param.cb.chars.len() {
-            tex_param.cb.chars[i].node.get_parent().remove_child(tex_param.cb.chars[i].node);
-            // cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
+            // tex_param.cb.chars[i].node.get_parent().remove_child(tex_param.cb.chars[i].node);
+            tex_param.cb.chars[i].node.free(); // 调用remove_child方法是， node会被释放
         }
         unsafe{tex_param.cb.chars.set_len(calc.index)};
     }
@@ -639,8 +639,8 @@ fn update_char1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: 
         if cn.ch != c {
             // 字符不同，将当前的，和后面的节点都释放掉
             for j in calc.index..tex_param.cb.chars.len() {
-                tex_param.cb.chars[j].node.get_parent().remove_child(tex_param.cb.chars[j].node);
-                // tex_param.cb.chars[j].node.free()
+                // tex_param.cb.chars[j].node.get_parent().remove_child(tex_param.cb.chars[j].node);
+                tex_param.cb.chars[j].node.free()
             }
             unsafe {tex_param.cb.chars.set_len(calc.index)};
         }

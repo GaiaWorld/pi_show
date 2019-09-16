@@ -134,7 +134,7 @@ pub fn create_render_target(world: u32) -> u32 {
 	let world = &mut world.gui;
 	let fbo = TryInto::<Object>::try_into(js!(return {wrap: __fbo};)).unwrap();
 	let engine = world.engine.lend_mut();
-	let rt = engine.gl.rt_create_webgl(fbo); // 创建渲染目标
+	let rt = Share::new(engine.gl.rt_create_webgl(fbo)); // 创建渲染目标
 	Box::into_raw(Box::new(rt)) as u32
 }
 
@@ -146,7 +146,7 @@ pub fn destroy_render_target(render_target: u32) {
 }
 
 // 绑定rendertarget
-// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须时一个RenderTarget的指针
+// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn bind_render_target(world: u32, render_target: u32) {

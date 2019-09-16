@@ -30,8 +30,8 @@ pub extern crate paste;
 #[macro_use]
 extern crate serde;
 
-extern crate res;
 extern crate share;
+extern crate res;
 extern crate deque;
 extern crate cg2d;
 extern crate cgmath;
