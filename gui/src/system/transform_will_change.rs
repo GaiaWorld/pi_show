@@ -114,10 +114,13 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, ModifyEvent> for Trans
 // 删除TransformWillChange组件， 标记脏
 impl<'a> MultiCaseListener<'a, Node, TransformWillChange, DeleteEvent> for TransformWillChangeSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, _: Self::WriteData){
+    type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChangeMatrix>;
+    fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, transform_will_change_matrix: Self::WriteData){
         if let Some(r) = idtree.get(event.id) {
             self.will_change_mark.delete(event.id, r.layer);
+			if transform_will_change_matrix.get(event.id).is_some() {
+				transform_will_change_matrix.delete(event.id);
+			}
             // self.mark_dirty(event.id, style_marks);
         }
     }

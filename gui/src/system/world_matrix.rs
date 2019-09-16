@@ -127,6 +127,14 @@ impl<'a> MultiCaseListener<'a, Node, Transform, CreateEvent> for WorldMatrixSys{
     }
 }
 
+impl<'a> MultiCaseListener<'a, Node, Transform, DeleteEvent> for WorldMatrixSys{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData){
+        self.marked_dirty(event.id, read);
+    }
+}
+
 impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for WorldMatrixSys{
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
@@ -229,6 +237,7 @@ impl_system!{
         EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
 		MultiCaseListener<Node, Transform, CreateEvent>
+		MultiCaseListener<Node, Transform, DeleteEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         // SingleCaseListener<IdTree, DeleteEvent>
