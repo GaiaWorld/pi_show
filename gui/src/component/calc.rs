@@ -306,7 +306,7 @@ impl WorldMatrix {
                 1.0/self.x.x, 0.0,          0.0,          0.0,
                 0.0,          1.0/self.y.y, 0.0,          0.0,
                 0.0,          0.0,          1.0/self.z.z, 0.0,
-                -self.w.x,    -self.w.y,    -self.w.z,    1.0
+                -self.w.x/self.x.x,    -self.w.y/self.y.y,    -self.w.z/self.z.z,    1.0
             ), false))
         } else {
             match self.0.invert() {

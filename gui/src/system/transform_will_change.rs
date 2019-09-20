@@ -219,10 +219,13 @@ fn recursive_cal_matrix(
                 parent_world_matrix * default_transform.matrix(layout_value.width, layout_value.height, &offset)
             };
 
+			// println!("p_matrix: {:?}", p_matrix);
             let transform_will_change_matrix = transform_value.0.matrix(layout_value.width, layout_value.height, &Point2::new(-layout_value.width/2.0, -layout_value.height/2.0));
             let invert = p_matrix.invert().unwrap();
+			// println!("transform_will_change_matrix: {:?}", transform_will_change_matrix);
+			// println!("invert: {:?}", invert);
             let mut will_change_matrix = p_matrix * transform_will_change_matrix * invert;
-
+			// println!("will_change_matrix: {:?}", will_change_matrix);
             if let Some(parent_will_change_matrix) = parent_will_change_matrix {
                 will_change_matrix = parent_will_change_matrix * will_change_matrix;
             }
