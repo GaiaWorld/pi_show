@@ -239,6 +239,14 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
             // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
             let p = node.get_parent();
             if p.get_child_count() != 1 {
+				let parent_layout = p.get_layout();
+				let mut layout = Layout::default();
+				layout.width = parent_layout.width;
+				layout.height = parent_layout.height;
+				if &layout == unsafe {write.1.get_unchecked(id)} {
+					return;
+				}
+				write.1.insert(id, layout);
                 return;
             //     match node.get_style_width_unit() {
             //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
@@ -428,7 +436,10 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
         yoga.mark_dirty();
         return false
     }
-	yoga.set_display(YGDisplay::YGDisplayNone);
+
+	yoga.set_width(0.0);
+	yoga.set_height(0.0);
+
     if text_style.text.white_space.allow_wrap() {
         parent_yoga.set_flex_wrap(YGWrap::YGWrapWrap);
     }else {

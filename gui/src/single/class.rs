@@ -1,4 +1,6 @@
-
+/**
+ * 定义全局Class
+*/
 
 use layout::*;
 use atom::Atom;
@@ -10,6 +12,7 @@ use component::user::*;
 // 显示样式， 不包含布局
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Class {
+	// 将style属性按照内存占用大小划分为三种枚举
     pub attrs1: Vec<Attribute1>,
     pub attrs2: Vec<Attribute2>,
     pub attrs3: Vec<Attribute3>,
@@ -18,6 +21,7 @@ pub struct Class {
     pub class_style_mark1: usize, // 标记class中布局的有效属性
 }
 
+// 全局Class表
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct ClassSheet {
     pub class_map: XHashMap<usize, Class>,

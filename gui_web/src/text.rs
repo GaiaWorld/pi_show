@@ -14,7 +14,7 @@ use gui::component::user::*;
 use gui::font::font_sheet::{ FontSheet, TexFont, Glyph, TextInfo as TextInfo1 };
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType};
 use GuiWorld;
-use debug::set_render_dirty;
+use set_render_dirty;
 use hash::XHashMap;
 
 #[macro_use()]

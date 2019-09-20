@@ -1,3 +1,6 @@
+/**
+ *  对HalContext的封装， 并管理gl资源
+*/
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 

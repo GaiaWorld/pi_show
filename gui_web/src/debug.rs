@@ -115,17 +115,6 @@ pub fn overflow_clip(_world: u32) {
     // }
 }
 
-// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_render_dirty(world: u32) {
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    let render_objs = world.render_objs.lend();
-    
-    render_objs.get_notify().modify_event(1, "", 0); 
-}
-
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // pub fn bound_box(world: u32, node: u32) {
@@ -181,9 +170,14 @@ pub fn get_yoga(world: u32, node: u32) {
 		Some(r) => (r.get_style(), r.get_layout()),
 		None => return,
 	};
+	let layout1 = match world.layout.lend().get(node) {
+		Some(r) => r,
+		None => return,
+	};
     js!{
         console.log("style:", @{format!("{:?}", &style)});
 		console.log("layout:", @{format!("{:?}", &layout)});
+		console.log("layout1:", @{format!("{:?}", layout1)});
     }
 }
 

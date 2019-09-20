@@ -1,10 +1,12 @@
-use std::marker::PhantomData;
+/**
+ * 渲染对象的裁剪属性设置
+ */
 
-// 监听Overflow， 绘制裁剪纹理
-use share::Share;
+use std::marker::PhantomData;
 
 use ordered_float::OrderedFloat;
 
+use share::Share;
 use ecs::{ModifyEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
@@ -21,7 +23,6 @@ use system::render::shaders::clip::*;
 pub struct ClipSys<C>{
     dirty: bool,
     no_rotate_dirtys: VecMap<bool>,
-    
     render_obj: Option<ClipTextureRender>,
     marker: PhantomData<C>,
 }
@@ -256,87 +257,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
     }
 }
 
-// //创建RenderObj， 为renderobj添加裁剪宏及ubo
-// impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent> for ClipSys<C>{
-//     type ReadData = &'a MultiCaseImpl<Node, ByOverflow>;
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>, &'a mut SingleCaseImpl<OverflowClip>);
-//     fn listen(&mut self, event: &CreateEvent, by_overflows: Self::ReadData, write: Self::WriteData){
-//         let (render_objs, engine, overflow_clip) = write;
-//         let notify = render_objs.get_notify();
-//         let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
-//         let node_id = render_obj.context;
-//         let by_overflow = unsafe { by_overflows.get_unchecked(node_id).0 };
-//         if by_overflow > 0 {
-//             let aabb = overflow_clip.clip_map.get(&by_overflow);
-//             self.set_clip_uniform(event.id, by_overflow, aabb, &notify, render_obj, engine);
-//         }
-//     }
-// }
-
-
-// //by_overfolw变化， 设置ubo， 修改宏， 并重新创建渲染管线
-// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for ClipSys<C>{
-//     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<NodeRenderMap>, &'a SingleCaseImpl<OverflowClip>, &'a SingleCaseImpl<Oct>);
-//     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>, &'a mut MultiCaseImpl<Node, Culling>);
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-//         let (by_overflows, node_render_map, overflow_clip, octree) = read;
-//         let (render_objs, engine, cullings) = write;
-//         let by_overflow = unsafe { by_overflows.get_unchecked(event.id).0 };
-//         let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-//         let notify = render_objs.get_notify();
-//         // ByOverflow
-//         if by_overflow == 0 {
-//             // 裁剪剔除
-//             unsafe {cullings.get_unchecked_write(event.id) }.set_0(false);
-//             for id in obj_ids.iter() {
-//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-//                 render_obj.vs_defines.add("CLIP_BOX");
-//                 render_obj.fs_defines.add("CLIP_BOX");
-//                 render_obj.fs_defines.remove("CLIP");
-//                 render_objs.get_notify().modify_event(*id, "program_dirty", 0);
-//             }
-//         } else {
-//             let mut aabb = None;
-//             // 裁剪剔除
-//             if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
-//                 unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
-//                 aabb = Some(item);
-//             }
-//             for id in obj_ids.iter() {
-//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-//                 self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
-//             }
-//         }
-//     }
-// }
-
-// // 世界矩阵改变， 如果该节点by_overflow > 0, 应该判断其是否被裁剪平面剔除
-// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for ClipSys<C>{
-//     type ReadData = (&'a MultiCaseImpl<Node, ByOverflow>, &'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<NodeRenderMap>);
-//     type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, Culling>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
-//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-//         let (by_overflows, octree, node_render_map) = read;
-//         let (overflow_clip, cullings, render_objs, engine) = write;
-
-//         let by_overflow = unsafe {by_overflows.get_unchecked(event.id)}.0;
-//         if by_overflow > 0 {
-//             let notify = render_objs.get_notify();
-//             let obj_ids = unsafe{ node_render_map.get_unchecked(event.id) };
-//             let mut aabb = None;
-//             // 裁剪剔除
-//             if let Some(item) = overflow_clip.clip_map.get(&by_overflow) {
-//                 unsafe { cullings.get_unchecked_write(event.id) }.set_0(!is_intersect(&item.0, &unsafe { octree.get_unchecked(event.id) }.0));
-//                 aabb = Some(item);
-//             }
-//             for id in obj_ids.iter() {
-//                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-//                 self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
-//             }
-//         }
-//     }
-// }
-
-
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<OverflowClip>;
@@ -347,71 +267,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEve
         }
     }
 }
-
-
-
-// impl<C: HalContext + 'static> ClipSys<C>{
-//     pub fn culling(engine: &mut Engine<C>, id_tree: &IdTree) {
-//         if self.no_rotate_dirty
-//     }
-// }
-
-// /// 计算剔除用的包围盒
-// fn cal_culling_box(
-//     mut by_overflow: usize,
-//     overflow: &OverflowClip,
-// ) -> Option<Aabb3> {
-//     let mut i = 1;
-//     let mut r = Some(Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)));
-//     while i < 33 {
-//         if by_overflow & (1 << i) != 0 {
-//             let b = &unsafe { overflow.clip.get_unchecked(i)};
-//             if b.has_rotate {
-//                 return None;
-//             }
-//             let b = Aabb3::new(Point3::new(b.view[0].x, b.view[0].y, 0.0), Point3::new(b.view[4].x, b.view[4].y, 0.0));
-//             r = intersect(r.as_ref().unwrap(), &b);
-//         }
-//         i += 1;
-//     }
-//     r
-// }
-
-// /// 递归剔除
-// fn recursive_culling(
-//     node_id: usize,
-//     mut culling_box: &Aabb3,
-//     mark: &mut usize,
-//     overflows: &MultiCaseImpl<Node, Overflow>,
-//     by_overflows: &MultiCaseImpl<Node, ByOverflow>,
-//     cullings: &MultiCaseImpl<Node, Culling>,
-//     overflow: &OverflowClip,
-//     octree: &Oct,
-//     id_tree: &IdTree,
-// ) {
-//     for (id, _n) in id_tree.iter(node_id) {
-//         let is_overflow = unsafe {overflows.get_unchecked(id)}.0;
-//         let re;
-//         if is_overflow {
-//             let c_index = overflow.id_map.get(&id).unwrap();
-//             if *c_index-1 & *mark != 0 {
-//                 continue;
-//             }
-//             *mark |= c_index-1;
-//             let c = unsafe { overflow.clip.get_unchecked(*c_index) };
-
-//             match overflow.clip.get()
-//             match intersect(culling_box, &Aabb3::new(Point3::new(c.view[0].x, c.view[0].y, 0.0), Point3::new(c.view[2].x, c.view[2].y, 0.0))) {
-//                 Some(r) => re = r,
-//                 None => continue,
-//             };
-//             culling_box = &re;  
-//         };
-        
-//         cullings.insert(id, Culling(!is_intersect(culling_box, &unsafe { octree.get_unchecked(id) }.0)));
-//         recursive_culling(id, culling_box, mark, overflows, by_overflows, cullings, overflow, octree, id_tree);
-//     }
-// }
 
 // 是否相交
 #[inline]
@@ -433,30 +288,6 @@ fn is_include(a: &Aabb3, b: &Aabb3) -> bool {
     }
 }
 
-
-// // aabb相交
-// fn intersect(a: &Aabb3, b: &Aabb3) -> Option<Aabb3> {
-//     if is_intersect(a, b){
-//         return None;
-//     }
-//     if a.min.x >= b.min.x {
-//         //a在b的右下
-//         if a.min.y >= b.min.y {
-//             return Some(Aabb3::new(a.min, b.max));
-//         } else { // 右上
-//             return Some(Aabb3::new(Point3::new(a.min.x, b.min.y, 0.0), Point3::new(b.max.x, a.max.y, 0.0)));
-//         }
-//     } else {
-//         //b在a的右下
-//         if b.min.y >= a.min.y {
-//             return Some(Aabb3::new(b.min, a.max));
-//         } else { // 右上
-//             return Some(Aabb3::new(Point3::new(b.min.x, a.min.y, 0.0), Point3::new(a.max.x, b.max.y, 0.0)));
-//         }
-//     }
-// }
-
-
 fn next_power_of_two(value: u32) -> u32 {
     let mut value = value - 1;
     value |= value >> 1;
@@ -473,9 +304,5 @@ impl_system!{
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
-        // SingleCaseListener<RenderObjs, CreateEvent>
-        // MultiCaseListener<Node, ByOverflow, ModifyEvent>
-        // MultiCaseListener<Node, Oct, ModifyEvent>  
-        // EntityListener<Node, CreateEvent>
     }
 }

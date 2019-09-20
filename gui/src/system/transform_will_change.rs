@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix };
+use component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix, Layout };
 use single::DefaultTable;
 
 use component::user::*;

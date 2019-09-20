@@ -1,12 +1,8 @@
 /**
- *  边框颜色渲染参数设置
+ *  边框颜色渲染对象的构建及其属性设置
  */
 use std::marker::PhantomData;
 use share::Share;
-// use std::hash::{ Hasher, Hash };
-
-// use ordered_float::NotNan;
-// use hash::XHashMap;
 
 use ecs::{SingleCaseImpl, MultiCaseImpl, MultiCaseListener, DeleteEvent, Runner};
 use map::{ vecmap::VecMap } ;

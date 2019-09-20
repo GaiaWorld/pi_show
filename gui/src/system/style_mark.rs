@@ -436,15 +436,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     }
 }
 
-// impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Transform, ModifyEvent> for StyleMarkSys<L, C>{
-//     type ReadData = ();
-//     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
-//     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
-//         let (style_marks, dirty_list) = write;
-//         set_local_dirty1(dirty_list, event.id, StyleType1::Transform as usize, style_marks);
-//     }
-// }
-
 impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<L, C>{
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
@@ -1472,7 +1463,6 @@ impl_system!{
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>   
         MultiCaseListener<Node, BorderRadius, ModifyEvent>
-        // MultiCaseListener<Node, Transform, ModifyEvent>  
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>

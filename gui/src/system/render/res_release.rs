@@ -1,5 +1,5 @@
 /**
- *  资源释放， 
+ *  资源释放，每隔一秒对资源管理器进行扫描， 整理资源表缓存中超出的内存， 或超时的对象
  */
 use std::marker::PhantomData;
 use std::time::SystemTime;
@@ -23,7 +23,7 @@ impl<C: HalContext + 'static> ResReleaseSys<C> {
         Self{
             system_time: system_time,
             collect_time: now,
-            collect_interval: 1000, // 3秒钟扫描一次预整理列表
+            collect_interval: 1000, // 1秒钟扫描一次预整理列表
 			marker: PhantomData,
         }
     }

@@ -1,5 +1,5 @@
 /**
- *  渲染， 将渲染对象按照透明与不透明分类， 先渲染不透明物体， 在渲染透明物体， 不透明物体按照渲染管线的顺序渲染， 透明物体按照物体的深度顺序渲染
+ *  渲染， 将渲染对象按照透明与不透明分类， 先渲染不透明物体， 再渲染透明物体， 不透明物体按照渲染管线的顺序渲染， 透明物体按照物体的深度顺序渲染
  */
 use std::cmp::Ordering;
 use std::default::Default;
@@ -18,10 +18,6 @@ pub struct RenderSys<C: HalContext + 'static>{
     dirty: bool,
     opacity_list: Vec<usize>,
     transparent_list: Vec<usize>,
-    // opacity_list: BTreeMap<f32, usize>, // 不透明列表
-    // transparent_list: BTreeMap<u32, usize>, // 透明列表
-    // transpare
-    // nt_map: 
     marker: PhantomData<C>,
     
 }

@@ -1,5 +1,5 @@
 /**
- *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
+ * 图片渲染对象的构建及其属性设置
  */
 use std::marker::PhantomData;
 
@@ -493,17 +493,6 @@ impl_system!{
     ImageSys<C> where [C: HalContext + 'static],
     true,
     {
-        // MultiCaseListener<Node, Image<C>, CreateEvent>
-        // MultiCaseListener<Node, Image<C>, ModifyEvent>
-        // MultiCaseListener<Node, Image<C>, DeleteEvent>
-        // MultiCaseListener<Node, Layout, ModifyEvent>
-        // MultiCaseListener<Node, Opacity, ModifyEvent>
-        // MultiCaseListener<Node, WorldMatrixRender, CreateEvent>
-        // MultiCaseListener<Node, WorldMatrixRender, ModifyEvent>
-        // MultiCaseListener<Node, ImageClip, CreateEvent>
-        // MultiCaseListener<Node, ImageClip, ModifyEvent>
-        // MultiCaseListener<Node, ObjectFit, CreateEvent>
-        // MultiCaseListener<Node, ObjectFit, ModifyEvent>
         MultiCaseListener<Node, Image, DeleteEvent>
     }
 }

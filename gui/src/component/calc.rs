@@ -14,12 +14,32 @@ use super::user::*;
 use layout::FlexNode;
 use res::Res;
 
+// 布局计算结果
+#[derive(Clone, Debug, Default, Component, PartialEq)]
+pub struct Layout{
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border_left: f32,
+    pub border_top: f32,
+    pub border_right: f32,
+    pub border_bottom: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
+    pub padding_right: f32,
+    pub padding_bottom: f32,
+}
+
+// ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ZDepth(pub f32);
 
+// gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ByOverflow(pub usize);
 
+// 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Component, Default)]
 pub struct WorldMatrix(pub Matrix4, pub bool);
 
@@ -27,19 +47,13 @@ pub struct WorldMatrix(pub Matrix4, pub bool);
 #[derive(Deref, DerefMut, Component, Debug, Default)]
 pub struct Visibility(pub bool);
 
-// 是否在裁剪平面的可视范围内
+// 是否被裁剪
 #[derive(Component, Debug)]
 pub struct Culling(pub bool);
 
 //不透明度
 #[derive(Deref, DerefMut, Component, Debug)]
 pub struct Opacity(pub f32);
-
-impl Default for Opacity {
-	fn default() -> Opacity{
-	    Opacity(1.0)
-	}
-}
 
 //是否响应事件
 #[derive(Deref, DerefMut, Component, Debug)]
@@ -53,18 +67,8 @@ pub struct HSV {
   pub v: f32, // 0 ~ 正无穷 0表示黑色， 1表示不变， 2表示更亮
 }
 
-// #[derive(Component, Debug, Default)]
-// pub struct RenderObj{
-//     pub pipeline: usize, //Rc<Pipeline>
-//     pub depth: f32,
-//     pub visibility: bool,
-//     pub is_opacity: bool,
-//     pub geometry: usize,
-//     pub ubo: usize, //geometry 对象
-// }
-
+// 枚举样式的类型
 #[derive(Debug)]
-// 样式类型
 pub enum StyleType{
     Text = 1,
     FontStyle = 2, 
@@ -105,8 +109,8 @@ pub enum StyleType{
     Filter = 0x40000000,
 }
 
+// 枚举样式的类型
 #[derive(Debug)]
-// 样式类型
 pub enum StyleType1{
     Width = 1,
     Height = 2, 
@@ -138,16 +142,18 @@ pub enum StyleType1{
     Overflow = 0x4000000,
 }
 
+// 样式标记
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark{
-    pub dirty: usize,
-    pub dirty1: usize,
-    pub local_style: usize,
-    pub class_style: usize,
-    pub class_style1: usize,
-    pub local_style1: usize,
+    pub dirty: usize, // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
+    pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType1::Height as usize 表示Width和Height脏了
+    pub local_style: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+	pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+    pub class_style: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+    pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
 
+// 字符块， 一个文字节点的计算结果， 包含节点中每字符的位置信息等
 #[derive(Component, Debug)]
 pub struct CharBlock<L: FlexNode + 'static> {
   pub font_size: f32, // 字体高度
@@ -166,6 +172,7 @@ pub struct CharBlock<L: FlexNode + 'static> {
   pub is_pixel: bool,
 }
 
+// 字符节点， 对应一个字符的
 #[derive(Debug)]
 pub struct CharNode<L: FlexNode + 'static> {
   pub ch: char, // 字符
@@ -176,6 +183,7 @@ pub struct CharNode<L: FlexNode + 'static> {
   pub node: L, // 对应的yoga节点
 }
 
+// TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
 #[derive(Component, Debug, Clone, Default)]
 #[storage(DenseVecMap)] 
 pub struct TransformWillChangeMatrix (pub WorldMatrix);
@@ -228,15 +236,6 @@ impl<'a> Mul<&'a WorldMatrix> for WorldMatrix{
             self.w.x = self.w.x + (other.w.x * self.x.x);
             self.w.y = self.w.y + (other.w.y * self.y.y);
             self
-            // WorldMatrix(
-            //     Matrix4::new(
-            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
-            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
-            //         0.0,                              0.0,                              1.0, 0.0,
-            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
-            //     ),
-            //     false
-            // )
         } else {
             WorldMatrix(self.0 * other.0, true)
         }
@@ -253,15 +252,6 @@ impl<'a> Mul<WorldMatrix> for &'a WorldMatrix{
             other.w.x = self.w.x + (other.w.x * self.x.x);
             other.w.y = self.w.y + (other.w.y * self.y.y);
             other
-            // WorldMatrix(
-            //     Matrix4::new(
-            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
-            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
-            //         0.0,                              0.0,                              1.0, 0.0,
-            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
-            //     ),
-            //     false
-            // )
         } else {
             WorldMatrix(self.0 * other.0, true)
         }
@@ -278,15 +268,6 @@ impl Mul<WorldMatrix> for WorldMatrix{
             other.w.x = self.w.x + (other.w.x * self.x.x);
             other.w.y = self.w.y + (other.w.y * self.y.y);
             other
-            // WorldMatrix(
-            //     Matrix4::new(
-            //         self.x.x * other.x.x,             0.0,                              0.0, 0.0,
-            //         0.0,                              self.y.y * other.y.y,             0.0, 0.0,
-            //         0.0,                              0.0,                              1.0, 0.0,
-            //         self.w.x + other.w.x, self.w.y + other.w.y, 0.0, 1.0,
-            //     ),
-            //     false
-            // )
         } else {
             WorldMatrix(self.0 * other.0, true)
         }
@@ -334,6 +315,12 @@ impl WorldMatrix {
             }
         }
     }
+}
+
+impl Default for Opacity {
+	fn default() -> Opacity{
+	    Opacity(1.0)
+	}
 }
 
 // 渲染--------------------------------------------------------------------------------------------------------------------------
@@ -418,16 +405,7 @@ defines! {
         CLIP_BOX: String,
         HSV: String,
         GRAY: String,
-    }
-}
-
-defines! {
-    #[derive(Clone)]
-    struct FsBaseDefines {
-        CLIP: String,
-        CLIP_BOX: String,
-        HSV: String,
-        GRAY: String,
+		STROKE: String,
     }
 }
 
@@ -458,19 +436,6 @@ program_paramter! {
         clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
-    }
-}
-
-defines! {
-    #[derive(Clone)]
-    struct MsdfFsDefines {
-        STROKE: String,
-        UCOLOR: String,
-        VERTEX_COLOR: String,
-        CLIP: String,
-        CLIP_BOX: String,
-        HSV: String,
-        GRAY: String,
     }
 }
 
@@ -544,15 +509,5 @@ program_paramter! {
         meshNum: UniformValue,
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
-    }
-}
-
-defines! {
-    #[derive(Clone)]
-    struct ImageFsDefines {
-        CLIP: String,
-        CLIP_BOX: String,
-        HSV: String,
-        GRAY: String,
     }
 }

@@ -1,11 +1,17 @@
+/**
+ * 定义布局节点的trait。（暂定使用yoga进行布局，有扩展需求）
+*/
+
 use std::default::Default;
 use std::fmt::Debug;
 use std::os::raw::{c_void};
 use ecs::component::Component;
-use component::user::Layout;
+use component::calc::Layout;
 
 pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
+	type C: FlexConfig;
     fn new() -> Self;
+	fn new_with_config(config: Self::C) -> Self;
     fn new_null() -> Self; 
     fn is_null(&self) -> bool;
     fn set_position_type(&self, value: YGPositionType);
@@ -72,6 +78,12 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn free(&self);
     fn free_recursive(&self);
 }
+
+pub trait FlexConfig {
+	fn new() -> Self;
+	fn set_point_scale_factor(&self, factor: f32);
+}
+
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGAlign {

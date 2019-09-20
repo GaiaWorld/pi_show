@@ -1,8 +1,8 @@
+/// 字体表， 管理字体的几何信息和图像信息
 
 use std::{
     default::Default,
     str::Chars,
-    // mem::replace,
     collections::hash_map::Entry,
 };
 use atom::{Atom};
@@ -17,6 +17,7 @@ use component::user::*;
 use font::font_tex::*;
 use hash::XHashMap;
 
+// 默认字体尺寸
 pub const FONT_SIZE: f32 = 32.0;
 
 /// 默认纹理宽度为2048，永远向下扩展

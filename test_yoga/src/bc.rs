@@ -4,9 +4,9 @@ use std::mem::transmute;
 
 use ecs::component::Component;
 use map::vecmap::VecMap;
-use gui::layout:: {FlexNode, FlexConfig, YGCalcCallbackFunc, YGMeasureFunc};
+use gui::layout:: {FlexNode, YGCalcCallbackFunc};
 pub use gui::layout::{YGAlign, YGDirection, YGDisplay, YGEdge, YGJustify, YGWrap, YGFlexDirection, YGOverflow, YGPositionType, YGUnit};
-use gui::component::calc::Layout;
+use gui::component::user::Layout;
 
 use yoga;
 
@@ -61,13 +61,9 @@ impl Default for YgNode{
 }
 
 impl FlexNode for YgNode {
-	type C = YgConfig;
     fn new() -> YgNode {
         YgNode(yoga::yg_node_new())
     }
-	fn new_with_config(config: Self::C) -> Self{
-		YgNode(yoga::yg_node_new_with_config(config.0))
-	}
     fn new_null() -> YgNode {
         YgNode( 0 as yoga::YGNodeRef)
     }
@@ -267,10 +263,6 @@ impl FlexNode for YgNode {
         yoga::yg_node_calculate_layout_by_callback(self.0, width * 100.0, height * 100.0, unsafe { transmute(direction as u32) }, unsafe { std::mem::transmute(callback) }, arg);
     }
 
-    fn set_measure_func(&self, func: YGMeasureFunc<Self>) {
-        yoga::yg_node_set_measure_func(self.0, unsafe { std::mem::transmute(func) });
-    }
-
     fn get_layout(&self) -> Layout {
         Layout{
             left: yoga::yg_node_layout_get_left(self.0)/100.0,
@@ -377,17 +369,4 @@ impl YgNode {
             max_height: yoga::yg_node_style_get_max_height(self.0),
         }
     }
-}
-
-#[derive(Clone, Debug, Copy, PartialEq, Component)]
-pub struct YgConfig( pub yoga::YGConfigRef);
-
-impl FlexConfig for YgConfig {
-	fn new() -> Self {
-		Self(yoga::yg_config_new())
-	}
-
-	fn set_point_scale_factor(&self, factor: f32) {
-		yoga::yg_config_set_point_scale_factor(self.0, factor);
-	}
 }

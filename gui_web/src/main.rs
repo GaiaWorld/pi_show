@@ -51,7 +51,7 @@ use share::Share;
 use atom::Atom;
 use hal_webgl::*;
 use hal_core::*;
-use ecs::{ LendMut};
+use ecs::{ LendMut, Lend};
 use gui::layout::{ YGAlign, FlexNode };
 use gui::world::{ create_world, create_res_mgr, RENDER_DISPATCH, LAYOUT_DISPATCH };
 use gui::component::user::*;
@@ -77,7 +77,7 @@ pub mod world;
 #[cfg(not(feature = "no_define_js"))]
 pub mod rs_call_js;
 
-use bc::YgNode;
+use bc::{YgNode};
 use text::{ DrawTextSys};
 #[cfg(not(feature = "no_define_js"))]
 use rs_call_js::define_js;
@@ -198,9 +198,15 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 
 	let ygnode = world.yoga.lend_mut();
 	let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
+
+	// let config = YgConfig::new();
+	// config.set_point_scale_factor(0.0);
+	// let ygnode1 = YgNode::new_with_config(config);
+	// let ygnode1 = YgNode::default();
 	ygnode.set_width(width);
 	ygnode.set_height(height);
 	ygnode.set_align_items(YGAlign::YGAlignFlexStart);
+	// *ygnode = ygnode1;
 
 	idtree.create(node);
 	idtree.insert_child(node, 0, 0, None);
@@ -308,6 +314,17 @@ fn load_image(world_id: u32) {
 		}
 	}
 	image_wait_sheet.loads.clear();
+}
+
+// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_render_dirty(world: u32) {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let render_objs = world.render_objs.lend();
+    
+    render_objs.get_notify().modify_event(1, "", 0); 
 }
 
 

@@ -1,5 +1,5 @@
 /**
- *  
+ * 渲染对象的通用属性设置， 如alpha， hsv， visible， viewMatrix， projectMatrix
  */
 use std::marker::PhantomData;
 
@@ -155,14 +155,6 @@ fn recursive_set_view_matrix (
         recursive_set_view_matrix(child_id, modify, transform_will_change_matrixs, idtree, ubo, node_render_map, render_objs,);
     }
 }
-
-// impl<'a, C: HalContext + 'static>  EntityListener<'a, Node, DeleteEvent> for NodeAttrSys<C>{
-//     type ReadData = ();
-//     type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
-//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, node_render_map: Self::WriteData){
-//         unsafe { node_render_map.destroy_unchecked(event.id) };
-//     }
-// }
 
 //创建索引
 impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, CreateEvent> for NodeAttrSys<C>{
@@ -321,9 +313,7 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        // EntityListener<Node, DeleteEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
-        // SingleCaseListener<RenderObjs, ModifyEvent>
         SingleCaseListener<RenderObjs, DeleteEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
         MultiCaseListener<Node, Visibility, ModifyEvent>

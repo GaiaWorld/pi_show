@@ -1,3 +1,5 @@
+/// 解析字符串格式的样式
+
 use std::mem::transmute;
 use std::str::{FromStr};
 

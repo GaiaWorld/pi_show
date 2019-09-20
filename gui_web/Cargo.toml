@@ -41,7 +41,8 @@ codegen-units = 1
 
 [features]
 # default = ["no_debug", "no_define_js"]
-default = ["create_class_by_str"]
+# default = ["create_class_by_str"]
+default = ["no_debug"]
 no_debug = []
 no_define_js = []
 create_class_by_str = []

@@ -1,4 +1,5 @@
 /// 用户操作的组件
+/// 遵循css对应属性的意义
 
 
 use std::{
@@ -17,22 +18,17 @@ use ecs::component::Component;
 use atom::Atom;
 use component::calc::WorldMatrix;
 
+pub type Matrix4 = cgmath::Matrix4<f32>;
+pub type Point2 = cgmath::Point2<f32>;
+pub type Point3 = cgmath::Point3<f32>;
+pub type Vector2 = cgmath::Vector2<f32>;
+pub type Vector3 = cgmath::Vector3<f32>;
+pub type Vector4 = cgmath::Vector4<f32>;
+pub type CgColor = color::Color<f32>;
+pub type Aabb3 = collision::Aabb3<f32>;
+pub type Aabb2 = collision::Aabb2<f32>;
+
 //================================== 组件
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct Layout{
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-    pub height: f32,
-    pub border_left: f32,
-    pub border_top: f32,
-    pub border_right: f32,
-    pub border_bottom: f32,
-    pub padding_left: f32,
-    pub padding_top: f32,
-    pub padding_right: f32,
-    pub padding_bottom: f32,
-}
 #[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ZIndex(pub isize);
 
@@ -43,9 +39,11 @@ pub struct Overflow(pub bool);
 #[derive(Deref, DerefMut, Clone, Component, Debug, Serialize, Deserialize)]
 pub struct Opacity(pub f32);
 
+// 将display、visibility、enable合并为show组件
 #[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Show(pub usize);
 
+// 变换
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
@@ -56,9 +54,7 @@ pub struct Transform {
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BackgroundColor(pub Color);
 
-// #[derive(Debug, Clone, Component, Default)]
-// pub struct ClassName(pub usize);
-
+// class名称， 支持多个class， 当只有一个或两个class时， 有优化
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ClassName {
     pub one: usize,
@@ -66,9 +62,11 @@ pub struct ClassName {
     pub other: Vec<usize>,
 }
 
+// 边框颜色
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderColor(pub CgColor);
 
+// 图片路劲及纹理
 #[derive(Clone, Component)]
 pub struct Image{
   pub src: Share<TextureRes>,
@@ -87,15 +85,18 @@ pub struct Filter {
 #[derive(Debug, Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
 pub struct ObjectFit(pub FitType);
 
+// image图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
 pub struct ImageClip(pub Aabb2);
 
+// 边框图片
 #[derive(Clone, Component)]
 pub struct BorderImage{
   pub src: Share<TextureRes>,
   pub url: Atom,
 }
 
+// borderImage图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
 pub struct BorderImageClip(pub Aabb2);
 
@@ -106,6 +107,7 @@ pub struct BorderImageSlice{
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
+// 圆角， 目前仅支持x分量
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderRadius{
   pub x: LengthUnit,
@@ -122,6 +124,7 @@ pub struct BoxShadow{
     pub color: CgColor, // 阴影颜色
 }
 
+// 文字样式
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct Text{
     pub letter_spacing: f32, //字符间距， 单位：像素
@@ -135,6 +138,7 @@ pub struct Text{
     pub vertical_align: VerticalAlign,
 }
 
+// 文本内容
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct TextContent(pub String, pub Atom);
 
@@ -142,7 +146,6 @@ pub struct TextContent(pub String, pub Atom);
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,
-
     pub shadow: TextShadow,
 }
 
@@ -162,16 +165,9 @@ pub struct Font{
     pub family: Atom, //	规定字体系列。参阅：font-family 中可能的值。
 }
 
-// will-change属性， 目前仅支持Transform, bool值代表Transform是否will-change， 未来可能支持其他属性， TODO
+// TransformWillChange， 用于优化频繁变化的Transform
 #[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct TransformWillChange(pub Transform);
-
-// pub enum WillChangeType {
-//     Transform,
-//     // Opacity,
-//     // ScrollPosition,
-//     // Contents
-// }
 
 impl Default for Font {
     fn default() -> Self {
@@ -183,19 +179,6 @@ impl Default for Font {
         }
     }
 }
-
-//================================== 枚举
-
-pub type Matrix4 = cgmath::Matrix4<f32>;
-pub type Point2 = cgmath::Point2<f32>;
-pub type Point3 = cgmath::Point3<f32>;
-pub type Vector2 = cgmath::Vector2<f32>;
-pub type Vector3 = cgmath::Vector3<f32>;
-pub type Vector4 = cgmath::Vector4<f32>;
-pub type CgColor = color::Color<f32>;
-pub type Aabb3 = collision::Aabb3<f32>;
-pub type Aabb2 = collision::Aabb2<f32>;
-
 
 #[derive(Debug)]
 pub struct Quad(pub Point2, pub Point2, pub Point2, pub Point2);
@@ -367,6 +350,7 @@ pub enum BorderImageRepeatType {
   Round, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
   Space, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
 }
+
 #[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
 pub enum FontSize {
     None,	// 默认尺寸。
@@ -494,6 +478,7 @@ pub enum WhiteSpace{
     Pre, //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
     PreLine, //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
 }
+
 impl WhiteSpace {
     pub fn allow_wrap(&self) -> bool {
         match *self {
@@ -600,12 +585,4 @@ impl Default for BorderImageClip {
     fn default() -> Self {
         Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum FilterFun{
-  GrayScale(f32), //将图像转换为灰度图像。值定义转换的比例。值为100%则完全转为灰度图像，值为0%图像无变化
-  HueRotate(f32),//给图像应用色相旋转。"angle"一值设定图像会被调整的色环角度值。值为0deg，则图像无变化, 单位deg
-  // Blur(px),//给图像设置高斯模糊
-  BrightNess(f32), //给图片应用一种线性乘法，使其看起来更亮或更暗。如果值是0%，图像会全黑。值是100%，则图像无变化 -1 ~ 1
 }

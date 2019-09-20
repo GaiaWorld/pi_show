@@ -2,7 +2,7 @@
 use ecs::{CreateEvent, DeleteEvent, EntityListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::idtree::{ IdTree};
 
-use component::calc::{WorldMatrix, StyleMark, StyleType};
+use component::calc::{WorldMatrix, StyleMark, StyleType, Layout};
 use component::user::*;
 use single::oct::Oct;
 use single::*;

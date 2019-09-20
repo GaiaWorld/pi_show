@@ -6,10 +6,11 @@ use stdweb::unstable::TryInto;
 
 use ecs::{LendMut};
 use atom::Atom;
+use hash::XHashMap;
 
 use gui::component::user::*;
 use gui::single::*;
-use gui::single::style_parse::{parse_class_from_string};
+// use gui::single::style_parse::{parse_class_from_string};
 use GuiWorld;
 
 #[macro_use()]
@@ -307,8 +308,31 @@ pub fn set_border_image(world: u32, node: u32){
 
 /**
  * 设置默认样式, 暂支持布局属性、 文本属性的设置
+ * __jsObj: class样式的二进制描述， 如".0{color:red}"生成的二进制， class名称必须是“0”
+ */
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn set_default_style_by_bin(world: u32){
+	let value: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
+    let value = value.to_vec();
+    let mut map: XHashMap<usize, Class> = match bincode::deserialize(value.as_slice()) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("deserialize_class_map error: {:?}", e);
+            return;
+        },
+    };
+
+	let default_style = map.remove(&0).unwrap();
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	set_default_style1(world, default_style);
+}
+
+/**
+ * 设置默认样式, 暂支持布局属性、 文本属性的设置
  * __jsObj: class样式的文本描述
  */ 
+#[cfg(feature="create_class_by_str")]
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_default_style(world: u32){
@@ -322,7 +346,32 @@ pub fn set_default_style(world: u32){
             return;
         },
     };
-    let mut text_style = TextStyle::default();
+    set_default_style1(world, r);
+    // world.default_layout_attr = r.1;
+}
+
+#[allow(unused_attributes)]
+#[no_mangle] 
+pub fn set_transform_will_change(world: u32, node_id: u32, value: u8){
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let node_id = node_id as usize;
+    let transforms = world.gui.transform.lend_mut();
+    let transform_will_changes = world.gui.transform_will_change.lend_mut();
+    if value == 0 {
+        if transform_will_changes.get(node_id).is_some() {
+            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
+        }
+    } else {
+        if transforms.get(node_id).is_some() {
+            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
+        } else {
+            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()) );
+        }
+    }
+}
+
+fn set_default_style1(world: &mut GuiWorld, r: Class){
+	let mut text_style = TextStyle::default();
     // let mut border_color = BorderColor::default();
     // let mut bg_color = BackgroundColor::default();
     // let mut box_shadow = BoxShadow::default();
@@ -368,25 +417,4 @@ pub fn set_default_style(world: u32){
     let default_table = world.gui.default_table.lend_mut();
     default_table.set(world.default_text_style.clone());
     default_table.get_notify().modify_event(0, "", 0);
-    // world.default_layout_attr = r.1;
-}
-
-#[allow(unused_attributes)]
-#[no_mangle] 
-pub fn set_transform_will_change(world: u32, node_id: u32, value: u8){
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-    let node_id = node_id as usize;
-    let transforms = world.gui.transform.lend_mut();
-    let transform_will_changes = world.gui.transform_will_change.lend_mut();
-    if value == 0 {
-        if transform_will_changes.get(node_id).is_some() {
-            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
-        }
-    } else {
-        if transforms.get(node_id).is_some() {
-            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
-        } else {
-            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()) );
-        }
-    }
 }

@@ -1,0 +1,57 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="700px"></canvas>
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="shader/clip.js"></script>
+    <script src="shader/color.js"></script>
+    <script src="shader/image.js"></script>
+    <script src="shader/text.js"></script>
+    <script src="shader/canvas_text.js"></script>
+    <script src="shader/init.js"></script>
+    <script>
+        var gui = create_gui(1000, 700);
+        var res_count = 2;
+        var cfg, image;
+
+        var first = Module._create_node(gui);
+        // Module._set_position_type(gui, first, 1);
+        // Module._set_width(gui, first, 500);
+        Module._set_height(gui, first, 700);
+        Module._set_background_rgba_color(gui, first, 1.0, 0.0, 0.0, 1.0);
+        Module._set_zindex(gui, first, 2);
+        Module._append_child(gui, first, 1);
+        
+        var node = Module._create_node(gui);
+        // Module._set_position_type(gui, node, 1);
+        Module._set_width(gui, node, 200);
+        Module._set_height(gui, node, 200);
+        Module._set_zindex(gui, node, 0);
+        Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+        Module._append_child(gui, node, 1);
+            
+        Module._render(gui);
+
+        setTimeout(() => {
+            Module._set_width(gui, first, 300);
+            Module._set_zindex(gui, node, 0);
+            Module._render(gui);
+
+            setTimeout(() => {
+                Module._set_zindex(gui, node, 4);
+                render_fram();
+            }, 1000);
+        }, 1000);
+    </script> 
+</body>
+</html>

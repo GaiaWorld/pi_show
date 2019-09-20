@@ -1,5 +1,5 @@
 /**
- * Box Shadow
+ * 阴影渲染对象的构建及其属性设置
  */
 use share::Share;
 use std::slice;
@@ -149,19 +149,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 render_obj.geometry = create_shadow_geo(engine, render_obj, layout, shadow, border_radius);
             }
 
-            // // 渲染管线脏， 创建渲染管线
-            // if render_obj.program_dirty {                
-            //     render_obj.program = Some(ProgramRes(engine.create_program(
-            //         COLOR_VS_SHADER_NAME.get_hash(),
-            //         COLOR_FS_SHADER_NAME.get_hash(),
-            //         COLOR_VS_SHADER_NAME.as_ref(),
-            //         &*render_obj.vs_defines,
-            //         COLOR_FS_SHADER_NAME.as_ref(),
-            //         &*render_obj.fs_defines,
-            //         render_obj.paramter.as_ref(),
-            //     )));
-            // }
-            
             // 矩阵脏，或者布局脏
             if dirty & StyleType::Matrix as usize != 0 
             || dirty & StyleType::Layout as usize != 0{

@@ -472,7 +472,7 @@ fn remove_intersect_clip(by: usize, overflow: &mut OverflowClip) {
 
 #[inline]
 fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x >= b.max.x || a.min.y >= b.max.y || b.min.x >= a.max.x || b.min.y >= a.max.y{
+    if a.min.x > b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
         return false;
     } else {
         true

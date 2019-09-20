@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, WorldMatrixWrite };
+use component::calc::{ WorldMatrix, WorldMatrixWrite, Layout };
 use single::DefaultTable;
 use map::vecmap::{VecMap};
 

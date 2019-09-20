@@ -5,8 +5,8 @@ use ecs::{CreateEvent, ModifyEvent, DeleteEvent, EntityListener, SingleCaseListe
 use ecs::idtree::{IdTree};
 
 
-use component::user::*;
-use layout::{FlexNode, YGOverflow, YGAlign};
+use component::calc::Layout;
+use layout::{FlexNode, FlexConfig, YGOverflow, YGAlign};
 use entity::{Node};
 
 pub struct LayoutSys<L: FlexNode>(PhantomData<L>);
@@ -23,10 +23,23 @@ impl<'a, L: FlexNode> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
     type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
         write.0.insert(event.id, Layout::default());
-        let yoga = L::default();
+		// let yoga = if event.id == 1 {
+		// 	let config = L::C::new(); // 内存泄漏
+		// 	config.set_point_scale_factor(0.0);
+		// 	L::new_with_config(config)
+		// }else {
+		// 	L::default()
+		// };
+		let yoga = L::default();
         yoga.set_context(event.id as *mut c_void);
         yoga.set_overflow(YGOverflow::YGOverflowVisible);
         yoga.set_align_items(YGAlign::YGAlignFlexStart);
+
+		if event.id == 1 {
+			let config = L::C::new(); // 内存泄漏
+			config.set_point_scale_factor(0.0);
+			
+		}
         write.1.insert(event.id, yoga);
     }
 }

@@ -1,3 +1,7 @@
+/**
+ * 定义gl资源
+*/
+
 use std::ops::{Deref, DerefMut};
 
 use atom::Atom;

@@ -1,5 +1,5 @@
 /**
- *  sdf物体（背景色， 边框颜色， 阴影）渲染管线的创建销毁， ubo的设置， attribute的设置
+ * 文字渲染对象的构建及其属性设置
  */
 use std::marker::PhantomData;
 use std::hash::{ Hash, Hasher };
@@ -55,7 +55,8 @@ const TEXT_LAYOUT_DIRTY: usize =    StyleType::FontStyle as usize |
                                     StyleType::WhiteSpace as usize |
                                     StyleType::TextAlign as usize |
                                     StyleType::Text as usize |
-                                    StyleType::VerticalAlign as usize;
+                                    StyleType::VerticalAlign as usize |
+									StyleType::Layout as usize;
 
 const FONT_DIRTY: usize =   StyleType::FontStyle as usize |
                             StyleType::FontWeight as usize |
@@ -192,16 +193,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             let render_obj = unsafe { &mut *(render_objs.get_unchecked(index.text) as *const RenderObj as usize as *mut RenderObj) };
 
             let text = unsafe { texts.get_unchecked(*id) };
-
-            // let class_ubo = if let Some(class) = class_sheet.class.get(charblock.style_class) {
-            //     if let Some(ubos) = self.class_ubos.get(class.text) {
-            //         ubos
-            //     } else {
-            //         &self.default_ubos
-            //     }
-            // }else {
-            //     &self.default_ubos
-            // };
 
             let class_ubo = &self.default_ubos;
 
@@ -458,12 +449,6 @@ fn modify_stroke(
     notify.modify_event(index, "", 0);
     // canvas 字体
     if is_pixel {
-        // let ubo = if local_style & (StyleType::Stroke as usize) == 0 {
-        //     class_ubo.stroke_color_ubo.clone()
-        // } else {
-        //     let color = &text_stroke.color;
-        //     create_hash_res(engine, CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)))
-        // };
         let color = &text_stroke.color;
         let ubo = create_hash_res(CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)), canvas_stroke_ubo_map);
         render_obj.paramter.set_value("strokeColor", ubo);
@@ -504,12 +489,6 @@ fn modify_color<C: HalContext + 'static>(
 ) -> bool {
     let change = match color {
         Color::RGBA(c) => {
-            // // 如果是class样式中的颜色， 直接使用class_ubo.fill_color_ubo
-            // let ubo = if local_style & (StyleType::Color as usize) == 0 {
-            //     class_ubo.fill_color_ubo.clone()
-            // } else {
-            //     create_hash_res(engine, UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)))
-            // };
             let ubo = create_hash_res(UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)), &mut *engine.u_color_ubo_map);
             render_obj.paramter.set_value("uColor", ubo );
             notify.modify_event(index, "", 0);
@@ -704,9 +683,6 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
 
-                // println!("char_block : {:?}", char_block);
-                // println!("positions : {:?}", positions);
-                // println!("uvs : {:?}", uvs);
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {
@@ -821,10 +797,6 @@ fn cal_all_size<L: FlexNode + 'static>(char_block: &CharBlock<L>, font_sheet: &F
     for i in j..char_block.chars.len() {
         let ch = &char_block.chars[i]; 
         let pos = &ch.pos;
-        // let glyph = match font_sheet.get_glyph(char_block.chars[i].ch_id_or_count) {
-        //     Some(r) => r.1.clone(),
-        //     None => continue,
-        // };
 
         if pos.x < start.x{
             start.x = pos.x;
@@ -921,10 +893,10 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
     let left_top = (pos.x + offset.0 + ratio * glyph.ox, pos.y + offset.1 + glyph.oy * ratio);
     let right_bootom = (left_top.0 + glyph.width * ratio, left_top.1 + glyph.height * ratio);
     let ps = [
-        left_top.0,     left_top.1,    
+        left_top.0,     left_top.1,
         left_top.0,     right_bootom.1,
         right_bootom.0, right_bootom.1,
-        right_bootom.0, left_top.1,    
+        right_bootom.0, left_top.1,
     ];
     uvs.extend_from_slice(&[
         glyph.x, glyph.y,
