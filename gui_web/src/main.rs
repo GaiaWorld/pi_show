@@ -138,6 +138,70 @@ pub fn create_render_target(world: u32) -> u32 {
 	Box::into_raw(Box::new(rt)) as u32
 }
 
+// 打印内存情况
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn print_memory(world: u32) {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+	println!("print_memory begin");
+	
+	println!("    world::node = {:?}", world.node.lend().capacity());
+	println!("    world::transform = {:?}", world.transform.lend().capacity());
+	println!("    world::z_index = {:?}", world.z_index.lend().capacity());
+	println!("    world::overflow = {:?}", world.overflow.lend().capacity());
+	println!("    world::show = {:?}", world.show.lend().capacity());
+	println!("    world::opacity = {:?}", world.opacity.lend().capacity());
+	println!("    world::background_color = {:?}", world.background_color.lend().capacity());
+	println!("    world::box_shadow = {:?}", world.box_shadow.lend().capacity());
+	println!("    world::border_color = {:?}", world.box_shadow.lend().capacity());
+	println!("    world::border_image = {:?}", world.border_image.lend().capacity());
+	println!("    world::border_image_clip = {:?}", world.border_image_clip.lend().capacity());
+	println!("    world::border_image_slice = {:?}", world.border_image_slice.lend().capacity());
+	println!("    world::border_image_repeat = {:?}", world.border_image_repeat.lend().capacity());
+	println!("    world::text_style = {:?}", world.text_style.lend().capacity());
+	println!("    world::text_content = {:?}", world.text_content.lend().capacity());
+	println!("    world::font = {:?}", world.font.lend().capacity());
+	println!("    world::border_radius = {:?}", world.border_radius.lend().capacity());
+	println!("    world::image = {:?}", world.image.lend().capacity());
+	println!("    world::image_clip = {:?}", world.image_clip.lend().capacity());
+	println!("    world::object_fit = {:?}", world.object_fit.lend().capacity());
+	println!("    world::filter = {:?}", world.filter.lend().capacity());
+	println!("    world::yoga = {:?}", world.yoga.lend().capacity());
+	println!("    world::class_name = {:?}", world.class_name.lend().capacity());
+	println!("    world::style_mark = {:?}", world.style_mark.lend().capacity());
+	println!("    world::z_depth = {:?}", world.z_depth.lend().capacity());
+	println!("    world::enable = {:?}", world.enable.lend().capacity());
+	println!("    world::visibility = {:?}", world.visibility.lend().capacity());
+	println!("    world::world_matrix = {:?}", world.world_matrix.lend().capacity());
+	println!("    world::by_overflow = {:?}", world.by_overflow.lend().capacity());
+	println!("    world::copacity = {:?}", world.copacity.lend().capacity());
+	println!("    world::layout = {:?}", world.layout.lend().capacity());
+	println!("    world::hsv = {:?}", world.hsv.lend().capacity());
+	println!("    world::culling = {:?}", world.culling.lend().capacity());
+	
+	// println!("    world::idtree = {:?}", world.idtree.lend().capacity());
+	// println!("    world::oct = {:?}", world.oct.lend().capacity());
+	// println!("    world::overflow_clip = {:?}", world.overflow_clip.lend().capacity());
+	// println!("    world::engine = {:?}", world.engine.lend().capacity());
+	// println!("    world::render_objs = {:?}", world.render_objs.capacity());
+	// println!("    world::font_sheet = {:?}", world.font_sheet.lend().capacity());
+	// println!("    world::default_table = {:?}", world.default_table.lend().capacity());
+	// println!("    world::class_sheet = {:?}", world.class_sheet.lend().capacity());
+	// println!("    world::image_wait_sheet = {:?}", world.image_wait_sheet.lend().capacity());
+
+	let engine = world.engine.lend_mut();
+	let stat = engine.gl.render_get_stat();
+	println!("    world::engine::rt_count = {:?}", stat.rt_count);
+	println!("    world::engine::texture_count = {:?}", stat.texture_count);
+	println!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+	println!("    world::engine::geometry_count = {:?}", stat.geometry_count);
+	println!("    world::engine::program_count = {:?}", stat.program_count);
+	
+	println!("print_memory end");
+}
+
+
 // 销毁渲染目标
 #[allow(unused_attributes)]
 #[no_mangle]

@@ -344,6 +344,14 @@ pub trait HalContext {
     fn render_end(&self);
 
     /** 
+     * 获取渲染统计信息，包括：
+     *    + 每个资源当前的数量：program，buffer，geometry，texture，render-target
+     *    + （需要加stat feature构建 才能获取正确数据）每帧切换的资源数：program，geometry，texture，render-target
+     *    + 注：如果要获取帧的切换信息，建议在begin_end之后获取。
+     */
+    fn render_get_stat(&self) -> &RenderStat;
+
+    /** 
      * 设置Program
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
