@@ -289,7 +289,6 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 pub fn set_border_image(world: u32, node: u32){
 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let name: String = js!{return __jsObj}.try_into().unwrap();
-
 	let border_images = world.gui.border_image.lend_mut();
 	border_images.insert(node as usize, BorderImage(Image{src: None, url: Atom::from(name)}));
 }
