@@ -187,9 +187,9 @@ impl ZIndexImpl {
   fn delete_dirty(&mut self, id: usize, layer: usize) {
     if layer > 0 {
       let zi = unsafe {self.map.remove_unchecked(id)};
-      if zi.dirty != DirtyType::None {
+    //   if zi.dirty != DirtyType::None {
         self.dirty.delete(id, layer)
-      }
+    //   }
     }
     // 删除无需设脏，z值可以继续使用
   }

@@ -35,7 +35,7 @@ pub struct OverflowClip{
     // pub clip: [[Point2;4];16],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Clip {
     pub view: [Point2;4],
     pub has_rotate: bool,
