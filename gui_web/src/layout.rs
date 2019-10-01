@@ -8,6 +8,7 @@ use bc::*;
 use gui::layout::*;
 use gui::component::calc::StyleType1;
 use GuiWorld;
+use yoga;
 
 
 #[macro_use()]
@@ -118,3 +119,27 @@ func_enum_value!(set_margin_percent, Margin);
 func_enum_value!(set_border, Border);
 func_enum_value!(set_position, Position);
 func_enum_value!(set_position_percent, Position);
+
+#[no_mangle]
+pub fn init_width(world: u32, node_id: u32, width: u32){
+	let node_id = node_id as usize;
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let yogas = world.gui.yoga.lend_mut();
+	let yoga = unsafe { yogas.get_unchecked_mut(node_id)};
+	match yoga.get_style_width_unit() {
+		YGUnit::YGUnitAuto => yoga.set_width(width as f32),
+		_ => (),
+	}
+}
+
+#[no_mangle]
+pub fn init_height(world: u32, node_id: u32, height: u32){
+	let node_id = node_id as usize;
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let yogas = world.gui.yoga.lend_mut();
+	let yoga = unsafe { yogas.get_unchecked_mut(node_id)};
+	match yoga.get_height().unit {
+		yoga::YGUnit::YGUnitAuto => yoga.set_height(height as f32),
+		_ => (),
+	}
+}

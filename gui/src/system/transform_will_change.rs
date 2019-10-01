@@ -93,8 +93,10 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, CreateEvent> for Trans
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
 	fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
-			self.mark_dirty(event.id, style_marks);
-			self.will_change_mark.mark(event.id, r.layer);
+			if r.layer > 0 {
+				self.mark_dirty(event.id, style_marks);
+				self.will_change_mark.mark(event.id, r.layer);
+			}
 		} else {
 			self.create_will_change_count += 1;
 		} 
@@ -105,8 +107,10 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, ModifyEvent> for Trans
 	type ReadData = &'a SingleCaseImpl<IdTree>;
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
 	fn listen(&mut self, event: &ModifyEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
-		if let Some(_r) = idtree.get(event.id) {
-			self.mark_dirty(event.id, style_marks);
+		if let Some(r) = idtree.get(event.id) {
+			if r.layer > 0 {
+				self.mark_dirty(event.id, style_marks);
+			}
 		}
 	}
 }

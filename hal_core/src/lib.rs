@@ -4,6 +4,9 @@
 extern crate atom;
 extern crate share;
 extern crate ordered_float;
+#[cfg(feature = "serde")]
+#[macro_use]
+extern crate serde;
 
 mod traits;
 mod common;

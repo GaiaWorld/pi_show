@@ -57,17 +57,14 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ZIndexImpl {
     }
 }
 
-// impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
-//     type ReadData = &'a SingleCaseImpl<IdTree>;
-//     type WriteData = ();
+impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
 
-//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-//       match read.get(event.id) {
-//         Some(r) => self.delete_dirty(event.id, r.layer),
-//         _ => ()
-//       }
-//     }
-// }
+    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData) {
+		self.map.remove(event.id);
+    }
+}
 
 impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
@@ -185,7 +182,7 @@ impl ZIndexImpl {
 
   fn delete_dirty(&mut self, id: usize, layer: usize) {
     if layer > 0 {
-      let zi = unsafe {self.map.remove_unchecked(id)};
+      let zi = unsafe {self.map.get_unchecked(id)};
       if zi.dirty != DirtyType::None {
         self.dirty.delete(id, layer)
       }
@@ -444,7 +441,7 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        // EntityListener<Node, DeleteEvent>
+        EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, ZI, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>

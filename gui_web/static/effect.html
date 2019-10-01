@@ -244,15 +244,31 @@
             Module._set_border(gui, node7, YGEdgeAll, 15);
             Module._set_border_radius(gui, node7, 20, 20);
             Module._set_background_rgba_color(gui, node7, 0.0, 1.0, 0.0, 1.0); 
-        }
-        console.log("time: ",  performance.now() - time);
+		}
+
+		
+
+        console.log("create and append and set time: ",  performance.now() - time);
         Module._render(gui);
         console.log("time: ",  performance.now() - time);
 
         Module._set_render_dirty(gui);
         var time = performance.now();
         Module._render(gui);
-        console.log("render: time: ",  performance.now() - time);
+		console.log("render: time: ",  performance.now() - time);
+		
+		window.__jsObj = "./res/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png";
+			Module._set_src(gui, 5);
+			
+			window.__jsObj = "./res/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png";
+			Module._set_src(gui, 5);
+			
+		var time = performance.now();
+		for (var i = 0; i < 1000; i++) {
+			window.__jsObj = "./res/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.png";
+        	Module._set_src(gui, 5);
+		}
+		console.log("set src time: ",  performance.now() - time);
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

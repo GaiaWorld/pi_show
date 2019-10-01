@@ -6,6 +6,7 @@
 * 2D spine系统
 * 调研：SDF对小字体的支持。
 * wasm
+* fps显示
 
 # 性能
 

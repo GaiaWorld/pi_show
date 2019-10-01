@@ -245,7 +245,14 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs1.push(Attribute1::Display( parse_display(value)? ));
             class.class_style_mark1 |= StyleType1::Display as usize;
         },
-
+		"overflow" => {
+			class.attrs1.push(Attribute1::Overflow( parse_overflow(value)? ));
+			class.class_style_mark1 |= StyleType1::Overflow as usize;
+		}
+		"overflow-y" => {
+			class.attrs1.push(Attribute1::Overflow( parse_overflow(value)? ));
+			class.class_style_mark1 |= StyleType1::Overflow as usize;
+		}
         "width" => {
             class.attrs2.push(Attribute2::Width(parse_unity(value)?));
             class.class_style_mark1 |= StyleType1::Width as usize;
@@ -346,6 +353,14 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::Border(r.0));
             class.class_style_mark1 |= StyleType1::Border as usize;
         },
+		"border-width" => {
+			let [r1, r2, r3, r4] = parse_four_f32(value)?;
+			class.attrs2.push(Attribute2::BorderTop(r1));
+			class.attrs2.push(Attribute2::BorderRight(r2));
+			class.attrs2.push(Attribute2::BorderBottom(r3));
+			class.attrs2.push(Attribute2::BorderLeft(r4));
+			class.class_style_mark1 |= StyleType1::Border as usize;
+		},
         "min-width" => {
             class.attrs2.push(Attribute2::MinWidth(parse_unity(value)?));
             class.class_style_mark1 |= StyleType1::MinWidth as usize;
@@ -432,6 +447,13 @@ fn parse_display(value: &str) -> Result<Display, String>{
 	}
 }
 
+fn parse_overflow(value: &str) -> Result<bool, String>{ 
+	match value {
+		"hidden" => Ok(true),
+		_ => Ok(false), // 默认情况
+	}
+}
+
 fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
     let r = match value {
         "normal" => WhiteSpace::Normal,
@@ -491,21 +513,21 @@ fn parser_color_stop(value: &str, list: &mut Vec<CgColor>, color_stop: &mut Vec<
     Ok(())
 }
 
-fn parse_f32_2(value: &str, split: &str) -> Result<[f32; 2], String> {
-    let mut r = [0.0, 0.0];
-    let mut i = 0;
-    for v in value.split(split) {
-        if i > 1 {
-            return Err(format!("parse_f32_2 error, value: {:?}", value));
-        }
-        let v = v.trim();
-        if v != "" {
-            r[i] = parse_f32(v)?;
-            i += 1;
-        }
-    }
-    Ok(r)
-}
+// fn parse_f32_2(value: &str, split: &str) -> Result<[f32; 2], String> {
+//     let mut r = [1.0, 1.0];
+//     let mut i = 0;
+//     for v in value.split(split) {
+//         if i > 1 {
+//             return Err(format!("parse_f32_2 error, value: {:?}", value));
+//         }
+//         let v = v.trim();
+//         if v != "" {
+//             r[i] = parse_f32(v)?;
+//             i += 1;
+//         }
+//     }
+//     Ok(r)
+// }
 
 fn parse_f32_3(value: &str, split: &str) -> Result<[f32; 3], String> {
     let mut r = [0.0, 0.0, 0.0];
@@ -840,7 +862,22 @@ fn parse_border(value: &str) -> Result<(ValueUnit, CgColor), String>{
 fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String>{
     let r = match key {
         "scale" => {
-            let r = parse_f32_2(value, ",")?;
+			let mut r = [1.0, 1.0];
+			let mut i = 0;
+			for v in value.split(",") {
+				if i > 1 {
+					return Err(format!("parse_f32_2 error, value: {:?}", value));
+				}
+				let v = v.trim();
+				if v != "" {
+					r[i] = parse_f32(v)?;
+					i += 1;
+				}
+			}
+			if i == 1 {
+				let r0 = r[0];
+				r[1] = r0;
+			}
             TransformFunc::Scale(r[0], r[1])
         },
         "scaleX" => TransformFunc::ScaleX(parse_f32(value)?),
@@ -1105,7 +1142,7 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
         "whitesmoke" => rgb!(245, 245, 245),
         "yellowgreen" => rgb!(154, 205, 50),
 
-        "transparent" => rgba(0, 0, 0, 0),
+        "transparent" => rgba(0, 0, 0, 0.0),
         _ => if value.starts_with("#") {
             parse_color_hex(&value[1..])?
         } else if value.starts_with("rgb") {
@@ -1166,7 +1203,7 @@ fn parse_unity(value: &str) -> Result<ValueUnit, String> {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
-        Ok(ValueUnit::Percent(v/100.0))
+        Ok(ValueUnit::Percent(v))
     } else if value == "auto" {
         Ok(ValueUnit::Auto)
     } else if value.ends_with("px") {
@@ -1289,7 +1326,7 @@ fn parse_color_fun(key: &str, value: &str) -> Result<CgColor, String>{
     let r = match key {
         "rgba" => {
             let r = parse_f32_4(value, ",")?;
-			rgba(r[0] as u8, r[1] as u8, r[2] as u8, r[3] as u8)
+			rgba(r[0] as u8, r[1] as u8, r[2] as u8, r[3])
         },
         "rgb" => {
 			let r = parse_f32_3(value, ",")?;
@@ -1307,32 +1344,32 @@ fn parse_color_hex(value: &str) -> Result<CgColor, String> {
             from_hex(value[0])? * 16 + from_hex(value[1])?,
             from_hex(value[2])? * 16 + from_hex(value[3])?,
             from_hex(value[4])? * 16 + from_hex(value[5])?,
-            from_hex(value[6])? * 16 + from_hex(value[7])?,
+            (from_hex(value[6])? * 16 + from_hex(value[7])?) as f32 / 255.0,
         )),
         6 => Ok(rgba(
             from_hex(value[0])? * 16 + from_hex(value[1])?,
             from_hex(value[2])? * 16 + from_hex(value[3])?,
             from_hex(value[4])? * 16 + from_hex(value[5])?,
-            255,
+            1.0,
         )),
         4 => Ok(rgba(
             from_hex(value[0])? * 17,
             from_hex(value[1])? * 17,
             from_hex(value[2])? * 17,
-            from_hex(value[3])? * 17,
+            (from_hex(value[3])? * 17) as f32 / 255.0,
         )),
         3 => Ok(rgba(
             from_hex(value[0])? * 17,
             from_hex(value[1])? * 17,
             from_hex(value[2])? * 17,
-            255,
+            1.0,
         )),
         _ => Err("".to_string()),
     }
 }
 
-fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> CgColor {
-    CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, alpha as f32 / 255.0)
+fn rgba(red: u8, green: u8, blue: u8, alpha: f32) -> CgColor {
+    CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, alpha)
 }
 
 fn rgb(red: u8, green: u8, blue: u8) -> CgColor {

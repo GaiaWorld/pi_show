@@ -56,7 +56,7 @@ fn cal_hsv(
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ){  
     let parent_id = match idtree.get(id) {
-        Some(node) => node.parent,
+        Some(node) => if node.layer != 0 {node.parent} else {return} ,
         None => return,
     };
     let hsv = match hsvs.get(parent_id){

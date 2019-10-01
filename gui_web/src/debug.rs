@@ -1,13 +1,18 @@
 use std::mem::transmute;
 
 use serde::{Serialize};
+use hash::XHashMap;
+use hal_core::*;
+use hal_webgl::*;
 
 use ecs::{Lend};
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
 // use gui::single::Oct;
 use gui::layout::FlexNode;
+use gui::single::*;
 use GuiWorld;
+use gui::render::engine::ShareEngine;
 
 // 打印节点信息
 #[allow(unused_attributes)]
@@ -75,7 +80,95 @@ pub fn node_info(world: u32, node: u32) {
         right_top: Point2::new(c_right_top.x, c_right_top.y),
     };
 
-    let info = Info {
+    // let yogas = world.yoga.lend();
+    // let yoga = unsafe { yogas.get_unchecked(node) };
+
+    let octs = world.oct.lend();
+    // let oct = unsafe { octs.get_unchecked(node) };
+	
+	let mut render_map = Vec::new();
+	let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
+	let map = map.lend();
+	let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
+	let render_objs = render_objs.lend();
+	let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
+	let engine = engine.lend();
+	if let Some(arr) = map.get(node) {
+		for id in arr.iter() {
+			let v = match render_objs.get(*id) {
+				Some(r) => r,
+				None => continue,
+			};
+			let mut paramter = XHashMap::default();
+			// let pt = v.paramter.get_texture_layout();
+
+			let val = v.paramter.get_values();
+			let vals = v.paramter.get_single_uniforms();
+			// let valt = v.paramter.get_textures();
+			let mut i = 0;
+			for name in v.paramter.get_layout() {
+				let mut ubo = XHashMap::default();
+				let ubo_val = val[i].get_values();
+				let mut j = 0;
+				for n in val[i].get_layout(){
+					ubo.insert(n.to_string(), ubo_val[j].clone());
+					j += 1;
+				}
+				paramter.insert(name.to_string(), Paramter::Ubo(ubo) );
+				i += 1;
+			}
+
+			i = 0;
+			for name in v.paramter.get_single_uniform_layout() {
+				paramter.insert(name.to_string(), Paramter::Uniform(vals[i].clone()));
+				i += 1;
+			}
+
+			let rs = engine.gl.rs_get_desc(&v.state.rs);
+			let bs = engine.gl.bs_get_desc(&v.state.bs);
+
+			let mut vs_defines = Vec::new();
+			for n in v.vs_defines.list().iter() {
+				if let Some(r) = n {
+					vs_defines.push(r.to_string())
+				}
+			}
+
+			let mut fs_defines = Vec::new();
+			for n in v.fs_defines.list().iter() {
+				if let Some(r) = n {
+					fs_defines.push(r.to_string())
+				}
+			}
+			
+			let obj = RenderObject {
+				depth: v.depth,
+				depth_diff: v.depth_diff,
+				visibility: v.visibility,
+				is_opacity: v.is_opacity,
+				vs_name: v.vs_name.as_ref().to_string(),
+				fs_name: v.fs_name.as_ref().to_string(),
+				vs_defines: vs_defines,
+				fs_defines: fs_defines,
+				paramter: paramter,
+				program_dirty: v.program_dirty,
+
+				program: v.program.is_some(),
+				geometry: v.geometry.is_some(),
+				state: State {
+					rs: unsafe {transmute(rs.clone())},
+					bs: unsafe {transmute(bs.clone())},
+					ss: engine.gl.ss_get_desc(&v.state.ss).clone(),
+					ds: engine.gl.ds_get_desc(&v.state.ds).clone(),
+				},
+
+				context: v.context,
+			};
+			render_map.push(obj);
+		}
+	}
+
+	let info = Info {
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
@@ -85,22 +178,25 @@ pub fn node_info(world: u32, node: u32) {
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
+		culling: unsafe { world.culling.lend().get_unchecked(node) }.0,
+		text: match world.text_style.lend().get(node) {
+			Some(r) => Some(r.clone()),
+			None => None,
+		},
+		text_content: match world.text_content.lend().get(node){
+			Some(r) => Some(r.clone()),
+			None => None,
+		},
+		render_obj: render_map,
     };
-
-
-    // let yogas = world.yoga.lend();
-    // let yoga = unsafe { yogas.get_unchecked(node) };
-
-    let octs = world.oct.lend();
-    let oct = unsafe { octs.get_unchecked(node) };
 
     js!{
         window.__jsObj = @{info};
         // window.__jsObj1 = window.__jsObj;
-        // console.log("node_info:", window.__jsObj);
+        console.log("node_info:", window.__jsObj);
         // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
         // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
-        console.log("boundBox:", @{format!( "{:?}", oct )});
+        // console.log("boundBox:", @{format!( "{:?}", oct )});
     }
 }
 
@@ -114,6 +210,8 @@ pub fn overflow_clip(_world: u32) {
     //     console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
     // }
 }
+
+
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
@@ -181,7 +279,7 @@ pub fn get_yoga(world: u32, node: u32) {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Point2{
     x: f32, 
     y: f32,
@@ -194,7 +292,7 @@ impl Point2 {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Quad{
     left_top: Point2,
     left_bottom: Point2,
@@ -203,7 +301,7 @@ struct Quad{
 }
 js_serializable!( Quad );
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Layout1{
     left: f32,
     top: f32,
@@ -220,7 +318,7 @@ struct Layout1{
 }
 js_serializable!( Layout1 );
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct Info{
     by_overflow: usize,
     visibility: bool,
@@ -231,5 +329,69 @@ struct Info{
     border_box: Quad,
     padding_box: Quad,
     content_box: Quad,
+	culling: bool,
+	text: Option<TextStyle>,
+	text_content: Option<TextContent>,
+	render_obj: Vec<RenderObject>,
 }
 js_serializable!( Info );
+
+#[derive(Serialize, Debug)]
+struct RenderObject {
+	pub depth: f32,
+    pub depth_diff: f32,
+    pub visibility: bool,
+    pub is_opacity: bool,
+    pub vs_name: String,
+    pub fs_name: String,
+    pub vs_defines: Vec<String>,
+    pub fs_defines: Vec<String>,
+    pub paramter: XHashMap<String, Paramter>,
+    pub program_dirty: bool,
+
+    pub program: bool,
+    pub geometry: bool,
+    pub state: State,
+
+    pub context: usize,
+}
+js_serializable!( RenderObject );
+
+#[derive(Serialize, Debug)]
+enum Paramter {
+	Uniform(UniformValue),
+	Ubo(XHashMap<String, UniformValue>),
+}
+js_serializable!( Paramter );
+
+#[derive(Serialize, Debug)]
+struct State {
+	pub rs: RasterStateDesc,
+    pub bs: BlendStateDesc,
+    pub ss: StencilStateDesc,
+    pub ds: DepthStateDesc,
+}
+js_serializable!( State );
+
+#[derive(Serialize, Debug)]
+pub struct RasterStateDesc {
+    pub cull_mode: Option<CullMode>,
+    pub is_front_face_ccw: bool,
+    pub polygon_offset: (f32, f32),
+}
+js_serializable!( RasterStateDesc );
+
+#[derive(Serialize, Debug)]
+pub struct BlendStateDesc {
+    pub rgb_equation: BlendFunc,
+    pub alpha_equation: BlendFunc,
+    
+    pub src_rgb_factor: BlendFactor,
+    pub dst_rgb_factor: BlendFactor,
+    
+    pub src_alpha_factor: BlendFactor,
+    pub dst_alpha_factor: BlendFactor,
+
+    pub const_rgba: (f32, f32, f32, f32),
+}
+js_serializable!( BlendStateDesc );

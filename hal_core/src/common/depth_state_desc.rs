@@ -3,6 +3,7 @@ use common::util::{CompareFunc};
 /** 
  * 深度状态
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Hash)]
 pub struct DepthStateDesc {
     pub is_depth_test_enable: bool,

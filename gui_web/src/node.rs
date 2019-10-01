@@ -8,7 +8,7 @@ use std::{
 use stdweb::unstable::TryInto;
 
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
-use ecs::idtree::{InsertType};
+use ecs::idtree::{InsertType, IdTree};
 use atom::Atom;
 use octree::intersects;
 use cg2d::{include_quad2, InnOuter};
@@ -72,7 +72,7 @@ pub fn create_image_node(world: u32) -> u32{
     node as u32
 }
 
-// 在尾部插入子节点
+// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
@@ -80,9 +80,13 @@ pub fn append_child(world: u32, child: u32, parent: u32){
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
+
+	// 如果child在树上， 则会从树上移除节点， 但不会发出事件
+	idtree.remove(child as usize, None);
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
 }
 
+// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
@@ -90,18 +94,32 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
+	// 如果child在树上， 则会从树上移除节点， 但不会发出事件
+	idtree.remove(child as usize, None);
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
 }
 
+// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn remove_child(world: u32, node_id: u32){
+pub fn remove_node(world: u32, node_id: u32){
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 	let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
+    idtree.remove(node_id as usize, Some(&notify)); 
+}
+
+// 销毁节点
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn destroy_node(world: u32, node_id: u32){
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let idtree = world.idtree.lend_mut();
+    // let notify = idtree.get_notify();
     let node = world.node.lend_mut();
-    idtree.destroy(node_id as usize, true, Some(&notify));
+    idtree.destroy(node_id as usize, false, None);
     node.delete(node_id as usize); 
 }
 
@@ -110,89 +128,12 @@ pub fn remove_child(world: u32, node_id: u32){
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_src(world: u32, node: u32){
-	let node = node as usize;
 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-
 	let name: String = js!{return __jsObj}.try_into().unwrap();
-	let name = Atom::from(name);
-	let engine = world.engine.lend_mut();
 
-	match engine.texture_res_map.get(&name) {
-		Some(r) => {
-			let image = world.image.lend_mut();
-			image.insert(node, Image{src: r, url: name});
-		},
-		None => {
-			// 异步加载图片
-			let image_wait_sheet = world.image_wait_sheet.lend_mut();
-			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::ImageLocal})
-		},
-	}
+	let images = world.gui.image.lend_mut();
+	images.insert(node as usize, Image{src: None, url: Atom::from(name)});
 }
-
-
-// // 设置图片的src
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_src_with_texture(world: u32, node: u32, texture: u32){
-//     let node = node as usize;
-//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-// 	let world = &mut world.gui;
-//     let yg_nodes = world.yoga.lend_mut();
-//     let yoga = match yg_nodes.get(node) {
-//         Some(r) => r,
-//         None => return,
-//     };
-
-//     let texture = unsafe {&*(texture as usize as *const Share<TextureRes>) }.clone();
-
-//     match yoga.get_width().unit {
-//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
-//         _ => (),
-//     };
-//     match yoga.get_height().unit {
-//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
-//         _ => (),
-//     };
-    
-//     let image = world.image.lend_mut();
-//     image.insert(node, Image{src: texture});
-
-//     debug_println!("set_src_with_texture"); 
-// }
-// __jsObj: image, __jsObj1: image_name(String)
-// 设置图片的src
-
-// // 设置图片的src
-// #[allow(unused_attributes)]
-// #[no_mangle]
-// pub fn set_border_src_with_texture(world: u32, node: u32, texture: u32){
-//     let node = node as usize;
-//     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-// 	let world = &mut world.gui;
-//     let yg_nodes = world.yoga.lend_mut();
-//     let yoga = match yg_nodes.get(node) {
-//         Some(r) => r,
-//         None => return,
-//     };
-
-//     let texture = unsafe {&*(texture as usize as *mut Share<TextureRes>) }.clone();
-
-//     match yoga.get_width().unit {
-//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_width(texture.width as f32),
-//         _ => (),
-//     };
-//     match yoga.get_height().unit {
-//         yoga1::YGUnit::YGUnitUndefined | yoga1::YGUnit::YGUnitAuto => yoga.set_height(texture.height as f32),
-//         _ => (),
-//     };
-    
-//     let image = world.border_image.lend_mut();
-//     image.insert(node, BorderImage{src: texture});
-
-//     debug_println!("set_border_src_with_texture"); 
-// }
 
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -347,9 +288,10 @@ pub fn query(world: u32, x: f32, y: f32)-> u32{
     let overflow_clip = world.overflow_clip.lend();
     let by_overflows = world.by_overflow.lend();
     let z_depths = world.z_depth.lend();
+	let idtree = world.idtree.lend();
 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
+    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, idtree, aabb.clone(), 0);
     octree.query(&aabb, intersects, &mut args, ab_query_func);
     args.result as u32
 }
@@ -366,9 +308,10 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
     let overflow_clip = world.overflow_clip.lend();
     let by_overflows = world.by_overflow.lend();
     let z_depths = world.z_depth.lend();
+	let idtree = world.idtree.lend();
 
     let aabb = Aabb3::new(Point3::new(x,y,-Z_MAX), Point3::new(x,y,Z_MAX));
-    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, aabb.clone(), 0);
+    let mut args = AbQueryArgs::new(enables, by_overflows, z_depths, overflow_clip, idtree, aabb.clone(), 0);
 
     for e in entitys.iter() {
 		let oct = match octree.get(e) {
@@ -389,7 +332,7 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
 pub fn add_class(world: u32, node_id: u32, key: u32, index: u32){
     let node_id = node_id as usize;
     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-    
+
     if index == 0 {
         unsafe { world.gui.class_name.lend_mut().get_unchecked_mut(node_id as usize) } .one = key as usize;
     } else if index == 1 {
@@ -431,6 +374,7 @@ struct AbQueryArgs<'a> {
   by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
   z_depths: &'a MultiCaseImpl<Node, ZDepth>,
   overflow_clip: &'a SingleCaseImpl<OverflowClip>,
+  id_tree: &'a SingleCaseImpl<IdTree>,
   aabb: Aabb3,
   ev_type: u32,
   max_z: f32,
@@ -442,6 +386,7 @@ impl<'a> AbQueryArgs<'a> {
     by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
     z_depths: &'a MultiCaseImpl<Node, ZDepth>,
     overflow_clip: &'a SingleCaseImpl<OverflowClip>,
+	id_tree: &'a SingleCaseImpl<IdTree>,
     aabb: Aabb3,
     ev_type: u32,
   ) -> AbQueryArgs<'a> {
@@ -450,6 +395,7 @@ impl<'a> AbQueryArgs<'a> {
       by_overflows,
       z_depths,
       overflow_clip,
+	  id_tree,
       aabb: aabb,
       ev_type: ev_type,
       max_z: -Z_MAX,
@@ -459,6 +405,10 @@ impl<'a> AbQueryArgs<'a> {
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) {
+	match arg.id_tree.get(*bind) {
+		Some(node) => if node.layer == 0 {return},
+		None => return,
+	};
   // debug_println!("ab_query_func----------------------------{}, {:?}, {:?}", *bind, aabb, arg.aabb);
   if intersects(&arg.aabb, aabb) {
     // debug_println!("bind----------------------------{}", *bind);

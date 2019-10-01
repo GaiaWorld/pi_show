@@ -51,9 +51,10 @@ impl OctSys {
         // default_table: &SingleCaseImpl<DefaultTable>,
         octree:  &mut SingleCaseImpl<Oct>,
     ){
-        if idtree.get(id).is_none() {
-            return;
-        };
+		match idtree.get(id) {
+			Some(r) => if r.layer == 0 {return}
+			None => return,
+		};
 
         let transform = match transforms.get(id) {
             Some(r) => r,

@@ -6,7 +6,7 @@ use ecs::idtree::{IdTree};
 
 
 use component::calc::Layout;
-use layout::{FlexNode, FlexConfig, YGOverflow, YGAlign};
+use layout::{FlexNode, YGOverflow, YGAlign, YGWrap};
 use entity::{Node};
 
 pub struct LayoutSys<L: FlexNode>(PhantomData<L>);
@@ -33,13 +33,14 @@ impl<'a, L: FlexNode> EntityListener<'a, Node, CreateEvent> for LayoutSys<L>{
 		let yoga = L::default();
         yoga.set_context(event.id as *mut c_void);
         yoga.set_overflow(YGOverflow::YGOverflowVisible);
-        yoga.set_align_items(YGAlign::YGAlignFlexStart);
+        yoga.set_align_items(YGAlign::YGAlignStretch);
+		yoga.set_flex_wrap(YGWrap::YGWrapWrap);
 
-		if event.id == 1 {
-			let config = L::C::new(); // 内存泄漏
-			config.set_point_scale_factor(0.0);
+		// if event.id == 1 {
+		// 	let config = L::C::new(); // 内存泄漏
+		// 	config.set_point_scale_factor(0.0);
 			
-		}
+		// }
         write.1.insert(event.id, yoga);
     }
 }
@@ -49,7 +50,12 @@ impl<'a, L: FlexNode> MultiCaseListener<'a, Node, L, DeleteEvent> for LayoutSys<
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, Layout>, &'a mut MultiCaseImpl<Node, L>);
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData){
-		unsafe { write.1.get_unchecked(event.id) }.free();
+		let yoga = unsafe { write.1.get_unchecked(event.id) };
+		let p = yoga.get_parent();
+		if !p.is_null() {
+			yoga.get_parent().remove_child(*yoga);
+			yoga.free();
+		}
     }
 }
 

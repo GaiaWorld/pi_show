@@ -3,14 +3,15 @@
 #![feature(proc_macro_hygiene)]
 #![recursion_limit = "512"]
 #[prelude_import]
-
+use ::std::prelude::v1::*;
+#[macro_use]
 extern crate std;
 
 
 
 ///一个基本的例子， 演示如何使用 uniform_buffer! 和 program_paramter! 定义UniformBuffer 和 ProgramParamter
 extern crate hal_core;
-
+#[macro_use]
 extern crate hal_derive;
 extern crate share;
 
@@ -120,7 +121,7 @@ impl UniformBuffer for Clip {
 pub struct Color {
     uniforms: [Share<dyn UniformBuffer>; 2],
     single_uniforms: [UniformValue; 1],
-    textures: [(Share<HalTexture>, Share<HalSampler>); 1],
+    textures: [((u32, u32), (u32, u32)); 1],
 }
 impl std::default::Default for Color {
     fn default() -> Self {
@@ -128,9 +129,7 @@ impl std::default::Default for Color {
                  [Share::new(BgColor::default()),
                   Share::new(Clip::default())],
              single_uniforms: [UniformValue::default()],
-             textures:
-                 [(Share::new(HalTexture(0, 0)),
-                   Share::new(HalSampler(0, 0)))],}
+             textures: [((0, 0), (0, 0))],}
     }
 }
 impl Color {
@@ -159,6 +158,9 @@ impl ProgramParamter for Color {
     }
     #[inline]
     fn get_texture_layout(&self) -> &[&str] { &Self::TEXTURE_FIELDS[..] }
+    fn get_index(&self, name: &str) -> Option<usize> {
+        match name { "common" => Some(0), "clip" => Some(1), _ => None, }
+    }
     #[inline]
     fn get_values(&self) -> &[Share<dyn UniformBuffer>] { &self.uniforms[..] }
     #[inline]
@@ -166,8 +168,11 @@ impl ProgramParamter for Color {
         &self.single_uniforms[..]
     }
     #[inline]
-    fn get_textures(&self) -> &[(Share<HalTexture>, Share<HalSampler>)] {
-        &self.textures[..]
+    fn get_textures(&self) -> &[(HalItem, HalItem)] {
+        unsafe {
+            &(*(&self.textures as *const [((u32, u32), (u32, u32)); 1] as
+                    usize as *const [(HalItem, HalItem); 1]))[..]
+        }
     }
     fn get_value(&self, name: &str) -> Option<&Share<dyn UniformBuffer>> {
         match name {
@@ -179,18 +184,22 @@ impl ProgramParamter for Color {
     fn get_single_uniform(&self, name: &str) -> Option<&UniformValue> {
         match name { "alpha" => Some(&self.single_uniforms[0]), _ => None, }
     }
-    fn get_texture(&self, name: &str)
-     -> Option<&(Share<HalTexture>, Share<HalSampler>)> {
-        match name { "texture" => Some(&self.textures[0]), _ => None, }
+    fn get_texture(&self, name: &str) -> Option<&(HalItem, HalItem)> {
+        match name {
+            "texture" =>
+            Some(unsafe {
+                     &*(&self.textures[0] as *const ((u32, u32), (u32, u32))
+                            as usize as *const (HalItem, HalItem))
+                 }),
+            _ => None,
+        }
     }
     fn set_value(&self, name: &str, value: Share<dyn UniformBuffer>) -> bool {
         let s = unsafe { &mut *(self as *const Self as usize as *mut Self) };
         match name {
             "common" => s.uniforms[0] = value,
             "clip" => s.uniforms[1] = value,
-            _ => {
-                return false
-            }
+            _ => { return false }
         };
         true
     }
@@ -198,24 +207,26 @@ impl ProgramParamter for Color {
         let s = unsafe { &mut *(self as *const Self as usize as *mut Self) };
         match name {
             "alpha" => s.single_uniforms[0] = value,
-            _ => {
-                return false
-            }
+            _ => { return false }
         };
         true
     }
-    fn set_texture(&self, name: &str,
-                   value: (Share<HalTexture>, Share<HalSampler>)) -> bool {
+    fn set_texture(&self, name: &str, value: (&HalTexture, &HalSampler))
+     -> bool {
         let s = unsafe { &mut *(self as *const Self as usize as *mut Self) };
         match name {
-            "texture" => s.textures[0] = value,
-            _ => {
-                return false
+            "texture" => {
+                s.textures[0].0 =
+                    (value.0.item.index, value.0.item.use_count);
+                s.textures[0].1 =
+                    (value.1.item.index, value.1.item.use_count);
+                true
             }
-        };
-        true
+            _ => { return false }
+        }
     }
 }
+
 pub struct Define {
     values: [Option<&'static str>; 3],
     id: u32,
@@ -267,4 +278,7 @@ impl Defines for Define {
     fn list(&self) -> &[Option<&str>] { &self.values[..] }
     fn id(&self) -> u32 { self.id }
 }
-fn main() { }
+
+fn main() {
+
+}

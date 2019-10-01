@@ -9,3 +9,4 @@ authors = ["moyy <moyy@yineng.com>"]
 share={path="../../pi_lib/share"}
 atom={path="../../pi_lib/atom"}
 ordered-float = "1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }

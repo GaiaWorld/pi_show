@@ -15,7 +15,7 @@ pub struct OpacitySys;
 impl OpacitySys {
     fn modify_opacity(id: usize, idtree: &SingleCaseImpl<IdTree>, opacity: &MultiCaseImpl<Node, Opacity>, c_opacity: &mut MultiCaseImpl<Node, COpacity>){
         let parent_id = match idtree.get(id) {
-            Some(node) => node.parent,
+            Some(node) => if node.layer != 0 { node.parent } else { return; },
             None => return,
         };
         if parent_id > 0 {
@@ -63,7 +63,7 @@ fn modify_opacity(
     let opacity_value: f32 = unsafe { **opacity.get_unchecked(id) };
     let node_real_opacity = opacity_value * parent_real_opacity;
     unsafe { copacity.get_unchecked_write(id) }.set_0(node_real_opacity);
-
+	
     let first = unsafe { id_tree.get_unchecked(id).children.head };
     for child_id in id_tree.iter(first) {
         modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity);

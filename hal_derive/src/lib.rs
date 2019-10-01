@@ -131,6 +131,7 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
     let uniform_get_value_match = UniformGetValueMatch(fields);
     let uniform_single_get_value_match = UniformSingleGetValueMatch(fields);
     let texture_get_value_match = TextureGetValueMatch(fields);
+	let index_get_match = UniformGetIndexMatch(fields);
     let texture_default = TextureDefaultValueMatch(fields);
     let uniform_default = UniformDefaultValueMatch(fields);
     let uniform_single_default = UniformSingleDefaultValueMatch(fields);
@@ -175,6 +176,13 @@ fn impl_program_paramter(ast: &syn::DeriveInput) -> proc_macro2::TokenStream {
             fn get_texture_layout(&self) -> &[&str] {
                 &Self::TEXTURE_FIELDS[..]
             }
+
+			fn get_index(&self, name: &str) -> Option<usize> {
+				match name {
+                    #index_get_match
+                    _ => None,
+                }
+			}
 
             #[inline]
             fn get_values(&self) -> &[Share<dyn UniformBuffer>] {
@@ -497,6 +505,23 @@ impl<'a> ToTokens for UniformGetValueMatch<'a> {
                 let index = syn::Index::from(i);
                 tokens.extend(quote! {
                     #field_name_str => Some(&self.uniforms[#index]),
+                });
+                i += 1;
+            }
+        }          
+    }
+}
+
+struct UniformGetIndexMatch<'a>(&'a syn::punctuated::Punctuated<syn::Field, syn::token::Comma>);
+impl<'a> ToTokens for UniformGetIndexMatch<'a> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut i = 0;
+        for v in self.0.iter(){
+            if !v.ty.clone().into_token_stream().to_string().contains("HalTexture") && !v.ty.clone().into_token_stream().to_string().contains("UniformValue"){
+                let field_name_str = v.ident.clone().unwrap().to_string();
+                let index = syn::Index::from(i);
+                tokens.extend(quote! {
+                    #field_name_str => Some(#index),
                 });
                 i += 1;
             }

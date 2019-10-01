@@ -335,6 +335,10 @@ impl NodeRenderMap {
     pub unsafe fn get_unchecked(&self, node_id: usize) -> &Vec<usize> {
         self.0.get_unchecked(node_id)
     }
+
+	pub fn get(&self, node_id: usize) -> Option<&Vec<usize>> {
+        self.0.get(node_id)
+    }
 }
 
 pub struct RenderBegin(pub Share<RenderBeginDesc>);

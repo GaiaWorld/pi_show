@@ -33,7 +33,6 @@ mod shader_cache;
 mod state_machine;
 
 use webgl_rendering_context::{WebGLRenderingContext};
-use stdweb::{Object};
 
 pub use context::{WebglHalContext};
 

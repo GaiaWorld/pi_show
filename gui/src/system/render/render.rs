@@ -50,8 +50,8 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
                 None => continue,
             };
             let program = engine.create_program(
-                render_obj.vs_name.get_hash(),
-                render_obj.fs_name.get_hash(),
+                render_obj.vs_name.get_hash() as u64,
+                render_obj.fs_name.get_hash() as u64,
                 &render_obj.vs_name,
                 &*render_obj.vs_defines,
                 &render_obj.fs_name,
@@ -73,6 +73,8 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
         js!{
             __time = performance.now();
         }
+
+		let  mut visibility = Vec::new();
         if self.transparent_dirty && self.opacity_dirty {
             self.opacity_list.clear();
             self.transparent_list.clear();
@@ -83,7 +85,9 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
                     }else {
                         self.transparent_list.push(item.0);
                     }
-                }
+                } else {
+					visibility.push(1);
+				}
             }
             self.transparent_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
@@ -102,7 +106,9 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
                     if item.1.is_opacity != true {
                         self.transparent_list.push(item.0);
                     }
-                }
+                } else {
+					visibility.push(1);
+				}
             }
             self.transparent_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
@@ -116,7 +122,9 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
                     if item.1.is_opacity == true {
                         self.opacity_list.push(item.0);
                     }
-                }
+                } else {
+					visibility.push(1);
+				}
             }
             self.opacity_list.sort_by(|id1, id2|{
                 let obj1 = unsafe { render_objs.get_unchecked(*id1) };
@@ -163,10 +171,8 @@ impl<'a, C: HalContext + 'static>  Runner<'a> for RenderSys<C>{
             let obj = unsafe { render_objs.get_unchecked(*id) };
             render(gl, obj); 
         }
-
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            // println!("draw transparent-------------------------depth: {}, id: {}", obj.depth,  obj.HalContext);
             render(gl, obj);
         }
 
@@ -222,7 +228,15 @@ impl<'a, C: HalContext + 'static>  SingleCaseListener<'a, RenderObjs, ModifyEven
             "is_opacity" => {
                 self.opacity_dirty = true;
                 self.transparent_dirty = true;
-            }
+            },
+			"visibility" => {
+				let obj = unsafe { render_objs.get_unchecked(event.id) };
+				if obj.is_opacity{
+					self.opacity_dirty = true;
+				} else {
+					self.transparent_dirty = true;
+				}
+			}
             _ => ()
         }
     }

@@ -39,13 +39,14 @@ pub fn serialize_class_map() {
 pub fn deserialize_class_map() {
     let value: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
     let value = value.to_vec();
-    let _r: FxHashMap32<usize, Class> = match bincode::deserialize(value.as_slice()) {
+    let r: FxHashMap32<usize, Class> = match bincode::deserialize(value.as_slice()) {
         Ok(r) => r,
         Err(e) => {
             println!("deserialize_class_map error: {:?}", e);
             return;
         },
     };
+	// println!("r: {:?}", r);
 }
 
 fn main() {

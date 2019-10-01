@@ -46,6 +46,7 @@ pub enum Attribute1 {
     Enable(EnableType),
     Display(Display),
     Visibility(bool),
+	Overflow(bool),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

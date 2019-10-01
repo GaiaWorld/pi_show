@@ -69,7 +69,7 @@ pub struct BorderColor(pub CgColor);
 // 图片路劲及纹理
 #[derive(Clone, Component)]
 pub struct Image{
-  pub src: Share<TextureRes>,
+  pub src: Option<Share<TextureRes>>,
   pub url: Atom,
 }
 
@@ -91,10 +91,7 @@ pub struct ImageClip(pub Aabb2);
 
 // 边框图片
 #[derive(Clone, Component)]
-pub struct BorderImage{
-  pub src: Share<TextureRes>,
-  pub url: Atom,
-}
+pub struct BorderImage(pub Image);
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]

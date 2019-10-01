@@ -5,6 +5,7 @@ use ordered_float::NotNan;
 /** 
  * Uniform的值，包含各种Uniform枚举
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug)]
 pub enum UniformValue {
     Float1(f32),

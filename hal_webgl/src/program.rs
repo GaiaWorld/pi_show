@@ -149,6 +149,13 @@ impl CommonUniform {
 }
 
 impl WebGLProgramImpl {
+	pub fn restore_active_uniform(&mut self, index: usize){
+		for active_uniform in self.active_uniforms.iter_mut() {
+			if active_uniform.slot_ubo == index {
+				active_uniform.last = None;
+			}
+		}
+	}
 
     pub fn new_with_vs_fs(gl: &WebGLRenderingContext, caps: &Capabilities, shader_cache: &mut ShaderCache, vs_id: u64, fs_id: u64, vs_name: &Atom, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
         

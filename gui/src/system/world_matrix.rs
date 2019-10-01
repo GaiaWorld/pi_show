@@ -7,7 +7,7 @@ use ecs::idtree::{ IdTree};
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, WorldMatrixWrite, Layout };
+use component::calc::{ WorldMatrix, WorldMatrixWrite, Layout};
 use single::DefaultTable;
 use map::vecmap::{VecMap};
 
@@ -24,12 +24,13 @@ impl WorldMatrixSys{
 	fn marked_dirty(&mut self, id: usize, id_tree: &SingleCaseImpl<IdTree>){
 		match id_tree.get(id) {
 			Some(r) => {
-				let d = unsafe {self.dirty_mark_list.get_unchecked_mut(id)};
-				if *d == false {
-					*d = true;
-					self.dirty.mark(id, r.layer);
+				if r.layer != 0 {
+					let d = unsafe {self.dirty_mark_list.get_unchecked_mut(id)};
+					if *d == false {
+						*d = true;
+						self.dirty.mark(id, r.layer);
+					}
 				}
-				
 			},
 			_ => ()
 		};
@@ -151,6 +152,16 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys{
 	}
 }
 
+// impl<'a> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for WorldMatrixSys{
+// 	type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Visibility>);
+// 	type WriteData = ();
+// 	fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
+// 		if unsafe { read.1.get_unchecked(event.id).0 } {
+// 			self.marked_dirty(event.id, read.0);
+// 		}
+// 	}
+// }
+
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
 fn get_lefttop_offset(layout: &Layout, parent_origin: &Point2, _parent_layout: &Layout) -> Point2{
@@ -221,6 +232,7 @@ impl_system!{
 		MultiCaseListener<Node, Transform, DeleteEvent>
 		MultiCaseListener<Node, Layout, ModifyEvent>
 		SingleCaseListener<IdTree, CreateEvent>
+		// MultiCaseListener<Node, Visibility, ModifyEvent>
 		// SingleCaseListener<IdTree, DeleteEvent>
 	}
 }

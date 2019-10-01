@@ -110,6 +110,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 					self.remove_render_obj(*id, render_objs);
 					continue;
 				} else {
+
 					match self.render_map.get_mut(*id) {
 						Some(r) => *r,
 						None => {
@@ -124,6 +125,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 					None => continue,
 				}
 			};
+
+			let image = unsafe { border_images.get_unchecked(*id) };
+			// 图片不存在， 跳过
+			if image.0.src.is_none() {
+				continue;
+			}
 
 			let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 			let layout = unsafe { layouts.get_unchecked(*id) };
@@ -153,7 +160,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 				// BorderImage修改， 修改texture
 				if dirty & StyleType::BorderImage as usize != 0 {
 					// 如果四边形与图片宽高一样， 使用点采样， TODO
-					render_obj.paramter.set_texture("texture", (&image.src.bind, &self.default_sampler));
+					render_obj.paramter.set_texture("texture", (&image.0.src.as_ref().unwrap().bind, &self.default_sampler));
 					notify.modify_event(render_index, "ubo", 0);
 				}
 				notify.modify_event(render_index, "geometry", 0);
@@ -164,7 +171,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 				let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
 				let is_opacity = if opacity < 1.0 {
 					false
-				}else if let ROpacity::Opaque = image.src.opacity{
+				}else if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity{
 					true
 				}else {
 					false
@@ -257,7 +264,7 @@ fn geo_hash(
 ) -> u64 {
 	let mut hasher = DefaultHasher::default();
 	BORDER_IMAGE.hash(&mut hasher);
-	img.url.hash(&mut hasher);
+	img.0.url.hash(&mut hasher);
 	match clip {
 		Some(r) => f32_4_hash_(r.min.x, r.min.y, r.max.x, r.max.y, &mut hasher),
 		None => 0.hash(&mut hasher),
@@ -291,6 +298,7 @@ fn get_border_image_stream (
 	mut uv_arr: Polygon,
 	mut index_arr: Vec<u16>
 ) -> (Polygon, Polygon, Vec<u16>){
+	let src = &img.0.src.as_ref().unwrap();
 	let (uv1, uv2) = match clip {
 		Some(c) => (c.min, c.max),
 		_ => (Point2::new(0.0,0.0), Point2::new(1.0,1.0))
@@ -355,8 +363,8 @@ fn get_border_image_stream (
 	let (ustep, vstep) = match repeat {
 	Some(&BorderImageRepeat(utype, vtype)) => {
 		// 根据图像大小和uv计算
-		let ustep = calc_step(right - left, img.src.width as f32 * (uv_right - uv_left), utype);
-		let vstep = calc_step(bottom - top, img.src.height as f32 * (uv_bottom - uv_top), vtype);
+		let ustep = calc_step(right - left, src.width as f32 * (uv_right - uv_left), utype);
+		let vstep = calc_step(bottom - top, src.height as f32 * (uv_bottom - uv_top), vtype);
 		(ustep, vstep)
 	},
 	_ => (w, h)

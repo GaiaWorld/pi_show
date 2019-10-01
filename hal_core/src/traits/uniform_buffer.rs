@@ -56,6 +56,8 @@ pub trait ProgramParamter {
     fn get_single_uniform_layout(&self) -> &[&str];
     fn get_texture_layout(&self) -> &[&str];
 
+	fn get_index(&self, name: &str) -> Option<usize>;
+
     fn get_values(&self) -> &[Share<dyn UniformBuffer>];
     fn get_single_uniforms(&self) -> &[UniformValue];
     fn get_textures(&self) -> &[(HalItem, HalItem)];

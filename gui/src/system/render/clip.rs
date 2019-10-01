@@ -55,8 +55,8 @@ impl<C: HalContext + 'static> ClipSys<C>{
         let geo = engine.create_geometry();
 
         let program = engine.create_program(
-            CLIP_VS_SHADER_NAME.get_hash(),
-            CLIP_FS_SHADER_NAME.get_hash(),
+            CLIP_VS_SHADER_NAME.get_hash() as u64,
+            CLIP_FS_SHADER_NAME.get_hash() as u64,
             CLIP_VS_SHADER_NAME.as_ref(),
             &VsDefines::default(),
             CLIP_FS_SHADER_NAME.as_ref(),
@@ -240,6 +240,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 
                 for id in obj_ids.iter() {
                     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+					// println!("set_clip_uniform--------------{}", *id);
                     self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
                 }
             } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {

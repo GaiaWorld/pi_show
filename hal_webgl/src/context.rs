@@ -471,6 +471,12 @@ impl HalContext for WebglHalContext {
         context.state_machine.apply_all_state(&context.gl, self.0.vao_extension.is_some(), &mut context.texture_slab, &mut context.rt_slab);
     }
 
+	fn restore_active_uniform(&self, program: &HalProgram, index: usize){
+		let context = convert_to_mut(self.0.as_ref());
+		let p = get_mut_ref(&mut context.program_slab, program.item.index, program.item.use_count).expect("param not found");
+		p.restore_active_uniform(index);
+	}
+
     fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc) {
         
         self.restore_state();

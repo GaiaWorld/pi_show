@@ -15,7 +15,7 @@ hash = { path = "../../pi_lib/hash" }
 bincode = {path="../../pi_lib/bincode"}
 res = {path="../../pi_lib/res"}
 hal_webgl = {path="../hal_webgl"}
-hal_core = {path="../hal_core"}
+hal_core = {path="../hal_core", features = ["serde"]}
 cg2d = { path = "../../pi_math_hal/cg2d" }
 color = { path = "../../pi_math_hal/color" }
 cgmath = { path = "../../pi_math_hal/cgmath" }
@@ -25,7 +25,7 @@ stdweb = "0.4"
 stdweb-derive = "0.5.1"
 webgl-rendering-context = "0.1.0"
 lazy_static = "1"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"]}
 paste = "0.1"
 ordered-float = "1.0"
 
@@ -42,7 +42,7 @@ codegen-units = 1
 [features]
 # default = ["no_debug", "no_define_js"]
 # default = ["create_class_by_str"]
-default = ["no_debug"]
+# default = ["no_debug"]
 no_debug = []
 no_define_js = []
 create_class_by_str = []

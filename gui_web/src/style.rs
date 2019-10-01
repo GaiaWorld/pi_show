@@ -10,6 +10,7 @@ use hash::XHashMap;
 
 use gui::component::user::*;
 use gui::single::*;
+use gui::layout::FlexNode;
 // use gui::single::style_parse::{parse_class_from_string};
 use GuiWorld;
 
@@ -193,7 +194,8 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_display(world: u32, node: u32, value: u8){
-    let value = unsafe{ transmute(value)};
+	unsafe {(&mut *(world as usize as *mut GuiWorld)).gui.yoga.lend_mut().get_unchecked(node as usize).set_display(transmute(value))};
+	let value = unsafe{ transmute(value)};
     set_show!(world, node, set_display, value);
 }
 
@@ -285,25 +287,11 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_border_image(world: u32, node: u32){
-    let node = node as usize;
 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-
 	let name: String = js!{return __jsObj}.try_into().unwrap();
-	let name = Atom::from(name);
-	let engine = world.engine.lend_mut();
 
-	match engine.texture_res_map.get(&name) {
-		Some(r) => {
-			let border_image = world.border_image.lend_mut();
-			border_image.insert(node, BorderImage{src: r, url: name});
-		},
-		None => {
-			// 异步加载图片
-			let image_wait_sheet = world.image_wait_sheet.lend_mut();
-			image_wait_sheet.add(&name, ImageWait{id: node, ty: ImageType::BorderImageLocal})
-		},
-	}
+	let border_images = world.gui.border_image.lend_mut();
+	border_images.insert(node as usize, BorderImage(Image{src: None, url: Atom::from(name)}));
 }
 
 /**

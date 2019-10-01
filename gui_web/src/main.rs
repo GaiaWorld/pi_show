@@ -190,6 +190,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 	let world =  GuiWorld1::<YgNode, WebglHalContext>::new(world);
 	let idtree = world.idtree.lend_mut();
 	let node = world.node.lend_mut().create();
+	idtree.create(node);
+
 	let border_radius = world.border_radius.lend_mut();
 	border_radius.insert(node, BorderRadius{x: LengthUnit::Pixel(0.0), y: LengthUnit::Pixel(0.0)});
 
@@ -208,7 +210,6 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 	ygnode.set_align_items(YGAlign::YGAlignFlexStart);
 	// *ygnode = ygnode1;
 
-	idtree.create(node);
 	idtree.insert_child(node, 0, 0, None);
 	let world = GuiWorld{
 		gui: world,
@@ -261,7 +262,7 @@ pub fn set_shader(engine: u32){
 }
 
 // 加载图片成功后调用
-// image_name可以使用hash值与高层交换 TODO
+// image_name可以使用hash值与高层交互 TODO
 // __jsObj: image, __jsObj1: image_name(String)
 #[no_mangle]
 pub fn load_image_success(world_id: u32, opacity: u8, compress: u8, mut r_type: u8/* 缓存类型，支持0， 1， 2三种类型 */){
@@ -273,30 +274,36 @@ pub fn load_image_success(world_id: u32, opacity: u8, compress: u8, mut r_type: 
 
 	let name: String = js!{return __jsObj1}.try_into().unwrap();
 	let name = Atom::from(name);
+
 	let engine = world.engine.lend_mut();
-	let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-	let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
-	let opacity = unsafe{transmute(opacity)};
 
-	let pformate = match opacity {
-		ROpacity::Opaque => PixelFormat::RGB,
-		ROpacity::Translucent | ROpacity::Transparent => PixelFormat::RGBA,
+	let res = match engine.texture_res_map.get(&name) {
+		Some(_) => return,
+		None => {
+			let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
+			let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
+			let opacity = unsafe{transmute(opacity)};
+
+			let pformate = match opacity {
+				ROpacity::Opaque => PixelFormat::RGB,
+				ROpacity::Translucent | ROpacity::Transparent => PixelFormat::RGBA,
+			};
+			let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
+				Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, pformate, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
+				Err(s) => panic!("set_src error, {:?}", s),
+			};
+			engine.create_texture_res(name.clone(), TextureRes::new(width as usize, height as usize, pformate, DataFormat::UnsignedByte, opacity, unsafe{transmute(compress)}, texture), r_type as usize)
+		},
 	};
 
-	let texture = match TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}) {
-		Ok(image_obj) => engine.gl.texture_create_2d_webgl(width, height, 0, pformate, DataFormat::UnsignedByte, false, &image_obj).unwrap(),
-		Err(s) => panic!("set_src error, {:?}", s),
-	};
-	let res = engine.create_texture_res(name.clone(), TextureRes::new(width as usize, height as usize, pformate, DataFormat::UnsignedByte, opacity, unsafe{transmute(compress)}, texture), r_type as usize);
-	
 	let image_wait_sheet = world.image_wait_sheet.lend_mut();
 	match image_wait_sheet.wait.remove(&name) {
 		Some(r) => {
 			image_wait_sheet.finish.push((name, res, r));
+			image_wait_sheet.get_notify().modify_event(0, "", 0);
 		},
 		None => (),
 	};
-	image_wait_sheet.get_notify().modify_event(0, "", 0);
 }
 
 // 加载图片，调用高层接口，加载所有等待中的图片
@@ -327,6 +334,20 @@ pub fn set_render_dirty(world: u32) {
     render_objs.get_notify().modify_event(1, "", 0); 
 }
 
+// 纹理是否存在, 返回0表示不存在
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn texture_is_exist(world: u32) -> bool {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let name: String = js!{return __jsObj1}.try_into().unwrap();
+	let name = Atom::from(name);
+
+	let engine = world.gui.engine.lend();
+	match engine.res_mgr.get::<TextureRes>(&name) {
+		Some(_) => true,
+		None => false
+	}
+}
 
 fn main(){
 	// 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）

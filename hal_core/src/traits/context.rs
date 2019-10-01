@@ -324,6 +324,11 @@ pub trait HalContext {
      */
     fn restore_state(&self);
 
+	/** 
+	 * 重置program active_uniform, 当修改一个被多个对象共享的ubo时，可以调用此方法，重置该ubo， 然后修改ubo的值（而无需遍历每个对象，设置ubo）
+		*/
+	fn restore_active_uniform(&self, program: &HalProgram, index: usize/*ubo 偏移量*/);
+
     /** 
      * 开始渲染：一次渲染指定一个 渲染目标，视口区域，清空策略
      * 如果render_target传None，默认渲染到创建gl那个环境（canvas，window)

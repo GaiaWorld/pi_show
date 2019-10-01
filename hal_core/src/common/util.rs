@@ -6,6 +6,7 @@
 /** 
  * 着色器的类型
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum ShaderType {
     Vertex,
@@ -15,6 +16,7 @@ pub enum ShaderType {
 /** 
  * 纹理的过滤模式
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum TextureFilterMode {
     Nearest,
@@ -25,6 +27,7 @@ pub enum TextureFilterMode {
  * 纹理环绕模式
  * 指：当纹理坐标不在[0, 1]范围时，如何处理
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum TextureWrapMode {
     Repeat,        // 重复
@@ -35,6 +38,7 @@ pub enum TextureWrapMode {
 /** 
  * 像素格式
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum PixelFormat {
     RGB,
@@ -46,6 +50,7 @@ pub enum PixelFormat {
 /** 
  * 数据格式
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum DataFormat {
     Byte, // 每分量一字节
@@ -60,6 +65,7 @@ pub enum DataFormat {
 /** 
  * 光栅化时的剔除状态
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum CullMode {
     Back,  // 背面剔除
@@ -69,6 +75,7 @@ pub enum CullMode {
 /** 
  * 混合操作
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum BlendFunc {
     Add,
@@ -79,6 +86,7 @@ pub enum BlendFunc {
 /** 
  * 混合因子
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum BlendFactor {
     Zero,
@@ -106,6 +114,7 @@ pub enum BlendFactor {
 /** 
  * 深度和模板的比较函数
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum CompareFunc {
     Never,
@@ -121,6 +130,7 @@ pub enum CompareFunc {
 /** 
  * 模板操作
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum StencilOp {
     Keep,
@@ -136,6 +146,7 @@ pub enum StencilOp {
 /**
  * 目标的attach类型
  */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum RTAttachementType {
     Color0,

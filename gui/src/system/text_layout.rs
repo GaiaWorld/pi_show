@@ -169,108 +169,117 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
 }
 
 extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, _height: f32, _height_mode: YGMeasureMode) -> YGSize {
-    // println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
-    // println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
-    // println!("layout: {:?}", get_layout(node));
-    let b = node.get_bind() as usize;
-    node.set_bind(0 as * mut c_void);
-    if b == 0 {
-        YGSize { 
-            width: 0.0, 
-            height: 0.0, 
-        }
-    } else {
-        let id = node.get_context() as usize;
-        let layout_impl = unsafe{ &mut *(b as *mut LayoutImpl<L>) };
-        let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
+	// println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
+	// println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
+	// println!("layout: {:?}", get_layout(node));
+	let b = node.get_bind() as usize;
 
-        let cb = unsafe { write.0.get_unchecked_mut(id) };
-        let text_style = unsafe { write.3.get_unchecked(id) };
-        // let h = match height_mode {
-        //     YGMeasureMode::YGMeasureModeExactly => height/100.0,
-        //     _ => 0.0,
-        // };
-        
-        // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-        calc_wrap_align(cb, &text_style, width/100.0);
-        // let w = match width_mode {
-        //     YGMeasureMode::YGMeasureModeExactly => width,
-        //     _ => cb.wrap_size.x * 100.0,
-        // };
+	let id = node.get_context() as usize;
+	let layout_impl = unsafe{ &mut *(b as *mut LayoutImpl<L>) };
+	let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
 
-        let r = YGSize { 
-            width: cb.wrap_size.x * 100.0, 
-            height: cb.wrap_size.y * 100.0, 
-        };
+	let cb = unsafe { write.0.get_unchecked_mut(id) };
+	let text_style = unsafe { write.3.get_unchecked(id) };
+	// let h = match height_mode {
+	//     YGMeasureMode::YGMeasureModeExactly => height/100.0,
+	//     _ => 0.0,
+	// };
+	
+	// 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+	calc_wrap_align(cb, &text_style, width/100.0);
+	// let w = match width_mode {
+	//     YGMeasureMode::YGMeasureModeExactly => width,
+	//     _ => cb.wrap_size.x * 100.0,
+	// };
 
-        node.set_width(cb.wrap_size.x);
-        node.set_height(cb.wrap_size.y);
-        
-        // if cb.chars.len() > 0 && cb.chars[0].ch == '购' {
-        //     println!("{:?}, {:?}", node.get_parent().get_style_align_items(), node.get_parent().get_style_align_content());
-        // }
-        
-        // let h = match height_mode {
-        //     YGMeasureMode::YGMeasureModeExactly => height,
-        //     _ => cb.wrap_size.y,
-        // };
-        
-        // let r = YGSize { 
-        //     width: w, 
-        //     height: height.min(cb.wrap_size.y * 100.0), 
-        // };
-        r
-    }
+	let r = YGSize { 
+		width: cb.wrap_size.x * 100.0, 
+		height: cb.wrap_size.y * 100.0, 
+	};
+
+	node.set_width(cb.wrap_size.x);
+	node.set_height(cb.wrap_size.y);
+	
+	// if cb.chars.len() > 0 && cb.chars[0].ch == '购' {
+	//     println!("{:?}, {:?}", node.get_parent().get_style_align_items(), node.get_parent().get_style_align_content());
+	// }
+	
+	// let h = match height_mode {
+	//     YGMeasureMode::YGMeasureModeExactly => height,
+	//     _ => cb.wrap_size.y,
+	// };
+	
+	// let r = YGSize { 
+	//     width: w, 
+	//     height: height.min(cb.wrap_size.y * 100.0), 
+	// };
+	r
 }
 
 //================================ 内部静态方法
 //回调函数
 extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_void) {
-    //更新布局
-    let b = node.get_bind() as usize;
-    let id = node.get_context() as usize;
-    let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<L>) };
-    let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
-    // let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
-    if b == 0 {  
-        //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
-        if let Some(_cb) = write.0.get_mut(id) {
-            // let text_style = unsafe { write.3.get_unchecked(id) };
-            // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
-            let p = node.get_parent();
-            if p.get_child_count() != 1 {
-				let parent_layout = p.get_layout();
-				let mut layout = Layout::default();
-				layout.width = parent_layout.width;
-				layout.height = parent_layout.height;
-				if &layout == unsafe {write.1.get_unchecked(id)} {
-					return;
-				}
+	//更新布局
+	let b = node.get_bind() as usize;
+	let id = node.get_context() as usize;
+	let layout_impl = unsafe{ &mut *(callback_args as usize as *mut LayoutImpl<L>) };
+	let write = unsafe{ &mut *(layout_impl.write as *mut Write<L>) };
+	// let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
+	if id <= 0 {
+		return;
+	}
+	if let Some(_cb) = write.0.get_mut(id) {
+		let p = node.get_parent();
+		let count = p.get_child_count();
+		if b == 0 && count > 1 {
+			// 图文混排
+			let parent_layout = p.get_layout();
+			let mut layout = Layout::default();
+			layout.width = parent_layout.width;
+			layout.height = parent_layout.height;
+			if &layout != unsafe {write.1.get_unchecked(id)} {
 				write.1.insert(id, layout);
-                return;
-            //     match node.get_style_width_unit() {
-            //         YGUnit::YGUnitPercent | YGUnit::YGUnitPoint => {
-            //             calc_wrap_align(cb, &text_style, &node.get_layout());
-            //         },
-            //         _ => ()
-            //     }
-            }
-            // println!("id: {}, layout: {:?}", id, node.get_layout());
-        //     unsafe { write.0.get_unchecked_write(id).modify(|_|{
-        //         return true;
-        //     }) };
-        //     return;
-        }
+			}
+			return;
+			//字符 TODO, b < 10000 时不一定是字符（如何分辨字符节点和非图文混排的span？）
+		} else if b < 10000 {
+			update(node, id, b - 1, write);
+			return;
+		}
+	}
+	// 节点布局更新
+	let layout = node.get_layout();
+	if &layout != unsafe {write.1.get_unchecked(id)} {
+		write.1.insert(id, layout);
+	}
+    // if b == 0 {
+    //     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
+    //     if let Some(_cb) = write.0.get_mut(id) {
+    //         // let text_style = unsafe { write.3.get_unchecked(id) };
+    //         // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
+    //         let p = node.get_parent();
+    //         if p.get_child_count() != 1 {
+	// 			let parent_layout = p.get_layout();
+	// 			let mut layout = Layout::default();
+	// 			layout.width = parent_layout.width;
+	// 			layout.height = parent_layout.height;
+	// 			if &layout == unsafe {write.1.get_unchecked(id)} {
+	// 				return;
+	// 			}
+	// 			write.1.insert(id, layout);
+    //             return;
+    //         }
+    //     }
 
-        let layout = node.get_layout();
-        if &layout == unsafe {write.1.get_unchecked(id)} {
-            return;
-        }
-        // 节点布局更新
-        write.1.insert(id, layout);
-    }else if id > 0 {
-        update(node, id, b - 1, write);
-    }
+    //     let layout = node.get_layout();
+    //     if &layout == unsafe {write.1.get_unchecked(id)} {
+    //         return;
+    //     }
+    //     // 节点布局更新
+    //     write.1.insert(id, layout);
+    // }else if id > 0 {
+    //     update(node, id, b - 1, write);
+    // }
 }
 
 // 文字布局更新
@@ -399,6 +408,8 @@ fn calc<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut Write<
     //     _ => 1.0
     // };
     if style_mark.dirty & MARK != 0{
+		cb.lines.clear();
+		cb.last_line = (0, 0, 0.0);
         for i in 0..cb.chars.len() {
             if !cb.chars[i].node.is_null() {
                 // cb.chars[i].node.get_parent().remove_child(cb.chars[i].node);
@@ -696,13 +707,19 @@ fn set_node1<L: FlexNode + 'static>(tex_param: &mut TexParam<L>, c: char, w: f32
 
 /// 计算换行和对齐， 如果是单行或多行左对齐，可以直接改tex_param.cb.pos
 fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, w: f32) {
+	let mut lines = Vec::default();
     if text_style.text.white_space.allow_wrap() && cb.size.x > w {
         // 换行计算
         let mut y_fix = 0.0;
         for i in 0..cb.lines.len() + 1 {
-            y_fix = wrap_line(cb, text_style, i, w, y_fix)
+            y_fix = wrap_line(cb, text_style, i, w, y_fix, &mut lines)
         }
         cb.wrap_size.y += y_fix;
+		cb.line_count = lines.len();
+		if lines.len() > 0 {
+			cb.last_line = lines.remove(lines.len() - 1);
+		}
+		cb.lines = lines;
     }
 
     // if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
@@ -752,11 +769,12 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
         _ => (),
     };
 }
-fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, line: usize, limit_width: f32, mut y_fix: f32) -> f32 {
+fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyle, line: usize, limit_width: f32, mut y_fix: f32, lines: &mut Vec<(usize, usize, f32)>) -> f32 {
     let (end, mut start, word_count, line_width) = line_info(cb, line);
     let mut x_fix = 0.0;
     let mut w = 0.0;
     while line_width + x_fix > limit_width && start < end {
+		let s = start;
         while start < end {//换行计算
             let n = unsafe {cb.chars.get_unchecked_mut(start)};
             w = n.pos.x;
@@ -782,9 +800,16 @@ fn wrap_line<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &TextStyl
                 n.pos.y += y_fix;
             }
         }
+		if start < end {
+			lines.push((s, start - s, unsafe {cb.chars.get_unchecked_mut(start)}.pos.x - w ));
+		}
         y_fix += cb.line_height;
         x_fix = -w;
     }
+	if start < end {
+		let last = unsafe {cb.chars.get_unchecked_mut(end - 1)};
+		lines.push((start, end - start, last.pos.x - w + last.width));
+	}
     if x_fix < 0.0 || y_fix > 0.0 { // 如果x或者y需要修正
         // 剩余的宽度， 需要计算行对齐
         match text_style.text.text_align {
