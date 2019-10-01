@@ -99,6 +99,9 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
 
 	fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
 		let node = unsafe{ read.0.get_unchecked(event.id)};
+		if node.layer == 0 {
+			return;
+		}
 		let overflow = match read.1.get(event.id){Some(r) => **r, _ => false};
 		let mut by = **unsafe{ write.1.get_unchecked(event.id)};
 		let notify = write.0.get_notify();

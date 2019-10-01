@@ -127,12 +127,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 			};
 
 			let image = unsafe { border_images.get_unchecked(*id) };
+			let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 			// 图片不存在， 跳过
 			if image.0.src.is_none() {
+				render_obj.geometry = None;
 				continue;
 			}
 
-			let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 			let layout = unsafe { layouts.get_unchecked(*id) };
 
 			// 世界矩阵脏， 设置世界矩阵ubo

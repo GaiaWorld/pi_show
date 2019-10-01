@@ -1533,8 +1533,8 @@ type ImageTextureWrite<'a, C> = (
 );
 // 节点被添加到树上， 加载图片
 fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>) {
-	let style_mark = unsafe { write.2.get_unchecked_mut(id) };
 	if let Some(image) = write.0.get_mut(id) {
+		let style_mark = unsafe { write.2.get_unchecked_mut(id) };
 		if style_mark.local_style & StyleType::Image as usize != 0 {
 			set_image(id, StyleType::Image, &mut *write.4, &mut *write.5, &mut *write.3, image, style_mark, ImageType::ImageLocal);
 		} else {
@@ -1542,6 +1542,7 @@ fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>
 		}
 	}
 	if let Some(image) = write.1.get_mut(id) {
+		let style_mark = unsafe { write.2.get_unchecked_mut(id) };
 		if style_mark.local_style & StyleType::BorderImage as usize != 0 {
 			set_image(id, StyleType::BorderImage, &mut *write.4, &mut *write.5, &mut *write.3, &mut image.0, style_mark, ImageType::BorderImageLocal);
 		} else {
@@ -1553,10 +1554,19 @@ fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>
 // 从树上删除节点， 删除节点对图片资源的引用
 fn release_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>) {
 	if let Some(image) = write.0.get_mut(id) {
-		image.src = None;
+		let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+		if image.src.is_some() {
+			image.src = None;
+			set_dirty(&mut *write.3, id, StyleType::Image as usize, style_mark);
+		}
+		
 	}
 	if let Some(image) = write.1.get_mut(id) {
-		image.0.src = None;
+		let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+		if image.0.src.is_some() {
+			image.0.src = None;
+			set_dirty(&mut *write.3, id, StyleType::BorderImage as usize, style_mark);
+		}
 	}
 }
 

@@ -134,12 +134,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
 			};
 
 			let image = unsafe { images.get_unchecked(*id) };
+			let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 			// 纹理不存在, 跳过
 			if image.src.is_none() {
+				render_obj.geometry = None;
 				continue;
 			}
-
-			let render_obj = unsafe {render_objs.get_unchecked_mut(render_index)};
 
 			let border_radius = border_radiuss.get(*id);
 			let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
