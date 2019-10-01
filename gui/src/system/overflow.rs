@@ -240,7 +240,6 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
 				by = add_index(by, 1<<(i - 1));
 			}
 		}
-
 		self.set_overflow(event.id, by, &read, &mut write);
 	}
 }
@@ -287,6 +286,7 @@ impl OverflowImpl {
 	// 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
 	fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
 		if by > 0 {
+			// println!("by-------------------------------{}, id:{}", by, id);
 			unsafe {write.1.get_unchecked_write(id)}.set_0(by);
 		}
 		let overflow = match read.1.get(id){Some(r) => **r, _ => false};
@@ -436,6 +436,7 @@ fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
 		old_has_rotate: false,
 		node_id: id,
 	});
+	// println!("create_clip--------------------------{}, index:{}, count: {}", id, i, clip.clip.len());
 	clip.id_map.insert(id, i);
 	i
 }
@@ -485,6 +486,7 @@ fn get_index(overflow: &mut OverflowClip, cur: usize) -> usize {
 #[inline]
 fn remove_index(overflow: &mut OverflowClip, node_id: usize, notify: &NotifyImpl) -> usize{
 	if let Some(r) = overflow.id_map.remove(&node_id) {
+		// println!("remove---------------------------{}", node_id);
 		notify.modify_event(r, "", node_id);
 		overflow.clip.remove(r);
 		r
