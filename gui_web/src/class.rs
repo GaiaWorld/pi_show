@@ -7,7 +7,7 @@ use ecs::LendMut;
 #[cfg(feature="create_class_by_str")]
 use gui::single::{style_parse::{parse_class_from_string} };
 use gui::single::Class;
-
+use debug_info::{debug_println};
 use GuiWorld;
 
 /**
@@ -24,7 +24,7 @@ pub fn create_class(world: u32, class_id: u32) {
     let r = match parse_class_from_string(value.as_str()) {
         Ok(r) => r,
         Err(e) => {
-            println!("{:?}", e);
+            debug_println!("{:?}", e);
             return;
         },
     };
@@ -42,7 +42,7 @@ pub fn create_class_by_bin(world: u32) {
     let map: XHashMap<usize, Class> = match bincode::deserialize(value.as_slice()) {
         Ok(r) => r,
         Err(e) => {
-            println!("deserialize_class_map error: {:?}", e);
+            debug_println!("deserialize_class_map error: {:?}", e);
             return;
         },
     };
