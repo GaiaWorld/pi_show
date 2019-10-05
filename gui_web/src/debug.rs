@@ -202,14 +202,31 @@ pub fn node_info(world: u32, node: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn overflow_clip(_world: u32) {
-    // let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	// let world = &mut world.gui;
-    // let overflow_clip = world.overflow_clip.lend();
-    // js!{
-    //     console.log("overflow_clip:", @{format!("{:?}", **overflow_clip)});
-    // }
+pub fn overflow_clip(world: u32) {
+    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+    let overflow_clip = world.overflow_clip.lend();
+
+	let mut clips: Vec<(usize, Clip)> = Vec::new();
+	for (index, v) in overflow_clip.clip.iter(){
+		clips.push((index, v.clone()));
+	}
+
+	let mut clip_map = XHashMap::default();
+	for (k, v) in overflow_clip.clip_map.iter(){
+		clip_map.insert(*k, v.0.clone());
+	}
+	let c = OverflowClip {
+		id_map: overflow_clip.id_map.clone(),
+		clip: clips,
+		clip_map: clip_map,
+	};
+    js!{
+        console.log("overflow_clip:", @{c});
+    }
 }
+
+
 
 
 
@@ -395,3 +412,12 @@ pub struct BlendStateDesc {
     pub const_rgba: (f32, f32, f32, f32),
 }
 js_serializable!( BlendStateDesc );
+
+#[derive(Serialize, Debug)]
+pub struct OverflowClip{
+    pub id_map: XHashMap<usize, usize>,
+    pub clip: Vec<(usize, Clip)>,
+    pub clip_map: XHashMap<usize, Aabb3>,
+}
+
+js_serializable!( OverflowClip );

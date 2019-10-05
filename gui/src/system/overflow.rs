@@ -64,7 +64,6 @@ impl<'a> Runner<'a> for OverflowImpl{
 			}
 		}
 		self.overflow_dirty.clear();
-		// println!("OverflowImpl run : {:?}", std::time::Instant::now() - time);
 	}
 }
 
@@ -173,7 +172,7 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
 			return;
 		}
 		// let overflow = match read.1.get(event.id){Some(r) => **r, _ => false};
-		if unsafe { write.1.get_unchecked(event.id).0 } > 0 {
+		if unsafe { write.1.get_unchecked(event.id).0 } > 0 || match read.1.get(event.id){Some(r) => **r, _ => false} {
 			self.mark_dirty(event.id, StyleType1::Overflow as usize, node.layer, &mut write.3);
 		}
 		// if overflow {
@@ -286,7 +285,6 @@ impl OverflowImpl {
 	// 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
 	fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
 		if by > 0 {
-			// println!("by-------------------------------{}, id:{}", by, id);
 			unsafe {write.1.get_unchecked_write(id)}.set_0(by);
 		}
 		let overflow = match read.1.get(id){Some(r) => **r, _ => false};
@@ -353,7 +351,6 @@ fn calc_clip<'a>(
 	read: Read<'a>,
 	write: &mut Write<'a>,
 ) {
-	// println!("calc_clip-------------------{}", id);
 	if by > 0 {
 		// 裁剪剔除
 		if let Some(item) = by_clip_aabb {
@@ -361,9 +358,6 @@ fn calc_clip<'a>(
 				Some(m) => {
 					// 如果没有旋转
 					if !(m.0).1 {
-						// println!("transform_will_change_matrix-------------------{}", id);
-						// println!("item-------------------{:?}", item.0);
-						// println!("matrix_mul_aabb-------------------{:?}", matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0));
 						unsafe { write.2.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0)))
 					}
 				},
@@ -436,7 +430,6 @@ fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
 		old_has_rotate: false,
 		node_id: id,
 	});
-	// println!("create_clip--------------------------{}, index:{}, count: {}", id, i, clip.clip.len());
 	clip.id_map.insert(id, i);
 	i
 }
@@ -486,7 +479,6 @@ fn get_index(overflow: &mut OverflowClip, cur: usize) -> usize {
 #[inline]
 fn remove_index(overflow: &mut OverflowClip, node_id: usize, notify: &NotifyImpl) -> usize{
 	if let Some(r) = overflow.id_map.remove(&node_id) {
-		// println!("remove---------------------------{}", node_id);
 		notify.modify_event(r, "", node_id);
 		overflow.clip.remove(r);
 		r
