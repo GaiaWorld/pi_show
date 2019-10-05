@@ -7,6 +7,8 @@ use hal_webgl::*;
 
 use ecs::{Lend};
 use gui::component::user::*;
+use gui::component::calc::*;
+use gui::render::res::*;
 use gui::system::util::cal_matrix;
 // use gui::single::Oct;
 use gui::layout::FlexNode;
@@ -225,6 +227,200 @@ pub fn overflow_clip(world: u32) {
         console.log("overflow_clip:", @{c});
     }
 }
+
+#[allow(unused_attributes)]
+#[no_mangle]
+fn res_size(world: u32){
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+	let engine = world.engine.lend();
+	let mut size = ResMgrSize::default();
+
+	let texture = engine.texture_res_map.all_res();
+	for i in texture.0.iter() {
+		size.texture += i.1;
+		size.count_texture += 1;
+	}
+	for i in texture.1.iter() {
+		size.catch_texture += i.1.elem.cost;
+		size.count_catch_texture += 1;
+	}
+
+	let geometry = engine.geometry_res_map.all_res();
+	for i in geometry.0.iter() {
+		size.geometry += i.1;
+		size.count_geometry += 1;
+	}
+	for i in geometry.1.iter() {
+		size.catch_geometry += i.1.elem.cost;
+		size.count_catch_geometry += 1;
+	}
+
+	let buffer = engine.buffer_res_map.all_res();
+	for i in buffer.0.iter() {
+		size.buffer += i.1;
+		size.count_buffer += 1;
+	}
+	for i in buffer.1.iter() {
+		size.catch_buffer += i.1.elem.cost;
+		size.count_catch_buffer += 1;
+	}
+
+	let rs = engine.rs_res_map.all_res();
+	for i in rs.0.iter() {
+		size.rs += i.1;
+		size.count_rs += 1;
+	}
+	for i in rs.1.iter() {
+		size.catch_rs += i.1.elem.cost;
+		size.count_catch_rs += 1;
+	}
+
+	let bs = engine.bs_res_map.all_res();
+	for i in bs.0.iter() {
+		size.bs += i.1;
+		size.count_bs += 1;
+	}
+	for i in bs.1.iter() {
+		size.catch_bs += i.1.elem.cost;
+		size.count_catch_bs += 1;
+	}
+
+	let ss = engine.ss_res_map.all_res();
+	for i in ss.0.iter() {
+		size.ss += i.1;
+		size.count_ss += 1;
+	}
+	for i in ss.1.iter() {
+		size.catch_ss += i.1.elem.cost;
+		size.count_catch_ss += 1;
+	}
+
+	let ds = engine.ds_res_map.all_res();
+	for i in ds.0.iter() {
+		size.ds += i.1;
+		size.count_ds += 1;
+	}
+	for i in ds.1.iter() {
+		size.catch_ds += i.1.elem.cost;
+		size.count_catch_ds += 1;
+	}
+
+	let sampler = engine.sampler_res_map.all_res();
+	for i in sampler.0.iter() {
+		size.sampler += i.1;
+		size.count_sampler += 1;
+	}
+	for i in sampler.1.iter() {
+		size.catch_sampler += i.1.elem.cost;
+		size.count_catch_sampler += 1;
+	}
+
+	let ucolor = engine.res_mgr.fetch_map::<UColorUbo>().unwrap();
+	let ucolor = ucolor.all_res();
+	for i in ucolor.0.iter() {
+		size.ucolor += i.1;
+		size.count_ucolor += 1;
+	}
+	for i in ucolor.1.iter() {
+		size.catch_ucolor+= i.1.elem.cost;
+		size.count_catch_ucolor += 1;
+	}
+
+	let hsv = engine.res_mgr.fetch_map::<HsvUbo>().unwrap();
+	let hsv = hsv.all_res();
+	for i in hsv.0.iter() {
+		size.hsv += i.1;
+		size.count_hsv += 1;
+	}
+	for i in hsv.1.iter() {
+		size.catch_hsv += i.1.elem.cost;
+		size.count_catch_hsv += 1;
+	}
+
+	let msdf_stroke = engine.res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap();
+	let msdf_stroke = msdf_stroke.all_res();
+	for i in msdf_stroke.0.iter() {
+		size.msdf_stroke += i.1;
+		size.count_msdf_stroke += 1;
+	}
+	for i in msdf_stroke.1.iter() {
+		size.catch_msdf_stroke += i.1.elem.cost;
+		size.count_catch_msdf_stroke += 1;
+	}
+
+	let canvas_stroke = engine.res_mgr.fetch_map::<CanvasTextStrokeColorUbo>().unwrap();
+	let canvas_stroke = canvas_stroke.all_res();
+	for i in canvas_stroke.0.iter() {
+		size.canvas_stroke += i.1;
+		size.count_canvas_stroke += 1;
+	}
+	for i in canvas_stroke.1.iter() {
+		size.catch_canvas_stroke += i.1.elem.cost;
+		size.count_catch_canvas_stroke += 1;
+	}
+
+	js!{
+		console.log("res_mgr_size: ", @{size});
+	}
+}
+
+#[derive(Serialize, Debug, Default)]
+struct ResMgrSize{
+	count_texture: usize,
+	count_geometry: usize,
+	count_buffer: usize,
+	count_sampler: usize,
+	count_rs: usize,
+	count_bs: usize,
+	count_ss: usize,
+	count_ds: usize,
+	count_ucolor: usize,
+	count_hsv: usize,
+	count_msdf_stroke: usize,
+	count_canvas_stroke: usize,
+
+	count_catch_texture: usize,
+	count_catch_geometry: usize,
+	count_catch_buffer: usize,
+	count_catch_sampler: usize,
+	count_catch_rs: usize,
+	count_catch_bs: usize,
+	count_catch_ss: usize,
+	count_catch_ds: usize,
+	count_catch_ucolor: usize,
+	count_catch_hsv: usize,
+	count_catch_msdf_stroke: usize,
+	count_catch_canvas_stroke: usize,
+
+    texture: usize,
+	geometry: usize,
+	buffer: usize,
+	sampler: usize,
+	rs: usize,
+	bs: usize,
+	ss: usize,
+	ds: usize,
+	ucolor: usize,
+	hsv: usize,
+	msdf_stroke: usize,
+	canvas_stroke: usize,
+
+	
+	catch_texture: usize,
+	catch_geometry: usize,
+	catch_buffer: usize,
+	catch_sampler: usize,
+	catch_rs: usize,
+	catch_bs: usize,
+	catch_ss: usize,
+	catch_ds: usize,
+	catch_ucolor: usize,
+	catch_hsv: usize,
+	catch_msdf_stroke: usize,
+	catch_canvas_stroke: usize,
+}
+js_serializable!( ResMgrSize );
 
 
 

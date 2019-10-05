@@ -16,10 +16,10 @@
 #             # "-s", "ASSERTIONS=1",
 #             ]
 
-# [target.emscripten]
-# link-args = [
-#             "-s", "TOTAL_MEMORY=33554432", 
-#             ]
+[target.emscripten]
+link-args = [
+            "-s", "TOTAL_MEMORY=33554432", 
+            ]
 
 # [target.emscripten]
 # link-args = [
