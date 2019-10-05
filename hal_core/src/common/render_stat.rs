@@ -1,6 +1,9 @@
 // 渲染统计情况
 #[derive(Debug)]
 pub struct RenderStat {
+
+    pub slab_mem_size: usize,
+
     pub rt_count: i32,
     pub texture_count: i32,
     pub buffer_count: i32,
@@ -18,6 +21,7 @@ pub struct RenderStat {
 impl RenderStat {
     pub fn new() -> Self {
         Self {
+            slab_mem_size: 0,
             rt_count: 0,
             texture_count: 0,
             buffer_count: 0,

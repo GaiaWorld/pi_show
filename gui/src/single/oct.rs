@@ -16,6 +16,9 @@ impl Oct {
   pub fn new() -> Self{
     Oct(Tree::new(Aabb3::new(Point3::new(-1024f32,-1024f32,-Z_MAX), Point3::new(3072f32,3072f32,Z_MAX)), 0, 0, 0, 0))
   }
+  pub fn mem_size(&self) -> usize {
+    self.0.mem_size()
+  }
   // 添加一个aabb及其绑定
   pub fn add(&mut self, id: usize, aabb: Aabb3, bind: usize, notify: Option<NotifyImpl>) {
     self.0.add(id, aabb, bind);

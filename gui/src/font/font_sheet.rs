@@ -72,6 +72,15 @@ impl  FontSheet {
             font_tex: FontTex::new(texture),
         }
     }
+    pub fn mem_size(&self) -> usize {
+        self.src_map.capacity() * (std::mem::size_of::<Atom>() + std::mem::size_of::<TexFont>()) + 
+        self.face_map.capacity() * (std::mem::size_of::<Atom>() + std::mem::size_of::<(FontFace)>()) + 
+        self.char_w_map.capacity() * (std::mem::size_of::<(Atom, char, bool)>() + std::mem::size_of::<(f32, Atom, f32, bool)>()) + 
+        self.char_map.capacity() * (std::mem::size_of::<(Atom, usize, usize, char)>() + std::mem::size_of::<usize>()) + 
+        self.char_slab.mem_size() + 
+        self.wait_draw_list.capacity() * std::mem::size_of::<TextInfo>() + 
+        self.wait_draw_map.capacity() * (std::mem::size_of::<(Atom, usize, usize, usize)>() + std::mem::size_of::<(usize, f32)>())
+    }
     // 设置默认字号
     pub fn set_size(&mut self, size: f32) {
         self.size = size;

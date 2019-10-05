@@ -448,6 +448,22 @@ impl HalContext for WebglHalContext {
     }
 
     fn render_get_stat(&self) -> &RenderStat {
+        let mut r = 0;
+        r += self.0.buffer_slab.mem_size();
+        r += self.0.geometry_slab.mem_size();
+        r += self.0.texture_slab.mem_size();
+        r += self.0.sampler_slab.mem_size();
+        r += self.0.rt_slab.mem_size();
+        r += self.0.rb_slab.mem_size();
+        r += self.0.bs_slab.mem_size();
+        r += self.0.ds_slab.mem_size();
+        r += self.0.rs_slab.mem_size();
+        r += self.0.ss_slab.mem_size();
+        r += self.0.program_slab.mem_size();
+
+        let context = convert_to_mut(self.0.as_ref());
+        context.stat.slab_mem_size = r;
+
         &self.0.stat
     }
 
@@ -668,6 +684,11 @@ impl WebglHalContext {
         WebGLTextureImpl::new_2d(&self.0.gl, mipmap_level, width, height, pformat, dformat, is_gen_mipmap, None, Some(data)).map(|texture| {
             let slab = convert_to_mut(&self.0.texture_slab);
             let (index, use_count) = create_new_slot(slab, texture);
+            
+            {
+                let context = convert_to_mut(self.0.as_ref());    
+                context.stat.texture_count += 1;
+            }
             
             let context_impl = self.0.clone();
             HalTexture {
