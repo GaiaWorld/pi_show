@@ -267,11 +267,11 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
 	}
 }
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for OverflowImpl {
+impl<'a> EntityListener<'a, Node, ModifyEvent> for OverflowImpl {
 	type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Overflow>);
 	type WriteData = (&'a mut SingleCaseImpl<OverflowClip>, &'a mut MultiCaseImpl<Node, ByOverflow>);
 
-	fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+	fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
 		let overflow = match read.1.get(event.id){Some(r) => **r, _ => false};
 		if overflow {
 			let notify = write.0.get_notify();
@@ -622,7 +622,7 @@ impl_system!{
 	true,
 	{
 		EntityListener<Node, CreateEvent>
-		EntityListener<Node, DeleteEvent>
+		EntityListener<Node, ModifyEvent>
 		MultiCaseListener<Node, Overflow, ModifyEvent>
 		MultiCaseListener<Node, Overflow, DeleteEvent>
 		MultiCaseListener<Node, WorldMatrix, ModifyEvent>

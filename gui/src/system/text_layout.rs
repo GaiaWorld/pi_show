@@ -168,7 +168,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     }
 }
 
-extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_mode: YGMeasureMode, _height: f32, _height_mode: YGMeasureMode) -> YGSize {
+extern "C" fn text_callback<L: FlexNode + 'static>(node: L, mut width: f32, _width_mode: YGMeasureMode, _height: f32, _height_mode: YGMeasureMode) -> YGSize {
 	// println!("node: {:?}, width: {}, widthMode: {:?}, height: {}, heightMode: {:?}", node, width, width_mode, height, height_mode);
 	// println!("parent: {:?}", get_layout(yg_node_get_parent(node)));
 	// println!("layout: {:?}", get_layout(node));
@@ -184,7 +184,15 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, width: f32, _width_m
 	//     YGMeasureMode::YGMeasureModeExactly => height/100.0,
 	//     _ => 0.0,
 	// };
-	
+	if cb.chars.len() > 0 && cb.chars[0].ch == '每' {
+		println!("width1111111111111111111111111: {}, mod:{:?}, p: {}", width, _width_mode, node.get_parent().get_style_width_value());
+	}
+	match _width_mode {
+		YGMeasureMode::YGMeasureModeUndefined => {
+			width = node.get_parent().get_style_width_value();
+		}
+		_ => (),
+	};
 	// 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
 	calc_wrap_align(cb, &text_style, width/100.0);
 	// let w = match width_mode {
