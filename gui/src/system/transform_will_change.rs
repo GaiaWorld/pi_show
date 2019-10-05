@@ -55,24 +55,42 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 		let (style_marks, transform_will_change_matrixs) = write;
 		let mut count = self.will_change_mark.count();
 		let default_transform = default_table.get::<Transform>().unwrap();
-		for id in self.will_change_mark.iter() {
+		let mut deletes = Vec::default();
+		for (id, layer) in self.will_change_mark.iter() {
 			if count == 0 {
 				break;
 			}
 			count -= 1;
+			// 节点已经不存在， 应该删除willchange标记
 			let style_mark = match style_marks.get_mut(*id) {
 				Some(r) => r,
-				None => continue,
+				None => {
+					deletes.push((*id, layer));
+					continue;
+				},
 			};
 
+			// 不存在willchange， 应该删除willchange标记
+			if let None = transform_will_changes.get(*id) {
+				deletes.push((*id, layer));
+				continue;
+			}
+
+			// 节点不在树上， 应该删除willchange标记
+			let node = unsafe { idtree.get_unchecked(*id) };
+			if node.layer == 0 {
+				deletes.push((*id, layer));
+				continue;
+			}
+
+			// TransformWillChange不脏
 			if style_mark.dirty1 | StyleType1::TransformWillChange as usize == 0 {
 				continue;
 			}
-			// 如果节点已经从节点数中移除， 不需要计算矩阵， 跳过
-			let parent_id = unsafe { idtree.get_unchecked(*id).parent };
+
 			recursive_cal_matrix(
 				*id,
-				parent_id, 
+				node.parent, 
 				count + 1, 
 				None, 
 				default_transform, 
@@ -83,6 +101,10 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 				transforms, 
 				style_marks,
 				transform_will_change_matrixs);
+		}
+
+		for (id, layer) in deletes.iter() {
+			self.will_change_mark.delete(*id, *layer);
 		}
 		// println!("TransformWillChangeSys run : {:?}", std::time::Instant::now() - time);
 	}
@@ -130,29 +152,29 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, DeleteEvent> for Trans
 	}
 }
 
-// 从IdTree中移除节点， 标记脏, 在下一次run的调用中， 删除已经不存在的节点的willchange标记
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for TransformWillChangeSys{
-	type ReadData = &'a SingleCaseImpl<IdTree>;
-	type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChange>;
-	fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, willchanges: Self::WriteData){
-		if self.will_change_mark.count() > 0 {
-			return;
-		}
+// impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for TransformWillChangeSys{
+// 	type ReadData = &'a SingleCaseImpl<IdTree>;
+// 	type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChange>;
+// 	fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, willchanges: Self::WriteData){
+// 		if self.will_change_mark.count() == 0 {
+// 			return;
+// 		}
 
-		// 如果存在TransformWillChange组件， 需要从标记列表中移除
-		let node = unsafe { idtree.get_unchecked(event.id) };
-		if let Some(_willchange) = willchanges.get_mut(event.id) {
-			self.will_change_mark.delete(event.id, node.layer);
-		}
+// 		// 如果存在TransformWillChange组件， 需要从标记列表中移除
+// 		let node = unsafe { idtree.get_unchecked(event.id) };
+// 		if let Some(_willchange) = willchanges.get_mut(event.id) {
+// 			self.will_change_mark.delete(event.id, node.layer);
+// 		}
 
-		let first = node.children.head;
-		for (child_id, child) in idtree.recursive_iter(first) {
-			if let Some(_willchange) = willchanges.get_mut(child_id) {
-				self.will_change_mark.delete(child_id, child.layer);
-			}
-		}
-	}
-}
+// 		// 递归从will_change_mark中删除节点
+// 		let first = node.children.head;
+// 		for (child_id, child) in idtree.recursive_iter(first) {
+// 			if let Some(_willchange) = willchanges.get_mut(child_id) {
+// 				self.will_change_mark.delete(child_id, child.layer);
+// 			}
+// 		}
+// 	}
+// }
 
 //  IdTree创建， 递归遍历所有子节点， 如果存在TransformWillChange组件， 在will_change_mark中添加一个标记
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for TransformWillChangeSys{
@@ -278,6 +300,6 @@ impl_system!{
 		MultiCaseListener<Node, TransformWillChange, ModifyEvent>
 		MultiCaseListener<Node, TransformWillChange, DeleteEvent>
 		SingleCaseListener<IdTree, CreateEvent>
-		SingleCaseListener<IdTree, DeleteEvent>
+		// SingleCaseListener<IdTree, DeleteEvent>
 	}
 }
