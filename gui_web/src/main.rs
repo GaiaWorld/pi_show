@@ -138,6 +138,163 @@ pub fn create_render_target(world: u32) -> u32 {
 	Box::into_raw(Box::new(rt)) as u32
 }
 
+// 打印内存情况
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn print_memory(world: u32) {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+	println!("print_memory begin");
+	
+	let mut total = 0;
+	
+	let r = world.node.lend().mem_size();
+	total += r;
+	println!("    world::node = {:?}", r);
+	let r = world.transform.lend().mem_size();
+	total += r;
+	println!("    world::transform = {:?}", r);
+	let r = world.z_index.lend().mem_size();
+	total += r;
+	println!("    world::z_index = {:?}", r);
+	let r = world.overflow.lend().mem_size();
+	total += r;
+	println!("    world::overflow = {:?}", r);
+	let r = world.show.lend().mem_size();
+	total += r;
+	println!("    world::show = {:?}", r);
+	let r = world.opacity.lend().mem_size();
+	total += r;
+	println!("    world::opacity = {:?}", r);
+	let r = world.background_color.lend().mem_size();
+	total += r;
+	println!("    world::background_color = {:?}", r);
+	let r = world.box_shadow.lend().mem_size();
+	total += r;
+	println!("    world::box_shadow = {:?}", r);
+	let r = world.border_color.lend().mem_size();
+	total += r;
+	println!("    world::border_color = {:?}", r);
+	let r = world.border_image.lend().mem_size();
+	total += r;
+	println!("    world::border_image = {:?}", r);
+	let r = world.border_image_clip.lend().mem_size();
+	total += r;
+	println!("    world::border_image_clip = {:?}", r);
+	let r = world.border_image_slice.lend().mem_size();
+	total += r;
+	println!("    world::border_image_slice = {:?}", r);
+	let r = world.border_image_repeat.lend().mem_size();
+	total += r;
+	println!("    world::border_image_repeat = {:?}", r);
+	let r = world.text_style.lend().mem_size();
+	total += r;
+	println!("    world::text_style = {:?}", r);
+	let r = world.text_content.lend().mem_size();
+	total += r;
+	println!("    world::text_content = {:?}", r);
+	let r = world.font.lend().mem_size();
+	total += r;
+	println!("    world::font = {:?}", r);
+	let r = world.border_radius.lend().mem_size();
+	total += r;
+	println!("    world::border_radius = {:?}", r);
+	let r = world.image.lend().mem_size();
+	total += r;
+	println!("    world::image = {:?}", r);
+	let r = world.image_clip.lend().mem_size();
+	total += r;
+	println!("    world::image_clip = {:?}", r);
+	let r = world.object_fit.lend().mem_size();
+	total += r;
+	println!("    world::object_fit = {:?}", r);
+	let r = world.filter.lend().mem_size();
+	total += r;
+	println!("    world::filter = {:?}", r);
+	let r = world.yoga.lend().mem_size();
+	total += r;
+	println!("    world::yoga = {:?}", r);
+	let r = world.class_name.lend().mem_size();
+	total += r;
+	println!("    world::class_name = {:?}", r);
+	let r = world.style_mark.lend().mem_size();
+	total += r;
+	println!("    world::style_mark = {:?}", r);
+	let r = world.z_depth.lend().mem_size();
+	total += r;
+	println!("world::z_depth = {:?}", r);
+	let r = world.enable.lend().mem_size();
+	total += r;
+	println!("    world::enable = {:?}", r);
+	let r = world.visibility.lend().mem_size();
+	total += r;
+	println!("    world::visibility = {:?}", r);
+	let r = world.world_matrix.lend().mem_size();
+	total += r;
+	println!("    world::world_matrix = {:?}", r);
+	let r = world.by_overflow.lend().mem_size();
+	total += r;
+	println!("    world::by_overflow = {:?}", r);
+	let r = world.copacity.lend().mem_size();
+	total += r;
+	println!("    world::copacity = {:?}", r);
+	let r = world.layout.lend().mem_size();
+	total += r;
+	println!("    world::layout = {:?}", r);
+	let r = world.hsv.lend().mem_size();
+	total += r;
+	println!("    world::hsv = {:?}", r);
+	let r = world.culling.lend().mem_size();
+	total += r;
+	println!("    world::culling = {:?}", r);
+	let r = world.idtree.lend().mem_size();
+	total += r;
+	println!("    world::idtree = {:?}", r);
+	let r = world.oct.lend().mem_size();
+	total += r;
+	println!("    world::oct = {:?}", r);
+	let r = world.overflow_clip.lend().mem_size();
+	total += r;
+	println!("    world::overflow_clip = {:?}", r);
+	let r = world.engine.lend().res_mgr.mem_size();
+	total += r;
+	println!("    world::engine.resMap = {:?}", r);
+	let r = world.render_objs.lend().mem_size();
+	total += r;
+	println!("    world::render_objs = {:?}", r);
+	let r = world.font_sheet.lend().mem_size();
+	total += r;
+	println!("    world::font_sheet = {:?}", r);
+	let r = world.default_table.lend().mem_size();
+	total += r;
+	println!("    world::default_table = {:?}", r);
+	let r = world.class_sheet.lend().mem_size();
+	total += r;
+	println!("    world::class_sheet = {:?}", r);
+	let r = world.image_wait_sheet.lend().mem_size();
+	total += r;
+	println!("    world::image_wait_sheet = {:?}", r);
+
+	let engine = world.engine.lend_mut();
+	let stat = engine.gl.render_get_stat();
+	
+	total += stat.slab_mem_size;
+	println!("    world::engine::slab_mem_size = {:?}", stat.slab_mem_size);
+	
+	let total: f32 = total as f32;
+	println!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
+	println!("");
+
+	println!("    world::engine::rt_count = {:?}", stat.rt_count);
+	println!("    world::engine::texture_count = {:?}", stat.texture_count);
+	println!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+	println!("    world::engine::geometry_count = {:?}", stat.geometry_count);
+	println!("    world::engine::program_count = {:?}", stat.program_count);
+	
+	println!("print_memory end");
+}
+
+
 // 销毁渲染目标
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -239,7 +396,7 @@ pub fn render(world_id: u32){
 	world.draw_text_sys.run(world_id);
 	let world = &mut world.gui;
 	load_image(world_id);
-	world.world.run(&RENDER_DISPATCH);;
+	world.world.run(&RENDER_DISPATCH);
 }
 
 // 强制计算一次布局

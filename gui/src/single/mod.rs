@@ -44,6 +44,9 @@ pub struct Clip {
 }
 
 impl OverflowClip {
+    pub fn mem_size(&self) -> usize {
+        2 * self.id_map.capacity() * std::mem::size_of::<usize>() + self.clip.mem_size() + self.clip_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<(Aabb3, Share<dyn UniformBuffer>)>())
+    }
     pub fn insert_aabb(&mut self, key: usize, value: Aabb3, view_matrix: &WorldMatrix) -> &(Aabb3, Share<dyn UniformBuffer>) {
         let min = view_matrix * Vector4::new(value.min.x, value.min.y, 0.0, 0.0);
         let max = view_matrix * Vector4::new(value.max.x, value.max.y, 0.0, 0.0);
@@ -109,6 +112,19 @@ pub struct ImageWaitSheet {
 }
 
 impl ImageWaitSheet {
+    pub fn mem_size(&self) -> usize {
+        let mut r = 0;
+        for (_, v) in self.wait.iter() {
+            r += v.capacity() * std::mem::size_of::<ImageWait>();
+        }
+        for v in self.finish.iter() {
+            r += v.2.capacity() * std::mem::size_of::<ImageWait>();;
+        }
+        
+        r += self.loads.capacity() * std::mem::size_of::<Atom>();;
+        
+        r
+    }
     pub fn add(&mut self, name: &Atom, wait: ImageWait) {
         let loads = &mut self.loads;
         self.wait.entry(name.clone()).or_insert_with(||{
@@ -269,6 +285,10 @@ impl Default for RenderObjs {
 }
 
 impl RenderObjs {
+
+    pub fn mem_size(&self) -> usize {
+        self.0.mem_size()
+    }
     pub fn insert(&mut self, value: RenderObj, notify: Option<NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {
@@ -349,7 +369,9 @@ impl DefaultTable {
     pub fn new() -> Self{
         Self(XHashMap::default())
     }
-
+    pub fn mem_size(&self) -> usize {
+        self.0.capacity() * (std::mem::size_of::<TypeId>() + std::mem::size_of::<Box<dyn Any>>())
+    }
     pub fn set<T: 'static + Any>(&mut self, value: T){
         self.0.insert(TypeId::of::<T>(), Box::new(value));
     }

@@ -27,6 +27,18 @@ pub struct ClassSheet {
     pub class_map: XHashMap<usize, Class>,
 }
 
+impl ClassSheet {
+    pub fn mem_size(&self) -> usize {
+        let mut r = 0;
+        for (_, v) in self.class_map.iter() {
+            r += v.attrs1.capacity() * std::mem::size_of::<Attribute1>();
+            r += v.attrs2.capacity() * std::mem::size_of::<Attribute2>();
+            r += v.attrs3.capacity() * std::mem::size_of::<Attribute3>();
+        }
+        r
+    }
+}
+
 // 最小尺寸的style属性
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Attribute1 {

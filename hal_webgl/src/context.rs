@@ -17,69 +17,6 @@ use shader_cache::{ShaderCache};
 use extension::*;
 use util::*;
 
-// 渲染统计情况
-#[derive(Debug)]
-pub struct RenderStat {
-    pub rt_count: i32,
-    pub texture_count: i32,
-    pub buffer_count: i32,
-    pub geometry_count: i32,
-    pub program_count: i32,
-
-    // 每帧统计的信息，切换了多少个相应的东西
-    pub rt_change_count: i32,
-    pub geometry_change_count: i32,
-    pub texture_change_count: i32,
-    pub program_change_count: i32,
-    pub draw_call_count: i32,
-}
-
-impl RenderStat {
-    pub fn new() -> Self {
-        Self {
-            rt_count: 0,
-            texture_count: 0,
-            buffer_count: 0,
-            geometry_count: 0,
-            program_count: 0,
-
-            rt_change_count: 0,
-            geometry_change_count: 0,
-            texture_change_count: 0,
-            program_change_count: 0,
-            draw_call_count: 0,
-        }
-    }
-
-    pub fn reset_frame(&mut self) {
-        self.rt_change_count = 0;
-        self.geometry_change_count = 0;
-        self.texture_change_count = 0;
-        self.program_change_count = 0;
-        self.draw_call_count = 0;
-    }
-
-    pub fn add_geometry_change(&mut self) {
-        self.geometry_change_count += 1;
-    }
-
-    pub fn add_texture_change(&mut self, count: i32) {
-        self.texture_change_count += count;
-    }
-
-    pub fn add_program_change(&mut self) {
-        self.program_change_count += 1;
-    }
-
-    pub fn add_rt_change(&mut self) {
-        self.rt_change_count += 1;
-    }
-
-    pub fn add_draw_call(&mut self) {
-        self.draw_call_count += 1;
-    }
-}
-
 pub struct WebglHalContextImpl {
 
     // 用于给每个context
@@ -510,6 +447,26 @@ impl HalContext for WebglHalContext {
         }
     }
 
+    fn render_get_stat(&self) -> &RenderStat {
+        let mut r = 0;
+        r += self.0.buffer_slab.mem_size();
+        r += self.0.geometry_slab.mem_size();
+        r += self.0.texture_slab.mem_size();
+        r += self.0.sampler_slab.mem_size();
+        r += self.0.rt_slab.mem_size();
+        r += self.0.rb_slab.mem_size();
+        r += self.0.bs_slab.mem_size();
+        r += self.0.ds_slab.mem_size();
+        r += self.0.rs_slab.mem_size();
+        r += self.0.ss_slab.mem_size();
+        r += self.0.program_slab.mem_size();
+
+        let context = convert_to_mut(self.0.as_ref());
+        context.stat.slab_mem_size = r;
+
+        &self.0.stat
+    }
+
     fn render_set_program(&self, program: &HalProgram) {
         let context = convert_to_mut(self.0.as_ref());
         
@@ -728,6 +685,11 @@ impl WebglHalContext {
             let slab = convert_to_mut(&self.0.texture_slab);
             let (index, use_count) = create_new_slot(slab, texture);
             
+            {
+                let context = convert_to_mut(self.0.as_ref());    
+                context.stat.texture_count += 1;
+            }
+            
             let context_impl = self.0.clone();
             HalTexture {
                 item: HalItem { index, use_count },
@@ -761,16 +723,6 @@ impl WebglHalContext {
             item: HalItem { index, use_count },
             destroy_func: Share::new(move |index: u32, use_count: u32| { context_impl.rt_destroy(index, use_count); }),
         }
-    }
-
-    /** 
-     * 获取渲染统计信息，包括：
-     *    + 每个资源当前的数量：program，buffer，geometry，texture，render-target
-     *    + （需要加stat feature构建 才能获取正确数据）每帧切换的资源数：program，geometry，texture，render-target
-     *    + 注：如果要获取帧的切换信息，建议在begin_end之后获取。
-     */
-    pub fn get_render_stat(&self) -> &RenderStat {
-        &self.0.stat
     }
 
     fn texture_copy_impl(&self, dst: &WebGLTextureImpl, src: &HalTexture, src_mipmap_level: u32, src_x: u32, src_y: u32, dst_x: u32, dst_y: u32, width: u32, height: u32) {
