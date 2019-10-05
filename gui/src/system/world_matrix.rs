@@ -59,7 +59,7 @@ impl WorldMatrixSys{
 		let mut count = 0;
 		// let time = std::time::Instant::now();
 		let default_transform = default_table.get_unchecked::<Transform>();
-		for id in self.dirty.iter() {
+		for (id, layer) in self.dirty.iter() {
 			{
 				let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
 					Some(r) => r,
@@ -72,7 +72,7 @@ impl WorldMatrixSys{
 			}
 
 			let parent_id = match idtree.get(*id) {
-				Some(r) => r.parent,
+				Some(r) => if layer == r.layer { r.parent } else {continue},
 				None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
 			};
 			// let parent_id = unsafe { idtree.get_unchecked(*id).parent };

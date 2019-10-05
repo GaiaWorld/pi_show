@@ -83,7 +83,7 @@ pub fn node_info(world: u32, node: u32) {
     // let yogas = world.yoga.lend();
     // let yoga = unsafe { yogas.get_unchecked(node) };
 
-    let octs = world.oct.lend();
+    // let octs = world.oct.lend();
     // let oct = unsafe { octs.get_unchecked(node) };
 	
 	let mut render_map = Vec::new();

@@ -14,7 +14,7 @@ use dirty::LayerDirty;
 
 use ecs::{
   system::{Runner, MultiCaseListener, SingleCaseListener, EntityListener},
-  monitor::{CreateEvent, DeleteEvent, ModifyEvent},
+  monitor::{CreateEvent, ModifyEvent},
   component::MultiCaseImpl,
   single::SingleCaseImpl,
   idtree::{IdTree, Node as IdNode},
@@ -52,23 +52,23 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
 //     type WriteData = ();
 
 //     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-//         let r = unsafe { read.get_unchecked(event.id) }; 
+//         let r = unsafe { read.get_unchecked(event.id) };
 //         self.delete_dirty(event.id, r.layer);
 //     }
 // }
 
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
+// impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
 
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-      match read.get(event.id) {
-        Some(r) => self.delete_dirty(event.id, r.layer),
-        _ => ()
-      }
-    }
-}
+//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
+//       match read.get(event.id) {
+//         Some(r) => self.delete_dirty(event.id, r.layer),
+//         _ => ()
+//       }
+//     }
+// }
 
 impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
@@ -184,18 +184,18 @@ impl ZIndexImpl {
     }
   }
 
-  fn delete_dirty(&mut self, id: usize, layer: usize) {
-    if layer > 0 {
-      let zi = unsafe {self.map.remove_unchecked(id)};
-    //   if zi.dirty != DirtyType::None {
-        self.dirty.delete(id, layer)
-    //   }
-    }
-    // 删除无需设脏，z值可以继续使用
-  }
+//   fn delete_dirty(&mut self, id: usize, layer: usize) {
+//     if layer > 0 {
+//     //   let zi = unsafe {self.map.remove_unchecked(id)};
+//     //   if zi.dirty != DirtyType::None {
+//         self.dirty.delete(id, layer)
+//     //   }
+//     }
+//     // 删除无需设脏，z值可以继续使用
+//   }
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
-    for id in self.dirty.iter() {
+    for (id, layer) in self.dirty.iter() {
       let (min_z, max_z, normal) = {
         let zi = unsafe {self.map.get_unchecked_mut(*id)};
         // println!("calc xxx: {:?} {:?}", id, zi);
@@ -208,10 +208,10 @@ impl ZIndexImpl {
         zi.max_z = zi.pre_max_z;
         (zi.min_z, zi.max_z, b)
       };
-      let node = unsafe {idtree.get_unchecked(*id)};
-      if node.layer == 0 {
-        continue;
-      }
+		let node = match idtree.get(*id) {
+			Some(r) => if r.layer == layer {r} else {continue},
+			None => continue,
+		};
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(*id)}.set_0(min_z);
       //println!("zindex- calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
@@ -445,7 +445,7 @@ impl_system!{
     true,
     {
         EntityListener<Node, CreateEvent>
-        EntityListener<Node, DeleteEvent>
+        // EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, ZI, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         // SingleCaseListener<IdTree, DeleteEvent>

@@ -51,11 +51,14 @@ impl<'a> Runner<'a> for OverflowImpl{
 	fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
 		// let time = std::time::Instant::now();
 		let (overflow_clip, by_overflows, cullings, style_marks) = write;
-		for id in self.overflow_dirty.iter() {
+		for (id, layer) in self.overflow_dirty.iter() {
 			let dirty1 = match style_marks.get(*id) {
 				Some(r) => r.dirty1,
 				None => continue,
 			};
+			if unsafe { read.0.get_unchecked(*id) }.layer != layer {
+				continue;
+			}
 			if dirty1 & StyleType1::TransformWillChange as usize != 0 || dirty1 & StyleType1::Overflow as usize != 0 {
 				let by = unsafe { by_overflows.get_unchecked(*id) }.0;
 				let aabb = unsafe {&*(overflow_clip as *const SingleCaseImpl<OverflowClip>)}.clip_map.get(&by);
@@ -255,7 +258,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
 		}
 		unsafe {write.1.get_unchecked_write(event.id)}.set_0(0);
 		// 递归调用，检查是否有overflow， 撤销设置OverflowClip
-		for (id, _) in read.0.recursive_iter(node.children.head) {
+		for (id, _n) in read.0.recursive_iter(node.children.head) {
 			if match read.1.get(id){Some(r) => **r, _ => false}{
 				remove_index(&mut *write.0, id, &notify);
 			}
