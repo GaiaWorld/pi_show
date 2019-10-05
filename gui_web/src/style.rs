@@ -305,7 +305,7 @@ pub fn set_default_style_by_bin(world: u32){
     let mut map: XHashMap<usize, Class> = match bincode::deserialize(value.as_slice()) {
         Ok(r) => r,
         Err(e) => {
-            println!("deserialize_class_map error: {:?}", e);
+            debug_println!("deserialize_class_map error: {:?}", e);
             return;
         },
     };
@@ -329,7 +329,7 @@ pub fn set_default_style(world: u32){
     let r = match parse_class_from_string(value.as_str()) {
         Ok(r) => r,
         Err(e) => {
-            println!("set_default_style error, {:?}", e);
+            debug_println!("set_default_style error, {:?}", e);
             return;
         },
     };
@@ -370,7 +370,7 @@ fn set_default_style1(world: &mut GuiWorld, r: Class){
             Attribute1::WhiteSpace(r) => text_style.text.white_space = r,
 
             // Attribute::BorderColor(r) => border_color = r,
-            _ => println!("set_class error"),
+            _ => debug_println!("set_class error"),
         }
     }
 
@@ -386,7 +386,7 @@ fn set_default_style1(world: &mut GuiWorld, r: Class){
             Attribute2::FontFamily(r) => text_style.font.family = r,
 
             // Attribute::BorderColor(r) => border_color = r,
-            _ => println!("set_class error"),
+            _ => debug_println!("set_class error"),
         }
     }
 
@@ -396,7 +396,7 @@ fn set_default_style1(world: &mut GuiWorld, r: Class){
             Attribute3::TextShadow(r) => text_style.shadow = r,
             Attribute3::TextStroke(r) => text_style.text.stroke = r,
             // Attribute::BorderColor(r) => border_color = r,
-            _ => println!("set_class error"),
+            _ => debug_println!("set_class error"),
         }
     }
 

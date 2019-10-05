@@ -317,7 +317,7 @@ pub fn iter_query(world: u32, x: f32, y: f32)-> u32{
 		let oct = match octree.get(e) {
 			Some(r) => r,
 			None => {
-				println!("query fail, id: {}", e);
+				debug_println!("query fail, id: {}", e);
 				return 0;
 			},
 		};

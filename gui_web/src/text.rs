@@ -184,7 +184,7 @@ pub fn add_msdf_font_res(world_id: u32) {
     let font_sheet = world.font_sheet.lend_mut();
     
     if width > 2048 {
-        println!("add_msdf_font_res fail, width > 2048");
+        debug_println!("add_msdf_font_res fail, width > 2048");
     }
 
     update_text_texture(world_id, 0, 0, height);
@@ -243,7 +243,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
     if end_v > texture.height as u32 {
         end_v = next_power_of_two(end_v);
         if end_v > 2048 {
-            println!("update_canvas_text fail, height overflow");  
+            debug_println!("update_canvas_text fail, height overflow");  
         }
         engine.gl.texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
@@ -293,7 +293,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
     if end_v > texture.height as u32 {
         end_v = next_power_of_two(end_v);
         if end_v > 2048 {
-            println!("update_canvas_text fail, height overflow");  
+            debug_println!("update_canvas_text fail, height overflow");  
         }
         engine.gl.texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
