@@ -184,9 +184,9 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, mut width: f32, _wid
 	//     YGMeasureMode::YGMeasureModeExactly => height/100.0,
 	//     _ => 0.0,
 	// };
-	if cb.chars.len() > 0 && cb.chars[0].ch == '每' {
-		println!("width1111111111111111111111111: {}, mod:{:?}, p: {}", width, _width_mode, node.get_parent().get_style_width_value());
-	}
+	// if cb.chars.len() > 0 && cb.chars[0].ch == '每' {
+	// 	println!("width1111111111111111111111111: {}, mod:{:?}, p: {}", width, _width_mode, node.get_parent().get_style_width_value());
+	// }
 	match _width_mode {
 		YGMeasureMode::YGMeasureModeUndefined => {
 			width = node.get_parent().get_style_width_value();
