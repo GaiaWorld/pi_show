@@ -91,6 +91,8 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static>{
     msdf_stroke_ubo_map: UnsafeMut<ResMap<MsdfStrokeUbo>>,
     canvas_stroke_ubo_map: UnsafeMut<ResMap<CanvasTextStrokeColorUbo>>,
 
+	msdf_default_paramter: MsdfParamter,
+	canvas_default_paramter: CanvasTextParamter,
     mark: PhantomData<(L, C)>,
 } 
 
@@ -231,7 +233,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             
             // 文字属性流改变， 重新生成geometry
             if geometry_change {
-                render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, &font_sheet, class_ubo, &self.index_buffer, engine);
+				let l = &mut self.index_len;
+                render_obj.geometry = create_geo(dirty, charblock, &text_style.text.color, text, text_style, &font_sheet, class_ubo, &self.index_buffer, l, engine);
                 render_objs.get_notify().modify_event(index.text, "geometry", 0);
             }
 
@@ -273,7 +276,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
                         Color::LinearGradient(_) => {
                             let color = text_style.shadow.color.clone();
-                            shadow_render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, font_sheet, class_ubo, &self.index_buffer, engine)
+							let l = &mut self.index_len;
+                            shadow_render_obj.geometry = create_geo(dirty, charblock, &Color::RGBA(color), text, text_style, font_sheet, class_ubo, &self.index_buffer, l,  engine)
                         },
                     }
                     notify.modify_event(index.shadow, "geometry", 0);
@@ -334,12 +338,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
 
         let default_color_ubo = engine.create_u_color_ubo(&CgColor::new(0.0, 0.0, 0.0, 1.0));
 
-        let mut index_data = Vec::with_capacity(600);
-        let mut i = 0;
-        while i < 400 {
-            index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
-            i += 4;
-        }
+		let index_data = create_index_buffer(100);
 
         let mut msdf_stroke_ubo_map = UnsafeMut::new(engine.res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap());
         let mut canvas_stroke_ubo_map = UnsafeMut::new(engine.res_mgr.fetch_map::<CanvasTextStrokeColorUbo>().unwrap());
@@ -359,13 +358,15 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
                 stroke_color_ubo: create_hash_res(CanvasTextStrokeColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 0.0)), &mut *canvas_stroke_ubo_map),
                 layout_hash: 0,
             },
-            index_buffer: Share::new(BufferRes(engine.create_buffer(BufferType::Indices, 600, Some(BufferData::Short(index_data.as_slice())), false))),
+            index_buffer: Share::new(BufferRes(engine.create_buffer(BufferType::Indices, 600, Some(BufferData::Short(index_data.as_slice())), true))),
             index_len: 100,
             texture_size_ubo: Share::new(TextTextureSize::new(UniformValue::Float2(texture_size.0 as f32, texture_size.1 as f32))),
             texture_change: false,
 
             msdf_stroke_ubo_map,
             canvas_stroke_ubo_map,
+			msdf_default_paramter: MsdfParamter::default(),
+			canvas_default_paramter: CanvasTextParamter::default(),
             mark: PhantomData,
         }
     }
@@ -400,12 +401,12 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         depth_diff: f32,
     ) -> usize {
         let (vs_name, fs_name, paramter, bs) = if is_pixel {
-            let paramter: Share<dyn ProgramParamter> = Share::new(CanvasTextParamter::default());
+            let paramter: Share<dyn ProgramParamter> = Share::new(self.canvas_default_paramter.clone());
             paramter.set_value("strokeColor", self.canvas_default_stroke_color.clone());
             paramter.set_value("textureSize", self.texture_size_ubo.clone());
             (CANVAS_TEXT_VS_SHADER_NAME.clone(), CANVAS_TEXT_FS_SHADER_NAME.clone(), paramter, self.canvas_bs.clone())
         } else {
-            let paramter: Share<dyn ProgramParamter> = Share::new(MsdfParamter::default());
+            let paramter: Share<dyn ProgramParamter> = Share::new(self.msdf_default_paramter.clone());
             (TEXT_VS_SHADER_NAME.clone(), TEXT_FS_SHADER_NAME.clone(), paramter, self.msdf_bs.clone())
         };
         let state = State {
@@ -571,6 +572,7 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
     font_sheet: &FontSheet,
     share_data: &RenderCatch,
     share_index_buffer: &Share<BufferRes>,
+	index_buffer_max_len: &mut usize,
     engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>> {
     // 是共享文字
@@ -598,10 +600,10 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
         }
 
         // 缓存中不存在 对应的geo， 创建geo并缓存
-        get_geo_flow(char_block, color, font_sheet, engine, Some(hash), share_index_buffer)
+        get_geo_flow(char_block, color, font_sheet, engine, Some(hash), share_index_buffer, index_buffer_max_len)
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
-        get_geo_flow(char_block, color, font_sheet, engine, None, share_index_buffer)
+        get_geo_flow(char_block, color, font_sheet, engine, None, share_index_buffer, index_buffer_max_len)
     }
 }
 
@@ -657,6 +659,7 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     engine: &mut Engine<C>,
     hash: Option<u64>,
     index_buffer: &Share<BufferRes>,
+	index_buffer_max_len: &mut usize,
 ) -> Option<Share<GeometryRes>> {
     let len = char_block.chars.len();
     let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
@@ -682,7 +685,14 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     };
                     push_pos_uv(&mut positions, &mut uvs, &c.pos, &offset, &glyph, c.width, char_block.font_height); 
                 }
-
+				// 更新buffer
+				let l = positions.len()/8;
+				if l > *index_buffer_max_len {
+					*index_buffer_max_len = l + 50;
+					let buffer = create_index_buffer(*index_buffer_max_len);
+					println!("buffer.len----------------------{}", buffer.len());
+					engine.gl.buffer_update(&index_buffer, 0, BufferData::Short(buffer.as_slice()));
+				}
                 engine.gl.geometry_set_indices_short_with_offset(&geo_res.geo, index_buffer, 0, positions.len()/8 * 6).unwrap();
             },
             Color::LinearGradient(color) => {
@@ -905,6 +915,16 @@ fn push_pos_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, pos: &Point2 , offs
         glyph.x + glyph.width, glyph.y,
     ]);
     positions.extend_from_slice(&ps[..]);
+}
+
+fn create_index_buffer(count: usize) -> Vec<u16> {
+	let mut index_data: Vec<u16> = Vec::with_capacity(count * 6);
+	let mut i: u16 = 0;
+	while (i as usize) < count * 4 {
+		index_data.extend_from_slice(&[i, i + 1, i + 2, i, i + 2, i + 3]);
+		i += 4;
+	}
+	index_data
 }
 
 impl_system!{

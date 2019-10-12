@@ -184,9 +184,6 @@ extern "C" fn text_callback<L: FlexNode + 'static>(node: L, mut width: f32, _wid
 	//     YGMeasureMode::YGMeasureModeExactly => height/100.0,
 	//     _ => 0.0,
 	// };
-	// if cb.chars.len() > 0 && cb.chars[0].ch == '每' {
-	// 	println!("width1111111111111111111111111: {}, mod:{:?}, p: {}", width, _width_mode, node.get_parent().get_style_width_value());
-	// }
 	match _width_mode {
 		YGMeasureMode::YGMeasureModeUndefined => {
 			width = node.get_parent().get_style_width_value();
@@ -729,7 +726,6 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
 		}
 		cb.lines = lines;
     }
-
     // if h > 0.0 {// 因为高度没有独立的变化，所有可以统一放在cb.pos.y
     //     match text_style.text.vertical_align {
     //         VerticalAlign::Middle => cb.pos.y += (h - cb.wrap_size.y) / 2.0,
@@ -756,6 +752,7 @@ fn calc_wrap_align<L: FlexNode + 'static>(cb: &mut CharBlock<L>, text_style: &Te
         };
         return
     }
+	
     // 多行的3种布局的处理
     match text_style.text.text_align {
         // TextAlign::Center => {

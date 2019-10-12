@@ -37,6 +37,7 @@ const GEO_DIRTY: usize =    StyleType::Layout as usize |
 /// BorderColor 操作
 pub struct BorderColorSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
+	default_paramter: ColorParamter,
     mark: PhantomData<C>,
 }
 
@@ -137,7 +138,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                 let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
                 render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
                 notify.modify_event(render_index, "is_opacity", 0);
-                modify_opacity(engine, render_obj);
+                modify_opacity(engine, render_obj, default_state);
             }
 
             // 颜色修改， 设置ucolor ubo
@@ -187,6 +188,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
     pub fn new() -> Self {
         BorderColorSys {
             render_map: VecMap::default(),
+			default_paramter: ColorParamter::default(),
             mark: PhantomData,
         }
     }
@@ -217,7 +219,7 @@ impl <C: HalContext + 'static> BorderColorSys<C> {
             true,
             COLOR_VS_SHADER_NAME.clone(),
             COLOR_FS_SHADER_NAME.clone(),
-            Share::new(ColorParamter::default()),
+            Share::new(self.default_paramter.clone()),
             default_state, render_objs,
             &mut self.render_map
         );

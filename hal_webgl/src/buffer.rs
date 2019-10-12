@@ -70,23 +70,45 @@ impl WebGLBufferImpl {
         match data {
             BufferData::Float(v) => {
                 let offset = 4 * offset;
-                debug_assert!(self.is_updatable && offset < self.size && offset + 4 * v.len() <= self.size, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()) );
+                debug_assert!(self.is_updatable, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
+				
+				let buffer = unsafe { UnsafeTypedArray::new(v) };
 
-                let buffer = unsafe { UnsafeTypedArray::new(v) };
-                js! {
-                    @{gl.as_ref()}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{offset as u32}, @{buffer});
-                }
-            }
-            BufferData::Short(v) => {
-                let offset = 2 * offset;
-                debug_assert!(self.is_updatable && offset < self.size && offset + 2 * v.len() <= self.size, "WebGLBufferImpl update failed");
+				if offset < self.size && offset + 4 * v.len() <= self.size {
+					js! {
+						@{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
+					}
+				} else if offset == 0 {
+					let usage = WebGLRenderingContext::DYNAMIC_DRAW;
+					js! {
+						@{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
+					}
+					self.size = 4 * v.len();
+				} else {
+					debug_assert!(false, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
+				}
+			},
+			BufferData::Short(v) => {
+				let offset = 2 * offset;
+				debug_assert!(self.is_updatable, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
+				
+				let buffer = unsafe { UnsafeTypedArray::new(v) };
 
-                let buffer = unsafe { UnsafeTypedArray::new(v) };
-                
-                js! {
-                    @{gl.as_ref()}.bufferSubData(@{WebGLRenderingContext::ARRAY_BUFFER}, @{offset as u32}, @{buffer});
-                }
-            }
-        }
-    }
+				println!("offset:{}, size:{}, len:{}", offset, self.size, offset + 2 * v.len());
+				if offset < self.size && offset + 2 * v.len() <= self.size {
+					js! {
+						@{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
+					}
+				} else if offset == 0 {
+					let usage = WebGLRenderingContext::DYNAMIC_DRAW;
+					js! {
+						@{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
+					}
+					self.size = 2 * v.len();
+				} else {
+					debug_assert!(false, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
+				}
+			}
+		}
+	}
 }

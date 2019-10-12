@@ -392,9 +392,9 @@ fn calc_clip<'a>(
 		if i > 0 {
 			// 计算裁剪平面
 			set_clip(id, i, &read, write.0, transform_will_change_matrix);
-			by = **unsafe{ write.1.get_unchecked(id)};
-			by_clip_aabb = modify_intersect_clip(by, add_index(by, 1<<(i - 1)), i, unsafe {&mut *(write.0 as *mut SingleCaseImpl<OverflowClip>)}, &(read.8).0);
-
+			let by1 = add_index(by, 1<<(i - 1));
+			by_clip_aabb = modify_intersect_clip(by, by1, i, unsafe {&mut *(write.0 as *mut SingleCaseImpl<OverflowClip>)}, &(read.8).0);
+			by = by1;
 			// by_clip_aabb
 			write.0.get_notify().modify_event(i, "", id);
 		}
@@ -447,6 +447,7 @@ fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
 		node_id: id,
 	});
 	clip.id_map.insert(id, i);
+	println!("clip create, count: {}", clip.id_map.len());
 	i
 }
 
@@ -497,6 +498,7 @@ fn remove_index(overflow: &mut OverflowClip, node_id: usize, notify: &NotifyImpl
 	if let Some(r) = overflow.id_map.remove(&node_id) {
 		notify.modify_event(r, "", node_id);
 		overflow.clip.remove(r);
+		println!("remove_clip, count: {}", overflow.id_map.len());
 		r
 	} else {
 		0

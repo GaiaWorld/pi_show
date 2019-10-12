@@ -36,6 +36,7 @@ const DIRTY_TYPE: usize =	StyleType::BackgroundColor as usize |
 
 pub struct BackgroundColorSys<C: HalContext + 'static>{
 	render_map: VecMap<usize>,
+	default_paramter: ColorParamter,
 	marker: std::marker::PhantomData<C>,
 }
 
@@ -43,6 +44,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 	pub fn new() -> Self {
 		BackgroundColorSys {
 			render_map: VecMap::default(),
+			default_paramter: ColorParamter::default(),
 			marker: PhantomData,
 		}
 	}
@@ -132,7 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C>{
 				let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
 				render_obj.is_opacity = background_is_opacity(opacity, color);
 				notify.modify_event(render_index, "is_opacity", 0);
-				modify_opacity(engine, render_obj);
+				modify_opacity(engine, render_obj, default_state);
 			}
 
 			let program_dirty = modify_color(render_obj, color, engine, dirty, layout, &unit_quad.0, border_radius);
@@ -206,7 +208,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 			true,
 			COLOR_VS_SHADER_NAME.clone(),
 			COLOR_FS_SHADER_NAME.clone(),
-			Share::new(ColorParamter::default()),
+			Share::new(self.default_paramter.clone()),
 			default_state, render_objs,
 			&mut self.render_map
 		);
