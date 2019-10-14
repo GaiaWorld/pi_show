@@ -117,9 +117,8 @@ pub fn set_texture_catch_cfg(
 #[no_mangle]
 pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
 	let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-	let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
-
-	// let gl = WebglHalContext::new(gl, fbo, false);
+	// let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
+	let use_vao = true;
 	let gl = WebglHalContext::new(gl, use_vao);
 	let engine = Engine::new(gl, create_res_mgr(total_capacity as usize));
 	let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
