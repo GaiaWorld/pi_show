@@ -505,6 +505,7 @@ pub fn texture_is_exist(world: u32) -> bool {
 	}
 }
 
+
 fn main(){
 	// 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）
 	#[cfg(not(feature = "no_define_js"))]

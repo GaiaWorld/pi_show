@@ -22,6 +22,7 @@ use system::render::shaders::color::{ COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME
 pub struct BoxShadowSys<C: HalContext + 'static> {
 	render_map: VecMap<usize>,
 	dirty_ty: usize,
+	default_paramter: ColorParamter,
 	marker: std::marker::PhantomData<C>,
 }
 
@@ -36,6 +37,7 @@ impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
 		Self {
 			dirty_ty,
 			render_map: VecMap::default(),
+			default_paramter: ColorParamter::default(),
 			marker: PhantomData,
 		}
 	}
@@ -136,7 +138,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 				let opacity = unsafe {opacitys.get_unchecked(*id)}.0;
 				render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
 				notify.modify_event(render_index, "is_opacity", 0);
-				modify_opacity(engine, render_obj);
+				modify_opacity(engine, render_obj, default_state);
 			}
 			
 			if style_mark.dirty & StyleType::BoxShadow as usize != 0 {
@@ -200,7 +202,7 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
 			true,
 			COLOR_VS_SHADER_NAME.clone(),
 			COLOR_FS_SHADER_NAME.clone(),
-			Share::new(ColorParamter::default()),
+			Share::new(self.default_paramter.clone()),
 			default_state, render_objs,
 			&mut self.render_map
 		);

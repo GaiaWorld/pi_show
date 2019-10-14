@@ -65,7 +65,7 @@ impl HalContext for WebglHalContext {
     }
 
     fn buffer_update(&self, buffer: &HalBuffer, offset: usize, data: BufferData) {
-        let context = convert_to_mut(self.0.as_ref());
+		let context = convert_to_mut(self.0.as_ref());
         if let Some(buffer) = get_mut_ref(&mut context.buffer_slab, buffer.item.index, buffer.item.use_count) {
             buffer.update(&self.0.gl, offset, data);
         }

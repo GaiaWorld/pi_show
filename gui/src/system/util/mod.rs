@@ -225,23 +225,31 @@ pub fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn D
     }
 }
 
-pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj) {
-    let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
-    let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
-    if render_obj.is_opacity == false {
-        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-        ds.set_write_enable(false);
+pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj, default_state: &DefaultState) {
+	if render_obj.is_opacity == false {
         
-        render_obj.state.bs = engine.create_bs_res(bs);
-        render_obj.state.ds = engine.create_ds_res(ds);
+        // render_obj.state.bs = default_state.df_bs.clone();
+        render_obj.state.ds = default_state.df_ds.clone();
     }else {
-        bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-        // bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
-        ds.set_write_enable(true);
-        
-        render_obj.state.bs = engine.create_bs_res(bs);
-        render_obj.state.ds = engine.create_ds_res(ds);
+        // render_obj.state.bs = default_state.tarns_bs.clone();
+        render_obj.state.ds = default_state.tarns_ds.clone();
     }
+    // let mut bs = engine.gl.bs_get_desc(render_obj.state.bs.as_ref()).clone();
+    // let mut ds = engine.gl.ds_get_desc(render_obj.state.ds.as_ref()).clone();
+    // if render_obj.is_opacity == false {
+    //     bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+    //     ds.set_write_enable(false);
+        
+    //     render_obj.state.bs = engine.create_bs_res(bs);
+    //     render_obj.state.ds = engine.create_ds_res(ds);
+    // }else {
+    //     bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+    //     // bs.set_rgb_factor(BlendFactor::One, BlendFactor::Zero);
+    //     ds.set_write_enable(true);
+        
+    //     render_obj.state.bs = engine.create_bs_res(bs);
+    //     render_obj.state.ds = engine.create_ds_res(ds);
+    // }
     
 }
 
@@ -261,9 +269,36 @@ pub fn new_render_obj(context: usize, depth_diff: f32, is_opacity: bool, vs_name
         fs_name,
         paramter,
         state,
-        context,       
+        context,
     }
 }
+
+// #[inline]
+// pub fn create_render_obj1(
+//     context: usize,
+//     depth_diff: f32,
+//     is_opacity: bool,
+//     vs_name: Atom,
+//     fs_name: Atom,
+//     paramter: Share<dyn ProgramParamter>,
+//     default_state: &DefaultState,
+//     render_objs: &mut SingleCaseImpl<RenderObjs>,
+//     render_map: &mut VecMap<usize>,
+// ) -> usize{
+//     let state = State {
+//         bs: default_state.df_bs.clone(),
+//         rs: default_state.df_rs.clone(),
+//         ss: default_state.df_ss.clone(),
+//         ds: default_state.df_ds.clone(),
+//     };
+//     let notify = render_objs.get_notify();
+//     let render_index = render_objs.insert(
+//         new_render_obj(context, depth_diff, is_opacity, vs_name, fs_name, paramter, state),
+//         Some(notify)
+//     );
+//     render_map.insert(context, render_index);
+//     render_index
+// }
 
 #[inline]
 pub fn create_render_obj(

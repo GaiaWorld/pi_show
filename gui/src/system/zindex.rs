@@ -18,8 +18,10 @@ use ecs::{
   component::MultiCaseImpl,
   single::SingleCaseImpl,
   idtree::{IdTree, Node as IdNode},
+  set_print,
 };
 
+use single::DirtyList;
 use entity::{Node};
 use component::{
   user::{ZIndex as ZI},
@@ -116,13 +118,18 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
 }
 
 impl<'a> Runner<'a> for ZIndexImpl {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a SingleCaseImpl<DirtyList>);
     type WriteData = &'a mut MultiCaseImpl<Node, ZDepth>;
 
     fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
     }
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-      self.calc(read, write)
+		// if (read.1).0.len() > 0 {
+		// 	set_print(true);
+		// } else {
+		// 	set_print(false);
+		// }
+		self.calc(read.0, write)
     }
     fn dispose(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
 

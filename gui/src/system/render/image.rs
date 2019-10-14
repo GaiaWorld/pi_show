@@ -50,7 +50,8 @@ const GEO_DIRTY: usize =StyleType::BorderRadius as usize |
 pub struct ImageSys<C>{
 	render_map: VecMap<usize>,
 	default_sampler: Share<SamplerRes>,
-	unit_geo: Share<GeometryRes>, // 含uv， index， pos  
+	unit_geo: Share<GeometryRes>, // 含uv， index， pos
+	default_paramter: ImageParamter,
 	marker: PhantomData<C>,
 }
 
@@ -120,7 +121,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
 					self.remove_render_obj(*id, render_objs);
 					continue;
 				}
-
+				dirty |= DIRTY_TY;// Image脏， 所有属性重新设置
 				// 不存在渲染对象， 创建
 				match self.render_map.get_mut(*id) {
 					Some(r) => *r,
@@ -193,13 +194,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C>{
 				}else {
 					false
 				};
-				render_obj.is_opacity = is_opacity;
-				notify.modify_event(render_index, "is_opacity", 0);
-				modify_opacity(engine, render_obj);
+				
+				if render_obj.is_opacity != is_opacity {
+					render_obj.is_opacity = is_opacity;
+					notify.modify_event(render_index, "is_opacity", 0);
+					modify_opacity(engine, render_obj, default_state);
+				}
 			}
 			notify.modify_event(render_index, "", 0);
 		}
 	}
+	
 }
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent> for ImageSys<C>{
@@ -226,6 +231,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
 			render_map: VecMap::default(),
 			default_sampler: default_sampler,
 			unit_geo: Share::new(GeometryRes{geo: geo, buffers: vec![indices, positions.clone(), positions]}),  
+			default_paramter: ImageParamter::default(),
 			marker: PhantomData,
 		}
 	}
@@ -254,7 +260,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
 			true,
 			IMAGE_VS_SHADER_NAME.clone(),
 			IMAGE_FS_SHADER_NAME.clone(),
-			Share::new(ImageParamter::default()),
+			Share::new(self.default_paramter.clone()),
 			default_state, render_objs,
 			&mut self.render_map
 		)
@@ -275,7 +281,6 @@ fn update_geo<C: HalContext + 'static>(
 	let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
 	let radius = cal_border_radius(border_radius, layout);
 	let g_b = geo_box(layout);
-
 	if radius.x > g_b.min.x && pos.min.x < radius.x && pos.min.y < radius.x  {
 		use_layout_pos(render_obj, uv, layout, &radius, engine); // 有圆角
 		(true, pos)
@@ -295,13 +300,19 @@ fn update_geo_quad<C: HalContext + 'static>(
 	match image_clip {
 		Some(_clip) => {
 			let uv_hash = cal_uv_hash(uv);
-			let uv_buffer = create_uv_buffer(uv_hash, &uv, engine);
-			let geo = engine.create_geometry();
-			engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &unit_geo.buffers[1], 2).unwrap();
-			engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
-			engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[0]).unwrap();
-			let geo_res = GeometryRes{geo: geo, buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), uv_buffer]};
-			render_obj.geometry = Some(create_geo(&uv_hash, geo_res, engine));
+			let geo_hash = unit_geo_hash(&uv_hash);
+			match engine.geometry_res_map.get(&geo_hash) {
+				Some(r) => render_obj.geometry = Some(r),
+				None => {
+					let uv_buffer = create_uv_buffer(uv_hash, &uv, engine);
+					let geo = engine.create_geometry();
+					engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &unit_geo.buffers[1], 2).unwrap();
+					engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &uv_buffer, 2).unwrap();
+					engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[0]).unwrap();
+					let geo_res = GeometryRes{geo: geo, buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), uv_buffer]};
+					render_obj.geometry = Some(engine.geometry_res_map.create(geo_hash, geo_res, 0, 0));
+				}
+			};
 		},
 		None => render_obj.geometry = Some(unit_geo.clone()),
 	}
@@ -327,17 +338,13 @@ fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv: &Aabb2, engine: &
 	}
 }
 
-fn create_geo<C: HalContext + 'static>(uv_hash: &u64, geo_res: GeometryRes, engine: &mut Engine<C>) -> Share<GeometryRes> {
+#[inline]
+fn unit_geo_hash(uv_hash: &u64) -> u64 {
 	let mut hasher = DefaultHasher::default();
 	uv_hash.hash(&mut hasher);
 	POSITIONUNIT.hash(&mut hasher);
 	INDEXUNIT.hash(&mut hasher);
-	let hash = hasher.finish();
-
-	match engine.geometry_res_map.get(&hash) {
-		Some(r) => r,
-		None => engine.geometry_res_map.create(hash, geo_res, 0, 0)
-	}
+	hasher.finish()
 }
 
 #[inline]

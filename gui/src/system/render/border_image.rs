@@ -45,6 +45,7 @@ lazy_static! {
 pub struct BorderImageSys<C: HalContext + 'static>{
 	render_map: VecMap<usize>,
 	default_sampler: Share<SamplerRes>,
+	default_paramter: ImageParamter,
 	marker: PhantomData<C>,
 }
 
@@ -110,7 +111,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 					self.remove_render_obj(*id, render_objs);
 					continue;
 				} else {
-
+					dirty |= DIRTY_TY;
 					match self.render_map.get_mut(*id) {
 						Some(r) => *r,
 						None => {
@@ -179,7 +180,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C>{
 				};
 				render_obj.is_opacity = is_opacity;
 				notify.modify_event(render_index, "is_opacity", 0);
-				modify_opacity(engine, render_obj);
+				modify_opacity(engine, render_obj, default_state);
 			}
 			notify.modify_event(render_index, "", 0);
 		}
@@ -199,6 +200,7 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
 		BorderImageSys {
 			render_map: VecMap::default(),
 			default_sampler: engine.create_sampler_res(SamplerDesc::default()),
+			default_paramter: ImageParamter::default(),
 			marker: PhantomData,
 		}
 	}
@@ -227,7 +229,7 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
 			true,
 			IMAGE_VS_SHADER_NAME.clone(),
 			IMAGE_FS_SHADER_NAME.clone(),
-			Share::new(ImageParamter::default()),
+			Share::new(self.default_paramter.clone()),
 			default_state, render_objs,
 			&mut self.render_map
 		)

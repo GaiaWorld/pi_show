@@ -7,7 +7,7 @@ mod layout;
 mod oct;
 pub mod util;
 mod text_layout;
-mod render;
+pub mod render;
 mod filter;
 mod style_mark;
 mod transform_will_change;

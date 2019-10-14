@@ -5,16 +5,18 @@ use hash::XHashMap;
 use hal_core::*;
 use hal_webgl::*;
 
-use ecs::{Lend};
+use ecs::{Lend, LendMut};
 use gui::component::user::*;
 use gui::component::calc::*;
 use gui::render::res::*;
 use gui::system::util::cal_matrix;
+use gui::entity::Node;
 // use gui::single::Oct;
 use gui::layout::FlexNode;
 use gui::single::*;
 use GuiWorld;
 use gui::render::engine::ShareEngine;
+use bc::YgNode;
 
 // 打印节点信息
 #[allow(unused_attributes)]
@@ -170,7 +172,43 @@ pub fn node_info(world: u32, node: u32) {
 		}
 	}
 
+	let char_block = world.world.fetch_multi::<Node, CharBlock<YgNode>>().unwrap();
+	let char_block = char_block.lend();
+	let char_block = match char_block.get(node) {
+		Some(r) => {
+			let mut c = CharBlock1 {
+				font_size: r.font_size,
+				font_height: r.font_height,
+				stroke_width: r.stroke_width,
+				line_height: r.line_height,
+				chars: Vec::default(),
+				lines: r.lines.clone(),
+				last_line: r.last_line,
+				size: r.size,
+				wrap_size: r.wrap_size,
+				pos: r.pos,
+				line_count: r.line_count,
+				fix_width: r.fix_width,
+				style_class: r.style_class,
+				is_pixel: r.is_pixel,
+			};
+			for i in r.chars.iter(){
+				c.chars.push(CharNode{
+					ch: i.ch,
+					width: i.width,
+					pos: i.pos,
+					ch_id_or_count: i.ch_id_or_count,
+					base_width: i.base_width,
+				});
+			}
+			Some(c)
+		},
+		None => None,
+	};
+
 	let info = Info {
+		char_block: char_block,
+		overflow:  unsafe { world.overflow.lend().get_unchecked(node)}.0,
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
@@ -492,18 +530,18 @@ pub fn get_yoga(world: u32, node: u32) {
     }
 }
 
-#[derive(Serialize, Debug)]
-struct Point2{
-    x: f32, 
-    y: f32,
-}
-js_serializable!( Point2 );
+// #[derive(Serialize, Debug)]
+// struct Point2{
+//     x: f32, 
+//     y: f32,
+// }
+// js_serializable!( Point2 );
 
-impl Point2 {
-    fn new(x: f32, y: f32) -> Self {
-        Self {x, y}
-    }
-}
+// impl Point2 {
+//     fn new(x: f32, y: f32) -> Self {
+//         Self {x, y}
+//     }
+// }
 
 #[derive(Serialize, Debug)]
 struct Quad{
@@ -533,6 +571,7 @@ js_serializable!( Layout1 );
 
 #[derive(Serialize, Debug)]
 struct Info{
+	overflow: bool,
     by_overflow: usize,
     visibility: bool,
     enable: bool,
@@ -546,6 +585,7 @@ struct Info{
 	text: Option<TextStyle>,
 	text_content: Option<TextContent>,
 	render_obj: Vec<RenderObject>,
+	char_block: Option<CharBlock1>,
 }
 js_serializable!( Info );
 
@@ -617,3 +657,454 @@ pub struct OverflowClip{
 }
 
 js_serializable!( OverflowClip );
+
+#[derive(Serialize, Debug)]
+pub struct CharBlock1 {
+  pub font_size: f32, // 字体高度
+  pub font_height: f32, // 字体高度
+  pub stroke_width: f32, //描边宽度
+  pub line_height: f32,
+  pub chars: Vec<CharNode>, // 字符集合
+  pub lines: Vec<(usize, usize, f32)>, // 不折行下的每行的起始字符位置、单词数量和总宽度。 自动折行不会影响该值
+  pub last_line: (usize, usize, f32), // 最后一行的起始字符位置、单词数量和总宽度
+  pub size: Vector2,
+  pub wrap_size: Vector2,
+  pub pos: Point2,
+  pub line_count: usize, // 行数，
+  pub fix_width: bool, // 如果有字宽不等于font_size
+  pub style_class: usize, // 使用的那个样式类
+  pub is_pixel: bool,
+}
+
+// 字符节点， 对应一个字符的
+#[derive(Serialize, Debug, Clone)]
+pub struct CharNode{
+  pub ch: char, // 字符
+  pub width: f32, // 字符宽度
+  pub pos: Point2, // 位置
+  pub ch_id_or_count: usize, // 字符id或单词的字符数量
+  pub base_width: f32, // font_size 为32 的字符宽度
+}
+
+
+
+
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn test_create_render_obj(world: u32, count: u32) {
+	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+	let world = &mut world.gui;
+
+	let default_state = world.world.fetch_single::<gui::single::DefaultState>().unwrap();
+	let default_state = default_state.lend();
+	let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
+	let render_objs = render_objs.lend_mut();
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj(default_state);
+	}
+	println!("create_render_obj: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj1(default_state);
+	}
+	println!("create_render_obj1: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj3(default_state);
+	}
+	println!("create_render_obj3: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj4(default_state);
+	}
+	println!("create_render_obj4: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj5(default_state);
+	}
+	println!("create_render_obj5: {:?}", std::time::Instant::now() - time);
+
+	let mut m = map::vecmap::VecMap::default();
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj6(&mut m, 2, render_objs, default_state);
+	}
+	println!("create_render_obj6: {:?}", std::time::Instant::now() - time);
+
+	let mut m = map::vecmap::VecMap::default();
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj7(&mut m, 2, render_objs, default_state);
+	}
+	println!("create_render_obj7: {:?}", std::time::Instant::now() - time);
+
+	let p: share::Share<dyn hal_core::ProgramParamter> = share::Share::new(ImageParamter::default());
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		create_render_obj13(&mut m, 2, render_objs, default_state, &p);
+	}
+	println!("create_render_obj13: {:?}", std::time::Instant::now() - time);
+
+
+	let read = (world.copacity.lend(), world.visibility.lend(), world.hsv.lend(), world.z_depth.lend(), world.culling.lend());
+	let render_objs = world.world.fetch_single::<gui::single::RenderObjs>().unwrap();
+	let node_render_map = world.world.fetch_single::<gui::single::NodeRenderMap>().unwrap();
+	let write = (render_objs.lend_mut(), node_render_map.lend_mut());
+	let v:Option<share::Share<dyn UniformBuffer>> = Some(share::Share::new(gui::component::calc::ViewMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
+	let p:Option<share::Share<dyn UniformBuffer>> = Some(share::Share::new(gui::component::calc::ProjectMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
+
+	// let mut m = map::vecmap::VecMap::default();
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		render_objs_create8((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
+	}
+	println!("create_render_obj8: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		render_objs_create9((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
+	}
+	println!("render_objs_create9: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		render_objs_create10((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
+	}
+	println!("render_objs_create10: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		render_objs_create11((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
+	}
+	println!("render_objs_create11: {:?}", std::time::Instant::now() - time);
+
+	let time = std::time::Instant::now();
+	for i in 0..count {
+		render_objs_create12((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
+	}
+	println!("render_objs_create12: {:?}", std::time::Instant::now() - time);
+
+	
+
+	
+
+}
+
+//  RenderObj {
+//         depth: 0.0,
+//         program_dirty: true,
+//         visibility: false,
+//         vs_defines: Box::new(VsDefines::default()),
+//         fs_defines: Box::new(FsDefines::default()),
+//         program: None,
+//         geometry: None,
+//         depth_diff,
+//         is_opacity,
+//         vs_name,
+//         fs_name,
+//         paramter,
+//         state,
+//         context,
+//     }
+
+#[inline]
+pub fn create_render_obj(
+    default_state: &gui::single::DefaultState,
+){
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+    let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	gui::system::util::new_render_obj(1, 2.0, true, gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(), gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(), share::Share::new(gui::component::calc::ImageParamter::default()), state);
+}
+
+
+#[inline]
+pub fn create_render_obj1(
+    default_state: &gui::single::DefaultState,
+){
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+    let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+	let notify = default_state.df_ds.clone();
+}
+
+#[inline]
+pub fn create_render_obj3(
+    default_state: &gui::single::DefaultState,
+){
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+    let vs = gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone();
+	let fs = gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone();
+	let p = share::Share::new(gui::component::calc::ImageParamter::default());
+
+}
+
+#[inline]
+pub fn create_render_obj4(
+    default_state: &gui::single::DefaultState,
+){
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+	let p = share::Share::new(gui::component::calc::ImageParamter::default());
+
+}
+
+#[inline]
+pub fn create_render_obj5(
+    default_state: &gui::single::DefaultState,
+){
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+	share::Share::new(1);
+	share::Share::new(1);
+	share::Share::new(1);
+	share::Share::new(1);
+	share::Share::new(1);
+	share::Share::new(1);
+	share::Share::new(1);
+}
+
+#[inline]
+fn create_render_obj6(
+	render_map: &mut map::vecmap::VecMap<usize>,
+	id: usize,
+	render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
+	default_state: &DefaultState,
+) -> usize{
+	gui::system::util::create_render_obj(
+		id,
+		-0.1,
+		true,
+		gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(),
+		gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(),
+		share::Share::new(ImageParamter::default()),
+		default_state, render_objs,
+		render_map
+	)
+}
+
+#[inline]
+fn create_render_obj7(
+	render_map: &mut map::vecmap::VecMap<usize>,
+	id: usize,
+	render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
+	default_state: &DefaultState,
+) -> usize{
+	create_render_obj_(
+		id,
+		-0.1,
+		true,
+		gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(),
+		gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(),
+		share::Share::new(ImageParamter::default()),
+		default_state, render_objs,
+		render_map
+	)
+}
+
+#[inline]
+pub fn create_render_obj_(
+    context: usize,
+    depth_diff: f32,
+    is_opacity: bool,
+    vs_name: atom::Atom,
+    fs_name: atom::Atom,
+    paramter: share::Share<dyn ProgramParamter>,
+    default_state: &DefaultState,
+    render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
+    render_map: &mut map::vecmap::VecMap<usize>,
+) -> usize{
+    let state = gui::single::State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+    let notify = render_objs.get_notify();
+    let render_index = render_objs.insert(
+        gui::system::util::new_render_obj(context, depth_diff, is_opacity, vs_name, fs_name, paramter, state),
+        None
+    );
+    render_map.insert(context, render_index);
+    render_index
+}
+
+fn render_objs_create8<'a>(read: (
+        &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
+        &'a ecs::MultiCaseImpl<Node, Visibility>,
+        &'a ecs::MultiCaseImpl<Node, HSV>,
+        &'a ecs::MultiCaseImpl<Node, ZDepth>,
+        &'a ecs::MultiCaseImpl<Node, Culling>,
+    ), 
+	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
+	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+) {
+	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
+	let (render_objs, node_render_map) = write;
+	let render_obj = unsafe { render_objs.get_unchecked_mut(3) };
+	let notify = node_render_map.get_notify();
+	unsafe{ node_render_map.add_unchecked(render_obj.context, 3, &notify) };
+	
+	let paramter = &mut render_obj.paramter;
+
+	paramter.set_value("viewMatrix", view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
+	paramter.set_value("projectMatrix", project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
+
+	let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
+	let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
+	paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
+	debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
+
+	let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
+	let culling = unsafe { cullings.get_unchecked(render_obj.context) }.0;
+	render_obj.visibility = visibility & !culling;
+
+	render_obj.depth = z_depth + render_obj.depth_diff;
+
+	let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
+	if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
+		render_obj.fs_defines.add("HSV");
+		// paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
+	}
+}
+
+fn render_objs_create9<'a>(read: (
+        &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
+        &'a ecs::MultiCaseImpl<Node, Visibility>,
+        &'a ecs::MultiCaseImpl<Node, HSV>,
+        &'a ecs::MultiCaseImpl<Node, ZDepth>,
+        &'a ecs::MultiCaseImpl<Node, Culling>,
+    ), 
+	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
+	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+) {
+	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
+	let (render_objs, node_render_map) = write;
+	let render_obj = unsafe { render_objs.get_unchecked_mut(3) };
+	let notify = node_render_map.get_notify();
+	unsafe{ node_render_map.add_unchecked(render_obj.context, 3, &notify) };
+	
+	let paramter = &mut render_obj.paramter;
+
+	paramter.set_value("viewMatrix", view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
+	paramter.set_value("projectMatrix", project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
+
+}
+
+fn render_objs_create10<'a>(read: (
+        &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
+        &'a ecs::MultiCaseImpl<Node, Visibility>,
+        &'a ecs::MultiCaseImpl<Node, HSV>,
+        &'a ecs::MultiCaseImpl<Node, ZDepth>,
+        &'a ecs::MultiCaseImpl<Node, Culling>,
+    ), 
+	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
+	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+) {
+	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
+	let (render_objs, node_render_map) = write;
+	let render_obj = unsafe { render_objs.get_unchecked_mut(3) };
+	let notify = node_render_map.get_notify();
+	unsafe{ node_render_map.add_unchecked(render_obj.context, 3, &notify) };
+}
+
+fn render_objs_create11<'a>(read: (
+        &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
+        &'a ecs::MultiCaseImpl<Node, Visibility>,
+        &'a ecs::MultiCaseImpl<Node, HSV>,
+        &'a ecs::MultiCaseImpl<Node, ZDepth>,
+        &'a ecs::MultiCaseImpl<Node, Culling>,
+    ), 
+	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
+	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+) {
+	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
+	let (render_objs, node_render_map) = write;
+	let render_obj = unsafe { render_objs.get_unchecked_mut(3) };
+	let notify = node_render_map.get_notify();
+	// unsafe{ node_render_map.add_unchecked(render_obj.context, 3, &notify) };
+}
+
+fn render_objs_create12<'a>(read: (
+        &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
+        &'a ecs::MultiCaseImpl<Node, Visibility>,
+        &'a ecs::MultiCaseImpl<Node, HSV>,
+        &'a ecs::MultiCaseImpl<Node, ZDepth>,
+        &'a ecs::MultiCaseImpl<Node, Culling>,
+    ), 
+	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
+	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+) {
+	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
+	let (render_objs, node_render_map) = write;
+	let render_obj = unsafe { render_objs.get_unchecked_mut(3) };
+	let notify = node_render_map.get_notify();
+	// unsafe{ node_render_map.add_unchecked(render_obj.context, 3, notify) };
+}
+
+#[inline]
+fn create_render_obj13(
+	render_map: &mut map::vecmap::VecMap<usize>,
+	id: usize,
+	render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
+	default_state: &DefaultState,
+	p: &share::Share<dyn hal_core::ProgramParamter>
+) -> usize{
+	create_render_obj_(
+		id,
+		-0.1,
+		true,
+		gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(),
+		gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(),
+		p.clone(),
+		default_state, render_objs,
+		render_map
+	)
+}
