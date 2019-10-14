@@ -90,7 +90,7 @@ pub struct GuiWorld {
 	pub default_attr: Class,
 }
 
-// 设置纹理的缓存配置
+/// 设置纹理的缓存配置
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_texture_catch_cfg(
@@ -112,7 +112,7 @@ pub fn set_texture_catch_cfg(
 	]);
 }
 
-// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
+/// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
@@ -126,7 +126,7 @@ pub fn create_engine(total_capacity: u32/* 资源管理器总容量 */) -> u32 {
 	r
 }
 
-// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
+/// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_render_target(world: u32) -> u32 {
@@ -138,7 +138,7 @@ pub fn create_render_target(world: u32) -> u32 {
 	Box::into_raw(Box::new(rt)) as u32
 }
 
-// 打印内存情况
+/// 打印内存情况
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn print_memory(world: u32) {
@@ -295,15 +295,15 @@ pub fn print_memory(world: u32) {
 }
 
 
-// 销毁渲染目标
+/// 销毁渲染目标
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn destroy_render_target(render_target: u32) {
 	unsafe{Box::from_raw(&mut *(render_target as usize as *mut Share<HalRenderTarget>))};
 }
 
-// 绑定rendertarget
-// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
+/// 绑定rendertarget
+/// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn bind_render_target(world: u32, render_target: u32) {
@@ -317,12 +317,14 @@ pub fn bind_render_target(world: u32, render_target: u32) {
 	}
 }
 
+/// 克隆渲染引擎（某些情况下， 需要多个gui实例共享同一个渲染引擎）
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn clone_engine(engine: u32) -> u32 {
 	Box::into_raw(Box::new(unsafe {&*(engine as usize as *mut ShareEngine<WebglHalContext>)}.clone())) as u32
 }
 
+/// 创建gui实例
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
@@ -377,7 +379,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 	Box::into_raw(Box::new(world)) as u32
 }
 
-// 设置gui渲染的清屏颜色
+/// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
@@ -388,7 +390,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32){
 	Share::make_mut(&mut render_begin.0).clear_color = Some((OrderedFloat(r), OrderedFloat(g), OrderedFloat(b), OrderedFloat(a))); 
 }
 
-// 渲染gui， 通常每帧调用
+/// 渲染gui， 通常每帧调用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn render(world_id: u32){
@@ -399,7 +401,7 @@ pub fn render(world_id: u32){
 	world.world.run(&RENDER_DISPATCH);
 }
 
-// 强制计算一次布局
+/// 强制计算一次布局
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn cal_layout(world_id: u32){
@@ -418,9 +420,9 @@ pub fn set_shader(engine: u32){
 	engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 
-// 加载图片成功后调用
-// image_name可以使用hash值与高层交互 TODO
-// __jsObj: image, __jsObj1: image_name(String)
+/// 加载图片成功后调用
+/// image_name可以使用hash值与高层交互 TODO
+/// __jsObj: image, __jsObj1: image_name(String)
 #[no_mangle]
 pub fn load_image_success(world_id: u32, opacity: u8, compress: u8, mut r_type: u8/* 缓存类型，支持0， 1， 2三种类型 */){
 	if r_type > 2 {
@@ -463,7 +465,7 @@ pub fn load_image_success(world_id: u32, opacity: u8, compress: u8, mut r_type: 
 	};
 }
 
-// 加载图片，调用高层接口，加载所有等待中的图片
+/// 加载图片，调用高层接口，加载所有等待中的图片
 fn load_image(world_id: u32) {
 	let world = unsafe {&mut *(world_id as usize as *mut GuiWorld)};
 
@@ -480,7 +482,7 @@ fn load_image(world_id: u32) {
 	image_wait_sheet.loads.clear();
 }
 
-// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
+/// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_render_dirty(world: u32) {
@@ -491,7 +493,7 @@ pub fn set_render_dirty(world: u32) {
     render_objs.get_notify().modify_event(1, "", 0); 
 }
 
-// 纹理是否存在, 返回0表示不存在
+/// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn texture_is_exist(world: u32) -> bool {

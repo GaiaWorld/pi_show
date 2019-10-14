@@ -71,6 +71,7 @@ macro_rules! push_tanslate {
     };
 }
 
+/// 清空所有变换
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn clear_transform(world: u32, node_id: u32) {
@@ -93,6 +94,7 @@ pub fn clear_transform(world: u32, node_id: u32) {
     }
 }
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
@@ -109,6 +111,7 @@ pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
     push_tanslate!(world, node_id, transform_translate_m);
 }
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
@@ -127,6 +130,7 @@ pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
     push_tanslate!(world, node_id, transform_translate_m);
 }
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
@@ -150,6 +154,7 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
 }
 
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
@@ -169,6 +174,7 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
     push_tanslate!(world, node_id, transform_translate_m);
 }
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
@@ -192,6 +198,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
 
 }
 
+/// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
@@ -210,31 +217,35 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
     push_tanslate!(world, node_id, transform_translate_m);
 }
 
-
+/// 缩放变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale(world: u32, node_id: u32, x: f32, y: f32) {
     push_func!(world, node_id, TransformFunc::Scale(x, y));
 }
 
+/// 缩放变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale_x(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleX(value));
 }
 
+/// 缩放变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleY(value));
 }
 
+/// 旋转变化
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::RotateZ(value));
 }
 
+/// 设置transfrom为none
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_none(world: u32, node_id: u32) {
@@ -251,6 +262,7 @@ pub fn transform_none(world: u32, node_id: u32) {
     });
 }
 
+/// 设置变化原点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y: f32) {

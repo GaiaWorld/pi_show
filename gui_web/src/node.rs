@@ -35,6 +35,7 @@ fn create(world: &GuiWorld) -> usize {
     node
 }
 
+/// 为节点插入子节点
 #[allow(unused_attributes)]
 #[no_mangle]
 fn insert_child(world: u32, child: u32, parent: u32, index: usize){
@@ -45,7 +46,7 @@ fn insert_child(world: u32, child: u32, parent: u32, index: usize){
     idtree.insert_child(child as usize, parent as usize, index, Some(&notify));
 }
 
-//创建容器节点， 容器节点可设置背景颜色
+/// 创建容器节点， 容器节点可设置背景颜色
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_node(world: u32) -> u32{
@@ -54,6 +55,7 @@ pub fn create_node(world: u32) -> u32{
     node as u32
 }
 
+/// 创建文本节点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_text_node(world: u32) -> u32 {
@@ -63,7 +65,7 @@ pub fn create_text_node(world: u32) -> u32 {
     node as u32
 }
 
-//创建图片节点
+/// 创建图片节点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_image_node(world: u32) -> u32{
@@ -72,7 +74,7 @@ pub fn create_image_node(world: u32) -> u32{
     node as u32
 }
 
-// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
+/// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn append_child(world: u32, child: u32, parent: u32){
@@ -86,7 +88,7 @@ pub fn append_child(world: u32, child: u32, parent: u32){
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
 }
 
-// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
+/// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn insert_before(world: u32, child: u32, brother: u32){
@@ -99,7 +101,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32){
     idtree.insert_brother(child as usize, brother as usize, InsertType::Front, Some(&notify));
 }
 
-// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
+/// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn remove_node(world: u32, node_id: u32){
@@ -110,7 +112,7 @@ pub fn remove_node(world: u32, node_id: u32){
     idtree.remove(node_id as usize, Some(&notify)); 
 }
 
-// 销毁节点
+/// 销毁节点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn destroy_node(world: u32, node_id: u32){
@@ -123,8 +125,8 @@ pub fn destroy_node(world: u32, node_id: u32){
     node.delete(node_id as usize); 
 }
 
-// __jsObj: image_name(String)
-// 设置图片的src
+/// __jsObj: image_name(String)
+/// 设置图片的src
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_src(world: u32, node: u32){
@@ -135,6 +137,7 @@ pub fn set_src(world: u32, node: u32){
 	images.insert(node as usize, Image{src: None, url: Atom::from(name)});
 }
 
+/// 节点到gui的上边界的距离
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_top(world: u32, node: u32) -> f32 {
@@ -143,6 +146,7 @@ pub fn offset_top(world: u32, node: u32) -> f32 {
     unsafe {world.layout.lend().get_unchecked(node as usize)}.top
 }
 
+/// 节点到gui的左边界的距离
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_left(world: u32, node: u32) -> f32 {
@@ -151,6 +155,7 @@ pub fn offset_left(world: u32, node: u32) -> f32 {
     unsafe {world.layout.lend().get_unchecked(node as usize)}.left
 }
 
+/// 节点的布局宽度
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_width(world: u32, node: u32) -> f32 {
@@ -159,6 +164,7 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
     unsafe {world.layout.lend().get_unchecked(node as usize)}.width
 }
 
+/// 节点布局高度
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn offset_height(world: u32, node: u32) -> f32 {
@@ -167,6 +173,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
     unsafe {world.layout.lend().get_unchecked(node as usize)}.height
 }
 
+/// left top width height
 #[no_mangle]
 pub fn offset_document(world: u32, node_id: u32) {
     let node_id = node_id as usize;
@@ -201,51 +208,7 @@ pub fn offset_document(world: u32, node_id: u32) {
     }
 }
 
-// #[no_mangle]
-// pub fn offset_document(world: u32, node_id: u32) {
-//   let mut node_id = node_id as usize;
-//   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	// let world = &mut world.gui;
-//   let idtree = world.fetch_single::<IdTree>().unwrap();
-//   let idtree = idtree.lend();
-//   let layouts = world.fetch_multi::<Node, Layout>().unwrap();
-//   let layouts = layouts.lend();
-  
-//   let mut x: f32 = 0.0;
-//   let mut y: f32 = 0.0;
-//   let layout = unsafe{layouts.get_unchecked(node_id)};
-//   x += layout.left;
-//   y += layout.top;
-
-//   loop {
-//     let node = unsafe {idtree.get_unchecked(node_id)};
-//     if node.parent == 0 {
-//       break;
-//     }
-//     let layout = unsafe{layouts.get_unchecked(node.parent)};
-//     x += layout.left;
-//     y += layout.top;
-//     node_id = node.parent;
-//   }
-
-//   js!{
-//     __jsObj.left = @{x};
-//     __jsObj.top = @{y};
-//     __jsObj.width = @{layout.width};
-//     __jsObj.height = @{layout.height};
-//   }
-// }
-
-// #[no_mangle]
-// pub fn set_event_type(world: u32, node: u32, ty: u8) {
-//   let node = node as usize;
-//   let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	// let world = &mut world.gui;
-//   let node_ref = world.component_mgr.get_node_mut(node);
-//   node_ref.set_event_type(ty);
-// }
-
-//content宽高的累加值
+/// content宽高的累加值
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn content_box(world: u32, node: u32) {
@@ -277,6 +240,7 @@ pub fn content_box(world: u32, node: u32) {
     }
 }
 
+/// 用点命中一个节点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn query(world: u32, x: f32, y: f32)-> u32{

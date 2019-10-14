@@ -33,25 +33,29 @@ macro_rules! set_attr {
     };
 }
 
+/// 设置字符间距
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_letter_spacing(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, text, letter_spacing, "letter_spacing", value, text_style);
 }
 
+/// 设置单词间距
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_word_spacing(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, text, word_spacing, "word_spacing", value, text_style);
 }
 
+/// 设置文字rgba颜色
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32){
     set_attr!(world, node_id, text, color, "color", Color::RGBA(CgColor::new(r, g, b, a)), text_style);
 }
 
-// __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
+/// 设置文字渐变颜色
+/// __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
@@ -60,37 +64,42 @@ pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32){
     set_attr!(world, node_id, text, color, "color", value, text_style);
 }
 
-
+/// 设置行高为normal
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height_normal(world: u32, node_id: u32){
     set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Normal, text_style);
 }
 
+/// 设置行高的像素值
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Length(value), text_style);
 }
 
+/// 设置行高的百分比值
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_line_height_percent(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, text, line_height, "line_height", LineHeight::Percent(value), text_style);
 }
 
+/// 设置文字首行缩进的像素值
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_indent(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, text, indent, "text_indent", value, text_style);
 }
 
+/// 设置文本的水平对齐方式
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_align(world: u32, node_id: u32, value: u8){
     set_attr!(world, node_id, text, text_align, "text_align", unsafe { transmute(value) } , text_style);
 }
 
+/// 设置文字的描边属性
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: f32, a: f32){
@@ -100,12 +109,14 @@ pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: 
     }, text_style);
 }
 
+/// 设置文字的空白处理方式
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_white_space(world: u32, node_id: u32, value: u8){
     set_attr!(world, node_id, text, white_space, "white_space", unsafe {transmute(value)}, text_style);
 }
 
+/// 设置文字阴影
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, blur: f32, r: f32, g: f32, b: f32, a: f32){
@@ -131,38 +142,43 @@ pub fn set_text_shadow(world: u32, node_id: u32, h: f32, v: f32, blur: f32, r: f
     debug_println!("set_text_shadow"); 
 }
 
-
+/// 设置字体风格
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_style(world: u32, node_id: u32, value: u8){
     set_attr!(world, node_id, font, style, "font_style",  unsafe {transmute(value)}, text_style);
 }
 
+/// 设置字体粗度
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_weight(world: u32, node_id: u32, value: u32){
     set_attr!(world, node_id, font, weight, "font_weight", value as usize, text_style);
 }
 
+/// 设置字体尺寸为none（使用默认）
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_none(world: u32, node_id: u32){
     set_attr!(world, node_id, font, size, "font_size", FontSize::None, text_style);
 }
 
+/// 设置字体尺寸的像素值
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, font, size, "font_size", FontSize::Length(value), text_style);
 }
 
+/// 设置字体尺寸的百分比
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_size_percent(world: u32, node_id: u32, value: f32){
     set_attr!(world, node_id, font, size, "font_size", FontSize::Percent(value), text_style);
 }
 
-// __jsObj: family name
+/// 设置字体
+/// __jsObj: family name
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_font_family(world: u32, node_id: u32){
@@ -170,8 +186,9 @@ pub fn set_font_family(world: u32, node_id: u32){
     set_attr!(world, node_id, font, family, "font_family", Atom::from(value), text_style);
 }
 
-// 图片            配置       
-//__jsObj: image , __jsObj1: glyph cfg
+/// 添加一个msdf字体资源
+/// 图片            配置       
+///__jsObj: image , __jsObj1: glyph cfg
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_msdf_font_res(world_id: u32) {
@@ -193,7 +210,8 @@ pub fn add_msdf_font_res(world_id: u32) {
     font_sheet.font_tex.last_v += height as f32;
 }
 
-// __jsObj 文字字符串
+/// 设置文本内容
+/// __jsObj 文字字符串
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn set_text_content(world_id: u32, node: u32){
@@ -205,7 +223,8 @@ pub fn set_text_content(world_id: u32, node: u32){
     debug_println!("set_text_content");  
 }
 
-//__jsObj1: name(String)
+/// 添加一个canvas字体
+/// __jsObj1: name(String)
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_canvas_font(world: u32, factor: f32) {
@@ -216,8 +235,9 @@ pub fn add_canvas_font(world: u32, factor: f32) {
     font_sheet.set_src(Atom::from(name), true, factor);
 }
 
-//          字体族名称                        字体名称（逗号分隔）     
-// __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔), 
+/// 添加font-face
+///          字体族名称                        字体名称（逗号分隔）     
+/// __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔), 
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32){
@@ -229,7 +249,8 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32){
     font_sheet.set_face(Atom::from(family), oblique, size as usize, weight as usize, src);
 }
 
-// __jsObj: canvas
+/// 更新字体纹理
+/// __jsObj: canvas
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
@@ -252,6 +273,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
     engine.gl.texture_update_webgl(&texture.bind, 0, u, v, &TryInto::<Object>::try_into(js!{return {wrap: __jsObj};}).unwrap());
 }
 
+/// 绘制文字
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn draw_canvas_text(world_id: u32, data: u32) {

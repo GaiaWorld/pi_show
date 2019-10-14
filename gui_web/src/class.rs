@@ -10,10 +10,8 @@ use gui::single::Class;
 use debug_info::{debug_println};
 use GuiWorld;
 
-/**
- * 在指定上下文中创建一个 文本样式表
- * __jsObj: class样式的文本描述
- */
+/// 在指定上下文中创建一个 文本样式表
+///__jsObj: class样式的文本描述
 #[cfg(feature="create_class_by_str")]
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -33,7 +31,7 @@ pub fn create_class(world: u32, class_id: u32) {
     class_sheet.class_map.insert(class_id as usize, r);
 }
 
-// 添加二进制格式的css表
+/// 添加二进制格式的css表
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_class_by_bin(world: u32) {
