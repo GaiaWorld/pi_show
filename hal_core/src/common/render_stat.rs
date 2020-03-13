@@ -1,7 +1,6 @@
 // 渲染统计情况
 #[derive(Debug)]
 pub struct RenderStat {
-
     pub slab_mem_size: usize,
 
     pub rt_count: i32,

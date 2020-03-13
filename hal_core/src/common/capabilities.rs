@@ -93,31 +93,67 @@ impl Capabilities {
 
 impl fmt::Debug for Capabilities {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-          writeln!(f, "Gpu Capabilities: [")?;
-          writeln!(f, "    s3tc: {}", self.s3tc)?;
-          writeln!(f, "    pvrtc: {}", self.pvrtc)?;
-          writeln!(f, "    etc1: {}", self.etc1)?;
-          writeln!(f, "    etc2: {}", self.etc2)?;
-          writeln!(f, "    astc: {}", self.astc)?;
-          writeln!(f, "    max_textures_image_units: {}", self.max_textures_image_units)?;
-          writeln!(f, "    max_vertex_texture_image_units: {}", self.max_vertex_texture_image_units)?;
-          writeln!(f, "    max_combined_textures_image_units: {}", self.max_combined_textures_image_units)?;
-          writeln!(f, "    max_texture_size: {}", self.max_texture_size)?;
-          writeln!(f, "    max_render_texture_size: {}", self.max_render_texture_size)?;
-          writeln!(f, "    max_vertex_attribs: {}", self.max_vertex_attribs)?;
-          writeln!(f, "    max_varying_vectors: {}", self.max_varying_vectors)?;
-          writeln!(f, "    max_vertex_uniform_vectors: {}", self.max_vertex_uniform_vectors)?;
-          writeln!(f, "    max_fragment_uniform_vectors: {}", self.max_fragment_uniform_vectors)?;
-          writeln!(f, "    standard_derivatives: {}", self.standard_derivatives)?;
-          writeln!(f, "    uint_indices: {}", self.uint_indices)?;
-          writeln!(f, "    fragment_depth_supported: {}", self.fragment_depth_supported)?;
-          writeln!(f, "    texture_float: {}", self.texture_float)?;
-          writeln!(f, "    texture_float_linear_filtering: {}", self.texture_float_linear_filtering)?;
-          writeln!(f, "    texture_lod: {}", self.texture_lod)?;
-          writeln!(f, "    color_buffer_float: {}", self.color_buffer_float)?;
-          writeln!(f, "    depth_texture_extension: {}", self.depth_texture_extension)?;
-          writeln!(f, "    vertex_array_object: {}", self.vertex_array_object)?;
-          writeln!(f, "    instanced_arrays: {}", self.instanced_arrays)?;
-          writeln!(f, "]")
-      }
+        writeln!(f, "Gpu Capabilities: [")?;
+        writeln!(f, "    s3tc: {}", self.s3tc)?;
+        writeln!(f, "    pvrtc: {}", self.pvrtc)?;
+        writeln!(f, "    etc1: {}", self.etc1)?;
+        writeln!(f, "    etc2: {}", self.etc2)?;
+        writeln!(f, "    astc: {}", self.astc)?;
+        writeln!(
+            f,
+            "    max_textures_image_units: {}",
+            self.max_textures_image_units
+        )?;
+        writeln!(
+            f,
+            "    max_vertex_texture_image_units: {}",
+            self.max_vertex_texture_image_units
+        )?;
+        writeln!(
+            f,
+            "    max_combined_textures_image_units: {}",
+            self.max_combined_textures_image_units
+        )?;
+        writeln!(f, "    max_texture_size: {}", self.max_texture_size)?;
+        writeln!(
+            f,
+            "    max_render_texture_size: {}",
+            self.max_render_texture_size
+        )?;
+        writeln!(f, "    max_vertex_attribs: {}", self.max_vertex_attribs)?;
+        writeln!(f, "    max_varying_vectors: {}", self.max_varying_vectors)?;
+        writeln!(
+            f,
+            "    max_vertex_uniform_vectors: {}",
+            self.max_vertex_uniform_vectors
+        )?;
+        writeln!(
+            f,
+            "    max_fragment_uniform_vectors: {}",
+            self.max_fragment_uniform_vectors
+        )?;
+        writeln!(f, "    standard_derivatives: {}", self.standard_derivatives)?;
+        writeln!(f, "    uint_indices: {}", self.uint_indices)?;
+        writeln!(
+            f,
+            "    fragment_depth_supported: {}",
+            self.fragment_depth_supported
+        )?;
+        writeln!(f, "    texture_float: {}", self.texture_float)?;
+        writeln!(
+            f,
+            "    texture_float_linear_filtering: {}",
+            self.texture_float_linear_filtering
+        )?;
+        writeln!(f, "    texture_lod: {}", self.texture_lod)?;
+        writeln!(f, "    color_buffer_float: {}", self.color_buffer_float)?;
+        writeln!(
+            f,
+            "    depth_texture_extension: {}",
+            self.depth_texture_extension
+        )?;
+        writeln!(f, "    vertex_array_object: {}", self.vertex_array_object)?;
+        writeln!(f, "    instanced_arrays: {}", self.instanced_arrays)?;
+        writeln!(f, "]")
+    }
 }

@@ -1,18 +1,17 @@
+use component::calc::Layout;
+use ecs::Component;
 /**
  * 定义布局节点的trait。（暂定使用yoga进行布局，有扩展需求）
 */
-
 use std::default::Default;
 use std::fmt::Debug;
-use std::os::raw::{c_void};
-use ecs::component::Component;
-use component::calc::Layout;
+use std::os::raw::c_void;
 
 pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
-	type C: FlexConfig;
+    type C: FlexConfig;
     fn new() -> Self;
-	fn new_with_config(config: Self::C) -> Self;
-    fn new_null() -> Self; 
+    fn new_with_config(config: Self::C) -> Self;
+    fn new_null() -> Self;
     fn is_null(&self) -> bool;
     fn set_position_type(&self, value: YGPositionType);
     fn set_position(&self, edge: YGEdge, position: f32);
@@ -63,14 +62,22 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
     fn get_bind(&self) -> *mut c_void;
     fn mark_dirty(&self);
     fn is_dirty(&self) -> bool;
-    fn calculate_layout(&self, _width: f32, _height:f32, _direction: YGDirection);
-    fn calculate_layout_by_callback(&self, _width: f32, _height:f32, _direction: YGDirection, _callback: YGCalcCallbackFunc<Self>, _callback_args: *const c_void);
+    fn calculate_layout(&self, _width: f32, _height: f32, _direction: YGDirection);
+    fn calculate_layout_by_callback(
+        &self,
+        _width: f32,
+        _height: f32,
+        _direction: YGDirection,
+        _callback: YGCalcCallbackFunc<Self>,
+        _callback_args: *const c_void,
+    );
     fn set_measure_func(&self, func: YGMeasureFunc<Self>);
     fn get_layout(&self) -> Layout;
     fn get_layout_margin(&self, edge: YGEdge) -> f32;
     fn get_layout_border(&self, edge: YGEdge) -> f32;
     fn get_layout_padding(&self, edge: YGEdge) -> f32;
     fn get_style_width_unit(&self) -> YGUnit;
+    fn get_style_height_unit(&self) -> YGUnit;
     fn get_style_justify(&self) -> YGJustify;
     fn get_style_align_content(&self) -> YGAlign;
     fn get_style_align_items(&self) -> YGAlign;
@@ -80,10 +87,9 @@ pub trait FlexNode: Default + Clone + Debug + Copy + PartialEq + Component {
 }
 
 pub trait FlexConfig {
-	fn new() -> Self;
-	fn set_point_scale_factor(&self, factor: f32);
+    fn new() -> Self;
+    fn set_point_scale_factor(&self, factor: f32);
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGAlign {
@@ -116,7 +122,6 @@ pub enum YGDisplay {
     YGDisplayNone = 1,
 }
 
-
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault, Serialize, Deserialize)]
 pub enum YGEdge {
     YGEdgeLeft = 0,
@@ -129,7 +134,6 @@ pub enum YGEdge {
     YGEdgeVertical = 7,
     YGEdgeAll = 8,
 }
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumDefault)]
 pub enum YGExperimentalFeature {
@@ -219,4 +223,12 @@ pub struct YGSize {
 }
 
 pub type YGCalcCallbackFunc<T> = unsafe extern "C" fn(node: T, args: *const c_void);
-pub type YGMeasureFunc<T> = Option<unsafe extern "C" fn(node: T, width: f32, widthMode: YGMeasureMode, height: f32, heightMode: YGMeasureMode) -> YGSize>;
+pub type YGMeasureFunc<T> = Option<
+    unsafe extern "C" fn(
+        node: T,
+        width: f32,
+        widthMode: YGMeasureMode,
+        height: f32,
+        heightMode: YGMeasureMode,
+    ) -> YGSize,
+>;

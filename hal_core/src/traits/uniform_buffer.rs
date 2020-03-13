@@ -1,19 +1,18 @@
-use share::{Share};
-use common::{UniformValue};
-use traits::context::{HalItem, HalTexture, HalSampler};
+use common::UniformValue;
+use share::Share;
+use traits::context::{HalItem, HalSampler, HalTexture};
 
-/** 
+/**
  * UniformBuffer
  */
 pub trait UniformBuffer {
-
-    /** 
+    /**
      * UniformBuffer的布局
      * 返回切片的索引表示高层约定uniform的槽
      */
     fn get_layout(&self) -> &[&str];
 
-    /** 
+    /**
      * 按布局顺序返回UniformValue数组
      */
     fn get_values(&self) -> &[UniformValue];
@@ -45,18 +44,17 @@ impl UniformBuffer for NullUniformBuffer {
     }
 }
 
-/** 
+/**
  * Program的Uniform参数；
  * Texture的Uniform和普通的Uniform要分开设置
  * 布局，其中数组切片对应的下标意味着槽，避免哈希表。
  */
 pub trait ProgramParamter {
-
     fn get_layout(&self) -> &[&str];
     fn get_single_uniform_layout(&self) -> &[&str];
     fn get_texture_layout(&self) -> &[&str];
 
-	fn get_index(&self, name: &str) -> Option<usize>;
+    fn get_index(&self, name: &str) -> Option<usize>;
 
     fn get_values(&self) -> &[Share<dyn UniformBuffer>];
     fn get_single_uniforms(&self) -> &[UniformValue];

@@ -15,6 +15,7 @@ hash = { path = "../../pi_lib/hash" }
 bincode = {path="../../pi_lib/bincode"}
 res = {path="../../pi_lib/res"}
 hal_webgl = {path="../hal_webgl"}
+gui_tool = {path="../gui_tool"}
 hal_core = {path="../hal_core", features = ["serde"]}
 cg2d = { path = "../../pi_math_hal/cg2d" }
 color = { path = "../../pi_math_hal/color" }
@@ -35,6 +36,12 @@ opt-level = "z"
 panic = 'abort'
 codegen-units = 1
 
+# [profile.release]
+# lto = true
+# opt-level = 1
+# panic = 'abort'
+# codegen-units = 1
+
 # [profile.dev]
 # debug = 2
 # opt-level = 3
@@ -43,7 +50,10 @@ codegen-units = 1
 # default = ["no_debug", "no_define_js"]
 # default = ["create_class_by_str"]
 # default = ["no_debug", "share/rc"]
+# default = ["debug"]
 default = ["share/rc"]
+# default = ["debug", "no_debug"]
+debug = ["share/rc", "ecs/runtime"]
 no_debug = []
 no_define_js = []
 create_class_by_str = []

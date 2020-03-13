@@ -18,7 +18,6 @@ use ecs::{
   component::MultiCaseImpl,
   single::SingleCaseImpl,
   idtree::{IdTree, Node as IdNode},
-  set_print,
 };
 
 use single::DirtyList;

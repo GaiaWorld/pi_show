@@ -1,30 +1,30 @@
+use hash::XHashMap;
 use stdweb::unstable::TryInto;
 use stdweb::web::TypedArray;
-use hash::XHashMap;
 
 use bincode;
+use debug_info::debug_println;
 use ecs::LendMut;
-#[cfg(feature="create_class_by_str")]
-use gui::single::{style_parse::{parse_class_from_string} };
+#[cfg(feature = "create_class_by_str")]
+use gui::single::style_parse::parse_class_from_string;
 use gui::single::Class;
-use debug_info::{debug_println};
 use GuiWorld;
 
 /// 在指定上下文中创建一个 文本样式表
 ///__jsObj: class样式的文本描述
-#[cfg(feature="create_class_by_str")]
+#[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn create_class(world: u32, class_id: u32) {
     let value: String = js!(return __jsObj;).try_into().unwrap();
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
     let r = match parse_class_from_string(value.as_str()) {
         Ok(r) => r,
         Err(e) => {
             debug_println!("{:?}", e);
             return;
-        },
+        }
     };
 
     let class_sheet = world.gui.class_sheet.lend_mut();
@@ -42,10 +42,10 @@ pub fn create_class_by_bin(world: u32) {
         Err(e) => {
             debug_println!("deserialize_class_map error: {:?}", e);
             return;
-        },
+        }
     };
 
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
     let class_sheet = world.gui.class_sheet.lend_mut();
 

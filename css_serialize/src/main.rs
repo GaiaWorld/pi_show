@@ -2,15 +2,15 @@
 
 #[macro_use]
 extern crate stdweb;
-extern crate gui;
 extern crate bincode;
 extern crate fx_hashmap;
+extern crate gui;
 
-use stdweb::web::TypedArray;
-use stdweb::unstable::TryInto;
+use fx_hashmap::FxHashMap32;
 use gui::single::style_parse::parse_class_map_from_string;
 use gui::single::Class;
-use fx_hashmap::FxHashMap32;
+use stdweb::unstable::TryInto;
+use stdweb::web::TypedArray;
 /**
  * 在指定上下文中创建一个 文本样式表
  * __jsObj: class样式的文本描述
@@ -23,14 +23,18 @@ pub fn serialize_class_map() {
         Ok(r) => match bincode::serialize(&r) {
             Ok(bin) => {
                 let bin = TypedArray::<u8>::from(bin.as_slice());
-                js!{
+                js! {
                     __jsObj = @{bin};
                 }
                 return;
-            },
-            Err(r) => {js!{__jsObj = @{r.to_string()};};}
+            }
+            Err(r) => {
+                js! {__jsObj = @{r.to_string()};};
+            }
         },
-        Err(r) => {js!{__jsObj = @{r};};},
+        Err(r) => {
+            js! {__jsObj = @{r};};
+        }
     };
 }
 
@@ -44,10 +48,9 @@ pub fn deserialize_class_map() {
         Err(e) => {
             println!("deserialize_class_map error: {:?}", e);
             return;
-        },
+        }
     };
-	// println!("r: {:?}", r);
+    // println!("r: {:?}", r);
 }
 
-fn main() {
-}
+fn main() {}

@@ -19,7 +19,6 @@
 // use font::font_sheet::FontSheet;
 // use Z_MAX;
 
-
 // pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
 //     let mut world = World::default();
 
@@ -47,7 +46,7 @@
 //     world.register_multi::<Node, BorderImageSlice>();
 //     world.register_multi::<Node, BorderImageRepeat>();
 //     world.register_multi::<Node, CharBlock>();
-//     world.register_multi::<Node, Text>(); 
+//     world.register_multi::<Node, Text>();
 //     world.register_multi::<Node, TextStyle>();
 //     world.register_multi::<Node, TextShadow>();
 //     world.register_multi::<Node, Font>();
@@ -56,7 +55,6 @@
 //     world.register_multi::<Node, ImageClip>();
 //     world.register_multi::<Node, ObjectFit>();
 //     world.register_multi::<Node, Filter>();
-
 
 //     //calc
 //     world.register_multi::<Node, ZDepth>();
@@ -69,7 +67,7 @@
 //     world.register_multi::<Node, YgNode>();
 //     world.register_multi::<Node, HSV>();
 //     world.register_multi::<Node, WorldMatrixRender>();
-    
+
 //     //single
 //     world.register_single::<ClipUbo<C>>(ClipUbo(Arc::new(engine.gl.create_uniforms())));
 //     world.register_single::<IdTree>(IdTree::default());
@@ -83,7 +81,7 @@
 //     world.register_single::<RenderBegin>(RenderBegin(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
 //     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
 //     world.register_single::<DefaultTable>(default_table);
-    
+
 //     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
 //     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
 //     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));

@@ -1,19 +1,17 @@
 /// 将设置几何变换属性的接口导出到js
-
 use std::mem::transmute;
 
-use ecs::{LendMut};
+use ecs::LendMut;
 
 use gui::component::user::*;
 use GuiWorld;
-
 
 #[macro_use()]
 macro_rules! push_func {
     ($world:ident, $node_id:ident, $value:expr) => {
         let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-		let world = &mut world.gui;
+        let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
+        let world = &mut world.gui;
         let attr = world.transform_will_change.lend_mut();
         match attr.get_write(node_id) {
             Some(mut r) => r.modify(|transform: &mut TransformWillChange| {
@@ -42,8 +40,8 @@ macro_rules! push_func {
 macro_rules! push_tanslate {
     ($world:ident, $node_id:ident, $modify: ident) => {
         let node_id = $node_id as usize;
-        let world = unsafe {&mut *($world as usize as *mut GuiWorld)};
-		let world = &mut world.gui;
+        let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
+        let world = &mut world.gui;
         let attr = world.transform_will_change.lend_mut();
         match attr.get_write(node_id) {
             Some(mut r) => r.modify(|transform: &mut TransformWillChange| {
@@ -76,8 +74,8 @@ macro_rules! push_tanslate {
 #[no_mangle]
 pub fn clear_transform(world: u32, node_id: u32) {
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
     let attr = world.transform.lend_mut();
     match attr.get_write(node_id) {
         Some(mut r) => {
@@ -85,12 +83,12 @@ pub fn clear_transform(world: u32, node_id: u32) {
                 if transform.funcs.len() > 0 {
                     transform.funcs.clear();
                     true
-                }else {
+                } else {
                     false
                 }
-            }); 
-        },
-        None => ()
+            });
+        }
+        None => (),
     }
 }
 
@@ -121,8 +119,8 @@ pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
                 TransformFunc::Translate(x1, _) => {
                     *x1 += value;
                     return;
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
         transform.funcs.push(TransformFunc::Translate(value, 0.0));
@@ -140,8 +138,8 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
                 TransformFunc::Translate(_, y1) => {
                     *y1 += value;
                     return;
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
         // let len = transform.funcs.len();
@@ -153,7 +151,6 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
     push_tanslate!(world, node_id, transform_translate_m);
 }
 
-
 /// 移动变化
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -162,14 +159,16 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(x1, y1) => {
-                    *x1 += x/100.0;
-                    *y1 += y/100.0;
+                    *x1 += x / 100.0;
+                    *y1 += y / 100.0;
                     return;
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
-        transform.funcs.push(TransformFunc::TranslatePercent(x/100.0, y/100.0));
+        transform
+            .funcs
+            .push(TransformFunc::TranslatePercent(x / 100.0, y / 100.0));
     };
     push_tanslate!(world, node_id, transform_translate_m);
 }
@@ -182,20 +181,21 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(x1, _) => {
-                    *x1 += value/100.0;
+                    *x1 += value / 100.0;
                     return;
-                },
+                }
                 // TransformFunc::TranslateXPercent(x1) => {
                 //     *x1 += value/100.0;
                 //     return;
                 // },
-                _ => ()
+                _ => (),
             }
         }
-        transform.funcs.push(TransformFunc::TranslatePercent(value/100.0, 0.0));
+        transform
+            .funcs
+            .push(TransformFunc::TranslatePercent(value / 100.0, 0.0));
     };
     push_tanslate!(world, node_id, transform_translate_m);
-
 }
 
 /// 移动变化
@@ -206,13 +206,15 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(_, y1) => {
-                    *y1 += value/100.0;
+                    *y1 += value / 100.0;
                     return;
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
-        transform.funcs.push(TransformFunc::TranslatePercent(0.0, value/100.0));
+        transform
+            .funcs
+            .push(TransformFunc::TranslatePercent(0.0, value / 100.0));
     };
     push_tanslate!(world, node_id, transform_translate_m);
 }
@@ -250,35 +252,37 @@ pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
 #[no_mangle]
 pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
-    unsafe {world.transform.lend_mut().get_unchecked_write(node_id)}.modify(|transform: &mut Transform| {
-        if transform.funcs.len() > 0 {
-            transform.funcs.clear();
-            true
-        }else{
-            false
-        }
-    });
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    unsafe { world.transform.lend_mut().get_unchecked_write(node_id) }.modify(
+        |transform: &mut Transform| {
+            if transform.funcs.len() > 0 {
+                transform.funcs.clear();
+                true
+            } else {
+                false
+            }
+        },
+    );
 }
 
 /// 设置变化原点
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y: f32) {
-    let x_ty = unsafe{transmute(x_ty)};
-    let y_ty = unsafe {transmute(y_ty)};
+    let x_ty = unsafe { transmute(x_ty) };
+    let y_ty = unsafe { transmute(y_ty) };
     let x_value = match x_ty {
         LengthUnitType::Pixel => LengthUnit::Pixel(x),
-        LengthUnitType::Percent => LengthUnit::Percent(x/100.0),
+        LengthUnitType::Percent => LengthUnit::Percent(x / 100.0),
     };
     let y_value = match y_ty {
         LengthUnitType::Pixel => LengthUnit::Pixel(y),
-        LengthUnitType::Percent => LengthUnit::Percent(y/100.0),
+        LengthUnitType::Percent => LengthUnit::Percent(y / 100.0),
     };
     let node_id = node_id as usize;
-    let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
-	let world = &mut world.gui;
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
     let attr = world.transform_will_change.lend_mut();
     match attr.get_write(node_id) {
         Some(mut r) => r.modify(|transform: &mut TransformWillChange| {
@@ -297,7 +301,7 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
                     transform.origin = TransformOrigin::XY(x_value, y_value);
                     attr.insert(node_id, transform);
                 }
-            } 
-        },
+            }
+        }
     }
 }

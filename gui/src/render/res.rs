@@ -1,14 +1,13 @@
 /**
  * 定义gl资源
 */
-
 use std::ops::{Deref, DerefMut};
 
 use atom::Atom;
 use hal_core::*;
 
-use share::Share;
 use res::Res;
+use share::Share;
 // use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
 
 #[derive(Debug, Clone, Copy)]
@@ -30,10 +29,10 @@ pub enum Compress {
     ATCRGBA,
     PVRTCRGB,
     PVRTCRGBA,
-    ETC1,//(RGB)
+    ETC1, //(RGB)
     ETC2RGB,
     ETC2RGBA,
-    ASTC
+    ASTC,
 }
 
 pub struct TextureRes {
@@ -54,14 +53,28 @@ pub struct TextureRes {
 
 impl TextureRes {
     // 创建资源
-	pub fn new(width: usize, height: usize, pformat: PixelFormat, dformat: DataFormat, opacity: Opacity, compress: Compress, bind: HalTexture) -> Self{
+    pub fn new(
+        width: usize,
+        height: usize,
+        pformat: PixelFormat,
+        dformat: DataFormat,
+        opacity: Opacity,
+        compress: Compress,
+        bind: HalTexture,
+    ) -> Self {
         TextureRes {
-            width, height, pformat, dformat, opacity, compress, bind
+            width,
+            height,
+            pformat,
+            dformat,
+            opacity,
+            compress,
+            bind,
         }
     }
 
     pub fn update_size(&self, width: usize, height: usize) {
-        let s = unsafe {&mut *( self as *const Self as *mut Self) };
+        let s = unsafe { &mut *(self as *const Self as *mut Self) };
         s.width = width;
         s.height = height;
     }
@@ -99,13 +112,13 @@ pub struct GeometryRes {
 
 impl Deref for GeometryRes {
     type Target = HalGeometry;
-    fn deref(&self) -> &Self::Target{
+    fn deref(&self) -> &Self::Target {
         &self.geo
     }
 }
 
 impl DerefMut for GeometryRes {
-    fn deref_mut(&mut self) -> &mut Self::Target{
+    fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.geo
     }
 }

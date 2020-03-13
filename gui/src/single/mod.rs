@@ -1,33 +1,32 @@
+pub mod class;
 /**
  * 定义单例类型
 */
-
 pub mod oct;
-pub mod class;
 pub mod style_parse;
 
 use share::Share;
-use std::any::{TypeId, Any};
+use std::any::{Any, TypeId};
 use std::default::Default;
 
-use cgmath::Ortho;
-use slab::Slab;
 use atom::Atom;
-use hal_core::*;
-use ecs::{ Write };
+use cgmath::Ortho;
 use ecs::monitor::NotifyImpl;
-use map::vecmap::VecMap;
+use ecs::Write;
+use hal_core::*;
 use hash::XHashMap;
+use map::vecmap::VecMap;
+use slab::Slab;
 
-use component::user::*;
 use component::calc::{ClipBox, WorldMatrix};
+use component::user::*;
 
 use render::res::*;
 
-pub use single::oct::Oct;
 pub use single::class::*;
+pub use single::oct::Oct;
 
-pub struct OverflowClip{
+pub struct OverflowClip {
     pub id_map: XHashMap<usize, usize>,
     pub clip: Slab<Clip>, //[[Point2;4];16], //Vec<(clip_view, has_rotate, old_has_rotate)> 最多32个
     pub clip_map: XHashMap<usize, (Aabb3, Share<dyn UniformBuffer>)>,
@@ -37,7 +36,7 @@ pub struct OverflowClip{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Clip {
-    pub view: [Point2;4],
+    pub view: [Point2; 4],
     pub has_rotate: bool,
     pub old_has_rotate: bool,
     pub node_id: usize,
@@ -45,12 +44,21 @@ pub struct Clip {
 
 impl OverflowClip {
     pub fn mem_size(&self) -> usize {
-        2 * self.id_map.capacity() * std::mem::size_of::<usize>() + self.clip.mem_size() + self.clip_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<(Aabb3, Share<dyn UniformBuffer>)>())
+        2 * self.id_map.capacity() * std::mem::size_of::<usize>()
+            + self.clip.mem_size()
+            + self.clip_map.capacity()
+                * (std::mem::size_of::<usize>()
+                    + std::mem::size_of::<(Aabb3, Share<dyn UniformBuffer>)>())
     }
-    pub fn insert_aabb(&mut self, key: usize, value: Aabb3, view_matrix: &WorldMatrix) -> &(Aabb3, Share<dyn UniformBuffer>) {
+    pub fn insert_aabb(
+        &mut self,
+        key: usize,
+        value: Aabb3,
+        view_matrix: &WorldMatrix,
+    ) -> &(Aabb3, Share<dyn UniformBuffer>) {
         let min = view_matrix * Vector4::new(value.min.x, value.min.y, 0.0, 0.0);
         let max = view_matrix * Vector4::new(value.max.x, value.max.y, 0.0, 0.0);
-        let (w, h) = ((max.x - min.x) / 2.0, (max.y - min.y) / 2.0 );
+        let (w, h) = ((max.x - min.x) / 2.0, (max.y - min.y) / 2.0);
         let ubo = ClipBox::new(UniformValue::Float4(min.x + w, min.y + h, w, h));
 
         // self.clip_map.entry(key).and_modify(|e|{
@@ -68,7 +76,7 @@ impl OverflowClip {
 }
 
 // pub struct ClipIndex {
-    
+
 // }
 
 impl Default for OverflowClip {
@@ -78,7 +86,14 @@ impl Default for OverflowClip {
             clip: Slab::default(),
             clip_map: XHashMap::default(),
         };
-        r.insert_aabb(0, Aabb3::new(Point3::new(std::f32::MIN, std::f32::MIN, 0.0), Point3::new(std::f32::MAX, std::f32::MAX, 0.0)), &WorldMatrix::default());
+        r.insert_aabb(
+            0,
+            Aabb3::new(
+                Point3::new(std::f32::MIN, std::f32::MIN, 0.0),
+                Point3::new(std::f32::MAX, std::f32::MAX, 0.0),
+            ),
+            &WorldMatrix::default(),
+        );
         r
     }
 }
@@ -90,11 +105,11 @@ pub struct ViewMatrix(pub WorldMatrix);
 pub struct ProjectionMatrix(pub WorldMatrix);
 
 impl ProjectionMatrix {
-    pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix{
+    pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix {
         let ortho = Ortho {
             left: 0.0,
             right: width,
-            bottom: height, 
+            bottom: height,
             top: 0.0,
             near: near,
             far: far,
@@ -118,19 +133,22 @@ impl ImageWaitSheet {
             r += v.capacity() * std::mem::size_of::<ImageWait>();
         }
         for v in self.finish.iter() {
-            r += v.2.capacity() * std::mem::size_of::<ImageWait>();;
+            r += v.2.capacity() * std::mem::size_of::<ImageWait>();
         }
-        
-        r += self.loads.capacity() * std::mem::size_of::<Atom>();;
-        
+
+        r += self.loads.capacity() * std::mem::size_of::<Atom>();
+
         r
     }
     pub fn add(&mut self, name: &Atom, wait: ImageWait) {
         let loads = &mut self.loads;
-        self.wait.entry(name.clone()).or_insert_with(||{
-            loads.push(name.clone());
-            Vec::with_capacity(1)
-        }).push(wait);
+        self.wait
+            .entry(name.clone())
+            .or_insert_with(|| {
+                loads.push(name.clone());
+                Vec::with_capacity(1)
+            })
+            .push(wait);
     }
 }
 
@@ -153,7 +171,7 @@ pub struct UnitQuad(pub Share<GeometryRes>);
 #[derive(Default)]
 pub struct DirtyList(pub Vec<usize>);
 
-pub struct DefaultState{
+pub struct DefaultState {
     pub df_rs: Share<RasterStateRes>,
     pub df_bs: Share<BlendStateRes>,
     pub df_ss: Share<StencilStateRes>,
@@ -168,15 +186,17 @@ impl DefaultState {
         let df_rs = RasterStateDesc::default();
         let mut df_bs = BlendStateDesc::default();
         let df_ss = StencilStateDesc::default();
-        let df_ds = DepthStateDesc::default();
+        let mut df_ds = DepthStateDesc::default();
 
         df_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+        df_ds.set_write_enable(true);
 
         let mut tarns_bs = BlendStateDesc::default();
         tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
 
-        let mut tarns_ds = DepthStateDesc::default();
-        tarns_ds.set_write_enable(false);
+        // let mut tarns_ds = DepthStateDesc::default();
+        let tarns_ds = DepthStateDesc::default();
+        // tarns_ds.set_write_enable(false);
 
         Self {
             df_rs: Share::new(RasterStateRes(gl.rs_create(df_rs).unwrap())),
@@ -189,14 +209,14 @@ impl DefaultState {
     }
 }
 
-pub struct Data<C>{
+pub struct Data<C> {
     map: Slab<C>,
     notify: NotifyImpl,
 }
 
 impl<C> Default for Data<C> {
     fn default() -> Self {
-        Self{
+        Self {
             map: Slab::default(),
             notify: NotifyImpl::default(),
         }
@@ -236,19 +256,19 @@ impl<C> Data<C> {
         self.notify.create_event(r);
         r
     }
-    
+
     pub fn delete(&mut self, id: usize) {
         self.notify.delete_event(id);
         self.map.remove(id);
     }
 
-    pub fn get_notify(&self) -> NotifyImpl{
+    pub fn get_notify(&self) -> NotifyImpl {
         self.notify.clone()
     }
 }
 
 #[derive(Clone)]
-pub struct State{
+pub struct State {
     pub rs: Share<RasterStateRes>,
     pub bs: Share<BlendStateRes>,
     pub ss: Share<StencilStateRes>,
@@ -256,7 +276,7 @@ pub struct State{
 }
 
 #[derive(Write)]
-pub struct RenderObj{
+pub struct RenderObj {
     pub depth: f32,
     pub depth_diff: f32,
     pub visibility: bool,
@@ -285,7 +305,6 @@ impl Default for RenderObjs {
 }
 
 impl RenderObjs {
-
     pub fn mem_size(&self) -> usize {
         self.0.mem_size()
     }
@@ -293,34 +312,38 @@ impl RenderObjs {
         let id = self.0.insert(value);
         match notify {
             Some(n) => n.create_event(id),
-            _ =>()
+            _ => (),
         };
         id
     }
 
-    pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<NotifyImpl>){
+    pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<NotifyImpl>) {
         self.0.remove(id);
         match notify {
             Some(n) => n.delete_event(id),
-            _ =>()
+            _ => (),
         };
     }
 
-    pub fn remove(&mut self, id: usize, notify: Option<NotifyImpl>){
+    pub fn remove(&mut self, id: usize, notify: Option<NotifyImpl>) {
         if self.0.contains(id) {
             self.0.remove(id);
             match notify {
                 Some(n) => n.delete_event(id),
-                _ =>()
+                _ => (),
             };
         }
     }
 
-    pub unsafe fn get_unchecked_write<'a>(&'a mut self, id: usize, notify: &'a NotifyImpl) -> Write<RenderObj>{
+    pub unsafe fn get_unchecked_write<'a>(
+        &'a mut self,
+        id: usize,
+        notify: &'a NotifyImpl,
+    ) -> Write<RenderObj> {
         Write::new(id, self.0.get_unchecked_mut(id), &notify)
     }
 
-    pub unsafe fn get_unchecked_mut(&mut self, id: usize) -> &mut RenderObj{
+    pub unsafe fn get_unchecked_mut(&mut self, id: usize) -> &mut RenderObj {
         self.0.get_unchecked_mut(id)
     }
 }
@@ -328,8 +351,8 @@ impl RenderObjs {
 pub struct NodeRenderMap(VecMap<Vec<usize>>);
 
 impl NodeRenderMap {
-    pub fn new () -> Self{
-        Self (VecMap::default())
+    pub fn new() -> Self {
+        Self(VecMap::default())
     }
 
     pub unsafe fn add_unchecked(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
@@ -338,7 +361,12 @@ impl NodeRenderMap {
         notify.modify_event(node_id, "add", render_id);
     }
 
-    pub unsafe fn remove_unchecked(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
+    pub unsafe fn remove_unchecked(
+        &mut self,
+        node_id: usize,
+        render_id: usize,
+        notify: &NotifyImpl,
+    ) {
         notify.modify_event(node_id, "remove", render_id);
         let arr = self.0.get_unchecked_mut(node_id);
         arr.remove_item(&render_id);
@@ -356,49 +384,57 @@ impl NodeRenderMap {
         self.0.get_unchecked(node_id)
     }
 
-	pub fn get(&self, node_id: usize) -> Option<&Vec<usize>> {
+    pub fn get(&self, node_id: usize) -> Option<&Vec<usize>> {
         self.0.get(node_id)
     }
 }
 
-pub struct RenderBegin(pub Share<RenderBeginDesc>);
+pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>>);
 
 pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
 
 impl DefaultTable {
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         Self(XHashMap::default())
     }
     pub fn mem_size(&self) -> usize {
         self.0.capacity() * (std::mem::size_of::<TypeId>() + std::mem::size_of::<Box<dyn Any>>())
     }
-    pub fn set<T: 'static + Any>(&mut self, value: T){
+    pub fn set<T: 'static + Any>(&mut self, value: T) {
         self.0.insert(TypeId::of::<T>(), Box::new(value));
     }
 
-    pub fn get<T: 'static + Any>(&self) -> Option<&T>{
+    pub fn get<T: 'static + Any>(&self) -> Option<&T> {
         match self.0.get(&TypeId::of::<T>()) {
             Some(r) => r.downcast_ref::<T>(),
-            None => None
+            None => None,
         }
     }
 
-    pub fn get_mut<T: 'static + Any>(&mut self) -> Option<&mut T>{
+    pub fn get_mut<T: 'static + Any>(&mut self) -> Option<&mut T> {
         match self.0.get_mut(&TypeId::of::<T>()) {
             Some(r) => r.downcast_mut::<T>(),
-            None => None
+            None => None,
         }
     }
 
-    pub fn get_unchecked<T: 'static + Any>(&self) -> &T{
-        self.0.get(&TypeId::of::<T>()).unwrap().downcast_ref::<T>().unwrap()
+    pub fn get_unchecked<T: 'static + Any>(&self) -> &T {
+        self.0
+            .get(&TypeId::of::<T>())
+            .unwrap()
+            .downcast_ref::<T>()
+            .unwrap()
     }
 
-    pub fn get_unchecked_mut<T: 'static + Any>(&mut self) -> &mut T{
-        self.0.get_mut(&TypeId::of::<T>()).unwrap().downcast_mut::<T>().unwrap()
+    pub fn get_unchecked_mut<T: 'static + Any>(&mut self) -> &mut T {
+        self.0
+            .get_mut(&TypeId::of::<T>())
+            .unwrap()
+            .downcast_mut::<T>()
+            .unwrap()
     }
 
-    pub fn delete<T: 'static + Any>(&mut self){
+    pub fn delete<T: 'static + Any>(&mut self) {
         self.0.remove(&TypeId::of::<T>());
     }
 }

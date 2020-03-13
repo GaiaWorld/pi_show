@@ -1,48 +1,49 @@
+use ecs::idtree::IdTree;
 /**
  * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
  */
+use ecs::{
+    CreateEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener, SingleCaseImpl,
+    SingleCaseListener,
+};
 
-use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseImpl, SingleCaseListener, MultiCaseImpl};
-use ecs::idtree::{ IdTree};
-
-use component::user::{ Filter };
-use component::calc::{ HSV };
-use entity::{Node};
+use component::calc::HSV;
+use component::user::Filter;
+use entity::Node;
 
 #[derive(Default)]
 pub struct FilterSys;
 
-
-impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys{
+impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys {
     type ReadData = ();
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData) {
         hsvs.insert(event.id, HSV::default());
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys{
+impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
         cal_hsv(event.id, idtree, filters, hsvs);
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Filter, ModifyEvent> for FilterSys{
+impl<'a> MultiCaseListener<'a, Node, Filter, ModifyEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, hsvs: Self::WriteData){
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
         cal_hsv(event.id, idtree, filters, hsvs);
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for FilterSys{
+impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData){
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
         cal_hsv(event.id, idtree, filters, hsvs);
     }
@@ -54,17 +55,21 @@ fn cal_hsv(
     idtree: &SingleCaseImpl<IdTree>,
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
-){  
+) {
     let parent_id = match idtree.get(id) {
-        Some(node) => if node.layer != 0 {node.parent} else {return} ,
+        Some(node) => {
+            if node.layer != 0 {
+                node.parent
+            } else {
+                return;
+            }
+        }
         None => return,
     };
-    let hsv = match hsvs.get(parent_id){
-        Some(hsv) => {
-            hsv.clone()
-        },
+    let hsv = match hsvs.get(parent_id) {
+        Some(hsv) => hsv.clone(),
         None => HSV::default(),
-    };;
+    };
 
     recursive_cal_hsv(id, idtree, &hsv, filters, hsvs)
 }
@@ -76,9 +81,9 @@ fn recursive_cal_hsv(
     parent_hsv: &HSV,
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
-){
+) {
     let old_hsv = unsafe { hsvs.get_unchecked(id) }.clone();
-    let hsv = match filters.get(id){
+    let hsv = match filters.get(id) {
         Some(filter) => {
             let hsv = HSV {
                 h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
@@ -89,13 +94,13 @@ fn recursive_cal_hsv(
                 hsvs.insert(id, hsv.clone());
             }
             hsv
-        },
+        }
         None => {
             if parent_hsv.h != old_hsv.h || parent_hsv.s != old_hsv.s || parent_hsv.v != old_hsv.v {
                 hsvs.insert(id, parent_hsv.clone());
             }
             parent_hsv.clone()
-        },
+        }
     };
     let first = unsafe { idtree.get_unchecked(id).children.head };
     for child_id in idtree.iter(first) {
@@ -104,35 +109,35 @@ fn recursive_cal_hsv(
 }
 
 // 计算hue， hue的值在-180 ~ 180 度范围内
-fn cal_h_from_hue(mut hue_rotate: f32) -> f32{
+fn cal_h_from_hue(mut hue_rotate: f32) -> f32 {
     if hue_rotate > 0.5 {
         loop {
             if hue_rotate <= 0.5 {
                 return hue_rotate;
             }
             hue_rotate -= 1.0;
-        } 
-    }else {
+        }
+    } else {
         loop {
             if hue_rotate >= -0.5 {
                 return hue_rotate;
             }
             hue_rotate += 1.0;
-        } 
+        }
     }
 }
 
-fn cal_range(value: f32, min: f32, max: f32) -> f32{
+fn cal_range(value: f32, min: f32, max: f32) -> f32 {
     if value >= max {
         return max;
-    }else if value <= min{
+    } else if value <= min {
         return min;
-    }else {
+    } else {
         return value;
     }
 }
 
-impl_system!{
+impl_system! {
     FilterSys,
     false,
     {
@@ -143,14 +148,13 @@ impl_system!{
     }
 }
 
-
-#[cfg(test)]
-use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 #[cfg(test)]
 use atom::Atom;
+#[cfg(test)]
+use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 
 #[test]
-fn test(){
+fn test() {
     let world = new_world();
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
@@ -162,10 +166,10 @@ fn test(){
     let hsvs = LendMut::lend_mut(&hsvs);
 
     let e0 = world.create_entity::<Node>();
-    
+
     idtree.create(e0);
     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
-    let filter = Filter{
+    let filter = Filter {
         hue_rotate: 380.0,
         bright_ness: 0.5,
         saturate: 0.3,
@@ -173,7 +177,7 @@ fn test(){
     filters.insert(e0, filter.clone());
 
     world.run(&Atom::from("test_filter_sys"));
-    
+
     let e00 = world.create_entity::<Node>();
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
@@ -238,14 +242,13 @@ fn new_world() -> World {
     world.register_multi::<Node, Filter>();
     world.register_multi::<Node, HSV>();
     world.register_single::<IdTree>(IdTree::default());
-     
+
     let system = CellFilterSys::new(FilterSys::default());
     world.register_system(Atom::from("system"), system);
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build("system".to_string(), &world);
 
-    world.add_dispatcher( Atom::from("test_filter_sys"), dispatch);
+    world.add_dispatcher(Atom::from("test_filter_sys"), dispatch);
     world
 }
-

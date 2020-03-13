@@ -73,5 +73,6 @@ pub const Z_MAX: f32 = 419429.0;
 // pub const Z_MAX: f32 = 10000.0;
 pub const ROOT: usize = 1;
 
+pub static mut DIRTY: bool = false; // 全局脏， 临时使用
 
 

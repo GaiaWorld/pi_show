@@ -1,17 +1,17 @@
 use common::util::{CompareFunc, StencilOp};
 
-/** 
+/**
  * 模板状态
  */
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone, Hash)]
 pub struct StencilStateDesc {
     pub is_stencil_test_enable: bool,
-    
+
     pub stencil_test_func: CompareFunc,
     pub stencil_ref: i32,
     pub stencil_mask: u32,
-    
+
     pub stencil_fail_op: StencilOp,
     pub stencil_zfail_op: StencilOp,
     pub stencil_zpass_op: StencilOp,
@@ -24,7 +24,6 @@ impl Default for StencilStateDesc {
 }
 
 impl StencilStateDesc {
-
     pub fn new() -> Self {
         Self {
             is_stencil_test_enable: false,
@@ -37,7 +36,7 @@ impl StencilStateDesc {
         }
     }
 
-    /** 
+    /**
      * 开启模板测试
      * 默认：关闭
      */
@@ -45,7 +44,7 @@ impl StencilStateDesc {
         self.is_stencil_test_enable = enable;
     }
 
-    /** 
+    /**
      * 设置模板测试函数
      * 默认：永远不通过，ref和mask都是0
      */
@@ -55,8 +54,7 @@ impl StencilStateDesc {
         self.stencil_mask = mask;
     }
 
-
-    /** 
+    /**
      * 设置模板测试之后的操作
      * 默认：不管哪种操作，都是保留原值。
      */

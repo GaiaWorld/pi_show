@@ -225,7 +225,7 @@ pub fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn D
     }
 }
 
-pub fn modify_opacity<C: HalContext + 'static>(engine: &mut Engine<C>, render_obj: &mut RenderObj, default_state: &DefaultState) {
+pub fn modify_opacity<C: HalContext + 'static>(_engine: &mut Engine<C>, render_obj: &mut RenderObj, default_state: &DefaultState) {
 	if render_obj.is_opacity == false {
         
         // render_obj.state.bs = default_state.df_bs.clone();

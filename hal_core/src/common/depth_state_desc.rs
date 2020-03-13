@@ -1,6 +1,6 @@
-use common::util::{CompareFunc};
+use common::util::CompareFunc;
 
-/** 
+/**
  * 深度状态
  */
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -26,7 +26,7 @@ impl DepthStateDesc {
         }
     }
 
-    /** 
+    /**
      * 开启深度检测
      * 默认：开启
      */
@@ -34,7 +34,7 @@ impl DepthStateDesc {
         self.is_depth_test_enable = is_enable;
     }
 
-    /** 
+    /**
      * 开启写深度
      * 默认：开启
      */
@@ -42,7 +42,7 @@ impl DepthStateDesc {
         self.is_depth_write_enable = is_enable;
     }
 
-    /** 
+    /**
      * 深度检测函数
      * 离相机更近的物体，深度值越小！
      * 默认：src.z < 深度缓冲区的值，通过测试

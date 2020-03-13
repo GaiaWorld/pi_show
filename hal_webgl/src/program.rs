@@ -1,11 +1,11 @@
-use hash::XHashMap;
-use share::{Share};
-use atom::{Atom};
+use atom::Atom;
 use hal_core::*;
-use webgl_rendering_context::{WebGLProgram, WebGLUniformLocation, WebGLRenderingContext};
+use hash::XHashMap;
+use share::Share;
 use stdweb::unstable::TryInto;
+use webgl_rendering_context::{WebGLProgram, WebGLRenderingContext, WebGLUniformLocation};
 
-use shader_cache::{ShaderCache, LayoutLocation};
+use shader_cache::{LayoutLocation, ShaderCache};
 
 pub struct SamplerUniform {
     // 针对UniformLayout的紧凑结构
@@ -17,7 +17,7 @@ pub struct SamplerUniform {
 pub struct CommonUniform {
     pub slot_uniform: usize,
     pub last: UniformValue, // 上次设置的值
-    pub name: Atom, 
+    pub name: Atom,
     pub location: WebGLUniformLocation,
 }
 
@@ -53,14 +53,14 @@ impl CommonUniform {
                     gl.uniform1f(Some(&self.location), *c1);
                     *o1 = *c1;
                 }
-            },
+            }
             (UniformValue::Float2(c1, c2), UniformValue::Float2(o1, o2)) => {
                 if *c1 != *o1 || *c2 != *o2 {
                     gl.uniform2f(Some(&self.location), *c1, *c2);
                     *o1 = *c1;
                     *o2 = *c2;
                 }
-            },
+            }
             (UniformValue::Float3(c1, c2, c3), UniformValue::Float3(o1, o2, o3)) => {
                 if *c1 != *o1 || *c2 != *o2 || *c3 != *o3 {
                     gl.uniform3f(Some(&self.location), *c1, *c2, *c3);
@@ -68,7 +68,7 @@ impl CommonUniform {
                     *o2 = *c2;
                     *o3 = *c3;
                 }
-            },
+            }
             (UniformValue::Float4(c1, c2, c3, c4), UniformValue::Float4(o1, o2, o3, o4)) => {
                 if *c1 != *o1 || *c2 != *o2 || *c3 != *o3 || *c4 != *o4 {
                     gl.uniform4f(Some(&self.location), *c1, *c2, *c3, *c4);
@@ -77,20 +77,20 @@ impl CommonUniform {
                     *o3 = *c3;
                     *o4 = *c4;
                 }
-            },
+            }
             (UniformValue::Int1(c1), UniformValue::Int1(o1)) => {
                 if *c1 != *o1 {
                     gl.uniform1i(Some(&self.location), *c1);
                     *o1 = *c1;
                 }
-            },
+            }
             (UniformValue::Int2(c1, c2), UniformValue::Int2(o1, o2)) => {
                 if *c1 != *o1 || *c2 != *o2 {
                     gl.uniform2i(Some(&self.location), *c1, *c2);
                     *o1 = *c1;
                     *o2 = *c2;
                 }
-            },
+            }
             (UniformValue::Int3(c1, c2, c3), UniformValue::Int3(o1, o2, o3)) => {
                 if *c1 != *o1 || *c2 != *o2 || *c3 != *o3 {
                     gl.uniform3i(Some(&self.location), *c1, *c2, *c3);
@@ -98,7 +98,7 @@ impl CommonUniform {
                     *o2 = *c2;
                     *o3 = *c3;
                 }
-            },
+            }
             (UniformValue::Int4(c1, c2, c3, c4), UniformValue::Int4(o1, o2, o3, o4)) => {
                 if *c1 != *o1 || *c2 != *o2 || *c3 != *o3 || *c4 != *o4 {
                     gl.uniform4i(Some(&self.location), *c1, *c2, *c3, *c4);
@@ -107,62 +107,77 @@ impl CommonUniform {
                     *o3 = *c3;
                     *o4 = *c4;
                 }
-            },
+            }
             (UniformValue::FloatV1(v), _) => {
                 gl.uniform1fv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::FloatV2(v), _) => {
                 gl.uniform2fv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::FloatV3(v), _) => {
                 gl.uniform3fv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::FloatV4(v), _) => {
                 gl.uniform4fv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::IntV1(v), _) => {
                 gl.uniform1iv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::IntV2(v), _) => {
                 gl.uniform2iv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::IntV3(v), _) => {
                 gl.uniform3iv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::IntV4(v), _) => {
                 gl.uniform4iv(Some(&self.location), v.as_slice());
-            },
+            }
             (UniformValue::MatrixV2(v), _) => {
                 gl.uniform_matrix2fv(Some(&self.location), false, v.as_slice());
-            },
+            }
             (UniformValue::MatrixV3(v), _) => {
                 gl.uniform_matrix3fv(Some(&self.location), false, v.as_slice());
-            },
+            }
             (UniformValue::MatrixV4(v), _) => {
                 gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice());
-            },
-            _ => {
-                panic!(format!("Invalid Uniform, name: {:?}, value: {:?}", self.name.as_ref(), value) )
             }
+            _ => panic!(format!(
+                "Invalid Uniform, name: {:?}, value: {:?}",
+                self.name.as_ref(),
+                value
+            )),
         }
     }
 }
 
 impl WebGLProgramImpl {
-	pub fn restore_active_uniform(&mut self, index: usize){
-		for active_uniform in self.active_uniforms.iter_mut() {
-			if active_uniform.slot_ubo == index {
-				active_uniform.last = None;
-			}
-		}
-	}
+    pub fn restore_active_uniform(&mut self, index: usize) {
+        for active_uniform in self.active_uniforms.iter_mut() {
+            if active_uniform.slot_ubo == index {
+                active_uniform.last = None;
+            }
+        }
+    }
 
-    pub fn new_with_vs_fs(gl: &WebGLRenderingContext, caps: &Capabilities, shader_cache: &mut ShaderCache, vs_id: u64, fs_id: u64, vs_name: &Atom, vs_defines: &[Option<&str>], fs_name: &Atom, fs_defines: &[Option<&str>], uniform_layout: &UniformLayout) -> Result<WebGLProgramImpl, String> {
-        
+    pub fn new_with_vs_fs(
+        gl: &WebGLRenderingContext,
+        caps: &Capabilities,
+        shader_cache: &mut ShaderCache,
+        vs_id: u64,
+        fs_id: u64,
+        vs_name: &Atom,
+        vs_defines: &[Option<&str>],
+        fs_name: &Atom,
+        fs_defines: &[Option<&str>],
+        uniform_layout: &UniformLayout,
+    ) -> Result<WebGLProgramImpl, String> {
         // 创建program
-        let program_handle = gl.create_program().ok_or_else(|| String::from("unable to create shader object"))?;
+        let program_handle = gl
+            .create_program()
+            .ok_or_else(|| String::from("unable to create shader object"))?;
         {
-            let vs = shader_cache.compile_shader(gl, ShaderType::Vertex, vs_id, &vs_name, vs_defines);
+            let vs =
+                shader_cache.compile_shader(gl, ShaderType::Vertex, vs_id, &vs_name, vs_defines);
             if let Err(e) = &vs {
                 gl.delete_program(Some(&program_handle));
                 return Err(e.clone());
@@ -170,9 +185,10 @@ impl WebGLProgramImpl {
             let vs = vs.unwrap();
             gl.attach_shader(&program_handle, &vs.handle);
         }
-        
+
         {
-            let fs = shader_cache.compile_shader(gl, ShaderType::Fragment, fs_id, &fs_name, fs_defines);
+            let fs =
+                shader_cache.compile_shader(gl, ShaderType::Fragment, fs_id, &fs_name, fs_defines);
             if let Err(e) = &fs {
                 gl.delete_program(Some(&program_handle));
                 return Err(e.clone());
@@ -180,12 +196,17 @@ impl WebGLProgramImpl {
             let fs = fs.unwrap();
             gl.attach_shader(&program_handle, &fs.handle);
         }
-        
+
         // 先绑定属性，再连接
-        let max_attribute_count = std::cmp::min(AttributeName::get_builtin_count(), caps.max_vertex_attribs);
+        let max_attribute_count =
+            std::cmp::min(AttributeName::get_builtin_count(), caps.max_vertex_attribs);
         for i in 0..max_attribute_count {
             let (_attrib_name, name) = Self::get_attribute_by_location(i);
-            debug_println!("Shader, link_program, attribute name = {:?}, location = {:?}", &name, i);
+            debug_println!(
+                "Shader, link_program, attribute name = {:?}, location = {:?}",
+                &name,
+                i
+            );
             gl.bind_attrib_location(&program_handle, i, name);
         }
 
@@ -197,10 +218,13 @@ impl WebGLProgramImpl {
             .unwrap_or(false);
 
         // 微信小游戏移动端环境，返回的是1-0，所以需要再来一次
-        let is_link_ok = if is_link_ok { is_link_ok } else {
-            let r = gl.get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
-            .try_into()
-            .unwrap_or(0);
+        let is_link_ok = if is_link_ok {
+            is_link_ok
+        } else {
+            let r = gl
+                .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
+                .try_into()
+                .unwrap_or(0);
 
             r != 0
         };
@@ -216,9 +240,10 @@ impl WebGLProgramImpl {
         }
 
         let location_map = shader_cache.get_location_map(vs_name, fs_name, uniform_layout);
-        
+
         // 初始化attribute和uniform
-        let (uniforms, single_uniforms, textures) = WebGLProgramImpl::init_uniform(gl, &program_handle, location_map)?;
+        let (uniforms, single_uniforms, textures) =
+            WebGLProgramImpl::init_uniform(gl, &program_handle, location_map)?;
         Ok(WebGLProgramImpl {
             handle: program_handle,
             active_uniforms: uniforms,
@@ -230,7 +255,7 @@ impl WebGLProgramImpl {
     pub fn delete(&self, gl: &WebGLRenderingContext) {
         gl.delete_program(Some(&self.handle));
     }
-    
+
     fn get_attribute_by_location(index: u32) -> (AttributeName, &'static str) {
         match index {
             0 => (AttributeName::Position, "position"),
@@ -251,13 +276,19 @@ impl WebGLProgramImpl {
             15 => (AttributeName::UV8, "uv8"),
             _ => {
                 assert!(false, "no support");
-                (AttributeName::Custom("no support".to_string()), "no support")
+                (
+                    AttributeName::Custom("no support".to_string()),
+                    "no support",
+                )
             }
         }
     }
 
-    fn init_uniform(gl: &WebGLRenderingContext, program: &WebGLProgram, location_map: &LayoutLocation) -> Result<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>), String> {
-        
+    fn init_uniform(
+        gl: &WebGLRenderingContext,
+        program: &WebGLProgram,
+        location_map: &LayoutLocation,
+    ) -> Result<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>), String> {
         let uniform_num = gl
             .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
             .try_into()
@@ -266,11 +297,11 @@ impl WebGLProgramImpl {
         let mut textures = vec![];
         let mut uniforms = vec![];
         let mut single_uniforms = vec![];
-                
+
         // 用于查找slot_ubo和Vec<CommonUbo>的对应关系的哈希表
         // 键是slot_ubo的索引，值是Vec<CommonUbo>的索引值
         let mut slot_map = XHashMap::default();
-        
+
         for i in 0..uniform_num {
             let uniform = gl.get_active_uniform(program, i as u32).unwrap();
             let value;
@@ -285,7 +316,7 @@ impl WebGLProgramImpl {
 
             let name = Atom::from(name);
             let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
-            
+
             match uniform.type_() {
                 WebGLRenderingContext::FLOAT => {
                     if is_array {
@@ -378,7 +409,7 @@ impl WebGLProgramImpl {
                     continue;
                 }
                 _ => {
-                    panic!(format!("Invalid Uniform: {:?}", name) );
+                    panic!(format!("Invalid Uniform: {:?}", name));
                 }
             }
 
@@ -391,7 +422,7 @@ impl WebGLProgramImpl {
                 });
                 continue;
             }
-            
+
             match location_map.uniforms.get(&name) {
                 None => return Err(format!("init_uniform fail, location_map uniform is not exist, name: {:?}, location_map: {:?}", name, location_map)),
                 Some((i, j)) => {
@@ -423,17 +454,18 @@ impl WebGLProgramImpl {
                 }
             }
         }
-        
+
         // 排序，渲染的时候扫描起来更快
         textures.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
 
         for ubo in uniforms.iter_mut() {
-            ubo.values.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
+            ubo.values
+                .sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
         }
         uniforms.sort_by(|a, b| a.slot_ubo.partial_cmp(&b.slot_ubo).unwrap());
-        
+
         single_uniforms.sort_by(|a, b| a.slot_uniform.partial_cmp(&b.slot_uniform).unwrap());
-        
+
         return Ok((uniforms, single_uniforms, textures));
     }
 }

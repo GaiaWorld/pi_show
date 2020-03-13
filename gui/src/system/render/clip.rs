@@ -1,33 +1,32 @@
 /**
  * 渲染对象的裁剪属性设置
  */
-
 use std::marker::PhantomData;
 
 use ordered_float::OrderedFloat;
 
-use share::Share;
-use ecs::{ModifyEvent, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
 use ecs::monitor::NotifyImpl;
+use ecs::{ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, SingleCaseListener};
 use hal_core::*;
 use map::vecmap::VecMap;
+use share::Share;
 
 use component::calc::*;
-use component::user::{Aabb3};
-use entity::{Node};
-use single::*;
-use render::engine:: { ShareEngine, Engine };
+use component::user::Aabb3;
+use entity::Node;
+use render::engine::{Engine, ShareEngine};
 use render::res::*;
+use single::*;
 use system::render::shaders::clip::*;
 
-pub struct ClipSys<C>{
+pub struct ClipSys<C> {
     dirty: bool,
     no_rotate_dirtys: VecMap<bool>,
     render_obj: Option<ClipTextureRender>,
     marker: PhantomData<C>,
 }
 
-struct ClipTextureRender{
+struct ClipTextureRender {
     clip_size_ubo: Share<ClipTextureSize>,
     sampler: Share<SamplerRes>,
 
@@ -43,9 +42,20 @@ struct ClipTextureRender{
     begin_desc: RenderBeginDesc,
 }
 
-impl<C: HalContext + 'static> ClipSys<C>{
-    pub fn init_render(&mut self, engine: &mut Engine<C>,  viewport: &(i32, i32, i32, i32), view_matrix: &ViewMatrix, projection_matrix: &ProjectionMatrix){
-        let (rs, mut bs, ss, mut ds) = (RasterStateDesc::default(), BlendStateDesc::default(), StencilStateDesc::default(), DepthStateDesc::default());
+impl<C: HalContext + 'static> ClipSys<C> {
+    pub fn init_render(
+        &mut self,
+        engine: &mut Engine<C>,
+        viewport: &(i32, i32, i32, i32),
+        view_matrix: &ViewMatrix,
+        projection_matrix: &ProjectionMatrix,
+    ) {
+        let (rs, mut bs, ss, mut ds) = (
+            RasterStateDesc::default(),
+            BlendStateDesc::default(),
+            StencilStateDesc::default(),
+            DepthStateDesc::default(),
+        );
         bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
         ds.set_test_enable(false);
         ds.set_write_enable(false);
@@ -65,7 +75,17 @@ impl<C: HalContext + 'static> ClipSys<C>{
         );
 
         let size = next_power_of_two((viewport.2 as u32).max(viewport.2 as u32));
-        let target = engine.gl.rt_create(size, size, PixelFormat::RGB, DataFormat::UnsignedByte, false).unwrap();
+        let target = engine
+            .gl
+            .rt_create(
+                None,
+                size,
+                size,
+                PixelFormat::RGB,
+                DataFormat::UnsignedByte,
+                false,
+            )
+            .unwrap();
         let mut clip_size_ubo = ClipTextureSize::default();
         clip_size_ubo.set_value("clipTextureSize", UniformValue::Float1(size as f32));
 
@@ -73,7 +93,8 @@ impl<C: HalContext + 'static> ClipSys<C>{
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
 
         let slice: &[f32; 16] = projection_matrix.0.as_ref();
-        let project_matrix_ubo = ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+        let project_matrix_ubo =
+            ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
 
         paramter.set_value("viewMatrix", Share::new(view_matrix_ubo)); // VIEW_MATRIX
         paramter.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
@@ -92,16 +113,21 @@ impl<C: HalContext + 'static> ClipSys<C>{
             geometry: geo,
 
             paramter: Share::new(paramter),
-            begin_desc: RenderBeginDesc{
+            begin_desc: RenderBeginDesc {
                 viewport: (viewport.0, viewport.1, viewport.2, viewport.3),
-                clear_color: Some((OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(1.0))),
+                clear_color: Some((
+                    OrderedFloat(0.0),
+                    OrderedFloat(0.0),
+                    OrderedFloat(0.0),
+                    OrderedFloat(1.0),
+                )),
                 clear_depth: None,
                 clear_stencil: None,
             },
         });
     }
 
-    pub fn new() -> Self{
+    pub fn new() -> Self {
         Self {
             dirty: false,
             no_rotate_dirtys: VecMap::default(),
@@ -111,42 +137,55 @@ impl<C: HalContext + 'static> ClipSys<C>{
     }
 
     fn set_clip_uniform(
-        &self, 
-        id: usize, 
-        by_overflow: usize, 
-        aabb: Option<&(Aabb3, Share<dyn UniformBuffer>)>, 
-        notify: &NotifyImpl, 
-        render_obj: &mut RenderObj, 
+        &self,
+        id: usize,
+        by_overflow: usize,
+        aabb: Option<&(Aabb3, Share<dyn UniformBuffer>)>,
+        notify: &NotifyImpl,
+        render_obj: &mut RenderObj,
         engine: &mut Engine<C>,
-    ){
+    ) {
         match aabb {
             Some(item) => {
                 // if render_obj.visibility {
-                    render_obj.paramter.set_value("clipBox", item.1.clone());
-                    if let None = render_obj.fs_defines.add("CLIP_BOX") {
-                        render_obj.vs_defines.add("CLIP_BOX");
-                        render_obj.fs_defines.remove("CLIP");
-                        notify.modify_event(id, "program_dirty", 0);
-                    }
+                render_obj.paramter.set_value("clipBox", item.1.clone());
+                if let None = render_obj.fs_defines.add("CLIP_BOX") {
+                    render_obj.vs_defines.add("CLIP_BOX");
+                    render_obj.fs_defines.remove("CLIP");
+                    notify.modify_event(id, "program_dirty", 0);
+                }
                 // }
-            },
+            }
             None => {
-                render_obj.paramter.set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+                render_obj
+                    .paramter
+                    .set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
                 let clip_render = self.render_obj.as_ref().unwrap();
                 // 插入裁剪ubo 插入裁剪宏
                 if let None = render_obj.fs_defines.add("CLIP") {
                     render_obj.vs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP_BOX");
-                    render_obj.paramter.set_texture("clipTexture",  (engine.gl.rt_get_color_texture(&clip_render.render_target, 0).unwrap(), &clip_render.sampler) );
-                    render_obj.paramter.set_value("clipTextureSize",  clip_render.clip_size_ubo.clone());
+                    render_obj.paramter.set_texture(
+                        "clipTexture",
+                        (
+                            engine
+                                .gl
+                                .rt_get_color_texture(&clip_render.render_target, 0)
+                                .unwrap(),
+                            &clip_render.sampler,
+                        ),
+                    );
+                    render_obj
+                        .paramter
+                        .set_value("clipTextureSize", clip_render.clip_size_ubo.clone());
                     notify.modify_event(id, "program_dirty", 0);
                 }
-            },
+            }
         }
     }
 }
 
-impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
+impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, StyleMark>,
@@ -158,23 +197,31 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
         &'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = (
-        &'a mut SingleCaseImpl<OverflowClip>, 
-        &'a mut MultiCaseImpl<Node, Culling>, 
-        &'a mut SingleCaseImpl<RenderObjs>, 
+        &'a mut SingleCaseImpl<OverflowClip>,
+        &'a mut MultiCaseImpl<Node, Culling>,
+        &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
     );
-    fn run(&mut self, read: Self::ReadData, write: Self::WriteData){
-        let (by_overflows, style_marks, dirty_list, node_render_map, overflow, projection, view, view_port) = read;
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
+        let (
+            by_overflows,
+            style_marks,
+            dirty_list,
+            node_render_map,
+            overflow,
+            projection,
+            view,
+            view_port,
+        ) = read;
         let (overflow_clip, cullings, render_objs, engine) = write;
 
         if self.dirty {
             self.dirty = false;
-
             if self.render_obj.is_none() {
                 self.init_render(engine, &view_port.0.viewport, view, projection);
             }
             let clip_render = self.render_obj.as_ref().unwrap();
-            
+
             let mut positions = Vec::default();
             for (_i, c) in overflow.clip.iter() {
                 if c.has_rotate {
@@ -187,38 +234,85 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
                     positions.push(p[2].y);
                     positions.push(p[3].x);
                     positions.push(p[3].y);
-                } 
+                }
             }
 
             let mut mumbers: Vec<f32> = Vec::new();
             let mut indices: Vec<u16> = Vec::new();
 
-            let mut count = positions.len()/8;
+            let mut count = positions.len() / 8;
             if count > 16 {
                 count = 16;
-                unsafe {positions.set_len(128)};
+                unsafe { positions.set_len(128) };
             }
             for i in 0..count as u16 {
                 mumbers.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
-                indices.extend_from_slice(&[4 * i + 0, 4 * i + 1, 4 * i + 2, 4 * i + 0, 4 * i + 2, 4 * i + 3]);
+                indices.extend_from_slice(&[
+                    4 * i + 0,
+                    4 * i + 1,
+                    4 * i + 2,
+                    4 * i + 0,
+                    4 * i + 2,
+                    4 * i + 3,
+                ]);
             }
 
             let p_buffer = engine.create_buffer(BufferType::Attribute, 128, None, false);
-            let m_buffer = engine.create_buffer(BufferType::Attribute, mumbers.len(), Some(BufferData::Float(mumbers.as_slice())), false);
-            let i_buffer = engine.create_buffer(BufferType::Indices, indices.len(), Some(BufferData::Short(indices.as_slice())), false);
-            
-            engine.gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::Position, &p_buffer, 2).unwrap();
-            engine.gl.geometry_set_attribute(&clip_render.geometry, &AttributeName::SkinIndex, &m_buffer, 1).unwrap();
-            engine.gl.geometry_set_indices_short(&clip_render.geometry, &i_buffer).unwrap();
-            clip_render.paramter.set_single_uniform("meshNum", UniformValue::Float1(count as f32));
+            let m_buffer = engine.create_buffer(
+                BufferType::Attribute,
+                mumbers.len(),
+                Some(BufferData::Float(mumbers.as_slice())),
+                false,
+            );
+            let i_buffer = engine.create_buffer(
+                BufferType::Indices,
+                indices.len(),
+                Some(BufferData::Short(indices.as_slice())),
+                false,
+            );
+
+            engine
+                .gl
+                .geometry_set_attribute(
+                    &clip_render.geometry,
+                    &AttributeName::Position,
+                    &p_buffer,
+                    2,
+                )
+                .unwrap();
+            engine
+                .gl
+                .geometry_set_attribute(
+                    &clip_render.geometry,
+                    &AttributeName::SkinIndex,
+                    &m_buffer,
+                    1,
+                )
+                .unwrap();
+            engine
+                .gl
+                .geometry_set_indices_short(&clip_render.geometry, &i_buffer)
+                .unwrap();
+            clip_render
+                .paramter
+                .set_single_uniform("meshNum", UniformValue::Float1(count as f32));
 
             // 渲染裁剪平面
-            engine.gl.render_begin(Some(&clip_render.render_target), &clip_render.begin_desc);
+            engine
+                .gl
+                .render_begin(Some(&clip_render.render_target), &clip_render.begin_desc);
             engine.gl.render_set_program(&clip_render.program);
-            engine.gl.render_set_state(&clip_render.bs, &clip_render.ds, &clip_render.rs, &clip_render.ss);
-            engine.gl.render_draw(&clip_render.geometry, &clip_render.paramter);
+            engine.gl.render_set_state(
+                &clip_render.bs,
+                &clip_render.ds,
+                &clip_render.rs,
+                &clip_render.ss,
+            );
+            engine
+                .gl
+                .render_draw(&clip_render.geometry, &clip_render.paramter);
             engine.gl.render_end();
-        } 
+        }
 
         let notify = render_objs.get_notify();
         let mut pre_by_overflow = 0;
@@ -229,10 +323,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
                 None => continue,
             };
 
-            let by_overflow = unsafe {by_overflows.get_unchecked(*id)}.0;
-            let obj_ids = unsafe{ node_render_map.get_unchecked(*id) };
+            let by_overflow = unsafe { by_overflows.get_unchecked(*id) }.0;
+            let obj_ids = unsafe { node_render_map.get_unchecked(*id) };
 
-            if (style_mark.dirty & StyleType::Matrix as usize != 0 || style_mark.dirty & StyleType::ByOverflow as usize != 0) && by_overflow > 0 {
+            if (style_mark.dirty & StyleType::Matrix as usize != 0
+                || style_mark.dirty & StyleType::ByOverflow as usize != 0)
+                && by_overflow > 0
+            {
                 if by_overflow != pre_by_overflow {
                     pre_by_overflow = by_overflow;
                     aabb = overflow_clip.clip_map.get(&by_overflow);
@@ -240,25 +337,50 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C>{
 
                 for id in obj_ids.iter() {
                     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
-					// println!("set_clip_uniform--------------{}", *id);
+                    // println!("set_clip_uniform--------------{}", *id);
                     self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
                 }
             } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
                 // 裁剪剔除
-                unsafe {cullings.get_unchecked_write(*id) }.set_0(false);
+                unsafe { cullings.get_unchecked_write(*id) }.set_0(false);
                 for id in obj_ids.iter() {
                     let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
                     render_obj.vs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP");
-                    render_objs.get_notify().modify_event(*id, "program_dirty", 0);
+                    render_objs
+                        .get_notify()
+                        .modify_event(*id, "program_dirty", 0);
                 }
-            }  
+            }
         }
     }
 }
 
-impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C>{
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, ModifyEvent>
+    for ClipSys<C>
+{
+    type ReadData = &'a SingleCaseImpl<ProjectionMatrix>;
+    type WriteData = ();
+    fn listen(
+        &mut self,
+        _event: &ModifyEvent,
+        projection_matrix: Self::ReadData,
+        _: Self::WriteData,
+    ) {
+        if let Some(render_obj) = &self.render_obj {
+            let slice: &[f32; 16] = projection_matrix.0.as_ref();
+            let project_matrix_ubo =
+                ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+            render_obj
+                .paramter
+                .set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
+            self.dirty = true;
+        }
+    }
+}
+
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C> {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<OverflowClip>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
@@ -272,7 +394,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEve
 // 是否相交
 #[inline]
 fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x >= b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y{
+    if a.min.x >= b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
         return false;
     } else {
         true
@@ -300,10 +422,11 @@ fn next_power_of_two(value: u32) -> u32 {
     value
 }
 
-impl_system!{
+impl_system! {
     ClipSys<C> where [C: HalContext + 'static],
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
+        SingleCaseListener<ProjectionMatrix, ModifyEvent>
     }
 }

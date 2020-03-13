@@ -1,23 +1,22 @@
+use atom::Atom;
 /**
  * 定义全局Class
 */
-
 use layout::*;
-use atom::Atom;
 
 use hash::XHashMap;
 
 use component::user::*;
 
 // 显示样式， 不包含布局
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Class {
-	// 将style属性按照内存占用大小划分为三种枚举
+    // 将style属性按照内存占用大小划分为三种枚举
     pub attrs1: Vec<Attribute1>,
     pub attrs2: Vec<Attribute2>,
     pub attrs3: Vec<Attribute3>,
 
-    pub class_style_mark: usize, // 标记class中的有效属性
+    pub class_style_mark: usize,  // 标记class中的有效属性
     pub class_style_mark1: usize, // 标记class中布局的有效属性
 }
 
@@ -40,7 +39,7 @@ impl ClassSheet {
 }
 
 // 最小尺寸的style属性
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute1 {
     PositionType(YGPositionType),
     FlexWrap(YGWrap),
@@ -58,10 +57,10 @@ pub enum Attribute1 {
     Enable(EnableType),
     Display(Display),
     Visibility(bool),
-	Overflow(bool),
+    Overflow(bool),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute2 {
     LetterSpacing(f32),
     LineHeight(LineHeight),
@@ -107,7 +106,7 @@ pub enum Attribute2 {
     PositionBottom(ValueUnit),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute3 {
     BGColor(BackgroundColor),
     BorderColor(BorderColor),
