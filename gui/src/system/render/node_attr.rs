@@ -395,16 +395,18 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
                 render_obj
                     .paramter
                     .set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
+
                 notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "fs_defines", 0);
+                notify.modify_event(*id, "program_dirty", 0);
             }
         } else {
             for id in obj_ids.iter() {
                 let notify = render_objs.get_notify();
                 let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
                 render_obj.fs_defines.remove("HSV");
+
                 notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "fs_defines", 0);
+                notify.modify_event(*id, "program_dirty", 0);
             }
         }
     }
