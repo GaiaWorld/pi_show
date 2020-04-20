@@ -547,6 +547,39 @@ pub fn query(world: u32, x: f32, y: f32) -> u32 {
     args.result as u32
 }
 
+/// 判断点是否能命中点
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+    let octree = world.oct.lend();
+    match octree.get(node as usize) {
+        Some((oct, _bind)) => !(x < oct.min.x || x > oct.max.x || y < oct.min.y || y > oct.max.y),
+        None => false,
+    }
+    // let octree = world.oct.lend();
+    // let enables = world.enable.lend();
+    // let overflow_clip = world.overflow_clip.lend();
+    // let by_overflows = world.by_overflow.lend();
+    // let z_depths = world.z_depth.lend();
+    // let idtree = world.idtree.lend();
+
+    // let aabb = Aabb3::new(Point3::new(x, y, -Z_MAX), Point3::new(x, y, Z_MAX));
+    // let mut args = AbQueryArgs::new(
+    //     enables,
+    //     by_overflows,
+    //     z_depths,
+    //     overflow_clip,
+    //     idtree,
+    //     aabb.clone(),
+    //     0,
+    // );
+    // octree.query(&aabb, intersects, &mut args, ab_query_func);
+    // args.result as u32
+}
+
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {

@@ -109,17 +109,20 @@ pub fn set_texture_catch_cfg(
     timeout3: u32,
 ) {
     let res_mgr = unsafe { &mut *(res_mgr as *mut Share<RefCell<ResMgr>>) };
-    res_mgr.borrow_mut().register::<TextureRes>([
-        min_c1 as usize,
-        max_c1 as usize,
-        timeout1 as usize,
-        min_c2 as usize,
-        max_c2 as usize,
-        timeout2 as usize,
-        min_c3 as usize,
-        max_c3 as usize,
-        timeout3 as usize,
-    ]);
+    res_mgr.borrow_mut().register::<TextureRes>(
+        [
+            min_c1 as usize,
+            max_c1 as usize,
+            timeout1 as usize,
+            min_c2 as usize,
+            max_c2 as usize,
+            timeout2 as usize,
+            min_c3 as usize,
+            max_c3 as usize,
+            timeout3 as usize,
+        ],
+        "TextureRes".to_string(),
+    );
 }
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置

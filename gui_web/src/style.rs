@@ -429,15 +429,24 @@ pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
     let transform_will_changes = world.gui.transform_will_change.lend_mut();
     if value == 0 {
         if transform_will_changes.get(node_id).is_some() {
+            // println!(
+            //     "clear will change=================={:?}",
+            //     transform_will_changes.get(node_id)
+            // );
             transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
         }
     } else {
         if transforms.get(node_id).is_some() {
+            // println!(
+            //     "add1 will change=================={:?}",
+            //     transforms.get(node_id)
+            // );
             transform_will_changes.insert(
                 node_id,
                 TransformWillChange(transforms.delete(node_id).unwrap()),
             );
-        } else {
+        } else if transform_will_changes.get(node_id).is_none() {
+            // println!("add2 will change==================");
             transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
         }
     }

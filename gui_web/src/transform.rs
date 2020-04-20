@@ -73,6 +73,7 @@ macro_rules! push_tanslate {
 #[allow(unused_attributes)]
 #[no_mangle]
 pub fn clear_transform(world: u32, node_id: u32) {
+    // println!("clear_transform============={}", node_id);
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;

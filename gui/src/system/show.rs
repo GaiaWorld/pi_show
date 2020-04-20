@@ -1,68 +1,101 @@
+use ecs::idtree::IdTree;
 /**
  *  计算show
  *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
  */
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
-use ecs::idtree::{ IdTree};
+use ecs::{
+    CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener,
+    SingleCaseImpl, SingleCaseListener,
+};
 
+use component::calc::{
+    Enable as CEnable, EnableWrite as CEnableWrite, Visibility as CVisibility,
+    VisibilityWrite as CVisibilityWrite,
+};
 use component::user::*;
-use component::calc::{Visibility as CVisibility, VisibilityWrite as CVisibilityWrite, Enable as CEnable, EnableWrite as CEnableWrite};
-use entity::{Node};
+use entity::Node;
 
 #[derive(Default)]
 pub struct ShowSys;
 
 impl ShowSys {
-    fn modify_show(id: usize, idtree: &SingleCaseImpl<IdTree>, show: &MultiCaseImpl<Node, Show>, visibility: &mut MultiCaseImpl<Node, CVisibility>, enable: &mut MultiCaseImpl<Node, CEnable>){
+    fn modify_show(
+        id: usize,
+        idtree: &SingleCaseImpl<IdTree>,
+        show: &MultiCaseImpl<Node, Show>,
+        visibility: &mut MultiCaseImpl<Node, CVisibility>,
+        enable: &mut MultiCaseImpl<Node, CEnable>,
+    ) {
         let parent_id = match idtree.get(id) {
             Some(node) => {
                 if node.layer == 0 {
                     return;
                 }
                 node.parent
-            },
+            }
             None => return,
         };
         if parent_id > 0 {
             let parent_c_visibility = unsafe { **visibility.get_unchecked(parent_id) };
             let parent_c_enable = unsafe { **enable.get_unchecked(parent_id) };
-            modify_show(parent_c_visibility, parent_c_enable, id, idtree, show, visibility, enable);
-        }else {
+            modify_show(
+                parent_c_visibility,
+                parent_c_enable,
+                id,
+                idtree,
+                show,
+                visibility,
+                enable,
+            );
+        } else {
             modify_show(true, true, id, idtree, show, visibility, enable);
         }
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for ShowSys{
+impl<'a> EntityListener<'a, Node, CreateEvent> for ShowSys {
     type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Show>, &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, Show>,
+        &'a mut MultiCaseImpl<Node, CVisibility>,
+        &'a mut MultiCaseImpl<Node, CEnable>,
+    );
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         write.0.insert(event.id, Show::default());
         write.1.insert(event.id, CVisibility::default());
         write.2.insert(event.id, CEnable::default());
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Show, ModifyEvent> for ShowSys{
+impl<'a> MultiCaseListener<'a, Node, Show, ModifyEvent> for ShowSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>);
-    type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, CVisibility>,
+        &'a mut MultiCaseImpl<Node, CEnable>,
+    );
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1);
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ShowSys{
+impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ShowSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>);
-    type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, CVisibility>,
+        &'a mut MultiCaseImpl<Node, CEnable>,
+    );
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1);
     }
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys{
+impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ( &'a mut MultiCaseImpl<Node, CVisibility>, &'a mut MultiCaseImpl<Node, CEnable>);
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData){
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, CVisibility>,
+        &'a mut MultiCaseImpl<Node, CEnable>,
+    );
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
         cancel_visibility(event.id, read, write.0);
         cancel_enable(event.id, read, write.1);
     }
@@ -72,7 +105,7 @@ fn cancel_visibility(
     id: usize,
     id_tree: &SingleCaseImpl<IdTree>,
     visibility: &mut MultiCaseImpl<Node, CVisibility>,
-){
+) {
     let mut write = unsafe { visibility.get_unchecked_write(id) };
     if write.value.0 == false {
         return;
@@ -88,8 +121,8 @@ fn cancel_visibility(
 fn cancel_enable(
     id: usize,
     id_tree: &SingleCaseImpl<IdTree>,
-    enable: &mut MultiCaseImpl<Node,CEnable>,
-){
+    enable: &mut MultiCaseImpl<Node, CEnable>,
+) {
     let mut write = unsafe { enable.get_unchecked_write(id) };
     if write.value.0 == false {
         return;
@@ -107,11 +140,11 @@ fn modify_show(
     id: usize,
     id_tree: &SingleCaseImpl<IdTree>,
     show: &MultiCaseImpl<Node, Show>,
-    visibility: &mut MultiCaseImpl<Node,CVisibility>,
-    enable: &mut MultiCaseImpl<Node,CEnable>,
+    visibility: &mut MultiCaseImpl<Node, CVisibility>,
+    enable: &mut MultiCaseImpl<Node, CEnable>,
 ) {
     let show_value = match show.get(id) {
-        Some(r) => r, 
+        Some(r) => r,
         None => {
             #[cfg(feature = "warning")]
             println!("!!!!!!! get_unchecked none: {}", id);
@@ -145,11 +178,19 @@ fn modify_show(
 
     let first = unsafe { id_tree.get_unchecked(id).children.head };
     for child_id in id_tree.iter(first) {
-        modify_show(c_visibility, c_enable, child_id.0, id_tree, show, visibility, enable);
+        modify_show(
+            c_visibility,
+            c_enable,
+            child_id.0,
+            id_tree,
+            show,
+            visibility,
+            enable,
+        );
     }
 }
 
-impl_system!{
+impl_system! {
     ShowSys,
     false,
     {
@@ -160,16 +201,15 @@ impl_system!{
     }
 }
 
-
-#[cfg(test)]
-use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 #[cfg(test)]
 use atom::Atom;
 #[cfg(test)]
 use component::user::ShowWrite;
+#[cfg(test)]
+use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 
 #[test]
-fn test(){
+fn test() {
     let world = new_world();
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
@@ -183,13 +223,13 @@ fn test(){
     let cenables = LendMut::lend_mut(&cenables);
 
     let e0 = world.create_entity::<Node>();
-    
+
     idtree.create(e0);
     idtree.insert_child(e0, 0, 0, Some(&notify)); //根
     shows.insert(e0, Show::default());
 
     world.run(&Atom::from("test_show_sys"));
-    
+
     let e00 = world.create_entity::<Node>();
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
@@ -230,22 +270,22 @@ fn test(){
     shows.insert(e012, Show::default());
     world.run(&Atom::from("test_show_sys"));
 
-    unsafe { shows.get_unchecked_write(e00)}.modify(|show: &mut Show|{
+    unsafe { shows.get_unchecked_write(e00) }.modify(|show: &mut Show| {
         show.set_visibility(false);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e01)}.modify(|show: &mut Show|{
+    unsafe { shows.get_unchecked_write(e01) }.modify(|show: &mut Show| {
         show.set_enable(EnableType::None);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e02)}.modify(|show: &mut Show|{
+    unsafe { shows.get_unchecked_write(e02) }.modify(|show: &mut Show| {
         show.set_display(Display::None);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e010)}.modify(|show: &mut Show|{
+    unsafe { shows.get_unchecked_write(e010) }.modify(|show: &mut Show| {
         show.set_enable(EnableType::Visible);
         true
     });
@@ -288,14 +328,13 @@ fn new_world() -> World {
     world.register_multi::<Node, CVisibility>();
     world.register_multi::<Node, CEnable>();
     world.register_single::<IdTree>(IdTree::default());
-     
+
     let system = CellShowSys::new(ShowSys::default());
     world.register_system(Atom::from("system"), system);
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build("system".to_string(), &world);
 
-    world.add_dispatcher( Atom::from("test_show_sys"), dispatch);
+    world.add_dispatcher(Atom::from("test_show_sys"), dispatch);
     world
 }
-

@@ -356,16 +356,16 @@ fn update_geo_quad<C: HalContext + 'static>(
         Some(_clip) => {
             let (uv1, uv2) = match flip_y {
                 true => {
-                    let r = Aabb2::new(
-                        Point2::new(uv.min.x, uv.max.y),
-                        Point2::new(uv.max.x, uv.min.y),
-                    );
-                    println!(
-                        "box:{:?}, {:?}, {:?}",
-                        r,
-                        Point2::new(uv.min.x, uv.max.y),
-                        Point2::new(uv.max.x, uv.min.y)
-                    );
+                    // let r = Aabb2::new(
+                    //     Point2::new(uv.min.x, uv.max.y),
+                    //     Point2::new(uv.max.x, uv.min.y),
+                    // );
+                    // println!(
+                    //     "box:{:?}, {:?}, {:?}",
+                    //     r,
+                    //     Point2::new(uv.min.x, uv.max.y),
+                    //     Point2::new(uv.max.x, uv.min.y)
+                    // );
                     (
                         Point2::new(uv.min.x, uv.max.y),
                         Point2::new(uv.max.x, uv.min.y),

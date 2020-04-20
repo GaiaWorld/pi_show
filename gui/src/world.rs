@@ -55,45 +55,71 @@ lazy_static! {
 
 pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
     let mut res_mgr = if total_capacity > 0 {
-        ResMgr::with_capacity(50 * 1024 * 1024)
+        ResMgr::with_capacity(total_capacity)
     } else {
         ResMgr::default()
     };
 
-    res_mgr.register::<TextureRes>([
-        10 * 1024 * 1024,
-        50 * 1024 * 1024,
-        5 * 60000,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ]);
-    res_mgr.register::<GeometryRes>([20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<BufferRes>([20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<TextureRes>(
+        [
+            10 * 1024 * 1024,
+            50 * 1024 * 1024,
+            5 * 60000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ],
+        "TextureRes".to_string(),
+    );
+    res_mgr.register::<GeometryRes>(
+        [20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0],
+        "GeometryRes".to_string(),
+    );
+    res_mgr.register::<BufferRes>(
+        [20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0],
+        "BufferRes".to_string(),
+    );
 
-    res_mgr.register::<SamplerRes>([512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<RasterStateRes>([512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<BlendStateRes>([512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<StencilStateRes>([512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<DepthStateRes>([512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
+    res_mgr.register::<SamplerRes>(
+        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "SamplerRes".to_string(),
+    );
+    res_mgr.register::<RasterStateRes>(
+        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "RasterStateRes".to_string(),
+    );
+    res_mgr.register::<BlendStateRes>(
+        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "BlendStateRes".to_string(),
+    );
+    res_mgr.register::<StencilStateRes>(
+        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "StencilStateRes".to_string(),
+    );
+    res_mgr.register::<DepthStateRes>(
+        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "DepthStateRes".to_string(),
+    );
 
-    res_mgr.register::<UColorUbo>([4 * 1024, 8 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<HsvUbo>([1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<MsdfStrokeUbo>([1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0]);
-    res_mgr.register::<CanvasTextStrokeColorUbo>([
-        1 * 1024,
-        2 * 1024,
-        60 * 60000,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    ]);
+    res_mgr.register::<UColorUbo>(
+        [4 * 1024, 8 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "UColorUbo".to_string(),
+    );
+    res_mgr.register::<HsvUbo>(
+        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "HsvUbo".to_string(),
+    );
+    res_mgr.register::<MsdfStrokeUbo>(
+        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "MsdfStrokeUbo".to_string(),
+    );
+    res_mgr.register::<CanvasTextStrokeColorUbo>(
+        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        "CanvasTextStrokeColorUbo".to_string(),
+    );
     res_mgr
 }
 

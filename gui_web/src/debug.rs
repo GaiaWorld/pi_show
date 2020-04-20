@@ -78,6 +78,7 @@ struct Info {
     object_fit: Option<ObjectFit>,
     filter: Option<Filter>,
     transform_will_change: Option<TransformWillChange>,
+    parent_id: Option<u32>,
 
     text: Option<TextStyle>,
     text_content: Option<TextContent>,
@@ -696,6 +697,8 @@ pub fn node_info(world: u32, node: u32) {
 
     // let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
 
+    let parent = unsafe { world.idtree.lend().get_unchecked(node) }.parent;
+
     let enable = unsafe { world.enable.lend().get_unchecked(node) }.0;
     let visibility = unsafe { world.visibility.lend().get_unchecked(node) }.0;
 
@@ -1005,6 +1008,7 @@ pub fn node_info(world: u32, node: u32) {
             Some(r) => Some(r.clone()),
             None => None,
         },
+        parent_id: Some(parent as u32),
     };
 
     js! {
@@ -1206,6 +1210,10 @@ fn res_size(world: u32) {
         size.catch_canvas_stroke += i.1.elem.cost;
         size.count_catch_canvas_stroke += 1;
     }
+
+    size.total_capacity = engine.res_mgr.total_capacity;
+
+    size.texture_max_capacity = engine.texture_res_map.caches[0].get_max_capacity();
 
     js! {
         console.log("res_mgr_size: ", @{size});
@@ -1433,6 +1441,9 @@ struct ResMgrSize {
     catch_hsv: usize,
     catch_msdf_stroke: usize,
     catch_canvas_stroke: usize,
+
+    total_capacity: usize,
+    texture_max_capacity: usize,
 }
 js_serializable!(ResMgrSize);
 
