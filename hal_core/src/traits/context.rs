@@ -316,13 +316,23 @@ pub trait HalContext {
         data: Option<TextureData>,
     ) -> Result<HalTexture, String>;
 
+    fn compressed_texture_create_2d(
+        &self,
+        mipmap_level: u32,
+        width: u32,
+        height: u32,
+        internalformat: CompressedTexFormat,
+        is_gen_mipmap: bool,
+        data: Option<TextureData>,
+    ) -> Result<HalTexture, String>;
+
     fn texture_get_size(&self, texture: &HalTexture) -> (u32, u32);
 
     fn texture_get_render_format(&self, texture: &HalTexture) -> PixelFormat;
 
     fn texture_is_gen_mipmap(&self, texture: &HalTexture) -> bool;
 
-	fn texture_resize(&self, texture: &HalTexture, mipmap_level: u32, width: u32, height: u32);
+    fn texture_resize(&self, texture: &HalTexture, mipmap_level: u32, width: u32, height: u32);
 
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData);
 
@@ -342,9 +352,9 @@ pub trait HalContext {
         dst_y: u32,
         width: u32,
         height: u32,
-	);
-	
-	fn texture_pixel_storei(&self, texture: &HalTexture, value: PixelStore);
+    );
+
+    fn texture_pixel_storei(&self, texture: &HalTexture, value: PixelStore);
 
     // ==================== HalSampler
 

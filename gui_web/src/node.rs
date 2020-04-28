@@ -13,7 +13,7 @@ use octree::intersects;
 use gui::component::calc::*;
 use gui::component::user::*;
 use gui::entity::Node;
-use gui::render::res::{Compress, Opacity as ROpacity};
+use gui::render::res::Opacity as ROpacity;
 use gui::single::*;
 use hal_core::*;
 // use gui::
@@ -185,7 +185,7 @@ pub fn set_canvas_size(
             PixelFormat::RGBA,
             DataFormat::UnsignedByte,
             ROpacity::Transparent,
-            Compress::None,
+            None,
             texture,
         ),
         0,

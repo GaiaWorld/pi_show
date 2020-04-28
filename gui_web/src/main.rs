@@ -223,7 +223,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
             PixelFormat::RGBA,
             DataFormat::UnsignedByte,
             unsafe { transmute(1 as u8) },
-            unsafe { transmute(0 as u8) },
+            None, //unsafe { transmute(0 as usize) },
             texture,
         ),
         0,
@@ -480,9 +480,42 @@ pub fn set_shader(engine: u32) {
 pub fn load_image_success(
     world_id: u32,
     opacity: u8,
-    compress: u8,
-    mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+    compress: i32,
+    r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
 ) {
+    let (res, name) = create_texture(world_id, opacity, compress, r_type);
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+    let image_wait_sheet = world.image_wait_sheet.lend_mut();
+    match image_wait_sheet.wait.remove(&name) {
+        Some(r) => {
+            image_wait_sheet.finish.push((name, res, r));
+            image_wait_sheet.get_notify().modify_event(0, "", 0);
+        }
+        None => (),
+    };
+}
+
+/// 创建纹理资源
+/// image_name可以使用hash值与高层交互 TODO
+/// __jsObj: image, __jsObj1: image_name(String)
+#[no_mangle]
+pub fn create_texture_res(
+    world_id: u32,
+    opacity: u8,
+    compress: i32,
+    r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+) -> u32 {
+    Share::into_raw(create_texture(world_id, opacity, compress, r_type).0) as u32
+}
+
+pub fn create_texture(
+    world_id: u32,
+    opacity: u8,
+    compress: i32,
+    mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+) -> (Share<TextureRes>, Atom) {
     if r_type > 2 {
         r_type = 0;
     }
@@ -495,7 +528,7 @@ pub fn load_image_success(
     let engine = world.engine.lend_mut();
 
     let res = match engine.texture_res_map.get(&name) {
-        Some(_) => return,
+        Some(r) => return (r, name),
         None => {
             let width: u32 = js! {return __jsObj.width}.try_into().unwrap();
             let height: u32 = js! {return __jsObj.height}.try_into().unwrap();
@@ -505,20 +538,44 @@ pub fn load_image_success(
                 ROpacity::Opaque => PixelFormat::RGB,
                 ROpacity::Translucent | ROpacity::Transparent => PixelFormat::RGBA,
             };
+
             let texture = match TryInto::<Object>::try_into(js! {return {wrap: __jsObj};}) {
-                Ok(image_obj) => engine
-                    .gl
-                    .texture_create_2d_webgl(
-                        0,
-                        width,
-                        height,
-                        pformate,
-                        DataFormat::UnsignedByte,
-                        false,
-                        Some(&image_obj),
-                    )
-                    .unwrap(),
+                Ok(obj) => {
+                    if compress < 0 {
+                        engine
+                            .gl
+                            .texture_create_2d_webgl(
+                                0,
+                                width,
+                                height,
+                                pformate,
+                                DataFormat::UnsignedByte,
+                                false,
+                                Some(&obj), // obj = {wrap: Cnavas} | obj = {wrap: Image}
+                            )
+                            .unwrap()
+                    } else {
+                        engine
+                            .gl
+                            .compressed_texture_create_2d_webgl(
+                                0,
+                                width,
+                                height,
+                                CompressedTexFormat(compress as isize),
+                                // unsafe { transmute::<u8, CompressedTexFormat>(compress as u8) },
+                                false,
+                                Some(&obj), // obj = {wrap: Uint8Array} | obj = {wrap: float32Array}
+                            )
+                            .unwrap()
+                    }
+                }
                 Err(s) => panic!("set_src error, {:?}", s),
+            };
+            let compress = if compress < 0 {
+                None
+            } else {
+                Some(CompressedTexFormat(compress as isize))
+                // Some(unsafe { transmute::<u8, CompressedTexFormat>(compress as u8) })
             };
             engine.create_texture_res(
                 name.clone(),
@@ -528,22 +585,14 @@ pub fn load_image_success(
                     pformate,
                     DataFormat::UnsignedByte,
                     opacity,
-                    unsafe { transmute(compress) },
+                    compress,
                     texture,
                 ),
                 r_type as usize,
             )
         }
     };
-
-    let image_wait_sheet = world.image_wait_sheet.lend_mut();
-    match image_wait_sheet.wait.remove(&name) {
-        Some(r) => {
-            image_wait_sheet.finish.push((name, res, r));
-            image_wait_sheet.get_notify().modify_event(0, "", 0);
-        }
-        None => (),
-    };
+    return (res, name);
 }
 
 /// 加载图片，调用高层接口，加载所有等待中的图片

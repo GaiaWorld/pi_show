@@ -2480,7 +2480,7 @@ fn set_border_image_local<'a, C: HalContext, L: FlexNode>(
             &mut *write.1,
             image,
             style_mark,
-            ImageType::ImageLocal,
+            ImageType::BorderImageLocal,
         ) {
             set_border_image_size(
                 image.src.as_ref().unwrap(),

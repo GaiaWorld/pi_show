@@ -34,6 +34,58 @@ pub enum TextureWrapMode {
     MirroredRepeat, // 镜像重复
 }
 
+// /**
+//  * 压缩纹理格式
+//  */
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+// #[allow(non_camel_case_types)]
+// pub enum CompressedTexFormat {
+//     // ASTC 目前支持4x4
+//     RGBA_ASTC_4x4,
+
+//     // prtc
+//     RGBA_PVRTC_2BPPV1,
+//     RGBA_PVRTC_4BPPV1,
+//     RGB_PVRTC_2BPPV1,
+//     RGB_PVRTC_4BPPV1,
+
+//     //etc1
+//     RGB_ETC1,
+
+//     // etc2
+//     RGB8_ETC2,
+//     RGBA8_ETC2_EAC,
+//     // Atc,
+//     // Etc,
+//     // Etc1,
+//     // Pvrtc,
+//     // S3tc,
+//     // S3tcSrgb,
+// }
+
+/**
+ * 压缩纹理格式
+ */
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+#[allow(non_camel_case_types)]
+pub struct CompressedTexFormat(pub isize);
+
+// /**
+//  * 压缩纹理格式
+//  */
+// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+// #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+// pub enum CmpressedTexType {
+//     Atc,
+//     Etc,
+//     Etc1,
+//     Pvrtc,
+//     S3tc,
+//     S3tcSrgb,
+// }
+
 /**
  * 像素格式
  */
@@ -190,20 +242,19 @@ pub fn pixe_size(pformat: PixelFormat, dformat: DataFormat) -> usize {
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
-pub enum PixelStore{
-	PackAlignment(PixelChanel),
-	UnpackAlignment(PixelChanel),
-	UnpackFlipYWebgl(bool),
-	UnpackPremultiplyAlphaWebgl(bool),
-	// UnpackColorspaceConversionWebgl(gl.NONE),
+pub enum PixelStore {
+    PackAlignment(PixelChanel),
+    UnpackAlignment(PixelChanel),
+    UnpackFlipYWebgl(bool),
+    UnpackPremultiplyAlphaWebgl(bool),
+    // UnpackColorspaceConversionWebgl(gl.NONE),
 }
 
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum PixelChanel {
-	One,
-	Two,
-	Four,
-	Eight,
+    One,
+    Two,
+    Four,
+    Eight,
 }
-

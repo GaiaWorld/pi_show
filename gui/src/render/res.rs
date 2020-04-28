@@ -17,23 +17,23 @@ pub enum Opacity {
     Transparent,
 }
 
-#[derive(Debug)]
-pub enum Compress {
-    None,
-    DXT1, // s3tc DXT1 适用于不具有透明度或者仅具有一位Alpha的贴图
-    DXT2,
-    DXT3,
-    DXT4,
-    DXT5,
-    ATCRGB,
-    ATCRGBA,
-    PVRTCRGB,
-    PVRTCRGBA,
-    ETC1, //(RGB)
-    ETC2RGB,
-    ETC2RGBA,
-    ASTC,
-}
+// #[derive(Debug)]
+// pub enum Compress {
+//     None,
+//     DXT1, // s3tc DXT1 适用于不具有透明度或者仅具有一位Alpha的贴图
+//     DXT2,
+//     DXT3,
+//     DXT4,
+//     DXT5,
+//     ATCRGB,
+//     ATCRGBA,
+//     PVRTCRGB,
+//     PVRTCRGBA,
+//     ETC1, //(RGB)
+//     ETC2RGB,
+//     ETC2RGBA,
+//     ASTC,
+// }
 
 pub struct TextureRes {
     pub width: usize,
@@ -41,7 +41,7 @@ pub struct TextureRes {
     pub pformat: PixelFormat,
     pub dformat: DataFormat,
     pub opacity: Opacity,
-    pub compress: Compress,
+    pub compress: Option<CompressedTexFormat>,
     pub bind: HalTexture,
 }
 
@@ -59,7 +59,7 @@ impl TextureRes {
         pformat: PixelFormat,
         dformat: DataFormat,
         opacity: Opacity,
-        compress: Compress,
+        compress: Option<CompressedTexFormat>,
         bind: HalTexture,
     ) -> Self {
         TextureRes {

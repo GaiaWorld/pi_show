@@ -2,7 +2,7 @@
  * 提供常用数据结构和WebGL的转换函数
  */
 use hal_core::*;
-use webgl_rendering_context::{WebGLRenderingContext};
+use webgl_rendering_context::*;
 
 pub fn get_attribute_location(name: &AttributeName) -> u32 {
     match name {
@@ -25,7 +25,7 @@ pub fn get_attribute_location(name: &AttributeName) -> u32 {
         _ => {
             assert!(false, "get_attribute_location failed!");
             10000
-        }   
+        }
     }
 }
 
@@ -36,40 +36,38 @@ pub fn get_shader_type(stype: ShaderType) -> u32 {
     }
 }
 
-/** 
+/**
  * 返回 (mag_mode, min_mode)
  */
-pub fn get_texture_filter_mode(mag: TextureFilterMode, min: TextureFilterMode, mip: Option<TextureFilterMode>) -> (u32, u32) {
+pub fn get_texture_filter_mode(
+    mag: TextureFilterMode,
+    min: TextureFilterMode,
+    mip: Option<TextureFilterMode>,
+) -> (u32, u32) {
     let mag_mode = match mag {
         TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
         TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
     };
 
     let min_mode = match mip {
-        None => {
-            match min {
-                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
-                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
-            }
-        }
-        Some(TextureFilterMode::Nearest) => {
-            match min {
-                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_NEAREST,
-                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_NEAREST,
-            }
-        }
-        Some(TextureFilterMode::Linear) => {
-            match min {
-                TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_LINEAR,
-                TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_LINEAR,
-            }
-        }
+        None => match min {
+            TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST,
+            TextureFilterMode::Linear => WebGLRenderingContext::LINEAR,
+        },
+        Some(TextureFilterMode::Nearest) => match min {
+            TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_NEAREST,
+            TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_NEAREST,
+        },
+        Some(TextureFilterMode::Linear) => match min {
+            TextureFilterMode::Nearest => WebGLRenderingContext::NEAREST_MIPMAP_LINEAR,
+            TextureFilterMode::Linear => WebGLRenderingContext::LINEAR_MIPMAP_LINEAR,
+        },
     };
 
     (mag_mode, min_mode)
 }
 
-pub fn get_texture_wrap_mode(mode: TextureWrapMode) -> u32 { 
+pub fn get_texture_wrap_mode(mode: TextureWrapMode) -> u32 {
     match mode {
         TextureWrapMode::Repeat => WebGLRenderingContext::REPEAT,
         TextureWrapMode::ClampToEdge => WebGLRenderingContext::CLAMP_TO_EDGE,
@@ -85,6 +83,18 @@ pub fn get_pixel_format(format: PixelFormat) -> u32 {
         PixelFormat::DEPTH16 => WebGLRenderingContext::DEPTH_COMPONENT16,
     }
 }
+
+// pub fn get_compressed_tex_extension(format: CmpressedTexFormat, extension: Extension) -> String {
+//     match format {
+//         CmpressedTexFormat::Astc => WEBGL_compressed_texture_astc,
+//         CmpressedTexFormat::Atc => WEBGL_compressed_texture_atc,
+//         CmpressedTexFormat::Etc => WEBGL_compressed_texture_etc,
+//         CmpressedTexFormat::Pvrtc => WEBGL_compressed_texture_pvrtc,
+//         CmpressedTexFormat::S3tc => WEBGL_compressed_texture_s3tc,
+//         CmpressedTexFormat::S3tcSrgb => WEBGL_compressed_texture_s3tc_srgb,
+//         _ => panic!("compressed_tex format invaild:{}", format),
+//     }
+// }
 
 pub fn get_data_format(format: DataFormat) -> u32 {
     match format {
@@ -155,5 +165,5 @@ pub fn get_stencil_op(op: StencilOp) -> u32 {
         StencilOp::Invert => WebGLRenderingContext::INVERT,
         StencilOp::IncrWrap => WebGLRenderingContext::INCR_WRAP,
         StencilOp::DecrWrap => WebGLRenderingContext::DECR_WRAP,
-    }   
+    }
 }

@@ -24,6 +24,7 @@ pub struct WebglHalContextImpl {
     // 具体实现
     pub gl: WebGLRenderingContext,
     pub caps: Capabilities,
+    pub extensions: Extensions,
     pub vao_extension: Option<Object>,
     pub shader_cache: ShaderCache,
     pub state_machine: StateMachine,
@@ -40,6 +41,14 @@ pub struct WebglHalContextImpl {
     pub rs_slab: Slab<(RasterStateDesc, u32)>,
     pub ss_slab: Slab<(StencilStateDesc, u32)>,
     pub program_slab: Slab<(WebGLProgramImpl, u32)>,
+}
+
+pub struct Extensions {
+    // pub s3tc: Option<CompressedTexS3tc>,
+    pub pvrtc: Option<CompressedTexPvrtcExtension>,
+    pub etc1: Option<CompressedTexEtc1Extension>,
+    pub etc2: Option<CompressedTexEtc2Extension>,
+    pub astc: Option<CompressedTexAstcExtension>,
 }
 
 pub struct WebglHalContext(Share<WebglHalContextImpl>, HalRenderTarget);
@@ -404,6 +413,45 @@ impl HalContext for WebglHalContext {
         })
     }
 
+    fn compressed_texture_create_2d(
+        &self,
+        mipmap_level: u32,
+        width: u32,
+        height: u32,
+        internalformat: CompressedTexFormat,
+        is_gen_mipmap: bool,
+        data: Option<TextureData>,
+    ) -> Result<HalTexture, String> {
+        let context_impl = self.0.clone();
+        // let webgl_internalformat = get_compressed_tex_const(internalformat, &context_impl);
+        let webgl_internalformat = internalformat.0;
+        if webgl_internalformat == -1 {
+            return Err(format!("不支持压缩纹理格式：{:?}", internalformat));
+        }
+        WebGLTextureImpl::new_compressed_2d(
+            &self.0.gl,
+            mipmap_level,
+            width,
+            height,
+            webgl_internalformat as u32,
+            is_gen_mipmap,
+            data,
+            None,
+        )
+        .map(|texture| {
+            let context = convert_to_mut(self.0.as_ref());
+            let (index, use_count) = create_new_slot(&mut context.texture_slab, texture);
+            context.stat.texture_count += 1;
+
+            HalTexture {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                    context_impl.texture_destroy(index, use_count);
+                }),
+            }
+        })
+    }
+
     fn texture_get_size(&self, texture: &HalTexture) -> (u32, u32) {
         get_ref(
             &self.0.texture_slab,
@@ -433,12 +481,12 @@ impl HalContext for WebglHalContext {
         .map_or(false, |tex| tex.is_gen_mipmap())
     }
 
-	fn texture_resize(&self, texture: &HalTexture, mipmap_level: u32, width: u32, height: u32) {
-		let slab = convert_to_mut(&self.0.texture_slab);
+    fn texture_resize(&self, texture: &HalTexture, mipmap_level: u32, width: u32, height: u32) {
+        let slab = convert_to_mut(&self.0.texture_slab);
         if let Some(t) = get_mut_ref(slab, texture.item.index, texture.item.use_count) {
             t.resize(&self.0.gl, mipmap_level, width, height);
         }
-	}
+    }
 
     fn texture_update(&self, texture: &HalTexture, mipmap_level: u32, data: &TextureData) {
         let slab = convert_to_mut(&self.0.texture_slab);
@@ -516,15 +564,16 @@ impl HalContext for WebglHalContext {
         } else {
             false
         }
-	}
-	
-	fn texture_pixel_storei(&self, texture: &HalTexture, value: PixelStore) {
-		get_ref(
+    }
+
+    fn texture_pixel_storei(&self, texture: &HalTexture, value: PixelStore) {
+        get_ref(
             &self.0.texture_slab,
             texture.item.index,
             texture.item.use_count,
-        ).map(|tex| tex.pixel_storei(&self.0.gl, value));
-	}
+        )
+        .map(|tex| tex.pixel_storei(&self.0.gl, value));
+    }
 
     // ==================== HalSampler
 
@@ -924,7 +973,7 @@ impl WebglHalContext {
         let ss_slab = Slab::new();
         let program_slab = Slab::new();
 
-        let caps = WebglHalContext::create_caps(&gl);
+        let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
         let vao_extension = if use_vao && caps.vertex_array_object {
             TryInto::<Object>::try_into(js! {
 
@@ -957,6 +1006,7 @@ impl WebglHalContext {
             stat: RenderStat::new(),
             gl: gl,
             caps: caps,
+            extensions: extensions,
             vao_extension,
             shader_cache,
             state_machine,
@@ -1038,6 +1088,45 @@ impl WebglHalContext {
             }
 
             let context_impl = self.0.clone();
+            HalTexture {
+                item: HalItem { index, use_count },
+                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                    context_impl.texture_destroy(index, use_count);
+                }),
+            }
+        })
+    }
+
+    pub fn compressed_texture_create_2d_webgl(
+        &self,
+        mipmap_level: u32,
+        width: u32,
+        height: u32,
+        internalformat: CompressedTexFormat,
+        is_gen_mipmap: bool,
+        data: Option<&Object>,
+    ) -> Result<HalTexture, String> {
+        let context_impl = self.0.clone();
+        // let webgl_internalformat = get_compressed_tex_const(internalformat, &context_impl);
+        let webgl_internalformat = internalformat.0;
+        if webgl_internalformat == -1 {
+            return Err(format!("不支持压缩纹理格式：{:?}", internalformat));
+        }
+        WebGLTextureImpl::new_compressed_2d(
+            &self.0.gl,
+            mipmap_level,
+            width,
+            height,
+            webgl_internalformat as u32,
+            is_gen_mipmap,
+            None,
+            data,
+        )
+        .map(|texture| {
+            let context = convert_to_mut(self.0.as_ref());
+            let (index, use_count) = create_new_slot(&mut context.texture_slab, texture);
+            context.stat.texture_count += 1;
+
             HalTexture {
                 item: HalItem { index, use_count },
                 destroy_func: Share::new(move |index: u32, use_count: u32| {
@@ -1133,7 +1222,7 @@ impl WebglHalContext {
         context.state_machine.set_render_target_impl(&self.0.gl, rt);
     }
 
-    fn create_caps(gl: &WebGLRenderingContext) -> Capabilities {
+    fn create_caps_and_extensions(gl: &WebGLRenderingContext) -> (Capabilities, Extensions) {
         let max_textures_image_units = gl
             .get_parameter(WebGLRenderingContext::MAX_TEXTURE_IMAGE_UNITS)
             .try_into()
@@ -1207,14 +1296,16 @@ impl WebglHalContext {
             .get_extension::<ANGLEInstancedArrays>()
             .map_or(false, |_v| true);
 
-        let mut astc = gl
-            .get_extension::<CompressedTextureAstc>()
-            .map_or(false, |_v| true);
-        if !astc {
-            astc = gl
-                .get_extension::<WebkitCompressedTextureAstc>()
-                .map_or(false, |_v| true);
-        }
+        // let (astc, astc_e) = match gl
+        // .get_extension::<CompressedTextureAstc>(){
+        // 	Some(e) => (true)
+        // 	None => (false, None);
+        // };
+        let (astc, astc_e) = gl.get_extension::<CompressedTextureAstc>().map_or(
+            gl.get_extension::<WebkitCompressedTextureAstc>()
+                .map_or((false, None), |v| (true, Some(v.0))),
+            |v| (true, Some(v.0)),
+        );
 
         let mut s3tc = gl
             .get_extension::<CompressedTextureS3tc>()
@@ -1225,63 +1316,113 @@ impl WebglHalContext {
                 .map_or(false, |_v| true);
         }
 
-        let mut pvrtc = gl
-            .get_extension::<CompressedTexturePvrtc>()
-            .map_or(false, |_v| true);
-        if !pvrtc {
-            pvrtc = gl
-                .get_extension::<WebkitCompressedTexturePvrtc>()
-                .map_or(false, |_v| true);
-        }
+        let (pvrtc, pvrtc_e) = gl.get_extension::<CompressedTexturePvrtc>().map_or(
+            gl.get_extension::<WebkitCompressedTexturePvrtc>()
+                .map_or((false, None), |v| (true, Some(v.0))),
+            |v| (true, Some(v.0)),
+        );
 
-        let mut etc1 = gl
-            .get_extension::<CompressedTextureEtc1>()
-            .map_or(false, |_v| true);
-        if !etc1 {
-            etc1 = gl
-                .get_extension::<WebkitCompressedTextureEtc1>()
-                .map_or(false, |_v| true);
-        }
+        let (etc1, etc1_e) = gl.get_extension::<CompressedTextureEtc1>().map_or(
+            gl.get_extension::<WebkitCompressedTextureEtc1>()
+                .map_or((false, None), |v| (true, Some(v.0))),
+            |v| (true, Some(v.0)),
+        );
 
-        let mut etc2 = gl
-            .get_extension::<CompressedTextureEtc2>()
-            .map_or(false, |_v| true);
-        if !etc2 {
-            etc2 = gl
-                .get_extension::<WebkitCompressedTextureEtc2>()
-                .map_or(false, |_v| true);
-        }
-        if !etc2 {
-            etc2 = gl
-                .get_extension::<CompressedTextureEs3>()
-                .map_or(false, |_v| true);
-        }
+        let (etc2, etc2_e) = gl.get_extension::<CompressedTextureEtc2>().map_or(
+            gl.get_extension::<WebkitCompressedTextureEtc2>()
+                .map_or((false, None), |v| (true, Some(v.0))),
+            |v| (true, Some(v.0)),
+        );
 
-        Capabilities {
-            astc: astc,
-            s3tc: s3tc,
-            pvrtc: pvrtc,
-            etc1: etc1,
-            etc2: etc2,
-            max_textures_image_units: max_textures_image_units,
-            max_vertex_texture_image_units: max_vertex_texture_image_units,
-            max_combined_textures_image_units: max_combined_textures_image_units,
-            max_texture_size: max_texture_size,
-            max_render_texture_size: max_render_texture_size,
-            max_vertex_attribs: max_vertex_attribs,
-            max_varying_vectors: max_varying_vectors,
-            max_vertex_uniform_vectors: max_vertex_uniform_vectors,
-            max_fragment_uniform_vectors: max_fragment_uniform_vectors,
-            standard_derivatives: standard_derivatives,
-            uint_indices: uint_indices,
-            fragment_depth_supported: fragment_depth_supported,
-            texture_float: texture_float,
-            texture_float_linear_filtering: texture_float_linear_filtering,
-            texture_lod: texture_lod,
-            color_buffer_float: color_buffer_float,
-            depth_texture_extension: depth_texture_extension,
-            vertex_array_object: vertex_array_object,
-            instanced_arrays: instanced_arrays,
-        }
+        // if !etc2 {
+        //     etc2 = gl
+        //         .get_extension::<CompressedTextureEs3>()
+        //         .map_or(false, |_v| true);
+        // }
+
+        (
+            Capabilities {
+                astc: astc,
+                s3tc: s3tc,
+                pvrtc: pvrtc,
+                etc1: etc1,
+                etc2: etc2,
+                max_textures_image_units: max_textures_image_units,
+                max_vertex_texture_image_units: max_vertex_texture_image_units,
+                max_combined_textures_image_units: max_combined_textures_image_units,
+                max_texture_size: max_texture_size,
+                max_render_texture_size: max_render_texture_size,
+                max_vertex_attribs: max_vertex_attribs,
+                max_varying_vectors: max_varying_vectors,
+                max_vertex_uniform_vectors: max_vertex_uniform_vectors,
+                max_fragment_uniform_vectors: max_fragment_uniform_vectors,
+                standard_derivatives: standard_derivatives,
+                uint_indices: uint_indices,
+                fragment_depth_supported: fragment_depth_supported,
+                texture_float: texture_float,
+                texture_float_linear_filtering: texture_float_linear_filtering,
+                texture_lod: texture_lod,
+                color_buffer_float: color_buffer_float,
+                depth_texture_extension: depth_texture_extension,
+                vertex_array_object: vertex_array_object,
+                instanced_arrays: instanced_arrays,
+            },
+            Extensions {
+                pvrtc: pvrtc_e,
+                etc1: etc1_e,
+                etc2: etc2_e,
+                astc: astc_e,
+            },
+        )
     }
 }
+
+// #[allow(unreachable_patterns)]
+// fn get_compressed_tex_const(
+//     format: CompressedTexFormat,
+//     context_impl: &WebglHalContextImpl,
+// ) -> i32 {
+//     match format {
+//         CompressedTexFormat::RGBA_ASTC_4x4 => context_impl
+//             .extensions
+//             .astc
+//             .as_ref()
+//             .map_or(-1, |v| v.rgba_astc_4x4 as i32),
+//         CompressedTexFormat::RGBA_PVRTC_2BPPV1 => context_impl
+//             .extensions
+//             .pvrtc
+//             .as_ref()
+//             .map_or(-1, |v| v.rgba_pvrtc_2bppv1 as i32),
+//         CompressedTexFormat::RGB_PVRTC_4BPPV1 => context_impl
+//             .extensions
+//             .pvrtc
+//             .as_ref()
+//             .map_or(-1, |v| v.rgba_pvrtc_4bppv1 as i32),
+//         CompressedTexFormat::RGB_PVRTC_2BPPV1 => context_impl
+//             .extensions
+//             .pvrtc
+//             .as_ref()
+//             .map_or(-1, |v| v.rgb_pvrtc_2bppv1 as i32),
+//         CompressedTexFormat::RGB_PVRTC_4BPPV1 => context_impl
+//             .extensions
+//             .pvrtc
+//             .as_ref()
+//             .map_or(-1, |v| v.rgb_pvrtc_4bppv1 as i32),
+//         CompressedTexFormat::RGB_ETC1 => context_impl
+//             .extensions
+//             .etc1
+//             .as_ref()
+//             .map_or(-1, |v| v.rgb_etc1 as i32),
+//         CompressedTexFormat::RGBA8_ETC2_EAC => context_impl
+//             .extensions
+//             .etc2
+//             .as_ref()
+//             .map_or(-1, |v| v.rgba8_etc2_eac as i32),
+//         CompressedTexFormat::RGB8_ETC2 => context_impl
+//             .extensions
+//             .etc2
+//             .as_ref()
+//             .map_or(-1, |v| v.rgb8_etc2 as i32),
+//         _ => panic!("compressed_tex format invaild:{:?}", format),
+//     }
+// }

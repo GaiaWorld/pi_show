@@ -311,7 +311,10 @@ impl Extension for GLOESStandardDerivatives {
     const NAME: &'static str = "GL_OES_standard_derivatives";
 }
 
-pub struct CompressedTextureAstc;
+pub struct CompressedTexAstcExtension {
+    pub rgba_astc_4x4: u32,
+}
+pub struct CompressedTextureAstc(pub CompressedTexAstcExtension);
 
 impl TryFrom<Value> for CompressedTextureAstc {
     type Error = String;
@@ -319,7 +322,10 @@ impl TryFrom<Value> for CompressedTextureAstc {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(CompressedTextureAstc),
+            _ => Ok(CompressedTextureAstc(CompressedTexAstcExtension {
+                // rgba_astc_4x4: u32::try_from(js! {@{v}.COMPRESSED_RGBA_ASTC_4x4_KHR}).unwrap(),
+                rgba_astc_4x4: 1,
+            })),
         }
     }
 }
@@ -330,7 +336,7 @@ impl Extension for CompressedTextureAstc {
 
 // ===========================================
 
-pub struct WebkitCompressedTextureAstc;
+pub struct WebkitCompressedTextureAstc(pub CompressedTexAstcExtension);
 
 impl TryFrom<Value> for WebkitCompressedTextureAstc {
     type Error = String;
@@ -338,7 +344,10 @@ impl TryFrom<Value> for WebkitCompressedTextureAstc {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(WebkitCompressedTextureAstc),
+            _ => Ok(WebkitCompressedTextureAstc(CompressedTexAstcExtension {
+                // rgba_astc_4x4: u32::try_from(js! {@{v}.COMPRESSED_RGBA_ASTC_4x4_KHR}).unwrap(),
+                rgba_astc_4x4: 1,
+            })),
         }
     }
 }
@@ -386,7 +395,14 @@ impl Extension for WebkitCompressedTextureS3tc {
 
 // ===========================================
 
-pub struct CompressedTexturePvrtc;
+pub struct CompressedTexPvrtcExtension {
+    pub rgb_pvrtc_4bppv1: u32,
+    pub rgba_pvrtc_4bppv1: u32,
+    pub rgb_pvrtc_2bppv1: u32,
+    pub rgba_pvrtc_2bppv1: u32,
+}
+
+pub struct CompressedTexturePvrtc(pub CompressedTexPvrtcExtension);
 
 impl TryFrom<Value> for CompressedTexturePvrtc {
     type Error = String;
@@ -394,7 +410,20 @@ impl TryFrom<Value> for CompressedTexturePvrtc {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(CompressedTexturePvrtc),
+            _ => Ok(CompressedTexturePvrtc(CompressedTexPvrtcExtension {
+                // rgb_pvrtc_4bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGB_PVRTC_4BPPV1_IMG})
+                //     .unwrap(),
+                // rgba_pvrtc_4bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG})
+                //     .unwrap(),
+                // rgb_pvrtc_2bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGB_PVRTC_2BPPV1_IMG})
+                //     .unwrap(),
+                // rgba_pvrtc_2bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG})
+                // 	.unwrap(),
+                rgb_pvrtc_4bppv1: 1,
+                rgba_pvrtc_4bppv1: 1,
+                rgb_pvrtc_2bppv1: 1,
+                rgba_pvrtc_2bppv1: 1,
+            })),
         }
     }
 }
@@ -403,7 +432,7 @@ impl Extension for CompressedTexturePvrtc {
     const NAME: &'static str = "WEBGL_compressed_texture_pvrtc";
 }
 
-pub struct WebkitCompressedTexturePvrtc;
+pub struct WebkitCompressedTexturePvrtc(pub CompressedTexPvrtcExtension);
 
 impl TryFrom<Value> for WebkitCompressedTexturePvrtc {
     type Error = String;
@@ -411,7 +440,20 @@ impl TryFrom<Value> for WebkitCompressedTexturePvrtc {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(WebkitCompressedTexturePvrtc),
+            _ => Ok(WebkitCompressedTexturePvrtc(CompressedTexPvrtcExtension {
+                // rgb_pvrtc_4bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGB_PVRTC_4BPPV1_IMG})
+                //     .unwrap(),
+                // rgba_pvrtc_4bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGBA_PVRTC_4BPPV1_IMG})
+                //     .unwrap(),
+                // rgb_pvrtc_2bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGB_PVRTC_2BPPV1_IMG})
+                //     .unwrap(),
+                // rgba_pvrtc_2bppv1: u32::try_from(js! {@{&v}.COMPRESSED_RGBA_PVRTC_2BPPV1_IMG})
+                //     .unwrap(),
+                rgb_pvrtc_4bppv1: 1,
+                rgba_pvrtc_4bppv1: 1,
+                rgb_pvrtc_2bppv1: 1,
+                rgba_pvrtc_2bppv1: 1,
+            })),
         }
     }
 }
@@ -422,7 +464,11 @@ impl Extension for WebkitCompressedTexturePvrtc {
 
 // ===========================================
 
-pub struct CompressedTextureEtc1;
+pub struct CompressedTexEtc1Extension {
+    pub rgb_etc1: u32,
+}
+
+pub struct CompressedTextureEtc1(pub CompressedTexEtc1Extension);
 
 impl TryFrom<Value> for CompressedTextureEtc1 {
     type Error = String;
@@ -430,7 +476,10 @@ impl TryFrom<Value> for CompressedTextureEtc1 {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(CompressedTextureEtc1),
+            _ => Ok(CompressedTextureEtc1(CompressedTexEtc1Extension {
+                // rgb_etc1: u32::try_from(js! {@{v}.COMPRESSED_RGB_ETC1_WEBGL}).unwrap(),
+                rgb_etc1: 1,
+            })),
         }
     }
 }
@@ -439,7 +488,7 @@ impl Extension for CompressedTextureEtc1 {
     const NAME: &'static str = "WEBGL_compressed_texture_etc1";
 }
 
-pub struct WebkitCompressedTextureEtc1;
+pub struct WebkitCompressedTextureEtc1(pub CompressedTexEtc1Extension);
 
 impl TryFrom<Value> for WebkitCompressedTextureEtc1 {
     type Error = String;
@@ -447,7 +496,10 @@ impl TryFrom<Value> for WebkitCompressedTextureEtc1 {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(WebkitCompressedTextureEtc1),
+            _ => Ok(WebkitCompressedTextureEtc1(CompressedTexEtc1Extension {
+                // rgb_etc1: u32::try_from(js! {@{v}.COMPRESSED_RGB_ETC1_WEBGL}).unwrap(),
+                rgb_etc1: 1,
+            })),
         }
     }
 }
@@ -458,7 +510,12 @@ impl Extension for WebkitCompressedTextureEtc1 {
 
 // ===========================================
 
-pub struct CompressedTextureEtc2;
+pub struct CompressedTexEtc2Extension {
+    pub rgb8_etc2: u32,
+    pub rgba8_etc2_eac: u32,
+}
+
+pub struct CompressedTextureEtc2(pub CompressedTexEtc2Extension);
 
 impl TryFrom<Value> for CompressedTextureEtc2 {
     type Error = String;
@@ -466,7 +523,12 @@ impl TryFrom<Value> for CompressedTextureEtc2 {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(CompressedTextureEtc2),
+            _ => Ok(CompressedTextureEtc2(CompressedTexEtc2Extension {
+                // rgb8_etc2: u32::try_from(js! {@{&v}.COMPRESSED_RGB8_ETC2}).unwrap(),
+                // rgba8_etc2_eac: u32::try_from(js! {@{&v}.COMPRESSED_RGBA8_ETC2_EAC}).unwrap(),
+                rgb8_etc2: 1,
+                rgba8_etc2_eac: 1,
+            })),
         }
     }
 }
@@ -475,7 +537,7 @@ impl Extension for CompressedTextureEtc2 {
     const NAME: &'static str = "WEBGL_compressed_texture_etc";
 }
 
-pub struct WebkitCompressedTextureEtc2;
+pub struct WebkitCompressedTextureEtc2(pub CompressedTexEtc2Extension);
 
 impl TryFrom<Value> for WebkitCompressedTextureEtc2 {
     type Error = String;
@@ -483,7 +545,12 @@ impl TryFrom<Value> for WebkitCompressedTextureEtc2 {
         match v {
             Value::Undefined => Err(String::from("Undefined")),
             Value::Null => Err(String::from("Null")),
-            _ => Ok(WebkitCompressedTextureEtc2),
+            _ => Ok(WebkitCompressedTextureEtc2(CompressedTexEtc2Extension {
+                // rgb8_etc2: u32::try_from(js! {@{&v}.COMPRESSED_RGB8_ETC2}).unwrap(),
+                // rgba8_etc2_eac: u32::try_from(js! {@{v}.COMPRESSED_RGBA8_ETC2_EAC}).unwrap(),
+                rgb8_etc2: 1,
+                rgba8_etc2_eac: 1,
+            })),
         }
     }
 }
