@@ -248,14 +248,14 @@
             Module._set_border_radius(gui, node7, 20, 20);
             Module._set_background_rgba_color(gui, node7, 0.0, 1.0, 0.0, 1.0); 
         }
-        console.log("time: ",  performance.now() - time);
+        console.log("create and set time: ",  performance.now() - time);
         Module._render(gui);
-        console.log("time: ",  performance.now() - time);
+        console.log("first run time: ",  performance.now() - time);
 
         Module._set_render_dirty(gui);
         var time = performance.now();
         Module._render(gui);
-        console.log("render: time: ",  performance.now() - time);
+        console.log("second and only render run: time: ",  performance.now() - time);
 
         // setTimeout(() => {
         //     var node2 = Module._create_node(gui);

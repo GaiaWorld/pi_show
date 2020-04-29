@@ -120,6 +120,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
         self.read = &read as *const Read<'a, L> as usize;
         self.write = &mut write as *mut Write<'a, L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
+        // let time = std::time::Instant::now();
         unsafe { read.1.get_unchecked(ROOT) }.calculate_layout_by_callback(
             w,
             h,
@@ -127,6 +128,10 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
             callback::<L>,
             c,
         );
+        // println!(
+        //     "layout=================={:?}",
+        //     std::time::Instant::now() - time
+        // );
     }
 }
 
@@ -140,7 +145,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateE
         write.insert(
             event.id,
             CharBlock {
-				old_position:(0.0, 0.0),
+                old_position: (0.0, 0.0),
                 font_size: 16.0,
                 font_height: 16.0,
                 stroke_width: 0.0,
@@ -217,7 +222,6 @@ extern "C" fn text_callback<L: FlexNode + 'static>(
     node.set_width(cb.wrap_size.x);
     node.set_height(cb.wrap_size.y);
 
-
     // let h = match height_mode {
     //     YGMeasureMode::YGMeasureModeExactly => height,
     //     _ => cb.wrap_size.y,
@@ -246,20 +250,20 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
         let p = node.get_parent();
         let count = p.get_child_count();
         if b == 0 && count > 1 {
-			// 图文混排
-			let old_position = &cb.old_position;
-			let layout = node.get_layout();
-			if old_position.0 != layout.left || old_position.1 != layout.top {
-				let parent_layout = p.get_layout();
-				let mut layout = Layout::default();
-				layout.width = parent_layout.width;
-				layout.height = parent_layout.height;
-				// if &layout != unsafe { write.1.get_unchecked(id) } {
-				// 	write.1.insert(id, layout);
-				// }
-				write.1.insert(id, layout);
-			}
-            
+            // 图文混排
+            let old_position = &cb.old_position;
+            let layout = node.get_layout();
+            if old_position.0 != layout.left || old_position.1 != layout.top {
+                let parent_layout = p.get_layout();
+                let mut layout = Layout::default();
+                layout.width = parent_layout.width;
+                layout.height = parent_layout.height;
+                // if &layout != unsafe { write.1.get_unchecked(id) } {
+                // 	write.1.insert(id, layout);
+                // }
+                write.1.insert(id, layout);
+            }
+
             return;
         //字符 TODO, b < 10000 时不一定是字符（如何分辨字符节点和非图文混排的span？）
         } else if b < 10000 {
@@ -332,7 +336,7 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         Some(r) => r,
         None => return,
     };
-	let scale = unsafe { read.4.get_unchecked(id).y.magnitude() };
+    let scale = unsafe { read.4.get_unchecked(id).y.magnitude() };
     // let scale = unsafe { read.4.get_unchecked(id).y.y };
     let text_style = unsafe { write.3.get_unchecked(id) };
 
@@ -480,7 +484,7 @@ fn calc<'a, L: FlexNode + 'static>(
     };
     let tex_param = &mut tex_param;
 
-	// 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
+    // 如果父节点只有1个子节点，则认为是Text节点. 如果没有设置宽度，则立即进行不换行的文字布局计算，并设置自身的大小为文字大小
     if count == 1 {
         match text_style.text.text_align {
             TextAlign::Center => {
@@ -493,7 +497,7 @@ fn calc<'a, L: FlexNode + 'static>(
         // parent_yoga.set_align_content(YGAlign::YGAlignFlexStart);
         // parent_yoga.set_align_items(YGAlign::YGAlignFlexStart);
         calc_text(tex_param, text, sw, write.2);
-		yoga.set_measure_func(Some(text_callback));
+        yoga.set_measure_func(Some(text_callback));
         yoga.set_width(std::f32::NAN);
         yoga.set_height(std::f32::NAN);
         yoga.set_bind(c);
@@ -619,7 +623,7 @@ fn calc<'a, L: FlexNode + 'static>(
                 word_index = 0;
             }
         }
-	}
+    }
     //清除多余的CharNode
     if index < cb.chars.len() {
         for i in index..cb.chars.len() {

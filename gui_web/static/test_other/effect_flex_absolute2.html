@@ -1,0 +1,149 @@
+<!--
+	root + body + bodychilds * 10 + bodychilds'childs * 100 + bodychilds'childs'childs * 200 + bodychilds'childs'childs'childs * 400 = 712
+
+	first run time::  10.670000003301539
+	second and only render run: time:  2.769999991869554
+	第一次run时间分配： layout： 2.44ms
+						matrix：200µs
+						oct：204us
+						bgcolor： 2.075ms
+						render： 5.44ms
+
+	以上基础上，在body的尾部再添加一个节点， 重布局时间：305us
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+	<script>
+		var Module = {};
+		var __cargo_web = {};
+	</script>
+</head>
+<body>
+	<canvas id="canvas" width = "1000px" height="700px"></canvas>
+	<script>
+		var YGEdgeLeft = 0;
+		var YGEdgeTop = 1;
+		var YGEdgeRight = 2;
+		var YGEdgeBottom = 3;
+		var YGEdgeStart = 4;
+		var YGEdgeEnd = 5;
+		var YGEdgeHorizontal = 6;
+		var YGEdgeVertical = 7;
+		var YGEdgeAll = 8;
+
+		var YGWrapNoWrap = 0;
+		var YGWrapWrap = 1; 
+		var YGWrapWrapReverse = 2;
+	</script>
+	
+	<script src="../../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+	<script src="../shader/clip.js"></script>
+	<script src="../shader/color.js"></script>
+	<script src="../shader/image.js"></script>
+	<script src="../shader/text.js"></script>
+	<script src="../shader/canvas_text.js"></script>
+	<script src="../shader/init.js"></script>
+	<script>
+		var gui = Module._create_gui(engine, 1000, 700);
+
+		var body = Module._create_node(gui);
+		Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
+		Module._set_width_percent(gui, body, 100.0);
+		Module._set_height_percent(gui, body, 100.0);
+		Module._set_flex_wrap(gui, body, YGWrapWrap);
+		Module._set_position_type(gui, body, 1);
+
+		var time = performance.now();
+		let nodeps, nodes;
+		nodes = [];
+		for (var i = 0; i < 10; i++) {
+			var node = Module._create_node(gui);
+			Module._append_child(gui, node, body); // 接口已修改， node和parent顺序颠倒
+			Module._set_width(gui, node, 200.0);
+			Module._set_height(gui, node, 200.0);
+			Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+			Module._set_position_type(gui, node, 1);
+			nodes.push(node);
+		}
+		Module._render(gui);
+
+		nodeps = nodes;
+		nodes = [];
+		
+		for (var j = 0; j < 10; j++) {
+			for (var i = 0; i < 10; i++) {
+				var node = Module._create_node(gui);
+				Module._append_child(gui, node, nodeps[j]); // 接口已修改， node和parent顺序颠倒
+				Module._set_width(gui, node, 200.0);
+				Module._set_height(gui, node, 200.0);
+				Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+				Module._set_position_type(gui, node, 1);
+				nodes.push(node);
+			}
+		}
+
+		nodeps = nodes;
+		nodes = [];
+		for (var j = 0; j < 100; j++) {
+			for (var i = 0; i < 2; i++) {
+				var node = Module._create_node(gui);
+				Module._append_child(gui, node, nodeps[j]); // 接口已修改， node和parent顺序颠倒
+				Module._set_width(gui, node, 200.0);
+				Module._set_height(gui, node, 200.0);
+				Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+				Module._set_position_type(gui, node, 1);
+				nodes.push(node);
+			}
+		}
+
+		nodeps = nodes;
+		nodes = [];
+		for (var j = 0; j < 200; j++) {
+			for (var i = 0; i < 2; i++) {
+				var node = Module._create_node(gui);
+				Module._append_child(gui, node, nodeps[j]); // 接口已修改， node和parent顺序颠倒
+				Module._set_width(gui, node, 200.0);
+				Module._set_height(gui, node, 200.0);
+				Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+				Module._set_position_type(gui, node, 1);
+				nodes.push(node);
+			}
+		}
+
+		var time = performance.now();
+		Module._render(gui);
+		console.log("first run time:: ",  performance.now() - time);
+
+		var node = Module._create_node(gui);
+		Module._append_child(gui, node, body); // 接口已修改， node和parent顺序颠倒
+		Module._set_width(gui, node, 200.0);
+		Module._set_height(gui, node, 200.0);
+		Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
+		Module._set_position_type(gui, node, 1);
+		var time = performance.now();
+		Module._render(gui);
+		console.log("modify one run time:: ",  performance.now() - time);
+
+		Module._set_render_dirty(gui);
+		var time = performance.now();
+		Module._render(gui);
+		console.log("second and only render run: time: ",  performance.now() - time);
+
+		// setTimeout(() => {
+		//     var node2 = Module._create_node(gui);
+		//     Module._append_child(gui, node2, node1); // 接口已修改， node和parent顺序颠倒
+		//     Module._set_width(gui, node2, 100.0);
+		//     Module._set_height(gui, node2, 100.0);
+		//     Module._set_margin(gui, node2, YGEdgeLeft, 10);
+		//     Module._set_background_rgba_color(gui, node2, 1.0, 1.0, 0.0, 1.0);
+
+		//     Module._render(gui);
+		// }, 3000);
+	</script>
+</body>
+</html>
