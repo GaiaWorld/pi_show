@@ -297,6 +297,24 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
     );
 }
 
+/// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn insert_after(world: u32, child: u32, brother: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let idtree = world.idtree.lend_mut();
+    let notify = idtree.get_notify();
+    // 如果child在树上， 则会从树上移除节点， 但不会发出事件
+    idtree.remove(child as usize, None);
+    idtree.insert_brother(
+        child as usize,
+        brother as usize,
+        InsertType::Back,
+        Some(&notify),
+    );
+}
+
 /// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
 #[allow(unused_attributes)]
 #[no_mangle]

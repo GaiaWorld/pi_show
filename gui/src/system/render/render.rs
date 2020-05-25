@@ -218,15 +218,17 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, ModifyEvent
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, render_objs: Self::WriteData) {
         self.dirty = true;
         unsafe { DIRTY = true };
+        let obj = match render_objs.get_mut(event.id) {
+            Some(r) => r,
+            None => return, // obj可能不存在
+        };
         match event.field {
             "depth" => {
-                let obj = unsafe { render_objs.get_unchecked(event.id) };
                 if obj.is_opacity == false {
                     self.transparent_dirty = true;
                 }
             }
             "program_dirty" => {
-                let obj = unsafe { render_objs.get_unchecked_mut(event.id) };
                 if obj.is_opacity == true {
                     self.opacity_dirty = true;
                 }
@@ -240,7 +242,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, ModifyEvent
                 self.transparent_dirty = true;
             }
             "visibility" => {
-                let obj = unsafe { render_objs.get_unchecked(event.id) };
                 if obj.is_opacity {
                     self.opacity_dirty = true;
                 } else {

@@ -25,12 +25,12 @@ densevec = {path="../../pi_lib/densevec"}
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
 res = {path="../../pi_lib/res"}
-polygon = {path="../../pi_math_hal/polygon"}
-cg2d = { path = "../../pi_math_hal/cg2d"}
-color = { path = "../../pi_math_hal/color", features = ["serde"] }
-cgmath = { path = "../../pi_math_hal/cgmath", features = ["serde"]  }
-octree = { path = "../../pi_math_hal/octree" }
-collision = { path = "../../pi_math_hal/collision", features = ["serde"] }
+polygon = {path="../../pi_math/polygon"}
+cg2d = { path = "../../pi_math/cg2d"}
+color = { path = "../../pi_math/color", features = ["serde"] }
+cgmath = { path = "../../pi_math/cgmath", features = ["serde"]  }
+octree = { path = "../../pi_math/octree" }
+collision = { path = "../../pi_math/collision", features = ["serde"] }
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
