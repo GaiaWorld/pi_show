@@ -6,4 +6,7 @@ authors = ["moyy <moyy@yineng.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+share={path="../../pi_lib/share"}
 atom={path="../../pi_lib/atom"}
+ordered-float = "1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }

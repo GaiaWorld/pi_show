@@ -1,5 +1,5 @@
 [package]
-name = "hal_WebGL"
+name = "hal_webgl"
 version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
@@ -7,4 +7,16 @@ authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
 atom={path="../../pi_lib/atom"}
+share={path="../../pi_lib/share"}
+slab={path="../../pi_lib/slab"}
+deque = {path="../../pi_lib/deque"}
 hal_core={path="../hal_core"}
+hash={path="../../pi_lib/hash"}
+ordered-float = "1.0"
+stdweb = "0.4.15"
+stdweb-derive = "0.5.1"
+webgl-rendering-context = "0.1.0"
+debug_info = {path="../../pi_lib/debug_info"}
+
+# [features]
+# frame_stat = []  # 统计每帧信息的feature

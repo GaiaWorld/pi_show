@@ -5,26 +5,45 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
-wcs = { path = "../../pi_lib/wcs" }
-wcs_macro = { path = "../../pi_lib/wcs_macro" }
-enum_default_macro = { path = "../../pi_lib/enum_default_macro" }
-cg = { path = "../../pi_math/cg" }
+share = { path = "../../pi_lib/share" }
+ecs = { path = "../../pi_lib/ecs" }
+ecs_derive = { path = "../../pi_lib/ecs_derive" }
+enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
 deque = {path="../../pi_lib/deque"}
 slab = {path="../../pi_lib/slab"}
+util = {path="../../pi_lib/util"}
 map = {path="../../pi_lib/map"}
+hash = {path="../../pi_lib/hash"}
 heap = {path="../../pi_lib/heap"}
 pointer = {path="../../pi_lib/pointer"}
-atom = {path="../../pi_lib/atom"}
+atom = {path="../../pi_lib/atom", features = ["serde"] }
 ucd = {path="../../pi_lib/ucd"}
 data_view = {path="../../pi_lib/data_view"}
 debug_info = {path="../../pi_lib/debug_info"}
+dirty = {path="../../pi_lib/dirty"}
+densevec = {path="../../pi_lib/densevec"}
+hal_core = {path="../hal_core"}
+hal_derive = {path="../hal_derive"}
+res = {path="../../pi_lib/res"}
+polygon = {path="../../pi_math/polygon"}
+cg2d = { path = "../../pi_math/cg2d"}
+color = { path = "../../pi_math/color", features = ["serde"] }
+cgmath = { path = "../../pi_math/cgmath", features = ["serde"]  }
+octree = { path = "../../pi_math/octree" }
+collision = { path = "../../pi_math/collision", features = ["serde"] }
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
 stdweb = "0.4.15"
-stdweb-derive = "0.5.1"
-webgl-rendering-context = "0.1.0"
+derive_deref = "1.0.2"
+paste = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+ordered-float = { version = "1.0", default-features = false }
+fxhash = "0.2.1"
 
 [features]
-default = ["web"]
+default = ["warning"]
+performance=["web"]
 web = []
+print = []
+warning = []

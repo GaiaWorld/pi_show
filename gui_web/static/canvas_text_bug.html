@@ -1,0 +1,98 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <link href="./res/hansansk.TTF"/>
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+    <style>
+     @font-face {
+        font-family: "ee";
+        src: url("./res/kaiti.TTF") format("truetype");
+        /* chrome、firefox、opera、Safari, Android, iOS 4.2+ */
+        font-style: normal;
+        font-weight: normal;
+    }
+	</style>
+	
+	
+</head>
+<body>
+    <canvas id="canvas" width = "500px" height="500px"></canvas>
+    
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="shader/clip.js"></script>
+    <script src="shader/color.js"></script>
+    <script src="shader/image.js"></script>
+    <script src="shader/text.js"></script>
+    <script src="shader/canvas_text.js"></script>
+    <script src="shader/init.js"></script>
+    <script>
+        var gui = create_gui(500, 500);
+        // render_fram();
+
+        window.__jsObj = "ee";
+        Module._add_canvas_font(gui, 1.0);
+
+        window.__jsObj = "common"; //font_face_name
+        window.__jsObj1 = "ee";
+        Module._add_font_face(gui, 0, 32, 500);
+
+        // var __jsObj = "font-family:common;font-size:20px;";
+        // Module._set_default_style(gui);
+    </script>
+    <script>
+		setTimeout(() => {
+			 // class设置
+			 var body = Module._create_node(gui);
+			Module._set_position_type(gui, body, 1);
+			Module._set_width_percent(gui, body, 100.0);
+			Module._set_width_percent(gui, body, 100.0);
+			Module._append_child(gui, body, 1);
+			
+			var node = Module._create_node(gui);
+			Module._set_position_type(gui, node, 1);
+			Module._set_width(gui, node, 200.0);
+			Module._set_height(gui, node, 500.0);
+			Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
+			Module._set_position(gui, node, 1, 50.0);
+			Module._set_position(gui, node, 0, 100.0);
+			// Module._transform_scale_x(gui, node, 1.5);
+			// Module._transform_scale_y(gui, node, 1.5);
+			Module._append_child(gui, node, body);
+
+			var text_node = Module._create_text_node(gui);
+			Module._append_child(gui, text_node, node);
+			Module._set_text_rgba_color(gui, text_node, 0.0, 1.0, 0.0, 1.0); // r, g, b, a
+			window.__jsObj = "三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义三国演义";
+			Module._set_text_content(gui, text_node); // 文字内容
+			window.__jsObj = "common";
+			Module._set_font_family(gui, text_node);
+			Module._set_font_size(gui, text_node, 18);
+			// Module._set_line_height(gui, text_node, 40);
+		}, 3000);
+        
+		
+        
+        // var i = 256;
+        // var change = () => {
+        //     setTimeout(()=>{
+        //         i += 1;
+        //         window.__jsObj = i + "";
+        //         Module._set_text_content(gui, text_node); // 文字内容
+        //         change();
+        //     }, 1000);
+        // }
+        // change();
+        
+    </script>
+    <script>
+            render_fram();
+        </script>
+</body>
+</html>

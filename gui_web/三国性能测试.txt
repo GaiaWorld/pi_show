@@ -1,0 +1,168 @@
+
+超值礼包界面，无asm加速，6倍降速
+[Violation] 'setTimeout' handler took 460ms
+run------3.394999ms
+index.js?0.6256742864217615:1 run------60.204999ms
+index.js?0.6256742864217615:1 run------1.8ms
+index.js?0.6256742864217615:1 run------1.795001ms
+index.js?0.6256742864217615:1 run------3.185001ms
+index.js?0.6256742864217615:1 run------175.001µs
+index.js?0.6256742864217615:1 run------1.38ms
+index.js?0.6256742864217615:1 run------6.379999ms
+index.js?0.6256742864217615:1 run------15.001µs
+index.js?0.6256742864217615:1 run------185µs
+index.js?0.6256742864217615:1 run------12.995ms
+index.js?0.6256742864217615:1 run------1.205ms
+index.js?0.6256742864217615:1 run------68.84ms
+index.js?0.6256742864217615:1 run------1ms
+index.js?0.6256742864217615:1 run------5.001µs
+index.js?0.6256742864217615:1 run------7.995ms
+index.js?0.6256742864217615:1 run------1.194999ms
+index.js?0.6256742864217615:1 run------195µs
+
+[Violation] 'setTimeout' handler took 514ms
+run------3.590001ms
+index.js?0.6256742864217615:1 run------61.424999ms
+index.js?0.6256742864217615:1 run------1.594999ms
+index.js?0.6256742864217615:1 run------1.785ms
+index.js?0.6256742864217615:1 run------2.4ms
+index.js?0.6256742864217615:1 run------0ns
+index.js?0.6256742864217615:1 run------1.205ms
+index.js?0.6256742864217615:1 run------7.81ms
+index.js?0.6256742864217615:1 run------10.001µs
+index.js?0.6256742864217615:1 run------180µs
+index.js?0.6256742864217615:1 run------26.415001ms
+index.js?0.6256742864217615:1 run------1.189999ms
+index.js?0.6256742864217615:1 run------60.045001ms
+index.js?0.6256742864217615:1 run------1.199999ms
+index.js?0.6256742864217615:1 run------5µs
+index.js?0.6256742864217615:1 run------10.015ms
+index.js?0.6256742864217615:1 run------795µs
+index.js?0.6256742864217615:1 run------4.999µs
+
+[Violation] 'setTimeout' handler took 470ms
+index.js?0.6256742864217615:1 run------3.809999ms
+index.js?0.6256742864217615:1 run------66.63ms
+index.js?0.6256742864217615:1 run------1.590001ms
+index.js?0.6256742864217615:1 run------4.404999ms
+index.js?0.6256742864217615:1 run------2.775001ms
+index.js?0.6256742864217615:1 run------169.999µs
+index.js?0.6256742864217615:1 run------1.205ms
+index.js?0.6256742864217615:1 run------10.59ms
+index.js?0.6256742864217615:1 run------9.999µs
+index.js?0.6256742864217615:1 run------185.001µs
+index.js?0.6256742864217615:1 run------7.815ms
+index.js?0.6256742864217615:1 run------990µs
+index.js?0.6256742864217615:1 run------34.789999ms
+index.js?0.6256742864217615:1 run------1.01ms
+index.js?0.6256742864217615:1 run------0ns
+index.js?0.6256742864217615:1 run------6.415001ms
+index.js?0.6256742864217615:1 run------605µs
+index.js?0.6256742864217615:1 run------5µs
+
+
+
+draw_text_sys_time: 0.005
+load_image_time: 3.605
+run_all_time: 84.844999
+run_sum_time: 84.125001
+sys_time: Array(18)
+0: (2) ["z_index_sys", 3.005001]
+1: (2) ["text_layout_sys", 40.849999999999994]
+2: (2) ["world_matrix_sys", 1.399999]
+3: (2) ["oct_sys", 1.415001]
+4: (2) ["overflow_sys", 0.809999]
+5: (2) ["image_sys", 3.3899999999999997]
+6: (2) ["charblock_sys", 20.62]
+7: (2) ["text_glphy_sys", 1.840001]
+8: (2) ["transform_will_change_sys", 0]
+9: (2) ["background_color_sys", 2.190001]
+10: (2) ["border_color_sys", 0.01]
+11: (2) ["border_image_sys", 0.399999]
+12: (2) ["box_shadow_sys", 0.184999]
+13: (2) ["node_attr_sys", 0.005001]
+14: (2) ["render_sys", 6.8]
+15: (2) ["clip_sys", 0.9999989999999999]
+16: (2) ["res_release", 0.195001]
+17: (2) ["style_mark_sys", 0.01]
+
+
+draw_text_sys_time: 0.005001
+load_image_time: 0
+run_all_time: 104.845
+run_sum_time: 103.88999899999997
+sys_time: Array(18)
+0: (2) ["z_index_sys", 2.9849989999999997]
+1: (2) ["text_layout_sys", 39.215001]
+2: (2) ["world_matrix_sys", 1.39]
+3: (2) ["oct_sys", 1.595]
+4: (2) ["overflow_sys", 0.805001]
+5: (2) ["image_sys", 3.615]
+6: (2) ["charblock_sys", 42.83]
+7: (2) ["text_glphy_sys", 1.600001]
+8: (2) ["transform_will_change_sys", 0.005]
+9: (2) ["background_color_sys", 1.994999]
+10: (2) ["border_color_sys", 0.005]
+11: (2) ["border_image_sys", 0.399999]
+12: (2) ["box_shadow_sys", 0.005]
+13: (2) ["node_attr_sys", 0]
+14: (2) ["render_sys", 6.209999]
+15: (2) ["clip_sys", 1.0150000000000001]
+16: (2) ["res_release", 0.025]
+17: (2) ["style_mark_sys", 0.195]
+
+
+draw_text_sys_time: 0.005
+load_image_time: 0.005001
+run_all_time: 91.434999
+run_sum_time: 90.869999
+sys_time: Array(18)
+0: (2) ["z_index_sys", 3.025]
+1: (2) ["text_layout_sys", 40.2]
+2: (2) ["world_matrix_sys", 1.3950010000000002]
+3: (2) ["oct_sys", 1.605]
+4: (2) ["overflow_sys", 0.8]
+5: (2) ["image_sys", 4.029999999999999]
+6: (2) ["charblock_sys", 29.03]
+7: (2) ["text_glphy_sys", 1.389999]
+8: (2) ["transform_will_change_sys", 0]
+9: (2) ["background_color_sys", 1.994999]
+10: (2) ["border_color_sys", 0.005]
+11: (2) ["border_image_sys", 0.4]
+12: (2) ["box_shadow_sys", 0.01]
+13: (2) ["node_attr_sys", 0.005]
+14: (2) ["render_sys", 5.78]
+15: (2) ["clip_sys", 0.995]
+16: (2) ["res_release", 0.2]
+17: (2) ["style_mark_sys", 0.005]
+
+
+
+
+使用懒加载，超值礼包界面打开性能(除苹果。都有jit， 无asm)：
+
+小燕pc                 tpl: 30ms,   第一次run： 10ms
+iphonexs               tpl：130ms,  第一次run： 155ms
+iphone6s               tpl：240ms,  第一次run： 320ms
+sang                   tpl: 110ms           :  40ms
+sang第二次              tpl: 60ms           :  20ms
+Redmi Note5            tpl: 86ms           :  29ms
+
+iphone6s safari         tpl: 130ms           :  210ms
+
+
+使用懒加载，超值礼包界面打开性能1(除苹果。都有jit， 有asm)：
+小燕pc                 tpl: 23ms,   第一次run： 6ms
+Redmi Note5            tpl: 80ms           :  27ms // （与无ams性能差不多？）
+iphonexs               tpl：126ms,  第一次run： 156ms
+
+
+超值礼包界面滚动渲染：
+iphonexs 帧率22 总时间：40ms render：11.4 其他时间花在世界矩阵、包围盒、世界矩阵uniform计算（transformWillChange未起作用）
+
+
+总结跟踪到的消耗：
+	布局消耗在ios上非常明显
+	每次打开界面会调用layout进行布局， 然后调用渲染， 并且两次都有布局消耗（一次打开， 两次布局）
+	js 混合模板+生成虚拟dom节点+为底层设置真实节点的时间 较长
+

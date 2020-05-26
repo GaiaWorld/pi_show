@@ -1,179 +1,382 @@
+/**
+ *  对HalContext的封装， 并管理gl资源
+*/
 use std::hash::{Hash, Hasher};
-use std::collections::hash_map::DefaultHasher;
-
-use fnv::FnvHashMap;
-
-use webgl_rendering_context::{WebGLRenderingContext, WebGLShader, WebGLProgram, WebGLUniformLocation};
-use stdweb::unstable::TryInto;
+use std::ops::{Deref, DerefMut};
 
 use atom::Atom;
+use hash::{DefaultHasher, XHashMap};
+use res::{Res, ResMap, ResMgr};
+use share::Share;
 
-use render::extension::*;
-use render::res::ResMgr;
+use component::calc::*;
+use component::user::CgColor;
+use hal_core::*;
+use render::res::*;
+use system::util::f32_4_hash;
 
-pub struct Engine {
-    pub gl: WebGLRenderingContext,
+pub type ShareEngine<C> = UnsafeMut<Engine<C>>;
+
+pub struct Engine<C: HalContext + 'static> {
+    pub gl: C,
     pub res_mgr: ResMgr,
-    compiled_programs: FnvHashMap<u64, Program>,
+    pub programs: XHashMap<u64, Share<HalProgram>>,
+    pub texture_res_map: UnsafeMut<ResMap<TextureRes>>,
+    pub geometry_res_map: UnsafeMut<ResMap<GeometryRes>>,
+    pub buffer_res_map: UnsafeMut<ResMap<BufferRes>>,
+
+    pub rs_res_map: UnsafeMut<ResMap<RasterStateRes>>,
+    pub bs_res_map: UnsafeMut<ResMap<BlendStateRes>>,
+    pub ss_res_map: UnsafeMut<ResMap<StencilStateRes>>,
+    pub ds_res_map: UnsafeMut<ResMap<DepthStateRes>>,
+    pub sampler_res_map: UnsafeMut<ResMap<SamplerRes>>,
+
+    pub u_color_ubo_map: UnsafeMut<ResMap<UColorUbo>>,
 }
 
-pub enum ShaderType{
-    Vertex,
-    Fragment,
-}
-
-pub trait GetCode {
-    fn get_code(&self) -> &str;
-}
-
-
-impl Engine {
-    pub fn new(gl: WebGLRenderingContext) -> Engine {
-        init_gl(&gl);
-        Engine{
-            gl,
-            res_mgr: ResMgr::new(),
-            compiled_programs: FnvHashMap::default(),
+impl<C: HalContext + 'static> Engine<C> {
+    pub fn new(gl: C, res_mgr: ResMgr) -> Self {
+        Engine {
+            gl: gl,
+            texture_res_map: UnsafeMut::new(res_mgr.fetch_map::<TextureRes>().unwrap()),
+            geometry_res_map: UnsafeMut::new(res_mgr.fetch_map::<GeometryRes>().unwrap()),
+            buffer_res_map: UnsafeMut::new(res_mgr.fetch_map::<BufferRes>().unwrap()),
+            rs_res_map: UnsafeMut::new(res_mgr.fetch_map::<RasterStateRes>().unwrap()),
+            bs_res_map: UnsafeMut::new(res_mgr.fetch_map::<BlendStateRes>().unwrap()),
+            ss_res_map: UnsafeMut::new(res_mgr.fetch_map::<StencilStateRes>().unwrap()),
+            ds_res_map: UnsafeMut::new(res_mgr.fetch_map::<DepthStateRes>().unwrap()),
+            sampler_res_map: UnsafeMut::new(res_mgr.fetch_map::<SamplerRes>().unwrap()),
+            u_color_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<UColorUbo>().unwrap()),
+            programs: XHashMap::default(),
+            res_mgr,
         }
     }
 
-    pub fn lookup_program(&self, id: u64) -> Option<&Program>{
-        self.compiled_programs.get(&id)
-    }
+    pub fn create_program(
+        &mut self,
+        vs_id: u64,
+        fs_id: u64,
+        vs_name: &str,
+        vs_defines: &dyn Defines,
+        fs_name: &str,
+        fs_defines: &dyn Defines,
+        paramter: &dyn ProgramParamter,
+    ) -> Share<HalProgram> {
+        let mut hasher = DefaultHasher::default();
+        vs_id.hash(&mut hasher);
+        vs_defines.id().hash(&mut hasher);
+        let vs_id = hasher.finish();
 
-    pub fn lookup_program_mut(&mut self, id: u64) -> Option<&mut Program>{
-        self.compiled_programs.get_mut(&id)
-    }
+        let mut hasher = DefaultHasher::default();
+        fs_id.hash(&mut hasher);
+        fs_defines.id().hash(&mut hasher);
+        let fs_id = hasher.finish();
 
-    pub fn create_program<C: Hash + AsRef<str>, D: Hash + AsRef<str>>(&mut self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<u64, String>{
-        let mut hasher = DefaultHasher::new();
-        vertex_code.hash(&mut hasher);
-        fragment_code.hash(&mut hasher);
-        for v in defines.iter() {
-            v.hash(&mut hasher);
-        }
+        let mut hasher = DefaultHasher::default();
+        vs_id.hash(&mut hasher);
+        fs_id.hash(&mut hasher);
         let hash = hasher.finish();
-        match self.compiled_programs.get(&hash) {
-            Some(_) => Ok(hash),
-            None => {
-                let shader_program = self.create_shader_program(vertex_code, fragment_code, defines)?;
-                let program = Program{
-                    program: shader_program,
-                    uniform_locations: FnvHashMap::default(),
-                    attr_locations: FnvHashMap::default(),
+
+        let gl = &self.gl;
+        self.programs
+            .entry(hash)
+            .or_insert_with(|| {
+                let ubos = paramter.get_layout();
+                let mut uniforms = Vec::with_capacity(ubos.len());
+                for ubo in ubos.iter() {
+                    uniforms.push(paramter.get_value(ubo).unwrap().get_layout());
+                }
+
+                let uniform_layout = UniformLayout {
+                    ubos: ubos,
+                    uniforms: uniforms.as_slice(),
+                    single_uniforms: paramter.get_single_uniform_layout(),
+                    textures: paramter.get_texture_layout(),
                 };
-                self.compiled_programs.insert(hash, program);
-                Ok(hash)
-            },
+
+                match gl.program_create_with_vs_fs(
+                    vs_id,
+                    fs_id,
+                    vs_name,
+                    vs_defines.list(),
+                    fs_name,
+                    fs_defines.list(),
+                    &uniform_layout,
+                ) {
+                    Ok(r) => Share::new(r),
+                    Err(e) => panic!(
+                        "create_program error: {:?}, vs_name: {:?}, fs_name: {:?}",
+                        e, vs_name, fs_name
+                    ),
+                }
+            })
+            .clone()
+    }
+
+    pub fn create_buffer_res(
+        &mut self,
+        key: u64,
+        btype: BufferType,
+        count: usize,
+        data: Option<BufferData>,
+        is_updatable: bool,
+    ) -> Share<BufferRes> {
+        let size = buffer_size(count, btype);
+        let buffer = BufferRes(self.create_buffer(btype, count, data, is_updatable));
+        self.buffer_res_map.create(key, buffer, size, 0)
+    }
+
+    pub fn create_texture_res(
+        &mut self,
+        key: Atom,
+        texture_res: TextureRes,
+        rtype: usize,
+    ) -> Share<TextureRes> {
+        let size = texture_res.width
+            * texture_res.height
+            * pixe_size(texture_res.pformat, texture_res.dformat);
+        self.texture_res_map.create(key, texture_res, size, rtype)
+    }
+
+    //创建一个geo, 该geo的buffer不可更新, 不共享
+    pub fn create_geo_res(
+        &mut self,
+        key: u64,
+        indices: &[u16],
+        attributes: &[AttributeDecs],
+    ) -> Share<GeometryRes> {
+        let i_len = indices.len();
+        let indices = BufferRes(self.create_buffer(
+            BufferType::Indices,
+            i_len,
+            Some(BufferData::Short(indices)),
+            false,
+        ));
+        let geo = self.create_geometry();
+        self.gl.geometry_set_indices_short(&geo, &indices).unwrap();
+
+        let mut size = buffer_size(i_len, BufferType::Indices);
+
+        let mut buffers = Vec::with_capacity(attributes.len() + 1);
+        buffers.push(Share::new(indices));
+
+        for desc in attributes.iter() {
+            let len = desc.buffer.len();
+            let atrribute = BufferRes(self.create_buffer(
+                BufferType::Attribute,
+                len,
+                Some(BufferData::Float(desc.buffer)),
+                false,
+            ));
+            self.gl
+                .geometry_set_attribute(&geo, &desc.name, &atrribute, desc.item_count)
+                .unwrap();
+            size += buffer_size(len, BufferType::Attribute);
+            buffers.push(Share::new(atrribute));
         }
-    }
 
-    pub fn create_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C, defines: &Vec<D>) -> Result<WebGLProgram, String> {
-        let vertex_shader = self.compile_shader(vertex_code, ShaderType::Vertex, defines)?;
-        let fragment_shader = self.compile_shader(fragment_code, ShaderType::Fragment, defines)?;
-
-        self._create_shader_program(&vertex_shader, &fragment_shader)
-    }
-
-    pub fn create_raw_shader_program<C: AsRef<str>, D: AsRef<str>>(&self, vertex_code: &C, fragment_code: &C) -> Result<WebGLProgram, String>{
-        let vertex_shader = self.compile_raw_shader(vertex_code, ShaderType::Vertex)?;
-        let fragment_shader = self.compile_raw_shader(fragment_code, ShaderType::Fragment)?;
-
-        self._create_shader_program(&vertex_shader, &fragment_shader)
-    }
-
-    pub fn compile_shader<C: AsRef<str>, D: AsRef<str>>(&self, source: &C, ty: ShaderType, defines: &Vec<D>) -> Result<WebGLShader, String> {
-        let mut s = "".to_string();
-        for v in defines.iter() {
-            s += "#define ";
-            s += v.as_ref();
-            s += "\n";
-        }
-        self.compile_raw_shader(&(s + source.as_ref()), ty)
-    }
-
-    pub fn compile_raw_shader<C: AsRef<str>>(&self, source: &C, ty: ShaderType) -> Result<WebGLShader, String> {
-        let gl = &self.gl;
-        let shader = gl.create_shader(match ty {
-            ShaderType::Vertex => WebGLRenderingContext::VERTEX_SHADER,
-            ShaderType::Fragment => WebGLRenderingContext::FRAGMENT_SHADER,
-        }).ok_or_else(|| String::from("Unable to create shader object"))?;
-        gl.shader_source(&shader, source.as_ref());
-        gl.compile_shader(&shader);
-
-        let parameter: bool = gl.get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS).try_into().unwrap_or(false);
-        if parameter{
-            Ok(shader)
+        // 创建缓存
+        let geo_res = GeometryRes { geo, buffers };
+        if key == 0 {
+            Share::new(geo_res)
         } else {
-            Err(gl
-                .get_shader_info_log(&shader)
-                .unwrap_or_else(|| "Unknown error creating shader".into()))
+            self.geometry_res_map.create(key, geo_res, size, 0)
         }
     }
 
-    fn _create_shader_program(&self, vertex_shader: &WebGLShader, fragment_shader: &WebGLShader) -> Result<WebGLProgram, String> {
-        let gl = &self.gl;
-        let shader_program = gl.create_program().ok_or_else(|| String::from("Unable to create shader object"))?;
-        gl.attach_shader(&shader_program, vertex_shader);
-        gl.attach_shader(&shader_program, fragment_shader);
-
-        gl.link_program(&shader_program);
-        
-        
-        let mut parameter: bool = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(false);
-        if !parameter {
-            let parameter_int: u8 = gl.get_program_parameter(&shader_program, WebGLRenderingContext::LINK_STATUS).try_into().unwrap_or(0);// 小游戏环境返回整数
-            if parameter_int == 1 {
-                parameter = true;
+    pub fn create_rs_res(&mut self, desc: RasterStateDesc) -> Share<RasterStateRes> {
+        let h = get_hash(&desc);
+        match self.rs_res_map.get(&h) {
+            Some(r) => r,
+            None => {
+                let r = self.create_rs(desc);
+                self.rs_res_map.create(h, RasterStateRes(r), 0, 0)
             }
         }
-        if parameter{
-            Ok(shader_program)
-        } else {
-            Err(gl
-                .get_program_info_log(&shader_program)
-                .unwrap_or_else(|| "Unknown error creating program object".into()))
+    }
+
+    pub fn create_bs_res(&mut self, desc: BlendStateDesc) -> Share<BlendStateRes> {
+        let h = get_hash(&desc);
+        match self.bs_res_map.get(&h) {
+            Some(r) => r,
+            None => {
+                let r = self.create_bs(desc);
+                self.bs_res_map.create(h, BlendStateRes(r), 0, 0)
+            }
+        }
+    }
+
+    pub fn create_ss_res(&mut self, desc: StencilStateDesc) -> Share<StencilStateRes> {
+        let h = get_hash(&desc);
+        match self.ss_res_map.get(&h) {
+            Some(r) => r,
+            None => {
+                let r = self.create_ss(desc);
+                self.ss_res_map.create(h, StencilStateRes(r), 0, 0)
+            }
+        }
+    }
+
+    pub fn create_ds_res(&mut self, desc: DepthStateDesc) -> Share<DepthStateRes> {
+        let h = get_hash(&desc);
+        match self.ds_res_map.get(&h) {
+            Some(r) => r,
+            None => {
+                let r = self.create_ds(desc);
+                self.ds_res_map.create(h, DepthStateRes(r), 0, 0)
+            }
+        }
+    }
+
+    pub fn create_sampler_res(&mut self, desc: SamplerDesc) -> Share<SamplerRes> {
+        let h = get_hash(&desc);
+        match self.sampler_res_map.get(&h) {
+            Some(r) => r,
+            None => {
+                let r = self.create_sampler(desc);
+                self.sampler_res_map.create(h, SamplerRes(r), 0, 0)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn create_u_color_ubo(&mut self, c: &CgColor) -> Share<UColorUbo> {
+        let h = f32_4_hash(c.r, c.g, c.b, c.a);
+        match self.u_color_ubo_map.get(&h) {
+            Some(r) => r,
+            None => self.u_color_ubo_map.create(
+                h,
+                UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+                0,
+                0,
+            ),
+        }
+    }
+
+    #[inline]
+    pub fn create_buffer(
+        &self,
+        btype: BufferType,
+        count: usize,
+        data: Option<BufferData>,
+        is_updatable: bool,
+    ) -> HalBuffer {
+        match self.gl.buffer_create(btype, count, data, is_updatable) {
+            Ok(r) => r,
+            Err(e) => panic!("create_buffer error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_geometry(&self) -> HalGeometry {
+        match self.gl.geometry_create() {
+            Ok(r) => r,
+            Err(e) => panic!("create_geometry error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_rs(&self, desc: RasterStateDesc) -> HalRasterState {
+        match self.gl.rs_create(desc) {
+            Ok(r) => r,
+            Err(e) => panic!("create_rs error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_bs(&self, desc: BlendStateDesc) -> HalBlendState {
+        match self.gl.bs_create(desc) {
+            Ok(r) => r,
+            Err(e) => panic!("create_bs error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_ss(&self, desc: StencilStateDesc) -> HalStencilState {
+        match self.gl.ss_create(desc) {
+            Ok(r) => r,
+            Err(e) => panic!("create_geometry error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_ds(&self, desc: DepthStateDesc) -> HalDepthState {
+        match self.gl.ds_create(desc) {
+            Ok(r) => r,
+            Err(e) => panic!("create_geometry error: {:?}", e),
+        }
+    }
+
+    #[inline]
+    pub fn create_sampler(&self, desc: SamplerDesc) -> HalSampler {
+        match self.gl.sampler_create(desc) {
+            Ok(r) => r,
+            Err(e) => panic!("create_sampler error: {:?}", e),
         }
     }
 }
 
-pub struct Program {
-    pub program: WebGLProgram,
-    pub uniform_locations: FnvHashMap<Atom, WebGLUniformLocation>,
-    pub attr_locations: FnvHashMap<Atom, u32>,
+pub struct AttributeDecs<'a> {
+    name: AttributeName,
+    buffer: &'a [f32],
+    item_count: usize,
 }
 
-pub fn get_uniform_location(gl: &WebGLRenderingContext,program: &WebGLProgram ,name: &Atom) -> WebGLUniformLocation{
-    match gl.get_uniform_location(program, name) {
-        Some(v) => v,
-        None => panic!("get_uniform_location is None: {:?}", name),
+impl<'a> AttributeDecs<'a> {
+    pub fn new(name: AttributeName, buffer: &'a [f32], item_count: usize) -> Self {
+        Self {
+            name,
+            buffer,
+            item_count,
+        }
     }
 }
 
-fn init_gl(gl: &WebGLRenderingContext){
-    gl.get_extension::<OESElementIndexUint>();
-    gl.get_extension::<ANGLEInstancedArrays>();
-    gl.get_extension::<OESStandardDerivatives>();
-    gl.get_extension::<OESTextureFloat>();
-    gl.get_extension::<OESTextureFloatLinear>();
-    gl.get_extension::<OESTextureHalfFloat>();
-    gl.get_extension::<OESTextureHalfFloatLinear>();
-    gl.get_extension::<EXTSRGB>();
-    gl.get_extension::<OESVertexArrayObject>();
-    gl.get_extension::<EXTTextureFilterAnisotropic>();
-    gl.get_extension::<WEBKITEXTTextureFilterAnisotropic>();
-    gl.get_extension::<EXTFragDepth>();
-    gl.get_extension::<WEBGLDepthTexture>();
-    gl.get_extension::<WEBGLColorBufferFloat>();
-    gl.get_extension::<EXTColorBufferHalfFloat>();
-    gl.get_extension::<EXTShaderTextureLod>();
-    gl.get_extension::<WEBGLDrawBuffers>();
-    gl.get_extension::<GLOESStandardDerivatives>();
-    gl.enable(WebGLRenderingContext::BLEND);
-    gl.enable(WebGLRenderingContext::DEPTH_TEST);
-    // gl.depth_mask(true);
-    gl.blend_func(WebGLRenderingContext::SRC_ALPHA, WebGLRenderingContext::ONE_MINUS_SRC_ALPHA);
+pub struct UnsafeMut<T>(Share<T>);
 
-    gl.clear_color(0.0, 0.0, 0.0, 1.0);
-    gl.clear(WebGLRenderingContext::COLOR_BUFFER_BIT);
+impl<T> UnsafeMut<T> {
+    pub fn new(v: Share<T>) -> Self {
+        Self(v)
+    }
+}
+
+impl<T> Clone for UnsafeMut<T> {
+    fn clone(&self) -> Self {
+        UnsafeMut(self.0.clone())
+    }
+}
+
+impl<T> Deref for UnsafeMut<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for UnsafeMut<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *(&*self.0 as *const T as *mut T) }
+    }
+}
+
+pub fn buffer_size(count: usize, btype: BufferType) -> usize {
+    match btype {
+        BufferType::Attribute => 4 * count,
+        BufferType::Indices => 2 * count,
+    }
+}
+
+#[inline]
+pub fn get_hash<T: Hash>(v: &T) -> u64 {
+    let mut hasher = DefaultHasher::default();
+    v.hash(&mut hasher);
+    hasher.finish()
+}
+
+pub fn create_hash_res<T: Res<Key = u64> + Hash>(res: T, res_map: &mut ResMap<T>) -> Share<T> {
+    let h = get_hash(&res);
+    match res_map.get(&h) {
+        Some(r) => r,
+        None => res_map.create(h, res, 0, 0),
+    }
 }

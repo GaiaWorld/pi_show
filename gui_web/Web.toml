@@ -1,0 +1,28 @@
+
+[target.emscripten]
+link-args = [
+            "-Oz", 
+            # "-s", "TOTAL_MEMORY=16777216", 
+            "-s", "TOTAL_MEMORY=33554432", 
+            # "-s", "TOTAL_MEMORY=67108864", 
+            # "-s", "TOTAL_MEMORY=167772160", 
+            "-s", "ALLOW_MEMORY_GROWTH=0", 
+            "-s", "MALLOC=emmalloc", 
+            "-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1",
+            "-s", "ENVIRONMENT=web",
+            "-s", "INLINING_LIMIT=1",
+            "-s", "NO_FILESYSTEM=1",
+            
+            # "-s", "ASSERTIONS=1",
+            ]
+
+# [target.emscripten]
+# link-args = [
+#             "-s", "TOTAL_MEMORY=33554432", 
+#             ]
+
+# [target.emscripten]
+# link-args = [
+#             "-O0", 
+#             "-g4",
+#             ]

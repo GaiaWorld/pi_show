@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=1" name="viewport" />
+    <script>
+        var Module = {};
+        var __cargo_web = {};
+    </script>
+</head>
+<body>
+    <canvas id="canvas" width = "1000px" height="1000px"></canvas>
+    <div style="position: absolute;width: 100%; height: 20px;top: 0px;"> 背景style</div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 150px"> 背景class</div>
+    
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
+    <script src="shader/clip.js"></script>
+    <script src="shader/color.js"></script>
+    <script src="shader/image.js"></script>
+    <script src="shader/text.js"></script>
+    <script src="shader/canvas_text.js"></script>
+    <script src="shader/init.js"></script>
+
+    <script>
+        var gui = create_gui(1000, 1000);
+        render_fram();
+    </script>
+
+    <script>
+        var body = Module._create_node(gui);
+        Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_position(gui, body, 1, 15.0);
+        Module._set_position_type(gui, body, 1);
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height(gui, body, 100.0);
+        Module._set_flex_wrap(gui, body, YGWrapWrap);
+
+        var node1 = Module._create_node(gui);
+        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node1, 100.0);
+        Module._set_height(gui, node1, 100.0);
+        Module._set_margin(gui, node1, YGEdgeLeft, 10);
+        Module._set_background_rgba_color(gui, node1, 0.0, 1.0, 0.0, 1.0);
+
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node2, 50.0);
+        Module._set_height(gui, node2, 50.0);
+        Module._set_margin(gui, node2, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node2, 5, 5);
+        Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
+
+        // // 测试两点线性渐变颜色
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node3, 100.0);
+        Module._set_height(gui, node3, 100.0);
+        Module._set_margin(gui, node3, YGEdgeLeft, 10);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node3, 0);
+
+        // 测试两点线性渐变颜色 + border_radius
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node4, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node4, 100.0);
+        Module._set_height(gui, node4, 100.0);
+        Module._set_margin(gui, node4, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node4, 50, 50);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node4, 30);
+
+        // 测试三点线性渐变颜色(非0度渐变角) + border_radius
+        var node5 = Module._create_node(gui);
+        Module._append_child(gui, node5, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_width(gui, node5, 100.0);
+        Module._set_height(gui, node5, 100.0);
+        Module._set_margin(gui, node5, YGEdgeLeft, 10);
+        Module._set_border_radius(gui, node5, 50, 50);
+        window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,  1.0, 0.0, 0.0, 1.0, 0.5,  0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        Module._set_background_linear_gradient_color(gui, node5, 30);  
+    </script>
+
+    <script>
+        window.__jsObj = "width: 100px; height: 100px; background-color: #f00; margin-left: 10px;";
+        let class1 = Module._create_class(gui, 1);
+        window.__jsObj = "width: 100px; height: 50px; background-color: #ff0; margin-left: 10px;";
+        let class2 = Module._create_class(gui, 2);
+        window.__jsObj = "width: 100px; height: 100px; background: linear-gradient(0deg, red 30%, blue, lime); margin-left: 10px;";
+        let class3 = Module._create_class(gui, 3);
+
+        var body = Module._create_node(gui);
+        Module._append_child(gui, body, 1); // 接口已修改， node和parent顺序颠倒
+        Module._set_position_type(gui, body, 1);
+        Module._set_position(gui, body, 1, 165.0);
+        Module._set_width_percent(gui, body, 100.0);
+        Module._set_height(gui, body, 100.0);
+        Module._set_flex_wrap(gui, body, YGWrapWrap);
+
+        var node1 = Module._create_node(gui);
+        Module._append_child(gui, node1, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_class(gui, node1, [1]);
+
+        var node2 = Module._create_node(gui);
+        Module._append_child(gui, node2, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_class(gui, node2, [2]);
+
+        var node3 = Module._create_node(gui);
+        Module._append_child(gui, node3, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_class(gui, node3, [3]);
+
+        var node4 = Module._create_node(gui);
+        Module._append_child(gui, node4, body); // 接口已修改， node和parent顺序颠倒
+        Module._set_class(gui, node4, [3]);
+        Module._set_background_rgba_color(gui, node4, 0.0, 0.0, 1.0, 1.0);
+    </script>
+</body>
+</html>

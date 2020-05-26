@@ -1,0 +1,112 @@
+// 
+
+
+// js TruCell
+create node------------: 88.375ms
+append node------------: 39.354999ms
+append node4------------: 15µs
+run------3.565ms
+run------10µs
+worldmatrix cal, count: 10000, time: 50.749999ms
+run------51.135ms
+run------5µs
+run------15µs
+run------100µs
+run------0ns
+run------0ns
+run------5µs
+run------0ns
+run------5.001µs
+run------0ns
+run------0ns
+run------0ns
+run------0ns
+run------------: 58.25ms
+
+// js no TruCell
+create node------------: 85.17ms
+append node------------: 33.839999ms
+append node4------------: 15µs
+run------2.83ms
+run------10µs
+worldmatrix cal, count: 10000, time: 46.53ms
+run------46.93ms
+run------0ns
+run------10µs
+run------100µs
+run------5µs
+run------5µs
+run------5.001µs
+run------0ns
+run------5µs
+run------4.999µs
+run------0ns
+run------0ns
+run------0ns
+run------------: 53.665ms
+
+// js RefCell
+create node------------: 85.740001ms
+append node------------: 36.879999ms
+append node4------------: 10µs
+run------3.485ms
+run------5µs
+worldmatrix cal, count: 10000, time: 49.575ms
+run------49.94ms
+run------0ns
+run------10.001µs
+run------100µs
+run------0ns
+run------0ns
+run------5µs
+run------0ns
+run------0ns
+run------5µs
+run------5µs
+run------5µs
+run------5µs
+run------------: 57.035ms
+
+// rust fetch
+create node------------: 12.955556ms
+append node------------: 9.814086ms
+append node4------------: 5.258µs
+run------2.623658ms
+run------553ns
+worldmatrix cal, count: 10000, time: 8.52246ms
+run------8.577258ms
+run------0ns
+run------4.982µs
+run------44.282µs
+run------277ns
+run------277ns
+run------0ns
+run------276ns
+run------277ns
+run------276ns
+run------277ns
+run------0ns
+run------0ns
+run------------: 11.735611ms
+
+// rust no fetch
+create node------------: 11.318814ms
+append node------------: 9.50384ms
+append node4------------: 4.428µs
+run------2.533158ms
+run------831ns
+worldmatrix cal, count: 10000, time: 8.650321ms
+run------8.695433ms
+run------0ns
+run------4.428µs
+run------41.237µs
+run------277ns
+run------554ns
+run------277ns
+run------277ns
+run------276ns
+run------0ns
+run------0ns
+run------0ns
+run------276ns
+run------------: 12.337557ms

@@ -1,0 +1,15 @@
+
+[package]
+name = "gui_tool"
+version = "0.1.0"
+authors = ["wzjsun <530739162@qq.com>"]
+
+[dependencies]
+gui = { path = "../gui" }
+hal_core = { path = "../hal_core" }
+ecs = { path = "../../pi_lib/ecs" }
+ecs_derive = { path = "../../pi_lib/ecs_derive" }
+map = { path = "../../pi_lib/map" }
+share = { path = "../../pi_lib/share" }
+atom = { path = "../../pi_lib/atom" }
+lazy_static = "*"

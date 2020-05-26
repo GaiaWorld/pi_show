@@ -1,0 +1,60 @@
+[package]
+name = "gui_web"
+version = "0.1.0"
+authors = ["moyy <moyy@yineng.com>"]
+
+[dependencies]
+atom = {path="../../pi_lib/atom"}
+data_view = {path="../../pi_lib/data_view"}
+share = {path="../../pi_lib/share"}
+ecs = {path="../../pi_lib/ecs"}
+ecs_derive = { path = "../../pi_lib/ecs_derive" }
+map = { path = "../../pi_lib/map" }
+debug_info = { path = "../../pi_lib/debug_info" }
+hash = { path = "../../pi_lib/hash" }
+bincode = {path="../../pi_lib/bincode"}
+res = {path="../../pi_lib/res"}
+hal_webgl = {path="../hal_webgl"}
+gui_tool = {path="../gui_tool"}
+hal_core = {path="../hal_core", features = ["serde"]}
+cg2d = { path = "../../pi_math/cg2d" }
+color = { path = "../../pi_math/color" }
+cgmath = { path = "../../pi_math/cgmath" }
+octree = { path = "../../pi_math/octree" }
+gui = {path="../gui", features = ["web"]} #, features = ["performance"]
+stdweb = "0.4"
+stdweb-derive = "0.5.1"
+webgl-rendering-context = "0.1.0"
+lazy_static = "1"
+serde = { version = "1.0", features = ["derive"]}
+paste = "0.1"
+ordered-float = "1.0"
+
+[profile.release]
+lto = true
+opt-level = "z"
+panic = 'abort'
+codegen-units = 1
+
+# [profile.release]
+# lto = true
+# debug = 2
+# opt-level = 1
+# panic = 'abort'
+# codegen-units = 1
+
+# [profile.dev]
+# debug = 2
+# opt-level = 3
+
+[features]
+# default = ["no_debug", "no_define_js"]
+# default = ["create_class_by_str"]
+# default = ["no_debug", "share/rc"]
+# default = ["debug"]
+default = ["share/rc"]
+# default = ["debug", "no_debug"]
+debug = ["share/rc", "ecs/runtime"]
+no_debug = []
+no_define_js = []
+create_class_by_str = []
