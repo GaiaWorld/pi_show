@@ -278,12 +278,23 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
     let world = &mut world.gui;
     let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
     let render_begin = render_begin.lend_mut();
-    render_begin.0.clear_color = Some((
-        OrderedFloat(r),
-        OrderedFloat(g),
-        OrderedFloat(b),
-        OrderedFloat(a),
-    ));
+	render_begin.0.clear_color = Some((
+		OrderedFloat(r),
+		OrderedFloat(g),
+		OrderedFloat(b),
+		OrderedFloat(a),
+	));
+}
+
+/// 使gui渲染不清屏
+#[allow(unused_attributes)]
+#[no_mangle]
+pub fn nullify_clear_color(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
+    let render_begin = render_begin.lend_mut();
+	render_begin.0.clear_color = None;
 }
 
 /// 设置视口
@@ -369,55 +380,55 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
 #[no_mangle]
 pub fn render(world_id: u32) {
     let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    #[cfg(feature = "debug")]
-    let time = std::time::Instant::now();
+    // #[cfg(feature = "debug")]
+    // let time = std::time::Instant::now();
     gui_world.draw_text_sys.run(world_id);
-    #[cfg(feature = "debug")]
-    let draw_text_sys_time = std::time::Instant::now() - time;
+    // #[cfg(feature = "debug")]
+    // let draw_text_sys_time = std::time::Instant::now() - time;
 
-    #[cfg(feature = "debug")]
-    let time = std::time::Instant::now();
+    // #[cfg(feature = "debug")]
+    // let time = std::time::Instant::now();
     let world = &mut gui_world.gui;
     load_image(world_id);
-    #[cfg(feature = "debug")]
-    let load_image_time = std::time::Instant::now() - time;
+    // #[cfg(feature = "debug")]
+    // let load_image_time = std::time::Instant::now() - time;
 
-    #[cfg(feature = "debug")]
-    let time = std::time::Instant::now();
+    // #[cfg(feature = "debug")]
+    // let time = std::time::Instant::now();
     world.world.run(&RENDER_DISPATCH);
-    #[cfg(feature = "debug")]
-    let run_all_time = std::time::Instant::now() - time;
+    // #[cfg(feature = "debug")]
+    // let run_all_time = std::time::Instant::now() - time;
 
-    // 如果打开了性能检视面板， 应该渲染检视面板
-    if gui_world.performance_inspector > 0 {
-        let performance_world = unsafe { &mut *(gui_world.performance_inspector as *mut GuiWorld) };
-        performance_world.gui.world.run(&RENDER_DISPATCH);
-    }
+    // // 如果打开了性能检视面板， 应该渲染检视面板
+    // if gui_world.performance_inspector > 0 {
+    //     let performance_world = unsafe { &mut *(gui_world.performance_inspector as *mut GuiWorld) };
+    //     performance_world.gui.world.run(&RENDER_DISPATCH);
+    // }
 
-    #[cfg(feature = "debug")]
-    {
-        let mut t = RunTime {
-            draw_text_sys_time: draw_text_sys_time.as_secs_f64() * 1000.0,
-            load_image_time: load_image_time.as_secs_f64() * 1000.0,
-            run_all_time: run_all_time.as_secs_f64() * 1000.0,
-            run_sum_time: 0.0,
-            sys_time: Vec::with_capacity(world.world.runtime.len()),
-        };
+    // #[cfg(feature = "debug")]
+    // {
+    //     let mut t = RunTime {
+    //         draw_text_sys_time: draw_text_sys_time.as_secs_f64() * 1000.0,
+    //         load_image_time: load_image_time.as_secs_f64() * 1000.0,
+    //         run_all_time: run_all_time.as_secs_f64() * 1000.0,
+    //         run_sum_time: 0.0,
+    //         sys_time: Vec::with_capacity(world.world.runtime.len()),
+    //     };
 
-        if unsafe { gui::DIRTY } {
-            for t1 in world.world.runtime.iter() {
-                let time = t1.cost_time.as_secs_f64() * 1000.0;
-                t.sys_time.push((t1.sys_name.as_ref().to_string(), time));
-                t.run_sum_time += time;
-            }
+    //     if unsafe { gui::DIRTY } {
+    //         for t1 in world.world.runtime.iter() {
+    //             let time = t1.cost_time.as_secs_f64() * 1000.0;
+    //             t.sys_time.push((t1.sys_name.as_ref().to_string(), time));
+    //             t.run_sum_time += time;
+    //         }
 
-            #[cfg(feature = "debug")]
-            js! {
-                console.log("render", @{t});
-            }
-        }
-    }
-    unsafe { gui::DIRTY = false };
+    //         #[cfg(feature = "debug")]
+    //         js! {
+    //             console.log("render", @{t});
+    //         }
+    //     }
+    // }
+    // unsafe { gui::DIRTY = false };
 }
 
 #[cfg(feature = "debug")]

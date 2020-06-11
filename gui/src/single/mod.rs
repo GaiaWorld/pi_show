@@ -70,6 +70,9 @@ impl OverflowClip {
         //     },
         //     Entry::Vacant(r) => r.insert((value, Share::new(ubo))),
         // }
+        if key == 2 {
+            println!("insert_aabb1============={:?}", value);
+        }
         self.clip_map.insert(key, (value, Share::new(ubo)));
         self.clip_map.get(&key).unwrap()
     }
@@ -392,6 +395,11 @@ impl NodeRenderMap {
 pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>>);
 
 pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
+
+#[derive(Default)]
+pub struct Statistics {
+    pub drawcall_times: usize,
+}
 
 impl DefaultTable {
     pub fn new() -> Self {

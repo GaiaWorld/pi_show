@@ -146,10 +146,16 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "background-image" => {
             class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?));
             class.class_style_mark |= StyleType::Image as usize;
+		}
+		"image-clip" => {
+            class.attrs3.push(Attribute3::ImageClip(unsafe {
+                transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
+            }));
+            class.class_style_mark |= StyleType::BackgroundColor as usize;
         }
         "background-image-clip" => {
             class.attrs3.push(Attribute3::ImageClip(unsafe {
-                transmute(parse_f32_4(value, " ")?)
+                transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
             }));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
         }
@@ -168,7 +174,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
         "border-image-clip" => {
             class.attrs3.push(Attribute3::BorderImageClip(unsafe {
-                transmute(parse_f32_4(value, " ")?)
+                transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
             }));
             class.class_style_mark |= StyleType::BorderImageClip as usize;
         }
@@ -666,6 +672,26 @@ fn parse_f32_3(value: &str, split: &str) -> Result<[f32; 3], String> {
     Ok(r)
 }
 
+fn f32_4_to_aabb(value: [f32; 4]) -> [f32; 4]{
+	return [value[3], value[0], value[1], value[2]];
+}
+
+fn parse_percent_to_f32_4(value: &str, split: &str) -> Result<[f32; 4], String> {
+    let mut r = Vec::new();
+    let mut i = 0;
+    for v in value.split(split) {
+        if i > 3 {
+            return Err(format!("parse_percent_to_f32_4 error, value: {:?}", value));
+        }
+        let v = v.trim();
+        if v != "" {
+            r.push(parse_percent_to_f32(v)?);
+            i += 1;
+        }
+    }
+    Ok(to_four_f32(&r)?)
+}
+
 fn parse_f32_4(value: &str, split: &str) -> Result<[f32; 4], String> {
     let mut r = [0.0, 0.0, 0.0, 0.0];
     let mut i = 0;
@@ -721,19 +747,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        ValueUnit::Percent(r) => slice.top = r,
+        ValueUnit::Percent(r) => slice.top = r/100.0,
         _ => (),
     };
     match r[1] {
-        ValueUnit::Percent(r) => slice.right = r,
+        ValueUnit::Percent(r) => slice.right = r/100.0,
         _ => (),
     };
     match r[2] {
-        ValueUnit::Percent(r) => slice.bottom = r,
+        ValueUnit::Percent(r) => slice.bottom = r/100.0,
         _ => (),
     };
     match r[3] {
-        ValueUnit::Percent(r) => slice.left = r,
+        ValueUnit::Percent(r) => slice.left = r/100.0,
         _ => (),
     };
     Ok(slice)
@@ -1338,6 +1364,32 @@ fn parse_four_f32(value: &str) -> Result<[ValueUnit; 4], String> {
     to_four(arr)
 }
 
+fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
+	let r = if arr.len() == 1 {
+        let v = arr[0];
+        Ok([v, v, v, v])
+    } else if arr.len() == 2 {
+        let v = arr[0];
+        let v1 = arr[1];
+        Ok([v, v, v1, v1])
+    } else if arr.len() == 3 {
+        let v = arr[0];
+        let v1 = arr[1];
+        let v2 = arr[2];
+        Ok([v, v1, v2, v1])
+    } else if arr.len() == 4 {
+        Ok([
+            arr[0],
+            arr[1],
+            arr[2],
+            arr[3],
+        ])
+    } else {
+        Err(format!("to_four_f32 error"))
+	};
+	r
+}
+
 fn to_four(arr: Vec<&str>) -> Result<[ValueUnit; 4], String> {
     let r = if arr.len() == 1 {
         let v = parse_unity(arr[0])?;
@@ -1399,6 +1451,18 @@ fn parse_len_or_percent_2(value: &str, split: &str) -> Result<[LengthUnit; 2], S
         }
     }
     Ok(r)
+}
+
+fn parse_percent_to_f32(value: &str) -> Result<f32, String> {
+	if value.ends_with("%") {
+        let v = match f32::from_str(&value[..value.len() - 1]) {
+            Ok(r) => r,
+            Err(e) => return Err(e.to_string()),
+        };
+        Ok(v / 100.0)
+    } else {
+		Err("parse_len_or_percent error".to_string())
+	}
 }
 
 fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {

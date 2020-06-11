@@ -5,11 +5,13 @@ use std::cmp::Ordering;
 use std::default::Default;
 use std::marker::PhantomData;
 
-use ecs::{CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener};
+use ecs::{
+    CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener,
+};
 use hal_core::*;
 
 use render::engine::ShareEngine;
-use single::{RenderBegin, RenderObj, RenderObjs};
+use single::{RenderBegin, RenderObj, RenderObjs, Statistics};
 use DIRTY;
 
 pub struct RenderSys<C: HalContext + 'static> {
@@ -42,9 +44,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
+        &'a mut SingleCaseImpl<Statistics>,
     );
     fn run(&mut self, render_begin: Self::ReadData, write: Self::WriteData) {
-        let (render_objs, engine) = write;
+        let (render_objs, engine, statistics) = write;
 
         for id in self.program_dirtys.iter() {
             let render_obj = match render_objs.get_mut(*id) {
@@ -71,10 +74,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
         }
         self.dirty = false;
 
-        #[cfg(feature = "performance")]
-        js! {
-            __time = performance.now();
-        }
+        // #[cfg(feature = "performance")]
+        // js! {
+        //     __time = performance.now();
+        // }
 
         let mut visibility = Vec::new();
         if self.transparent_dirty && self.opacity_dirty {
@@ -143,12 +146,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
             });
         }
 
-        #[cfg(feature = "performance")]
-        js! {
-            if (__p) {
-                __p.RenderSys<C>_run_sort = performance.now() - __time;
-            }
-        }
+        // #[cfg(feature = "performance")]
+        // js! {
+        //     if (__p) {
+        //         __p.RenderSys<C>_run_sort = performance.now() - __time;
+        //     }
+        // }
         // let mut transparent_list = Vec::new();
         // let mut opacity_list = Vec::new();
         // for item in render_objs.iter() {
@@ -165,33 +168,35 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
         // transparent_list.sort();
         // opacity_list.sort();
 
-        #[cfg(feature = "performance")]
-        js! {
-            __time = performance.now();
-        }
+        // #[cfg(feature = "performance")]
+        // js! {
+        //     __time = performance.now();
+        // }
         let target = match &render_begin.1 {
             Some(r) => Some(&**r),
             None => None,
         };
         let gl = &engine.gl;
+        // #[cfg(feature = "performance")]
+        statistics.drawcall_times = 0;
         gl.render_begin(target, &render_begin.0);
         for id in self.opacity_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            render(gl, obj);
+            render(gl, obj, statistics);
         }
         for id in self.transparent_list.iter() {
             let obj = unsafe { render_objs.get_unchecked(*id) };
-            render(gl, obj);
+            render(gl, obj, statistics);
         }
 
         gl.render_end();
 
-        #[cfg(feature = "performance")]
-        js! {
-            if (__p) {
-                __p.RenderSys<C>_run_render = performance.now() - __time;
-            }
-        }
+        // #[cfg(feature = "performance")]
+        // js! {
+        //     if (__p) {
+        //         __p.RenderSys<C>_run_render = performance.now() - __time;
+        //     }
+        // }
     }
 }
 
@@ -268,11 +273,13 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
     }
 }
 
-fn render<C: HalContext + 'static>(gl: &C, obj: &RenderObj) {
+fn render<C: HalContext + 'static>(gl: &C, obj: &RenderObj, statistics: &mut Statistics) {
     let geometry = match &obj.geometry {
         None => return,
         Some(g) => g,
     };
+    // #[cfg(feature = "performance")]
+    statistics.drawcall_times += 1;
     gl.render_set_program(obj.program.as_ref().unwrap());
     gl.render_set_state(&obj.state.bs, &obj.state.ds, &obj.state.rs, &obj.state.ss);
     gl.render_draw(&geometry.geo, &obj.paramter);

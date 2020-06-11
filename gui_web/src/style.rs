@@ -10,7 +10,8 @@ use hash::XHashMap;
 use gui::component::user::*;
 use gui::layout::FlexNode;
 use gui::single::*;
-// use gui::single::style_parse::{parse_class_from_string};
+#[cfg(feature = "create_class_by_str")]
+use gui::single::style_parse::{parse_class_from_string};
 use GuiWorld;
 
 #[macro_use()]

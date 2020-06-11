@@ -124,7 +124,7 @@ pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
 }
 
 pub fn create_world<L: FlexNode, C: HalContext + 'static>(
-    mut engine: ShareEngine<C>,
+	mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
@@ -221,6 +221,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, TransformWillChangeMatrix>();
 
     //single
+    world.register_single::<Statistics>(Statistics::default());
     world.register_single::<IdTree>(IdTree::default());
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());

@@ -189,6 +189,24 @@ js_serializable!(Clazz);
 
 #[allow(unused_attributes)]
 #[no_mangle]
+pub fn list_class(world: u32) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+	let class_map = &world
+        .class_sheet
+        .lend()
+		.class_map;
+	js!{window.__jsObj = [];}
+	for ci in class_map.iter() {
+		println!("xxxxxxxxxxxxxxxxxxxxxxx{}", ci.0);
+		js!{
+			window.__jsObj.push(@{*ci.0 as u32});
+		}
+	}
+}
+#[allow(unused_attributes)]
+#[no_mangle]
 pub fn get_class(world: u32, class_name: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1217,6 +1235,65 @@ fn res_size(world: u32) {
 
     js! {
         console.log("res_mgr_size: ", @{size});
+    }
+}
+
+#[no_mangle]
+pub fn common_statistics(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui.world;
+
+    js! {
+        __jsObj = {};
+    }
+    let mut all_run_time = std::time::Duration::from_millis(0);
+    for t in world.runtime.iter() {
+        // println!("t.sys_name:{:?}", t.sys_name);
+        if t.sys_name.as_ref() == "render_sys" {
+            js! {
+                __jsObj.renderTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
+            }
+        } else if t.sys_name.as_ref() == "text_layout_sys" {
+            js! {
+                __jsObj.layoutTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
+            }
+        }
+        all_run_time += t.cost_time;
+    }
+
+    let statistics = world.fetch_single::<Statistics>().unwrap();
+    let statistics = statistics.lend_mut();
+    js! {
+        __jsObj.runTotalTimes = @{(all_run_time.as_secs_f64() * 1000.0)  as f32};
+        __jsObj.drawCallTimes = @{statistics.drawcall_times as u32};
+    }
+}
+
+#[no_mangle]
+pub fn mem_statistics(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let engine = world.gui.engine.lend();
+
+    js! {
+        __jsObj = {};
+    }
+    let texture = engine.texture_res_map.all_res();
+
+    let mut texture_size = 0;
+    let mut texture_count = 0;
+    let mut catch_texture_count = 0;
+    let mut catch_texture_size = 0;
+    for i in texture.0.iter() {
+        texture_size += i.1;
+        texture_count += 1;
+    }
+    for i in texture.1.iter() {
+        catch_texture_size += i.1.elem.cost;
+        catch_texture_count += 1;
+    }
+    js! {
+        __jsObj.textureTotalCount = @{(catch_texture_count + texture_count) as u32};
+        __jsObj.textureTotalMemory = @{(catch_texture_size + texture_size) as u32};
     }
 }
 
