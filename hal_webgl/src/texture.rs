@@ -110,7 +110,8 @@ impl WebGLTextureImpl {
             curr_sampler: (0, 0),
         };
 
-        t.apply_sampler(gl, &SamplerDesc::new());
+		t.apply_sampler(gl, &SamplerDesc::new());
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
 
         Ok(t)
     }
@@ -205,7 +206,8 @@ impl WebGLTextureImpl {
             curr_sampler: (0, 0),
         };
 
-        t.apply_sampler(gl, &SamplerDesc::new());
+		t.apply_sampler(gl, &SamplerDesc::new());
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
 
         Ok(t)
     }
@@ -240,7 +242,8 @@ impl WebGLTextureImpl {
         // UnpackAlignment(PixelChanel),
         // UnpackFlipYWebgl(bool),
         // UnpackPremultiplyAlphaWebgl(bool),
-        gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+		gl.pixel_storei(WebGLRenderingContext::UNPACK_FLIP_Y_WEBGL, 0);
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
     }
 
     pub fn delete(&self, gl: &WebGLRenderingContext) {
@@ -289,7 +292,8 @@ impl WebGLTextureImpl {
             dst_y as i32,
             width as i32,
             height as i32,
-        );
+		);
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
     }
 
     pub fn resize(
@@ -319,7 +323,8 @@ impl WebGLTextureImpl {
             p,
             d,
             Option::<&[u8]>::None,
-        );
+		);
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
 
         self.width = width;
         self.height = height;
@@ -379,7 +384,8 @@ impl WebGLTextureImpl {
                     }
                 }
             }
-        }
+		}
+		gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
     }
 
     pub fn apply_sampler(&self, gl: &WebGLRenderingContext, sampler: &SamplerDesc) {

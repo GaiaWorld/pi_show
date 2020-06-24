@@ -1303,166 +1303,166 @@ pub fn mem_statistics(world: u32) {
 pub fn print_memory(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    debug_println!("print_memory begin");
+    println!("print_memory begin");
 
     let mut total = 0;
 
     let r = world.node.lend().mem_size();
     total += r;
-    debug_println!("    world::node = {:?}", r);
+    println!("    world::node = {:?}", r);
     let r = world.transform.lend().mem_size();
     total += r;
-    debug_println!("    world::transform = {:?}", r);
+    println!("    world::transform = {:?}", r);
     let r = world.z_index.lend().mem_size();
     total += r;
-    debug_println!("    world::z_index = {:?}", r);
+    println!("    world::z_index = {:?}", r);
     let r = world.overflow.lend().mem_size();
     total += r;
-    debug_println!("    world::overflow = {:?}", r);
+    println!("    world::overflow = {:?}", r);
     let r = world.show.lend().mem_size();
     total += r;
-    debug_println!("    world::show = {:?}", r);
+    println!("    world::show = {:?}", r);
     let r = world.opacity.lend().mem_size();
     total += r;
-    debug_println!("    world::opacity = {:?}", r);
+    println!("    world::opacity = {:?}", r);
     let r = world.background_color.lend().mem_size();
     total += r;
-    debug_println!("    world::background_color = {:?}", r);
+    println!("    world::background_color = {:?}", r);
     let r = world.box_shadow.lend().mem_size();
     total += r;
-    debug_println!("    world::box_shadow = {:?}", r);
+    println!("    world::box_shadow = {:?}", r);
     let r = world.border_color.lend().mem_size();
     total += r;
-    debug_println!("    world::border_color = {:?}", r);
+    println!("    world::border_color = {:?}", r);
     let r = world.border_image.lend().mem_size();
     total += r;
-    debug_println!("    world::border_image = {:?}", r);
+    println!("    world::border_image = {:?}", r);
     let r = world.border_image_clip.lend().mem_size();
     total += r;
-    debug_println!("    world::border_image_clip = {:?}", r);
+    println!("    world::border_image_clip = {:?}", r);
     let r = world.border_image_slice.lend().mem_size();
     total += r;
-    debug_println!("    world::border_image_slice = {:?}", r);
+    println!("    world::border_image_slice = {:?}", r);
     let r = world.border_image_repeat.lend().mem_size();
     total += r;
-    debug_println!("    world::border_image_repeat = {:?}", r);
+    println!("    world::border_image_repeat = {:?}", r);
     let r = world.text_style.lend().mem_size();
     total += r;
-    debug_println!("    world::text_style = {:?}", r);
+    println!("    world::text_style = {:?}", r);
     let r = world.text_content.lend().mem_size();
     total += r;
-    debug_println!("    world::text_content = {:?}", r);
+    println!("    world::text_content = {:?}", r);
     let r = world.font.lend().mem_size();
     total += r;
-    debug_println!("    world::font = {:?}", r);
+    println!("    world::font = {:?}", r);
     let r = world.border_radius.lend().mem_size();
     total += r;
-    debug_println!("    world::border_radius = {:?}", r);
+    println!("    world::border_radius = {:?}", r);
     let r = world.image.lend().mem_size();
     total += r;
-    debug_println!("    world::image = {:?}", r);
+    println!("    world::image = {:?}", r);
     let r = world.image_clip.lend().mem_size();
     total += r;
-    debug_println!("    world::image_clip = {:?}", r);
+    println!("    world::image_clip = {:?}", r);
     let r = world.object_fit.lend().mem_size();
     total += r;
-    debug_println!("    world::object_fit = {:?}", r);
+    println!("    world::object_fit = {:?}", r);
     let r = world.filter.lend().mem_size();
     total += r;
-    debug_println!("    world::filter = {:?}", r);
+    println!("    world::filter = {:?}", r);
     let r = world.yoga.lend().mem_size();
     total += r;
-    debug_println!("    world::yoga = {:?}", r);
+    println!("    world::yoga = {:?}", r);
     let r = world.class_name.lend().mem_size();
     total += r;
-    debug_println!("    world::class_name = {:?}", r);
+    println!("    world::class_name = {:?}", r);
     let r = world.style_mark.lend().mem_size();
     total += r;
-    debug_println!("    world::style_mark = {:?}", r);
+    println!("    world::style_mark = {:?}", r);
     let r = world.z_depth.lend().mem_size();
     total += r;
-    debug_println!("world::z_depth = {:?}", r);
+    println!("world::z_depth = {:?}", r);
     let r = world.enable.lend().mem_size();
     total += r;
-    debug_println!("    world::enable = {:?}", r);
+    println!("    world::enable = {:?}", r);
     let r = world.visibility.lend().mem_size();
     total += r;
-    debug_println!("    world::visibility = {:?}", r);
+    println!("    world::visibility = {:?}", r);
     let r = world.world_matrix.lend().mem_size();
     total += r;
-    debug_println!("    world::world_matrix = {:?}", r);
+    println!("    world::world_matrix = {:?}", r);
     let r = world.by_overflow.lend().mem_size();
     total += r;
-    debug_println!("    world::by_overflow = {:?}", r);
+    println!("    world::by_overflow = {:?}", r);
     let r = world.copacity.lend().mem_size();
     total += r;
-    debug_println!("    world::copacity = {:?}", r);
+    println!("    world::copacity = {:?}", r);
     let r = world.layout.lend().mem_size();
     total += r;
-    debug_println!("    world::layout = {:?}", r);
+    println!("    world::layout = {:?}", r);
     let r = world.hsv.lend().mem_size();
     total += r;
-    debug_println!("    world::hsv = {:?}", r);
+    println!("    world::hsv = {:?}", r);
     let r = world.culling.lend().mem_size();
     total += r;
-    debug_println!("    world::culling = {:?}", r);
+    println!("    world::culling = {:?}", r);
     let r = world.idtree.lend().mem_size();
     total += r;
-    debug_println!("    world::idtree = {:?}", r);
+    println!("    world::idtree = {:?}", r);
     let r = world.oct.lend().mem_size();
     total += r;
-    debug_println!("    world::oct = {:?}", r);
+    println!("    world::oct = {:?}", r);
     let r = world.overflow_clip.lend().mem_size();
     total += r;
-    debug_println!("    world::overflow_clip = {:?}", r);
+    println!("    world::overflow_clip = {:?}", r);
     let r = world.engine.lend().res_mgr.mem_size();
     total += r;
-    debug_println!("    world::engine.resMap = {:?}", r);
+    println!("    world::engine.resMap = {:?}", r);
     let r = world.render_objs.lend().mem_size();
     total += r;
-    debug_println!("    world::render_objs = {:?}", r);
+    println!("    world::render_objs = {:?}", r);
     let r = world.font_sheet.lend().mem_size();
     total += r;
-    debug_println!("    world::font_sheet = {:?}", r);
+    println!("    world::font_sheet = {:?}", r);
     let r = world.default_table.lend().mem_size();
     total += r;
-    debug_println!("    world::default_table = {:?}", r);
+    println!("    world::default_table = {:?}", r);
     let r = world.class_sheet.lend().mem_size();
     total += r;
-    debug_println!("    world::class_sheet = {:?}", r);
+    println!("    world::class_sheet = {:?}", r);
     let r = world.image_wait_sheet.lend().mem_size();
     total += r;
-    debug_println!("    world::image_wait_sheet = {:?}", r);
+    println!("    world::image_wait_sheet = {:?}", r);
 
     let engine = world.engine.lend_mut();
     let stat = engine.gl.render_get_stat();
 
     total += stat.slab_mem_size;
-    debug_println!(
+    println!(
         "    world::engine::slab_mem_size = {:?}",
         stat.slab_mem_size
     );
 
     let total: f32 = total as f32;
-    debug_println!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
-    debug_println!("");
+    println!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
+    println!("");
 
-    debug_println!("    world::engine::rt_count = {:?}", stat.rt_count);
-    debug_println!(
+    println!("    world::engine::rt_count = {:?}", stat.rt_count);
+    println!(
         "    world::engine::texture_count = {:?}",
         stat.texture_count
     );
-    debug_println!("    world::engine::buffer_count = {:?}", stat.buffer_count);
-    debug_println!(
+    println!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+    println!(
         "    world::engine::geometry_count = {:?}",
         stat.geometry_count
     );
-    debug_println!(
+    println!(
         "    world::engine::program_count = {:?}",
         stat.program_count
     );
 
-    debug_println!("print_memory end");
+    println!("print_memory end");
 }
 
 #[derive(Serialize, Debug, Default)]
@@ -1904,7 +1904,7 @@ pub fn get_yoga(world: u32, node: u32) {
 // 	let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
 // 	let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
 // 	paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
-// 	debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
+// 	println!("id: {}, alpha: {:?}", render_obj.context, opacity);
 
 // 	let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
 // 	let culling = unsafe { cullings.get_unchecked(render_obj.context) }.0;

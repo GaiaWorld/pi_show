@@ -389,7 +389,7 @@ pub fn render(world_id: u32) {
     // #[cfg(feature = "debug")]
     // let time = std::time::Instant::now();
     let world = &mut gui_world.gui;
-    load_image(world_id);
+	load_image(world_id);
     // #[cfg(feature = "debug")]
     // let load_image_time = std::time::Instant::now() - time;
 
@@ -452,26 +452,26 @@ pub fn cal_layout(world_id: u32) {
     let world = &mut world.gui;
     world.world.run(&LAYOUT_DISPATCH);
 
-    #[cfg(feature = "debug")]
-    {
-        let mut t = RunTime {
-            draw_text_sys_time: 0.0,
-            load_image_time: 0.0,
-            run_all_time: 0.0,
-            run_sum_time: 0.0,
-            sys_time: Vec::with_capacity(world.world.runtime.len()),
-        };
-        for t1 in world.world.runtime.iter() {
-            let time = t1.cost_time.as_secs_f64() * 1000.0;
-            t.sys_time.push((t1.sys_name.as_ref().to_string(), time));
-            t.run_sum_time += time;
-        }
+    // #[cfg(feature = "debug")]
+    // {
+    //     let mut t = RunTime {
+    //         draw_text_sys_time: 0.0,
+    //         load_image_time: 0.0,
+    //         run_all_time: 0.0,
+    //         run_sum_time: 0.0,
+    //         sys_time: Vec::with_capacity(world.world.runtime.len()),
+    //     };
+    //     for t1 in world.world.runtime.iter() {
+    //         let time = t1.cost_time.as_secs_f64() * 1000.0;
+    //         t.sys_time.push((t1.sys_name.as_ref().to_string(), time));
+    //         t.run_sum_time += time;
+    //     }
 
-        #[cfg(feature = "debug")]
-        js! {
-            console.log("layout", @{t});
-        }
-    }
+    //     #[cfg(feature = "debug")]
+    //     js! {
+    //         console.log("layout", @{t});
+    //     }
+    // }
 }
 
 //设置shader

@@ -70,9 +70,6 @@ impl OverflowClip {
         //     },
         //     Entry::Vacant(r) => r.insert((value, Share::new(ubo))),
         // }
-        if key == 2 {
-            println!("insert_aabb1============={:?}", value);
-        }
         self.clip_map.insert(key, (value, Share::new(ubo)));
         self.clip_map.get(&key).unwrap()
     }

@@ -746,12 +746,14 @@ impl HalContext for WebglHalContext {
     }
 
     fn render_end(&self) {
+		let context = convert_to_mut(self.0.as_ref());
         if let Some(vao_extension) = &self.0.vao_extension {
             let extension = vao_extension.as_ref();
             js! {
-                @{&extension}.wrap.bindVertexArrayOES(null);
-            }
-        }
+				@{&extension}.wrap.bindVertexArrayOES(null);
+			}
+		}
+		context.state_machine.restore_state(&context.gl);
     }
 
     fn render_get_stat(&self) -> &RenderStat {

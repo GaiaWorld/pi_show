@@ -64,7 +64,13 @@ impl TextureCache {
             total_units: max_tex_unit_num - 1,
             values: SlabDeque::new(),
         }
-    }
+	}
+	pub fn restore(&mut self, gl: &WebGLRenderingContext) {
+		for i in 1..(self.total_units + 1){
+			gl.active_texture(WebGLRenderingContext::TEXTURE0 + i as u32);
+			gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
+		}
+	}
 
     pub fn reset(&mut self, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>) {
         for (_, index, use_count) in self.values.iter() {
@@ -473,7 +479,11 @@ impl StateMachine {
         }
 
         need_set_geometry
-    }
+	}
+
+	pub fn restore_state(&mut self, gl: &WebGLRenderingContext) {
+		self.tex_caches.restore(gl);
+	}
 
     /**
      * 全状态设置，仅用于创建State时候

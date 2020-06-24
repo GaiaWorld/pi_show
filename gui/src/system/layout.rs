@@ -46,7 +46,7 @@ impl<'a, L: FlexNode> EntityListener<'a, Node, CreateEvent> for LayoutSys<L> {
         // 	config.set_point_scale_factor(0.0);
 
         // }
-        write.1.insert(event.id, yoga);
+		write.1.insert(event.id, yoga);
     }
 }
 
@@ -61,9 +61,9 @@ impl<'a, L: FlexNode> MultiCaseListener<'a, Node, L, DeleteEvent> for LayoutSys<
         let yoga = unsafe { write.1.get_unchecked(event.id) };
         let p = yoga.get_parent();
         if !p.is_null() {
-            yoga.get_parent().remove_child(*yoga);
+            p.remove_child(*yoga);
             yoga.free();
-        }
+		}
     }
 }
 
@@ -95,7 +95,7 @@ impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys<
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-        let node = unsafe { read.0.get_unchecked(event.id) };
+		let node = unsafe { read.0.get_unchecked(event.id) };
         if node.parent > 0 {
             let parent_yoga = unsafe { read.1.get_unchecked(node.parent) };
             parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id) }.clone());

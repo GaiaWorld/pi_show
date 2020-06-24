@@ -10,7 +10,7 @@ share = {path="../../pi_lib/share"}
 ecs = {path="../../pi_lib/ecs"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }
-debug_info = { path = "../../pi_lib/debug_info" }
+debug_info = { path = "../../pi_lib/debug_info", features = ["print"] }
 hash = { path = "../../pi_lib/hash" }
 bincode = {path="../../pi_lib/bincode"}
 res = {path="../../pi_lib/res"}

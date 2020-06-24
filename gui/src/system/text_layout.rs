@@ -173,11 +173,11 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let cb = unsafe { write.get_unchecked(event.id) };
+		let cb = unsafe { write.get_unchecked(event.id) };
         // 删除所有yoga节点
         for cn in cb.chars.iter() {
             // cn.node.get_parent().remove_child(cn.node);
-            cn.node.free();
+			cn.node.free();
         }
     }
 }
