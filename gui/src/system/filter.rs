@@ -82,7 +82,7 @@ fn recursive_cal_hsv(
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
-    let old_hsv = unsafe { hsvs.get_unchecked(id) }.clone();
+    let old_hsv = hsvs[id].clone();
     let hsv = match filters.get(id) {
         Some(filter) => {
             let hsv = HSV {
@@ -102,7 +102,7 @@ fn recursive_cal_hsv(
             parent_hsv.clone()
         }
     };
-    let first = unsafe { idtree.get_unchecked(id).children.head };
+    let first = idtree[id].children.head;
     for child_id in idtree.iter(first) {
         recursive_cal_hsv(child_id.0, idtree, &hsv, filters, hsvs);
     }
@@ -215,22 +215,19 @@ fn test() {
     filters.insert(e012, Filter::default());
     world.run(&Atom::from("test_opacity_sys"));
 
-    // unsafe { filters.get_unchecked_write(e0)}.set_0(0.5);
-    // unsafe { filters.get_unchecked_write(e00)}.set_0(0.5);
-
     // world.run(&Atom::from("test_opacity_sys"));
 
     debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        unsafe{hsvs.get_unchecked(e0)},
-        unsafe{hsvs.get_unchecked(e00)},
-        unsafe{hsvs.get_unchecked(e01)},
-        unsafe{hsvs.get_unchecked(e02)},
-        unsafe{hsvs.get_unchecked(e000)},
-        unsafe{hsvs.get_unchecked(e001)},
-        unsafe{hsvs.get_unchecked(e002)},
-        unsafe{hsvs.get_unchecked(e010)},
-        unsafe{hsvs.get_unchecked(e011)},
-        unsafe{hsvs.get_unchecked(e012)},
+        hsvs[e0],
+        hsvs[e00],
+        hsvs[e01],
+        hsvs[e02],
+        hsvs[e000],
+        hsvs[e001],
+        hsvs[e002],
+        hsvs[e010],
+        hsvs[e011],
+        hsvs[e012],
     );
 }
 

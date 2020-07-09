@@ -74,8 +74,8 @@ impl OctSys {
             None => default_transform,
         };
 
-        let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-        let layout = unsafe { layouts.get_unchecked(id) };
+        let world_matrix = &world_matrixs[id];
+        let layout = &layouts[id];
         // let transform = get_or_default(id, transforms, default_table);
 
         let origin = transform.origin.to_value(layout.width, layout.height);
@@ -419,22 +419,22 @@ fn test() {
     );
     idtree.insert_child(e012, e01, 3, Some(&notify));
 
-    unsafe { transforms.get_unchecked_write(e0) }.modify(|transform: &mut Transform| {
+    transforms.get_write(e0).unwrap().modify(|transform: &mut Transform| {
         transform.funcs.push(TransformFunc::TranslateX(50.0));
         true
     });
     world.run(&Atom::from("test_oct_sys"));
     debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        unsafe{oct.get_unchecked(e0)},
-        unsafe{oct.get_unchecked(e00)},
-        unsafe{oct.get_unchecked(e01)},
-        unsafe{oct.get_unchecked(e02)},
-        unsafe{oct.get_unchecked(e000)},
-        unsafe{oct.get_unchecked(e001)},
-        unsafe{oct.get_unchecked(e002)},
-        unsafe{oct.get_unchecked(e010)},
-        unsafe{oct.get_unchecked(e011)},
-        unsafe{oct.get_unchecked(e012)},
+        oct.get(e0).unwrap(),
+        oct.get(e00).unwrap(),
+        oct.get(e01).unwrap(),
+        oct.get(e02).unwrap(),
+        oct.get(e000).unwrap(),
+        oct.get(e001).unwrap(),
+        oct.get(e002).unwrap(),
+        oct.get(e010).unwrap(),
+        oct.get(e011).unwrap(),
+        oct.get(e012).unwrap(),
     );
 }
 

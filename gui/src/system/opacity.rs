@@ -19,7 +19,7 @@ impl OpacitySys {
             None => return,
         };
         if parent_id > 0 {
-            let parent_c_opacity = unsafe { **c_opacity.get_unchecked(parent_id) };
+            let parent_c_opacity = *c_opacity[parent_id];
             modify_opacity(parent_c_opacity, id, idtree, opacity, c_opacity);
         }else {
             modify_opacity(1.0, id, idtree, opacity, c_opacity);
@@ -60,11 +60,11 @@ fn modify_opacity(
     opacity: &MultiCaseImpl<Node, Opacity>,
     copacity: &mut MultiCaseImpl<Node,COpacity>
 ) {
-    let opacity_value: f32 = unsafe { **opacity.get_unchecked(id) };
+    let opacity_value: f32 = *opacity[id];
     let node_real_opacity = opacity_value * parent_real_opacity;
-    unsafe { copacity.get_unchecked_write(id) }.set_0(node_real_opacity);
+    copacity.get_write(id).unwrap().set_0(node_real_opacity);
 	
-    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    let first = id_tree[id].children.head;
     for child_id in id_tree.iter(first) {
         modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity);
     }
@@ -148,22 +148,22 @@ fn test(){
     opacitys.insert(e012, Opacity::default());
     world.run(&Atom::from("test_opacity_sys"));
 
-    unsafe { opacitys.get_unchecked_write(e0)}.set_0(0.5);
-    unsafe { opacitys.get_unchecked_write(e00)}.set_0(0.5);
+    opacitys.get_write(e0).unwrap().set_0(0.5);
+    opacitys.get_write(e00).unwrap().set_0(0.5);
 
     world.run(&Atom::from("test_opacity_sys"));
 
     debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        unsafe{copacitys.get_unchecked(e0)},
-        unsafe{copacitys.get_unchecked(e00)},
-        unsafe{copacitys.get_unchecked(e01)},
-        unsafe{copacitys.get_unchecked(e02)},
-        unsafe{copacitys.get_unchecked(e000)},
-        unsafe{copacitys.get_unchecked(e001)},
-        unsafe{copacitys.get_unchecked(e002)},
-        unsafe{copacitys.get_unchecked(e010)},
-        unsafe{copacitys.get_unchecked(e011)},
-        unsafe{copacitys.get_unchecked(e012)},
+        &copacitys[e0],
+        &copacitys[e00],
+        &copacitys[e01],
+        &copacitys[e02],
+        &copacitys[e000],
+        &copacitys[e001],
+        &copacitys[e002],
+        &copacitys[e010],
+        &copacitys[e011],
+        &copacitys[e012],
     );
 }
 

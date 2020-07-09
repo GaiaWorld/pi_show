@@ -14,6 +14,7 @@ macro_rules! func_enum {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
+#[js_export]
         pub fn $func(world: u32, node_id: u32, value: u8) {
             let value = unsafe { transmute(value) };
             let node_id = node_id as usize;
@@ -33,6 +34,7 @@ macro_rules! func_value {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
+#[js_export]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -51,6 +53,7 @@ macro_rules! func_enum_value {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
+#[js_export]
         pub fn $func(world: u32, node_id: u32, edge: u8, value: f32) {
             let edge = unsafe { transmute(edge) };
             let node_id = node_id as usize;
@@ -70,6 +73,7 @@ macro_rules! func_auto {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
+#[js_export]
         pub fn $func(world: u32, node_id: u32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -122,6 +126,7 @@ func_enum_value!(set_position, Position);
 func_enum_value!(set_position_percent, Position);
 
 #[no_mangle]
+#[js_export]
 pub fn init_width(world: u32, node_id: u32, width: u32) {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -134,6 +139,7 @@ pub fn init_width(world: u32, node_id: u32, width: u32) {
 }
 
 #[no_mangle]
+#[js_export]
 pub fn init_height(world: u32, node_id: u32, height: u32) {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };

@@ -241,13 +241,13 @@ pub struct LinearGradientColor {
 
 impl Hash for LinearGradientColor {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        unsafe { NotNan::unchecked_new(self.direction).hash(hasher) };
+        NotNan::new(self.direction).unwrap().hash(hasher);
         for l in self.list.iter() {
-            unsafe { NotNan::unchecked_new(l.position).hash(hasher) };
-            unsafe { NotNan::unchecked_new(l.rgba.r).hash(hasher) };
-            unsafe { NotNan::unchecked_new(l.rgba.g).hash(hasher) };
-            unsafe { NotNan::unchecked_new(l.rgba.b).hash(hasher) };
-            unsafe { NotNan::unchecked_new(l.rgba.a).hash(hasher) };
+            NotNan::new(l.position).unwrap().hash(hasher);
+            NotNan::new(l.rgba.r).unwrap().hash(hasher);
+            NotNan::new(l.rgba.g).unwrap().hash(hasher);
+            NotNan::new(l.rgba.b).unwrap().hash(hasher);
+            NotNan::new(l.rgba.a).unwrap().hash(hasher);
         }
     }
 }

@@ -240,6 +240,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
             let mut mumbers: Vec<f32> = Vec::new();
             let mut indices: Vec<u16> = Vec::new();
 
+			// clip数量超出16个，设置clip只有16个
             let mut count = positions.len() / 8;
             if count > 16 {
                 count = 16;
@@ -323,8 +324,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                 None => continue,
             };
 
-            let by_overflow = unsafe { by_overflows.get_unchecked(*id) }.0;
-            let obj_ids = unsafe { node_render_map.get_unchecked(*id) };
+            let by_overflow = by_overflows[*id].0;
+            let obj_ids = &node_render_map[*id];
 
             if (style_mark.dirty & StyleType::Matrix as usize != 0
                 || style_mark.dirty & StyleType::ByOverflow as usize != 0)
@@ -336,15 +337,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                 }
 
                 for id in obj_ids.iter() {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                    let render_obj = &mut render_objs[*id];
                     // println!("set_clip_uniform--------------{}", *id);
                     self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
                 }
             } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
                 // 裁剪剔除
-                unsafe { cullings.get_unchecked_write(*id) }.set_0(false);
+                cullings.get_write(*id).unwrap().set_0(false);
                 for id in obj_ids.iter() {
-                    let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                    let render_obj = &mut render_objs[*id];
                     render_obj.vs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP");
@@ -384,7 +385,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEve
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<OverflowClip>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let c = unsafe { write.clip.get_unchecked(event.id) };
+        let c = &write.clip[event.id];
         if c.has_rotate || c.old_has_rotate {
             self.dirty = true;
         }

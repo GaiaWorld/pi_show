@@ -8,6 +8,7 @@ pub mod style_parse;
 use share::Share;
 use std::any::{Any, TypeId};
 use std::default::Default;
+use std::ops::{Index, IndexMut};
 
 use atom::Atom;
 use cgmath::Ortho;
@@ -75,9 +76,6 @@ impl OverflowClip {
     }
 }
 
-// pub struct ClipIndex {
-
-// }
 
 impl Default for OverflowClip {
     fn default() -> Self {
@@ -223,6 +221,20 @@ impl<C> Default for Data<C> {
     }
 }
 
+impl<T> Index<usize> for Data<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &T {
+        &self.map[index]
+    }
+}
+
+impl<T> IndexMut<usize> for Data<T> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        &mut self.map[index]
+    }
+}
+
 impl<C> Data<C> {
     pub fn get(&self, id: usize) -> Option<&C> {
         self.map.get(id)
@@ -230,14 +242,6 @@ impl<C> Data<C> {
 
     pub fn get_mut(&mut self, id: usize) -> Option<&mut C> {
         self.map.get_mut(id)
-    }
-
-    pub unsafe fn get_unchecked(&self, id: usize) -> &C {
-        self.map.get_unchecked(id)
-    }
-
-    pub unsafe fn get_unchecked_mut(&mut self, id: usize) -> &mut C {
-        self.map.get_unchecked_mut(id)
     }
 
     pub fn get_write(&mut self, id: usize) -> Option<Write<C>> {
@@ -334,7 +338,13 @@ impl RenderObjs {
             };
         }
     }
-
+	pub fn get_write<'a>(
+        &'a mut self,
+        id: usize,
+        notify: &'a NotifyImpl,
+    ) -> Write<RenderObj> {
+        unsafe { Write::new(id, self.0.get_unchecked_mut(id), &notify) }
+    }
     pub unsafe fn get_unchecked_write<'a>(
         &'a mut self,
         id: usize,
@@ -350,26 +360,32 @@ impl RenderObjs {
 
 pub struct NodeRenderMap(VecMap<Vec<usize>>);
 
+impl Index<usize> for NodeRenderMap {
+    type Output = Vec<usize>;
+
+    fn index(&self, index: usize) -> &Vec<usize> {
+        &self.0[index]
+    }
+}
+
 impl NodeRenderMap {
     pub fn new() -> Self {
         Self(VecMap::default())
     }
 
-    pub unsafe fn add_unchecked(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
-        let arr = self.0.get_unchecked_mut(node_id);
-        arr.push(render_id);
+	pub fn add(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
+        self.0[node_id].push(render_id);
         notify.modify_event(node_id, "add", render_id);
-    }
+	}
 
-    pub unsafe fn remove_unchecked(
+    pub fn remove(
         &mut self,
         node_id: usize,
         render_id: usize,
         notify: &NotifyImpl,
     ) {
         notify.modify_event(node_id, "remove", render_id);
-        let arr = self.0.get_unchecked_mut(node_id);
-        arr.remove_item(&render_id);
+        self.0[node_id].remove_item(&render_id);
     }
 
     pub fn create(&mut self, node_id: usize) {
@@ -378,10 +394,6 @@ impl NodeRenderMap {
 
     pub unsafe fn destroy_unchecked(&mut self, node_id: usize) {
         self.0.remove_unchecked(node_id);
-    }
-
-    pub unsafe fn get_unchecked(&self, node_id: usize) -> &Vec<usize> {
-        self.0.get_unchecked(node_id)
     }
 
     pub fn get(&self, node_id: usize) -> Option<&Vec<usize>> {
@@ -396,6 +408,12 @@ pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
 #[derive(Default)]
 pub struct Statistics {
     pub drawcall_times: usize,
+}
+
+#[derive(Default)]
+pub struct SystemTime {
+	pub start_time: u64,
+	pub cur_time: usize,
 }
 
 impl DefaultTable {

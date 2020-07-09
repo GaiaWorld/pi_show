@@ -15,6 +15,7 @@ use GuiWorld;
 #[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn create_class(world: u32, class_id: u32) {
     let value: String = js!(return __jsObj;).try_into().unwrap();
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -34,6 +35,7 @@ pub fn create_class(world: u32, class_id: u32) {
 /// 添加二进制格式的css表
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn create_class_by_bin(world: u32) {
     let value: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
     let value = value.to_vec();

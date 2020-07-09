@@ -39,11 +39,11 @@ extern crate ordered_float;
 extern crate res;
 extern crate share;
 
-use std::cell::RefCell;
+// use std::cell::RefCell;
 use std::mem::transmute;
 
 use ordered_float::OrderedFloat;
-use res::ResMgr;
+// use res::ResMgr;
 use stdweb::unstable::TryInto;
 use stdweb::Object;
 use webgl_rendering_context::WebGLRenderingContext;
@@ -93,41 +93,43 @@ pub struct GuiWorld {
     pub performance_inspector: usize,
 }
 
-/// 设置纹理的缓存配置
-#[allow(unused_attributes)]
-#[no_mangle]
-pub fn set_texture_catch_cfg(
-    res_mgr: u32, /* res_mgr指针 */
-    min_c1: u32,
-    max_c1: u32,
-    timeout1: u32,
-    min_c2: u32,
-    max_c2: u32,
-    timeout2: u32,
-    min_c3: u32,
-    max_c3: u32,
-    timeout3: u32,
-) {
-    let res_mgr = unsafe { &mut *(res_mgr as *mut Share<RefCell<ResMgr>>) };
-    res_mgr.borrow_mut().register::<TextureRes>(
-        [
-            min_c1 as usize,
-            max_c1 as usize,
-            timeout1 as usize,
-            min_c2 as usize,
-            max_c2 as usize,
-            timeout2 as usize,
-            min_c3 as usize,
-            max_c3 as usize,
-            timeout3 as usize,
-        ],
-        "TextureRes".to_string(),
-    );
-}
+// /// 设置纹理的缓存配置
+// #[allow(unused_attributes)]
+// #[no_mangle]
+// #[js_export]
+// pub fn set_texture_catch_cfg(
+//     res_mgr: u32, /* res_mgr指针 */
+//     min_c1: u32,
+//     max_c1: u32,
+//     timeout1: u32,
+//     min_c2: u32,
+//     max_c2: u32,
+//     timeout2: u32,
+//     min_c3: u32,
+//     max_c3: u32,
+//     timeout3: u32,
+// ) {
+//     let res_mgr = unsafe { &mut *(res_mgr as *mut Share<RefCell<ResMgr>>) };
+//     res_mgr.borrow_mut().register::<TextureRes>(
+//         [
+//             min_c1 as usize,
+//             max_c1 as usize,
+//             timeout1 as usize,
+//             min_c2 as usize,
+//             max_c2 as usize,
+//             timeout2 as usize,
+//             min_c3 as usize,
+//             max_c3 as usize,
+//             timeout3 as usize,
+//         ],
+//         "TextureRes".to_string(),
+//     );
+// }
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */) -> u32 {
     let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
@@ -142,6 +144,7 @@ pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */) -> u32 
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn create_render_target(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -154,6 +157,7 @@ pub fn create_render_target(world: u32) -> u32 {
 /// 销毁渲染目标
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn destroy_render_target(render_target: u32) {
     unsafe { Box::from_raw(&mut *(render_target as usize as *mut Share<HalRenderTarget>)) };
 }
@@ -162,6 +166,7 @@ pub fn destroy_render_target(render_target: u32) {
 /// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn bind_render_target(world: u32, render_target: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -179,6 +184,7 @@ pub fn bind_render_target(world: u32, render_target: u32) {
 /// 克隆渲染引擎（某些情况下， 需要多个gui实例共享同一个渲染引擎）
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn clone_engine(engine: u32) -> u32 {
     let engine: ShareEngine<WebglHalContext> =
         ShareEngine::clone(unsafe { &*(engine as usize as *const ShareEngine<WebglHalContext>) });
@@ -188,6 +194,7 @@ pub fn clone_engine(engine: u32) -> u32 {
 /// 创建gui实例
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
     let mut engine =
         *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
@@ -228,8 +235,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         ),
         0,
     );
-
-    let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res);
+	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
+    let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res, cur_time);
     let world = GuiWorld1::<YgNode, WebglHalContext>::new(world);
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
@@ -273,6 +280,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 /// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -289,6 +297,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
 /// 使gui渲染不清屏
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn nullify_clear_color(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -300,6 +309,7 @@ pub fn nullify_clear_color(world: u32) {
 /// 设置视口
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -315,6 +325,7 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
 /// 设置投影变换
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_project_transfrom(
     world_id: u32,
     scale_x: f32,
@@ -354,6 +365,7 @@ pub fn set_project_transfrom(
  */
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn force_update_text(world_id: u32, node_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let idtree = world.gui.idtree.lend();
@@ -378,10 +390,12 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
 /// 渲染gui， 通常每帧调用
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn render(world_id: u32) {
     let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     // #[cfg(feature = "debug")]
-    // let time = std::time::Instant::now();
+	// let time = std::time::Instant::now();
+
     gui_world.draw_text_sys.run(world_id);
     // #[cfg(feature = "debug")]
     // let draw_text_sys_time = std::time::Instant::now() - time;
@@ -391,8 +405,11 @@ pub fn render(world_id: u32) {
     let world = &mut gui_world.gui;
 	load_image(world_id);
     // #[cfg(feature = "debug")]
-    // let load_image_time = std::time::Instant::now() - time;
-
+	// let load_image_time = std::time::Instant::now() - time;
+	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
+	let sys_time = world.system_time.lend_mut();
+	let cur_time = cur_time - sys_time.start_time;
+	sys_time.cur_time = cur_time as usize;
     // #[cfg(feature = "debug")]
     // let time = std::time::Instant::now();
     world.world.run(&RENDER_DISPATCH);
@@ -447,6 +464,7 @@ js_serializable!(RunTime);
 /// 强制计算一次布局
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn cal_layout(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -477,6 +495,7 @@ pub fn cal_layout(world_id: u32) {
 //设置shader
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_shader(engine: u32) {
     let shader_name: String = js!(return __jsObj;).try_into().unwrap();
     let shader_code: String = js!(return __jsObj1;).try_into().unwrap();
@@ -488,6 +507,7 @@ pub fn set_shader(engine: u32) {
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
 #[no_mangle]
+#[js_export]
 pub fn load_image_success(
     world_id: u32,
     opacity: u8,
@@ -512,6 +532,7 @@ pub fn load_image_success(
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
 #[no_mangle]
+#[js_export]
 pub fn create_texture_res(
     world_id: u32,
     opacity: u8,
@@ -626,6 +647,7 @@ fn load_image(world_id: u32) {
 /// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_render_dirty(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -637,13 +659,14 @@ pub fn set_render_dirty(world: u32) {
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
 #[no_mangle]
-pub fn texture_is_exist(world: u32) -> bool {
+#[js_export]
+pub fn texture_is_exist(world: u32, group_i: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let name: String = js! {return __jsObj1}.try_into().unwrap();
     let name = Atom::from(name);
 
     let engine = world.gui.engine.lend();
-    match engine.res_mgr.get::<TextureRes>(&name) {
+    match engine.res_mgr.get::<TextureRes>(&name, group_i) {
         Some(_) => true,
         None => false,
     }

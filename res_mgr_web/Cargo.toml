@@ -1,0 +1,25 @@
+[package]
+name = "res_mgr"
+version = "0.1.0"
+authors = ["sun <sun@yineng.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+res = {path="../../pi_lib/res"}
+share = {path="../../pi_lib/share"}
+wasm-bindgen = "*"
+
+
+# [features]
+# # default = ["no_debug", "no_define_js"]
+# # default = ["create_class_by_str"]
+# # default = ["no_debug", "share/rc"]
+# default = ["debug"]
+# # default = ["share/rc", "ecs/runtime"]
+# # default = ["debug", "no_debug"]
+# debug = ["share/rc", "ecs/runtime"]
+# no_debug = []
+# no_define_js = []
+# create_class_by_str = []

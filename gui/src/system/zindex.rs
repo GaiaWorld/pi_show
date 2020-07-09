@@ -48,39 +48,16 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     }
 }
 
-// impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ZIndexImpl {
-//     type ReadData = &'a SingleCaseImpl<IdTree>;
-//     type WriteData = ();
-
-//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-//         let r = unsafe { read.get_unchecked(event.id) };
-//         self.delete_dirty(event.id, r.layer);
-//     }
-// }
-
-
-// impl<'a> EntityListener<'a, Node, DeleteEvent> for ZIndexImpl {
-//     type ReadData = &'a SingleCaseImpl<IdTree>;
-//     type WriteData = ();
-
-//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-//       match read.get(event.id) {
-//         Some(r) => self.delete_dirty(event.id, r.layer),
-//         _ => ()
-//       }
-//     }
-// }
-
 impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
     type WriteData = ();
 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData) {
-      let z = **unsafe{ read.1.get_unchecked(event.id)};
-      let zi = unsafe {self.map.get_unchecked_mut(event.id)};
+      let z = *read.1[event.id];
+      let zi = &mut self.map[event.id];
       let old = zi.old;
       zi.old = z;
-      let node = unsafe{ read.0.get_unchecked(event.id)};
+      let node = &read.0[event.id];
       if node.layer == 0 {
         return;
       }
@@ -102,8 +79,8 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
     type WriteData = ();
 
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData) {
-      let node = unsafe{ read.get_unchecked(event.id)};
-      let zi = unsafe {self.map.get_unchecked_mut(event.id)};
+      let node = &read[event.id];
+      let zi = &mut self.map[event.id];
       if zi.old != AUTO {
         // 设置自己成强制脏
         zi.dirty = DirtyType::Recursive;
@@ -172,8 +149,8 @@ impl ZIndexImpl {
   // 设置节点对应堆叠上下文的节点脏
   fn set_parent_dirty(&mut self, mut id: usize, idtree: &IdTree) {
     while id > 0 {
-      let zi = unsafe {self.map.get_unchecked_mut(id)};
-      let node = unsafe {idtree.get_unchecked(id)};
+      let zi = &mut self.map[id];
+      let node = &idtree[id];
       // 如果为z为auto，则向上找zindex不为auto的节点，zindex不为auto的节点有堆叠上下文
       if zi.old != AUTO {
         if zi.dirty == DirtyType::None {
@@ -190,20 +167,11 @@ impl ZIndexImpl {
     }
   }
 
-//   fn delete_dirty(&mut self, id: usize, layer: usize) {
-//     if layer > 0 {
-//     //   let zi = unsafe {self.map.remove_unchecked(id)};
-//     //   if zi.dirty != DirtyType::None {
-//         self.dirty.delete(id, layer)
-//     //   }
-//     }
-//     // 删除无需设脏，z值可以继续使用
-//   }
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
     for (id, layer) in self.dirty.iter() {
       let (min_z, max_z, normal) = {
-        let zi = unsafe {self.map.get_unchecked_mut(*id)};
+        let zi = &mut self.map[*id];
         // println!("calc xxx: {:?} {:?}", id, zi);
         if zi.dirty == DirtyType::None {
           continue;
@@ -219,7 +187,7 @@ impl ZIndexImpl {
 			None => continue,
 		};
       // 设置 z_depth, 其他系统会监听该值
-      unsafe {zdepth.get_unchecked_write(*id)}.set_0(min_z);
+      zdepth.get_write(*id).unwrap().set_0(min_z);
       //println!("zindex- calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
       if node.count == 0 {
         continue;
@@ -238,7 +206,6 @@ impl ZIndexImpl {
         for _ in 1..n.layer {
           v.push('-')
         }
-        //println!("zindex- info: {:?} {:?} {:?} count:{:?}, layer:{:?}", v, id, unsafe {self.map.get_unchecked_mut(id)}, n.count, n.layer);
       }
     }
     self.dirty.clear();
@@ -272,7 +239,7 @@ impl Cache {
   fn sort(&mut self, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
     // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
     for (id, n) in idtree.iter(child) {
-      let zi = unsafe {map.get_unchecked(id)}.old;
+      let zi = map[id].old;
       if zi == 0 {
           self.z_zero.push(ZSort(zi, order, id, n.count));
       }else if zi == -1 {
@@ -302,26 +269,26 @@ impl Cache {
     // println!("negative_heap: len: {:?}, value: {:?}", self.negative_heap.len(), self.negative_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
+      adjust(map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     // println!("z_auto: len: {:?}, value: {:?}", self.z_auto.len(), self.z_auto);
     for n_id in &self.z_auto {
-      adjust(map, idtree, zdepth, *n_id, unsafe {idtree.get_unchecked(*n_id)}, min_z, min_z, f32::NAN, 0.);
+      adjust(map, idtree, zdepth, *n_id, &idtree[*n_id], min_z, min_z, f32::NAN, 0.);
       min_z += 1.;
     }
     self.z_auto.clear();
     // println!("z_zero: len: {:?}, value: {:?}", self.z_zero.len(), self.z_zero);
     for &ZSort(_, _, n_id, c) in &self.z_zero {
       max_z = min_z + split + split * c as f32;
-      adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
+      adjust(map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     self.z_zero.clear();
     // println!("z_node_heapzero: len: {:?}, value: {:?}", self.node_heap.len(), self.node_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(map, idtree, zdepth, n_id, unsafe {idtree.get_unchecked(n_id)}, min_z, max_z, f32::NAN, 0.);
+      adjust(map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
   }
@@ -359,19 +326,19 @@ impl Cache {
     }
     while start < self.temp.len() {
       let (id, min_z, max_z) = self.temp.pop().unwrap();
-      let zi = unsafe{map.get_unchecked_mut(id)};
+      let zi = &mut map[id];
       zi.dirty = DirtyType::None;
       zi.min_z = min_z;
       zi.pre_min_z = min_z;
       zi.max_z = max_z;
       zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
-      unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
+      zdepth.get_write(id).unwrap().set_0(min_z);
       //println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
       }
-      let node = unsafe {idtree.get_unchecked(id)};
+      let node = &idtree[id];
       if node.count == 0 {
         continue;
       }
@@ -385,7 +352,7 @@ impl Cache {
 // 设置自己所有非AUTO的子节点为强制脏
 fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
   for (id, n) in idtree.iter(child) {
-    let zi = unsafe {map.get_unchecked_mut(id)};
+    let zi = &mut map[id];
     if zi.old == -1 {
       recursive_dirty(map, dirty, idtree, n.children.head);
     }else {
@@ -401,7 +368,7 @@ fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &Id
 fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
   
   let (min, r, old_min) = {
-    let zi = unsafe{map.get_unchecked_mut(id)};
+    let zi = &mut map[id];
     // println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
     let (min, max) = if !rate.is_nan() {
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
@@ -426,7 +393,7 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     zi.min_z = min;
     zi.max_z = max;
     // 设置 z_depth, 其他系统会监听该值
-    unsafe {zdepth.get_unchecked_write(id)}.set_0(min);
+    zdepth.get_write(id).unwrap().set_0(min);
     // println!("---------adjust: {:?} {:?} {:?}", id, min, max);
     
     // 判断是否为auto
@@ -612,7 +579,7 @@ impl_system!{
 // fn print_node(mgr: &WorldDocMgr, zz: Share<ZIndexSys>, id: usize) {
 //     let node = mgr.node._group.get(id);
 //     let zimpl = zz.0.borrow_mut();
-//     let zi = unsafe{zimpl.map.get_unchecked(id)};
+//     let zi = &mut zimpl.map[id];
 
 //     println!("nodeid: {}, zindex: {:?}, z_depth: {}, zz: {:?}, count: {}, parent: {}", id, node.zindex, node.z_depth, zi, node.count, node.parent);
 // }

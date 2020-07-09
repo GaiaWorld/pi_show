@@ -95,13 +95,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
                 }
             }
             self.transparent_list.sort_by(|id1, id2| {
-                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
-                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                let obj1 = &render_objs[*id1];
+                let obj2 = &render_objs[*id2];
                 obj1.depth.partial_cmp(&obj2.depth).unwrap()
             });
             self.opacity_list.sort_by(|id1, id2| {
-                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
-                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                let obj1 = &render_objs[*id1];
+                let obj2 = &render_objs[*id2];
                 (obj1.program.as_ref().unwrap().item.index)
                     .partial_cmp(&(obj2.program.as_ref().unwrap().item.index))
                     .unwrap()
@@ -118,8 +118,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
                 }
             }
             self.transparent_list.sort_by(|id1, id2| {
-                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
-                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                let obj1 = &render_objs[*id1];
+                let obj2 = &render_objs[*id2];
                 obj1.depth.partial_cmp(&obj2.depth).unwrap()
             });
         } else if self.opacity_dirty {
@@ -134,8 +134,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
                 }
             }
             self.opacity_list.sort_by(|id1, id2| {
-                let obj1 = unsafe { render_objs.get_unchecked(*id1) };
-                let obj2 = unsafe { render_objs.get_unchecked(*id2) };
+                let obj1 = &render_objs[*id1];
+                let obj2 = &render_objs[*id2];
                 obj1.program
                     .as_ref()
                     .unwrap()
@@ -181,11 +181,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
         statistics.drawcall_times = 0;
         gl.render_begin(target, &render_begin.0);
         for id in self.opacity_list.iter() {
-            let obj = unsafe { render_objs.get_unchecked(*id) };
+            let obj = &render_objs[*id];
             render(gl, obj, statistics);
         }
         for id in self.transparent_list.iter() {
-            let obj = unsafe { render_objs.get_unchecked(*id) };
+            let obj = &render_objs[*id];
             render(gl, obj, statistics);
         }
 
@@ -206,7 +206,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, render_objs: Self::WriteData) {
         self.dirty = true;
         unsafe { DIRTY = true };
-        let obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+        let obj = &mut render_objs[event.id];
         if obj.is_opacity == false {
             self.transparent_dirty = true;
         } else {
@@ -264,7 +264,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
     fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData) {
         self.dirty = true;
         unsafe { DIRTY = true };
-        let obj = unsafe { render_objs.get_unchecked(event.id) };
+        let obj = &render_objs[event.id];
         if obj.is_opacity == false {
             self.transparent_dirty = true;
         } else {

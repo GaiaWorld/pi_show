@@ -127,17 +127,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             };
 
             // 从组件中取出对应的数据
-            let render_obj = unsafe { render_objs.get_unchecked_mut(render_index) };
+            let render_obj = &mut render_objs[render_index];
 
             let border_radius = border_radiuses.get(*id);
-            let layout = unsafe { layouts.get_unchecked(*id) };
-            let shadow = unsafe { box_shadows.get_unchecked(*id) };
+            let layout = &layouts[*id];
+            let shadow = &box_shadows[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BoxShadow as usize != 0
             {
-                let opacity = unsafe { opacitys.get_unchecked(*id) }.0;
+                let opacity = opacitys[*id].0;
                 render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj, default_state);
@@ -162,12 +162,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
             // 矩阵脏，或者布局脏
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
-                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
                     None => default_transform,
                 };
-                let depth = unsafe { z_depths.get_unchecked(*id) }.0;
+                let depth = z_depths[*id].0;
                 modify_matrix(render_obj, depth, world_matrix, transform, layout);
             }
             notify.modify_event(render_index, "", 0);
@@ -215,7 +215,7 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
             render_objs,
             &mut self.render_map,
         );
-        let render_obj = unsafe { render_objs.get_unchecked_mut(index) };
+        let render_obj = &mut render_objs[index];
         render_obj.fs_defines.add("UCOLOR");
         index
     }

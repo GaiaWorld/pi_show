@@ -189,6 +189,7 @@ js_serializable!(Clazz);
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn list_class(world: u32) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -205,8 +206,33 @@ pub fn list_class(world: u32) {
 		}
 	}
 }
+
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
+pub fn get_class_name(world: u32, node: u32) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let world = &mut world.gui;
+	
+	let class_name = world.class_name.lend();
+	match class_name.get(node as usize) {
+		Some(v) => {
+			js! {
+				window.__jsObj = {one: @{v.one as u32}, tow: @{v.two as u32}};
+				console.log("class_name:", window.__jsObj);
+				// window.__jsObj1 = window.__jsObj;
+				// console.log("style:", @{format!( "{:?}", yoga.get_style() )});
+				// console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
+				// console.log("boundBox:", @{format!( "{:?}", oct )});
+			};
+		},
+		None => {}
+	} 
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
 pub fn get_class(world: u32, class_name: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -245,7 +271,6 @@ pub fn get_class(world: u32, class_name: u32) {
     js! {
         window.__jsObj = @{class};
         // window.__jsObj1 = window.__jsObj;
-        // console.log("class:", window.__jsObj);
         // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
         // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
         // console.log("boundBox:", @{format!( "{:?}", oct )});
@@ -708,6 +733,7 @@ fn to_css_str(attr: Attr) -> String {
 // 打印节点信息
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn node_info(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -879,6 +905,10 @@ pub fn node_info(world: u32, node: u32) {
                 }
             }
 
+			// let projectMatrix = world.world.fetch_single::<ProjectionMatrix>();
+			// let viewMatrux = world.world.fetch_single::<ViewMatrix>();
+			// let worldMatrix = world.world.fetch_single::<ViewMatrix>();
+			
             let obj = RenderObject {
                 depth: v.depth,
                 depth_diff: v.depth_diff,
@@ -1041,6 +1071,7 @@ pub fn node_info(world: u32, node: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn overflow_clip(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1070,6 +1101,7 @@ pub fn overflow_clip(world: u32) {
 // // 打开性能检视面板
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn open_performance_inspector(world: u32, width: f32, height: f32) -> u32 {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector == 0 {
@@ -1085,6 +1117,7 @@ pub fn overflow_clip(world: u32) {
 // // 关闭性能检视面板
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn close_performance_inspector(world: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector > 0 {
@@ -1096,6 +1129,7 @@ pub fn overflow_clip(world: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 fn res_size(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1182,7 +1216,7 @@ fn res_size(world: u32) {
         size.count_catch_sampler += 1;
     }
 
-    let ucolor = engine.res_mgr.fetch_map::<UColorUbo>().unwrap();
+    let ucolor = engine.res_mgr.fetch_map::<UColorUbo>(0).unwrap();
     let ucolor = ucolor.all_res();
     for i in ucolor.0.iter() {
         size.ucolor += i.1;
@@ -1193,7 +1227,7 @@ fn res_size(world: u32) {
         size.count_catch_ucolor += 1;
     }
 
-    let hsv = engine.res_mgr.fetch_map::<HsvUbo>().unwrap();
+    let hsv = engine.res_mgr.fetch_map::<HsvUbo>(0).unwrap();
     let hsv = hsv.all_res();
     for i in hsv.0.iter() {
         size.hsv += i.1;
@@ -1204,7 +1238,7 @@ fn res_size(world: u32) {
         size.count_catch_hsv += 1;
     }
 
-    let msdf_stroke = engine.res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap();
+    let msdf_stroke = engine.res_mgr.fetch_map::<MsdfStrokeUbo>(0).unwrap();
     let msdf_stroke = msdf_stroke.all_res();
     for i in msdf_stroke.0.iter() {
         size.msdf_stroke += i.1;
@@ -1217,7 +1251,7 @@ fn res_size(world: u32) {
 
     let canvas_stroke = engine
         .res_mgr
-        .fetch_map::<CanvasTextStrokeColorUbo>()
+        .fetch_map::<CanvasTextStrokeColorUbo>(0)
         .unwrap();
     let canvas_stroke = canvas_stroke.all_res();
     for i in canvas_stroke.0.iter() {
@@ -1231,7 +1265,7 @@ fn res_size(world: u32) {
 
     size.total_capacity = engine.res_mgr.total_capacity;
 
-    size.texture_max_capacity = engine.texture_res_map.caches[0].get_max_capacity();
+    size.texture_max_capacity = engine.texture_res_map.cache.get_max_capacity();
 
     js! {
         console.log("res_mgr_size: ", @{size});
@@ -1239,6 +1273,7 @@ fn res_size(world: u32) {
 }
 
 #[no_mangle]
+#[js_export]
 pub fn common_statistics(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui.world;
@@ -1270,6 +1305,7 @@ pub fn common_statistics(world: u32) {
 }
 
 #[no_mangle]
+#[js_export]
 pub fn mem_statistics(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend();
@@ -1300,6 +1336,7 @@ pub fn mem_statistics(world: u32) {
 /// 打印内存情况
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn print_memory(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1526,6 +1563,7 @@ js_serializable!(ResMgrSize);
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
@@ -1538,6 +1576,7 @@ js_serializable!(ResMgrSize);
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn get_world_matrix(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -1554,6 +1593,7 @@ pub fn get_world_matrix(world: u32, node: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn get_transform(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -1570,6 +1610,7 @@ pub fn get_transform(world: u32, node: u32) {
 
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn get_yoga(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -1605,6 +1646,7 @@ pub fn get_yoga(world: u32, node: u32) {
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
+// #[js_export]
 // pub fn test_create_render_obj(world: u32, count: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	let world = &mut world.gui;

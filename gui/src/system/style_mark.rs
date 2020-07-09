@@ -112,7 +112,7 @@ fn set_local_dirty(
     ty: usize,
     style_marks: &mut MultiCaseImpl<Node, StyleMark>,
 ) {
-    let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+    let style_mark = &mut style_marks[id];
     if style_mark.dirty == 0 {
         dirty_list.0.push(id);
     }
@@ -127,7 +127,7 @@ fn set_local_dirty1(
     ty: usize,
     style_marks: &mut MultiCaseImpl<Node, StyleMark>,
 ) {
-    let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+    let style_mark = &mut style_marks[id];
     if style_mark.dirty == 0 {
         dirty_list.0.push(id);
     }
@@ -224,7 +224,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (text_styles, style_marks, dirty_list) = write;
         text_styles.insert_no_notify(event.id, self.default_text.clone());
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(
             dirty_list,
             event.id,
@@ -245,7 +245,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
 
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
     }
 }
@@ -288,9 +288,9 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
             if let Some(src) = &image.src {
                 set_image_size(
                     src,
-                    unsafe { layout_nodes.get_unchecked(id) },
+                    &layout_nodes[id],
                     image_clips.get(id),
-                    unsafe { style_marks.get_unchecked(id) },
+                    &style_marks[id],
                 );
             }
         }
@@ -328,16 +328,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
         let id = event.id;
-        // if let Some(image) = border_images.get(id) {
-        //     if let Some(src) = &image.0.src {
-        //         set_border_image_size(
-        //             src,
-        //             unsafe { layout_nodes.get_unchecked(id) },
-        //             border_image_clips.get(id),
-        //             style_marks.get_unchecked(id),
-        //         );
-        //     }
-        // }
         set_local_dirty(
             dirty_list,
             id,
@@ -693,8 +683,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &CreateEvent, render_objs: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let id = unsafe { render_objs.get_unchecked(event.id) }.context;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+        let id = render_objs[event.id].context;
+        let style_mark = &mut style_marks[id];
         set_dirty(dirty_list, id, StyleType::ByOverflow as usize, style_mark);
     }
 }
@@ -747,7 +737,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(
             dirty_list,
             event.id,
@@ -767,7 +757,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(dirty_list, event.id, StyleType::Layout as usize, style_mark);
     }
 }
@@ -782,7 +772,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
     }
 }
@@ -797,7 +787,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = unsafe { style_marks.get_unchecked_mut(event.id) };
+        let style_mark = &mut style_marks[event.id];
         set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
     }
 }
@@ -810,7 +800,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, mut write: Self::WriteData) {
         load_image(event.id, &mut write);
 
-        let node = unsafe { idtree.get_unchecked(event.id) };
+        let node = &idtree[event.id];
         for (id, _n) in idtree.recursive_iter(node.children.head) {
             load_image(id, &mut write);
         }
@@ -825,7 +815,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, 
     fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, mut write: Self::WriteData) {
         release_image(event.id, &mut write);
 
-        let node = unsafe { idtree.get_unchecked(event.id) };
+        let node = &idtree[event.id];
         for (id, _n) in idtree.recursive_iter(node.children.head) {
             release_image(id, &mut write);
         }
@@ -871,10 +861,11 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     type WriteData = WriteData<'a, L, C>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
         let (class_names, class_sheet) = read;
-        let class_name = unsafe { class_names.get_unchecked(event.id) };
+        let class_name = &class_names[event.id];
 
-        let old = unsafe { Box::from_raw(event.index as *mut ClassName) };
-        let mark = unsafe { write.19.get_unchecked_mut(event.id) };
+		//event.index是接的className的指针
+        let old = unsafe { &* Box::from_raw(event.index as *mut ClassName) };
+        let mark = &mut write.19[event.id];
         let (old_style, old_style1) = (mark.class_style, mark.class_style1);
         mark.class_style = 0;
         mark.class_style1 = 0;
@@ -1030,9 +1021,9 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                                 image.src = Some(wait.1.clone());
                                 set_image_size(
                                     &wait.1,
-                                    unsafe { layout_nodes.get_unchecked_mut(image_wait.id) },
+                                    &mut layout_nodes[image_wait.id],
                                     image_clips.get(image_wait.id),
-                                    unsafe { style_marks.get_unchecked(image_wait.id) },
+                                    &style_marks[image_wait.id],
                                 );
 
                                 // if Some image_clips.get(image_wait.id)
@@ -1046,7 +1037,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                         }
                     }
                     ImageType::ImageClass => {
-                        let style_mark = unsafe { style_marks.get_unchecked_mut(image_wait.id) };
+                        let style_mark = &mut style_marks[image_wait.id];
                         if style_mark.local_style & StyleType::Image as usize != 0 {
                             // 本地样式存在Image， 跳过
                             continue;
@@ -1056,7 +1047,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                                 image.src = Some(wait.1.clone());
                                 set_image_size(
                                     &wait.1,
-                                    unsafe { layout_nodes.get_unchecked_mut(image_wait.id) },
+                                    &mut layout_nodes[image_wait.id],
                                     image_clips.get(image_wait.id),
                                     style_mark,
                                 );
@@ -1073,12 +1064,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                         if let Some(image) = border_images.get_mut(image_wait.id) {
                             if image.0.url == wait.0 {
                                 image.0.src = Some(wait.1.clone());
-                                // set_border_image_size(
-                                //     &wait.1,
-                                //     unsafe { layout_nodes.get_unchecked_mut(image_wait.id) },
-                                //     border_image_clips.get(image_wait.id),
-                                //     style_marks.get_unchecked(image_wait.id),
-                                // );
                                 set_local_dirty(
                                     dirty_list,
                                     image_wait.id,
@@ -1089,7 +1074,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                         }
                     }
                     ImageType::BorderImageClass => {
-                        let style_mark = unsafe { style_marks.get_unchecked_mut(image_wait.id) };
+                        let style_mark = &mut style_marks[image_wait.id];
                         if style_mark.local_style & StyleType::BorderImage as usize != 0 {
                             // 本地样式存在BorderImage， 跳过
                             continue;
@@ -1097,12 +1082,6 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                         if let Some(image) = border_images.get_mut(image_wait.id) {
                             if image.0.url == wait.0 {
                                 image.0.src = Some(wait.1.clone());
-                                // set_border_image_size(
-                                //     &wait.1,
-                                //     unsafe { layout_nodes.get_unchecked_mut(image_wait.id) },
-                                //     border_image_clips.get(image_wait.id),
-                                //     style_marks.get_unchecked(image_wait.id),
-                                // );
                                 set_dirty(
                                     dirty_list,
                                     image_wait.id,
@@ -1233,8 +1212,8 @@ fn reset_attr<L: FlexNode, C: HalContext>(
         dirty_list,
     ) = write;
 
-    let yoga = unsafe { yogas.get_unchecked(id) };
-    let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+    let yoga =  &yogas[id];
+    let style_mark = &mut style_marks[id];
     // old_style中为1， class_style和local_style不为1的属性, 应该删除
     let old_style = !(!old_style | (old_style & (style_mark.class_style | style_mark.local_style)));
     let old_style1 =
@@ -1545,9 +1524,9 @@ fn set_attr<L: FlexNode, C: HalContext>(
         image_wait_sheet,
         dirty_list,
     ) = write;
-    let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+    let style_mark = &mut style_marks[id];
     // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
-    let yoga = unsafe { yogas.get_unchecked(id) };
+    let yoga = &yogas[id];
 
     let class = match class_sheet.class_map.get(&class_name) {
         Some(class) => class,
@@ -1708,7 +1687,7 @@ pub fn set_attr1<L: FlexNode>(
             }
             Attribute1::Enable(r) => {
                 if style_mark.local_style1 & StyleType1::Enable as usize == 0 {
-                    unsafe { shows.get_unchecked_write(id) }.modify(|show: &mut Show| {
+                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
                         show.set_enable(*r);
                         true
                     });
@@ -1717,7 +1696,7 @@ pub fn set_attr1<L: FlexNode>(
             Attribute1::Display(r) => {
                 if style_mark.local_style1 & StyleType1::Display as usize == 0 {
                     yoga.set_display(unsafe { transmute(*r) });
-                    unsafe { shows.get_unchecked_write(id) }.modify(|show: &mut Show| {
+                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
                         show.set_display(*r);
                         true
                     });
@@ -1725,7 +1704,7 @@ pub fn set_attr1<L: FlexNode>(
             }
             Attribute1::Visibility(r) => {
                 if style_mark.local_style1 & StyleType1::Visibility as usize == 0 {
-                    unsafe { shows.get_unchecked_write(id) }.modify(|show: &mut Show| {
+                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
                         show.set_visibility(*r);
                         true
                     });
@@ -1733,7 +1712,7 @@ pub fn set_attr1<L: FlexNode>(
             }
             Attribute1::Overflow(r) => {
                 if style_mark.local_style1 & StyleType1::Overflow as usize == 0 {
-                    unsafe { overflows.get_unchecked_write(id) }.modify(
+                    overflows.get_write(id).unwrap().modify(
                         |overflow: &mut Overflow| {
                             overflow.0 = *r;
                             true
@@ -2207,7 +2186,7 @@ pub fn set_attr3<L: FlexNode>(
                         if let Some(src) = &image.src {
                             set_image_size(
                                 src,
-                                unsafe { layout_nodes.get_unchecked(id) },
+                                &layout_nodes[id],
                                 Some(r),
                                 style_mark,
                             );
@@ -2220,16 +2199,6 @@ pub fn set_attr3<L: FlexNode>(
 
             Attribute3::BorderImageClip(r) => {
                 if style_mark.local_style & StyleType::BorderImageClip as usize == 0 {
-                    // if let Some(image) = border_images.get(id) {
-                    //     if let Some(src) = &image.0.src {
-                    //         set_border_image_size(
-                    //             src,
-                    //             unsafe { layout_nodes.get_unchecked(id) },
-                    //             Some(r),
-                    //             style_mark,
-                    //         );
-                    //     }
-                    // }
                     border_image_clips.insert_no_notify(id, r.clone());
                     set_dirty(
                         dirty_list,
@@ -2366,7 +2335,7 @@ type ImageTextureWrite<'a, C, L> = (
 // 节点被添加到树上， 加载图片
 fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextureWrite<'a, C, L>) {
     if let Some(image) = write.0.get_mut(id) {
-        let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+        let style_mark = &mut write.2[id];
         if style_mark.local_style & StyleType::Image as usize != 0 {
             if set_image(
                 id,
@@ -2380,7 +2349,7 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
             ) {
                 set_image_size(
                     image.src.as_ref().unwrap(),
-                    unsafe { write.6.get_unchecked_mut(id) },
+                    &mut write.6[id],
                     write.7.get(id),
                     style_mark,
                 );
@@ -2398,7 +2367,7 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
             ) {
                 set_image_size(
                     image.src.as_ref().unwrap(),
-                    unsafe { write.6.get_unchecked_mut(id) },
+                    &mut write.6[id],
                     write.7.get(id),
                     style_mark,
                 );
@@ -2406,7 +2375,7 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
         }
     }
     if let Some(image) = write.1.get_mut(id) {
-        let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+        let style_mark = &mut write.2[id];
         if style_mark.local_style & StyleType::BorderImage as usize != 0 {
             // if
             set_image(
@@ -2419,14 +2388,6 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
                 style_mark,
                 ImageType::BorderImageLocal,
             );
-        // {
-        //     set_border_image_size(
-        //         image.0.src.as_ref().unwrap(),
-        //         unsafe { write.6.get_unchecked_mut(id) },
-        //         write.8.get(id),
-        //         style_mark,
-        //     );
-        // }
         } else {
             // if
             set_image(
@@ -2439,14 +2400,6 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
                 style_mark,
                 ImageType::BorderImageClass,
             );
-            // {
-            //     set_border_image_size(
-            //         image.0.src.as_ref().unwrap(),
-            //         unsafe { write.6.get_unchecked_mut(id) },
-            //         write.8.get(id),
-            //         style_mark,
-            //     );
-            // }
         }
     }
 }
@@ -2457,14 +2410,14 @@ fn release_image<'a, C: HalContext, L: FlexNode>(
     write: &mut ImageTextureWrite<'a, C, L>,
 ) {
     if let Some(image) = write.0.get_mut(id) {
-        let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+        let style_mark = &mut write.2[id];
         if image.src.is_some() {
             image.src = None;
             set_dirty(&mut *write.3, id, StyleType::Image as usize, style_mark);
         }
     }
     if let Some(image) = write.1.get_mut(id) {
-        let style_mark = unsafe { write.2.get_unchecked_mut(id) };
+        let style_mark = &mut write.2[id];
         if image.0.src.is_some() {
             image.0.src = None;
             set_dirty(
@@ -2482,11 +2435,11 @@ fn set_image_local<'a, C: HalContext, L: FlexNode>(
     idtree: &SingleCaseImpl<IdTree>,
     write: ImageWrite<'a, C, L>,
 ) {
-    let style_mark = unsafe { write.0.get_unchecked_mut(id) };
+    let style_mark = &mut write.0[id];
     style_mark.local_style |= StyleType::Image as usize;
 
     if let Some(_) = idtree.get(id) {
-        let image = unsafe { write.4.get_unchecked_mut(id) };
+        let image = &mut write.4[id];
         if set_image(
             id,
             StyleType::Image,
@@ -2499,7 +2452,7 @@ fn set_image_local<'a, C: HalContext, L: FlexNode>(
         ) {
             set_image_size(
                 image.src.as_ref().unwrap(),
-                unsafe { write.5.get_unchecked_mut(id) },
+                &mut write.5[id],
                 write.6.get(id),
                 style_mark,
             );
@@ -2512,11 +2465,11 @@ fn set_border_image_local<'a, C: HalContext, L: FlexNode>(
     idtree: &SingleCaseImpl<IdTree>,
     write: BorderImageWrite<'a, C, L>,
 ) {
-    let style_mark = unsafe { write.0.get_unchecked_mut(id) };
+    let style_mark = &mut write.0[id];
     style_mark.local_style |= StyleType::BorderImage as usize;
 
     if let Some(_) = idtree.get(id) {
-        let image = &mut unsafe { write.4.get_unchecked_mut(id) }.0;
+        let image = &mut write.4[id].0;
         // if
         set_image(
             id,
@@ -2528,14 +2481,6 @@ fn set_border_image_local<'a, C: HalContext, L: FlexNode>(
             style_mark,
             ImageType::BorderImageLocal,
         );
-        // {
-        //     set_border_image_size(
-        //         image.src.as_ref().unwrap(),
-        //         unsafe { write.5.get_unchecked_mut(id) },
-        //         write.6.get(id),
-        //         style_mark,
-        //     );
-        // }
     }
 }
 

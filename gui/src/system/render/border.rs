@@ -121,16 +121,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                 }
             };
 
-            let color = &unsafe { border_colors.get_unchecked(*id) }.0;
-            let render_obj = unsafe { render_objs.get_unchecked_mut(render_index) };
+            let color = &border_colors[*id].0;
+            let render_obj = &mut render_objs[render_index];
             let border_radius = border_radiuses.get(*id);
-            let layout = unsafe { layouts.get_unchecked(*id) };
+            let layout = &layouts[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
             if dirty & StyleType::BorderColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = unsafe { opacitys.get_unchecked(*id) }.0;
+                let opacity = opacitys[*id].0;
                 render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj, default_state);
@@ -152,7 +152,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
             // 如果矩阵脏， 更新worldMatrix ubo
             if dirty & StyleType::Matrix as usize != 0 {
-                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let world_matrix = &world_matrixs[*id];
 
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -231,7 +231,7 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
             render_objs,
             &mut self.render_map,
         );
-        let render_obj = unsafe { render_objs.get_unchecked_mut(index) };
+        let render_obj = &mut render_objs[index];
         render_obj
             .paramter
             .as_ref()
@@ -244,23 +244,6 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
 // /////////////////////////////////////////////////////////////////
 // /// 静态方法
 
-// // 计算
-// fn geometry_hash(radiu: Option<&BorderRadius>, layout: &Layout) -> u64 {
-//     let radius     = cal_border_radius(radiu, layout);
-//     let mut hasher = XHashMap::default();
-
-//     BORDER_COLOR.hash(&mut hasher);
-
-//     unsafe { NotNan::unchecked_new(radius.x              ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.width         ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.height        ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.border_left   ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.border_top    ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.border_right  ).hash(&mut hasher) };
-//     unsafe { NotNan::unchecked_new(layout.border_bottom ).hash(&mut hasher) };
-
-//     return hasher.finish();
-// }
 
 // 创建几何体， 没有缓冲几何体， 应该缓冲？TODO
 #[inline]

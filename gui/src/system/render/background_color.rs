@@ -127,16 +127,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 }
             };
 
-            let color = unsafe { background_colors.get_unchecked(*id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(render_index) };
+            let color = &background_colors[*id];
+            let render_obj = &mut render_objs[render_index];
             let border_radius = border_radiuses.get(*id);
-            let layout = unsafe { layouts.get_unchecked(*id) };
+            let layout = &layouts[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
             if dirty & StyleType::BackgroundColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = unsafe { opacitys.get_unchecked(*id) }.0;
+                let opacity = opacitys[*id].0;
                 render_obj.is_opacity = background_is_opacity(opacity, color);
                 notify.modify_event(render_index, "is_opacity", 0);
                 modify_opacity(engine, render_obj, default_state);
@@ -159,12 +159,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
 
             // 如果矩阵脏
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
-                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
                     None => &default_transform,
                 };
-                let depth = unsafe { z_depths.get_unchecked(*id) }.0;
+                let depth = z_depths[*id].0;
                 let is_unit_geo = match &color.0 {
                     Color::RGBA(_) => {
                         let radius = cal_border_radius(border_radius, layout);
@@ -245,7 +245,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
             render_objs,
             &mut self.render_map,
         );
-        unsafe { render_objs.get_unchecked_mut(index) }
+        render_objs[index]
             .paramter
             .as_ref()
             .set_single_uniform("blur", UniformValue::Float1(1.0));
@@ -320,15 +320,15 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
     // 圆角 + 渐变hash
     let mut hasher = DefaultHasher::default();
     GRADUAL.hash(&mut hasher);
-    unsafe { NotNan::unchecked_new(color.direction).hash(&mut hasher) };
+    NotNan::new(color.direction).unwrap().hash(&mut hasher);
     for c in color.list.iter() {
-        unsafe { NotNan::unchecked_new(c.position).hash(&mut hasher) };
-        unsafe { NotNan::unchecked_new(c.rgba.r).hash(&mut hasher) };
-        unsafe { NotNan::unchecked_new(c.rgba.g).hash(&mut hasher) };
-        unsafe { NotNan::unchecked_new(c.rgba.b).hash(&mut hasher) };
-        unsafe { NotNan::unchecked_new(c.rgba.a).hash(&mut hasher) };
+        NotNan::new(c.position).unwrap().hash(&mut hasher);
+        NotNan::new(c.rgba.r).unwrap().hash(&mut hasher);
+        NotNan::new(c.rgba.g).unwrap().hash(&mut hasher);
+        NotNan::new(c.rgba.b).unwrap().hash(&mut hasher);
+        NotNan::new(c.rgba.a).unwrap().hash(&mut hasher);
     }
-    unsafe { NotNan::unchecked_new(color.direction).hash(&mut hasher) };
+    NotNan::new(color.direction).unwrap().hash(&mut hasher);
     radius_quad_hash(
         &mut hasher,
         radius.x - g_b.min.x,

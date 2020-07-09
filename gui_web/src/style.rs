@@ -49,6 +49,7 @@ macro_rules! set_show {
 /// 设置背景色的rgba
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(
         world,
@@ -62,6 +63,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 // // 设置一个径向渐变的背景颜色
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
 //     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
 //     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
@@ -71,6 +73,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 /// 设置一个线性渐变的背景颜色
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32) {
     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
     let value = Color::LinearGradient(to_linear_gradient_color(
@@ -83,6 +86,7 @@ pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f3
 /// 设置边框颜色， 类型为rgba
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(
         world,
@@ -96,6 +100,7 @@ pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
 /// 设置边框圆角
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32) {
     insert_attr!(
         world,
@@ -112,6 +117,7 @@ pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32) {
 /// 设置边框圆角
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
     insert_attr!(
         world,
@@ -128,6 +134,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影颜色
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
 //     let color = 0;
 //     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
@@ -135,6 +142,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
 //     let spread = 0;
 //     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
@@ -142,6 +150,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
 //     let blur = 0;
 //     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
@@ -150,6 +159,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影h
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
 //     let h = 0;
 //     set_attr!(world, node, BoxShadow, h, value, box_shadow);
@@ -158,6 +168,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影v
 // #[allow(unused_attributes)]
 // #[no_mangle]
+#[js_export]
 // pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
 //     let v = 0;
 //     set_attr!(world, node, BoxShadow, v, value, box_shadow);
@@ -166,6 +177,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 /// 设置阴影v
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_box_shadow(
     world: u32,
     node: u32,
@@ -197,6 +209,7 @@ pub fn set_box_shadow(
 /// 设置object_fit
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_object_fit(world: u32, node: u32, value: u8) {
     insert_value!(
         world,
@@ -209,6 +222,7 @@ pub fn set_object_fit(world: u32, node: u32, value: u8) {
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     insert_value!(
         world,
@@ -224,6 +238,7 @@ pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32)
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     // println!("set_border_image_clip: {:?}, {}, {}, {}", u1, v1, u2, v2);
     insert_value!(
@@ -240,6 +255,7 @@ pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v
 /// 设置border_image_slice
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_image_slice(
     world: u32,
     node: u32,
@@ -266,6 +282,7 @@ pub fn set_border_image_slice(
 /// 设置border_image_slice
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8) {
     insert_attr!(
         world,
@@ -281,6 +298,7 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
 /// 设置overflow
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_overflow(world: u32, node: u32, value: bool) {
     insert_value!(world, node, Overflow, value, overflow);
 }
@@ -288,6 +306,7 @@ pub fn set_overflow(world: u32, node: u32, value: bool) {
 /// 设置不透明度
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_opacity(world: u32, node: u32, mut value: f32) {
     if value > 1.0 {
         value = 1.0;
@@ -300,6 +319,7 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
 /// 设置display
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_display(world: u32, node: u32, value: u8) {
     unsafe {
         (&mut *(world as usize as *mut GuiWorld))
@@ -316,6 +336,7 @@ pub fn set_display(world: u32, node: u32, value: u8) {
 /// 设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_visibility(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_visibility, value);
 }
@@ -323,6 +344,7 @@ pub fn set_visibility(world: u32, node: u32, value: bool) {
 /// 设置enable
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_enable(world: u32, node: u32, value: u32) {
     set_show!(world, node, set_enable, unsafe { transmute(value as u8) });
 }
@@ -330,6 +352,7 @@ pub fn set_enable(world: u32, node: u32, value: u32) {
 /// 这只z_index
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_zindex(world: u32, node: u32, value: i32) {
     let value = value as isize;
     insert_value!(world, node, ZIndex, value, z_index);
@@ -338,6 +361,7 @@ pub fn set_zindex(world: u32, node: u32, value: i32) {
 /// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32) {
     if h > 180.0 {
         h = 180.0;
@@ -365,6 +389,7 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 /// __jsObj: image_name(String)
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_border_image(world: u32, node: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let name: String = js! {return __jsObj}.try_into().unwrap();
@@ -384,6 +409,7 @@ pub fn set_border_image(world: u32, node: u32) {
 /// __jsObj: class样式的二进制描述， 如".0{color:red}"生成的二进制， class名称必须是“0”
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_default_style_by_bin(world: u32) {
     let value: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
     let value = value.to_vec();
@@ -405,6 +431,7 @@ pub fn set_default_style_by_bin(world: u32) {
 #[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_default_style(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
@@ -423,6 +450,7 @@ pub fn set_default_style(world: u32) {
 /// 设置transform_will_change
 #[allow(unused_attributes)]
 #[no_mangle]
+#[js_export]
 pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node_id = node_id as usize;

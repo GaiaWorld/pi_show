@@ -155,11 +155,11 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             for i in self.render_map.iter() {
                 match i {
                     Some(i) => {
-                        unsafe { render_objs.get_unchecked(i.text) }
+                        render_objs[i.text]
                             .paramter
                             .set_value("textureSize", self.texture_size_ubo.clone());
                         if i.shadow > 0 {
-                            unsafe { render_objs.get_unchecked(i.shadow) }
+                            render_objs[i.shadow]
                                 .paramter
                                 .set_value("textureSize", self.texture_size_ubo.clone());
                         }
@@ -190,8 +190,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
             let (index, charblock, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
                 self.remove_render_obj(*id, render_objs); // 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
-                let text_style = unsafe { text_styles.get_unchecked(*id) };
-                let charblock = unsafe { charblocks.get_unchecked(*id) };
+                let text_style = &text_styles[*id];
+                let charblock = &charblocks[*id];
                 let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
                 let r = self.create_render_obj(
                     *id,
@@ -206,26 +206,26 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 match self.render_map.get(*id) {
                     Some(r) => (
                         r.clone(),
-                        unsafe { charblocks.get_unchecked(*id) },
-                        unsafe { text_styles.get_unchecked(*id) },
+                        &charblocks[*id],
+                        &text_styles[*id],
                     ),
                     None => continue,
                 }
             };
 
-            let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
-            let layout = unsafe { layouts.get_unchecked(*id) };
+            let world_matrix = &world_matrixs[*id];
+            let layout = &layouts[*id];
             let transform = match transforms.get(*id) {
                 Some(r) => r,
                 None => default_transform,
             };
 
             let render_obj = unsafe {
-                &mut *(render_objs.get_unchecked(index.text) as *const RenderObj as usize
+                &mut *(&render_objs[index.text] as *const RenderObj as usize
                     as *mut RenderObj)
             };
 
-            let text = unsafe { texts.get_unchecked(*id) };
+            let text = &texts[*id];
 
             let class_ubo = &self.default_ubos;
 
@@ -329,7 +329,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 
             // 阴影存在
             if index.shadow > 0 {
-                let shadow_render_obj = unsafe { render_objs.get_unchecked_mut(index.shadow) };
+                let shadow_render_obj = &mut render_objs[index.shadow];
 
                 if dirty & (StyleType::TextShadow as usize) != 0 {
                     // 阴影颜色脏，或描边脏， 修改ubo
@@ -458,11 +458,11 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
         let index_data = create_index_buffer(100);
 
         let mut msdf_stroke_ubo_map =
-            UnsafeMut::new(engine.res_mgr.fetch_map::<MsdfStrokeUbo>().unwrap());
+            UnsafeMut::new(engine.res_mgr.fetch_map::<MsdfStrokeUbo>(0).unwrap());
         let mut canvas_stroke_ubo_map = UnsafeMut::new(
             engine
                 .res_mgr
-                .fetch_map::<CanvasTextStrokeColorUbo>()
+                .fetch_map::<CanvasTextStrokeColorUbo>(0)
                 .unwrap(),
         );
 
@@ -537,7 +537,7 @@ impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
                 shadow: shadow_index,
             },
         );
-        unsafe { self.render_map.get_unchecked_mut(id).clone() }
+        self.render_map[id].clone()
     }
 
     fn create_render_obj1(
@@ -821,23 +821,23 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
 fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
     let mut hasher = DefaultHasher::default();
     let hasher = &mut hasher;
-    unsafe { NotNan::unchecked_new(text_style.letter_spacing).hash(hasher) };
-    unsafe { NotNan::unchecked_new(text_style.indent).hash(hasher) };
-    unsafe { NotNan::unchecked_new(text_style.word_spacing).hash(hasher) };
+    NotNan::new(text_style.letter_spacing).unwrap().hash(hasher);
+    NotNan::new(text_style.indent).unwrap().hash(hasher);
+    NotNan::new(text_style.word_spacing).unwrap().hash(hasher);
     // TODO
     // match text_style.line_height {
     //     LineHeight::Normal => 0.hash(hasher),
     //     LineHeight::Length(r) => {
     //         1.hash(hasher);
-    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //         NotNan::new(r).unwrap().hash(hasher);
     //     },
     //     LineHeight::Number(r) => {
     //         2.hash(hasher);
-    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //         NotNan::new(r).unwrap().hash(hasher);
     //     },
     //     LineHeight::Percent(r) => {
     //         3.hash(hasher);
-    //         unsafe { NotNan::unchecked_new(r).hash(hasher) };
+    //         NotNan::unew(r).unwrap().hash(hasher);
     //     },
     // };
     text_style.text_align.hash(hasher);
@@ -848,11 +848,11 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
         FontSize::None => 0.hash(hasher),
         FontSize::Length(r) => {
             1.hash(hasher);
-            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+            NotNan::new(r).unwrap().hash(hasher);
         }
         FontSize::Percent(r) => {
             3.hash(hasher);
-            unsafe { NotNan::unchecked_new(r).hash(hasher) };
+            NotNan::new(r).unwrap().hash(hasher);
         }
     };
     font.style.hash(hasher);

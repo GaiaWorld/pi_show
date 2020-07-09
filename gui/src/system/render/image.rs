@@ -137,8 +137,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 }
             };
 
-            let image = unsafe { images.get_unchecked(*id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(render_index) };
+            let image = &images[*id];
+            let render_obj = &mut render_objs[render_index];
             // 纹理不存在, 跳过
             if image.src.is_none() {
                 render_obj.geometry = None;
@@ -146,8 +146,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             }
 
             let border_radius = border_radiuss.get(*id);
-            let z_depth = unsafe { z_depths.get_unchecked(*id) }.0;
-            let layout = unsafe { layouts.get_unchecked(*id) };
+            let z_depth = z_depths[*id].0;
+            let layout = &layouts[*id];
 
             let image_clip = image_clips.get(*id);
             let object_fit = object_fits.get(*id);
@@ -155,7 +155,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 Some(r) => r,
                 None => default_transform,
             };
-            let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+            let world_matrix = &world_matrixs[*id];
 
             if dirty & GEO_DIRTY != 0 {
                 let (has_radius, pos) = update_geo(
@@ -217,7 +217,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
             // 不透明度脏或图片脏， 设置is_opacity
             if dirty & StyleType::Opacity as usize != 0 || dirty & StyleType::Image as usize != 0 {
-                let opacity = unsafe { opacitys.get_unchecked(*id) }.0;
+                let opacity = opacitys[*id].0;
                 let is_opacity = if opacity < 1.0 {
                     false
                 } else if let ROpacity::Opaque = image.src.as_ref().unwrap().opacity {
@@ -247,7 +247,13 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent
 
 impl<C: HalContext + 'static> ImageSys<C> {
     pub fn new(engine: &mut Engine<C>) -> Self {
-        let default_sampler = engine.create_sampler_res(SamplerDesc::default());
+		let mut sm = SamplerDesc::default();
+		sm.u_wrap = TextureWrapMode::ClampToEdge;
+		sm.v_wrap = TextureWrapMode::ClampToEdge;
+		// sm.min_filter = TextureFilterMode::Nearest;
+		// sm.mag_filter = TextureFilterMode::Nearest;
+
+        let default_sampler = engine.create_sampler_res(sm);
 
         let positions = engine
             .buffer_res_map

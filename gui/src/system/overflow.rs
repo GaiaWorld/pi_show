@@ -53,11 +53,11 @@ impl<'a> Runner<'a> for OverflowImpl {
                 Some(r) => r.dirty1,
                 None => continue,
             };
-            if unsafe { read.0.get_unchecked(*id) }.layer != layer {
+            if read.0[*id].layer != layer {
                 continue;
             }
             if dirty1 & StyleType1::Overflow as usize != 0 {
-                let by = unsafe { by_overflows.get_unchecked(*id) }.0;
+                let by = by_overflows[*id].0;
                 let aabb = unsafe { &*(overflow_clip as *const SingleCaseImpl<OverflowClip>) }
                     .clip_map
                     .get(&by);
@@ -67,8 +67,11 @@ impl<'a> Runner<'a> for OverflowImpl {
                     by,
                     parent_will_change_matrix,
                     aabb,
-                    read,
-                    &mut (overflow_clip, by_overflows, cullings, style_marks),
+					read,
+					overflow_clip,
+					by_overflows,
+					cullings,
+					style_marks,
                 );
             }
         }
@@ -101,7 +104,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, DeleteEvent> for OverflowImpl {
         overflows: Self::ReadData,
         overflow_clip: Self::WriteData,
     ) {
-        let overflow = unsafe { overflows.get_unchecked(event.id).0 };
+        let overflow = overflows[event.id].0;
         if overflow {
             let notify = overflow_clip.get_notify();
             remove_index(&mut *overflow_clip, event.id, &notify);
@@ -115,7 +118,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
     type WriteData = Write<'a>;
 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
-        let node = unsafe { read.0.get_unchecked(event.id) };
+        let node = &read.0[event.id];
         if node.layer == 0 {
             return;
         }
@@ -123,7 +126,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
             Some(r) => **r,
             _ => false,
         };
-        let mut by = **unsafe { write.1.get_unchecked(event.id) };
+        let mut by = *write.1[event.id] ;
         let notify = write.0.get_notify();
         let index = if overflow {
             let mut i = create_clip(event.id, write.0);
@@ -264,9 +267,9 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     type WriteData = Write<'a>;
 
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
-        let node = unsafe { read.0.get_unchecked(event.id) };
+        let node = &read.0[event.id];
         // 获得父节点的ByOverflow
-        let mut by = **unsafe { write.1.get_unchecked(node.parent) };
+        let mut by = *write.1[node.parent];
         let overflow = match read.1.get(node.parent) {
             Some(r) => **r,
             _ => false,
@@ -292,7 +295,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
     );
 
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
-        let node = unsafe { read.0.get_unchecked(event.id) };
+        let node = &read.0[event.id];
         let notify = write.0.get_notify();
         if match read.1.get(event.id) {
             Some(r) => **r,
@@ -300,7 +303,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
         } {
             remove_index(&mut *write.0, event.id, &notify);
         }
-        unsafe { write.1.get_unchecked_write(event.id) }.set_0(0);
+        write.1.get_write(event.id).unwrap().set_0(0);
         // 递归调用，检查是否有overflow， 撤销设置OverflowClip
         for (id, _n) in read.0.recursive_iter(node.children.head) {
             if match read.1.get(id) {
@@ -309,7 +312,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
             } {
                 remove_index(&mut *write.0, id, &notify);
             }
-            unsafe { write.1.get_unchecked_write(id) }.set_0(0);
+            write.1.get_write(id).unwrap().set_0(0);
         }
     }
 }
@@ -345,7 +348,7 @@ impl OverflowImpl {
         layer: usize,
         style_marks: &mut MultiCaseImpl<Node, StyleMark>,
     ) {
-        let style_mark = unsafe { style_marks.get_unchecked_mut(id) };
+        let style_mark = &mut style_marks[id];
         if style_mark.dirty1 & dirty_type == 0 {
             style_mark.dirty1 |= dirty_type;
             self.overflow_dirty.mark(id, layer);
@@ -367,7 +370,7 @@ impl OverflowImpl {
             None => return,
         };
         if node.layer == 0
-            || (unsafe { read.0.get_unchecked(id).0 } == 0
+            || (read.0[id].0 == 0
                 && !match read.1.get(id) {
                     Some(r) => **r,
                     _ => false,
@@ -401,7 +404,7 @@ impl OverflowImpl {
     // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
     fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
         if by > 0 {
-            unsafe { write.1.get_unchecked_write(id) }.set_0(by);
+            write.1.get_write(id).unwrap().set_0(by);
         }
         let overflow = match read.1.get(id) {
             Some(r) => **r,
@@ -413,8 +416,8 @@ impl OverflowImpl {
             let i = create_clip(id, write.0);
             self.mark_dirty(
                 id,
-                StyleType1::Overflow as usize,
-                unsafe { read.0.get_unchecked(id).layer },
+				StyleType1::Overflow as usize,
+				read.0[id].layer,
                 &mut write.3,
             );
             if i > 0 {
@@ -422,7 +425,7 @@ impl OverflowImpl {
             }
         }
 
-        let node = unsafe { read.0.get_unchecked(id) };
+        let node = &read.0[id];
         for (id, _n) in read.0.iter(node.children.head) {
             self.set_overflow(id, by, read, write);
         }
@@ -438,7 +441,7 @@ fn get_will_change_matrix<'a, 'b>(
         if let Some(r) = transform_will_change_matrixs.get(id) {
             return Some(r);
         }
-        let node = unsafe { idtree.get_unchecked(id) };
+        let node = &idtree[id];
         if node.parent == 0 {
             return None;
         }
@@ -446,13 +449,18 @@ fn get_will_change_matrix<'a, 'b>(
     }
 }
 
+
+
 fn calc_clip<'a>(
     id: usize,
     mut by: usize,
     mut transform_will_change_matrix: Option<&'a TransformWillChangeMatrix>,
     mut by_clip_aabb: Option<&'a (Aabb3, Share<dyn UniformBuffer>)>,
     read: Read<'a>,
-    write: &mut Write<'a>,
+    overflow_clip: &'a mut SingleCaseImpl<OverflowClip>,
+    by_overflows:&'a mut MultiCaseImpl<Node, ByOverflow>,
+    cullings: &'a mut MultiCaseImpl<Node, Culling>,
+    style_marks: &'a mut MultiCaseImpl<Node, StyleMark>,
 ) {
     if by > 0 {
         // 裁剪剔除
@@ -461,49 +469,49 @@ fn calc_clip<'a>(
                 Some(m) => {
                     // 如果没有旋转
                     if !(m.0).1 {
-                        unsafe { write.2.get_unchecked_write(id) }.set_0(!is_intersect(
+                        cullings.get_write(id).unwrap().set_0(!is_intersect(
                             &item.0,
                             &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0),
                         ))
                     }
                 }
-                None => unsafe { write.2.get_unchecked_write(id) }.set_0(!is_intersect(
+                None => cullings.get_write(id).unwrap().set_0(!is_intersect(
                     &item.0,
                     &unsafe { read.6.get_unchecked(id) }.0,
                 )),
             }
         }
         // 通知by_overflow改变，以修改clipBox
-        write.1.get_notify().modify_event(id, "", 0);
+        by_overflows.get_notify().modify_event(id, "", 0);
     }
 
     if let Some(r) = read.7.get(id) {
         transform_will_change_matrix = Some(r);
     }
 
-    let overflow = **unsafe { read.1.get_unchecked(id) };
+    let overflow = *read.1[id];
     if overflow {
-        let i = get_index(write.0, id);
+        let i = get_index(overflow_clip, id);
         if i > 0 {
             // 计算裁剪平面
-            set_clip(id, i, &read, write.0, transform_will_change_matrix);
-            let by1 = add_index(by, 1 << (i - 1));
+            set_clip(id, i, &read, overflow_clip, transform_will_change_matrix);
+			let by1 = add_index(by, 1 << (i - 1));
             by_clip_aabb = modify_intersect_clip(
                 by,
                 by1,
                 i,
-                unsafe { &mut *(write.0 as *mut SingleCaseImpl<OverflowClip>) },
+                unsafe { &mut *(overflow_clip as *mut SingleCaseImpl<OverflowClip>) },
                 &(read.8).0,
             );
             by = by1;
             // by_clip_aabb
-            write.0.get_notify().modify_event(i, "", id);
+            overflow_clip.get_notify().modify_event(i, "", id);
         }
     }
 
-    unsafe { write.3.get_unchecked_mut(id) }.dirty1 &= !(StyleType1::Overflow as usize);
+    style_marks[id].dirty1 &= !(StyleType1::Overflow as usize);
 
-    let first = unsafe { read.0.get_unchecked(id) }.children.head;
+    let first = read.0[id].children.head;
     for (child_id, _child) in read.0.iter(first) {
         calc_clip(
             child_id,
@@ -511,7 +519,10 @@ fn calc_clip<'a>(
             transform_will_change_matrix,
             by_clip_aabb,
             read,
-            write,
+			overflow_clip,
+			by_overflows,
+			cullings,
+			style_marks,
         );
     }
 }
@@ -525,20 +536,20 @@ fn set_clip(
     clip: &mut SingleCaseImpl<OverflowClip>,
     transform_will_change: Option<&TransformWillChangeMatrix>,
 ) {
-    let mut world_matrix = unsafe { read.2.get_unchecked(id) };
+    let mut world_matrix = &read.2[id];
     let temp;
     if let Some(r) = transform_will_change {
         temp = &r.0 * world_matrix;
         world_matrix = &temp;
     }
-    let layout = unsafe { read.4.get_unchecked(id) };
+    let layout = &read.4[id];
     // BUG , overflow与tranwillchange在同一节点上， origin应该从tranwillchange上取
     let origin = match read.3.get(id) {
         Some(r) => r.origin.clone(),
         None => TransformOrigin::Center,
     };
     let origin = origin.to_value(layout.width, layout.height);
-    let c = unsafe { clip.clip.get_unchecked_mut(i) };
+    let c = &mut clip.clip[i];
     *c = Clip {
         view: calc_point(layout, world_matrix, &origin),
         has_rotate: world_matrix.1,
@@ -607,8 +618,8 @@ fn adjust(
     ops: fn(a: usize, b: usize) -> usize,
 ) {
     for (id, _n) in idtree.recursive_iter(child) {
-        let by = **unsafe { by_overflow.get_unchecked(id) };
-        unsafe { by_overflow.get_unchecked_write(id) }.set_0(ops(by, index));
+        let by = *by_overflow[id];
+        by_overflow.get_write(id).unwrap().set_0(ops(by, index));
     }
 }
 // 计算内容区域矩形的4个点
@@ -669,7 +680,7 @@ fn add_intersect_clip(
     overflow: &mut OverflowClip,
     view_matrix: &WorldMatrix,
 ) {
-    let r = unsafe { overflow.clip.get_unchecked(i) };
+    let r = &overflow.clip[i];
     if r.has_rotate {
         return;
     }
@@ -694,7 +705,7 @@ fn modify_intersect_clip<'a, 'b>(
     overflow: &'a mut OverflowClip,
     view_matrix: &'b WorldMatrix,
 ) -> Option<&'a (Aabb3, Share<dyn UniformBuffer>)> {
-    let r = unsafe { overflow.clip.get_unchecked(i) };
+    let r = &overflow.clip[i];
     if r.has_rotate {
         overflow.clip_map.remove(&by);
         return None;

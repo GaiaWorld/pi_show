@@ -58,12 +58,12 @@ impl<'a, L: FlexNode> MultiCaseListener<'a, Node, L, DeleteEvent> for LayoutSys<
         &'a mut MultiCaseImpl<Node, L>,
     );
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let yoga = unsafe { write.1.get_unchecked(event.id) };
+        let yoga = &write.1[event.id];
         let p = yoga.get_parent();
         if !p.is_null() {
             p.remove_child(*yoga);
-            yoga.free();
 		}
+		yoga.free();
     }
 }
 
@@ -75,9 +75,8 @@ impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys<
             if event.field == "add" {
                 add_yoga(event.id, read.0, read.1);
             } else if event.field == "remove" {
-                // unsafe { read.1.get_unchecked(event.id) }.free();
-                let parent_yoga = unsafe { read.1.get_unchecked(event.index) };
-                parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id) }.clone());
+                let parent_yoga = &read.1[event.index];
+                parent_yoga.remove_child(read.1[event.id].clone());
             }
         }
     }
@@ -95,10 +94,10 @@ impl<'a, L: FlexNode> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys<
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, L>);
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-		let node = unsafe { read.0.get_unchecked(event.id) };
+		let node = &read.0[event.id];
         if node.parent > 0 {
-            let parent_yoga = unsafe { read.1.get_unchecked(node.parent) };
-            parent_yoga.remove_child(unsafe { read.1.get_unchecked(event.id) }.clone());
+            let parent_yoga = &read.1[node.parent];
+            parent_yoga.remove_child(read.1[event.id].clone());
         }
     }
 }
@@ -108,15 +107,15 @@ fn add_yoga<L: FlexNode>(
     idtree: &SingleCaseImpl<IdTree>,
     yogas: &MultiCaseImpl<Node, L>,
 ) {
-    let node = unsafe { idtree.get_unchecked(id) };
-    let yoga = unsafe { yogas.get_unchecked(id) };
+    let node = &idtree[id];
+    let yoga = &yogas[id];
     if node.parent > 0 {
-        let parent_yoga = unsafe { yogas.get_unchecked(node.parent) };
+        let parent_yoga = &yogas[node.parent];
         let child_count = parent_yoga.get_child_count();
         let mut index = child_count;
         if node.next > 0 {
             index -= 1;
-            let next_yoga = unsafe { yogas.get_unchecked(node.next) }.clone();
+            let next_yoga = yogas[node.next].clone();
             while parent_yoga.get_child(index) != next_yoga {
                 index -= 1;
             }

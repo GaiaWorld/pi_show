@@ -130,19 +130,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 }
             };
 
-            let image = unsafe { border_images.get_unchecked(*id) };
-            let render_obj = unsafe { render_objs.get_unchecked_mut(render_index) };
+            let image = &border_images[*id];
+            let render_obj = &mut render_objs[render_index];
             // 图片不存在， 跳过
             if image.0.src.is_none() {
                 render_obj.geometry = None;
                 continue;
             }
 
-            let layout = unsafe { layouts.get_unchecked(*id) };
+            let layout = &layouts[*id];
 
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
-                let world_matrix = unsafe { world_matrixs.get_unchecked(*id) };
+                let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
                     None => &default_transform,
@@ -162,7 +162,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 );
             }
 
-            let image = unsafe { border_images.get_unchecked(*id) };
+            let image = &border_images[*id];
             if dirty & GEO_DIRTY != 0 {
                 let image_clip = border_image_clips.get(*id);
                 let image_slice = border_image_slices.get(*id);
@@ -192,7 +192,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BorderImage as usize != 0
             {
-                let opacity = unsafe { opacitys.get_unchecked(*id) }.0;
+                let opacity = opacitys[*id].0;
                 let is_opacity = if opacity < 1.0 {
                     false
                 } else if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {

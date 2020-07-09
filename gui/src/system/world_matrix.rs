@@ -27,7 +27,7 @@ impl WorldMatrixSys {
         match id_tree.get(id) {
             Some(r) => {
                 if r.layer != 0 {
-                    let d = unsafe { self.dirty_mark_list.get_unchecked_mut(id) };
+                    let d = &mut self.dirty_mark_list[id];
                     if *d != r.layer {
                         if *d != 0 {
                             self.dirty.delete(id, *d);
@@ -40,18 +40,6 @@ impl WorldMatrixSys {
             _ => (),
         };
     }
-
-    // fn recursive_delete_dirty(&mut self, id: usize, node: &IdTreeNode, id_tree: &SingleCaseImpl<IdTree>){
-    //     unsafe { *self.dirty_mark_list.get_unchecked_mut(id) = false };
-    //     // if *unsafe {self.dirty_mark_list.get_unchecked(id)} {
-    //     //     self.dirty.delete(id, node.layer)
-    //     // }
-
-    //     let first = unsafe { id_tree.get_unchecked(id).children.head };
-    //     for child in id_tree.iter(first) {
-    //         self.recursive_delete_dirty(child.0, &child.1, id_tree);
-    //     }
-    // }
 
     fn cal_matrix(
         &mut self,
@@ -86,7 +74,6 @@ impl WorldMatrixSys {
                 }
                 None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
             };
-            // let parent_id = unsafe { idtree.get_unchecked(*id).parent };
             // let transform_value = get_or_default(parent_id, transform, default_table);
             let transform_value = match transform.get(parent_id) {
                 Some(r) => r,
@@ -139,17 +126,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys {
     }
 }
 
-// impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys {
-//     type ReadData = ();
-//     type WriteData = (
-//         &'a mut MultiCaseImpl<Node, Transform>,
-//         &'a mut MultiCaseImpl<Node, Layout>,
-//     );
-//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, _write: Self::WriteData) {
-//         // unsafe { self.dirty_mark_list.remove_unchecked(event.id) };
-//     }
-// }
-
 impl<'a> MultiCaseListener<'a, Node, Transform, ModifyEvent> for WorldMatrixSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
@@ -190,16 +166,6 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     }
 }
 
-// impl<'a> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for WorldMatrixSys{
-// 	type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Visibility>);
-// 	type WriteData = ();
-// 	fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData){
-// 		if unsafe { read.1.get_unchecked(event.id).0 } {
-// 			self.marked_dirty(event.id, read.0);
-// 		}
-// 	}
-// }
-
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
 fn get_lefttop_offset(layout: &Layout, parent_origin: &Point2, _parent_layout: &Layout) -> Point2 {
@@ -227,13 +193,9 @@ fn recursive_cal_matrix(
     //     Some(r) => *r = false,
     //     None => panic!("dirty_mark_list is no exist, id: {}", id),
     // }
-    unsafe { *dirty_mark_list.get_unchecked_mut(id) = 0 };
+    dirty_mark_list[id] = 0;
 
-    let layout_value = unsafe { layout.get_unchecked(id) };
-    // let layout_value = match layout.get(id) {
-    //     Some(r) => r,
-    //     None => panic!("layout is no exist, id: {}", id)
-    // };
+    let layout_value = &layout[id];
     let transform_value = match transform.get(id) {
         Some(r) => r,
         None => default_transform,
@@ -246,8 +208,8 @@ fn recursive_cal_matrix(
             &Point2::new(layout_value.left, layout_value.top),
         )
     } else {
-        let parent_layout = unsafe { layout.get_unchecked(parent) };
-        let parent_world_matrix = unsafe { world_matrix.get_unchecked(parent) };
+        let parent_layout = &layout[parent];
+        let parent_world_matrix = &world_matrix[parent];
         let parent_transform_origin = parent_transform
             .origin
             .to_value(parent_layout.width, parent_layout.height);
@@ -255,16 +217,13 @@ fn recursive_cal_matrix(
         parent_world_matrix
             * transform_value.matrix(layout_value.width, layout_value.height, &offset)
     };
-    unsafe {
-        world_matrix
-            .get_unchecked_write(id)
-            .modify(|w: &mut WorldMatrix| {
-                *w = matrix;
-                true
-            })
-    };
-
-    let first = unsafe { idtree.get_unchecked(id).children.head };
+    world_matrix
+		.get_write(id).unwrap()
+		.modify(|w: &mut WorldMatrix| {
+			*w = matrix;
+			true
+		});
+    let first = idtree[id].children.head;
     for child_id in idtree.iter(first) {
         recursive_cal_matrix(
             dirty_mark_list,
@@ -286,14 +245,11 @@ impl_system! {
     true,
     {
         EntityListener<Node, CreateEvent>
-        // EntityListener<Node, DeleteEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Transform, CreateEvent>
         MultiCaseListener<Node, Transform, DeleteEvent>
         MultiCaseListener<Node, Layout, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
-        // MultiCaseListener<Node, Visibility, ModifyEvent>
-        // SingleCaseListener<IdTree, DeleteEvent>
     }
 }
 
@@ -550,7 +506,7 @@ fn test() {
     );
     world.run(&Atom::from("test_world_matrix_sys"));
 
-    unsafe { transforms.get_unchecked_write(e0) }.modify(|transform: &mut Transform| {
+    transforms.get_write(e0).unwrap().modify(|transform: &mut Transform| {
         transform.funcs.push(TransformFunc::TranslateX(50.0));
         true
     });
@@ -558,16 +514,16 @@ fn test() {
     world.run(&Atom::from("test_transform_sys"));
 
     debug_println!("e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-		unsafe{world_matrixs.get_unchecked(e0)},
-		unsafe{world_matrixs.get_unchecked(e00)},
-		unsafe{world_matrixs.get_unchecked(e01)},
-		unsafe{world_matrixs.get_unchecked(e02)},
-		unsafe{world_matrixs.get_unchecked(e000)},
-		unsafe{world_matrixs.get_unchecked(e001)},
-		unsafe{world_matrixs.get_unchecked(e002)},
-		unsafe{world_matrixs.get_unchecked(e010)},
-		unsafe{world_matrixs.get_unchecked(e011)},
-		unsafe{world_matrixs.get_unchecked(e012)},
+		&world_matrixs[e0],
+		&world_matrixs[e00],
+		&world_matrixs[e01],
+		&world_matrixs[e02],
+		&world_matrixs[e000],
+		&world_matrixs[e001],
+		&world_matrixs[e002],
+		&world_matrixs[e010],
+		&world_matrixs[e011],
+		&world_matrixs[e012],
 	);
 }
 

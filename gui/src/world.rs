@@ -61,63 +61,56 @@ pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
     };
 
     res_mgr.register::<TextureRes>(
-        [
-            10 * 1024 * 1024,
-            50 * 1024 * 1024,
-            5 * 60000,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-        ],
+		10 * 1024 * 1024,
+		50 * 1024 * 1024,
+		5 * 60000,
+		0,
         "TextureRes".to_string(),
     );
     res_mgr.register::<GeometryRes>(
-        [20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0],
+        20 * 1024, 100 * 1024, 5 * 60000, 0,
         "GeometryRes".to_string(),
     );
     res_mgr.register::<BufferRes>(
-        [20 * 1024, 100 * 1024, 5 * 60000, 0, 0, 0, 0, 0, 0],
+        20 * 1024, 100 * 1024, 5 * 60000, 0,
         "BufferRes".to_string(),
     );
 
     res_mgr.register::<SamplerRes>(
-        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        512, 1024, 60 * 60000, 0,
         "SamplerRes".to_string(),
     );
     res_mgr.register::<RasterStateRes>(
-        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        512, 1024, 60 * 60000, 0,
         "RasterStateRes".to_string(),
     );
     res_mgr.register::<BlendStateRes>(
-        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        512, 1024, 60 * 60000, 0,
         "BlendStateRes".to_string(),
     );
     res_mgr.register::<StencilStateRes>(
-        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        512, 1024, 60 * 60000, 0,
         "StencilStateRes".to_string(),
     );
     res_mgr.register::<DepthStateRes>(
-        [512, 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        512, 1024, 60 * 60000, 0,
         "DepthStateRes".to_string(),
     );
 
     res_mgr.register::<UColorUbo>(
-        [4 * 1024, 8 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        4 * 1024, 8 * 1024, 60 * 60000, 0,
         "UColorUbo".to_string(),
     );
     res_mgr.register::<HsvUbo>(
-        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        1 * 1024, 2 * 1024, 60 * 60000, 0,
         "HsvUbo".to_string(),
     );
     res_mgr.register::<MsdfStrokeUbo>(
-        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        1 * 1024, 2 * 1024, 60 * 60000, 0,
         "MsdfStrokeUbo".to_string(),
     );
     res_mgr.register::<CanvasTextStrokeColorUbo>(
-        [1 * 1024, 2 * 1024, 60 * 60000, 0, 0, 0, 0, 0, 0],
+        1 * 1024, 2 * 1024, 60 * 60000, 0,
         "CanvasTextStrokeColorUbo".to_string(),
     );
     res_mgr
@@ -128,7 +121,8 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     width: f32,
     height: f32,
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
-    font_texture: Share<TextureRes>,
+	font_texture: Share<TextureRes>,
+	cur_time: u64,
 ) -> World {
     let mut world = World::default();
 
@@ -178,7 +172,9 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr));
 
     let clip_sys = ClipSys::<C>::new();
-    let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
+	let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
+	let mut sys_time = SystemTime::default();
+	sys_time.start_time = cur_time;
 
     //user
     world.register_entity::<Node>();
@@ -245,7 +241,8 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
-    world.register_single::<DirtyList>(DirtyList::default());
+	world.register_single::<DirtyList>(DirtyList::default());
+	world.register_single::<SystemTime>(sys_time);
 
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -375,7 +372,8 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
     pub class_sheet: Arc<CellSingleCase<ClassSheet>>,
     pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
-    pub dirty_list: Arc<CellSingleCase<DirtyList>>,
+	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
+	pub system_time: Arc<CellSingleCase<SystemTime>>,
 
     pub world: World,
 }
@@ -430,7 +428,8 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
             class_sheet: world.fetch_single::<ClassSheet>().unwrap(),
             image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
-            dirty_list: world.fetch_single::<DirtyList>().unwrap(),
+			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
+			system_time: world.fetch_single::<SystemTime>().unwrap(),
 
             world: world,
         }

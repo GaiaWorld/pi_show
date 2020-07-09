@@ -32,14 +32,15 @@ pub fn cal_matrix(
     layouts: &MultiCaseImpl<Node, Layout>,
     transform: &Transform,
 ) -> Matrix4 {
-    let world_matrix = unsafe { world_matrixs.get_unchecked(id) };
-    let layout = unsafe { layouts.get_unchecked(id) };
+    let world_matrix = &world_matrixs[id];
+    let layout = &layouts[id];
     let transform = match transforms.get(id) {
         Some(r) => r,
         None => transform,
     };
 
-    let origin = transform.origin.to_value(layout.width, layout.height);
+	let origin = transform.origin.to_value(layout.width, layout.height);
+	println!("cal_matrix=================id: {}, origin:{:?}, layout:{:?}, world_matrix:{:?}", id, origin, layout, world_matrix);
 
     if origin.x != 0.0 || origin.y != 0.0 {
         return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
@@ -75,42 +76,40 @@ pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &Layout) 
 
 pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
     RADIUS_QUAD_POSITION_INDEX.hash(hasher);
-    unsafe { NotNan::unchecked_new(radius).hash(hasher) };
-    unsafe { NotNan::unchecked_new(width).hash(hasher) };
-    unsafe { NotNan::unchecked_new(height).hash(hasher) };
+    NotNan::new(radius).unwrap().hash(hasher);
+    NotNan::new(width).unwrap().hash(hasher);
+    NotNan::new(height).unwrap().hash(hasher);
 }
 
 pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
     let mut hasher = DefaultHasher::default();
-    unsafe { NotNan::unchecked_new(r).hash(&mut hasher) };
-    unsafe { NotNan::unchecked_new(g).hash(&mut hasher) };
-    unsafe { NotNan::unchecked_new(b).hash(&mut hasher) };
-    unsafe { NotNan::unchecked_new(a).hash(&mut hasher) };
+    NotNan::new(r).unwrap().hash(&mut hasher);
+    NotNan::new(g).unwrap().hash(&mut hasher);
+    NotNan::new(b).unwrap().hash(&mut hasher);
+    NotNan::new(a).unwrap().hash(&mut hasher);
     hasher.finish()
 }
 
 pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut DefaultHasher) {
-    unsafe { NotNan::unchecked_new(r).hash(hasher) };
-    unsafe { NotNan::unchecked_new(g).hash(hasher) };
-    unsafe { NotNan::unchecked_new(b).hash(hasher) };
-    unsafe { NotNan::unchecked_new(a).hash(hasher) };
+    NotNan::new(r).unwrap().hash(hasher);
+    NotNan::new(g).unwrap().hash(hasher);
+    NotNan::new(b).unwrap().hash(hasher);
+    NotNan::new(a).unwrap().hash(hasher);
 }
 
 pub fn f32_3_hash_(x: f32, y: f32, z: f32, hasher: &mut DefaultHasher) {
-    unsafe { NotNan::unchecked_new(x).hash(hasher) };
-    unsafe { NotNan::unchecked_new(y).hash(hasher) };
-    unsafe { NotNan::unchecked_new(z).hash(hasher) };
+    NotNan::new(x).unwrap().hash(hasher);
+    NotNan::new(y).unwrap().hash(hasher);
+    NotNan::new(z).unwrap().hash(hasher);
 }
 
 pub fn f32_3_hash(x: f32, y: f32, z: f32) -> u64 {
     let mut hasher = DefaultHasher::default();
-    unsafe { NotNan::unchecked_new(x).hash(&mut hasher) };
-    unsafe { NotNan::unchecked_new(y).hash(&mut hasher) };
-    unsafe { NotNan::unchecked_new(z).hash(&mut hasher) };
+    NotNan::new(x).unwrap().hash(&mut hasher);
+    NotNan::new(y).unwrap().hash(&mut hasher);
+    NotNan::new(z).unwrap().hash(&mut hasher);
     hasher.finish()
 }
-
-// use ordered_float::NotNan;
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
 pub fn create_unit_matrix_by_layout(

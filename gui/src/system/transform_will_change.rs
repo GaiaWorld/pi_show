@@ -27,7 +27,7 @@ impl TransformWillChangeSys{
 	#[inline]
 	fn mark_dirty(&mut self, id: usize, style_marks: &mut MultiCaseImpl<Node, StyleMark>) {
 		self.dirty = true;
-		let mark = unsafe { style_marks.get_unchecked_mut(id) };
+		let mark = &mut style_marks[id];
 		mark.dirty1 |= StyleType1::TransformWillChange as usize;
 	}
 }
@@ -77,7 +77,7 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 			}
 
 			// 节点不在树上， 应该删除willchange标记
-			let node = unsafe { idtree.get_unchecked(*id) };
+			let node = &idtree[*id];
 			if node.layer == 0 {
 				deletes.push((*id, layer));
 				continue;
@@ -152,30 +152,6 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, DeleteEvent> for Trans
 	}
 }
 
-// impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for TransformWillChangeSys{
-// 	type ReadData = &'a SingleCaseImpl<IdTree>;
-// 	type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChange>;
-// 	fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, willchanges: Self::WriteData){
-// 		if self.will_change_mark.count() == 0 {
-// 			return;
-// 		}
-
-// 		// 如果存在TransformWillChange组件， 需要从标记列表中移除
-// 		let node = unsafe { idtree.get_unchecked(event.id) };
-// 		if let Some(_willchange) = willchanges.get_mut(event.id) {
-// 			self.will_change_mark.delete(event.id, node.layer);
-// 		}
-
-// 		// 递归从will_change_mark中删除节点
-// 		let first = node.children.head;
-// 		for (child_id, child) in idtree.recursive_iter(first) {
-// 			if let Some(_willchange) = willchanges.get_mut(child_id) {
-// 				self.will_change_mark.delete(child_id, child.layer);
-// 			}
-// 		}
-// 	}
-// }
-
 //  IdTree创建， 递归遍历所有子节点， 如果存在TransformWillChange组件， 在will_change_mark中添加一个标记
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for TransformWillChangeSys{
 	type ReadData = &'a SingleCaseImpl<IdTree>;
@@ -188,7 +164,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for TransformWillChangeSys{
 			return;
 		}
 		let (willchanges, style_marks) = write;
-		let node = unsafe { idtree.get_unchecked(event.id) };
+		let node = &idtree[event.id];
 		if let Some(_willchange) = willchanges.get_mut(event.id) {
 			self.mark_dirty(event.id, style_marks);
 			self.will_change_mark.mark(event.id, node.layer);
@@ -227,15 +203,15 @@ fn recursive_cal_matrix(
 	transform_will_change_matrixs: &mut MultiCaseImpl<Node, TransformWillChangeMatrix>,
 ){  
 	let mut parent_will_change_matrix = parent_will_change_matrix;
-	unsafe{style_marks.get_unchecked_mut(id).dirty1 &= !(StyleType1::TransformWillChange as usize)};
+	style_marks[id].dirty1 &= !(StyleType1::TransformWillChange as usize);
 	match willchange.get(id) {
 		Some(transform_value) => {
-			let layout_value = unsafe { layouts.get_unchecked(id) };
+			let layout_value = &layouts[id];
 			let p_matrix = if parent == 0 {
 				WorldMatrix(Matrix4::from_translation(Vector3::new(layout_value.left, layout_value.top, 0.0)), false)
 			} else {
-				let parent_layout = unsafe { layouts.get_unchecked(parent) };
-				let parent_world_matrix = unsafe { world_matrixs.get_unchecked(parent) };
+				let parent_layout = &layouts[parent];
+				let parent_world_matrix = &world_matrixs[parent];
 				let parent_transform = match transforms.get(parent) {
 					Some(r) => r,
 					None => default_transform,
@@ -253,13 +229,13 @@ fn recursive_cal_matrix(
 			}
 
 			transform_will_change_matrixs.insert(id, TransformWillChangeMatrix(will_change_matrix));
-			parent_will_change_matrix = Some(unsafe { & (&*(transform_will_change_matrixs as *const MultiCaseImpl<Node, TransformWillChangeMatrix>)).get_unchecked(id).0});
+			parent_will_change_matrix = Some(unsafe { & (&*(transform_will_change_matrixs as *const MultiCaseImpl<Node, TransformWillChangeMatrix>))[id].0});
 			count -= 1;
 		},
 		None => ()
 	};
 
-	let first = unsafe { idtree.get_unchecked(id).children.head };
+	let first = idtree[id].children.head;
 	for (child_id, _child) in idtree.iter(first) {
 		if count == 0 {
 			break;

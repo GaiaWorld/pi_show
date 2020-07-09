@@ -114,14 +114,14 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
             calc(*id, &read, &mut write, c);
         }
         let (w, h) = {
-            let layout = unsafe { write.1.get_unchecked(ROOT) };
+            let layout = &write.1[ROOT];
             (layout.width, layout.height)
         };
         self.read = &read as *const Read<'a, L> as usize;
         self.write = &mut write as *mut Write<'a, L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
         // let time = std::time::Instant::now();
-        unsafe { read.1.get_unchecked(ROOT) }.calculate_layout_by_callback(
+        read.1[ROOT].calculate_layout_by_callback(
             w,
             h,
             YGDirection::YGDirectionLTR,
@@ -173,7 +173,7 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, CharBlock<L>, Delete
     type WriteData = &'a mut MultiCaseImpl<Node, CharBlock<L>>;
 
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-		let cb = unsafe { write.get_unchecked(event.id) };
+		let cb = &write[event.id];
         // 删除所有yoga节点
         for cn in cb.chars.iter() {
             // cn.node.get_parent().remove_child(cn.node);
@@ -195,8 +195,8 @@ extern "C" fn text_callback<L: FlexNode + 'static>(
     let layout_impl = unsafe { &mut *(b as *mut LayoutImpl<L>) };
     let write = unsafe { &mut *(layout_impl.write as *mut Write<L>) };
 
-    let cb = unsafe { write.0.get_unchecked_mut(id) };
-    let text_style = unsafe { write.3.get_unchecked(id) };
+    let cb = &mut write.0[id];
+    let text_style = &write.3[id];
     // let h = match height_mode {
     //     YGMeasureMode::YGMeasureModeExactly => height/100.0,
     //     _ => 0.0,
@@ -242,7 +242,6 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     let id = node.get_context() as usize;
     let layout_impl = unsafe { &mut *(callback_args as usize as *mut LayoutImpl<L>) };
     let write = unsafe { &mut *(layout_impl.write as *mut Write<L>) };
-    // let _read = unsafe{ &mut *(layout_impl.read as *mut Read<L>) };
     if id <= 0 {
         return;
     }
@@ -258,9 +257,6 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
                 let mut layout = Layout::default();
                 layout.width = parent_layout.width;
                 layout.height = parent_layout.height;
-                // if &layout != unsafe { write.1.get_unchecked(id) } {
-                // 	write.1.insert(id, layout);
-                // }
                 write.1.insert(id, layout);
             }
 
@@ -273,13 +269,13 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     }
     // 节点布局更新
     let layout = node.get_layout();
-    if &layout != unsafe { write.1.get_unchecked(id) } {
+    if &layout != &write.1[id] {
         write.1.insert(id, layout);
     }
     // if b == 0 {
     //     //如果是span节点， 不更新布局， 因为渲染对象使用了span的世界矩阵， 如果span布局不更新， 那么其世界矩阵与父节点的世界矩阵相等
     //     if let Some(_cb) = write.0.get_mut(id) {
-    //         // let text_style = unsafe { write.3.get_unchecked(id) };
+    //         // let text_style = &write.3[id];
     //         // // 只有百分比大小的需要延后布局的计算， 根据是否居中靠右或填充，或者换行，进行文字重布局
     //         let p = node.get_parent();
     //         if p.get_child_count() != 1 {
@@ -287,7 +283,7 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     // 			let mut layout = Layout::default();
     // 			layout.width = parent_layout.width;
     // 			layout.height = parent_layout.height;
-    // 			if &layout == unsafe {write.1.get_unchecked(id)} {
+    // 			if &layout == &write.1[id] {
     // 				return;
     // 			}
     // 			write.1.insert(id, layout);
@@ -296,7 +292,7 @@ extern "C" fn callback<L: FlexNode + 'static>(node: L, callback_args: *const c_v
     //     }
 
     //     let layout = node.get_layout();
-    //     if &layout == unsafe {write.1.get_unchecked(id)} {
+    //     if &layout == write.1[id] {
     //         return;
     //     }
     //     // 节点布局更新
@@ -325,8 +321,8 @@ fn update<'a, L: FlexNode + 'static>(
         pos.x += layout.left;
         pos.y += layout.top;
     }
-    let cb = unsafe { write.0.get_unchecked_mut(id) };
-    let mut cn = unsafe { cb.chars.get_unchecked_mut(char_index) };
+    let cb = &mut write.0[id];
+    let mut cn = &mut cb.chars[char_index];
     cn.pos = pos;
 }
 
@@ -336,9 +332,8 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         Some(r) => r,
         None => return,
     };
-    let scale = unsafe { read.4.get_unchecked(id).y.magnitude() };
-    // let scale = unsafe { read.4.get_unchecked(id).y.y };
-    let text_style = unsafe { write.3.get_unchecked(id) };
+    let scale = read.4[id].y.magnitude();
+    let text_style = &write.3[id];
 
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
         Some(r) => r.0.clone(),
@@ -380,13 +375,13 @@ fn calc<'a, L: FlexNode + 'static>(
         Some(r) => r,
         None => return false,
     };
-    let text_style = unsafe { write.3.get_unchecked_mut(id) };
-    let style_mark = unsafe { read.5.get_unchecked(id) };
-    let yoga = unsafe { read.1.get_unchecked(id).clone() };
+    let text_style = &mut write.3[id];
+    let style_mark = &read.5[id];
+    let yoga = read.1[id].clone();
     let parent_yoga = yoga.get_parent();
     if parent_yoga.is_null() {
         #[cfg(feature = "warning")]
-        println!("parent_yoga.is_null");
+        println!("parent_yoga.is_null, id:{:?}", id);
         return true;
     }
 
@@ -796,7 +791,7 @@ fn calc_text<'a, L: FlexNode + 'static>(
                 calc.pos.x += letter_spacing;
             }
             SplitResult::WordEnd => {
-                let node = unsafe { tex_param.cb.chars.get_unchecked_mut(calc.word) };
+                let node = &mut tex_param.cb.chars[calc.word];
                 node.width = calc.pos.x - node.pos.x;
                 node.ch_id_or_count = calc.index - calc.word - 1;
                 calc.word = 0;
@@ -976,7 +971,7 @@ fn wrap_line<L: FlexNode + 'static>(
         let s = start;
         while start < end {
             //换行计算
-            let n = unsafe { cb.chars.get_unchecked_mut(start) };
+            let n = &mut cb.chars[start];
             w = n.pos.x;
             if n.pos.x + x_fix + n.width > limit_width && x_fix != -w {
                 break;
@@ -987,7 +982,7 @@ fn wrap_line<L: FlexNode + 'static>(
                 if x_fix < 0.0 || y_fix > 0.0 {
                     let end = start + n.ch_id_or_count;
                     while start < end {
-                        let n = unsafe { cb.chars.get_unchecked_mut(start) };
+                        let n = &mut cb.chars[start];
                         n.pos.x += x_fix;
                         n.pos.y += y_fix;
                         start += 1;
@@ -1004,14 +999,14 @@ fn wrap_line<L: FlexNode + 'static>(
             lines.push((
                 s,
                 start - s,
-                unsafe { cb.chars.get_unchecked_mut(start) }.pos.x - w,
+                cb.chars[start].pos.x - w,
             ));
         }
         y_fix += cb.line_height;
         x_fix = -w;
     }
     if start < end {
-        let last = unsafe { cb.chars.get_unchecked_mut(end - 1) };
+        let last = &mut cb.chars[end - 1];
         lines.push((start, end - start, last.pos.x - w + last.width));
     }
     if x_fix < 0.0 || y_fix > 0.0 {
@@ -1030,7 +1025,7 @@ fn wrap_line<L: FlexNode + 'static>(
             _ =>
             // _ if x_fix < 0.0 || y_fix > 0.0  => { // 如果x或者y需要修正
                 while start < end {
-                    let n = unsafe {cb.chars.get_unchecked_mut(start)};
+                    let n = &mut cb.chars[start];
                     n.pos.x += x_fix;
                     n.pos.y += y_fix;
                     start+=1;
@@ -1062,14 +1057,14 @@ fn align_line<L: FlexNode + 'static>(
     let fix = get_x_fix(limit_width, line_width) + x_fix;
     if y_fix > 0.0 {
         while start < end {
-            let n = unsafe { cb.chars.get_unchecked_mut(start) };
+            let n = &mut cb.chars[start];
             n.pos.x += fix;
             n.pos.y += y_fix;
             start += 1;
         }
     } else {
         while start < end {
-            unsafe { cb.chars.get_unchecked_mut(start) }.pos.x += fix;
+            cb.chars[start].pos.x += fix;
             start += 1;
         }
     }
@@ -1082,14 +1077,14 @@ fn justify_line<L: FlexNode + 'static>(
     y_fix: f32,
 ) {
     if word_count == 1 {
-        unsafe { cb.chars.get_unchecked_mut(start) }.pos.x += (limit_width - line_width) / 2.0;
+        cb.chars[start].pos.x += (limit_width - line_width) / 2.0;
         return;
     }
     let fix = (limit_width - line_width) / (word_count - 1) as f32;
     let i = start;
     if y_fix > 0.0 {
         while start < end {
-            let n = unsafe { cb.chars.get_unchecked_mut(start) };
+            let n = &mut cb.chars[start];
             // n 是容器 TODO
             n.pos.x += (start - i) as f32 * fix + x_fix;
             n.pos.y += y_fix;
@@ -1097,7 +1092,7 @@ fn justify_line<L: FlexNode + 'static>(
         }
     } else {
         while start < end {
-            unsafe { cb.chars.get_unchecked_mut(start) }.pos.x += (start - i) as f32 * fix;
+            cb.chars[start].pos.x += (start - i) as f32 * fix;
             start += 1;
         }
     }
@@ -1111,11 +1106,11 @@ fn line_info<L: FlexNode + 'static>(cb: &CharBlock<L>, line: usize) -> (usize, u
             cb.last_line.2,
         )
     } else if line + 1 >= cb.lines.len() {
-        let r = unsafe { cb.lines.get_unchecked(line) };
+        let r = &cb.lines[line];
         (cb.last_line.0, r.0, r.1, r.2)
     } else {
-        let r = unsafe { cb.lines.get_unchecked(line) };
-        (unsafe { cb.lines.get_unchecked(line + 1) }.0, r.0, r.1, r.2)
+        let r = &cb.lines[line];
+        (cb.lines[line + 1].0, r.0, r.1, r.2)
     }
 }
 #[inline]

@@ -36,8 +36,8 @@ impl ShowSys {
             None => return,
         };
         if parent_id > 0 {
-            let parent_c_visibility = unsafe { **visibility.get_unchecked(parent_id) };
-            let parent_c_enable = unsafe { **enable.get_unchecked(parent_id) };
+            let parent_c_visibility = *visibility[parent_id];
+            let parent_c_enable = *enable[parent_id];
             modify_show(
                 parent_c_visibility,
                 parent_c_enable,
@@ -106,12 +106,12 @@ fn cancel_visibility(
     id_tree: &SingleCaseImpl<IdTree>,
     visibility: &mut MultiCaseImpl<Node, CVisibility>,
 ) {
-    let mut write = unsafe { visibility.get_unchecked_write(id) };
+    let mut write = visibility.get_write(id).unwrap();
     if write.value.0 == false {
         return;
     }
     write.set_0(false);
-    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    let first = id_tree[id].children.head;
     for child in id_tree.iter(first) {
         cancel_visibility(child.0, id_tree, visibility);
     }
@@ -123,12 +123,12 @@ fn cancel_enable(
     id_tree: &SingleCaseImpl<IdTree>,
     enable: &mut MultiCaseImpl<Node, CEnable>,
 ) {
-    let mut write = unsafe { enable.get_unchecked_write(id) };
+    let mut write = enable.get_write(id).unwrap();
     if write.value.0 == false {
         return;
     }
     write.set_0(false);
-    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    let first = id_tree[id].children.head;
     for child in id_tree.iter(first) {
         cancel_enable(child.0, id_tree, enable);
     }
@@ -147,11 +147,10 @@ fn modify_show(
         Some(r) => r,
         None => {
             #[cfg(feature = "warning")]
-            println!("!!!!!!! get_unchecked none: {}", id);
+            println!("!!!!!!! get none: {}", id);
             panic!("xxxxxxxxxxxxxxxxxxxxxxxxxx");
         }
     };
-    // let show_value = unsafe { show.get_unchecked(id) };
     let display_value = match show_value.get_display() {
         Display::Flex => true,
         Display::None => false,
@@ -166,8 +165,8 @@ fn modify_show(
         EnableType::None => false,
     };
     let c_enable = c_visibility && c_enable;
-    let mut visibility_write = unsafe { visibility.get_unchecked_write(id) };
-    let mut enable_write = unsafe { enable.get_unchecked_write(id) };
+    let mut visibility_write = visibility.get_write(id).unwrap();
+    let mut enable_write = enable.get_write(id).unwrap();
     // if c_visibility == **visibility_write.value && c_enable == **enable_write.value {
     //     println!("c_visibility1-------------------{}, {}, {}, {}", c_visibility, **visibility_write.value, c_enable, **enable_write.value);
     //     return;
@@ -176,7 +175,7 @@ fn modify_show(
     visibility_write.set_0(c_visibility);
     enable_write.set_0(c_enable);
 
-    let first = unsafe { id_tree.get_unchecked(id).children.head };
+    let first = id_tree[id].children.head;
     for child_id in id_tree.iter(first) {
         modify_show(
             c_visibility,
@@ -270,22 +269,22 @@ fn test() {
     shows.insert(e012, Show::default());
     world.run(&Atom::from("test_show_sys"));
 
-    unsafe { shows.get_unchecked_write(e00) }.modify(|show: &mut Show| {
+    shows.get_write(e00).unwrap().modify(|show: &mut Show| {
         show.set_visibility(false);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e01) }.modify(|show: &mut Show| {
+    shows.get_write(e01).unwrap().modify(|show: &mut Show| {
         show.set_enable(EnableType::None);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e02) }.modify(|show: &mut Show| {
+    shows.get_write(e02).unwrap().modify(|show: &mut Show| {
         show.set_display(Display::None);
         true
     });
 
-    unsafe { shows.get_unchecked_write(e010) }.modify(|show: &mut Show| {
+    shows.get_write(e010).unwrap().modify(|show: &mut Show| {
         show.set_enable(EnableType::Visible);
         true
     });
@@ -293,29 +292,29 @@ fn test() {
     world.run(&Atom::from("test_show_sys"));
 
     debug_println!("cvisibilitys, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        unsafe{cvisibilitys.get_unchecked(e0)},
-        unsafe{cvisibilitys.get_unchecked(e00)},
-        unsafe{cvisibilitys.get_unchecked(e01)},
-        unsafe{cvisibilitys.get_unchecked(e02)},
-        unsafe{cvisibilitys.get_unchecked(e000)},
-        unsafe{cvisibilitys.get_unchecked(e001)},
-        unsafe{cvisibilitys.get_unchecked(e002)},
-        unsafe{cvisibilitys.get_unchecked(e010)},
-        unsafe{cvisibilitys.get_unchecked(e011)},
-        unsafe{cvisibilitys.get_unchecked(e012)},
+        &cvisibilitys[e0],
+        &cvisibilitys[e00],
+        &cvisibilitys[e01],
+        &cvisibilitys[e02],
+        &cvisibilitys[e000],
+        &cvisibilitys[e001],
+        &cvisibilitys[e002],
+        &cvisibilitys[e010],
+        &cvisibilitys[e011],
+        &cvisibilitys[e012],
     );
 
     debug_println!("cenables, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        unsafe{cenables.get_unchecked(e0)},
-        unsafe{cenables.get_unchecked(e00)},
-        unsafe{cenables.get_unchecked(e01)},
-        unsafe{cenables.get_unchecked(e02)},
-        unsafe{cenables.get_unchecked(e000)},
-        unsafe{cenables.get_unchecked(e001)},
-        unsafe{cenables.get_unchecked(e002)},
-        unsafe{cenables.get_unchecked(e010)},
-        unsafe{cenables.get_unchecked(e011)},
-        unsafe{cenables.get_unchecked(e012)},
+        &cenables[e0],
+        &cenables[e00],
+        &cenables[e01],
+        &cenables[e02],
+        &cenables[e000],
+        &cenables[e001],
+        &cenables[e002],
+        &cenables[e010],
+        &cenables[e011],
+        &cenables[e012],
     );
 }
 

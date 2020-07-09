@@ -40,7 +40,7 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
             view_matrix_ubo: None,
             project_matrix_ubo: None,
             transform_will_change_matrix_dirtys: Vec::default(),
-            hsv_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<HsvUbo>().unwrap()),
+            hsv_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<HsvUbo>(0).unwrap()),
             marker: PhantomData,
         }
     }
@@ -206,14 +206,14 @@ fn recursive_set_view_matrix(
     node_render_map: &SingleCaseImpl<NodeRenderMap>,
     render_objs: &mut SingleCaseImpl<RenderObjs>,
 ) {
-    let obj_ids = unsafe { node_render_map.get_unchecked(id) };
+    let obj_ids = &node_render_map[id];
     for id in obj_ids.iter() {
-        let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+        let render_obj = &mut render_objs[*id];
         render_obj.paramter.set_value("viewMatrix", ubo.clone());
         *modify = true;
     }
 
-    let first = unsafe { idtree.get_unchecked(id) }.children.head;
+    let first = idtree[id].children.head;
     for (child_id, _child) in idtree.iter(first) {
         if let Some(_) = transform_will_change_matrixs.get(child_id) {
             continue;
@@ -248,27 +248,27 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
         let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
         let (render_objs, node_render_map) = write;
-        let render_obj = unsafe { render_objs.get_unchecked_mut(event.id) };
+        let render_obj = &mut render_objs[event.id];
         let notify = node_render_map.get_notify();
-        unsafe { node_render_map.add_unchecked(render_obj.context, event.id, &notify) };
+        node_render_map.add(render_obj.context, event.id, &notify);
 
         let paramter = &mut render_obj.paramter;
 
         paramter.set_value("viewMatrix", self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         paramter.set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
-        let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
-        let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
+        let z_depth = z_depths[render_obj.context].0;
+        let opacity = opacitys[render_obj.context].0;
         paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
         debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
 
-        let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
-        let culling = unsafe { cullings.get_unchecked(render_obj.context) }.0;
+        let visibility = visibilitys[render_obj.context].0;
+        let culling = cullings[render_obj.context].0;
         render_obj.visibility = visibility & !culling;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
 
-        let hsv = unsafe { hsvs.get_unchecked(render_obj.context) };
+        let hsv = &hsvs[render_obj.context];
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             render_obj.fs_defines.add("HSV");
             paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
@@ -288,9 +288,9 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
         read: Self::ReadData,
         node_render_map: Self::WriteData,
     ) {
-        let render_obj = unsafe { read.get_unchecked(event.id) };
+        let render_obj = &read[event.id];
         let notify = node_render_map.get_notify();
-        unsafe { node_render_map.remove_unchecked(render_obj.context, event.id, &notify) };
+        node_render_map.remove(render_obj.context, event.id, &notify);
     }
 }
 
@@ -305,11 +305,11 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
     );
     fn listen(&mut self, event: &ModifyEvent, z_depths: Self::ReadData, write: Self::WriteData) {
         let (render_objs, node_render_map) = write;
-        let obj_ids = unsafe { node_render_map.get_unchecked(event.id) };
-        let z_depth = unsafe { z_depths.get_unchecked(event.id) }.0;
+        let obj_ids = &node_render_map[event.id];
+        let z_depth = z_depths[event.id].0;
 
         for id in obj_ids.iter() {
-            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            let render_obj = &mut render_objs[*id];
             render_obj.depth = z_depth + render_obj.depth_diff;
             render_objs.get_notify().modify_event(*id, "depth", 0);
         }
@@ -326,12 +326,12 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEve
         &'a mut SingleCaseImpl<NodeRenderMap>,
     );
     fn listen(&mut self, event: &ModifyEvent, opacitys: Self::ReadData, write: Self::WriteData) {
-        let opacity = unsafe { opacitys.get_unchecked(event.id).0 };
+        let opacity = opacitys[event.id].0;
         let (render_objs, node_render_map) = write;
-        let obj_ids = unsafe { node_render_map.get_unchecked(event.id) };
+        let obj_ids = &node_render_map[event.id];
 
         for id in obj_ids.iter() {
-            let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+            let render_obj = &mut render_objs[*id];
             render_obj
                 .paramter
                 .as_ref()
@@ -384,13 +384,13 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
     );
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData) {
         let (render_objs, node_render_map) = write;
-        let hsv = unsafe { hsvs.get_unchecked(event.id) };
-        let obj_ids = unsafe { node_render_map.get_unchecked(event.id) };
+        let hsv = &hsvs[event.id];
+        let obj_ids = &node_render_map[event.id];
 
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             for id in obj_ids.iter() {
                 let notify = render_objs.get_notify();
-                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                let render_obj = &mut render_objs[*id];
                 render_obj.fs_defines.add("HSV");
                 render_obj
                     .paramter
@@ -402,7 +402,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
         } else {
             for id in obj_ids.iter() {
                 let notify = render_objs.get_notify();
-                let render_obj = unsafe { render_objs.get_unchecked_mut(*id) };
+                let render_obj = &mut render_objs[*id];
                 render_obj.fs_defines.remove("HSV");
 
                 notify.modify_event(*id, "paramter", 0);
@@ -424,13 +424,13 @@ type WriteData<'a> = (
 fn modify_visible(id: usize, read: ReadData, write: WriteData) {
     let (visibilitys, cullings) = read;
     let (render_objs, node_render_map) = write;
-    let visibility = unsafe { visibilitys.get_unchecked(id).0 };
-    let culling = unsafe { cullings.get_unchecked(id).0 };
-    let obj_ids = unsafe { node_render_map.get_unchecked(id) };
+    let visibility = visibilitys[id].0;
+    let culling = cullings[id].0;
+    let obj_ids = &node_render_map[id];
 
     for id in obj_ids.iter() {
         let notify = render_objs.get_notify();
-        let mut render_obj = unsafe { render_objs.get_unchecked_write(*id, &notify) };
+        let mut render_obj = RenderObjs::get_write(&mut *render_objs, *id, &notify);
         render_obj.set_visibility(visibility & !culling);
     }
 }

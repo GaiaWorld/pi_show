@@ -6,13 +6,12 @@ link-args = [
             "-s", "TOTAL_MEMORY=33554432", 
             # "-s", "TOTAL_MEMORY=67108864", 
             # "-s", "TOTAL_MEMORY=167772160", 
-            "-s", "ALLOW_MEMORY_GROWTH=0", 
+            # "-s", "ALLOW_MEMORY_GROWTH=1", 
             "-s", "MALLOC=emmalloc", 
             "-s", "ELIMINATE_DUPLICATE_FUNCTIONS=1",
             "-s", "ENVIRONMENT=web",
             "-s", "INLINING_LIMIT=1",
             "-s", "NO_FILESYSTEM=1",
-            
             # "-s", "ASSERTIONS=1",
             ]
 
