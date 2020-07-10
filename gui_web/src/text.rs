@@ -449,7 +449,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
         font_sheet.get_notify().modify_event(0, "", 0);
-    }
+	}
     engine.gl.texture_update_webgl(
         &texture.bind,
         0,
@@ -577,7 +577,12 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                     }
                 }
             }
-        }
+		}
+		// 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
+		// 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
+		js!{
+			@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
+		}
         engine
             .gl
             .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
@@ -620,7 +625,8 @@ pub struct DrawTextSys {
 impl DrawTextSys {
     pub fn new() -> Self {
         let obj: Object = TryInto::try_into(js! {
-            var c = document.createElement("canvas");
+			var c = document.createElement("canvas");
+			// c.style.position = "absolute";
             // document.body.append(c);// 查看效果
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};
