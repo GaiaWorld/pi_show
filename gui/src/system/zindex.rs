@@ -17,10 +17,10 @@ use ecs::{
   monitor::{CreateEvent, ModifyEvent},
   component::MultiCaseImpl,
   single::SingleCaseImpl,
-  idtree::{IdTree, Node as IdNode},
 };
 
-use single::DirtyList;
+use idtree::Node as IdNode;
+use single::{DirtyList, IdTree};
 use entity::{Node};
 use component::{
   user::{ZIndex as ZI},
@@ -58,20 +58,20 @@ impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
       let old = zi.old;
       zi.old = z;
       let node = &read.0[event.id];
-      if node.layer == 0 {
+      if node.layer() == 0 {
         return;
       }
       if old == AUTO {
         if zi.dirty == DirtyType::None {
           // 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。
           zi.dirty = DirtyType::Normal;
-          self.dirty.mark(event.id, node.layer);
+          self.dirty.mark(event.id, node.layer());
         }
       }else if z == AUTO {
         // 为了防止adjust的auto跳出，提前设置为false
         zi.dirty = DirtyType::None;
       }
-      self.set_parent_dirty(node.parent, &read.0);
+      self.set_parent_dirty(node.parent(), &read.0);
     }
 }
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
@@ -84,12 +84,12 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
       if zi.old != AUTO {
         // 设置自己成强制脏
         zi.dirty = DirtyType::Recursive;
-        self.dirty.mark(event.id, node.layer);
+        self.dirty.mark(event.id, node.layer());
       }else {
         // 设置自己所有非AUTO的子节点为强制脏
-        recursive_dirty(&mut self.map, &mut self.dirty, read, node.children.head);
+        recursive_dirty(&mut self.map, &mut self.dirty, read, node.children().head);
       }
-      self.set_parent_dirty(node.parent, read);
+      self.set_parent_dirty(node.parent(), read);
     }
 }
 
@@ -155,15 +155,15 @@ impl ZIndexImpl {
       if zi.old != AUTO {
         if zi.dirty == DirtyType::None {
           zi.dirty = DirtyType::Recursive;
-          self.dirty.mark(id, node.layer);
+          self.dirty.mark(id, node.layer());
           //println!("zindex- set_parent_dirty: {:?} {:?} {:?} {:?} {:?} {:?}", id, zi, node.parent, node.layer, node.count, node.children.head);
         }
-        if (node.count as f32 * 10.0) < zi.pre_max_z - zi.pre_min_z {
+        if (node.count() as f32 * 10.0) < zi.pre_max_z - zi.pre_min_z {
           return;
         }
         // 如果z范围超过自身全部子节点及其下子节点数量，则继续向上设置脏，等calc_z调整以获得足够的z范围
       }
-      id = node.parent;
+      id = node.parent();
     }
   }
 
@@ -175,7 +175,8 @@ impl ZIndexImpl {
         // println!("calc xxx: {:?} {:?}", id, zi);
         if zi.dirty == DirtyType::None {
           continue;
-        }
+		}
+		
         let b = zi.dirty == DirtyType::Normal;
         zi.dirty = DirtyType::None;
         zi.min_z = zi.pre_min_z;
@@ -183,27 +184,27 @@ impl ZIndexImpl {
         (zi.min_z, zi.max_z, b)
       };
 		let node = match idtree.get(*id) {
-			Some(r) => if r.layer == layer {r} else {continue},
+			Some(r) => if r.layer() == layer {r} else {continue},
 			None => continue,
 		};
       // 设置 z_depth, 其他系统会监听该值
       zdepth.get_write(*id).unwrap().set_0(min_z);
       //println!("zindex- calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
-      if node.count == 0 {
+      if node.count() == 0 {
         continue;
       }
-      self.cache.sort(&self.map, idtree, node.children.head, 0);
+      self.cache.sort(zdepth, &self.map, idtree, node.children().head, 0);
       if normal {
-        self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
+        self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count());
       }else{
-        self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count);
+        self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count());
       }
     }
     if self.dirty.count() > 0 {
       // 详细打印
       for (_id, n) in idtree.recursive_iter(2) {
         let mut v = String::new();
-        for _ in 1..n.layer {
+        for _ in 1..n.layer() {
           v.push('-')
         }
       }
@@ -236,22 +237,25 @@ impl Cache {
   }
 
   // 循环计算子节点， 分类排序
-  fn sort(&mut self, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
+  fn sort(&mut self, zdepth: &MultiCaseImpl<Node, ZDepth>, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
     // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
     for (id, n) in idtree.iter(child) {
-      let zi = map[id].old;
-      if zi == 0 {
-          self.z_zero.push(ZSort(zi, order, id, n.count));
-      }else if zi == -1 {
-        self.z_auto.push(id);
-        // 继续递归其子节点
-        order = self.sort(map, idtree, n.children.head, order);
-      }else if zi > 0 {
-        self.node_heap.push(ZSort(zi, order, id, n.count));
-      }else{
-        self.negative_heap.push(ZSort(zi-1, order, id, n.count));
-      }
-      order+=1;
+		if let None = zdepth.get(id) {
+			continue;
+		}
+		let zi = map[id].old;
+		if zi == 0 {
+			self.z_zero.push(ZSort(zi, order, id, n.count()));
+		}else if zi == -1 {
+			self.z_auto.push(id);
+			// 继续递归其子节点
+			order = self.sort(zdepth, map, idtree, n.children().head, order);
+		}else if zi > 0 {
+			self.node_heap.push(ZSort(zi, order, id, n.count()));
+		}else{
+			self.negative_heap.push(ZSort(zi-1, order, id, n.count()));
+		}
+		order+=1;
     }
     order
   }
@@ -331,7 +335,7 @@ impl Cache {
       zi.min_z = min_z;
       zi.pre_min_z = min_z;
       zi.max_z = max_z;
-      zi.pre_max_z = max_z;
+	  zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
       zdepth.get_write(id).unwrap().set_0(min_z);
       //println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
@@ -339,12 +343,12 @@ impl Cache {
         continue
       }
       let node = &idtree[id];
-      if node.count == 0 {
+      if node.count() == 0 {
         continue;
       }
-      self.sort(map, idtree, node.children.head, 0);
+      self.sort(zdepth, map, idtree, node.children().head, 0);
       //println!("zindex- ---recursive_sort: {:?} {:?} {:?}", id, node.children.head, node.count);
-      self.recursive_calc(map, idtree, zdepth, min_z, max_z, node.count);
+      self.recursive_calc(map, idtree, zdepth, min_z, max_z, node.count());
     }
   }
 }
@@ -352,12 +356,15 @@ impl Cache {
 // 设置自己所有非AUTO的子节点为强制脏
 fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
   for (id, n) in idtree.iter(child) {
-    let zi = &mut map[id];
+    let zi = match map.get_mut(child) {
+		Some(r) => r,
+		None => continue,
+	};
     if zi.old == -1 {
-      recursive_dirty(map, dirty, idtree, n.children.head);
+      recursive_dirty(map, dirty, idtree, n.children().head);
     }else {
       zi.dirty = DirtyType::Recursive;
-      dirty.mark(id, n.layer);
+      dirty.mark(id, n.layer());
     }
   }
 }
@@ -365,7 +372,7 @@ fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &Id
 // 整理方法。z范围变小或相交，则重新扫描修改一次。两种情况。
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
-fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode<usize>, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
   
   let (min, r, old_min) = {
     let zi = &mut map[id];
@@ -391,7 +398,7 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     let old_max_z = zi.max_z;
     // 更新当前值
     zi.min_z = min;
-    zi.max_z = max;
+	zi.max_z = max;
     // 设置 z_depth, 其他系统会监听该值
     zdepth.get_write(id).unwrap().set_0(min);
     // println!("---------adjust: {:?} {:?} {:?}", id, min, max);
@@ -408,7 +415,7 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
     }
   };
   //递归计算子节点的z
-  for (i, n) in idtree.iter(node.children.head) {
+  for (i, n) in idtree.iter(node.children().head) {
     adjust(map, idtree, zdepth, i, n, min, 0., r, old_min);
   }
 }

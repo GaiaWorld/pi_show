@@ -12,17 +12,17 @@ use ecs::{
     DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl,
     SingleCaseListener,
 };
+use idtree::NodeList;
 use hal_core::*;
 use map::vecmap::VecMap;
 use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use res::ResMap;
 use share::Share;
 
-use component::calc::*;
+use component::{calc::*, calc::LayoutR};
 use component::user::*;
 use entity::Node;
 use font::font_sheet::*;
-use layout::FlexNode;
 use render::engine::{buffer_size, create_hash_res, Engine, ShareEngine, UnsafeMut};
 use render::res::*;
 use single::*;
@@ -82,7 +82,7 @@ struct RenderCatch {
     layout_hash: u64, // 布局属性的hash
 }
 
-pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static> {
+pub struct CharBlockSys<C: HalContext + 'static> {
     render_map: VecMap<I>,
     canvas_bs: Share<BlendStateRes>,
     msdf_bs: Share<BlendStateRes>,
@@ -101,14 +101,14 @@ pub struct CharBlockSys<L: FlexNode + 'static, C: HalContext + 'static> {
 
     msdf_default_paramter: MsdfParamter,
     canvas_default_paramter: CanvasTextParamter,
-    mark: PhantomData<(L, C)>,
+    mark: PhantomData<(C)>,
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBlockSys<L, C> {
+impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, TextContent>,
         &'a MultiCaseImpl<Node, StyleMark>,
@@ -117,12 +117,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DefaultState>,
         &'a SingleCaseImpl<ClassSheet>,
-        &'a SingleCaseImpl<DirtyList>,
+		&'a SingleCaseImpl<DirtyList>,
+		&'a SingleCaseImpl<IdTree>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
-        &'a mut MultiCaseImpl<Node, CharBlock<L>>,
+        &'a mut MultiCaseImpl<Node, CharNode>,
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (
@@ -136,13 +137,14 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
             default_table,
             default_state,
             _class_sheet,
-            dirty_list,
+			dirty_list,
+			idtree
         ) = read;
         if dirty_list.0.len() == 0 && !self.texture_change {
             return;
         }
 
-        let (render_objs, engine, charblocks) = write;
+        let (render_objs, engine, char_nodes) = write;
         let notify = render_objs.get_notify();
         let default_transform = default_table.get::<Transform>().unwrap();
 
@@ -178,35 +180,35 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                     self.remove_render_obj(*id, render_objs);
                     continue;
                 }
-            };
+			};
 
             let mut dirty = style_mark.dirty;
 
             // 不存在Chablock关心的脏, 跳过
             if dirty & TEXT_STYLE_DIRTY == 0 {
                 continue;
-            }
+			}
 
             // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
-            let (index, charblock, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
+            let (index, children, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
                 self.remove_render_obj(*id, render_objs); // 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
                 let text_style = &text_styles[*id];
-                let charblock = &charblocks[*id];
+                let children = idtree[*id].children();
                 let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
                 let r = self.create_render_obj(
                     *id,
                     render_objs,
                     default_state,
                     have_shadow,
-                    charblock.is_pixel,
+                    true,//charblock.is_pixel,
                 );
                 dirty = dirty | TEXT_STYLE_DIRTY;
-                (r, charblock, text_style)
+                (r, children, text_style)
             } else {
                 match self.render_map.get(*id) {
                     Some(r) => (
                         r.clone(),
-                        &charblocks[*id],
+                        idtree[*id].children(),
                         &text_styles[*id],
                     ),
                     None => continue,
@@ -256,7 +258,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         &text_style.text.stroke,
                         render_obj,
                         &notify,
-                        charblock.is_pixel,
+                        true,//charblock.is_pixel,
                         &class_ubo,
                         &mut *self.canvas_stroke_ubo_map,
                         &mut *self.msdf_stroke_ubo_map,
@@ -268,7 +270,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 modify_font(
                     index.text,
                     render_obj,
-                    charblock.is_pixel,
+                    true,//charblock.is_pixel,
                     &font_sheet,
                     &notify,
                     &self.default_sampler,
@@ -294,7 +296,10 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                 let l = &mut self.index_len;
                 render_obj.geometry = create_geo(
                     dirty,
-                    charblock,
+					children,
+					idtree,
+					char_nodes,
+					layouts,
                     &text_style.text.color,
                     text,
                     text_style,
@@ -340,7 +345,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                         &notify,
                         shadow_render_obj,
                         engine,
-                        charblock.is_pixel,
+                        true, // charblock.is_pixel,
                         &class_ubo,
                         &mut *self.canvas_stroke_ubo_map,
                     );
@@ -352,7 +357,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                     modify_font(
                         index.text,
                         shadow_render_obj,
-                        charblock.is_pixel,
+                        true, //charblock.is_pixel,
                         &font_sheet,
                         &notify,
                         &self.default_sampler,
@@ -373,8 +378,11 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
                             let color = text_style.shadow.color.clone();
                             let l = &mut self.index_len;
                             shadow_render_obj.geometry = create_geo(
-                                dirty,
-                                charblock,
+								dirty,
+								children,
+								idtree,
+								char_nodes,
+								layouts,
                                 &Color::RGBA(color),
                                 text,
                                 text_style,
@@ -414,8 +422,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for CharBloc
 }
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    SingleCaseListener<'a, FontSheet, ModifyEvent> for CharBlockSys<L, C>
+impl<'a, C: HalContext + 'static>
+    SingleCaseListener<'a, FontSheet, ModifyEvent> for CharBlockSys<C>
 {
     type ReadData = ();
     type WriteData = ();
@@ -424,8 +432,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C>
 {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
@@ -434,11 +442,12 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<L: FlexNode + 'static, C: HalContext + 'static> CharBlockSys<L, C> {
+impl<C: HalContext + 'static> CharBlockSys<C> {
     #[inline]
     pub fn new(engine: &mut Engine<C>, texture_size: (usize, usize)) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
-        canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		// canvas_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         let canvas_bs = engine.create_bs_res(canvas_bs);
 
         let mut msdf_bs = BlendStateDesc::default();
@@ -758,9 +767,13 @@ fn set_canvas_default_stroke(
 
 // 返回position， uv， color， index
 #[inline]
-fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
-    dirty: usize,
-    char_block: &CharBlock<L>,
+fn create_geo<C: HalContext + 'static>(
+	dirty: usize,
+	children: &NodeList,
+	idtree: &SingleCaseImpl<IdTree>,
+	char_nodes: &MultiCaseImpl<Node, CharNode>,
+	layouts: &MultiCaseImpl<Node, LayoutR>,
+    // char_block: &CharBlock<L>,
     color: &Color,
     text: &TextContent,
     text_style: &TextStyle,
@@ -796,7 +809,10 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
 
         // 缓存中不存在 对应的geo， 创建geo并缓存
         get_geo_flow(
-            char_block,
+			children,
+			idtree,
+			char_nodes,
+			layouts,
             color,
             font_sheet,
             engine,
@@ -807,7 +823,10 @@ fn create_geo<L: FlexNode + 'static, C: HalContext + 'static>(
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
         get_geo_flow(
-            char_block,
+			children,
+			idtree,
+			char_nodes,
+			layouts,
             color,
             font_sheet,
             engine,
@@ -862,8 +881,11 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
 
 // 返回position， uv， color， index
 #[inline]
-fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
-    char_block: &CharBlock<L>,
+fn get_geo_flow<C: HalContext + 'static>(
+	children: &NodeList,
+	idtree: &SingleCaseImpl<IdTree>,
+	char_nodes: &MultiCaseImpl<Node, CharNode>,
+	layouts: &MultiCaseImpl<Node, LayoutR>,
     color: &Color,
     font_sheet: &FontSheet,
     engine: &mut Engine<C>,
@@ -871,12 +893,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
     index_buffer: &Share<BufferRes>,
     index_buffer_max_len: &mut usize,
 ) -> Option<Share<GeometryRes>> {
-    let len = char_block.chars.len();
-    let mut positions: Vec<f32> = Vec::with_capacity(8 * len);
-    let mut uvs: Vec<f32> = Vec::with_capacity(8 * len);
+    let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
+    let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
     // let font_height = char_block.font_height;
     let mut i = 0;
-    let offset = (char_block.pos.x, char_block.pos.y);
     let mut size = 0;
 
     let geo = engine.create_geometry();
@@ -884,26 +904,40 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
         geo: geo,
         buffers: Vec::with_capacity(3),
     };
-
-    if len > 0 {
+	
+    if children.len > 0 {
+		let mut pos: Vec<(f32, f32)> = vec![(0.0, 0.0),(0.0, 0.0),(0.0, 0.0)];
+		let layer = idtree[children.head].layer();
         match color {
             Color::RGBA(_) => {
-                for c in char_block.chars.iter() {
+                for n in idtree.recursive_iter(children.head) {
+					let c = &char_nodes[n.0];
+					let layout = &layouts[n.0];
+					let cur_layer = idtree[n.0].layer();
+					// println!("n=============={:?}, ch:{:?}, cur_layer:{}, layer:{}", n, c.ch, cur_layer, layer);
+					if c.ch == char::from(0) {
+						let pre = pos[cur_layer - layer];
+						pos[cur_layer + 1 - layer] = (layout.rect.start + pre.0, layout.rect.top + pre.1);
+						continue;
+					}
                     if c.ch <= ' ' {
                         continue;
-                    }
+					}
+
                     let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
                         Some(r) => r.1.clone(),
                         None => continue,
-                    };
+					};
+					
+					let p = &pos[cur_layer - layer];
                     push_pos_uv(
                         &mut positions,
                         &mut uvs,
-                        &c.pos,
-                        &offset,
+						p.0 + layout.rect.start,
+						p.1 + layout.rect.top,
                         &glyph,
-                        c.width,
-                        char_block.font_height,
+						layout.rect.end - layout.rect.start,
+						layout.rect.bottom - layout.rect.top
                     );
                 }
                 // 更新buffer
@@ -927,19 +961,19 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
             }
             Color::LinearGradient(color) => {
                 let mut colors = vec![Vec::new()];
-                let mut indices = Vec::with_capacity(6 * len);
-                let (start, end) = cal_all_size(char_block, font_sheet); // 渐变范围
+                let mut indices = Vec::with_capacity(6 * children.len);
+                let (start, end) = cal_all_size(children, idtree, char_nodes, layouts, font_sheet); // 渐变范围
                                                                          //渐变端点
                 let endp = find_lg_endp(
                     &[
                         start.x,
-                        start.y + offset.1,
+                        start.y,
                         start.x,
-                        end.y + offset.1,
+                        end.y,
                         end.x,
-                        end.y + offset.1,
+                        end.y,
                         end.x,
-                        start.y + offset.1,
+                        start.y,
                     ],
                     color.direction,
                 );
@@ -955,7 +989,16 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                     data: lg_color,
                 }];
 
-                for c in char_block.chars.iter() {
+                for n in idtree.recursive_iter(children.head) {
+					// println!("n1=============={:?}, ch:{:?}, cur_layer:{}, layer:{}", n, c.ch, cur_layer, layer);
+					let c = &char_nodes[n.0];
+					let layout = &layouts[n.0];
+					let cur_layer = idtree[n.0].layer();
+					if c.ch == char::from(0) {
+						let pre = pos[cur_layer - layer];
+						pos[cur_layer + 1 - layer] = (layout.rect.start + pre.0, layout.rect.top + pre.1);
+						continue;
+					}
                     if c.ch <= ' ' {
                         continue;
                     }
@@ -964,14 +1007,15 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         None => continue,
                     };
 
+					let p = &pos[cur_layer - layer];
                     push_pos_uv(
                         &mut positions,
                         &mut uvs,
-                        &c.pos,
-                        &offset,
+						p.0 + layout.rect.start,
+						p.1 + layout.rect.top,
                         &glyph,
-                        c.width,
-                        char_block.font_height,
+						layout.rect.end - layout.rect.start,
+						layout.rect.bottom - layout.rect.top
                     );
 
                     let (ps, indices_arr) = split_by_lg(
@@ -1064,47 +1108,39 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
 }
 
 #[inline]
-fn cal_all_size<L: FlexNode + 'static>(
-    char_block: &CharBlock<L>,
-    font_sheet: &FontSheet,
+fn cal_all_size<>(
+	children: &NodeList,
+	idtree: &SingleCaseImpl<IdTree>,
+	char_nodes: &MultiCaseImpl<Node, CharNode>,
+	layouts: &MultiCaseImpl<Node, LayoutR>,
+    _font_sheet: &FontSheet,
 ) -> (Point2, Point2) {
-    let mut start = Point2::new(0.0, 0.0);
-    let mut end = Point2::new(0.0, 0.0);
-    let mut j = 0;
-    for i in 0..char_block.chars.len() {
-        let c = &char_block.chars[i];
-        let pos = &c.pos;
-        if c.ch <= ' ' {
-            continue;
-        }
-        let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
-            Some(r) => r.1.clone(),
-            None => continue,
-        };
-        start = Point2::new(pos.x + glyph.ox, pos.y + glyph.oy);
-        end = Point2::new(start.x + c.width, start.y + char_block.font_height);
-        j += 1;
-        break;
-    }
-    for i in j..char_block.chars.len() {
-        let ch = &char_block.chars[i];
-        let pos = &ch.pos;
+    let mut start = Point2::new(std::f32::MAX, std::f32::MAX);
+    let mut end = Point2::new(std::f32::MIN, std::f32::MIN);
 
-        if pos.x < start.x {
-            start.x = pos.x;
+	if children.len == 0 {
+		return (Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+	}
+
+    for n in idtree.iter(children.head) {
+		let ch = &char_nodes[n.0];
+		let layout = &layouts[n.0];
+
+        if layout.rect.start < start.x {
+            start.x = layout.rect.start;
         }
-        let end_x = pos.x + ch.width;
+        let end_x = layout.rect.start + ch.width;
         if end_x > end.x {
             end.x = end_x;
         }
-        if pos.y < start.y {
-            start.y = pos.y;
+        if layout.rect.top < start.y {
+            start.y = layout.rect.top;
         }
-        let end_y = char_block.font_height;
+        let end_y = layout.rect.bottom - layout.rect.top;
         if end_y > end.y {
             end.y = end_y;
-        }
-    }
+		}
+	}
     (start, end)
 }
 
@@ -1168,21 +1204,25 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize) {
 fn push_pos_uv(
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
-    pos: &Point2,
-    offset: &(f32, f32),
+	x: f32,
+	mut y: f32,
     glyph: &Glyph,
-    width: f32,
-    _font_height: f32,
+	width: f32,
+	height: f32,
 ) {
-    let ratio = width / glyph.advance;
+	let ratio = width / glyph.advance;
+	// height为行高， 当行高高于字体高度时，需要居中
+	y += (height - ratio * glyph.height)/2.0;
     let left_top = (
-        pos.x + offset.0 + ratio * glyph.ox,
-        pos.y + offset.1 + glyph.oy * ratio,
+        x + ratio * glyph.ox,
+        y  + glyph.oy * ratio,
     );
     let right_bootom = (
         left_top.0 + glyph.width * ratio,
         left_top.1 + glyph.height * ratio,
-    );
+	);
+
+	// println!("glyph==============glyph:{:?}, x: {}, y: {}, width:{}", glyph, x,y, width);
     let ps = [
         left_top.0,
         left_top.1,
@@ -1217,7 +1257,7 @@ fn create_index_buffer(count: usize) -> Vec<u16> {
 }
 
 impl_system! {
-    CharBlockSys<L, C> where [L: FlexNode + 'static, C: HalContext + 'static],
+    CharBlockSys<C> where [C: HalContext + 'static],
     true,
     {
         SingleCaseListener<FontSheet, ModifyEvent>

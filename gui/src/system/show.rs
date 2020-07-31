@@ -1,4 +1,4 @@
-use ecs::idtree::IdTree;
+use single::IdTree;
 /**
  *  计算show
  *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
@@ -7,6 +7,7 @@ use ecs::{
     CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener,
     SingleCaseImpl, SingleCaseListener,
 };
+use flex_layout::Display;
 
 use component::calc::{
     Enable as CEnable, EnableWrite as CEnableWrite, Visibility as CVisibility,
@@ -28,10 +29,10 @@ impl ShowSys {
     ) {
         let parent_id = match idtree.get(id) {
             Some(node) => {
-                if node.layer == 0 {
+                if node.layer() == 0 {
                     return;
                 }
-                node.parent
+                node.parent()
             }
             None => return,
         };
@@ -96,6 +97,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys {
         &'a mut MultiCaseImpl<Node, CEnable>,
     );
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+		println!("idtree delete====================={}", event.id);
         cancel_visibility(event.id, read, write.0);
         cancel_enable(event.id, read, write.1);
     }
@@ -106,12 +108,15 @@ fn cancel_visibility(
     id_tree: &SingleCaseImpl<IdTree>,
     visibility: &mut MultiCaseImpl<Node, CVisibility>,
 ) {
-    let mut write = visibility.get_write(id).unwrap();
+    let mut write = match visibility.get_write(id) {
+		Some(r) => r,
+		None => return,
+	};
     if write.value.0 == false {
         return;
     }
     write.set_0(false);
-    let first = id_tree[id].children.head;
+    let first = id_tree[id].children().head;
     for child in id_tree.iter(first) {
         cancel_visibility(child.0, id_tree, visibility);
     }
@@ -123,12 +128,15 @@ fn cancel_enable(
     id_tree: &SingleCaseImpl<IdTree>,
     enable: &mut MultiCaseImpl<Node, CEnable>,
 ) {
-    let mut write = enable.get_write(id).unwrap();
+    let mut write = match enable.get_write(id){
+		Some(r) => r,
+		None => return,
+	};
     if write.value.0 == false {
         return;
     }
     write.set_0(false);
-    let first = id_tree[id].children.head;
+    let first = id_tree[id].children().head;
     for child in id_tree.iter(first) {
         cancel_enable(child.0, id_tree, enable);
     }
@@ -145,11 +153,7 @@ fn modify_show(
 ) {
     let show_value = match show.get(id) {
         Some(r) => r,
-        None => {
-            #[cfg(feature = "warning")]
-            println!("!!!!!!! get none: {}", id);
-            panic!("xxxxxxxxxxxxxxxxxxxxxxxxxx");
-        }
+        None => return,
     };
     let display_value = match show_value.get_display() {
         Display::Flex => true,
@@ -175,7 +179,7 @@ fn modify_show(
     visibility_write.set_0(c_visibility);
     enable_write.set_0(c_enable);
 
-    let first = id_tree[id].children.head;
+    let first = id_tree[id].children().head;
     for child_id in id_tree.iter(first) {
         modify_show(
             c_visibility,
@@ -213,7 +217,7 @@ fn test() {
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = LendMut::lend_mut(&idtree);
-    let notify = idtree.get_notify();
+    // let notify = idtree.get_notify();
     let shows = world.fetch_multi::<Node, Show>().unwrap();
     let shows = LendMut::lend_mut(&shows);
     let cvisibilitys = world.fetch_multi::<Node, CVisibility>().unwrap();
@@ -224,7 +228,7 @@ fn test() {
     let e0 = world.create_entity::<Node>();
 
     idtree.create(e0);
-    idtree.insert_child(e0, 0, 0, Some(&notify)); //根
+    idtree.insert_child(e0, 0, 0); //根
     shows.insert(e0, Show::default());
 
     world.run(&Atom::from("test_show_sys"));
@@ -233,39 +237,39 @@ fn test() {
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
     idtree.create(e00);
-    idtree.insert_child(e00, e0, 1, Some(&notify));
+    idtree.insert_child(e00, e0, 1);
     shows.insert(e00, Show::default());
     idtree.create(e01);
-    idtree.insert_child(e01, e0, 2, Some(&notify));
+    idtree.insert_child(e01, e0, 2);
     shows.insert(e01, Show::default());
     idtree.create(e02);
-    idtree.insert_child(e02, e0, 3, Some(&notify));
+    idtree.insert_child(e02, e0, 3);
     shows.insert(e02, Show::default());
 
     let e000 = world.create_entity::<Node>();
     let e001 = world.create_entity::<Node>();
     let e002 = world.create_entity::<Node>();
     idtree.create(e000);
-    idtree.insert_child(e000, e00, 1, Some(&notify));
+    idtree.insert_child(e000, e00, 1);
     shows.insert(e000, Show::default());
     idtree.create(e001);
-    idtree.insert_child(e001, e00, 2, Some(&notify));
+    idtree.insert_child(e001, e00, 2);
     shows.insert(e001, Show::default());
     idtree.create(e002);
-    idtree.insert_child(e002, e00, 3, Some(&notify));
+    idtree.insert_child(e002, e00, 3);
     shows.insert(e002, Show::default());
 
     let e010 = world.create_entity::<Node>();
     let e011 = world.create_entity::<Node>();
     let e012 = world.create_entity::<Node>();
     idtree.create(e010);
-    idtree.insert_child(e010, e01, 1, Some(&notify));
+    idtree.insert_child(e010, e01, 1);
     shows.insert(e010, Show::default());
     idtree.create(e011);
-    idtree.insert_child(e011, e01, 2, Some(&notify));
+    idtree.insert_child(e011, e01, 2);
     shows.insert(e011, Show::default());
     idtree.create(e012);
-    idtree.insert_child(e012, e01, 3, Some(&notify));
+    idtree.insert_child(e012, e01, 3);
     shows.insert(e012, Show::default());
     world.run(&Atom::from("test_show_sys"));
 

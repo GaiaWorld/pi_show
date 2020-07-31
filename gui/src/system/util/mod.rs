@@ -12,7 +12,7 @@ use ecs::{MultiCaseImpl, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 
-use component::calc::*;
+use component::{calc::*, calc::LayoutR};
 use component::user::*;
 use entity::Node;
 use render::engine::Engine;
@@ -29,7 +29,7 @@ pub fn cal_matrix(
     id: usize,
     world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
     transforms: &MultiCaseImpl<Node, Transform>,
-    layouts: &MultiCaseImpl<Node, Layout>,
+    layouts: &MultiCaseImpl<Node, LayoutR>,
     transform: &Transform,
 ) -> Matrix4 {
     let world_matrix = &world_matrixs[id];
@@ -39,8 +39,7 @@ pub fn cal_matrix(
         None => transform,
     };
 
-	let origin = transform.origin.to_value(layout.width, layout.height);
-	println!("cal_matrix=================id: {}, origin:{:?}, layout:{:?}, world_matrix:{:?}", id, origin, layout, world_matrix);
+	let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
 
     if origin.x != 0.0 || origin.y != 0.0 {
         return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
@@ -58,16 +57,16 @@ pub trait DefinesClip {
     fn get_clip(&self) -> bool;
 }
 
-pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &Layout) -> Point2 {
+pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> Point2 {
     match border_radius {
         Some(border_radius) => Point2 {
             x: match border_radius.x {
                 LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * layout.width,
+                LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
             },
             y: match border_radius.y {
                 LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * layout.height,
+                LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
             },
         },
         None => Point2::new(0.0, 0.0),
@@ -113,19 +112,19 @@ pub fn f32_3_hash(x: f32, y: f32, z: f32) -> u64 {
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
 pub fn create_unit_matrix_by_layout(
-    layout: &Layout,
+    layout: &LayoutR,
     matrix: &WorldMatrix,
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
-    let width = layout.width - layout.border_left - layout.border_right;
-    let height = layout.height - layout.border_top - layout.border_bottom;
+    let width = layout.rect.end - layout.rect.start - layout.border.start - layout.border.end;
+    let height = layout.rect.bottom - layout.rect.top - layout.border.top - layout.border.bottom;
 
     create_unit_offset_matrix(
         width,
         height,
-        layout.border_left,
-        layout.border_top,
+        layout.border.start,
+        layout.border.top,
         layout,
         matrix,
         transform,
@@ -139,13 +138,13 @@ pub fn create_unit_offset_matrix(
     height: f32,
     h: f32,
     v: f32,
-    layout: &Layout,
+    layout: &LayoutR,
     matrix: &WorldMatrix,
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
     let depth = -depth / (Z_MAX + 1.0);
-    let origin = transform.origin.to_value(layout.width, layout.height);
+    let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
 
     let matrix = matrix
         * WorldMatrix(
@@ -178,7 +177,7 @@ pub fn create_unit_offset_matrix(
 // 将矩阵变换到布局框的左上角, 并偏移一定距离
 #[inline]
 pub fn create_let_top_offset_matrix(
-    layout: &Layout,
+    layout: &LayoutR,
     matrix: &WorldMatrix,
     transform: &Transform,
     h: f32,
@@ -188,7 +187,7 @@ pub fn create_let_top_offset_matrix(
     let depth = -depth / (Z_MAX + 1.0);
     // let depth = depth1;
 
-    let origin = transform.origin.to_value(layout.width, layout.height);
+    let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32; 16] = matrix.as_ref();
         let mut arr = Vec::from(&slice[..]);
@@ -239,12 +238,12 @@ pub fn modify_matrix(
 }
 
 #[inline]
-pub fn geo_box(layout: &Layout) -> Aabb2 {
+pub fn geo_box(layout: &LayoutR) -> Aabb2 {
     Aabb2::new(
-        Point2::new(layout.border_left, layout.border_top),
+        Point2::new(layout.border.start, layout.border.top),
         Point2::new(
-            layout.width - layout.border_right,
-            layout.height - layout.border_bottom,
+            layout.rect.end - layout.rect.start - layout.border.end,
+            layout.rect.bottom - layout.rect.top - layout.border.bottom,
         ),
     )
 }
@@ -382,7 +381,7 @@ pub fn create_render_obj(
             context, depth_diff, is_opacity, vs_name, fs_name, paramter, state,
         ),
         Some(notify),
-    );
+	);
     render_map.insert(context, render_index);
     render_index
 }

@@ -9,7 +9,7 @@ use hal_core::*;
 use map::vecmap::VecMap;
 use polygon::*;
 
-use component::calc::Opacity;
+use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use entity::Node;
@@ -43,7 +43,7 @@ pub struct BorderColorSys<C: HalContext + 'static> {
 // 实现 Runner
 impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -89,7 +89,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                     self.remove_render_obj(*id, render_objs);
                     continue;
                 }
-            };
+			};
+			if style_mark.local_style & StyleType::BorderColor as usize == 0
+				&& style_mark.class_style & StyleType::BorderColor as usize == 0
+			{
+				self.remove_render_obj(*id, render_objs);
+				continue;
+			}
 
             let mut dirty = style_mark.dirty;
 
@@ -99,27 +105,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 边框颜色脏， 如果不存在BorderColor的本地样式和class样式(边框颜色被删除)， 删除渲染对象
-            let render_index = if dirty & StyleType::BorderColor as usize != 0 {
-                if style_mark.local_style & StyleType::BorderColor as usize == 0
-                    && style_mark.class_style & StyleType::BorderColor as usize == 0
-                {
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                } else {
-                    match self.render_map.get_mut(*id) {
-                        Some(r) => *r,
-                        None => {
-                            dirty |= DIRTY_TY;
-                            self.create_render_obj(*id, render_objs, default_state)
-                        }
-                    }
-                }
-            } else {
-                match self.render_map.get_mut(*id) {
-                    Some(r) => *r,
-                    None => continue,
-                }
-            };
+            let render_index = match self.render_map.get_mut(*id) {
+				Some(r) => *r,
+				None => {
+					dirty |= DIRTY_TY;
+					self.create_render_obj(*id, render_objs, default_state)
+				}
+			};
 
             let color = &border_colors[*id].0;
             let render_obj = &mut render_objs[render_index];
@@ -249,7 +241,7 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
 #[inline]
 fn create_geo<C: HalContext + 'static>(
     radiu: Option<&BorderRadius>,
-    layout: &Layout,
+    layout: &LayoutR,
     engine: &mut Engine<C>,
 ) -> Share<GeometryRes> {
     let buffer = get_geo_flow(radiu, layout);
@@ -266,24 +258,26 @@ fn create_geo<C: HalContext + 'static>(
 
 #[inline]
 /// 取几何体的顶点流和属性流
-fn get_geo_flow(radiu: Option<&BorderRadius>, layout: &Layout) -> (Vec<f32>, Vec<u16>) {
+fn get_geo_flow(radiu: Option<&BorderRadius>, layout: &LayoutR) -> (Vec<f32>, Vec<u16>) {
     let radius = cal_border_radius(radiu, layout);
 
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
     if radius.x == 0.0 {
-        let border_start_x = layout.border_left;
-        let border_start_y = layout.border_top;
-        let border_end_x = layout.width - layout.border_right;
-        let border_end_y = layout.height - layout.border_bottom;
+        let border_start_x = layout.border.start;
+        let border_start_y = layout.border.top;
+        let border_end_x = width - layout.border.end;
+		let border_end_y = height - layout.border.bottom;
 
         (
             vec![
                 0.0,
                 0.0,
                 0.0,
-                layout.height,
-                layout.width,
-                layout.height,
-                layout.width,
+                height,
+                width,
+                height,
+                width,
                 0.0,
                 border_start_x,
                 border_start_y,
@@ -302,17 +296,14 @@ fn get_geo_flow(radiu: Option<&BorderRadius>, layout: &Layout) -> (Vec<f32>, Vec
         split_by_radius_border(
             0.0,
             0.0,
-            layout.width,
-            layout.height,
+            width,
+            height,
             radius.x,
-            layout.border_left,
+            layout.border.start,
             None,
         )
     }
 }
-
-unsafe impl<C: HalContext + 'static> Sync for BorderColorSys<C> {}
-unsafe impl<C: HalContext + 'static> Send for BorderColorSys<C> {}
 
 impl_system! {
     BorderColorSys<C> where [C: HalContext + 'static],

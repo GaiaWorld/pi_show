@@ -31,24 +31,30 @@
     <script src="shader/canvas_text.js"></script>
     <script src="shader/init.js"></script>
     <script>
-        var gui = create_gui(1000, 700);
+		var gui = create_gui(1000, 700);
+		window.__jsObj = "Arial";
+        Module._add_canvas_font(gui, 1.12);
+
+        window.__jsObj = "common"; //font_face_name
+        window.__jsObj1 = "Arial";
+        Module._add_font_face(gui, 0, 32, 500);
         render_fram();
 
-        var node1 = Module._create_node(gui);
-        Module._append_child(gui, node1, 1); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node1, 100.0);
-        Module._set_height(gui, node1, 100.0);
-        Module._set_overflow(gui, node1, true);
-        Module._set_background_rgba_color(gui, node1, 1.0, 0.0, 0.0, 1.0);
-        // Module._set_border(gui, node1, YGEdgeAll, 10);
-        // Module._set_border_color(gui, node1, 1.0, 0.0, 0.0, 0.5);
+		console.log("add_node=========================");
+		var node = Module._create_node(gui);
+		// Module._set_width(gui, node, 100);
+		// Module._set_height(gui, node, 100);
+		Module._set_position_type(gui, node, 1);
+		Module._set_position(gui, node, YGEdgeLeft, 40);
+		Module._set_position(gui, node, YGEdgeBottom, 40);
+		Module._set_background_rgba_color(gui, node, 0.0, 0.0, 1.0, 1.0);
+		Module._append_child(gui, node, 1); // 接口已修改， node和parent顺序颠倒
 
-        var node2 = Module._create_node(gui);
-        Module._append_child(gui, node2, node1); // 接口已修改， node和parent顺序颠倒
-        Module._set_width(gui, node2, 200.0);
-        Module._set_height(gui, node2, 200.0);
-        // Module._set_overflow(gui, node2, true);
-        Module._set_background_rgba_color(gui, node2, 0.0, 1.0, 0.0, 1.0);
+		setTimeout(() => {
+			Module._set_width(gui, node, 100);
+			Module._set_height(gui, node, 100);
+		}, 2000);
+
     </script>
 </body>
 </html>

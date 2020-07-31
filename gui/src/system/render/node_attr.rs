@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 use share::Share;
 
 use atom::Atom;
-use ecs::idtree::IdTree;
+use single::IdTree;
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent, MultiCaseImpl,
     MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
@@ -206,18 +206,21 @@ fn recursive_set_view_matrix(
     node_render_map: &SingleCaseImpl<NodeRenderMap>,
     render_objs: &mut SingleCaseImpl<RenderObjs>,
 ) {
-    let obj_ids = &node_render_map[id];
+    let obj_ids = &match node_render_map.get(id) {
+		Some(r) => r,
+		None => return,
+	};
     for id in obj_ids.iter() {
         let render_obj = &mut render_objs[*id];
         render_obj.paramter.set_value("viewMatrix", ubo.clone());
         *modify = true;
     }
 
-    let first = idtree[id].children.head;
+    let first = idtree[id].children().head;
     for (child_id, _child) in idtree.iter(first) {
         if let Some(_) = transform_will_change_matrixs.get(child_id) {
             continue;
-        }
+		}
         recursive_set_view_matrix(
             child_id,
             modify,

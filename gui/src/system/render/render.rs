@@ -12,7 +12,6 @@ use hal_core::*;
 
 use render::engine::ShareEngine;
 use single::{RenderBegin, RenderObj, RenderObjs, Statistics};
-use DIRTY;
 
 pub struct RenderSys<C: HalContext + 'static> {
     program_dirtys: Vec<usize>,
@@ -44,7 +43,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
-        &'a mut SingleCaseImpl<Statistics>,
+		&'a mut SingleCaseImpl<Statistics>,
     );
     fn run(&mut self, render_begin: Self::ReadData, write: Self::WriteData) {
         let (render_objs, engine, statistics) = write;
@@ -205,7 +204,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, render_objs: Self::WriteData) {
         self.dirty = true;
-        unsafe { DIRTY = true };
         let obj = &mut render_objs[event.id];
         if obj.is_opacity == false {
             self.transparent_dirty = true;
@@ -222,7 +220,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, ModifyEvent
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
     fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, render_objs: Self::WriteData) {
         self.dirty = true;
-        unsafe { DIRTY = true };
         let obj = match render_objs.get_mut(event.id) {
             Some(r) => r,
             None => return, // obj可能不存在
@@ -263,7 +260,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
     type WriteData = ();
     fn listen(&mut self, event: &DeleteEvent, render_objs: Self::ReadData, _: Self::WriteData) {
         self.dirty = true;
-        unsafe { DIRTY = true };
         let obj = &render_objs[event.id];
         if obj.is_opacity == false {
             self.transparent_dirty = true;

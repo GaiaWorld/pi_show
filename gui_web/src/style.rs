@@ -8,7 +8,6 @@ use ecs::LendMut;
 use hash::XHashMap;
 
 use gui::component::user::*;
-use gui::layout::FlexNode;
 use gui::single::*;
 #[cfg(feature = "create_class_by_str")]
 use gui::single::style_parse::{parse_class_from_string};
@@ -321,14 +320,15 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
 #[no_mangle]
 #[js_export]
 pub fn set_display(world: u32, node: u32, value: u8) {
-    unsafe {
-        (&mut *(world as usize as *mut GuiWorld))
-            .gui
-            .yoga
-            .lend_mut()
-            .get_unchecked(node as usize)
-            .set_display(transmute(value))
-    };
+	unsafe {
+		let layouts = (&mut *(world as usize as *mut GuiWorld))
+				.gui
+				.other_layout_style
+				.lend_mut();
+		layouts[node as usize].display = transmute(value);
+		layouts.get_notify().modify_event(node as usize, "display", 0);
+	}
+
     let value = unsafe { transmute(value) };
     set_show!(world, node, set_display, value);
 }

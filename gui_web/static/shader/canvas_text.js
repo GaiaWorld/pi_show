@@ -203,7 +203,7 @@ let canvas_text_fs_code = `
     #endif
     
     vec4 sample = texture2D(texture, vUV);
-    c = sample.r * strokeColor + sample.g * c;
+    c = alpha * (sample.r * strokeColor + sample.g * c);
     // c.a = 1.0 - sample.b;
     c.a = clamp(sample.a - sample.b, 0.0, 1.0); // 应该 c.a = 1.0 - sample.b, 由于纹理坐标误差， 导致采样到纹理的空白处（rgba都为0）， 会看到一条黑线
     

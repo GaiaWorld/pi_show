@@ -13,6 +13,7 @@ use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
 use hal_core::*;
 use polygon::*;
+use component::calc::LayoutR;
 
 use component::calc::Opacity;
 use component::calc::*;
@@ -53,7 +54,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -257,7 +258,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 #[inline]
 fn create_rgba_geo<C: HalContext + 'static>(
     border_radius: Option<&BorderRadius>,
-    layout: &Layout,
+    layout: &LayoutR,
     unit_quad: &Share<GeometryRes>,
     engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>> {
@@ -271,7 +272,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
         return Some(unit_quad.clone());
     } else {
         let mut hasher = DefaultHasher::default();
-        radius_quad_hash(&mut hasher, radius.x, layout.width, layout.height);
+        radius_quad_hash(&mut hasher, radius.x, layout.border.end - layout.border.start, layout.border.bottom - layout.border.top);
         let hash = hasher.finish();
         match engine.geometry_res_map.get(&hash) {
             Some(r) => Some(r.clone()),
@@ -308,7 +309,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
 fn create_linear_gradient_geo<C: HalContext + 'static>(
     color: &LinearGradientColor,
     border_radius: Option<&BorderRadius>,
-    layout: &Layout,
+    layout: &LayoutR,
     engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>> {
     let radius = cal_border_radius(border_radius, layout);
@@ -368,16 +369,18 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
             }
 
+			let width = layout.rect.end - layout.rect.start;
+			let height = layout.rect.bottom - layout.rect.top;
             //渐变端点
             let endp = find_lg_endp(
                 &[
                     0.0,
                     0.0,
                     0.0,
-                    layout.height,
-                    layout.width,
-                    layout.height,
-                    layout.width,
+                    height,
+                    width,
+                    height,
+                    width,
                     0.0,
                 ],
                 color.direction,
@@ -403,7 +406,6 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
             );
             let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
-
             // 创建geo， 设置attribut
             Some(engine.create_geo_res(
                 hash,
@@ -432,7 +434,7 @@ fn modify_color<C: HalContext + 'static>(
     background_color: &BackgroundColor,
     engine: &mut Engine<C>,
     dirty: usize,
-    layout: &Layout,
+    layout: &LayoutR,
     unit_quad: &Share<GeometryRes>,
     border_radius: Option<&BorderRadius>,
 ) -> bool {
@@ -469,7 +471,8 @@ fn modify_color<C: HalContext + 'static>(
             if change
                 || dirty & StyleType::BorderRadius as usize != 0
                 || dirty & StyleType::Layout as usize != 0
-            {
+            {	
+
                 render_obj.geometry = create_linear_gradient_geo(c, border_radius, layout, engine);
             }
         }

@@ -577,3 +577,25 @@ pub fn split<'a>(s: &'a str, word_split: bool, merge_whitespace: bool) -> SplitC
         type_id: 0,
     }
 }
+
+#[test]
+fn test() {
+	let mut ret = Vec::with_capacity(300);
+
+	let s = "关于在线性复杂度内,判断线段是否在多边形内的做,已经描述得挺清楚了，不过因为这个题允许线段,和多边形的边重合，所以实际上还有不少细节需要讨论，这里就不细说了".to_string();
+
+	let time = std::time::Instant::now();
+	for _i in 0..20 {
+		for cr in split(s.as_str(), true, true) {
+			match cr {
+				// 存在WordStart， 表示开始一个多字符单词
+				SplitResult::Word(_c) => {
+					ret.push(_c);
+				},
+				_ => (),
+			}
+		}
+	}
+	println!("time==========={:?}", std::time::Instant::now() - time);
+	println!("ret==========={:?}, {}", ret, ret.len());
+}

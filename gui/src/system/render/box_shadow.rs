@@ -1,5 +1,5 @@
 use cg2d::{BooleanOperation, Point2, Polygon as Polygon2d};
-use component::calc::Opacity;
+use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
@@ -50,7 +50,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, Opacity>,
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
@@ -227,7 +227,7 @@ fn modify_matrix(
     depth: f32,
     world_matrix: &WorldMatrix,
     transform: &Transform,
-    layout: &Layout,
+    layout: &LayoutR,
 ) {
     let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
     render_obj.paramter.set_value(
@@ -244,7 +244,7 @@ fn color_is_opacity(opacity: f32, color: &CgColor, blur: f32) -> bool {
 fn create_shadow_geo<C: HalContext + 'static>(
     engine: &mut Engine<C>,
     render_obj: &mut RenderObj,
-    layout: &Layout,
+    layout: &LayoutR,
     shadow: &BoxShadow,
     border_radius: Option<&BorderRadius>,
 ) -> Option<Share<GeometryRes>> {

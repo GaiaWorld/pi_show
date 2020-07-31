@@ -3,11 +3,11 @@
 	*/
 
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
-use ecs::idtree::{ IdTree};
+use single::IdTree;
 use dirty::LayerDirty;
 
 use component::user::{ Transform };
-use component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix, Layout };
+use component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix, LayoutR };
 use single::DefaultTable;
 
 use component::user::*;
@@ -28,7 +28,7 @@ impl TransformWillChangeSys{
 	fn mark_dirty(&mut self, id: usize, style_marks: &mut MultiCaseImpl<Node, StyleMark>) {
 		self.dirty = true;
 		let mark = &mut style_marks[id];
-		mark.dirty1 |= StyleType1::TransformWillChange as usize;
+		mark.dirty_other |= StyleType1::TransformWillChange as usize;
 	}
 }
 
@@ -36,7 +36,7 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 	type ReadData = (
 		&'a SingleCaseImpl<DefaultTable>,
 		&'a SingleCaseImpl<IdTree>,
-		&'a MultiCaseImpl<Node, Layout>,
+		&'a MultiCaseImpl<Node, LayoutR>,
 		&'a MultiCaseImpl<Node, TransformWillChange>,
 		&'a MultiCaseImpl<Node, WorldMatrix>,
 		&'a MultiCaseImpl<Node, Transform>,
@@ -78,19 +78,19 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 
 			// 节点不在树上， 应该删除willchange标记
 			let node = &idtree[*id];
-			if node.layer == 0 {
+			if node.layer() == 0 {
 				deletes.push((*id, layer));
 				continue;
 			}
 
 			// TransformWillChange不脏
-			if style_mark.dirty1 | StyleType1::TransformWillChange as usize == 0 {
+			if style_mark.dirty_other | StyleType1::TransformWillChange as usize == 0 {
 				continue;
 			}
 
 			recursive_cal_matrix(
 				*id,
-				node.parent, 
+				node.parent(), 
 				count + 1, 
 				None, 
 				default_transform, 
@@ -115,9 +115,9 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, CreateEvent> for Trans
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
 	fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
-			if r.layer > 0 {
+			if r.layer() > 0 {
 				self.mark_dirty(event.id, style_marks);
-				self.will_change_mark.mark(event.id, r.layer);
+				self.will_change_mark.mark(event.id, r.layer());
 			}
 		} else {
 			self.create_will_change_count += 1;
@@ -130,7 +130,7 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, ModifyEvent> for Trans
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
 	fn listen(&mut self, event: &ModifyEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
-			if r.layer > 0 {
+			if r.layer() > 0 {
 				self.mark_dirty(event.id, style_marks);
 			}
 		}
@@ -143,7 +143,7 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, DeleteEvent> for Trans
 	type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChangeMatrix>;
 	fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, transform_will_change_matrix: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
-			self.will_change_mark.delete(event.id, r.layer);
+			self.will_change_mark.delete(event.id, r.layer());
 			if transform_will_change_matrix.get(event.id).is_some() {
 				transform_will_change_matrix.delete(event.id);
 			}
@@ -167,18 +167,18 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for TransformWillChangeSys{
 		let node = &idtree[event.id];
 		if let Some(_willchange) = willchanges.get_mut(event.id) {
 			self.mark_dirty(event.id, style_marks);
-			self.will_change_mark.mark(event.id, node.layer);
+			self.will_change_mark.mark(event.id, node.layer());
 			self.create_will_change_count -= 1;
 			if self.create_will_change_count == 0 {
 				return;
 			}
 		}
 
-		let first = node.children.head;
+		let first = node.children().head;
 		for (child_id, child) in idtree.recursive_iter(first) {
 			if let Some(_willchange) = willchanges.get_mut(child_id) {
 				self.mark_dirty(event.id, style_marks);
-				self.will_change_mark.mark(child_id, child.layer);
+				self.will_change_mark.mark(child_id, child.layer());
 				self.create_will_change_count -= 1;
 				if self.create_will_change_count == 0 {
 					break;
@@ -196,19 +196,21 @@ fn recursive_cal_matrix(
 	default_transform: &Transform,
 	idtree: &IdTree,
 	willchange:  &MultiCaseImpl<Node, TransformWillChange>,
-	layouts: &MultiCaseImpl<Node, Layout>,
+	layouts: &MultiCaseImpl<Node, LayoutR>,
 	world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
 	transforms: &MultiCaseImpl<Node, Transform>,
 	style_marks: &mut MultiCaseImpl<Node, StyleMark>,
 	transform_will_change_matrixs: &mut MultiCaseImpl<Node, TransformWillChangeMatrix>,
 ){  
 	let mut parent_will_change_matrix = parent_will_change_matrix;
-	style_marks[id].dirty1 &= !(StyleType1::TransformWillChange as usize);
+	style_marks[id].dirty_other &= !(StyleType1::TransformWillChange as usize);
 	match willchange.get(id) {
 		Some(transform_value) => {
-			let layout_value = &layouts[id];
+			let layout = &layouts[id];
+			let width = layout.rect.end - layout.rect.start;
+			let height = layout.rect.bottom - layout.rect.top;
 			let p_matrix = if parent == 0 {
-				WorldMatrix(Matrix4::from_translation(Vector3::new(layout_value.left, layout_value.top, 0.0)), false)
+				WorldMatrix(Matrix4::from_translation(Vector3::new(layout.rect.start, layout.rect.top, 0.0)), false)
 			} else {
 				let parent_layout = &layouts[parent];
 				let parent_world_matrix = &world_matrixs[parent];
@@ -216,12 +218,12 @@ fn recursive_cal_matrix(
 					Some(r) => r,
 					None => default_transform,
 				};
-				let parent_transform_origin = parent_transform.origin.to_value(parent_layout.width, parent_layout.height);
-				let offset = get_lefttop_offset(&layout_value, &parent_transform_origin, &parent_layout);
-				parent_world_matrix * default_transform.matrix(layout_value.width, layout_value.height, &offset)
+				let parent_transform_origin = parent_transform.origin.to_value(parent_layout.rect.end - parent_layout.rect.start, parent_layout.rect.bottom - parent_layout.rect.top);
+				let offset = get_lefttop_offset(&layout, &parent_transform_origin, &parent_layout);
+				parent_world_matrix * default_transform.matrix(width, height, &offset)
 			};
 
-			let transform_will_change_matrix = transform_value.0.matrix(layout_value.width, layout_value.height, &Point2::new(-layout_value.width/2.0, -layout_value.height/2.0));
+			let transform_will_change_matrix = transform_value.0.matrix(width, height, &Point2::new(-width/2.0, -height/2.0));
 			let invert = p_matrix.invert().unwrap();
 			let mut will_change_matrix = p_matrix * transform_will_change_matrix * invert;
 			if let Some(parent_will_change_matrix) = parent_will_change_matrix {
@@ -235,7 +237,7 @@ fn recursive_cal_matrix(
 		None => ()
 	};
 
-	let first = idtree[id].children.head;
+	let first = idtree[id].children().head;
 	for (child_id, _child) in idtree.iter(first) {
 		if count == 0 {
 			break;
@@ -258,13 +260,13 @@ fn recursive_cal_matrix(
 
 
 #[inline]
-fn get_lefttop_offset(layout: &Layout, parent_origin: &Point2, _parent_layout: &Layout) -> Point2{
+fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &LayoutR) -> Point2{
 	Point2::new(
 		// layout.left - parent_origin.x + parent_layout.border_left + parent_layout.padding_left,
 		// layout.top - parent_origin.y + parent_layout.border_top + parent_layout.padding_top
 		// 当设置宽高为auto时 可能存在bug
-		layout.left - parent_origin.x,
-		layout.top - parent_origin.y
+		parent_layout.border.start + parent_layout.padding.start + layout.rect.start - parent_origin.x,
+		parent_layout.border.top + parent_layout.padding.top + layout.rect.top - parent_origin.y
 	)  
 }
 

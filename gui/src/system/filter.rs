@@ -1,4 +1,4 @@
-use ecs::idtree::IdTree;
+use single::IdTree;
 /**
  * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
  */
@@ -58,8 +58,8 @@ fn cal_hsv(
 ) {
     let parent_id = match idtree.get(id) {
         Some(node) => {
-            if node.layer != 0 {
-                node.parent
+            if node.layer() != 0 {
+                node.parent()
             } else {
                 return;
             }
@@ -68,7 +68,7 @@ fn cal_hsv(
     };
     let hsv = match hsvs.get(parent_id) {
         Some(hsv) => hsv.clone(),
-        None => HSV::default(),
+        None => return,
     };
 
     recursive_cal_hsv(id, idtree, &hsv, filters, hsvs)
@@ -102,7 +102,7 @@ fn recursive_cal_hsv(
             parent_hsv.clone()
         }
     };
-    let first = idtree[id].children.head;
+    let first = idtree[id].children().head;
     for child_id in idtree.iter(first) {
         recursive_cal_hsv(child_id.0, idtree, &hsv, filters, hsvs);
     }
@@ -159,7 +159,7 @@ fn test() {
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = LendMut::lend_mut(&idtree);
-    let notify = idtree.get_notify();
+    // let notify = idtree.get_notify();
     let filters = world.fetch_multi::<Node, Filter>().unwrap();
     let filters = LendMut::lend_mut(&filters);
     let hsvs = world.fetch_multi::<Node, HSV>().unwrap();
@@ -168,7 +168,7 @@ fn test() {
     let e0 = world.create_entity::<Node>();
 
     idtree.create(e0);
-    idtree.insert_child(e0, 0, 0, Some(&notify)); //根
+    idtree.insert_child(e0, 0, 0); //根
     let filter = Filter {
         hue_rotate: 380.0,
         bright_ness: 0.5,
@@ -182,36 +182,36 @@ fn test() {
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
     idtree.create(e00);
-    idtree.insert_child(e00, e0, 1, Some(&notify));
+    idtree.insert_child(e00, e0, 1);
     filters.insert(e00, filter.clone());
     idtree.create(e01);
-    idtree.insert_child(e01, e0, 2, Some(&notify));
+    idtree.insert_child(e01, e0, 2);
     filters.insert(e01, filter.clone());
     idtree.create(e02);
-    idtree.insert_child(e02, e0, 3, Some(&notify));
+    idtree.insert_child(e02, e0, 3);
     filters.insert(e02, filter.clone());
 
     let e000 = world.create_entity::<Node>();
     let e001 = world.create_entity::<Node>();
     let e002 = world.create_entity::<Node>();
     idtree.create(e000);
-    idtree.insert_child(e000, e00, 1, Some(&notify));
+    idtree.insert_child(e000, e00, 1);
     idtree.create(e001);
-    idtree.insert_child(e001, e00, 2, Some(&notify));
+    idtree.insert_child(e001, e00, 2);
     idtree.create(e002);
-    idtree.insert_child(e002, e00, 3, Some(&notify));
+    idtree.insert_child(e002, e00, 3);
 
     let e010 = world.create_entity::<Node>();
     let e011 = world.create_entity::<Node>();
     let e012 = world.create_entity::<Node>();
     idtree.create(e010);
-    idtree.insert_child(e010, e01, 1, Some(&notify));
+    idtree.insert_child(e010, e01, 1);
     filters.insert(e010, Filter::default());
     idtree.create(e011);
-    idtree.insert_child(e011, e01, 2, Some(&notify));
+    idtree.insert_child(e011, e01, 2);
     filters.insert(e011, Filter::default());
     idtree.create(e012);
-    idtree.insert_child(e012, e01, 3, Some(&notify));
+    idtree.insert_child(e012, e01, 3);
     filters.insert(e012, Filter::default());
     world.run(&Atom::from("test_opacity_sys"));
 

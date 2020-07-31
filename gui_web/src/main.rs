@@ -21,8 +21,6 @@ extern crate ecs;
 extern crate gui;
 extern crate lazy_static;
 extern crate paste;
-#[macro_use]
-extern crate ecs_derive;
 extern crate map;
 #[macro_use]
 extern crate debug_info;
@@ -38,6 +36,8 @@ extern crate octree;
 extern crate ordered_float;
 extern crate res;
 extern crate share;
+extern crate idtree;
+extern crate flex_layout;
 
 // use std::cell::RefCell;
 use std::mem::transmute;
@@ -47,12 +47,12 @@ use ordered_float::OrderedFloat;
 use stdweb::unstable::TryInto;
 use stdweb::Object;
 use webgl_rendering_context::WebGLRenderingContext;
+use flex_layout::{Size, Dimension, PositionType, Rect};
 
 use atom::Atom;
 use ecs::{Lend, LendMut};
 use gui::component::calc::Visibility;
 use gui::component::user::*;
-use gui::layout::{FlexNode, YGAlign};
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::render::res::TextureRes;
@@ -64,13 +64,13 @@ use hal_core::*;
 use hal_webgl::*;
 use share::Share;
 
-pub mod bc;
+// // pub mod bc;
 pub mod class;
 #[cfg(not(feature = "no_debug"))]
 pub mod debug;
 pub mod layout;
 pub mod node;
-pub mod reset_style;
+// // pub mod reset_style;
 #[cfg(not(feature = "no_define_js"))]
 pub mod rs_call_js;
 pub mod style;
@@ -79,14 +79,14 @@ pub mod transform;
 pub mod world;
 pub mod yoga;
 
-use bc::YgNode;
+// use bc::YgNode;
 use node::define_set_class;
 #[cfg(not(feature = "no_define_js"))]
 use rs_call_js::define_js;
 use text::DrawTextSys;
 
 pub struct GuiWorld {
-    pub gui: GuiWorld1<YgNode, WebglHalContext>,
+    pub gui: GuiWorld1<WebglHalContext>,
     pub draw_text_sys: DrawTextSys,
     pub default_text_style: TextStyle,
     pub default_attr: Class,
@@ -236,8 +236,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         0,
     );
 	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
-    let world = create_world::<YgNode, WebglHalContext>(engine, width, height, f, res, cur_time);
-    let world = GuiWorld1::<YgNode, WebglHalContext>::new(world);
+    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time);
+    let world = GuiWorld1::<WebglHalContext>::new(world);
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
     idtree.create(node);
@@ -254,19 +254,25 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
     let visibilitys = world.visibility.lend_mut();
     visibilitys.insert(node, Visibility(true));
 
-    let ygnode = world.yoga.lend_mut();
-    let ygnode = unsafe { ygnode.get_unchecked_mut(node) };
+	let rect_layout_styles = world.rect_layout_style.lend_mut();
+	let other_layout_styles = world.other_layout_style.lend_mut();
+	let rect_layout_style = &mut rect_layout_styles[node];
+	let other_layout_style = &mut other_layout_styles[node];
 
     // let config = YgConfig::new();
     // config.set_point_scale_factor(0.0);
     // let ygnode1 = YgNode::new_with_config(config);
-    // let ygnode1 = YgNode::default();
-    ygnode.set_width(width);
-    ygnode.set_height(height);
-    ygnode.set_align_items(YGAlign::YGAlignFlexStart);
+	// let ygnode1 = YgNode::default();
+	rect_layout_style.size = Size{width: Dimension::Points(width), height: Dimension::Points(height)};
+	other_layout_style.position_type = PositionType::Absolute;
+	other_layout_style.position = Rect::default();
+	rect_layout_styles.get_notify().modify_event(node, "width", 0);
+	other_layout_styles.get_notify().modify_event(node, "position_type", 0);
+	// ygnode.align_items = AlignItems::FlexStart;
+    // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
 
-    idtree.insert_child(node, 0, 0, None);
+    idtree.insert_child(node, 0, 0);
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
@@ -380,7 +386,7 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
         notify.modify_event(node_id as usize, "", 0);
     }
 
-    for (id, _n) in idtree.recursive_iter(node.children.head) {
+    for (id, _n) in idtree.recursive_iter(node.children().head) {
         if let Some(_r) = text_contents.get(id) {
             notify.modify_event(id, "", 0);
         }

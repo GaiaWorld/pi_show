@@ -10,24 +10,42 @@ use share::Share;
 use hal_core::*;
 
 use super::user::*;
-use layout::FlexNode;
+// use layout::FlexNode;
 use res::Res;
+use flex_layout::*;
 
-// 布局计算结果
-#[derive(Clone, Debug, Default, Component, PartialEq)]
-pub struct Layout {
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-    pub height: f32,
-    pub border_left: f32,
-    pub border_top: f32,
-    pub border_right: f32,
-    pub border_bottom: f32,
-    pub padding_left: f32,
-    pub padding_top: f32,
-    pub padding_right: f32,
-    pub padding_bottom: f32,
+// // 布局计算结果
+// #[derive(Clone, Debug, Default, Component, PartialEq)]
+// pub struct Layout {
+//     pub left: f32,
+//     pub top: f32,
+//     pub width: f32,
+//     pub height: f32,
+//     pub border_left: f32,
+//     pub border_top: f32,
+//     pub border_right: f32,
+//     pub border_bottom: f32,
+//     pub padding_left: f32,
+//     pub padding_top: f32,
+//     pub padding_right: f32,
+//     pub padding_bottom: f32,
+// }
+
+#[derive(Clone, Debug, Component, PartialEq)]
+pub struct LayoutR {
+    pub rect: Rect<f32>,
+    pub border: Rect<f32>,
+    pub padding: Rect<f32>,
+}
+
+impl Default for LayoutR {
+	fn default() -> LayoutR {
+		LayoutR{ 
+			rect: Rect{start: 0.0, end: 0.0, top: 0.0, bottom: 0.0},
+			border: Rect{start: 0.0, end: 0.0, top: 0.0, bottom: 0.0},
+			padding: Rect{start: 0.0, end: 0.0, top: 0.0, bottom: 0.0},
+		}
+	}
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
@@ -138,49 +156,62 @@ pub enum StyleType1 {
     ZIndex = 0x800000,
     Transform = 0x1000000,
     TransformWillChange = 0x2000000,
-    Overflow = 0x4000000,
+	Overflow = 0x4000000,
+	
+	Create = 0x8000000,
+	Delete = 0x10000000,
 }
 
 // 样式标记
 #[derive(Component, Debug, Clone, Copy, Default)]
 pub struct StyleMark {
     pub dirty: usize, // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
-    pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType1::Height as usize 表示Width和Height脏了
+	pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType1::Height as usize 表示Width和Height脏了
+	pub dirty_other: usize, // 其它脏， 仅标记，不会记入脏列表
     pub local_style: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
     pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
-
-// 字符块， 一个文字节点的计算结果， 包含节点中每字符的位置信息等
-#[derive(Component, Debug)]
-pub struct CharBlock<L: FlexNode + 'static> {
-    pub old_position: (f32, f32),
-    pub font_size: f32,    // 字体高度
-    pub font_height: f32,  // 字体高度
-    pub stroke_width: f32, //描边宽度
-    pub line_height: f32,
-    pub chars: Vec<CharNode<L>>,         // 字符集合
-    pub lines: Vec<(usize, usize, f32)>, // 不折行下的每行的起始字符位置、单词数量和总宽度。 自动折行不会影响该值
-    pub last_line: (usize, usize, f32),  // 最后一行的起始字符位置、单词数量和总宽度
-    pub size: Vector2,
-    pub wrap_size: Vector2,
-    pub pos: Point2,
-    pub line_count: usize,  // 行数，
-    pub fix_width: bool,    // 如果有字宽不等于font_size
-    pub style_class: usize, // 使用的那个样式类
-    pub is_pixel: bool,
+pub enum LayoutDirtyType {
+	Rect = 1, // 矩形区间发生改变时，设置脏
+	SelfStyle = 2, // 矩形区间发生改变时，设置脏
+	NormalStyle = 4, // 矩形区间发生改变时，设置脏
 }
 
+#[derive(Component, Clone, Default, Deref, DerefMut, Debug)]
+pub struct NodeState(pub INode);
+
+
+// // 字符块， 一个文字节点的计算结果， 包含节点中每字符的位置信息等
+// #[derive(Component, Debug)]
+// pub struct CharBlock<L: FlexNode + 'static> {
+//     pub old_position: (f32, f32),
+//     pub font_size: f32,    // 字体高度
+//     pub font_height: f32,  // 字体高度
+//     pub stroke_width: f32, //描边宽度
+//     pub line_height: f32,
+//     pub chars: Vec<CharNode<L>>,         // 字符集合
+//     pub lines: Vec<(usize, usize, f32)>, // 不折行下的每行的起始字符位置、单词数量和总宽度。 自动折行不会影响该值
+//     pub last_line: (usize, usize, f32),  // 最后一行的起始字符位置、单词数量和总宽度
+//     pub size: Vector2,
+//     pub wrap_size: Vector2,
+//     pub pos: Point2,
+//     pub line_count: usize,  // 行数，
+//     pub fix_width: bool,    // 如果有字宽不等于font_size
+//     pub style_class: usize, // 使用的那个样式类
+//     pub is_pixel: bool,
+// }
+
 // 字符节点， 对应一个字符的
-#[derive(Debug)]
-pub struct CharNode<L: FlexNode + 'static> {
+#[derive(Component, Debug, Clone, Default)]
+pub struct CharNode{
     pub ch: char,              // 字符
-    pub width: f32,            // 字符宽度
-    pub pos: Point2,           // 位置
+    // pub pos: Point2,           // 位置
     pub ch_id_or_count: usize, // 字符id或单词的字符数量
-    pub base_width: f32,       // font_size 为32 的字符宽度
-    pub node: L,               // 对应的yoga节点
+	pub base_width: f32,       // font_size 为32 的字符宽度
+	pub width: f32,
+    // pub node: L,               // 对应的yoga节点
 }
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变

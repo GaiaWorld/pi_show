@@ -10,11 +10,13 @@ use ordered_float::NotNan;
 
 use map::vecmap::VecMap;
 use share::Share;
+use util::vecmap_default::VecMapWithDefault;
 
 use atom::Atom;
 use component::calc::WorldMatrix;
 use ecs::component::Component;
 use render::res::TextureRes;
+use flex_layout::*;
 
 pub type Matrix4 = cgmath::Matrix4<f32>;
 pub type Point2 = cgmath::Point2<f32>;
@@ -25,6 +27,86 @@ pub type Vector4 = cgmath::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
+
+#[derive(Clone, Component, Serialize, Deserialize, Debug)]
+pub struct RectLayoutStyle {
+    pub margin: Rect<Dimension>,
+    pub size: Size<Dimension>,
+	pub line_start_margin: Number, // 行首的margin_start
+}
+
+impl Default for RectLayoutStyle {
+    fn default() -> RectLayoutStyle {
+        RectLayoutStyle {
+            margin: Default::default(),
+			size: Default::default(),
+			line_start_margin: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Component, Serialize, Deserialize, Debug)]
+#[storage(VecMapWithDefault)]
+pub struct OtherLayoutStyle{
+	pub display: Display,
+    pub position_type: PositionType,
+    pub direction: Direction,
+
+    pub flex_direction: FlexDirection,
+    pub flex_wrap: FlexWrap,
+    pub justify_content: JustifyContent,
+    pub align_items: AlignItems,
+    pub align_content: AlignContent,
+
+    pub order: isize,
+    pub flex_basis: Dimension,
+    pub flex_grow: f32,
+    pub flex_shrink: f32,
+    pub align_self: AlignSelf,
+
+    pub overflow: Overflow,
+    pub position: Rect<Dimension>,
+    pub padding: Rect<Dimension>,
+    pub border: Rect<Dimension>,
+    pub min_size: Size<Dimension>,
+    pub max_size: Size<Dimension>,
+	pub aspect_ratio: Number,
+}
+
+impl Default for OtherLayoutStyle {
+    fn default() -> OtherLayoutStyle {
+        OtherLayoutStyle {
+            display: Default::default(),
+            position_type: Default::default(),
+            direction: Default::default(),
+            flex_direction: Default::default(),
+            flex_wrap: Default::default(),
+            overflow: Default::default(),
+            align_items: Default::default(),
+            align_self: Default::default(),
+			// align_content: Default::default(),
+			align_content: AlignContent::FlexStart,
+            justify_content: Default::default(),
+            position: Rect{
+				start: Dimension::Undefined,
+				end: Dimension::Undefined,
+				top: Dimension::Undefined,
+				bottom: Dimension::Undefined,
+			},
+			// position:Default::default(),
+            padding: Default::default(),
+            border: Default::default(),
+            flex_grow: 0.0,
+            flex_shrink: 0.0,
+            order: 0,
+            flex_basis: Dimension::Auto,
+            min_size: Default::default(),
+            max_size: Default::default(),
+			aspect_ratio: Default::default(),
+        }
+    }
+}
+
 
 //================================== 组件
 #[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
@@ -195,11 +277,11 @@ pub enum LengthUnit {
     Percent(f32),
 }
 
-#[derive(Clone, Copy, Debug, EnumDefault, Serialize, Deserialize)]
-pub enum Display {
-    Flex,
-    None,
-}
+// #[derive(Clone, Copy, Debug, EnumDefault, Serialize, Deserialize)]
+// pub enum Display {
+//     Flex,
+//     None,
+// }
 
 #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum Color {
@@ -523,9 +605,13 @@ pub enum WhiteSpace {
 
 impl WhiteSpace {
     pub fn allow_wrap(&self) -> bool {
-        match *self {
-            WhiteSpace::Nowrap | WhiteSpace::Pre => false,
-            WhiteSpace::Normal | WhiteSpace::PreWrap | WhiteSpace::PreLine => true,
+        // match *self {
+        //     WhiteSpace::Nowrap | WhiteSpace::Pre => false,
+        //     WhiteSpace::Normal | WhiteSpace::PreWrap | WhiteSpace::PreLine => true,
+		// }
+		match *self {
+            WhiteSpace::Nowrap => false,
+            _ => true,
         }
     }
 

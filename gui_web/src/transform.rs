@@ -192,7 +192,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
                     return;
                 }
                 // TransformFunc::TranslateXPercent(x1) => {
-                //     *x1 += value/100.0;
+                //     *x1 += value;
                 //     return;
                 // },
                 _ => (),
@@ -288,11 +288,11 @@ pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y:
     let y_ty = unsafe { transmute(y_ty) };
     let x_value = match x_ty {
         LengthUnitType::Pixel => LengthUnit::Pixel(x),
-        LengthUnitType::Percent => LengthUnit::Percent(x / 100.0),
+        LengthUnitType::Percent => LengthUnit::Percent(x),
     };
     let y_value = match y_ty {
         LengthUnitType::Pixel => LengthUnit::Pixel(y),
-        LengthUnitType::Percent => LengthUnit::Percent(y / 100.0),
+        LengthUnitType::Percent => LengthUnit::Percent(y),
     };
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };

@@ -52,7 +52,7 @@ pub fn define_js() {
                 if (image_name.endsWith("png")) {
                     opacity = 1;
                 }
-                Module._load_image_success(gui, opacity, 0, r_type);
+                Module._load_image_success(gui, opacity, -1, r_type);
             };
             image.src = image_name;
         };

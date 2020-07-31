@@ -416,6 +416,59 @@ pub struct SystemTime {
 	pub cur_time: usize,
 }
 
+#[derive(Deref, DerefMut, Default)]
+pub struct IdTree(idtree::IdTree<usize>);
+
+impl IdTree {
+	pub fn insert_child_with_notify(&mut self, child: usize, parent:usize, index: usize, notify: &NotifyImpl) {
+		self.insert_child(child, parent, index);
+		let node = &self[child];
+		if node.layer() > 0 {
+			notify.create_event(child);
+		} else {
+			notify.modify_event(child, "add", 0);
+		}
+	}
+
+	pub fn insert_brother_with_notify(&mut self, child: usize, brother:usize, index: idtree::InsertType, notify: &NotifyImpl) {
+		self.insert_brother(child, brother, index);
+		let node = &self[child];
+		if node.layer() > 0 {
+			notify.create_event(child);
+		} else {
+			notify.modify_event(child, "add", 0);
+		}
+	}
+
+	pub fn remove_with_notify(&mut self, id: usize, notify: &NotifyImpl) {
+		let r = match self.get(id) {
+			Some(n) => {
+				if n.parent() == 0 && n.layer() == 0 {
+					return;
+				}
+				(n.parent(), n.layer(), n.count(), n.prev(), n.next(), n.children().head)
+			}
+			_ => return,
+		};
+		IdTree::notify_move(id, r.1, notify);
+		self.remove(id, r);
+	}
+	pub fn destroy(&mut self, id: usize) {
+		let r = match self.get(id) {
+			Some(n) => (n.parent(), n.layer(), n.count(), n.prev(), n.next(), n.children().head),
+			_ => return,
+		};
+		self.0.destroy(id, r, true);
+	}
+
+	fn notify_move(id: usize, layer: usize, notify: &NotifyImpl){
+		if layer > 0 {
+			notify.delete_event(id)
+		} else {
+			notify.modify_event(id, "remove", layer)
+		}
+	}
+}
 impl DefaultTable {
     pub fn new() -> Self {
         Self(XHashMap::default())

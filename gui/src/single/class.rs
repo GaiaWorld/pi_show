@@ -2,7 +2,7 @@ use atom::Atom;
 /**
  * 定义全局Class
 */
-use layout::*;
+use flex_layout::*;
 
 use hash::XHashMap;
 
@@ -41,13 +41,13 @@ impl ClassSheet {
 // 最小尺寸的style属性
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute1 {
-    PositionType(YGPositionType),
-    FlexWrap(YGWrap),
-    FlexDirection(YGFlexDirection),
-    AlignContent(YGAlign),
-    AlignItems(YGAlign),
-    AlignSelf(YGAlign),
-    JustifyContent(YGJustify),
+    PositionType(PositionType),
+    FlexWrap(FlexWrap),
+    FlexDirection(FlexDirection),
+    AlignContent(AlignContent),
+    AlignItems(AlignItems),
+    AlignSelf(AlignSelf),
+    JustifyContent(JustifyContent),
 
     ObjectFit(ObjectFit),
     TextAlign(TextAlign),
@@ -78,32 +78,32 @@ pub enum Attribute2 {
 
     FlexShrink(f32),
     FlexGrow(f32),
-    Width(ValueUnit),
-    Height(ValueUnit),
-    MarginLeft(ValueUnit),
-    MarginTop(ValueUnit),
-    MarginBottom(ValueUnit),
-    MarginRight(ValueUnit),
-    Margin(ValueUnit),
-    PaddingLeft(ValueUnit),
-    PaddingTop(ValueUnit),
-    PaddingBottom(ValueUnit),
-    PaddingRight(ValueUnit),
-    Padding(ValueUnit),
-    BorderLeft(ValueUnit),
-    BorderTop(ValueUnit),
-    BorderBottom(ValueUnit),
-    BorderRight(ValueUnit),
-    Border(ValueUnit),
-    MinWidth(ValueUnit),
-    MinHeight(ValueUnit),
-    MaxHeight(ValueUnit),
-    MaxWidth(ValueUnit),
-    FlexBasis(ValueUnit),
-    PositionLeft(ValueUnit),
-    PositionTop(ValueUnit),
-    PositionRight(ValueUnit),
-    PositionBottom(ValueUnit),
+    Width(Dimension),
+    Height(Dimension),
+    MarginLeft(Dimension),
+    MarginTop(Dimension),
+    MarginBottom(Dimension),
+    MarginRight(Dimension),
+    Margin(Dimension),
+    PaddingLeft(Dimension),
+    PaddingTop(Dimension),
+    PaddingBottom(Dimension),
+    PaddingRight(Dimension),
+    Padding(Dimension),
+    BorderLeft(Dimension),
+    BorderTop(Dimension),
+    BorderBottom(Dimension),
+    BorderRight(Dimension),
+    Border(Dimension),
+    MinWidth(Dimension),
+    MinHeight(Dimension),
+    MaxHeight(Dimension),
+    MaxWidth(Dimension),
+    FlexBasis(Dimension),
+    PositionLeft(Dimension),
+    PositionTop(Dimension),
+    PositionRight(Dimension),
+    PositionBottom(Dimension),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -127,10 +127,10 @@ pub enum Attribute3 {
     Filter(Filter),
 }
 
-#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
-pub enum ValueUnit {
-    Undefined,
-    Auto,
-    Pixel(f32),
-    Percent(f32),
-}
+// #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
+// pub enum Dimension {
+//     Undefined,
+//     Auto,
+//     Pixel(f32),
+//     Percent(f32),
+// }

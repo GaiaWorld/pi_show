@@ -7,21 +7,22 @@
 * StyleMarkSys系统监听ImageWaitSheet单例的修改， 将完成加载的图片设置在对应的Node组件上， 并标记样式脏
 */
 use std::marker::PhantomData;
-use std::mem::transmute;
+// use std::mem::transmute;
 use std::rc::Rc;
 
 use ecs::{
-    idtree::IdTree, CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent,
+    CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent,
     MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
 };
+use single::IdTree;
 use hal_core::*;
+use flex_layout::*;
 
-use component::calc::Opacity as COpacity;
+use component::calc::{Opacity as COpacity, LayoutR};
 use component::calc::*;
-use component::user::Opacity;
+use component::user::{Opacity, Overflow};
 use component::user::*;
 use entity::Node;
-use layout::*;
 use render::engine::{Engine, ShareEngine};
 use render::res::TextureRes;
 use single::class::*;
@@ -64,9 +65,14 @@ const IMAGE_DIRTY: usize =
 const BORDER_IMAGE_DIRTY: usize = StyleType::BorderImage as usize
     | StyleType::BorderImageClip as usize
     | StyleType::BorderImageSlice as usize
-    | StyleType::BorderImageRepeat as usize;
+	| StyleType::BorderImageRepeat as usize;
+
+	// 布局脏
+const LAYOUT_RECT_DIRTY: usize = StyleType1::Width as usize
+| StyleType1::Height as usize
+| StyleType1::Margin as usize;
 // 布局脏
-const LAYOUT_DIRTY: usize = StyleType1::Width as usize
+const LAYOUT_OTHER_DIRTY: usize = StyleType1::Width as usize
     | StyleType1::Height as usize
     | StyleType1::Margin as usize
     | StyleType1::Padding as usize
@@ -87,14 +93,14 @@ const LAYOUT_DIRTY: usize = StyleType1::Width as usize
     | StyleType1::AlignSelf as usize
     | StyleType1::JustifyContent as usize;
 
-pub struct StyleMarkSys<L, C> {
+pub struct StyleMarkSys<C> {
     text_style: TextStyle,
     default_text: TextStyle,
     show: Show,
-    mark: PhantomData<(L, C)>,
+    mark: PhantomData<(C)>,
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> StyleMarkSys<L, C> {
+impl<'a, C: HalContext + 'static> StyleMarkSys<C> {
     pub fn new() -> Self {
         Self {
             text_style: TextStyle::default(),
@@ -112,12 +118,9 @@ fn set_local_dirty(
     ty: usize,
     style_marks: &mut MultiCaseImpl<Node, StyleMark>,
 ) {
-    let style_mark = &mut style_marks[id];
-    if style_mark.dirty == 0 {
-        dirty_list.0.push(id);
-    }
-    style_mark.dirty |= ty;
-    style_mark.local_style |= ty;
+	let style_mark = &mut style_marks[id];
+	set_dirty(dirty_list, id, ty, style_mark);
+	style_mark.local_style |= ty;
 }
 
 #[inline]
@@ -128,22 +131,27 @@ fn set_local_dirty1(
     style_marks: &mut MultiCaseImpl<Node, StyleMark>,
 ) {
     let style_mark = &mut style_marks[id];
-    if style_mark.dirty == 0 {
-        dirty_list.0.push(id);
-    }
-    style_mark.dirty |= ty;
+    set_dirty1(dirty_list, id, ty, style_mark);
     style_mark.local_style1 |= ty;
 }
 
 #[inline]
 fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
-    if style_mark.dirty == 0 {
+    if style_mark.dirty == 0 && style_mark.dirty1 == 0 {
         dirty_list.0.push(id);
-    }
+	}
     style_mark.dirty |= ty;
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for StyleMarkSys<L, C> {
+#[inline]
+fn set_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    if style_mark.dirty == 0 && style_mark.dirty1 == 0 {
+        dirty_list.0.push(id);
+    }
+    style_mark.dirty1 |= ty;
+}
+
+impl<'a, C: HalContext + 'static> Runner<'a> for StyleMarkSys<C> {
     type ReadData = ();
     type WriteData = (
         &'a mut MultiCaseImpl<Node, StyleMark>,
@@ -153,7 +161,11 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for StyleMar
         let (style_marks, dirty_list) = write;
         for id in dirty_list.0.iter() {
             match style_marks.get_mut(*id) {
-                Some(style_mark) => style_mark.dirty = 0,
+                Some(style_mark) => {
+					style_mark.dirty = 0;
+					style_mark.dirty1 = 0;
+					style_mark.dirty_other = 0;
+				},
                 None => (),
             }
         }
@@ -162,25 +174,110 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static> Runner<'a> for StyleMar
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent>
-    for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent>
+    for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
         &'a mut MultiCaseImpl<Node, StyleMark>,
-        &'a mut MultiCaseImpl<Node, ClassName>,
+		&'a mut MultiCaseImpl<Node, ClassName>,
+		&'a mut SingleCaseImpl<DirtyList>,
     );
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, class_names) = write;
+    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, (style_marks, class_names, dirty_list): Self::WriteData) {
         style_marks.insert(event.id, StyleMark::default());
-        class_names.insert_no_notify(event.id, ClassName::default());
+		class_names.insert_no_notify(event.id, ClassName::default());
+		set_local_dirty1(dirty_list, event.id, StyleType1::Create as usize, style_marks);
+    }
+}
+
+// 监听节点销毁事件，添加到脏列表
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
+    for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
+		if let Some(r) = style_marks.get_mut(event.id) {
+			set_dirty1(dirty_list, event.id, StyleType1::Delete as usize, r);
+		}
+    }
+}
+
+
+// 监听TextStyle属性的改变
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, RectLayoutStyle, ModifyEvent> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+		
+        let r = match event.field {
+			"margin" => StyleType1::Margin,
+			"width" => StyleType1::Width,
+			"height" => StyleType1::Height,
+			// "aspect_ratio" => StyleType1::As,
+            _ => return,
+		};
+		let (style_marks, dirty_list) = write;
+		set_local_dirty1(dirty_list, event.id, r as usize, style_marks);
     }
 }
 
 // 监听TextStyle属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, OtherLayoutStyle, ModifyEvent> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+		
+        let r = match event.field {
+            "display" => StyleType1::Display,
+			"position_type" => StyleType1::PositionType,
+			"direction" => StyleType1::FlexDirection,
+
+			"flex_direction" => StyleType1::FlexDirection,
+			"flex_wrap" => StyleType1::FlexWrap,
+			"justify_content" => StyleType1::JustifyContent,
+			"align_items" => StyleType1::AlignItems,
+			"align_content" => StyleType1::AlignContent,
+
+			// "order" => StyleType1::FlexDirection,
+			// "flex_basis" => StyleType1::,
+			"flex_grow" => StyleType1::FlexGrow,
+			"flex_shrink" => StyleType1::FlexShrink,
+			"align_self" => StyleType1::AlignSelf,
+
+			"overflow" =>  StyleType1::Overflow,
+			"position" => StyleType1::Position,
+			"padding" =>  StyleType1::Padding,
+			"border" => StyleType1::Border,
+			"min_width" => StyleType1::MinWidth,
+			"min_height" => StyleType1::MinHeight,
+			"max_width" => StyleType1::MaxWidth,
+			"max_height" => StyleType1::MaxHeight,
+			// "aspect_ratio" => StyleType1::As,
+            _ => return,
+		};
+		let (style_marks, dirty_list) = write;
+		set_local_dirty1(dirty_list, event.id, r as usize, style_marks);
+    }
+}
+
+// 监听TextStyle属性的改变
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, TextStyle, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -191,7 +288,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let r = match event.field {
             "letter_spacing" => StyleType::LetterSpacing,
-            "word_spacing" => StyleType::WordSpacing,
+			"word_spacing" => StyleType::WordSpacing,
+			"white_space" => StyleType::WhiteSpace,
             "line_height" => StyleType::LineHeight,
             "text_indent" => StyleType::Indent,
             "color" => StyleType::Color,
@@ -204,15 +302,15 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
             "font_size" => StyleType::FontSize,
             "font_family" => StyleType::FontFamily,
             _ => return,
-        };
+		};
         let (style_marks, dirty_list) = write;
         set_local_dirty(dirty_list, event.id, r as usize, style_marks);
     }
 }
 
 // 监听TextContente属性的改变
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, TextContent, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -234,8 +332,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, TextContent, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -250,56 +348,56 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, Image, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, Image, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ImageWrite<'a, C, L>;
+    type WriteData = ImageWrite<'a, C>;
     fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, write: Self::WriteData) {
         set_image_local(event.id, idtree, write);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, Image, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, Image, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ImageWrite<'a, C, L>;
+    type WriteData = ImageWrite<'a, C>;
     fn listen(&mut self, event: &ModifyEvent, idtree: Self::ReadData, write: Self::WriteData) {
         set_image_local(event.id, idtree, write);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ImageClip, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
         &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut SingleCaseImpl<DirtyList>,
-        &'a mut MultiCaseImpl<Node, L>,
+		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
         &'a mut MultiCaseImpl<Node, ImageClip>,
         &'a mut MultiCaseImpl<Node, Image>,
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list, layout_nodes, image_clips, images) = write;
-        let id = event.id;
+        let (style_marks, dirty_list, layout_styles, image_clips, images) = write;
+		let id = event.id;
+		set_local_dirty(dirty_list, id, StyleType::ImageClip as usize, style_marks);
         if let Some(image) = images.get(id) {
             if let Some(src) = &image.src {
                 set_image_size(
                     src,
-                    &layout_nodes[id],
+                    &mut layout_styles[id],
                     image_clips.get(id),
-                    &style_marks[id],
+                    &mut style_marks[id],
                 );
             }
         }
-        set_local_dirty(dirty_list, id, StyleType::ImageClip as usize, style_marks);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ObjectFit, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -317,8 +415,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageClip, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -337,8 +435,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageSlice, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -356,28 +454,28 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImage, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImage, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = BorderImageWrite<'a, C, L>;
+    type WriteData = BorderImageWrite<'a, C>;
     fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, write: Self::WriteData) {
         set_border_image_local(event.id, idtree, write);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImage, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImage, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = BorderImageWrite<'a, C, L>;
+    type WriteData = BorderImageWrite<'a, C>;
     fn listen(&mut self, event: &ModifyEvent, idtree: Self::ReadData, write: Self::WriteData) {
         set_border_image_local(event.id, idtree, write);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageRepeat, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -395,8 +493,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderColor, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderColor, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -414,8 +512,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderColor, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -433,8 +531,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BackgroundColor, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -452,8 +550,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BoxShadow, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -471,8 +569,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ImageClip, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ImageClip, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -490,8 +588,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ObjectFit, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -509,8 +607,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageClip, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -528,8 +626,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageSlice, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -547,28 +645,28 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-type BorderImageWrite<'a, C, L> = (
+type BorderImageWrite<'a, C> = (
     &'a mut MultiCaseImpl<Node, StyleMark>,
     &'a mut SingleCaseImpl<DirtyList>,
     &'a mut SingleCaseImpl<ShareEngine<C>>,
     &'a mut SingleCaseImpl<ImageWaitSheet>,
     &'a mut MultiCaseImpl<Node, BorderImage>,
-    &'a mut MultiCaseImpl<Node, L>,
+    &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
     &'a mut MultiCaseImpl<Node, BorderImageClip>,
 );
 
-type ImageWrite<'a, C, L> = (
+type ImageWrite<'a, C> = (
     &'a mut MultiCaseImpl<Node, StyleMark>,
     &'a mut SingleCaseImpl<DirtyList>,
     &'a mut SingleCaseImpl<ShareEngine<C>>,
     &'a mut SingleCaseImpl<ImageWaitSheet>,
     &'a mut MultiCaseImpl<Node, Image>,
-    &'a mut MultiCaseImpl<Node, L>,
+    &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
     &'a mut MultiCaseImpl<Node, ImageClip>,
 );
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageRepeat, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -586,8 +684,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BackgroundColor, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -605,8 +703,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BoxShadow, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -624,8 +722,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, Opacity, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, Opacity, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -643,8 +741,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ByOverflow, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -663,7 +761,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
 }
 
 // // visibility修改， 设置ByOverflow脏（clipsys 使用， dirty上没有位置容纳Visibility脏了， 因此设置在ByOverflow上）
-// impl<'a, L: FlexNode + 'static, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for StyleMarkSys<L, C>{
+// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for StyleMarkSys<C>{
 // 	type ReadData = ();
 // 	type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 // 	fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData){
@@ -673,8 +771,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
 // }
 
 // RenderObjs 创建， 设置ByOverflow脏
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    SingleCaseListener<'a, RenderObjs, CreateEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    SingleCaseListener<'a, RenderObjs, CreateEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<RenderObjs>;
     type WriteData = (
@@ -689,8 +787,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderRadius, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -708,8 +806,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, Filter, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, Filter, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -727,8 +825,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, COpacity, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, COpacity, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -747,8 +845,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, Layout, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -756,14 +854,33 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
+		let (style_marks, dirty_list) = write;
+		// 虚拟节点不存在StyleMark组件
+        let style_mark = match style_marks.get_mut(event.id) {
+			Some(r) => r,
+			None => return,
+		};
         set_dirty(dirty_list, event.id, StyleType::Layout as usize, style_mark);
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, dirty_list) = write;
+		let style_mark = &mut style_marks[event.id];
+        set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (
@@ -777,46 +894,31 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for StyleMarkSys<L, C>
-{
-    type ReadData = ();
-    type WriteData = (
-        &'a mut MultiCaseImpl<Node, StyleMark>,
-        &'a mut SingleCaseImpl<DirtyList>,
-    );
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
-        set_dirty(dirty_list, event.id, StyleType::Matrix as usize, style_mark);
-    }
-}
-
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, IdTree, CreateEvent>
-    for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, CreateEvent>
+    for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ImageTextureWrite<'a, C, L>;
+    type WriteData = ImageTextureWrite<'a, C>;
     fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, mut write: Self::WriteData) {
         load_image(event.id, &mut write);
 
         let node = &idtree[event.id];
-        for (id, _n) in idtree.recursive_iter(node.children.head) {
+        for (id, _n) in idtree.recursive_iter(node.children().head) {
             load_image(id, &mut write);
         }
     }
 }
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent>
-    for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent>
+    for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ImageTextureWrite<'a, C, L>;
+    type WriteData = ImageTextureWrite<'a, C>;
     fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, mut write: Self::WriteData) {
         release_image(event.id, &mut write);
 
         let node = &idtree[event.id];
-        for (id, _n) in idtree.recursive_iter(node.children.head) {
+        for (id, _n) in idtree.recursive_iter(node.children().head) {
             release_image(id, &mut write);
         }
     }
@@ -826,7 +928,7 @@ type ReadData<'a> = (
     &'a MultiCaseImpl<Node, ClassName>,
     &'a SingleCaseImpl<ClassSheet>,
 );
-type WriteData<'a, L, C> = (
+type WriteData<'a, C> = (
     &'a mut MultiCaseImpl<Node, TextStyle>,
     &'a mut MultiCaseImpl<Node, Image>,
     &'a mut MultiCaseImpl<Node, ImageClip>,
@@ -847,18 +949,19 @@ type WriteData<'a, L, C> = (
     &'a mut MultiCaseImpl<Node, Show>,
     &'a mut MultiCaseImpl<Node, Overflow>,
     &'a mut MultiCaseImpl<Node, StyleMark>,
-    &'a mut MultiCaseImpl<Node, L>,
+	&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+	&'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
     &'a mut SingleCaseImpl<IdTree>,
     &'a mut SingleCaseImpl<ShareEngine<C>>,
     &'a mut SingleCaseImpl<ImageWaitSheet>,
     &'a mut SingleCaseImpl<DirtyList>,
 );
 
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, ClassName, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ClassName, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = ReadData<'a>;
-    type WriteData = WriteData<'a, L, C>;
+    type WriteData = WriteData<'a, C>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
         let (class_names, class_sheet) = read;
         let class_name = &class_names[event.id];
@@ -964,8 +1067,8 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
 }
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    SingleCaseListener<'a, DefaultTable, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    SingleCaseListener<'a, DefaultTable, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<DefaultTable>;
     type WriteData = ();
@@ -975,13 +1078,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
 }
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
-    SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<L, C>
+impl<'a, C: HalContext + 'static>
+    SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = (
         &'a mut EntityImpl<Node>,
-        &'a mut MultiCaseImpl<Node, L>,
+        &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
         &'a mut MultiCaseImpl<Node, Image>,
         &'a mut MultiCaseImpl<Node, ImageClip>,
         &'a mut MultiCaseImpl<Node, BorderImage>,
@@ -1018,13 +1121,7 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                     ImageType::ImageLocal => {
                         if let Some(image) = images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
-                                image.src = Some(wait.1.clone());
-                                set_image_size(
-                                    &wait.1,
-                                    &mut layout_nodes[image_wait.id],
-                                    image_clips.get(image_wait.id),
-                                    &style_marks[image_wait.id],
-                                );
+								image.src = Some(wait.1.clone());
 
                                 // if Some image_clips.get(image_wait.id)
                                 set_local_dirty(
@@ -1032,6 +1129,13 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                                     image_wait.id,
                                     StyleType::Image as usize,
                                     style_marks,
+								);
+								
+								set_image_size(
+                                    &wait.1,
+                                    &mut layout_nodes[image_wait.id],
+                                    image_clips.get(image_wait.id),
+                                    &mut style_marks[image_wait.id],
                                 );
                             }
                         }
@@ -1044,17 +1148,17 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                         }
                         if let Some(image) = images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
-                                image.src = Some(wait.1.clone());
+								image.src = Some(wait.1.clone());
+								set_dirty(
+                                    dirty_list,
+                                    image_wait.id,
+                                    StyleType::Image as usize,
+                                    style_mark,
+                                );
                                 set_image_size(
                                     &wait.1,
                                     &mut layout_nodes[image_wait.id],
                                     image_clips.get(image_wait.id),
-                                    style_mark,
-                                );
-                                set_dirty(
-                                    dirty_list,
-                                    image_wait.id,
-                                    StyleType::Image as usize,
                                     style_mark,
                                 );
                             }
@@ -1094,91 +1198,48 @@ impl<'a, L: FlexNode + 'static, C: HalContext + 'static>
                 }
             }
         }
-        image_wait_sheet.finish.clear(); // 清空
+		image_wait_sheet.finish.clear(); // 清空
     }
 }
 
-fn set_image_size<L: FlexNode>(
+fn set_image_size(
     src: &Rc<TextureRes>,
-    layout_node: &L,
+	layout_style: &mut RectLayoutStyle,
     image_clip: Option<&ImageClip>,
-    style_mark: &StyleMark,
+    style_mark: &mut StyleMark,
 ) {
-    if let Some(image_clip) = image_clip {
-        if style_mark.local_style1 & (StyleType1::Width as usize) == 0
-            && style_mark.class_style1 & (StyleType1::Width as usize) == 0
-        {
-            layout_node.set_width(
-                src.width as f32 * image_clip.max.x - src.width as f32 * image_clip.min.x,
-            );
-        }
+	let img_clip;
+	let image_clip = match image_clip {
+		Some(r) => r,
+		None => {
+			img_clip = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0));
+			&img_clip
+		},
+	};
 
-        if style_mark.local_style1 & (StyleType1::Height as usize) == 0
-            && style_mark.class_style1 & (StyleType1::Height as usize) == 0
-        {
-            layout_node.set_height(
-                src.height as f32 * image_clip.max.y - src.height as f32 * image_clip.min.y,
-            );
-        }
-    }
-    // set_image_size1(
-    //     src,
-    //     layout_node,
-    //     match image_clip {
-    //         Some(r) => Some(&r.0),
-    //         None => None,
-    //     },
-    //     style_mark,
-    // )
+	if style_mark.local_style1 & (StyleType1::Width as usize) == 0
+		&& style_mark.class_style1 & (StyleType1::Width as usize) == 0
+	{
+		layout_style.size.width = Dimension::Points(src.width as f32 * (image_clip.max.x - image_clip.min.x));
+		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
+		style_mark.dirty1 |= StyleType1::Width as usize;
+	}
+
+	if style_mark.local_style1 & (StyleType1::Height as usize) == 0
+		&& style_mark.class_style1 & (StyleType1::Height as usize) == 0
+	{
+		layout_style.size.height = Dimension::Points(src.height as f32 * (image_clip.max.y - image_clip.min.y));
+		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
+		style_mark.dirty1 |= StyleType1::Height as usize;
+	}
 }
 
-// fn set_border_image_size<L: FlexNode>(
-//     src: &Rc<TextureRes>,
-//     layout_node: &L,
-//     image_clip: Option<&BorderImageClip>,
-//     style_mark: &StyleMark,
-// ) {
-//     set_image_size1(
-//         src,
-//         layout_node,
-//         match image_clip {
-//             Some(r) => Some(&r.0),
-//             None => None,
-//         },
-//         style_mark,
-//     )
-// }
-
-// fn set_image_size1<L: FlexNode>(
-//     src: &Rc<TextureRes>,
-//     layout_node: &L,
-//     image_clip: Option<&Aabb2>,
-//     style_mark: &StyleMark,
-// ) {
-//     if let Some(image_clip) = image_clip {
-//         if style_mark.local_style1 & (StyleType1::Width as usize) == 0
-//             && style_mark.class_style1 & (StyleType1::Width as usize) == 0
-//         {
-//             layout_node.set_width(
-//                 src.width as f32 * image_clip.max.x - src.width as f32 * image_clip.min.x,
-//             );
-//         }
-
-//         if style_mark.local_style1 & (StyleType1::Height as usize) == 0
-//             && style_mark.class_style1 & (StyleType1::Height as usize) == 0
-//         {
-//             layout_node.set_height(
-//                 src.height as f32 * image_clip.max.y - src.height as f32 * image_clip.min.y,
-//             );
-//         }
-//     }
-// }
 
 #[inline]
-fn reset_attr<L: FlexNode, C: HalContext>(
+fn reset_attr<C: HalContext>(
     id: usize,
     read: ReadData,
-    write: &mut WriteData<L, C>,
+    write: &mut WriteData<C>,
     old_style: usize,
     old_style1: usize,
     defualt_text: &TextStyle,
@@ -1205,14 +1266,16 @@ fn reset_attr<L: FlexNode, C: HalContext>(
         shows,
         _overflows,
         style_marks,
-        yogas,
+		rect_layout_styles,
+		other_layout_styles,
         _idtree,
         _engine,
         _image_wait_sheet,
         dirty_list,
     ) = write;
 
-    let yoga =  &yogas[id];
+	let rect_layout_style =  &mut rect_layout_styles[id];
+	let other_layout_style =  &mut other_layout_styles[id];
     let style_mark = &mut style_marks[id];
     // old_style中为1， class_style和local_style不为1的属性, 应该删除
     let old_style = !(!old_style | (old_style & (style_mark.class_style | style_mark.local_style)));
@@ -1289,7 +1352,7 @@ fn reset_attr<L: FlexNode, C: HalContext>(
                         set_dirty(dirty_list, id, StyleType::FontWeight as usize, style_mark);
                     }
                     if old_style & StyleType::FontSize as usize == 0 {
-                        text_style.font.size = defualt_text.font.size;
+						text_style.font.size = defualt_text.font.size;
                         set_dirty(dirty_list, id, StyleType::FontSize as usize, style_mark);
                     }
                     if old_style & StyleType::FontFamily as usize == 0 {
@@ -1398,7 +1461,7 @@ fn reset_attr<L: FlexNode, C: HalContext>(
                         show.set_enable(EnableType::Auto);
                     }
                     if old_style & StyleType1::Display as usize == 0 {
-                        yoga.set_display(YGDisplay::YGDisplayFlex);
+						other_layout_style.display = Display::Flex;
                         show.set_display(Display::Flex);
                     }
                     if old_style & StyleType1::Visibility as usize == 0 {
@@ -1417,81 +1480,94 @@ fn reset_attr<L: FlexNode, C: HalContext>(
             }
         }
 
-        if old_style1 & LAYOUT_DIRTY != 0 {
-            reset_layout_attr(yoga, old_style1);
+        if old_style1 & LAYOUT_RECT_DIRTY != 0 {
+			*rect_layout_style = RectLayoutStyle::default();
+            // reset_layout_attr(layout_style, old_style1);
+		}
+		
+		if old_style1 & LAYOUT_OTHER_DIRTY != 0 {
+			*other_layout_style = OtherLayoutStyle::default();
+            // reset_layout_attr(layout_style, old_style1);
         }
     }
 }
 
-fn reset_layout_attr<L: FlexNode>(yoga: &L, old_style1: usize) {
-    if old_style1 & StyleType1::Width as usize != 0 {
-        yoga.set_width(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::Height as usize != 0 {
-        yoga.set_height(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::Margin as usize != 0 {
-        yoga.set_margin(YGEdge::YGEdgeAll, std::f32::NAN);
-    }
-    if old_style1 & StyleType1::Padding as usize != 0 {
-        yoga.set_padding(YGEdge::YGEdgeAll, std::f32::NAN);
-    }
-    if old_style1 & StyleType1::Border as usize != 0 {
-        yoga.set_border(YGEdge::YGEdgeAll, std::f32::NAN);
-    }
-    if old_style1 & StyleType1::Position as usize != 0 {
-        yoga.set_position(YGEdge::YGEdgeAll, std::f32::NAN);
-    }
-    if old_style1 & StyleType1::MinWidth as usize != 0 {
-        yoga.set_min_width(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::MinHeight as usize != 0 {
-        yoga.set_min_height(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::MaxWidth as usize != 0 {
-        yoga.set_max_width(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::MaxHeight as usize != 0 {
-        yoga.set_max_height(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::FlexBasis as usize != 0 {
-        yoga.set_flex_basis(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::FlexShrink as usize != 0 {
-        yoga.set_flex_shrink(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::FlexGrow as usize != 0 {
-        yoga.set_flex_grow(std::f32::NAN);
-    }
-    if old_style1 & StyleType1::PositionType as usize != 0 {
-        yoga.set_position_type(YGPositionType::YGPositionTypeAbsolute);
-    }
-    if old_style1 & StyleType1::FlexWrap as usize != 0 {
-        yoga.set_flex_wrap(YGWrap::YGWrapWrap);
-    }
-    if old_style1 & StyleType1::FlexDirection as usize != 0 {
-        yoga.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
-    }
-    if old_style1 & StyleType1::AlignContent as usize != 0 {
-        yoga.set_align_content(YGAlign::YGAlignFlexStart);
-    }
-    if old_style1 & StyleType1::AlignItems as usize != 0 {
-        yoga.set_align_items(YGAlign::YGAlignFlexStart);
-    }
-    if old_style1 & StyleType1::AlignSelf as usize != 0 {
-        yoga.set_align_self(YGAlign::YGAlignFlexStart);
-    }
-    if old_style1 & StyleType1::JustifyContent as usize != 0 {
-        yoga.set_justify_content(YGJustify::YGJustifyFlexStart);
-    }
-}
+// fn reset_layout_attr(layout_style: &LayoutStyle, old_style1: usize) {
+//     if old_style1 & StyleType1::Width as usize != 0 {
+// 		layout_style.size.width = Dimension::undefined;
+//     }
+//     if old_style1 & StyleType1::Height as usize != 0 {
+// 		layout_style.size.height = Dimension::undefined;
+//     }
+//     if old_style1 & StyleType1::Margin as usize != 0 {
+// 		layout_style.margin.start = Dimension::undefined;
+// 		layout_style.margin.end = Dimension::undefined;
+// 		layout_style.margin.top = Dimension::undefined;
+// 		layout_style.margin.bottom = Dimension::undefined;
+//     }
+//     if old_style1 & StyleType1::Padding as usize != 0 {
+//         layout_style.padding.start = Dimension::undefined;
+// 		layout_style.size.padding.end = Dimension::undefined;
+// 		layout_style.size.padding.top = Dimension::undefined;
+// 		layout_style.size.padding.bottom = Dimension::undefined;
+//     }
+//     if old_style1 & StyleType1::Border as usize != 0 {
+//         layout_style.size.border.start = Dimension::undefined;
+// 		layout_style.size.border.end = Dimension::undefined;
+// 		layout_style.size.border.top = Dimension::undefined;
+// 		layout_style.size.border.bottom = Dimension::undefined;
+//     }
+//     if old_style1 & StyleType1::Position as usize != 0 {
+// 		layout_style.position = Rect{start:Dimension::undefined, end: Dimension::undefined, top: Dimension::undefined, top: Dimension::bottom};
+//     }
+//     if old_style1 & StyleType1::MinWidth as usize != 0 || old_style1 & StyleType1::MinHeight as usize != 0 {
+// 		layout_style.min_size = Size{width: Dimension::undefined, height: Dimension::undefined};
+//     }
 
-fn set_attr<L: FlexNode, C: HalContext>(
+//     if old_style1 & StyleType1::MaxWidth as usize != 0 {
+//         layout_style.set_max_width(std::f32::NAN);
+//     }
+//     if old_style1 & StyleType1::MaxHeight as usize != 0 {
+//         layout_style.set_max_height(std::f32::NAN);
+//     }
+//     if old_style1 & StyleType1::FlexBasis as usize != 0 {
+//         layout_style.set_flex_basis(std::f32::NAN);
+//     }
+//     if old_style1 & StyleType1::FlexShrink as usize != 0 {
+//         layout_style.set_flex_shrink(std::f32::NAN);
+//     }
+//     if old_style1 & StyleType1::FlexGrow as usize != 0 {
+//         layout_style.set_flex_grow(std::f32::NAN);
+//     }
+//     if old_style1 & StyleType1::PositionType as usize != 0 {
+//         layout_style.set_position_type(YGPositionType::YGPositionTypeAbsolute);
+//     }
+//     if old_style1 & StyleType1::FlexWrap as usize != 0 {
+//         layout_style.set_flex_wrap(YGWrap::YGWrapWrap);
+//     }
+//     if old_style1 & StyleType1::FlexDirection as usize != 0 {
+//         layout_style.set_flex_direction(YGFlexDirection::YGFlexDirectionRow);
+//     }
+//     if old_style1 & StyleType1::AlignContent as usize != 0 {
+//         layout_style.set_align_content(YGAlign::YGAlignFlexStart);
+//     }
+//     if old_style1 & StyleType1::AlignItems as usize != 0 {
+//         layout_style.set_align_items(YGAlign::YGAlignFlexStart);
+//     }
+//     if old_style1 & StyleType1::AlignSelf as usize != 0 {
+//         layout_style.set_align_self(YGAlign::YGAlignFlexStart);
+//     }
+//     if old_style1 & StyleType1::JustifyContent as usize != 0 {
+//         layout_style.set_justify_content(YGJustify::YGJustifyFlexStart);
+//     }
+// }
+
+fn set_attr<C: HalContext>(
     id: usize,
     class_name: usize,
     text_style: &mut TextStyle,
     read: ReadData,
-    write: &mut WriteData<L, C>,
+    write: &mut WriteData<C>,
 ) {
     if class_name == 0 {
         return;
@@ -1518,7 +1594,8 @@ fn set_attr<L: FlexNode, C: HalContext>(
         shows,
         overflows,
         style_marks,
-        yogas,
+		rect_layout_styles,
+		other_layout_styles,
         idtree,
         engine,
         image_wait_sheet,
@@ -1526,7 +1603,8 @@ fn set_attr<L: FlexNode, C: HalContext>(
     ) = write;
     let style_mark = &mut style_marks[id];
     // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
-    let yoga = &yogas[id];
+	let rect_layout_style = &mut rect_layout_styles[id];
+	let other_layout_style = &mut other_layout_styles[id];
 
     let class = match class_sheet.class_map.get(&class_name) {
         Some(class) => class,
@@ -1536,7 +1614,10 @@ fn set_attr<L: FlexNode, C: HalContext>(
     let mut text_style = text_style;
     if let Some(r) = text_styles.get_mut(id) {
         text_style = r;
-    }
+    } else if class.class_style_mark & TEXT_STYLE_DIRTY > 0 {
+		text_styles.insert(id, TextStyle::default());
+		text_style = &mut text_styles[id]
+	}
 
     set_attr1(
         id,
@@ -1546,7 +1627,7 @@ fn set_attr<L: FlexNode, C: HalContext>(
         text_style,
         shows,
         overflows,
-        yoga,
+        other_layout_style,
         obj_fits,
     );
     set_attr2(
@@ -1555,7 +1636,8 @@ fn set_attr<L: FlexNode, C: HalContext>(
         &class.attrs2,
         style_mark,
         text_style,
-        yoga,
+		rect_layout_style,
+		other_layout_style,
         zindexs,
         opacitys,
         border_image_repeats,
@@ -1584,7 +1666,7 @@ fn set_attr<L: FlexNode, C: HalContext>(
         border_radiuss,
         filters,
         transforms,
-        yogas,
+        rect_layout_styles,
     );
     style_mark.class_style |= class.class_style_mark;
     style_mark.class_style1 |= class.class_style_mark1;
@@ -1601,7 +1683,7 @@ fn set_mark(class_sheet: &ClassSheet, name: usize, mark: &mut StyleMark) {
     };
 }
 
-pub fn set_attr1<L: FlexNode>(
+pub fn set_attr1(
     id: usize,
     dirty_list: &mut DirtyList,
     layout_attrs: &Vec<Attribute1>,
@@ -1609,44 +1691,51 @@ pub fn set_attr1<L: FlexNode>(
     text_style: &mut TextStyle,
     shows: &mut MultiCaseImpl<Node, Show>,
     overflows: &mut MultiCaseImpl<Node, Overflow>,
-    yoga: &L,
+    other_style: &mut OtherLayoutStyle,
     obj_fits: &mut MultiCaseImpl<Node, ObjectFit>,
 ) {
     for layout_attr in layout_attrs.iter() {
         match layout_attr {
             Attribute1::AlignContent(r) => {
                 if StyleType1::AlignContent as usize & style_mark.local_style1 == 0 {
-                    yoga.set_align_content(*r)
+					other_style.align_content = *r;
+                    // layout_style.set_align_content(*r)
                 }
             }
             Attribute1::AlignItems(r) => {
                 if StyleType1::AlignItems as usize & style_mark.local_style1 == 0 {
-                    yoga.set_align_items(*r)
+					other_style.align_items = *r;
+                    // layout_style.set_align_items(*r)
                 }
             }
             Attribute1::AlignSelf(r) => {
                 if StyleType1::AlignSelf as usize & style_mark.local_style1 == 0 {
-                    yoga.set_align_self(*r)
+					other_style.align_self = *r;
+                    // layout_style.set_align_self(*r)
                 }
             }
             Attribute1::JustifyContent(r) => {
                 if StyleType1::JustifyContent as usize & style_mark.local_style1 == 0 {
-                    yoga.set_justify_content(*r)
+					other_style.justify_content = *r;
+                    // layout_style.set_justify_content(*r)
                 }
             }
             Attribute1::FlexDirection(r) => {
                 if StyleType1::FlexDirection as usize & style_mark.local_style1 == 0 {
-                    yoga.set_flex_direction(*r)
+					other_style.flex_direction = *r;
+                    // layout_style.set_flex_direction(*r)
                 }
             }
             Attribute1::FlexWrap(r) => {
                 if StyleType1::FlexWrap as usize & style_mark.local_style1 == 0 {
-                    yoga.set_flex_wrap(*r)
+					other_style.flex_wrap = *r;
+                    // layout_style.set_flex_wrap(*r)
                 }
             }
             Attribute1::PositionType(r) => {
                 if StyleType1::PositionType as usize & style_mark.local_style1 == 0 {
-                    yoga.set_position_type(*r)
+					other_style.position_type = *r;
+                    // layout_style.set_position_type(*r)
                 }
             }
 
@@ -1695,7 +1784,8 @@ pub fn set_attr1<L: FlexNode>(
             }
             Attribute1::Display(r) => {
                 if style_mark.local_style1 & StyleType1::Display as usize == 0 {
-                    yoga.set_display(unsafe { transmute(*r) });
+					other_style.display = *r;
+                    // layout_style.set_display(unsafe { transmute(*r) });
                     shows.get_write(id).unwrap().modify(|show: &mut Show| {
                         show.set_display(*r);
                         true
@@ -1724,13 +1814,14 @@ pub fn set_attr1<L: FlexNode>(
     }
 }
 
-pub fn set_attr2<L: FlexNode, C: HalContext>(
+pub fn set_attr2<C: HalContext>(
     id: usize,
     dirty_list: &mut DirtyList,
     layout_attrs: &Vec<Attribute2>,
     style_mark: &mut StyleMark,
     text_style: &mut TextStyle,
-    yoga: &L,
+	rect_layout_style: &mut RectLayoutStyle,
+	other_layout_style: &mut OtherLayoutStyle,
     zindexs: &mut MultiCaseImpl<Node, ZIndex>,
     opacitys: &mut MultiCaseImpl<Node, Opacity>,
     border_image_repeats: &mut MultiCaseImpl<Node, BorderImageRepeat>,
@@ -1781,7 +1872,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
             }
             Attribute2::FontSize(r) => {
                 if style_mark.local_style & StyleType::FontSize as usize == 0 {
-                    text_style.font.size = *r;
+					text_style.font.size = *r;
                     set_dirty(dirty_list, id, StyleType::FontSize as usize, style_mark);
                 }
             }
@@ -1835,7 +1926,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
                         ) {
                             set_image_size(
                                 image.src.as_ref().unwrap(),
-                                yoga,
+                                rect_layout_style,
                                 image_clip,
                                 style_mark,
                             );
@@ -1867,7 +1958,7 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
                         //  {
                         //     set_border_image_size(
                         //         image.0.src.as_ref().unwrap(),
-                        //         yoga,
+                        //         layout_style,
                         //         border_image_clip,
                         //         style_mark,
                         //     );
@@ -1879,263 +1970,158 @@ pub fn set_attr2<L: FlexNode, C: HalContext>(
 
             Attribute2::Width(r) => {
                 if StyleType1::Width as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_width_auto(),
-                        ValueUnit::Undefined => yoga.set_width_auto(),
-                        ValueUnit::Pixel(r) => yoga.set_width(*r),
-                        ValueUnit::Percent(r) => yoga.set_width_percent(*r),
-                    }
+					rect_layout_style.size.width = r.clone();
                 }
             }
             Attribute2::Height(r) => {
                 if StyleType1::Height as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_height_auto(),
-                        ValueUnit::Undefined => yoga.set_height_auto(),
-                        ValueUnit::Pixel(r) => yoga.set_height(*r),
-                        ValueUnit::Percent(r) => yoga.set_height_percent(*r),
-                    }
+					rect_layout_style.size.height = r.clone();
                 }
             }
             Attribute2::MarginLeft(r) => {
                 if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
-                        ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeLeft),
-                        ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeLeft, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeLeft, *r),
-                    }
+					rect_layout_style.margin.start = r.clone();
                 }
             }
             Attribute2::MarginTop(r) => {
                 if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                        ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeTop),
-                        ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeTop, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeTop, *r),
-                    }
+					rect_layout_style.margin.top = r.clone();
                 }
             }
             Attribute2::MarginBottom(r) => {
                 if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeBottom),
-                        ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeBottom),
-                        ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeBottom, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeBottom, *r),
-                    }
+					rect_layout_style.margin.bottom = r.clone();
                 }
             }
             Attribute2::MarginRight(r) => {
                 if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_margin_auto(YGEdge::YGEdgeRight),
-                        ValueUnit::Undefined => yoga.set_margin_auto(YGEdge::YGEdgeRight),
-                        ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeRight, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeRight, *r),
-                    }
+					rect_layout_style.margin.end = r.clone();
                 }
             }
             Attribute2::Margin(r) => {
                 if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto | ValueUnit::Undefined => {
-                            yoga.set_margin_auto(YGEdge::YGEdgeAll)
-                        }
-                        ValueUnit::Pixel(r) => yoga.set_margin(YGEdge::YGEdgeAll, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeAll, *r),
-                    }
+					rect_layout_style.margin.start = r.clone();
+					rect_layout_style.margin.end = r.clone();
+					rect_layout_style.margin.top = r.clone();
+					rect_layout_style.margin.bottom = r.clone();
                 }
             }
             Attribute2::PaddingLeft(r) => {
                 if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeLeft, *r),
-                        ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeLeft, *r),
-                        _ => (),
-                    }
+					other_layout_style.padding.start = r.clone();
                 }
             }
             Attribute2::PaddingTop(r) => {
                 if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeTop, *r),
-                        ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeTop, *r),
-                        _ => (),
-                    }
+                    other_layout_style.padding.top = r.clone();
                 }
             }
             Attribute2::PaddingBottom(r) => {
                 if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeBottom, *r),
-                        ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeBottom, *r),
-                        _ => (),
-                    }
+                    other_layout_style.padding.bottom = r.clone();
                 }
             }
             Attribute2::PaddingRight(r) => {
                 if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeRight, *r),
-                        ValueUnit::Percent(r) => yoga.set_padding_percent(YGEdge::YGEdgeRight, *r),
-                        _ => (),
-                    }
+                    other_layout_style.padding.end = r.clone();
                 }
             }
             Attribute2::Padding(r) => {
                 if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_padding(YGEdge::YGEdgeAll, *r),
-                        ValueUnit::Percent(r) => yoga.set_margin_percent(YGEdge::YGEdgeAll, *r),
-                        _ => (),
-                    }
+					other_layout_style.padding.start = r.clone();
+					other_layout_style.padding.end = r.clone();
+					other_layout_style.padding.top = r.clone();
+					other_layout_style.padding.bottom = r.clone();
                 }
             }
             Attribute2::BorderLeft(r) => {
                 if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeLeft, *r),
-                        // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeLeft, *r),
-                        _ => (),
-                    }
+                    other_layout_style.border.start = r.clone();
                 }
             }
             Attribute2::BorderTop(r) => {
                 if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeTop, *r),
-                        // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, *r),
-                        _ => (),
-                    }
+                    other_layout_style.border.top = r.clone();
                 }
             }
             Attribute2::BorderBottom(r) => {
                 if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeBottom, *r),
-                        // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeTop, *r),
-                        _ => (),
-                    }
+                    other_layout_style.border.bottom = r.clone();
                 }
             }
             Attribute2::BorderRight(r) => {
                 if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeRight, *r),
-                        // ValueUnit::Percent(r) => yoga.set_border_percent(YGEdge::YGEdgeRight, *r),
-                        _ => (),
-                    }
+                    other_layout_style.border.end = r.clone();
                 }
             }
             Attribute2::Border(r) => {
                 if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_border(YGEdge::YGEdgeAll, *r),
-                        _ => (),
-                    }
+                    other_layout_style.border.start = r.clone();
+					other_layout_style.border.end = r.clone();
+					other_layout_style.border.top = r.clone();
+					other_layout_style.border.bottom = r.clone();
                 }
             }
             Attribute2::PositionLeft(r) => {
                 if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeLeft, *r),
-                        ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeLeft, *r),
-                        _ => (),
-                    }
+                    other_layout_style.position.start = r.clone();
                 }
             }
             Attribute2::PositionTop(r) => {
                 if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeTop, *r),
-                        ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeTop, *r),
-                        _ => (),
-                    }
+                    other_layout_style.position.top = r.clone();
                 }
             }
             Attribute2::PositionRight(r) => {
                 if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeRight, *r),
-                        ValueUnit::Percent(r) => yoga.set_position_percent(YGEdge::YGEdgeRight, *r),
-                        _ => (),
-                    }
+                    other_layout_style.position.end = r.clone();
                 }
             }
             Attribute2::PositionBottom(r) => {
                 if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_position(YGEdge::YGEdgeBottom, *r),
-                        ValueUnit::Percent(r) => {
-                            yoga.set_position_percent(YGEdge::YGEdgeBottom, *r)
-                        }
-                        _ => (),
-                    }
+					other_layout_style.position.bottom = r.clone();
                 }
             }
             Attribute2::MinWidth(r) => {
                 if StyleType1::MinWidth as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_min_width(*r),
-                        ValueUnit::Percent(r) => yoga.set_min_width_percent(*r),
-                        _ => (),
-                    }
+					other_layout_style.min_size.width = r.clone();
                 }
             }
             Attribute2::MinHeight(r) => {
                 if StyleType1::MinHeight as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_min_height(*r),
-                        ValueUnit::Percent(r) => yoga.set_min_height_percent(*r),
-                        _ => (),
-                    }
+					other_layout_style.min_size.height = r.clone();
                 }
             }
             Attribute2::MaxHeight(r) => {
                 if StyleType1::MaxHeight as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_max_height(*r),
-                        ValueUnit::Percent(r) => yoga.set_max_height_percent(*r),
-                        _ => (),
-                    }
+                    other_layout_style.max_size.height = r.clone();
                 }
             }
             Attribute2::MaxWidth(r) => {
                 if StyleType1::MaxWidth as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Pixel(r) => yoga.set_max_width(*r),
-                        ValueUnit::Percent(r) => yoga.set_max_width_percent(*r),
-                        _ => (),
-                    }
+                    other_layout_style.max_size.width = r.clone();
                 }
             }
             Attribute2::FlexBasis(r) => {
                 if StyleType1::FlexBasis as usize & style_mark.local_style1 == 0 {
-                    match r {
-                        ValueUnit::Auto => yoga.set_flex_basis_auto(),
-                        ValueUnit::Undefined => yoga.set_flex_basis_auto(),
-                        ValueUnit::Pixel(r) => yoga.set_flex_basis(*r),
-                        ValueUnit::Percent(r) => yoga.set_flex_basis_percent(*r),
-                    }
+                    other_layout_style.flex_basis = r.clone();
                 }
             }
             Attribute2::FlexShrink(r) => {
                 if StyleType1::FlexShrink as usize & style_mark.local_style1 == 0 {
-                    yoga.set_flex_shrink(*r)
+					other_layout_style.flex_shrink = *r;
                 }
             }
             Attribute2::FlexGrow(r) => {
                 if StyleType1::FlexGrow as usize & style_mark.local_style1 == 0 {
-                    yoga.set_flex_grow(*r)
+					other_layout_style.flex_grow = *r;
                 }
             }
         }
     }
 }
 
-pub fn set_attr3<L: FlexNode>(
+pub fn set_attr3(
     id: usize,
     dirty_list: &mut DirtyList,
     attrs: &Vec<Attribute3>,
@@ -2152,7 +2138,7 @@ pub fn set_attr3<L: FlexNode>(
     border_radiuss: &mut MultiCaseImpl<Node, BorderRadius>,
     filters: &mut MultiCaseImpl<Node, Filter>,
     transforms: &mut MultiCaseImpl<Node, Transform>,
-    layout_nodes: &mut MultiCaseImpl<Node, L>,
+    rect_layout_styles: &mut MultiCaseImpl<Node, RectLayoutStyle>,
 ) {
     for attr in attrs.iter() {
         match attr {
@@ -2182,18 +2168,19 @@ pub fn set_attr3<L: FlexNode>(
 
             Attribute3::ImageClip(r) => {
                 if style_mark.local_style & StyleType::ImageClip as usize == 0 {
+					set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
                     if let Some(image) = images.get(id) {
                         if let Some(src) = &image.src {
                             set_image_size(
                                 src,
-                                &layout_nodes[id],
+                                &mut rect_layout_styles[id],
                                 Some(r),
                                 style_mark,
                             );
                         }
                     }
                     image_clips.insert_no_notify(id, r.clone());
-                    set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
+                    
                 }
             }
 
@@ -2321,19 +2308,19 @@ fn set_image<C: HalContext>(
     }
 }
 
-type ImageTextureWrite<'a, C, L> = (
+type ImageTextureWrite<'a, C> = (
     &'a mut MultiCaseImpl<Node, Image>,
     &'a mut MultiCaseImpl<Node, BorderImage>,
     &'a mut MultiCaseImpl<Node, StyleMark>,
     &'a mut SingleCaseImpl<DirtyList>,
     &'a mut SingleCaseImpl<ShareEngine<C>>,
     &'a mut SingleCaseImpl<ImageWaitSheet>,
-    &'a mut MultiCaseImpl<Node, L>,
+    &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
     &'a mut MultiCaseImpl<Node, ImageClip>,
     &'a mut MultiCaseImpl<Node, BorderImageClip>,
 );
 // 节点被添加到树上， 加载图片
-fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextureWrite<'a, C, L>) {
+fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>) {
     if let Some(image) = write.0.get_mut(id) {
         let style_mark = &mut write.2[id];
         if style_mark.local_style & StyleType::Image as usize != 0 {
@@ -2405,9 +2392,9 @@ fn load_image<'a, C: HalContext, L: FlexNode>(id: usize, write: &mut ImageTextur
 }
 
 // 从树上删除节点， 删除节点对图片资源的引用
-fn release_image<'a, C: HalContext, L: FlexNode>(
+fn release_image<'a, C: HalContext>(
     id: usize,
-    write: &mut ImageTextureWrite<'a, C, L>,
+    write: &mut ImageTextureWrite<'a, C>,
 ) {
     if let Some(image) = write.0.get_mut(id) {
         let style_mark = &mut write.2[id];
@@ -2430,10 +2417,10 @@ fn release_image<'a, C: HalContext, L: FlexNode>(
     }
 }
 
-fn set_image_local<'a, C: HalContext, L: FlexNode>(
+fn set_image_local<'a, C: HalContext>(
     id: usize,
     idtree: &SingleCaseImpl<IdTree>,
-    write: ImageWrite<'a, C, L>,
+    write: ImageWrite<'a, C>,
 ) {
     let style_mark = &mut write.0[id];
     style_mark.local_style |= StyleType::Image as usize;
@@ -2460,10 +2447,10 @@ fn set_image_local<'a, C: HalContext, L: FlexNode>(
     }
 }
 
-fn set_border_image_local<'a, C: HalContext, L: FlexNode>(
+fn set_border_image_local<'a, C: HalContext>(
     id: usize,
     idtree: &SingleCaseImpl<IdTree>,
-    write: BorderImageWrite<'a, C, L>,
+    write: BorderImageWrite<'a, C>,
 ) {
     let style_mark = &mut write.0[id];
     style_mark.local_style |= StyleType::BorderImage as usize;
@@ -2485,13 +2472,16 @@ fn set_border_image_local<'a, C: HalContext, L: FlexNode>(
 }
 
 impl_system! {
-    StyleMarkSys<L, C> where [L: FlexNode + 'static, C: HalContext + 'static],
+    StyleMarkSys<C> where [C: HalContext + 'static],
     true,
     {
-        EntityListener<Node, CreateEvent>
+		EntityListener<Node, CreateEvent>
+		EntityListener<Node, ModifyEvent>
         MultiCaseListener<Node, TextContent, CreateEvent>
         MultiCaseListener<Node, TextContent, ModifyEvent>
-        MultiCaseListener<Node, TextStyle, ModifyEvent>
+		MultiCaseListener<Node, TextStyle, ModifyEvent>
+		MultiCaseListener<Node, RectLayoutStyle, ModifyEvent>
+		MultiCaseListener<Node, OtherLayoutStyle, ModifyEvent>
 
         MultiCaseListener<Node, Image, ModifyEvent>
         MultiCaseListener<Node, ImageClip, ModifyEvent>
@@ -2518,7 +2508,7 @@ impl_system! {
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
         MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
+        MultiCaseListener<Node, LayoutR, ModifyEvent>
         MultiCaseListener<Node, BorderRadius, ModifyEvent>
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>

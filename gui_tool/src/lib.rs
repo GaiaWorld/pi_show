@@ -10,18 +10,18 @@ extern crate lazy_static;
 
 mod performance;
 
-use gui::layout::FlexNode;
+// use gui::layout::FlexNode;
 use gui::world::GuiWorld;
 use hal_core::HalContext;
 pub use performance::PerformanceStatisticians;
 
-pub fn open_performance_inspection<L: FlexNode, C: HalContext>(
-    world: &mut GuiWorld<L, C>,
-    performance_sys: PerformanceStatisticians,
-) {
-    PerformanceStatisticians::register_to_world(world, performance_sys);
-}
+// pub fn open_performance_inspection<L: FlexNode, C: HalContext>(
+//     world: &mut GuiWorld<L, C>,
+//     performance_sys: PerformanceStatisticians,
+// ) {
+//     PerformanceStatisticians::register_to_world(world, performance_sys);
+// }
 
-pub fn close_performance_inspection<L: FlexNode, C: HalContext>(world: &mut GuiWorld<L, C>) {
-    PerformanceStatisticians::unregister_to_world(&mut world.world);
-}
+// pub fn close_performance_inspection<L: FlexNode, C: HalContext>(world: &mut GuiWorld<L, C>) {
+//     PerformanceStatisticians::unregister_to_world(&mut world.world);
+// }

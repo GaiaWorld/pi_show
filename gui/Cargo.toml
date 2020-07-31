@@ -6,6 +6,8 @@ authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
 share = { path = "../../pi_lib/share" }
+idtree = { path = "../../pi_lib/idtree" }
+flex_layout = { path = "../../pi_lib/flex_layout" }
 ecs = { path = "../../pi_lib/ecs" }
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 enum_default_macro = {path = "../../pi_lib/enum_default_macro" }

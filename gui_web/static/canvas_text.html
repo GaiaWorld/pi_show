@@ -15,13 +15,13 @@
     <div style="position: absolute;width: 100%; height: 20px;top: 0px;"> color </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 80px"> font_size </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 160px"> stroke </div>
-    <div style="position: absolute;width: 100%; height: 20px;top: 240px"> letter-space </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 240px"> letter-spacing </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 320px"> text-align </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 400px"> line-height </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 480px"> text-shadow </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 560px"> white-space </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 640px"> font-weight </div>
-    <div style="position: absolute;width: 100%; height: 20px;top: 720px"> word-space </div>
+    <div style="position: absolute;width: 100%; height: 20px;top: 720px"> word-spacing </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 800px"> 文字放大， 保持清晰度 </div>
     <div style="position: absolute;width: 100%; height: 20px;top: 900px"> class设置 </div>
     
@@ -74,6 +74,17 @@
         Module._append_child(gui, text_node, body);
         Module._set_text_rgba_color(gui, text_node, 0.0, 1.0, 0.0, 0.5); // r, g, b, a
         window.__jsObj = "绿色";
+        Module._set_text_content(gui, text_node); // 文字内容
+        window.__jsObj = "common";
+        Module._set_font_family(gui, text_node);
+		Module._set_font_size(gui, text_node, 16);
+		
+		var text_node = Module._create_text_node(gui);
+        Module._append_child(gui, text_node, body);
+        Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
+        // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
+        // Module._set_text_linear_gradient_color(gui, text_node, 90); //, direction: 0~360度
+        window.__jsObj = "16px";
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
@@ -148,12 +159,13 @@
         Module._set_position(gui, body, 1, 255.0);
         Module._set_position_type(gui, body, 1);
         Module._set_width_percent(gui, body, 100.0);
-        Module._set_height(gui, body, 100.0);
+        Module._set_height_percent(gui, body, 100.0);
         Module._append_child(gui, body, 1);
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
-        Module._set_height(gui, node, 100);
+		Module._set_height(gui, node, 50);
+		Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
         var text_node = Module._create_text_node(gui);
@@ -170,7 +182,9 @@
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 150);
-        Module._set_height(gui, node, 100);
+		Module._set_height(gui, node, 100);
+		Module._set_margin(gui, node, YGEdgeLeft, 10);
+		Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
         var text_node = Module._create_text_node(gui);
@@ -185,7 +199,9 @@
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 250);
-        Module._set_height(gui, node, 100);
+		Module._set_height(gui, node, 100);
+		Module._set_margin(gui, node, YGEdgeLeft, 10);
+		Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
         var text_node = Module._create_text_node(gui);
@@ -214,7 +230,9 @@
         Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
-        var text_node = Module._create_text_node(gui);
+		var text_node = Module._create_text_node(gui);
+		Module._set_width_percent(gui, text_node, 100);
+        Module._set_height_percent(gui, text_node, 100);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
         // window.__jsObj = new Float32Array([0.0, 1.0, 0.0, 1.0, 0,    0.0, 0.0, 1.0, 1.0, 1]); //color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos]。   pos: 0~1
@@ -233,7 +251,9 @@
         Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
-        var text_node = Module._create_text_node(gui);
+		var text_node = Module._create_text_node(gui);
+		Module._set_width_percent(gui, text_node, 100);
+        Module._set_height_percent(gui, text_node, 100);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 1.0); // r, g, b, a
         window.__jsObj = "居中对齐";
@@ -250,7 +270,9 @@
         Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
         Module._append_child(gui, node, body);
 
-        var text_node = Module._create_text_node(gui);
+		var text_node = Module._create_text_node(gui);
+		Module._set_width_percent(gui, text_node, 100);
+        Module._set_height_percent(gui, text_node, 100);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 0.0, 1.0, 0.0, 0.5); // r, g, b, a
         window.__jsObj = "右对齐";
@@ -268,7 +290,9 @@
         Module._append_child(gui, node, body);
 
         // 暂时没有正确实现两端对齐， TODO
-        var text_node = Module._create_text_node(gui);
+		var text_node = Module._create_text_node(gui);
+		Module._set_width_percent(gui, text_node, 100);
+        Module._set_height_percent(gui, text_node, 100);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 0.0, 1.0, 0.0, 0.5); // r, g, b, a
         window.__jsObj = "两端对齐";
@@ -287,13 +311,13 @@
         Module._set_position_type(gui, body, 1);
         Module._set_width_percent(gui, body, 100.0);
         Module._set_height(gui, body, 100.0);
-        Module._append_child(gui, body, 1);
+		Module._append_child(gui, body, 1);
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 120);
         Module._set_height(gui, node, 60);
         Module._set_background_rgba_color(gui, node, 1.0, 1.0, 0.5, 1.0);
-        Module._append_child(gui, node, body);
+		Module._append_child(gui, node, body);
 
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
@@ -306,7 +330,12 @@
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 16);
         Module._set_text_align(gui, text_node, Text_Align_Left);
-        Module._set_line_height_normal(gui, text_node);
+		Module._set_line_height_normal(gui, text_node);
+		Module._set_width_percent(gui, text_node, 100.0);
+		Module._set_height_percent(gui, text_node, 100.0);
+
+		window["text_nodexxx"] = text_node;
+		window["node"] = node;
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
@@ -324,7 +353,9 @@
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
-        Module._set_line_height_percent(gui, text_node, 150);
+		Module._set_line_height_percent(gui, text_node, 150);
+		Module._set_width_percent(gui, text_node, 100.0);
+		Module._set_height_percent(gui, text_node, 100.0);
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
@@ -342,10 +373,11 @@
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
         Module._set_line_height(gui, text_node, 60);
-        Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
+		Module._set_text_stroke(gui, text_node, 1, 1.0, 0.0, 0.0, 1.0);
+		Module._set_width_percent(gui, text_node, 100.0);
+		Module._set_height_percent(gui, text_node, 100.0);
         
 
-        // 暂时没有正确实现两端对齐， TODO
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 200);
         Module._set_height(gui, node, 60);
@@ -362,7 +394,9 @@
         Module._set_font_family(gui, text_node);
         Module._set_font_size(gui, text_node, 32);
         Module._set_text_align(gui, text_node, Text_Align_Justify);
-        Module._set_line_height(gui, text_node, 60);
+		Module._set_line_height(gui, text_node, 60);
+		Module._set_width_percent(gui, text_node, 100.0);
+		Module._set_height_percent(gui, text_node, 100.0);
     </script>
 
     <script>
@@ -437,14 +471,14 @@
         Module._set_height(gui, node, 60);
         Module._set_margin(gui, node, YGEdgeLeft, 10);
         Module._set_background_rgba_color(gui, node, 0.0, 0.0, 0.0, 1.0);
-        Module._append_child(gui, node, body);
+		Module._append_child(gui, node, body);
 
         // bug TODO
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 1.0, 1.0, 1.0); // r, g, b, a
         window.__jsObj = `pre重复重
-        复重复重复       重复重复重复重复重复复重复复重复复重复`;
+        复重复重复  重复重复重复重复重复复重复复重复复重复`;
         Module._set_text_content(gui, text_node); // 文字内容
         Module._set_font_size(gui, text_node, 16);
         window.__jsObj = "common";
@@ -533,12 +567,12 @@
         Module._set_position_type(gui, body, 1);
         Module._set_width_percent(gui, body, 100.0);
         Module._set_height(gui, body, 100.0);
-        Module._append_child(gui, body, 1);
+		Module._append_child(gui, body, 1);
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 1000);
         Module._set_height(gui, node, 60);
-        Module._append_child(gui, node, body);
+		Module._append_child(gui, node, body);
 
         var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
@@ -547,7 +581,7 @@
         Module._set_text_content(gui, text_node);
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
-        Module._set_word_spacing(gui, text_node, 100);
+		Module._set_word_spacing(gui, text_node, 100);
         
     </script>
 
@@ -586,13 +620,13 @@
         Module._set_position_type(gui, body, 1);
         Module._set_width_percent(gui, body, 100.0);
         Module._set_height(gui, body, 100.0);
-        Module._append_child(gui, body, 1);
+		Module._append_child(gui, body, 1);
 
         var node = Module._create_node(gui);
         Module._set_width(gui, node, 1000);
         Module._set_height(gui, node, 60);
         Module._set_background_rgba_color(gui, node, 0.0, 1.0, 0.0, 1.0);
-        Module._append_child(gui, node, body);
+		Module._append_child(gui, node, body);
 
         window.__jsObj = "color: #00f;letter-spacing:5px;word-spacing: 10px;font-family:common;font-weight:900;font-size:20px;text-align:center;line-height:60px;text-stroke:1px #f0f;text-shadow:5px 5px 2px #f00;";
         let class1 = Module._create_class(gui, [1]);
@@ -604,7 +638,8 @@
         window.__jsObj = "使用 class 设置的样式";
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
-        Module._set_font_family(gui, text_node);
+		Module._set_font_family(gui, text_node);
+		window["xxxxxxxxxxxxxxxxxxx"] = text_node;
     </script>
 
     <!-- <script>

@@ -1,6 +1,7 @@
 /// 解析字符串格式的样式
 use std::mem::transmute;
 use std::str::FromStr;
+use std::result::Result;
 
 use atom::Atom;
 
@@ -8,10 +9,7 @@ use component::calc::*;
 use component::user::Opacity;
 use component::user::*;
 use hash::XHashMap;
-pub use layout::{
-    YGAlign, YGDirection, YGDisplay, YGEdge, YGFlexDirection, YGJustify, YGOverflow,
-    YGPositionType, YGWrap,
-};
+use flex_layout::*;
 use single::class::*;
 
 pub fn parse_class_map_from_string(value: &str) -> Result<XHashMap<usize, Class>, String> {
@@ -512,25 +510,25 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "align-content" => {
             class
                 .attrs1
-                .push(Attribute1::AlignContent(parse_yg_align(value)?));
+                .push(Attribute1::AlignContent(parse_yg_align_content(value)?));
             class.class_style_mark1 |= StyleType1::AlignContent as usize;
         }
         "align-items" => {
             class
                 .attrs1
-                .push(Attribute1::AlignItems(parse_yg_align(value)?));
+                .push(Attribute1::AlignItems(parse_yg_align_items(value)?));
             class.class_style_mark1 |= StyleType1::AlignItems as usize;
         }
         "align-self" => {
             class
                 .attrs1
-                .push(Attribute1::AlignSelf(parse_yg_align(value)?));
+                .push(Attribute1::AlignSelf(parse_yg_align_self(value)?));
             class.class_style_mark1 |= StyleType1::AlignSelf as usize;
         }
         "justify-content" => {
             class
                 .attrs1
-                .push(Attribute1::JustifyContent(parse_yg_justify(value)?));
+                .push(Attribute1::JustifyContent(parse_yg_justify_content(value)?));
             class.class_style_mark1 |= StyleType1::JustifyContent as usize;
         }
         _ => (),
@@ -747,19 +745,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        ValueUnit::Percent(r) => slice.top = r/100.0,
+        Dimension::Percent(r) => slice.top = r/100.0,
         _ => (),
     };
     match r[1] {
-        ValueUnit::Percent(r) => slice.right = r/100.0,
+        Dimension::Percent(r) => slice.right = r/100.0,
         _ => (),
     };
     match r[2] {
-        ValueUnit::Percent(r) => slice.bottom = r/100.0,
+        Dimension::Percent(r) => slice.bottom = r/100.0,
         _ => (),
     };
     match r[3] {
-        ValueUnit::Percent(r) => slice.left = r/100.0,
+        Dimension::Percent(r) => slice.left = r/100.0,
         _ => (),
     };
     Ok(slice)
@@ -803,68 +801,91 @@ fn parse_text_align(value: &str) -> Result<TextAlign, String> {
     }
 }
 
-fn parse_yg_align(value: &str) -> Result<YGAlign, String> {
+fn parse_yg_align_items(value: &str) -> Result<AlignItems, String> {
     match value {
-        "auto" => Ok(YGAlign::YGAlignAuto),
-        "flex-start" => Ok(YGAlign::YGAlignFlexStart),
-        "center" => Ok(YGAlign::YGAlignCenter),
-        "flex-end" => Ok(YGAlign::YGAlignFlexEnd),
-        "stretch" => Ok(YGAlign::YGAlignStretch),
-        "baseline" => Ok(YGAlign::YGAlignBaseline),
-        "space-between" => Ok(YGAlign::YGAlignSpaceBetween),
-        "space-around" => Ok(YGAlign::YGAlignSpaceAround),
-        _ => Err(format!("parse_yg_align error, value: {}", value)),
+		// "auto" => Ok(AlignItems::Auto),
+        "flex-start" => Ok(AlignItems::FlexStart),
+        "center" => Ok(AlignItems::Center),
+        "flex-end" => Ok(AlignItems::FlexEnd),
+        "stretch" => Ok(AlignItems::Stretch),
+        "baseline" => Ok(AlignItems::Baseline),
+        _ => Err(format!("parse_yg_align_items error, value: {}", value)),
+    }
+}
+
+fn parse_yg_align_self(value: &str) -> Result<AlignSelf, String> {
+    match value {
+		// "auto" => Ok(AlignItems::Auto),
+        "flex-start" => Ok(AlignSelf::FlexStart),
+        "center" => Ok(AlignSelf::Center),
+        "flex-end" => Ok(AlignSelf::FlexEnd),
+        "stretch" => Ok(AlignSelf::Stretch),
+        "baseline" => Ok(AlignSelf::Baseline),
+        _ => Err(format!("parse_yg_align_self error, value: {}", value)),
+    }
+}
+
+fn parse_yg_align_content(value: &str) -> Result<AlignContent, String> {
+    match value {
+		// "auto" => Ok(AlignItems::Auto),
+        "flex-start" => Ok(AlignContent::FlexStart),
+        "center" => Ok(AlignContent::Center),
+        "flex-end" => Ok(AlignContent::FlexEnd),
+        "stretch" => Ok(AlignContent::Stretch),
+        "space-between" => Ok(AlignContent::SpaceBetween),
+        "space-around" => Ok(AlignContent::SpaceAround),
+        _ => Err(format!("parse_yg_align_content error, value: {}", value)),
     }
 }
 
 // fn parse_yg_align(value: &str) -> Result<TextAlign, String> {
 //     match value {
-//         "auto" => Ok(YGAlign::YGAlignAuto),
-//         "flex-start" => Ok(YGAlign::YGAlignFlexStart),
-//         "center" => Ok(YGAlign::YGAlignCenter),
-//         "flex-end" => Ok(YGAlign::YGAlignFlexEnd),
-//         "stretch" => Ok(YGAlign::YGAlignStretch),
-//         "baseline" => Ok(YGAlign::YGAlignBaseline),
-//         "space-between" => Ok(YGAlign::YGAlignSpaceBetween),
-//         "space-around" => Ok(YGAlign::YGAlignSpaceAround),
+//         "auto" => Ok(::Auto),
+//         "flex-start" => Ok(::FlexStart),
+//         "center" => Ok(::Center),
+//         "flex-end" => Ok(::FlexEnd),
+//         "stretch" => Ok(::Stretch),
+//         "baseline" => Ok(::Baseline),
+//         "space-between" => Ok(::SpaceBetween),
+//         "space-around" => Ok(::SpaceAround),
 //         _ => Err(format!("parse_yg_align error, value: {}", value))
 //     }
 // }
 
-fn parse_yg_direction(value: &str) -> Result<YGFlexDirection, String> {
+fn parse_yg_direction(value: &str) -> Result<FlexDirection, String> {
     match value {
-        "column" => Ok(YGFlexDirection::YGFlexDirectionColumn),
-        "column-reverse" => Ok(YGFlexDirection::YGFlexDirectionColumnReverse),
-        "row" => Ok(YGFlexDirection::YGFlexDirectionRow),
-        "row-reverse" => Ok(YGFlexDirection::YGFlexDirectionRowReverse),
+        "column" => Ok(FlexDirection::Column),
+        "column-reverse" => Ok(FlexDirection::ColumnReverse),
+        "row" => Ok(FlexDirection::Row),
+        "row-reverse" => Ok(FlexDirection::RowReverse),
         _ => Err(format!("parse_yg_direction error, value: {}", value)),
     }
 }
 
-fn parse_yg_justify(value: &str) -> Result<YGJustify, String> {
+fn parse_yg_justify_content(value: &str) -> Result<JustifyContent, String> {
     match value {
-        "flex-start" => Ok(YGJustify::YGJustifyFlexStart),
-        "center" => Ok(YGJustify::YGJustifyCenter),
-        "flex-end" => Ok(YGJustify::YGJustifyFlexEnd),
-        "space-between" => Ok(YGJustify::YGJustifySpaceBetween),
-        "space-around" => Ok(YGJustify::YGJustifySpaceAround),
-        _ => Err(format!("parse_yg_justify error, value: {}", value)),
+        "flex-start" => Ok(JustifyContent::FlexStart),
+        "center" => Ok(JustifyContent::Center),
+        "flex-end" => Ok(JustifyContent::FlexEnd),
+        "space-between" => Ok(JustifyContent::SpaceBetween),
+        "space-around" => Ok(JustifyContent::SpaceAround),
+        _ => Err(format!("parse_yg_justify_content error, value: {}", value)),
     }
 }
 
-fn parse_yg_position_type(value: &str) -> Result<YGPositionType, String> {
+fn parse_yg_position_type(value: &str) -> Result<PositionType, String> {
     match value {
-        "relative" => Ok(YGPositionType::YGPositionTypeRelative),
-        "absolute" => Ok(YGPositionType::YGPositionTypeAbsolute),
+        "relative" => Ok(PositionType::Relative),
+        "absolute" => Ok(PositionType::Absolute),
         _ => Err(format!("parse_yg_position_type error, value: {}", value)),
     }
 }
 
-fn parse_yg_wrap(value: &str) -> Result<YGWrap, String> {
+fn parse_yg_wrap(value: &str) -> Result<FlexWrap, String> {
     match value {
-        "nowrap" => Ok(YGWrap::YGWrapNoWrap),
-        "wrap" => Ok(YGWrap::YGWrapWrap),
-        "wrap-reverse" => Ok(YGWrap::YGWrapWrapReverse),
+        "nowrap" => Ok(FlexWrap::NoWrap),
+        "wrap" => Ok(FlexWrap::Wrap),
+        "wrap-reverse" => Ok(FlexWrap::WrapReverse),
         _ => Err(format!("parse_yg_wrap error, value: {}", value)),
     }
 }
@@ -1001,7 +1022,7 @@ fn parse_deg(value: &str) -> Result<f32, String> {
     }
 }
 
-fn parse_border(value: &str) -> Result<(ValueUnit, CgColor), String> {
+fn parse_border(value: &str) -> Result<(Dimension, CgColor), String> {
     let mut i = 0;
     let width = parse_unity(iter_by_space(value, &mut i)?)?;
     let color = match iter_by_space(value, &mut i) {
@@ -1346,7 +1367,7 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
 }
 
 // 上右下左
-fn parse_four_f32(value: &str) -> Result<[ValueUnit; 4], String> {
+fn parse_four_f32(value: &str) -> Result<[Dimension; 4], String> {
     let mut i = 0;
     let mut arr = Vec::default();
     loop {
@@ -1390,7 +1411,7 @@ fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
 	r
 }
 
-fn to_four(arr: Vec<&str>) -> Result<[ValueUnit; 4], String> {
+fn to_four(arr: Vec<&str>) -> Result<[Dimension; 4], String> {
     let r = if arr.len() == 1 {
         let v = parse_unity(arr[0])?;
         [v.clone(), v.clone(), v.clone(), v]
@@ -1416,24 +1437,24 @@ fn to_four(arr: Vec<&str>) -> Result<[ValueUnit; 4], String> {
     Ok(r)
 }
 
-fn parse_unity(value: &str) -> Result<ValueUnit, String> {
+fn parse_unity(value: &str) -> Result<Dimension, String> {
     if value.ends_with("%") {
         let v = match f32::from_str(&value[..value.len() - 1]) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
-        Ok(ValueUnit::Percent(v))
+        Ok(Dimension::Percent(v/100.0))
     } else if value == "auto" {
-        Ok(ValueUnit::Auto)
+        Ok(Dimension::Auto)
     } else if value.ends_with("px") {
         let v = match f32::from_str(&value[0..value.len() - 2]) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
-        Ok(ValueUnit::Pixel(v))
+        Ok(Dimension::Points(v))
     } else {
         // 如果value不符合css规范，直接解析成0px（css默认值）
-        Ok(ValueUnit::Pixel(0.0))
+        Ok(Dimension::Points(0.0))
     }
 }
 

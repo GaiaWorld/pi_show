@@ -5,7 +5,8 @@ use stdweb::unstable::TryInto;
 
 use atom::Atom;
 use cg2d::{include_quad2, InnOuter};
-use ecs::idtree::{IdTree, InsertType};
+use gui::single::{IdTree};
+use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use octree::intersects;
 
@@ -281,48 +282,8 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
     let notify = idtree.get_notify();
 
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
-    idtree.remove(child as usize, None);
-    idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
-}
-
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn first_child(world: u32, parent: u32) -> usize{
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-	let idtree = world.idtree.lend_mut();
-	unsafe{idtree.get_unchecked(parent as usize)}.children.head
-}
-
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn last_child(world: u32, parent: u32) -> usize{
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-	let idtree = world.idtree.lend_mut();
-	unsafe{idtree.get_unchecked(parent as usize)}.children.tail
-}
-
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn next_sibling(world: u32, node: u32) -> usize{
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-	let idtree = world.idtree.lend_mut();
-	unsafe{idtree.get_unchecked(node as usize)}.next
-}
-
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn previous_sibling(world: u32, node: u32) -> usize{
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-	let idtree = world.idtree.lend_mut();
-	unsafe{idtree.get_unchecked(node as usize)}.prev
+	// idtree.remove(child as usize, None);
+	idtree.insert_child_with_notify(child as usize, parent as usize, UMAX, &notify);
 }
 
 /// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
@@ -335,19 +296,72 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
-    idtree.remove(child as usize, None);
-    idtree.insert_brother(
+    // idtree.remove(child as usize, None);
+    idtree.insert_brother_with_notify(
         child as usize,
         brother as usize,
         InsertType::Front,
-        Some(&notify),
-    );
+        &notify,
+	);
+}
+
+/// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn remove_node(world: u32, node_id: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let idtree = world.idtree.lend_mut();
+	let notify = idtree.get_notify();
+	println!("remove=============={}", node_id);
+	idtree.remove_with_notify(node_id as usize, &notify);
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn first_child(world: u32, parent: u32) -> usize{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let idtree = world.idtree.lend_mut();
+	unsafe{idtree.get_unchecked(parent as usize)}.children().head
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn last_child(world: u32, parent: u32) -> usize{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let idtree = world.idtree.lend_mut();
+	unsafe{idtree.get_unchecked(parent as usize)}.children().tail
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn next_sibling(world: u32, node: u32) -> usize{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let idtree = world.idtree.lend_mut();
+	unsafe{idtree.get_unchecked(node as usize)}.next()
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn previous_sibling(world: u32, node: u32) -> usize{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let idtree = world.idtree.lend_mut();
+	unsafe{idtree.get_unchecked(node as usize)}.prev()
 }
 
 // /// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn insert_after(world: u32, child: u32, brother: u32) {
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let world = &mut world.gui;
@@ -363,18 +377,6 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
 //     );
 // }
 
-/// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn remove_node(world: u32, node_id: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let idtree = world.idtree.lend_mut();
-    let notify = idtree.get_notify();
-    idtree.remove(node_id as usize, Some(&notify));
-}
-
 /// 返回节点的层级（如果节点未添加在根上，返回0, 不存在节点，返回0）
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -384,7 +386,7 @@ pub fn get_layer(world: u32, node: u32) -> u32 {
     let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     match idtree.get(node as usize) {
-        Some(n) => n.layer as u32,
+        Some(n) => n.layer() as u32,
         None => 0,
     }
 }
@@ -400,14 +402,14 @@ pub fn destroy_node(world: u32, node_id: u32) {
     let notify = idtree.get_notify();
     let nodes = world.node.lend_mut();
 	
-	idtree.remove(node_id as usize, Some(&notify));
-	let head = unsafe{idtree.get_unchecked(node_id as usize)}.children.head;
+	idtree.remove_with_notify(node_id as usize, &notify);
+	let head = unsafe{idtree.get_unchecked(node_id as usize)}.children().head;
 	nodes.delete(node_id as usize);
 	for (id, _n) in idtree.recursive_iter(head) {
 		nodes.delete(id);
 	}
 	//销毁节点（remove已经发出了移除事件，这里不需要再次通知）
-	idtree.destroy(node_id as usize, true, None);
+	idtree.destroy(node_id as usize);
 }
 
 /// __jsObj: image_name(String)
@@ -438,7 +440,7 @@ pub fn set_src(world: u32, node: u32) {
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    unsafe { world.layout.lend().get_unchecked(node as usize) }.top
+    unsafe { world.layout.lend().get_unchecked(node as usize) }.rect.top
 }
 
 /// 节点到gui的左边界的距离
@@ -448,7 +450,7 @@ pub fn offset_top(world: u32, node: u32) -> f32 {
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    unsafe { world.layout.lend().get_unchecked(node as usize) }.left
+    unsafe { world.layout.lend().get_unchecked(node as usize) }.rect.start
 }
 
 /// 节点的布局宽度
@@ -457,8 +459,9 @@ pub fn offset_left(world: u32, node: u32) -> f32 {
 #[js_export]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    unsafe { world.layout.lend().get_unchecked(node as usize) }.width
+	let world = &mut world.gui;
+	let r = unsafe { world.layout.lend().get_unchecked(node as usize) };
+	r.rect.end - r.rect.start
 }
 
 /// 节点布局高度
@@ -467,8 +470,9 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
 #[js_export]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    unsafe { world.layout.lend().get_unchecked(node as usize) }.height
+	let world = &mut world.gui;
+	let r = unsafe { world.layout.lend().get_unchecked(node as usize) };
+    r.rect.bottom - r.rect.top
 }
 
 // /// left top width height
@@ -580,12 +584,12 @@ pub fn content_box(world: u32, node: u32) {
     let layout = world.layout.lend();
     let idtree = world.idtree.borrow();
     let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
-    for (id, _) in idtree.iter(unsafe { idtree.get_unchecked(node as usize) }.children.head) {
+    for (id, _) in idtree.iter(unsafe { idtree.get_unchecked(node as usize) }.children().head) {
         let l = unsafe { layout.get_unchecked(id) };
-        let r = l.left + l.width;
-        let b = l.top + l.height;
-        if l.left < left {
-            left = l.left;
+        let r = l.rect.end;
+        let b = l.rect.bottom;
+        if l.rect.start < left {
+            left = l.rect.start;
         }
         if r > right {
             right = r;
@@ -593,8 +597,8 @@ pub fn content_box(world: u32, node: u32) {
         if b > bottom {
             bottom = b;
         }
-        if l.top < top {
-            top = l.top;
+        if l.rect.top < top {
+            top = l.rect.top;
         }
     }
     js! {
@@ -824,7 +828,7 @@ impl<'a> AbQueryArgs<'a> {
 fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) {
     match arg.id_tree.get(*bind) {
         Some(node) => {
-            if node.layer == 0 {
+            if node.layer() == 0 {
                 return;
             }
         }

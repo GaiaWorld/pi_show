@@ -15,7 +15,7 @@ use hal_core::*;
 use map::vecmap::VecMap;
 use polygon::*;
 
-use component::calc::Opacity;
+use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use entity::Node;
@@ -58,7 +58,7 @@ pub struct ImageSys<C> {
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
 impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Image>,
@@ -107,43 +107,40 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     self.remove_render_obj(*id, render_objs);
                     continue;
                 }
-            };
+			};
 
             let mut dirty = style_mark.dirty;
 
             // 不存在Image关心的脏, 跳过
             if dirty & DIRTY_TY == 0 {
                 continue;
-            }
+			}
 
-            // Image脏， 如果不存在Image的本地样式和class样式， 删除渲染对象
             let render_index = if dirty & StyleType::Image as usize != 0 {
-                if style_mark.local_style & StyleType::Image as usize == 0
-                    && style_mark.class_style & StyleType::Image as usize == 0
-                {
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                }
-                dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
-                                   // 不存在渲染对象， 创建
-                match self.render_map.get_mut(*id) {
-                    Some(r) => *r,
-                    None => self.create_render_obj(*id, render_objs, default_state),
-                }
+				// 如果不存在Image的本地样式和class样式， 删除渲染对象
+				if style_mark.local_style & StyleType::Image as usize == 0 && style_mark.class_style & StyleType::Image as usize == 0 {
+					self.remove_render_obj(*id, render_objs);
+					continue;
+				}
+				dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
+				match self.render_map.get_mut(*id) {
+					Some(r) => *r,
+					None => self.create_render_obj(*id, render_objs, default_state),
+				}
             } else {
-                match self.render_map.get_mut(*id) {
-                    Some(r) => *r,
-                    None => continue,
-                }
-            };
+				match self.render_map.get_mut(*id) {
+					Some(r) => *r,
+					None => continue,
+				}
+			};
 
             let image = &images[*id];
-            let render_obj = &mut render_objs[render_index];
+			let render_obj = &mut render_objs[render_index];
             // 纹理不存在, 跳过
             if image.src.is_none() {
                 render_obj.geometry = None;
                 continue;
-            }
+			}
 
             let border_radius = border_radiuss.get(*id);
             let z_depth = z_depths[*id].0;
@@ -168,7 +165,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     engine,
                     &self.unit_geo,
                 );
-
                 modify_matrix(
                     render_obj,
                     layout,
@@ -202,7 +198,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
                 if radius.x > g_b.min.x && pos.min.x < radius.x && pos.min.y < radius.x {
                     has_radius = true;
-                }
+				}
                 modify_matrix(
                     render_obj,
                     layout,
@@ -326,7 +322,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
 fn update_geo<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     border_radius: Option<&BorderRadius>,
-    layout: &Layout,
+    layout: &LayoutR,
     image: &Image,
     image_clip: Option<&ImageClip>,
     object_fit: Option<&ObjectFit>,
@@ -378,7 +374,7 @@ fn update_geo_quad<C: HalContext + 'static>(
                     )
                 }
                 false => (uv.min, uv.max),
-            };
+			};
             let uv_hash = cal_uv_hash(&uv1, &uv2);
             let geo_hash = unit_geo_hash(&uv_hash);
             match engine.geometry_res_map.get(&geo_hash) {
@@ -463,7 +459,7 @@ fn unit_geo_hash(uv_hash: &u64) -> u64 {
 #[inline]
 fn modify_matrix(
     render_obj: &mut RenderObj,
-    layout: &Layout,
+    layout: &LayoutR,
     depth: f32,
     world_matrix: &WorldMatrix,
     transform: &Transform,
@@ -471,7 +467,7 @@ fn modify_matrix(
     hash_radius: bool,
 ) {
     if hash_radius {
-        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border_left, layout.border_top, depth);
+        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border.start, layout.border.top, depth);
         render_obj.paramter.set_value(
             "worldMatrix",
             Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(arr))),
@@ -480,8 +476,8 @@ fn modify_matrix(
         let arr = create_unit_offset_matrix(
             pos.max.x - pos.min.x,
             pos.max.y - pos.min.y,
-            layout.border_left,
-            layout.border_top,
+            layout.border.start,
+            layout.border.top,
             layout,
             world_matrix,
             transform,
@@ -497,15 +493,17 @@ fn modify_matrix(
 fn use_layout_pos<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     uv: Aabb2,
-    layout: &Layout,
+    layout: &LayoutR,
     radius: &Point2,
     engine: &mut Engine<C>,
 ) {
-    let start_x = layout.border_left;
-    let start_y = layout.border_top;
-    let end_x = layout.width - layout.border_right;
-    let end_y = layout.height - layout.border_bottom;
-    let (positions, indices) = if radius.x == 0.0 || layout.width == 0.0 || layout.height == 0.0 {
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
+    let start_x = layout.border.start;
+    let start_y = layout.border.top;
+    let end_x = width - layout.border.end;
+    let end_y = height - layout.border.bottom;
+    let (positions, indices) = if radius.x == 0.0 || width == 0.0 || height == 0.0 {
         (
             vec![
                 start_x, start_y, start_x, end_y, end_x, end_y, end_x, start_y,
@@ -529,7 +527,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         indices,
         &[0.0, 1.0],
         (0.0, 0.0),
-        (0.0, layout.height),
+        (0.0, height),
     );
     // debug_println!("split_mult_by_lg, positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, 0.0, 0.0, layout.width, 0.0);
     let (positions, indices_arr) = split_mult_by_lg(
@@ -537,7 +535,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         indices_arr,
         &[0.0, 1.0],
         (0.0, 0.0),
-        (layout.width, 0.0),
+        (width, 0.0),
     );
     let indices = mult_to_triangle(&indices_arr, Vec::new());
     // debug_println!("u positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [{}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.x, uv.max.x]}], 0.0, 1.0, 0.0, 0.0, layout.width, 0.0);
@@ -551,7 +549,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         }],
         &[0.0, 1.0],
         (0.0, 0.0),
-        (layout.width, 0.0),
+        (width, 0.0),
     );
     let v = interp_mult_by_lg(
         &positions,
@@ -563,7 +561,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         }],
         &[0.0, 1.0],
         (0.0, 0.0),
-        (0.0, layout.height),
+        (0.0, height),
     );
     // debug_println!("v positions: {:?}, indices_arr: {:?}, cfg: {:?}, percent: [}, {}], start: [{}, {}], end: [{}, {}]",  &positions, indices_arr, vec![LgCfg{unit: 1, data: vec![uv.min.y, uv.max.y]}], 0.0, 1.0, 0.0, 0.0, 0.0, layout.height);
     let mut uvs = Vec::with_capacity(u[0].len());
@@ -587,9 +585,10 @@ fn get_pos_uv(
     img: &Image,
     clip: Option<&ImageClip>,
     fit: Option<&ObjectFit>,
-    layout: &Layout,
+    layout: &LayoutR,
 ) -> (Aabb2, Aabb2) {
-    let src = img.src.as_ref().unwrap();
+	
+	let src = img.src.as_ref().unwrap();
     let (size, mut uv1, mut uv2) = match clip {
         Some(c) => {
             let size = Vector2::new(
@@ -603,18 +602,18 @@ fn get_pos_uv(
             Point2::new(0.0, 0.0),
             Point2::new(1.0, 1.0),
         ),
-    };
+	};
     let width = match img.width {
         Some(r) => r,
-        None => layout.width - layout.border_right - layout.padding_right,
+        None => layout.rect.end - layout.rect.start - layout.border.end - layout.border.start,
     };
     let height = match img.height {
         Some(r) => r,
-        None => layout.height - layout.border_bottom - layout.padding_bottom,
+        None => layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top,
     };
     let mut p1 = Point2::new(
-        layout.border_left + layout.padding_left,
-        layout.border_top + layout.padding_top,
+        layout.border.start + layout.padding.start,
+        layout.border.top + layout.padding.top,
     );
     let mut p2 = Point2::new(width, height);
     let w = p2.x - p1.x;

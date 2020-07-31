@@ -5,18 +5,18 @@ use atom::Atom;
 use cgmath::One;
 use hal_core::*;
 
-use ecs::idtree::IdTree;
+use single::IdTree;
 use ecs::*;
 use res::ResMgr;
 use share::Share;
 
 use component::calc;
-use component::calc::*;
+use component::{calc::*, calc::LayoutR};
 use component::user;
 use component::user::*;
+use component::user::Overflow;
 use entity::Node;
 use font::font_sheet::FontSheet;
-use layout::FlexNode;
 use render::engine::ShareEngine;
 use render::res::*;
 use single::*;
@@ -116,7 +116,7 @@ pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
     res_mgr
 }
 
-pub fn create_world<L: FlexNode, C: HalContext + 'static>(
+pub fn create_world<C: HalContext + 'static>(
 	mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
@@ -164,7 +164,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
 
     let default_state = DefaultState::new(&engine.gl);
 
-    let charblock_sys = CellCharBlockSys::<L, C>::new(CharBlockSys::new(
+    let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::new(
         &mut engine,
         (font_texture.width, font_texture.height),
     ));
@@ -190,7 +190,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, BorderImageClip>();
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
-    world.register_multi::<Node, CharBlock<L>>();
+    // world.register_multi::<Node, CharBlock<L>>();
     world.register_multi::<Node, TextStyle>();
     world.register_multi::<Node, TextContent>();
     world.register_multi::<Node, Font>();
@@ -201,7 +201,10 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, Filter>();
     world.register_multi::<Node, ClassName>();
     world.register_multi::<Node, StyleMark>();
-    world.register_multi::<Node, TransformWillChange>();
+	world.register_multi::<Node, TransformWillChange>();
+	world.register_multi::<Node, RectLayoutStyle>();
+	world.register_multi::<Node, OtherLayoutStyle>();
+	world.register_multi::<Node, NodeState>();
 
     //calc
     world.register_multi::<Node, ZDepth>();
@@ -210,15 +213,17 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_multi::<Node, WorldMatrix>();
     world.register_multi::<Node, ByOverflow>();
     world.register_multi::<Node, calc::Opacity>();
-    world.register_multi::<Node, Layout>();
-    world.register_multi::<Node, L>();
+    world.register_multi::<Node, LayoutR>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, Culling>();
-    world.register_multi::<Node, TransformWillChangeMatrix>();
+	world.register_multi::<Node, TransformWillChangeMatrix>();
+	world.register_multi::<Node, CharNode>();
 
+	let mut idtree = IdTree::default();
+	idtree.set_statistics_count(true);
     //single
     world.register_single::<Statistics>(Statistics::default());
-    world.register_single::<IdTree>(IdTree::default());
+    world.register_single::<IdTree>(idtree);
     world.register_single::<Oct>(Oct::new());
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs>(RenderObjs::default());
@@ -248,10 +253,10 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
-    world.register_system(LYOUT_N.clone(), CellLayoutSys::<L>::new(LayoutSys::new()));
+    world.register_system(LYOUT_N.clone(), CellLayoutSys::new(LayoutSys::default()));
     world.register_system(
         TEXT_LAYOUT_N.clone(),
-        CellLayoutImpl::new(LayoutImpl::<L>::new()),
+        CellLayoutImpl::new(LayoutImpl::new()),
     );
     world.register_system(
         WORLD_MATRIX_N.clone(),
@@ -266,7 +271,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     world.register_system(
         TEXT_GLPHY_N.clone(),
-        CellTextGlphySys::<L>::new(TextGlphySys::new()),
+        CellTextGlphySys::new(TextGlphySys),
     );
     world.register_system(
         TRANSFORM_WILL_CHANGE_N.clone(),
@@ -303,11 +308,11 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     );
     world.register_system(
         STYLE_MARK_N.clone(),
-        CellStyleMarkSys::<L, C>::new(StyleMarkSys::new()),
+        CellStyleMarkSys::<C>::new(StyleMarkSys::new()),
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, layout_sys, text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -316,7 +321,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build(
-        "text_layout_sys, world_matrix_sys, text_glphy_sys, oct_sys".to_string(),
+        "layout_sys, world_matrix_sys, oct_sys".to_string(),
         &world,
     );
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
@@ -324,7 +329,7 @@ pub fn create_world<L: FlexNode, C: HalContext + 'static>(
     world
 }
 
-pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
+pub struct GuiWorld<C: HalContext + 'static> {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -346,7 +351,9 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub image_clip: Arc<CellMultiCase<Node, ImageClip>>,
     pub object_fit: Arc<CellMultiCase<Node, ObjectFit>>,
     pub filter: Arc<CellMultiCase<Node, Filter>>,
-    pub yoga: Arc<CellMultiCase<Node, L>>,
+	pub rect_layout_style: Arc<CellMultiCase<Node, RectLayoutStyle>>,
+	pub other_layout_style: Arc<CellMultiCase<Node, OtherLayoutStyle>>,
+	pub node_state: Arc<CellMultiCase<Node, NodeState>>,
     pub class_name: Arc<CellMultiCase<Node, ClassName>>,
     pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
     pub transform_will_change: Arc<CellMultiCase<Node, TransformWillChange>>,
@@ -358,7 +365,7 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub world_matrix: Arc<CellMultiCase<Node, WorldMatrix>>,
     pub by_overflow: Arc<CellMultiCase<Node, ByOverflow>>,
     pub copacity: Arc<CellMultiCase<Node, calc::Opacity>>,
-    pub layout: Arc<CellMultiCase<Node, Layout>>,
+    pub layout: Arc<CellMultiCase<Node, LayoutR>>,
     pub hsv: Arc<CellMultiCase<Node, HSV>>,
     pub culling: Arc<CellMultiCase<Node, Culling>>,
 
@@ -378,8 +385,8 @@ pub struct GuiWorld<L: FlexNode, C: HalContext + 'static> {
     pub world: World,
 }
 
-impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
-    pub fn new(world: World) -> GuiWorld<L, C> {
+impl<C: HalContext + 'static> GuiWorld<C> {
+    pub fn new(world: World) -> GuiWorld<C> {
         GuiWorld {
             node: world.fetch_entity::<Node>().unwrap(),
             transform: world.fetch_multi::<Node, Transform>().unwrap(),
@@ -402,7 +409,9 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             image_clip: world.fetch_multi::<Node, ImageClip>().unwrap(),
             object_fit: world.fetch_multi::<Node, ObjectFit>().unwrap(),
             filter: world.fetch_multi::<Node, Filter>().unwrap(),
-            yoga: world.fetch_multi::<Node, L>().unwrap(),
+			rect_layout_style: world.fetch_multi::<Node, RectLayoutStyle>().unwrap(),
+			other_layout_style: world.fetch_multi::<Node, OtherLayoutStyle>().unwrap(),
+			node_state: world.fetch_multi::<Node, NodeState>().unwrap(),
             class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
             style_mark: world.fetch_multi::<Node, StyleMark>().unwrap(),
             transform_will_change: world.fetch_multi::<Node, TransformWillChange>().unwrap(),
@@ -415,7 +424,7 @@ impl<L: FlexNode, C: HalContext + 'static> GuiWorld<L, C> {
             world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
             by_overflow: world.fetch_multi::<Node, ByOverflow>().unwrap(),
             copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
-            layout: world.fetch_multi::<Node, Layout>().unwrap(),
+            layout: world.fetch_multi::<Node, LayoutR>().unwrap(),
             hsv: world.fetch_multi::<Node, HSV>().unwrap(),
 
             //single

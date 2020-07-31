@@ -1,0 +1,1 @@
+* align-content为stretch时，当交叉轴元素的总高度大于容器高度时，元素会被缩小

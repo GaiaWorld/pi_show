@@ -12,7 +12,7 @@ use hal_core::*;
 use map::vecmap::VecMap;
 use share::Share;
 
-use component::calc::Opacity;
+use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use entity::Node;
@@ -56,7 +56,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a MultiCaseImpl<Node, BorderImageClip>,
         &'a MultiCaseImpl<Node, BorderImageSlice>,
         &'a MultiCaseImpl<Node, BorderImageRepeat>,
-        &'a MultiCaseImpl<Node, Layout>,
+        &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
@@ -117,10 +117,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                     dirty |= DIRTY_TY;
                     match self.render_map.get_mut(*id) {
                         Some(r) => *r,
-                        None => {
-                            dirty |= DIRTY_TY;
-                            self.create_render_obj(*id, render_objs, default_state)
-                        }
+                        None => self.create_render_obj(*id, render_objs, default_state)
                     }
                 }
             } else {
@@ -139,9 +136,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             }
 
             let layout = &layouts[*id];
-
+			
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
+				println!("Matrix========================{}", id);
                 let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -233,7 +231,8 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+				let notify = render_objs.get_notify();
+				println!("remove_render_obj border========================{}, index: {}", id, index);
                 render_objs.remove(index, Some(notify));
             }
             None => (),
@@ -266,7 +265,7 @@ fn create_geo<C: HalContext + 'static>(
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
-    layout: &Layout,
+    layout: &LayoutR,
     engine: &mut Engine<C>,
 ) -> Option<Share<GeometryRes>> {
     let h = geo_hash(img, clip, slice, repeat, layout);
@@ -301,7 +300,7 @@ fn geo_hash(
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
-    layout: &Layout,
+    layout: &LayoutR,
 ) -> u64 {
     let mut hasher = DefaultHasher::default();
     BORDER_IMAGE.hash(&mut hasher);
@@ -323,8 +322,10 @@ fn geo_hash(
             (r.1 as u8).hash(&mut hasher);
         }
         None => 0.hash(&mut hasher),
-    };
-    f32_3_hash_(layout.width, layout.height, layout.border_left, &mut hasher);
+	};
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
+    f32_3_hash_(width, height, layout.border.start, &mut hasher);
     hasher.finish()
 }
 
@@ -334,7 +335,7 @@ fn get_border_image_stream(
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
-    layout: &Layout,
+    layout: &LayoutR,
     mut point_arr: Polygon,
     mut uv_arr: Polygon,
     mut index_arr: Vec<u16>,
@@ -343,15 +344,17 @@ fn get_border_image_stream(
     let (uv1, uv2) = match clip {
         Some(c) => (c.min, c.max),
         _ => (Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
-    };
+	};
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
     let p1 = Point2::new(0.0, 0.0);
-    let p2 = Point2::new(layout.width, layout.height);
+    let p2 = Point2::new(width, height);
     let w = p2.x - p1.x;
     let h = p2.y - p1.y;
-    let left = layout.border_left;
-    let right = layout.width - layout.border_right;
-    let top = layout.border_top;
-    let bottom = layout.height - layout.border_bottom;
+    let left = layout.border.start;
+    let right = width - layout.border.end;
+    let top = layout.border.top;
+    let bottom = height - layout.border.bottom;
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
     let (uv_left, uv_right, uv_top, uv_bottom) = match slice {

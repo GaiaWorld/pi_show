@@ -53,6 +53,8 @@ extern crate polygon;
 extern crate ordered_float;
 extern crate hash;
 extern crate densevec;
+extern crate idtree;
+extern crate flex_layout;
 
 pub mod system;
 pub mod component;
@@ -61,6 +63,7 @@ pub mod layout;
 pub mod font;
 pub mod render;
 pub mod world;
+pub mod util;
 
 pub mod entity{
     pub struct Node;

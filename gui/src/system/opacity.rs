@@ -3,7 +3,7 @@
  *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Opacity
  */
 use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
-use ecs::idtree::{ IdTree};
+use single::IdTree;
 
 use component::user::{ Opacity};
 use component::calc::{Opacity as COpacity, OpacityWrite as COpacityWrite};
@@ -15,7 +15,7 @@ pub struct OpacitySys;
 impl OpacitySys {
     fn modify_opacity(id: usize, idtree: &SingleCaseImpl<IdTree>, opacity: &MultiCaseImpl<Node, Opacity>, c_opacity: &mut MultiCaseImpl<Node, COpacity>){
         let parent_id = match idtree.get(id) {
-            Some(node) => if node.layer != 0 { node.parent } else { return; },
+            Some(node) => if node.layer() != 0 { node.parent() } else { return; },
             None => return,
         };
         if parent_id > 0 {
@@ -60,11 +60,14 @@ fn modify_opacity(
     opacity: &MultiCaseImpl<Node, Opacity>,
     copacity: &mut MultiCaseImpl<Node,COpacity>
 ) {
-    let opacity_value: f32 = *opacity[id];
+    let opacity_value: f32 = match opacity.get(id) {
+		Some(r) => **r,
+		None => return,
+	};
     let node_real_opacity = opacity_value * parent_real_opacity;
     copacity.get_write(id).unwrap().set_0(node_real_opacity);
 	
-    let first = id_tree[id].children.head;
+    let first = id_tree[id].children().head;
     for child_id in id_tree.iter(first) {
         modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity);
     }
@@ -94,7 +97,7 @@ fn test(){
 
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = LendMut::lend_mut(&idtree);
-    let notify = idtree.get_notify();
+    // let notify = idtree.get_notify();
     let opacitys = world.fetch_multi::<Node, Opacity>().unwrap();
     let opacitys = LendMut::lend_mut(&opacitys);
     let copacitys = world.fetch_multi::<Node, COpacity>().unwrap();
@@ -103,7 +106,7 @@ fn test(){
     let e0 = world.create_entity::<Node>();
     
     idtree.create(e0);
-    idtree.insert_child(e0, 0, 0, Some(&notify)); //根
+    idtree.insert_child(e0, 0, 0); //根
     opacitys.insert(e0, Opacity::default());
 
     world.run(&Atom::from("test_opacity_sys"));
@@ -112,39 +115,39 @@ fn test(){
     let e01 = world.create_entity::<Node>();
     let e02 = world.create_entity::<Node>();
     idtree.create(e00);
-    idtree.insert_child(e00, e0, 1, Some(&notify));
+    idtree.insert_child(e00, e0, 1);
     opacitys.insert(e00, Opacity::default());
     idtree.create(e01);
-    idtree.insert_child(e01, e0, 2, Some(&notify));
+    idtree.insert_child(e01, e0, 2);
     opacitys.insert(e01, Opacity::default());
     idtree.create(e02);
-    idtree.insert_child(e02, e0, 3, Some(&notify));
+    idtree.insert_child(e02, e0, 3);
     opacitys.insert(e02, Opacity::default());
 
     let e000 = world.create_entity::<Node>();
     let e001 = world.create_entity::<Node>();
     let e002 = world.create_entity::<Node>();
     idtree.create(e000);
-    idtree.insert_child(e000, e00, 1, Some(&notify));
+    idtree.insert_child(e000, e00, 1);
     opacitys.insert(e000, Opacity::default());
     idtree.create(e001);
-    idtree.insert_child(e001, e00, 2, Some(&notify));
+    idtree.insert_child(e001, e00, 2);
     opacitys.insert(e001, Opacity::default());
     idtree.create(e002);
-    idtree.insert_child(e002, e00, 3, Some(&notify));
+    idtree.insert_child(e002, e00, 3);
     opacitys.insert(e002, Opacity::default());
 
     let e010 = world.create_entity::<Node>();
     let e011 = world.create_entity::<Node>();
     let e012 = world.create_entity::<Node>();
     idtree.create(e010);
-    idtree.insert_child(e010, e01, 1, Some(&notify));
+    idtree.insert_child(e010, e01, 1);
     opacitys.insert(e010, Opacity::default());
     idtree.create(e011);
-    idtree.insert_child(e011, e01, 2, Some(&notify));
+    idtree.insert_child(e011, e01, 2);
     opacitys.insert(e011, Opacity::default());
     idtree.create(e012);
-    idtree.insert_child(e012, e01, 3, Some(&notify));
+    idtree.insert_child(e012, e01, 3);
     opacitys.insert(e012, Opacity::default());
     world.run(&Atom::from("test_opacity_sys"));
 

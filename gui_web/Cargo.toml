@@ -4,10 +4,12 @@ version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
+flex_layout = {path="../../pi_lib/flex_layout"}
 atom = {path="../../pi_lib/atom"}
 data_view = {path="../../pi_lib/data_view"}
 share = {path="../../pi_lib/share"}
 ecs = {path="../../pi_lib/ecs"}
+idtree = {path="../../pi_lib/idtree"}
 ecs_derive = { path = "../../pi_lib/ecs_derive" }
 map = { path = "../../pi_lib/map" }
 debug_info = { path = "../../pi_lib/debug_info", features = ["print"] }
@@ -48,10 +50,11 @@ codegen-units = 1
 # opt-level = 3
 
 [features]
-# default = ["no_debug", "no_define_js"]
+# default = ["no_debug", "no_define_js", "print"]
 # default = ["create_class_by_str"]
 # default = ["no_debug", "share/rc"]
 default = ["debug"]
+# default = ["debug", "create_class_by_str"]
 # default = ["share/rc", "ecs/runtime"]
 # default = ["debug", "no_debug"]
 debug = ["share/rc", "ecs/runtime"]

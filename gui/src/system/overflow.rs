@@ -4,17 +4,17 @@
 
 use ecs::{
     component::MultiCaseImpl,
-    idtree::IdTree,
     monitor::NotifyImpl,
     monitor::{CreateEvent, DeleteEvent, ModifyEvent},
     single::SingleCaseImpl,
     system::{EntityListener, MultiCaseListener, Runner},
     SingleCaseListener,
 };
+use single::IdTree;
 use hal_core::*;
 use share::Share;
 
-use component::{calc::*, user::*};
+use component::{calc::*, user::*, user::Overflow, calc::LayoutR};
 use dirty::LayerDirty;
 use entity::Node;
 use single::{Clip, DefaultTable, Oct, OverflowClip, ViewMatrix};
@@ -24,7 +24,7 @@ type Read<'a> = (
     &'a MultiCaseImpl<Node, Overflow>,
     &'a MultiCaseImpl<Node, WorldMatrix>,
     &'a MultiCaseImpl<Node, Transform>,
-    &'a MultiCaseImpl<Node, Layout>,
+    &'a MultiCaseImpl<Node, LayoutR>,
     &'a SingleCaseImpl<DefaultTable>,
     &'a SingleCaseImpl<Oct>,
     &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
@@ -49,14 +49,14 @@ impl<'a> Runner<'a> for OverflowImpl {
         // let time = std::time::Instant::now();
         let (overflow_clip, by_overflows, cullings, style_marks) = write;
         for (id, layer) in self.overflow_dirty.iter() {
-            let dirty1 = match style_marks.get(*id) {
-                Some(r) => r.dirty1,
+            let dirty_other = match style_marks.get(*id) {
+                Some(r) => r.dirty_other,
                 None => continue,
             };
-            if read.0[*id].layer != layer {
+            if read.0[*id].layer() != layer {
                 continue;
             }
-            if dirty1 & StyleType1::Overflow as usize != 0 {
+            if dirty_other & StyleType1::Overflow as usize != 0 {
                 let by = by_overflows[*id].0;
                 let aabb = unsafe { &*(overflow_clip as *const SingleCaseImpl<OverflowClip>) }
                     .clip_map
@@ -119,12 +119,12 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
         let node = &read.0[event.id];
-        if node.layer == 0 {
+        if node.layer() == 0 {
             return;
         }
         let overflow = match read.1.get(event.id) {
             Some(r) => **r,
-            _ => false,
+            _ => return,
         };
         let mut by = *write.1[event.id] ;
         let notify = write.0.get_notify();
@@ -136,7 +136,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
             self.mark_dirty(
                 event.id,
                 StyleType1::Overflow as usize,
-                node.layer,
+                node.layer(),
                 &mut write.3,
             );
             i = 1 << (i - 1);
@@ -153,9 +153,9 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
             i
         };
         if by & index != 0 {
-            adjust(&read.0, write.1, node.children.head, index, add_index);
+            adjust(&read.0, write.1, node.children().head, index, add_index);
         } else {
-            adjust(&read.0, write.1, node.children.head, index, del_index);
+            adjust(&read.0, write.1, node.children().head, index, del_index);
         }
     }
 }
@@ -250,7 +250,7 @@ impl<'a> MultiCaseListener<'a, Node, Transform, DeleteEvent> for OverflowImpl {
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for OverflowImpl {
+impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
@@ -258,6 +258,10 @@ impl<'a> MultiCaseListener<'a, Node, Layout, ModifyEvent> for OverflowImpl {
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+		// 虚拟节点不需要计算overflow
+		if let None = read.1.get(event.id) {
+			return;
+		}
         self.matrix_dirty(event.id, read, write);
     }
 }
@@ -269,13 +273,13 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
         let node = &read.0[event.id];
         // 获得父节点的ByOverflow
-        let mut by = *write.1[node.parent];
-        let overflow = match read.1.get(node.parent) {
+        let mut by = *write.1[node.parent()];
+        let overflow = match read.1.get(node.parent()) {
             Some(r) => **r,
             _ => false,
         };
         if overflow {
-            let i = get_index(write.0, node.parent);
+            let i = get_index(write.0, node.parent());
             if i > 0 {
                 by = add_index(by, 1 << (i - 1));
             }
@@ -302,17 +306,23 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
             _ => false,
         } {
             remove_index(&mut *write.0, event.id, &notify);
-        }
-        write.1.get_write(event.id).unwrap().set_0(0);
+		}
+		match write.1.get_write(event.id) {
+			Some(mut r) => r.set_0(0),
+			None => return,
+		};
         // 递归调用，检查是否有overflow， 撤销设置OverflowClip
-        for (id, _n) in read.0.recursive_iter(node.children.head) {
+        for (id, _n) in read.0.recursive_iter(node.children().head) {
             if match read.1.get(id) {
                 Some(r) => **r,
                 _ => false,
             } {
                 remove_index(&mut *write.0, id, &notify);
             }
-            write.1.get_write(id).unwrap().set_0(0);
+            match write.1.get_write(event.id) {
+				Some(mut r) => r.set_0(0),
+				None => continue,
+			};
         }
     }
 }
@@ -348,9 +358,12 @@ impl OverflowImpl {
         layer: usize,
         style_marks: &mut MultiCaseImpl<Node, StyleMark>,
     ) {
-        let style_mark = &mut style_marks[id];
-        if style_mark.dirty1 & dirty_type == 0 {
-            style_mark.dirty1 |= dirty_type;
+		let style_mark = match style_marks.get_mut(id) {
+			Some(r) => r,
+			None => return,
+		};
+        if style_mark.dirty_other & dirty_type == 0 {
+            style_mark.dirty_other |= dirty_type;
             self.overflow_dirty.mark(id, layer);
         }
     }
@@ -369,7 +382,7 @@ impl OverflowImpl {
             Some(r) => r,
             None => return,
         };
-        if node.layer == 0
+        if node.layer() == 0
             || (read.0[id].0 == 0
                 && !match read.1.get(id) {
                     Some(r) => **r,
@@ -378,7 +391,7 @@ impl OverflowImpl {
         {
             return;
         }
-        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer, write);
+        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer(), write);
     }
 
     fn matrix_will_change_dirty(
@@ -395,21 +408,21 @@ impl OverflowImpl {
             Some(r) => r,
             None => return,
         };
-        if node.layer == 0 {
+        if node.layer() == 0 {
             return;
         }
-        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer, write);
+        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer(), write);
     }
 
     // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
     fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
+		let overflow = match read.1.get(id) {
+            Some(r) => **r,
+            _ => return,
+        };
         if by > 0 {
             write.1.get_write(id).unwrap().set_0(by);
         }
-        let overflow = match read.1.get(id) {
-            Some(r) => **r,
-            _ => false,
-        };
         if overflow {
             // 添加根上的overflow的裁剪矩形
             // let i = set_index(&mut *write.0, 0, id);
@@ -417,7 +430,7 @@ impl OverflowImpl {
             self.mark_dirty(
                 id,
 				StyleType1::Overflow as usize,
-				read.0[id].layer,
+				read.0[id].layer(),
                 &mut write.3,
             );
             if i > 0 {
@@ -426,7 +439,7 @@ impl OverflowImpl {
         }
 
         let node = &read.0[id];
-        for (id, _n) in read.0.iter(node.children.head) {
+        for (id, _n) in read.0.iter(node.children().head) {
             self.set_overflow(id, by, read, write);
         }
     }
@@ -442,10 +455,10 @@ fn get_will_change_matrix<'a, 'b>(
             return Some(r);
         }
         let node = &idtree[id];
-        if node.parent == 0 {
+        if node.parent() == 0 {
             return None;
         }
-        id = node.parent;
+        id = node.parent();
     }
 }
 
@@ -509,10 +522,13 @@ fn calc_clip<'a>(
         }
     }
 
-    style_marks[id].dirty1 &= !(StyleType1::Overflow as usize);
+    style_marks[id].dirty_other &= !(StyleType1::Overflow as usize);
 
-    let first = read.0[id].children.head;
+    let first = read.0[id].children().head;
     for (child_id, _child) in read.0.iter(first) {
+		if let None = read.1.get(child_id) {
+			continue;
+		}
         calc_clip(
             child_id,
             by,
@@ -528,7 +544,7 @@ fn calc_clip<'a>(
 }
 
 //================================ 内部静态方法
-// 设置裁剪区域，需要 world_matrix layout
+// 设置裁剪区域，需要 world_matrix LayoutR
 fn set_clip(
     id: usize,
     i: usize,
@@ -547,8 +563,8 @@ fn set_clip(
     let origin = match read.3.get(id) {
         Some(r) => r.origin.clone(),
         None => TransformOrigin::Center,
-    };
-    let origin = origin.to_value(layout.width, layout.height);
+	};
+    let origin = origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
     let c = &mut clip.clip[i];
     *c = Clip {
         view: calc_point(layout, world_matrix, &origin),
@@ -559,7 +575,7 @@ fn set_clip(
 }
 
 //================================ 内部静态方法
-// 创建裁剪区域，需要 world_matrix layout
+// 创建裁剪区域，需要 world_matrix LayoutR
 fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
     if clip.clip.len() >= 32 {
         println!("clip overflow!!!!!!!");
@@ -618,25 +634,30 @@ fn adjust(
     ops: fn(a: usize, b: usize) -> usize,
 ) {
     for (id, _n) in idtree.recursive_iter(child) {
-        let by = *by_overflow[id];
+        let by = match by_overflow.get(id) {
+			Some(r) => **r, 
+			None => continue,
+		};
         by_overflow.get_write(id).unwrap().set_0(ops(by, index));
     }
 }
 // 计算内容区域矩形的4个点
-fn calc_point(layout: &Layout, m: &Matrix4, origin: &Point2) -> [Point2; 4] {
-    let width = layout.width
-        - layout.padding_left
-        - layout.padding_right
-        - layout.border_left
-        - layout.border_right;
-    let height = layout.height
-        - layout.padding_top
-        - layout.padding_bottom
-        - layout.border_top
-        - layout.border_bottom;
+fn calc_point(layout: &LayoutR, m: &Matrix4, origin: &Point2) -> [Point2; 4] {
+	let width = layout.rect.end 
+		- layout.rect.start
+        - layout.padding.start
+        - layout.padding.end
+        - layout.border.start
+        - layout.border.end;
+    let height = layout.rect.bottom 
+		- layout.rect.top
+        - layout.padding.top
+        - layout.padding.bottom
+        - layout.border.top
+        - layout.border.bottom;
     let start = (
-        layout.border_left + layout.padding_left - origin.x,
-        layout.border_top + layout.padding_top - origin.y,
+        layout.border.start + layout.padding.start - origin.x,
+        layout.border.top + layout.padding.top - origin.y,
     );
     let left_top = m * Vector4::new(start.0, start.1, 0.0, 1.0);
     let right_top = m * Vector4::new(start.0 + width, start.1, 0.0, 1.0);
@@ -782,7 +803,7 @@ impl_system! {
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Transform, CreateEvent>
         MultiCaseListener<Node, Transform, DeleteEvent>
-        MultiCaseListener<Node, Layout, ModifyEvent>
+        MultiCaseListener<Node, LayoutR, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>

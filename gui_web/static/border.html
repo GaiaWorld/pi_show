@@ -23,7 +23,7 @@
         var YGEdgeAll = 8;
     </script>
     
-    <script src="../target/asmjs-unknown-emscripten/debug/gui_web.js"></script>
+    <script src="../target/asmjs-unknown-emscripten/release/gui_web.js"></script>
     <script src="shader/clip.js"></script>
     <script src="shader/color.js"></script>
     <script src="shader/image.js"></script>
@@ -44,13 +44,14 @@
         
         //有圆角的边框
         var node3 = Module._create_node(gui);
-        Module._append_child(gui, node3, 1); // 接口已修改， node和parent顺序颠倒
+		Module._append_child(gui, node3, 1); 
+		// 接口已修改， node和parent顺序颠倒
         Module._set_width(gui, node3, 100.0);
         Module._set_height(gui, node3, 100.0);
         Module._set_border(gui, node3, YGEdgeAll, 10);
         Module._set_margin(gui, node3, YGEdgeLeft, 10);
-        Module._set_border_radius(gui, node3, 20, 20); // 设置圆角， 可以设置圆角的x， y， 尽管如此， 但现在仅支持一个值， 或默认将y的值替换成与x一样的值
-        Module._set_border_color(gui, node3, 0.0, 1.0, 0.0, 0.5);
+		Module._set_border_radius(gui, node3, 20, 20); // 设置圆角， 可以设置圆角的x， y， 尽管如此， 但现在仅支持一个值， 或默认将y的值替换成与x一样的值
+		Module._set_border_color(gui, node3, 0.0, 1.0, 0.0, 1.0);
 
     </script>
 </body>

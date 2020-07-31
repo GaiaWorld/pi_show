@@ -4,19 +4,17 @@ use hal_core::*;
 use hal_webgl::*;
 use hash::XHashMap;
 use serde::Serialize;
+use flex_layout::style::*;
 
 use ecs::{Lend, LendMut};
 use gui::component::calc::*;
 use gui::component::user::*;
 // use gui::render::res::*;
-use gui::entity::Node;
 use gui::system::util::cal_matrix;
 // use gui::single::Oct;
 // use gui::component::user::*;
-use gui::layout::*;
+// use gui::layout::*;
 
-use bc::YgNode;
-use gui::layout::FlexNode;
 use gui::render::engine::ShareEngine;
 use gui::single::*;
 use GuiWorld;
@@ -38,11 +36,11 @@ struct Layout1 {
     height: f32,
     border_left: f32,
     border_top: f32,
-    border_right: f32,
+    border_end: f32,
     border_bottom: f32,
     padding_left: f32,
     padding_top: f32,
-    padding_right: f32,
+    padding_end: f32,
     padding_bottom: f32,
 }
 js_serializable!(Layout1);
@@ -62,7 +60,7 @@ struct Info {
     content_box: Quad,
     culling: bool,
     render_obj: Vec<RenderObject>,
-    char_block: Option<CharBlock1>,
+    // char_block: Option<CharBlock1>,
     class_name: Option<ClassName>,
     image: Option<String>,
     border_image: Option<String>,
@@ -81,7 +79,8 @@ struct Info {
     parent_id: Option<u32>,
 
     text: Option<TextStyle>,
-    text_content: Option<TextContent>,
+	text_content: Option<TextContent>,
+	children: Vec<usize>,
 }
 js_serializable!(Info);
 
@@ -287,61 +286,61 @@ fn to_css_str(attr: Attr) -> String {
     match attr {
         Attr::Attr1(attr) => match attr {
             Attribute1::PositionType(r) => match r {
-                YGPositionType::YGPositionTypeRelative => "position:relative".to_string(),
-                YGPositionType::YGPositionTypeAbsolute => "position:absolute".to_string(),
+                PositionType::Relative => "position:relative".to_string(),
+                PositionType::Absolute => "position:absolute".to_string(),
             },
             Attribute1::FlexWrap(r) => match r {
-                YGWrap::YGWrapNoWrap => "flex-wrap:nowrap".to_string(),
-                YGWrap::YGWrapWrap => "flex-wrap:wrap".to_string(),
-                YGWrap::YGWrapWrapReverse => "flex-wrap:wrapreverse".to_string(),
+                FlexWrap::NoWrap => "flex-wrap:nowrap".to_string(),
+                FlexWrap::Wrap => "flex-wrap:wrap".to_string(),
+                FlexWrap::WrapReverse => "flex-wrap:wrapreverse".to_string(),
             },
             Attribute1::FlexDirection(r) => match r {
-                YGFlexDirection::YGFlexDirectionColumn => "flex-direction:column".to_string(),
-                YGFlexDirection::YGFlexDirectionColumnReverse => {
+                FlexDirection::Column => "flex-direction:column".to_string(),
+                FlexDirection::ColumnReverse => {
                     "flex-direction:columnreverse".to_string()
                 }
-                YGFlexDirection::YGFlexDirectionRow => "flex-direction:row".to_string(),
-                YGFlexDirection::YGFlexDirectionRowReverse => {
+                FlexDirection::Row => "flex-direction:row".to_string(),
+                FlexDirection::RowReverse => {
                     "flex-direction:rowreverse".to_string()
                 }
             },
             Attribute1::AlignContent(r) => match r {
-                YGAlign::YGAlignAuto => "align-content:auto".to_string(),
-                YGAlign::YGAlignFlexStart => "align-content:flex-start".to_string(),
-                YGAlign::YGAlignCenter => "align-content:center".to_string(),
-                YGAlign::YGAlignFlexEnd => "align-content:flex-end".to_string(),
-                YGAlign::YGAlignStretch => "align-content:stretch".to_string(),
-                YGAlign::YGAlignBaseline => "align-content:baseline".to_string(),
-                YGAlign::YGAlignSpaceBetween => "align-content:space-between".to_string(),
-                YGAlign::YGAlignSpaceAround => "align-content:space-around".to_string(),
+                // AlignContent::Auto => "align-content:auto".to_string(),
+                AlignContent::FlexStart => "align-content:flex-start".to_string(),
+                AlignContent::Center => "align-content:center".to_string(),
+                AlignContent::FlexEnd => "align-content:flex-end".to_string(),
+                AlignContent::Stretch => "align-content:stretch".to_string(),
+                // AlignContent::Baseline => "align-content:baseline".to_string(),
+                AlignContent::SpaceBetween => "align-content:space-between".to_string(),
+                AlignContent::SpaceAround => "align-content:space-around".to_string(),
             },
             Attribute1::AlignItems(r) => match r {
-                YGAlign::YGAlignAuto => "align-items:auto".to_string(),
-                YGAlign::YGAlignFlexStart => "align-items:flex-start".to_string(),
-                YGAlign::YGAlignCenter => "align-items:center".to_string(),
-                YGAlign::YGAlignFlexEnd => "align-items:flex-end".to_string(),
-                YGAlign::YGAlignStretch => "align-items:stretch".to_string(),
-                YGAlign::YGAlignBaseline => "align-items:baseline".to_string(),
-                YGAlign::YGAlignSpaceBetween => "align-items:space-between".to_string(),
-                YGAlign::YGAlignSpaceAround => "align-items:space-around".to_string(),
+                // AlignItems::Auto => "align-items:auto".to_string(),
+                AlignItems::FlexStart => "align-items:flex-start".to_string(),
+                AlignItems::Center => "align-items:center".to_string(),
+                AlignItems::FlexEnd => "align-items:flex-end".to_string(),
+                AlignItems::Stretch => "align-items:stretch".to_string(),
+                AlignItems::Baseline => "align-items:baseline".to_string(),
+                // AlignItems::SpaceBetween => "align-items:space-between".to_string(),
+                // AlignItems::SpaceAround => "align-items:space-around".to_string(),
             },
             Attribute1::AlignSelf(r) => match r {
-                YGAlign::YGAlignAuto => "align-self:auto".to_string(),
-                YGAlign::YGAlignFlexStart => "align-self:flex-start".to_string(),
-                YGAlign::YGAlignCenter => "align-self:center".to_string(),
-                YGAlign::YGAlignFlexEnd => "align-self:flex-end".to_string(),
-                YGAlign::YGAlignStretch => "align-self:stretch".to_string(),
-                YGAlign::YGAlignBaseline => "align-self:baseline".to_string(),
-                YGAlign::YGAlignSpaceBetween => "align-self:space-between".to_string(),
-                YGAlign::YGAlignSpaceAround => "align-self:space-around".to_string(),
+                AlignSelf::Auto => "align-self:auto".to_string(),
+                AlignSelf::FlexStart => "align-self:flex-start".to_string(),
+                AlignSelf::Center => "align-self:center".to_string(),
+                AlignSelf::FlexEnd => "align-self:flex-end".to_string(),
+                AlignSelf::Stretch => "align-self:stretch".to_string(),
+                AlignSelf::Baseline => "align-self:baseline".to_string(),
+                // AlignSelf::SpaceBetween => "align-self:space-between".to_string(),
+                // AlignSelf::SpaceAround => "align-self:space-around".to_string(),
             },
             Attribute1::JustifyContent(r) => match r {
-                YGJustify::YGJustifyFlexStart => "justify-content:flex-start".to_string(),
-                YGJustify::YGJustifyCenter => "justify-content:center".to_string(),
-                YGJustify::YGJustifyFlexEnd => "justify-content:flex-end".to_string(),
-                YGJustify::YGJustifySpaceBetween => "justify-content:space-between".to_string(),
-                YGJustify::YGJustifySpaceAround => "justify-content:space-around".to_string(),
-                YGJustify::YGJustifySpaceEvenly => "justify-content:space-evenly".to_string(),
+                JustifyContent::FlexStart => "justify-content:flex-start".to_string(),
+                JustifyContent::Center => "justify-content:center".to_string(),
+                JustifyContent::FlexEnd => "justify-content:flex-end".to_string(),
+                JustifyContent::SpaceBetween => "justify-content:space-between".to_string(),
+                JustifyContent::SpaceAround => "justify-content:space-around".to_string(),
+                JustifyContent::SpaceEvenly => "justify-content:space-evenly".to_string(),
             },
 
             Attribute1::ObjectFit(r) => match r.0 {
@@ -401,7 +400,7 @@ fn to_css_str(attr: Attr) -> String {
                 LineHeight::Normal => "line-height:normal".to_string(),
                 LineHeight::Length(r) => "line-height:".to_string() + r.to_string().as_str() + "px",
                 LineHeight::Number(r) => "line-height:".to_string() + r.to_string().as_str(),
-                LineHeight::Percent(r) => "line-height:".to_string() + r.to_string().as_str() + "%",
+                LineHeight::Percent(r) => "line-height:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::TextIndent(r) => "text-indent:".to_string() + r.to_string().as_str() + "px",
             Attribute2::WordSpacing(r) => "word-space:".to_string() + r.to_string().as_str() + "px",
@@ -419,170 +418,170 @@ fn to_css_str(attr: Attr) -> String {
             Attribute2::FlexShrink(r) => "flex-shrink:".to_string() + r.to_string().as_str(),
             Attribute2::FlexGrow(r) => "flex-grow:".to_string() + r.to_string().as_str(),
             Attribute2::Width(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "width:auto".to_string(),
-                ValueUnit::Pixel(r) => "width:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "width:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "width:auto".to_string(),
+                Dimension::Points(r) => "width:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "width:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::Height(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "height:auto".to_string(),
-                ValueUnit::Pixel(r) => "height:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "height:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "height:auto".to_string(),
+                Dimension::Points(r) => "height:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "height:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginLeft(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "margin-left:auto".to_string(),
-                ValueUnit::Pixel(r) => "margin-left:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "margin-left:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "margin-left:auto".to_string(),
+                Dimension::Points(r) => "margin-left:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "margin-left:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginTop(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "margin-top:auto".to_string(),
-                ValueUnit::Pixel(r) => "margin-top:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "margin-top:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "margin-top:auto".to_string(),
+                Dimension::Points(r) => "margin-top:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "margin-top:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginBottom(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "margin-bottom:auto".to_string(),
-                ValueUnit::Pixel(r) => "margin-bottom:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => {
-                    "margin-bottom:".to_string() + r.to_string().as_str() + "%"
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "margin-bottom:auto".to_string(),
+                Dimension::Points(r) => "margin-bottom:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => {
+                    "margin-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
                 }
             },
             Attribute2::MarginRight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "margin-right:auto".to_string(),
-                ValueUnit::Pixel(r) => "margin-right:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "margin-right:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "margin-right:auto".to_string(),
+                Dimension::Points(r) => "margin-right:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "margin-right:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::Margin(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "margin:auto".to_string(),
-                ValueUnit::Pixel(r) => "margin:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "margin:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "margin:auto".to_string(),
+                Dimension::Points(r) => "margin:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "margin:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingLeft(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "padding-left:auto".to_string(),
-                ValueUnit::Pixel(r) => "padding-left:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "padding-left:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "padding-left:auto".to_string(),
+                Dimension::Points(r) => "padding-left:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "padding-left:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingTop(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "padding-top:auto".to_string(),
-                ValueUnit::Pixel(r) => "padding-top:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "padding-top:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "padding-top:auto".to_string(),
+                Dimension::Points(r) => "padding-top:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "padding-top:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingBottom(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "padding-bottom:auto".to_string(),
-                ValueUnit::Pixel(r) => {
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "padding-bottom:auto".to_string(),
+                Dimension::Points(r) => {
                     "padding-bottom:".to_string() + r.to_string().as_str() + "px"
                 }
-                ValueUnit::Percent(r) => {
-                    "padding-bottom:".to_string() + r.to_string().as_str() + "%"
+                Dimension::Percent(r) => {
+                    "padding-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
                 }
             },
             Attribute2::PaddingRight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "padding-right:auto".to_string(),
-                ValueUnit::Pixel(r) => "padding-right:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => {
-                    "padding-right:".to_string() + r.to_string().as_str() + "%"
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "padding-right:auto".to_string(),
+                Dimension::Points(r) => "padding-right:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => {
+                    "padding-right:".to_string() + (r*100.0).to_string().as_str() + "%"
                 }
             },
             Attribute2::Padding(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "padding:auto".to_string(),
-                ValueUnit::Pixel(r) => "padding:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "padding:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "padding:auto".to_string(),
+                Dimension::Points(r) => "padding:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "padding:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderLeft(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "border-left:auto".to_string(),
-                ValueUnit::Pixel(r) => "borderleft:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "borderleft:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "border-left:auto".to_string(),
+                Dimension::Points(r) => "borderleft:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "borderleft:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderTop(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "border-top:auto".to_string(),
-                ValueUnit::Pixel(r) => "border-top:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "border-top:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "border-top:auto".to_string(),
+                Dimension::Points(r) => "border-top:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "border-top:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderBottom(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "border-bottom:auto".to_string(),
-                ValueUnit::Pixel(r) => "border-bottom:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => {
-                    "border-bottom:".to_string() + r.to_string().as_str() + "%"
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "border-bottom:auto".to_string(),
+                Dimension::Points(r) => "border-bottom:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => {
+                    "border-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
                 }
             },
             Attribute2::BorderRight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "border-right:auto".to_string(),
-                ValueUnit::Pixel(r) => "border-right:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "border-right:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "border-right:auto".to_string(),
+                Dimension::Points(r) => "border-right:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "border-right:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::Border(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "width:auto".to_string(),
-                ValueUnit::Pixel(r) => "width:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "width:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "width:auto".to_string(),
+                Dimension::Points(r) => "width:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "width:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MinWidth(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "min-width:auto".to_string(),
-                ValueUnit::Pixel(r) => "min-width:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "min-width:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "min-width:auto".to_string(),
+                Dimension::Points(r) => "min-width:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "min-width:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MinHeight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "min-height:auto".to_string(),
-                ValueUnit::Pixel(r) => "min-height:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "min-height:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "min-height:auto".to_string(),
+                Dimension::Points(r) => "min-height:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "min-height:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MaxHeight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "max-height:auto".to_string(),
-                ValueUnit::Pixel(r) => "max-height:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "max-height:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "max-height:auto".to_string(),
+                Dimension::Points(r) => "max-height:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "max-height:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::MaxWidth(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "max-width:auto".to_string(),
-                ValueUnit::Pixel(r) => "max-width:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "max-width:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "max-width:auto".to_string(),
+                Dimension::Points(r) => "max-width:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "max-width:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::FlexBasis(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "flex-basis:auto".to_string(),
-                ValueUnit::Pixel(r) => "flex-basis:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "flex-basis:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "flex-basis:auto".to_string(),
+                Dimension::Points(r) => "flex-basis:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "flex-basis:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionLeft(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "left:auto".to_string(),
-                ValueUnit::Pixel(r) => "left:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "left:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "left:auto".to_string(),
+                Dimension::Points(r) => "left:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "left:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionTop(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "top:auto".to_string(),
-                ValueUnit::Pixel(r) => "top:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "top:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "top:auto".to_string(),
+                Dimension::Points(r) => "top:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "top:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionRight(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "right:auto".to_string(),
-                ValueUnit::Pixel(r) => "right:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "right:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "right:auto".to_string(),
+                Dimension::Points(r) => "right:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "right:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionBottom(r) => match r {
-                ValueUnit::Undefined => "".to_string(),
-                ValueUnit::Auto => "bottom:auto".to_string(),
-                ValueUnit::Pixel(r) => "bottom:".to_string() + r.to_string().as_str() + "px",
-                ValueUnit::Percent(r) => "bottom:".to_string() + r.to_string().as_str() + "%",
+                Dimension::Undefined => "".to_string(),
+                Dimension::Auto => "bottom:auto".to_string(),
+                Dimension::Points(r) => "bottom:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "bottom:".to_string() + (r*100.0).to_string().as_str() + "%",
             },
             _ => "".to_string(),
         },
@@ -737,11 +736,12 @@ fn to_css_str(attr: Attr) -> String {
 pub fn node_info(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+	let world = &mut world.gui;
+	let idtree = world.idtree.lend();
 
     // let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
 
-    let parent = unsafe { world.idtree.lend().get_unchecked(node) }.parent;
+    let parent = unsafe { idtree.get_unchecked(node) }.parent();
 
     let enable = unsafe { world.enable.lend().get_unchecked(node) }.0;
     let visibility = unsafe { world.visibility.lend().get_unchecked(node) }.0;
@@ -759,11 +759,13 @@ pub fn node_info(world: u32, node: u32) {
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
     let layout = unsafe { layout.get_unchecked(node) };
 
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
     // border box
     let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
-    let b_left_bottom = world_matrix1 * Vector4::new(0.0, layout.height, 1.0, 1.0);
-    let b_right_bottom = world_matrix1 * Vector4::new(layout.width, layout.height, 1.0, 1.0);
-    let b_right_top = world_matrix1 * Vector4::new(layout.width, 0.0, 1.0, 1.0);
+    let b_left_bottom = world_matrix1 * Vector4::new(0.0, height, 1.0, 1.0);
+    let b_right_bottom = world_matrix1 * Vector4::new(width, height, 1.0, 1.0);
+    let b_right_top = world_matrix1 * Vector4::new(width, 0.0, 1.0, 1.0);
 
     // border box
     let absolute_b_box = Quad {
@@ -774,25 +776,25 @@ pub fn node_info(world: u32, node: u32) {
     };
 
     // padding box
-    let p_left_top = world_matrix1 * Vector4::new(layout.border_left, layout.border_top, 1.0, 1.0);
+    let p_left_top = world_matrix1 * Vector4::new(layout.border.start, layout.border.top, 1.0, 1.0);
     let p_left_bottom = world_matrix1
         * Vector4::new(
-            layout.border_left,
-            layout.height - layout.border_bottom,
+            layout.border.start,
+            height - layout.border.bottom,
             1.0,
             1.0,
         );
     let p_right_bottom = world_matrix1
         * Vector4::new(
-            layout.width - layout.border_right,
-            layout.height - layout.border_bottom,
+            width - layout.border.end,
+            height - layout.border.bottom,
             1.0,
             1.0,
         );
     let p_right_top = world_matrix1
         * Vector4::new(
-            layout.width - layout.border_right,
-            layout.border_top,
+            width - layout.border.end,
+            layout.border.top,
             1.0,
             1.0,
         );
@@ -807,29 +809,29 @@ pub fn node_info(world: u32, node: u32) {
     // content box
     let c_left_top = world_matrix1
         * Vector4::new(
-            layout.border_left + layout.padding_left,
-            layout.border_top + layout.padding_top,
+            layout.border.start + layout.padding.start,
+            layout.border.top + layout.padding.top,
             1.0,
             1.0,
         );
     let c_left_bottom = world_matrix1
         * Vector4::new(
-            layout.border_left + layout.padding_left,
-            layout.height - layout.border_bottom - layout.padding_bottom,
+            layout.border.start + layout.padding.start,
+            height - layout.border.bottom - layout.padding.bottom,
             1.0,
             1.0,
         );
     let c_right_bottom = world_matrix1
         * Vector4::new(
-            layout.width - layout.border_right - layout.padding_right,
-            layout.height - layout.border_bottom - layout.padding_bottom,
+            width - layout.border.end - layout.padding.end,
+            height - layout.border.bottom - layout.padding.bottom,
             1.0,
             1.0,
         );
     let c_right_top = world_matrix1
         * Vector4::new(
-            layout.width - layout.border_right - layout.padding_right,
-            layout.border_top + layout.padding_top,
+            width - layout.border.end - layout.padding.end,
+            layout.border.top + layout.padding.top,
             1.0,
             1.0,
         );
@@ -936,45 +938,49 @@ pub fn node_info(world: u32, node: u32) {
         }
     }
 
-    let char_block = world
-        .world
-        .fetch_multi::<Node, CharBlock<YgNode>>()
-        .unwrap();
-    let char_block = char_block.lend();
-    let char_block = match char_block.get(node) {
-        Some(r) => {
-            let mut c = CharBlock1 {
-                font_size: r.font_size,
-                font_height: r.font_height,
-                stroke_width: r.stroke_width,
-                line_height: r.line_height,
-                chars: Vec::default(),
-                lines: r.lines.clone(),
-                last_line: r.last_line,
-                size: r.size,
-                wrap_size: r.wrap_size,
-                pos: r.pos,
-                line_count: r.line_count,
-                fix_width: r.fix_width,
-                style_class: r.style_class,
-                is_pixel: r.is_pixel,
-            };
-            for i in r.chars.iter() {
-                c.chars.push(CharNode {
-                    ch: i.ch,
-                    width: i.width,
-                    pos: i.pos,
-                    ch_id_or_count: i.ch_id_or_count,
-                    base_width: i.base_width,
-                });
-            }
-            Some(c)
-        }
-        None => None,
-    };
+    // let char_block = world
+    //     .world
+    //     .fetch_multi::<Node, CharBlock<YgNode>>()
+    //     .unwrap();
+    // let char_block = char_block.lend();
+    // let char_block = match char_block.get(node) {
+    //     Some(r) => {
+    //         let mut c = CharBlock1 {
+    //             font_size: r.font_size,
+    //             font_height: r.font_height,
+    //             stroke_width: r.stroke_width,
+    //             line_height: r.line_height,
+    //             chars: Vec::default(),
+    //             lines: r.lines.clone(),
+    //             last_line: r.last_line,
+    //             size: r.size,
+    //             wrap_size: r.wrap_size,
+    //             pos: r.pos,
+    //             line_count: r.line_count,
+    //             fix_width: r.fix_width,
+    //             style_class: r.style_class,
+    //             is_pixel: r.is_pixel,
+    //         };
+    //         for i in r.chars.iter() {
+    //             c.chars.push(CharNode {
+    //                 ch: i.ch,
+    //                 width: i.width,
+    //                 pos: i.pos,
+    //                 ch_id_or_count: i.ch_id_or_count,
+    //                 base_width: i.base_width,
+    //             });
+    //         }
+    //         Some(c)
+    //     }
+    //     None => None,
+	// };
+	let mut children = Vec::new();
+	for id in idtree.iter(idtree[node].children().head) {
+		children.push(id.0);
+	}
 
     let info = Info {
-        char_block: char_block,
+        // char_block: char_block,
         overflow: unsafe { world.overflow.lend().get_unchecked(node) }.0,
         by_overflow: by_overflow,
         visibility: visibility,
@@ -1056,7 +1062,8 @@ pub fn node_info(world: u32, node: u32) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        parent_id: Some(parent as u32),
+		parent_id: Some(parent as u32),
+		children: children,
     };
 
     js! {
@@ -1407,9 +1414,12 @@ pub fn print_memory(world: u32) {
     let r = world.filter.lend().mem_size();
     total += r;
     println!("    world::filter = {:?}", r);
-    let r = world.yoga.lend().mem_size();
+    let r = world.rect_layout_style.lend().mem_size();
     total += r;
-    println!("    world::yoga = {:?}", r);
+	println!("    world::rect_layout_style = {:?}", r);
+	let r = world.other_layout_style.lend().mem_size();
+    total += r;
+    println!("    world::other_layout_style = {:?}", r);
     let r = world.class_name.lend().mem_size();
     total += r;
     println!("    world::class_name = {:?}", r);
@@ -1443,9 +1453,9 @@ pub fn print_memory(world: u32) {
     let r = world.culling.lend().mem_size();
     total += r;
     println!("    world::culling = {:?}", r);
-    let r = world.idtree.lend().mem_size();
-    total += r;
-    println!("    world::idtree = {:?}", r);
+    // let r = world.idtree.lend().mem_size();
+    // total += r;
+    // println!("    world::idtree = {:?}", r);
     let r = world.oct.lend().mem_size();
     total += r;
     println!("    world::oct = {:?}", r);
@@ -1615,19 +1625,14 @@ pub fn get_yoga(world: u32, node: u32) {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let yogas = world.yoga.lend();
-    let (style, layout) = match yogas.get(node) {
-        Some(r) => (r.get_style(), r.get_layout()),
-        None => return,
-    };
-    let layout1 = match world.layout.lend().get(node) {
-        Some(r) => r,
-        None => return,
-    };
+	let rect_layout_style = world.rect_layout_style.lend();
+	let other_layout_style = world.other_layout_style.lend();
+	let layouts = world.layout.lend();
     js! {
-        console.log("style:", @{format!("{:?}", &style)});
-        console.log("layout:", @{format!("{:?}", &layout)});
-        console.log("layout1:", @{format!("{:?}", layout1)});
+		console.log("rect_style:", @{format!("{:?}", rect_layout_style.get(node))});
+		console.log("other_style:", @{format!("{:?}", other_layout_style.get(node))});
+        console.log("layout:", @{format!("{:?}", layouts.get(node))});
+		console.log("node_state:", @{format!("{:?}", world.node_state.lend().get(node))});
     }
 }
 

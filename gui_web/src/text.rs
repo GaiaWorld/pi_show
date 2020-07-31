@@ -11,10 +11,6 @@ use data_view::GetView;
 use ecs::LendMut;
 use gui::component::user::*;
 use gui::font::font_sheet::{FontSheet, Glyph, TexFont, TextInfo as TextInfo1};
-pub use gui::layout::{
-    YGAlign, YGDirection, YGDisplay, YGEdge, YGFlexDirection, YGJustify, YGOverflow,
-    YGPositionType, YGWrap,
-};
 use hal_core::*;
 use hash::XHashMap;
 use set_render_dirty;
