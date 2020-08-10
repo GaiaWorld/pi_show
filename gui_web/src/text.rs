@@ -544,7 +544,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                 }
                 ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
                 ctx.fillStyle = "#0f0";
-                ctx.textBaseline = "bottom";
+                ctx.textBaseline = "top";
             }
             if text_info.stroke_width > 0 {
                 js! {
@@ -559,8 +559,8 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                         var c = @{canvas};
                         var ch = String.fromCharCode(@{ch_code});
                         //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-                        c.ctx.strokeText(ch, @{x}, @{bottom});
-                        c.ctx.fillText(ch, @{x}, @{bottom});
+                        c.ctx.strokeText(ch, @{x}, 0);
+                        c.ctx.fillText(ch, @{x}, 0);
                     }
                 }
             } else {
@@ -569,7 +569,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                     let x = char_info.x - start.0 as u32;
                     js! {
                         var ch = String.fromCharCode(@{ch_code});
-                        @{canvas}.ctx.fillText(ch, @{x}, @{bottom});
+                        @{canvas}.ctx.fillText(ch, @{x}, 0);
                     }
                 }
             }
