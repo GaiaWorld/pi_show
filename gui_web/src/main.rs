@@ -410,15 +410,23 @@ pub fn render(world_id: u32) {
     // let time = std::time::Instant::now();
     let world = &mut gui_world.gui;
 	load_image(world_id);
+
+	let dirty_list_len = world.dirty_list.lend().0.len();
+	
     // #[cfg(feature = "debug")]
 	// let load_image_time = std::time::Instant::now() - time;
 	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
 	let sys_time = world.system_time.lend_mut();
 	let cur_time = cur_time - sys_time.start_time;
 	sys_time.cur_time = cur_time as usize;
+
     // #[cfg(feature = "debug")]
     // let time = std::time::Instant::now();
-    world.world.run(&RENDER_DISPATCH);
+	world.world.run(&RENDER_DISPATCH);
+	
+	if dirty_list_len > 0 {
+		println!("runtime======={:?}", world.world.runtime);
+	}
     // #[cfg(feature = "debug")]
     // let run_all_time = std::time::Instant::now() - time;
 

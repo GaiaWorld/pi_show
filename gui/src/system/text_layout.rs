@@ -125,12 +125,12 @@ impl<'a> Runner<'a> for LayoutImpl {
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
             calc(*id, &read, &mut write, r.dirty & MARK_LAYOUT);
 		}
-		if dirty_list.len() > 0 {
-			println!(
-				"text layout=================={:?}, len:{}, dirty_list_len:{}",
-				std::time::Instant::now() - time, write.7.len(), dirty_list.len()
-			);
-		}
+		// if dirty_list.len() > 0 {
+		// 	println!(
+		// 		"text layout=================={:?}, len:{}, dirty_list_len:{}",
+		// 		std::time::Instant::now() - time, write.7.len(), dirty_list.len()
+		// 	);
+		// }
     }
 }
 

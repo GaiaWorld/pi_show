@@ -111,12 +111,12 @@ impl<'a> Runner<'a> for LayoutSys {
 			style_mark.dirty1 &= !DIRTY;
 		}
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
-		if dirty_list.0.len() > 0 {
-			println!(
-				"layout=================={:?}",
-				std::time::Instant::now() - time
-			);
-		}
+		// if dirty_list.0.len() > 0 {
+		// 	println!(
+		// 		"layout=================={:?}",
+		// 		std::time::Instant::now() - time
+		// 	);
+		// }
 	}
 }
 
