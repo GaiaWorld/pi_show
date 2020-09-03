@@ -402,7 +402,9 @@ pub fn destroy_node(world: u32, node_id: u32) {
     let notify = idtree.get_notify();
     let nodes = world.node.lend_mut();
 	
-	idtree.remove_with_notify(node_id as usize, &notify);
+	if let None = idtree.remove_with_notify(node_id as usize, &notify) {
+		return;
+	}
 	let head = unsafe{idtree.get_unchecked(node_id as usize)}.children().head;
 	nodes.delete(node_id as usize);
 	for (id, _n) in idtree.recursive_iter(head) {

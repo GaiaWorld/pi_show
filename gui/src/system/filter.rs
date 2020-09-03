@@ -82,7 +82,10 @@ fn recursive_cal_hsv(
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
-    let old_hsv = hsvs[id].clone();
+    let old_hsv =  match hsvs.get(id) {
+		Some(r) => r.clone(),
+		None => return,
+	};
     let hsv = match filters.get(id) {
         Some(filter) => {
             let hsv = HSV {

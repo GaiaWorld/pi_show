@@ -745,19 +745,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        Dimension::Percent(r) => slice.top = r/100.0,
+        Dimension::Percent(r) => slice.top = r,
         _ => (),
     };
     match r[1] {
-        Dimension::Percent(r) => slice.right = r/100.0,
+        Dimension::Percent(r) => slice.right = r,
         _ => (),
     };
     match r[2] {
-        Dimension::Percent(r) => slice.bottom = r/100.0,
+        Dimension::Percent(r) => slice.bottom = r,
         _ => (),
     };
     match r[3] {
-        Dimension::Percent(r) => slice.left = r/100.0,
+        Dimension::Percent(r) => slice.left = r,
         _ => (),
     };
     Ok(slice)

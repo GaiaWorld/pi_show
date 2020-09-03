@@ -64,7 +64,6 @@ impl<'a> Runner<'a> for LayoutSys {
 		if dirty_list.0.len() == 0 {
             return;
 		}
-		let time = std::time::Instant::now();
 		
 		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
 		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
@@ -111,12 +110,6 @@ impl<'a> Runner<'a> for LayoutSys {
 			style_mark.dirty1 &= !DIRTY;
 		}
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
-		if dirty_list.0.len() > 0 {
-			println!(
-				"layout=================={:?}",
-				std::time::Instant::now() - time
-			);
-		}
 	}
 }
 

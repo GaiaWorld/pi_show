@@ -7,7 +7,7 @@ use cgmath::InnerSpace;
 use ecs::{
 	component::MultiCaseImpl,
 	entity::EntityImpl,
-    monitor::{CreateEvent},
+    monitor::{CreateEvent, ModifyEvent},
     single::SingleCaseImpl,
     system::{MultiCaseListener, Runner},
 };
@@ -16,7 +16,7 @@ use flex_layout::*;
 use flex_layout::{Dimension, INodeStateType};
 use component::{calc::*, user::*, calc::LayoutR};
 use entity::Node;
-use font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult};
+use font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult, TexFont};
 use single::class::*;
 use single::*;
 
@@ -44,7 +44,7 @@ type Read<'a> = (
     &'a SingleCaseImpl<DirtyList>,
 );
 type Write<'a> = (
-    &'a mut MultiCaseImpl<Node, CharNode>,
+    &'a mut MultiCaseImpl<Node, NodeState>, // TODO
 	&'a mut MultiCaseImpl<Node, LayoutR>,
 	&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
 	&'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
@@ -52,7 +52,6 @@ type Write<'a> = (
 	&'a mut SingleCaseImpl<FontSheet>,
 	&'a mut SingleCaseImpl<IdTree>,
 	&'a mut EntityImpl<Node>,
-	&'a mut MultiCaseImpl<Node, NodeState>,
 );
 
 pub struct LayoutImpl {
@@ -75,7 +74,7 @@ impl<'a> Runner<'a> for TextGlphySys {
 
             if r.dirty & MARK == 0 {
                 continue;
-            }
+			}
             set_gylph(*id, &read, &mut write);
         }
     }
@@ -94,15 +93,16 @@ impl<'a> LayoutImpl {
 
 impl<'a> MultiCaseListener<'a, Node, TextContent, CreateEvent> for LayoutImpl {
 	type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, NodeState>, &'a mut MultiCaseImpl<Node, TextStyle>);
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, (node_states, text_styles): Self::WriteData) {
-		node_states[event.id].0.set_vnode(true);
+    type WriteData = &'a mut MultiCaseImpl<Node, TextStyle>;
+    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, text_styles: Self::WriteData) {
+		// node_states[event.id].0.set_vnode(true);
 		// 如果不存在TextStyle， 默认插入
 		if let None = text_styles.get(event.id) {
 			text_styles.insert_no_notify(event.id, TextStyle::default());
 		}
-    }
+	}
 }
+
 impl<'a> Runner<'a> for LayoutImpl {
     type ReadData = Read<'a>;
     type WriteData = Write<'a>;
@@ -111,7 +111,7 @@ impl<'a> Runner<'a> for LayoutImpl {
 		
 		// 暂时拷贝， TODO
 		let dirty_list = (read.5).0.clone();
-		let time = std::time::Instant::now();
+		// let time = std::time::Instant::now();
         for id in dirty_list.iter() {
             let r = match read.4.get(*id) {
                 Some(r) => r,
@@ -125,21 +125,89 @@ impl<'a> Runner<'a> for LayoutImpl {
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
             calc(*id, &read, &mut write, r.dirty & MARK_LAYOUT);
 		}
-		if dirty_list.len() > 0 {
-			println!(
-				"text layout=================={:?}, len:{}, dirty_list_len:{}",
-				std::time::Instant::now() - time, write.7.len(), dirty_list.len()
-			);
+	}
+}
+
+#[derive(Default)]
+pub struct TextLayoutUpdateSys(Vec<usize>);
+
+impl<'a> Runner<'a> for TextLayoutUpdateSys {
+    type ReadData =  ();
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, NodeState>,
+		&'a mut MultiCaseImpl<Node, LayoutR>,
+		&'a mut SingleCaseImpl<IdTree>);
+
+    fn run(&mut self, _resd: Self::ReadData, write: Self::WriteData) {
+        for id in self.0.iter() {
+			update_layout(*id, write.0, write.1,write.2);
 		}
+		self.0.clear();
     }
+}
+
+impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for TextLayoutUpdateSys {
+    type ReadData =  &'a MultiCaseImpl<Node, TextContent>;
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, NodeState>,
+		&'a mut MultiCaseImpl<Node, LayoutR>,
+		&'a mut SingleCaseImpl<IdTree>);
+    fn listen(&mut self, event: &ModifyEvent, text_contents: Self::ReadData, write: Self::WriteData) {
+		let id = event.id;
+		// 如果是虚拟节点，并且是文字节点，需要将字符的布局结果拷贝到INode中
+		if write.0[id].0.is_vnode() && text_contents.get(id).is_some() {
+			self.0.push(id);
+		}
+	}
+}
+
+
+fn update_layout(
+	id: usize, 
+	node_states: &mut MultiCaseImpl<Node, NodeState>,
+	layout_rs: &mut MultiCaseImpl<Node, LayoutR>,
+	idtree: &SingleCaseImpl<IdTree>,
+) {
+	let n = &idtree[id];
+	let node_state = unsafe{&mut *((&node_states[id]) as *const NodeState as *mut NodeState)};
+	let chars = &mut node_state.0.text;
+	let mut rect = Rect{
+		start: std::f32::MAX,
+		end: 0.0,
+		top: std::f32::MAX,
+		bottom: 0.0,
+	};
+	for (id, _node) in idtree.recursive_iter(n.children().head) {
+		let char = &mut chars[node_states[id].char_index];
+		let l = &layout_rs[id].rect;
+		char.pos = (l.start, l.top);
+
+		if l.start < rect.start {
+			rect.start = l.start;
+		}
+		if l.top < rect.top {
+			rect.top = l.top;
+		}
+
+		if l.end > rect.end {
+			rect.end = l.end;
+		}
+		if l.bottom > rect.bottom {
+			rect.bottom = l.bottom;
+		}
+	}
+	
+	// 设置文字虚拟节点的矩形
+	if rect.start <= rect.end {
+		layout_rs[id].rect = rect;
+	}
 }
 
 // 设置字形的id
 fn set_gylph<'a>(
 	id: usize, 
 	(_class_sheet, _text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
-	(char_nodes, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, idtree, _nodes, _): &mut Write) {
-	let children = idtree[id].children();
+	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) {
     let scale = world_matrixs[id].y.magnitude();
     let text_style = &text_styles[id];
 	
@@ -158,8 +226,8 @@ fn set_gylph<'a>(
 	let weight = text_style.font.weight;
 	let sw = text_style.text.stroke.width;
 
-    for n in idtree.recursive_iter(children.head) {
-		let char_node = &mut char_nodes[n.0];
+	let chars = &mut node_states[id].0.text;
+    for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
             char_node.ch_id_or_count = font_sheet.calc_gylph(
                 &tex_font,
@@ -174,227 +242,437 @@ fn set_gylph<'a>(
     }
 }
 
+struct Calc<'a> {
+	id: usize,
+	text_content: &'a MultiCaseImpl<Node, TextContent>,
+	style_marks: &'a MultiCaseImpl<Node, StyleMark>,
+	layout_rs: &'a mut MultiCaseImpl<Node, LayoutR>,
+	rect_layout_styles: &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+	other_layout_styles: &'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
+	nodes: &'a mut EntityImpl<Node>,
+	idtree: &'a mut SingleCaseImpl<IdTree>,
+	font_sheet: &'a mut SingleCaseImpl<FontSheet>,
 
+	text: &'a str,
+	style_mark: &'a StyleMark,
+	tex_font: (TexFont, usize),
+	font_size: f32,
+	font_height: f32,
+	line_height: f32,
+	sw: f32,
+	char_margin: f32,
+	word_margin: f32,
+	text_style: &'a TextStyle,
+	parent: usize,
+}
 
-// 计算节点的L的布局参数， 返回是否保留在脏列表中
-fn calc<'a>(
-    id: usize,
-    (_class_sheet, text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
-	(char_nodes, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes, node_states):&mut Write,
-	layout_dirty: usize,
-) -> bool {
-	let text_style = &mut text_styles[id];
-	let style_mark = &style_marks[id];
-	
-	let text = match text_content.get(id) {
-        Some(t) => t.0.as_ref(),
-        _ => "",
-    };
-    let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
-        Some(r) => (r.0.clone(), r.1),
-        None => {
-            println!(
-                "font is not exist, face_name: {:?}, id: {:?}",
-                text_style.font.family.as_ref(),
-                id
-            );
-            return true;
-        }
-	};
-	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
-	let font_height = tex_font
-        .0
-		.get_font_height(font_size as usize, text_style.text.stroke.width);
-	
-	let line_height = get_line_height(font_height as usize, &text_style.text.line_height);
-	if font_size == 0.0 {
-        // #[cfg(feature = "warning")]
-        println!("font_size==0.0, family: {:?}", text_style.font.family);
-        return true;
-	}
-	
-	let parent = idtree[id].parent();
-
-	if layout_dirty > 0 {
+impl<'a> Calc<'a> {
+	// 将文字样式用flex布局属性替换, 可以考虑不支持文字的布局属性？
+	fn fit_text_style(&mut self) {
+		let (local_style, class_style, local_style1, class_style1, text, other_layout_styles, id) = (self.style_mark.local_style, self.style_mark.class_style, self.style_mark.local_style1, self.style_mark.class_style1, &self.text_style.text, &mut self.other_layout_styles, self.id);
 		// 兼容目前使用父节点的对齐属性来对齐文本， 如果项目将其修改正确， 应该去掉该段TODO
-		if style_mark.local_style & StyleType::TextAlign as usize > 0 || style_mark.class_style & StyleType::TextAlign as usize > 0 {
-			other_layout_styles[parent].justify_content = match text_style.text.text_align {
+		if local_style & StyleType::TextAlign as usize > 0 || class_style & StyleType::TextAlign as usize > 0 {
+			other_layout_styles[id].justify_content = match text.text_align {
 				TextAlign::Center => JustifyContent::Center,
 				TextAlign::Right => JustifyContent::FlexEnd,
 				TextAlign::Left => JustifyContent::FlexStart,
 				TextAlign::Justify => JustifyContent::SpaceBetween,
 			};
-			// style_notify.modify_event(cur_child, "width", 0);
 		}
 		
-		if style_mark.local_style & StyleType::VerticalAlign as usize > 0 || style_mark.class_style & StyleType::VerticalAlign as usize > 0 {
-			let r= match text_style.text.vertical_align {
+		if local_style & StyleType::VerticalAlign as usize > 0 || class_style & StyleType::VerticalAlign as usize > 0 {
+			let r= match text.vertical_align {
 				VerticalAlign::Middle => AlignItems::Center,
 				VerticalAlign::Bottom => AlignItems::FlexEnd,
 				VerticalAlign::Top => AlignItems::FlexStart
 			};
-			other_layout_styles[parent].align_items = r;
-			let r= match text_style.text.vertical_align {
+			other_layout_styles[id].align_items = r;
+			let r= match text.vertical_align {
 				VerticalAlign::Middle => AlignContent::Center,
 				VerticalAlign::Bottom => AlignContent::FlexEnd,
 				VerticalAlign::Top => AlignContent::FlexStart
 			};
-			other_layout_styles[parent].align_content = r;
+			other_layout_styles[id].align_content = r;
 		
-		} else if style_mark.local_style1 & StyleType1::AlignContent as usize == 0 && style_mark.class_style1 & StyleType1::AlignContent as usize == 0 {
+		} else if local_style1 & StyleType1::AlignContent as usize == 0 && class_style1 & StyleType1::AlignContent as usize == 0 {
 			// 文字的容器默认align_content为FlexStart
-			other_layout_styles[parent].align_content = AlignContent::FlexStart;
+			other_layout_styles[id].align_content = AlignContent::FlexStart;
 		}
 	
-		if style_mark.local_style & StyleType::WhiteSpace as usize > 0 || style_mark.class_style & StyleType::WhiteSpace as usize > 0 {
-			other_layout_styles[parent].flex_wrap = if text_style.text.white_space.allow_wrap() {
+		if local_style & StyleType::WhiteSpace as usize > 0 || class_style & StyleType::WhiteSpace as usize > 0 {
+			other_layout_styles[id].flex_wrap = if text.white_space.allow_wrap() {
 				FlexWrap::Wrap
 			} else {
 				FlexWrap::NoWrap
 			}
-		} else if style_mark.local_style1 & StyleType1::FlexWrap as usize == 0 && style_mark.class_style1 & StyleType1::FlexWrap as usize == 0{
+		} else if local_style1 & StyleType1::FlexWrap as usize == 0 && class_style1 & StyleType1::FlexWrap as usize == 0{
 			// 文字的容器默认flex_wrap为FlexWrap::Wrap
-			other_layout_styles[parent].flex_wrap = FlexWrap::Wrap;
-		}
-	}
-
-    let sw = text_style.text.stroke.width as usize;
-	// let letter_spacing = text_style.text.letter_spacing - sw as f32 + 1.0;
-	let char_margin = text_style.text.letter_spacing - sw as f32;
-	let word_margin = text_style.text.word_spacing - sw as f32;
-	// let font_sheet =  &mut write.4;
-
-    // let tex_font = tex_font.0.clone();
-    // // 如果有缩进变化, 则设置本span节点, 宽度为缩进值
-    // layout_style.set_width(text_style.text.indent);
-
-	let style_notify = rect_layout_styles.get_notify();
-	let mut cur_child = idtree[id].children().head;
-	let mut parent = id;
-	style_notify.modify_event(id, "width", 0);
-	let mut i = 0;
-
-
-	// 保留空白符， 超出不换行， flex布局， 父节点设置了换行，每个字符需要被包含在一个行容器中
-	// 这里创建第一行的容器
-	if let WhiteSpace::Pre = text_style.text.white_space {
-		let (id, mut style, mut char_node) = create_char_node(cur_child, parent, idtree, rect_layout_styles, char_nodes, nodes, node_states, layout_rs);
-		parent = id;
-		char_node.ch = char::from(0);
-		cur_child = idtree[parent].children().head;
-		style.size.width = Dimension::Percent(1.0);
-	}
-
-    // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中
-    for cr in split(text, true, text_style.text.white_space.preserve_spaces()) {
-		// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
-		if let SplitResult::WordEnd = cr {
-			if cur_child > 0 {
-				free_childs(cur_child, idtree, nodes);
-			}
-			let node = &idtree[parent];
-			cur_child = node.next();
-			parent = node.parent();
-			continue;
-		} else if let SplitResult::Newline = cr {
-			if let WhiteSpace::Pre = text_style.text.white_space {
-				// 当text_style.text.white_space为WhiteSpace::Pre时，每遇到一个换行符，设置行节点宽度为100%，
-				// 并且将当前节点设置为后续字符节点的父节点，直到遇到下一个换行符
-				let p = &idtree[parent];
-				parent = p.parent();
-				cur_child = idtree[parent].next();
-
-				
-				let (id, mut style, mut char_node) = create_char_node(cur_child, parent, idtree, rect_layout_styles, char_nodes, nodes, node_states, layout_rs );
-				cur_child = id;
-				style.size.width = Dimension::Percent(1.0);
-				char_node.ch = char::from(0);
-				parent = cur_child;
-				cur_child = idtree[cur_child].children().head;
-				continue;
-			} 
+			other_layout_styles[id].flex_wrap = FlexWrap::Wrap;
 		}
 
-		let (id, mut style, mut char_node) = create_char_node(cur_child, parent, idtree, rect_layout_styles, char_nodes, nodes, node_states, layout_rs);
-		cur_child = id;
+		// 通知样式脏，才能使布局系统布局文字字符
+		other_layout_styles.get_notify().modify_event(id, "justify_content", 0);
+	}
+
+	// 简单布局， 将文字劈分，单词节点的内部字符使用绝对布局，其余节点使用相对布局
+	// 与图文混排的布局方式不同，该布局不需要为每个字符节点创建实体
+	fn cacl_simple(&mut self, node_states: &mut MultiCaseImpl<Node, NodeState>) {
+		let (id, text_style) = (self.id, self.text_style);
+		node_states[id].0.set_vnode(false);
 		
-		match cr {
-			// 存在WordStart， 表示开始一个多字符单词
-			SplitResult::WordStart(_c) => {
-				if char_node.ch != char::from(0) || layout_dirty > 0 {
-					// 设置字符容器样式
-					style.size.width = Dimension::Auto;
-					style.size.height = Dimension::Points(line_height);
-					style.margin.start = Dimension::Points(word_margin);
-					style.line_start_margin = Number::Defined(0.0);
-					char_node.ch = char::from(0);
+		let chars = &mut node_states[id].0.text;
+		let (mut word_index, mut p_x, mut word_margin_start, mut char_index) = (0, 0.0, 0.0, 0);
 
-					if i == 0 && text_style.text.indent > 0.0{
-						style.line_start_margin = Number::Defined(text_style.text.indent);
-					}
-				}
-				
-				// 创建字符节点
-				parent = cur_child;
-				let cur_word = idtree[parent].children().head;
-				let (cur_word, style1, char_node1) = create_char_node(cur_word, parent, idtree, rect_layout_styles, char_nodes, nodes, node_states, layout_rs);
-				cur_child = cur_word;
-				style = style1;
-				char_node = char_node1;
-			},
-			_ => (),
+		if text_style.text.indent > 0.0 {
+			self.create_or_get_indice(chars, text_style.text.indent, char_index);
+			char_index += 1;
 		}
-		match cr {
-            SplitResult::Newline => {
-				//当text_style.text.white_space为WhiteSpace::Pre, 设置行节点宽度为100%， 使得后面的元素超出本行宽度而换行
-				style.size.width = Dimension::Percent(1.0);
-				style.size.height = Dimension::Points(0.0);
-				char_node.ch = '\n';
-            }
-            SplitResult::Whitespace => {
-				if char_node.ch != ' ' || layout_dirty > 0 {
-					style.size.width = Dimension::Points(font_size / 2.0);
-					style.size.height = Dimension::Points(line_height);
-					char_node.ch = ' ';
+		// 根据每个字符, 创建charNode
+		for cr in split(self.text, true, text_style.text.white_space.preserve_spaces()) {
+			// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
+			match cr {
+				SplitResult::Word(c) => {
+					let cn = self.create_or_get(c, chars, char_index, p_x);
+					cn.margin_start += word_margin_start;
+					char_index += 1;
+					word_margin_start = 0.0;
 				}
-            }
-            SplitResult::Word(c) | SplitResult::WordStart(c) | SplitResult::WordNext(c) => {
-				if char_node.ch != c || layout_dirty > 0 {
-					let r = font_sheet.measure(
-						&tex_font.0,
-						font_size as usize,
-						sw,
-						text_style.font.weight,
-						c,
-					);
-					
-					style.size.width = Dimension::Points(r.0);
-					style.size.height = Dimension::Points(line_height);
-					style.margin.start = Dimension::Points(char_margin);
-					style.line_start_margin = Number::Defined(0.0);
+				SplitResult::WordNext(c) => {
+					let cn = self.create_or_get(c, chars, char_index, p_x);
+					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
+					char_index += 1;
+					chars[word_index].ch_id_or_count += 1;
+				}
+				// 存在WordStart， 表示开始一个多字符单词
+				SplitResult::WordStart(c) => {
+					// 容器节点
+					let cn = CharNode {
+						ch: char::from(0),
+						size: (0.0, self.line_height),
+						margin_start: word_margin_start,
+						pos: (0.0, 0.0),
+						base_width: self.font_size,
+						ch_id_or_count: 1,
+					};
+					word_index = chars.len();
+					p_x = 0.0;
+					word_margin_start = 0.0;
+					chars.push(cn);
+					char_index += 1;
 
-					char_node.ch = c;
-					char_node.base_width = r.1;
-					char_node.width = r.0;
-
-					if i == 0 && text_style.text.indent > 0.0{
-						style.line_start_margin = Number::Defined(text_style.text.indent);
-					}
+					let cn = self.create_or_get(c, chars, char_index, p_x);
+					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
+					chars[word_index].ch_id_or_count += 1;
+					char_index += 1;
 				}
-				let head = idtree[cur_child].children().head;
-				if head > 0 as usize {
-					free_childs(head, idtree, nodes);
+				SplitResult::WordEnd => {
+					chars[word_index].size = (p_x - self.char_margin, self.line_height);
+				},
+				SplitResult::Whitespace => {
+					word_margin_start += self.font_size/3.0 + self.word_margin;
 				}
-				i += 1;
-            },
-            _ => (),
+				SplitResult::Newline => {
+					self.create_or_get_breakline(chars, char_index);
+					char_index += 1;
+				}
+			}
 		}
-		cur_child = idtree[cur_child].next();
+
+		let cur_child = self.idtree[id].children().head;
+		if cur_child > 0 {
+			free_childs(cur_child, self.idtree, self.nodes);
+		}
+
+		while char_index < chars.len() {
+			chars.pop();
+		}
 	}
-	if cur_child > 0 {
-		free_childs(cur_child, idtree, nodes);
+
+	// 图文混排布局，由于每个字符需要与文字节点的其它兄弟节点在同一层进行布局，因此，每个字符将被当成一个实体进行布局
+	fn calc_mixed(&mut self, node_states: &mut MultiCaseImpl<Node, NodeState>) {
+		let (id, text_style) = (self.id, self.text_style);
+		let node_state = &mut node_states[id];
+		node_state.set_vnode(true);
+		node_state.set_line_start_margin_zero(true);
+
+		let parent = id;
+		let mut cur_child = self.idtree[id].children().head;
+		let (mut word_index, mut p_x, mut word_margin_start, mut word_id, mut char_index) = (0, 0.0, 0.0, 0, 0);
+		
+		if text_style.text.indent > 0.0 {
+			let chars = &mut node_states[id].0.text;
+			let cn = self.create_or_get_indice(chars, text_style.text.indent, char_index);
+			cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
+			char_index += 1;
+			cur_child = self.idtree[cur_child].next();
+		}
+
+		// 根据每个字符, 创建charNode
+		for cr in split(self.text, true, text_style.text.white_space.preserve_spaces()) {
+			// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
+			match cr {
+				SplitResult::Word(c) => {
+					let chars = &mut node_states[id].0.text;
+					let cn = self.create_or_get(c, chars, char_index, 0.0);
+					cn.margin_start += word_margin_start;
+					word_margin_start = 0.0;
+					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
+					char_index += 1;
+				}
+				SplitResult::WordNext(c) => {
+					let chars = &mut node_states[id].0.text;
+					let cn = self.create_or_get(c, chars, char_index, p_x);
+					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
+					chars[word_index].ch_id_or_count += 1;
+					char_index += 1;
+					continue;
+				}
+				// 存在WordStart， 表示开始一个多字符单词
+				SplitResult::WordStart(c) => {
+					// 容器节点
+					let cn = CharNode {
+						ch: char::from(0),
+						size: (0.0, self.line_height),
+						margin_start: word_margin_start,
+						pos: (0.0, 0.0),
+						base_width: self.font_size,
+						ch_id_or_count: 1,
+					};
+					cur_child = self.create_entity(cur_child, parent, &cn, word_margin_start, char_index, node_states);
+					word_id = cur_child;
+
+					word_index = char_index;
+					p_x = 0.0;
+					word_margin_start = 0.0;
+					let chars = &mut node_states[id].0.text;
+					chars.push(cn);
+					char_index += 1;
+
+
+					let cn = self.create_char_node(c, 0.0);
+					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
+					chars.push(cn);
+					chars[word_index].ch_id_or_count += 1;
+					char_index += 1;
+				}
+				SplitResult::WordEnd => {
+					let chars = &mut node_states[id].0.text;
+					self.rect_layout_styles[word_id].size = Size{
+						width: Dimension::Points(p_x - self.char_margin),
+						height: Dimension::Points(self.line_height),
+					};
+					chars[word_index].size = (p_x - self.char_margin, self.line_height);
+					continue;
+				},
+				SplitResult::Whitespace => {
+					word_margin_start += self.font_size/3.0 + self.word_margin;
+					continue;
+				}
+				SplitResult::Newline => {
+					let chars = &mut node_states[id].0.text;
+					let cn = self.create_or_get_breakline(chars, char_index);
+					cur_child = self.create_entity(cur_child, parent, &cn.clone(), 0.0, char_index, node_states);
+					char_index += 1;
+				}
+			};
+			cur_child = self.idtree[cur_child].next();
+		}
+
+		if cur_child > 0 {
+			free_childs(cur_child, self.idtree, self.nodes);
+		}
+
+		let chars = &mut node_states[id].0.text;
+		while char_index < chars.len() {
+			chars.pop();
+		}
 	}
-	false
+
+	fn create_entity(&mut self, mut id: usize, parent: usize, cn: &CharNode, margin: f32, index: usize, node_states: &mut MultiCaseImpl<Node, NodeState>) -> usize {
+		if id == 0 {
+			id = self.nodes.create_but_no_notify();
+			self.rect_layout_styles.insert_no_notify(id, RectLayoutStyle {
+				margin: Rect{
+					start: Dimension::Points(margin),
+					end: Dimension::Points(0.0),
+					top: Dimension::Points(0.0),
+					bottom: Dimension::Points(0.0),
+				},
+				size: Size{
+					width: Dimension::Points(cn.size.0),
+					height: Dimension::Points(cn.size.1)
+				},
+			});
+			self.layout_rs.insert_no_notify(id, LayoutR::default());
+			node_states.insert_no_notify(id, NodeState(INode::new(INodeStateType::SelfDirty, index)));
+	
+			self.idtree.create(id);
+			self.idtree.insert_child(id, parent, std::usize::MAX);
+		} else {
+			let mut style = &mut self.rect_layout_styles[id];
+			style.margin.start = Dimension::Points(margin);
+			style.size = Size{
+				width: Dimension::Points(cn.size.0),
+				height: Dimension::Points(cn.size.1)
+			};
+			node_states[id].0.char_index = index;
+		}
+		id
+	}
+
+	fn create_char_node(&mut self, ch: char, p_x: f32) -> CharNode {
+		let r = self.font_sheet.measure(
+			&self.tex_font.0,
+			self.font_size as usize,
+			self.sw as usize,
+			self.text_style.font.weight,
+			ch,
+		);
+
+		CharNode {
+			ch,
+			size: (r.0, self.line_height),
+			margin_start: self.char_margin,
+			pos: (p_x, 0.0),
+			base_width: r.1,
+			ch_id_or_count: 0,
+		}
+	}
+
+	fn create_or_get<'b>(&mut self, ch: char, chars: &'b mut Vec<CharNode>, index: usize, p_x: f32) -> &'b mut CharNode {
+		if index >= chars.len() {
+			chars.push(self.create_char_node(ch, p_x));
+		} else {
+			let cn = &chars[index];
+			if cn.ch != ch {
+				chars[index] = self.create_char_node(ch, p_x);
+			}
+		}
+		&mut chars[index]
+	}
+
+	fn create_or_get_breakline<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize) -> &'b mut CharNode {
+		if index >= chars.len() {
+			chars.push(CharNode {
+				ch: '\n',
+				size: (0.0, self.line_height),
+				margin_start: 0.0,
+				pos: (0.0, 0.0),
+				base_width: 0.0,
+				ch_id_or_count: 0,
+			});
+		} else {
+			let cn = &chars[index];
+			if cn.ch != '\n' {
+				chars[index] = CharNode {
+					ch: '\n',
+					size: (0.0, self.line_height),
+					margin_start: 0.0,
+					pos: (0.0, 0.0),
+					base_width: 0.0,
+					ch_id_or_count: 0,
+				};
+			}
+		}
+		&mut chars[index]
+	}
+
+	fn create_or_get_indice<'b>(&mut self, chars: &'b mut Vec<CharNode>, indice: f32, index: usize) -> &'b mut CharNode {
+		if index >= chars.len() {
+			chars.push(CharNode {
+				ch: ' ',
+				size: (indice, self.line_height),
+				margin_start: 0.0,
+				pos: (0.0, 0.0),
+				base_width: 0.0,
+				ch_id_or_count: 0,
+			});
+		} else {
+			let cn = &chars[index];
+			if cn.ch != ' ' {
+				chars[index] = CharNode {
+					ch: ' ',
+					size: (indice, self.line_height),
+					margin_start: 0.0,
+					pos: (0.0, 0.0),
+					base_width: 0.0,
+					ch_id_or_count: 0,
+				};
+			} else {
+				chars[index].size.0 = indice;
+			}
+		}
+		&mut chars[index]
+	}
+}
+
+fn calc<'a>(
+	id: usize,
+	(_class_sheet, text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
+	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
+	layout_dirty: usize,) {
+
+	let text_style = &text_styles[id];
+	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
+		Some(r) => (r.0.clone(), r.1),
+		None => {
+			println!(
+				"font is not exist, face_name: {:?}, id: {:?}",
+				text_style.font.family.as_ref(),
+				id
+			);
+			return ;//true;
+		}
+	};
+	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
+	let font_height = tex_font
+		.0
+		.get_font_height(font_size as usize, text_style.text.stroke.width);
+	let sw = text_style.text.stroke.width;
+	let parent = idtree[id].parent();
+	let mut calc = Calc {
+		text: match text_content.get(id) {
+			Some(t) => t.0.as_ref(),
+			_ => "",
+		},
+		style_mark: &style_marks[id],
+		tex_font,
+		font_size,
+		font_height,
+		line_height: get_line_height(font_height as usize, &text_style.text.line_height),
+		sw: text_style.text.stroke.width,
+		char_margin: text_style.text.letter_spacing - sw,
+		word_margin: text_style.text.word_spacing - sw,
+		text_style: &mut text_styles[id],
+		parent: parent,
+
+		id,
+		text_content,
+		style_marks,
+		layout_rs,
+		rect_layout_styles,
+		other_layout_styles,
+		nodes,
+		font_sheet,
+		idtree,
+	};
+
+
+	calc.fit_text_style();
+	if layout_dirty > 0 {
+		// 如果布局属性修改，清除CharNode
+		node_states[id].0.text.clear();
+	}
+	
+	let size = &calc.rect_layout_styles[id].size;
+	// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
+	if calc.idtree[parent].children().len == 1 || 
+		size.width != Dimension::Undefined || 
+		size.height != Dimension::Undefined {
+		calc.cacl_simple(node_states);
+	} else {
+		calc.calc_mixed(node_states);
+	}
 }
 
 fn free_childs(mut start: usize, idtree: &mut SingleCaseImpl<IdTree>, nodes: &mut EntityImpl<Node>) {
@@ -409,31 +687,19 @@ fn free_childs(mut start: usize, idtree: &mut SingleCaseImpl<IdTree>, nodes: &mu
 	}
 }
 
-fn create_char_node<'a>(mut id: usize, parent: usize, idtree: &mut SingleCaseImpl<IdTree>, styles: &'a mut MultiCaseImpl<Node, RectLayoutStyle>, char_nodes: &'a mut MultiCaseImpl<Node, CharNode>, nodes: &mut EntityImpl<Node>, node_states: &mut MultiCaseImpl<Node, NodeState>, layouts: &mut MultiCaseImpl<Node, LayoutR>) -> (usize, &'a mut RectLayoutStyle, &'a mut CharNode) {
-	if id == 0 {
-		id = nodes.create_but_no_notify();
-		styles.insert_no_notify(id, RectLayoutStyle::default());
-		layouts.insert_no_notify(id, LayoutR::default());
-		node_states.insert_no_notify(id, NodeState(INode::new(INodeStateType::SelfDirty)));
-
-		idtree.create(id);
-		idtree.insert_child(id, parent, std::usize::MAX);
-		let char_node = CharNode {
-			ch: ' ',              // 字符
-			ch_id_or_count: 0, // 字符id或单词的字符数量
-			base_width: 0.0,       // font_size 为32 的字符宽度
-			width: 0.0,
-		};
-		char_nodes.insert_no_notify(id, char_node);
-	}
-	(id, &mut styles[id], &mut char_nodes[id])
-}
-
 impl_system! {
     LayoutImpl,
     true,
     {
-        MultiCaseListener<Node, TextContent, CreateEvent>
+		MultiCaseListener<Node, TextContent, CreateEvent>
+    }
+}
+
+impl_system! {
+    TextLayoutUpdateSys,
+    true,
+    {
+		MultiCaseListener<Node, LayoutR, ModifyEvent>
     }
 }
 

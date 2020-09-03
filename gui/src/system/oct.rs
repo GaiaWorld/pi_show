@@ -32,7 +32,7 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys {
 	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, oct: Self::WriteData) {
-        let (world_matrixs, layouts, transforms, style_marks, default_table, id_tree, dirty_list) =
+        let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
             read;
 		let default_transform = default_table.get_unchecked::<Transform>();
         OctSys::modify_oct(

@@ -1,4 +1,5 @@
 REM  start D:emsdk\emsdk_env.bat
+REM  ..\..\..\emsdk\emsdk_env.bat
 
 REM python3.7 -m http.server 8000
 

@@ -32,7 +32,6 @@ pub type Aabb2 = collision::Aabb2<f32>;
 pub struct RectLayoutStyle {
     pub margin: Rect<Dimension>,
     pub size: Size<Dimension>,
-	pub line_start_margin: Number, // 行首的margin_start
 }
 
 impl Default for RectLayoutStyle {
@@ -40,7 +39,6 @@ impl Default for RectLayoutStyle {
         RectLayoutStyle {
             margin: Default::default(),
 			size: Default::default(),
-			line_start_margin: Default::default(),
         }
     }
 }

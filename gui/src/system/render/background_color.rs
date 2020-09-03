@@ -272,7 +272,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
         return Some(unit_quad.clone());
     } else {
         let mut hasher = DefaultHasher::default();
-        radius_quad_hash(&mut hasher, radius.x, layout.border.end - layout.border.start, layout.border.bottom - layout.border.top);
+        radius_quad_hash(&mut hasher, radius.x, layout.rect.end - layout.rect.start - layout.border.start - layout.border.end, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
         let hash = hasher.finish();
         match engine.geometry_res_map.get(&hash) {
             Some(r) => Some(r.clone()),
@@ -369,8 +369,8 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
             }
 
-			let width = layout.rect.end - layout.rect.start;
-			let height = layout.rect.bottom - layout.rect.top;
+			let width = layout.rect.end - layout.rect.start - layout.border.start - layout.border.end;
+			let height = layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top;
             //渐变端点
             let endp = find_lg_endp(
                 &[

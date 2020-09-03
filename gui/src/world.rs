@@ -32,7 +32,8 @@ lazy_static! {
     pub static ref WORLD_MATRIX_N: Atom = Atom::from("world_matrix_sys");
     pub static ref OCT_N: Atom = Atom::from("oct_sys");
     pub static ref LYOUT_N: Atom = Atom::from("layout_sys");
-    pub static ref TEXT_LAYOUT_N: Atom = Atom::from("text_layout_sys");
+	pub static ref TEXT_LAYOUT_N: Atom = Atom::from("text_layout_sys");
+	pub static ref TEXT_LAYOUT_UPDATE_N: Atom = Atom::from("text_layout_update_sys");
     pub static ref CLIP_N: Atom = Atom::from("clip_sys");
     pub static ref OPCITY_N: Atom = Atom::from("opacity_sys");
     pub static ref OVERFLOW_N: Atom = Atom::from("overflow_sys");
@@ -217,7 +218,6 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, Culling>();
 	world.register_multi::<Node, TransformWillChangeMatrix>();
-	world.register_multi::<Node, CharNode>();
 
 	let mut idtree = IdTree::default();
 	idtree.set_statistics_count(true);
@@ -309,10 +309,15 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_system(
         STYLE_MARK_N.clone(),
         CellStyleMarkSys::<C>::new(StyleMarkSys::new()),
+	);
+	
+	world.register_system(
+        TEXT_LAYOUT_UPDATE_N.clone(),
+        CellTextLayoutUpdateSys::new(TextLayoutUpdateSys::default()),
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();

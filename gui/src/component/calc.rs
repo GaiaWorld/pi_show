@@ -203,16 +203,22 @@ pub struct NodeState(pub INode);
 //     pub is_pixel: bool,
 // }
 
-// 字符节点， 对应一个字符的
-#[derive(Component, Debug, Clone, Default)]
-pub struct CharNode{
-    pub ch: char,              // 字符
-    // pub pos: Point2,           // 位置
-    pub ch_id_or_count: usize, // 字符id或单词的字符数量
-	pub base_width: f32,       // font_size 为32 的字符宽度
-	pub width: f32,
-    // pub node: L,               // 对应的yoga节点
-}
+// // 字符节点， 对应一个字符的
+// #[derive(Component, Debug, Clone, Default)]
+// pub struct CharNode{
+//     pub ch: char,              // 字符
+//     // pub pos: Point2,           // 位置
+//     pub ch_id_or_count: usize, // 字符id或单词的字符数量
+// 	pub base_width: f32,       // font_size 为32 的字符宽度
+// 	pub width: f32,
+//     // pub node: L,               // 对应的yoga节点
+// }
+
+// // span节点对应的字符布局
+// #[derive(Component, Debug, Clone, Default)]
+// pub struct CharBlock{
+// 	pub chars: Vec<CharNode>,
+// }
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
 #[derive(Component, Debug, Clone, Default)]

@@ -440,18 +440,19 @@ impl IdTree {
 		}
 	}
 
-	pub fn remove_with_notify(&mut self, id: usize, notify: &NotifyImpl) {
+	pub fn remove_with_notify(&mut self, id: usize, notify: &NotifyImpl) -> Option<usize> {
 		let r = match self.get(id) {
 			Some(n) => {
 				if n.parent() == 0 && n.layer() == 0 {
-					return;
+					return None;
 				}
 				(n.parent(), n.layer(), n.count(), n.prev(), n.next(), n.children().head)
 			}
-			_ => return,
+			_ => return None,
 		};
 		IdTree::notify_move(id, r.1, notify);
 		self.remove(id, r);
+		Some(id)
 	}
 	pub fn destroy(&mut self, id: usize) {
 		let r = match self.get(id) {

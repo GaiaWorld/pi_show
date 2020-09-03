@@ -1286,20 +1286,13 @@ pub fn common_statistics(world: u32) {
     let world = &mut world.gui.world;
 
     js! {
-        __jsObj = {};
+        window.__jsObj = {};
     }
     let mut all_run_time = std::time::Duration::from_millis(0);
     for t in world.runtime.iter() {
-        // println!("t.sys_name:{:?}", t.sys_name);
-        if t.sys_name.as_ref() == "render_sys" {
-            js! {
-                __jsObj.renderTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
-            }
-        } else if t.sys_name.as_ref() == "text_layout_sys" {
-            js! {
-                __jsObj.layoutTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
-            }
-        }
+		js! {
+			__jsObj[@{t.sys_name.as_ref()}] = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
+		}
         all_run_time += t.cost_time;
     }
 
@@ -1309,6 +1302,17 @@ pub fn common_statistics(world: u32) {
         __jsObj.runTotalTimes = @{(all_run_time.as_secs_f64() * 1000.0)  as f32};
         __jsObj.drawCallTimes = @{statistics.drawcall_times as u32};
     }
+}
+
+#[no_mangle]
+#[js_export]
+pub fn is_dirty(world: u32) -> bool {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	if world.gui.dirty_list.lend().0.len() > 0 {
+		true
+	} else {
+		false
+	}
 }
 
 #[no_mangle]

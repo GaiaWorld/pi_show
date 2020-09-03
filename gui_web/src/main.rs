@@ -279,9 +279,24 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         default_text_style: TextStyle::default(),
         default_attr: Class::default(),
         performance_inspector: 0,
-    };
+	};
+	
+	
+	// {
+	// 	let runtime_ref = unsafe { &mut *( world.gui.world.runtime.as_ref() as *const Vec<ecs::RunTime> as *mut Vec<ecs::RunTime>)};
+	// 	push_runtime(runtime_ref, Atom::from("draw_text"));
+	// 	push_runtime(runtime_ref, Atom::from("all_run_time"));
+	// }
+	
+
     Box::into_raw(Box::new(world)) as u32
 }
+
+// fn push_runtime(runtime_ref: &mut Vec<ecs::RunTime>, name: Atom) -> usize {
+// 	let runtime_index = runtime_ref.len();
+// 	runtime_ref.push(ecs::RunTime{sys_name: name, cost_time: std::time::Duration::from_millis(0)});
+// 	runtime_index
+// }
 
 /// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
