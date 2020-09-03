@@ -1,6 +1,8 @@
+use wasm_bindgen::prelude::*;
+
 use hash::XHashMap;
-use stdweb::unstable::TryInto;
-use stdweb::web::TypedArray;
+// use stdweb::unstable::TryInto;
+// use stdweb::web::TypedArray;
 
 use bincode;
 use debug_info::debug_println;
@@ -8,19 +10,17 @@ use ecs::LendMut;
 #[cfg(feature = "create_class_by_str")]
 use gui::single::style_parse::parse_class_from_string;
 use gui::single::Class;
-use GuiWorld;
+use world::GuiWorld;
 
 /// 在指定上下文中创建一个 文本样式表
 ///__jsObj: class样式的文本描述
 #[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn create_class(world: u32, class_id: u32) {
-    let value: String = js!(return __jsObj;).try_into().unwrap();
+#[wasm_bindgen]
+pub fn create_class(world: u32, class_id: u32, css: &str) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
-    let r = match parse_class_from_string(value.as_str()) {
+    let r = match parse_class_from_string(css) {
         Ok(r) => r,
         Err(e) => {
             debug_println!("{:?}", e);
@@ -34,12 +34,9 @@ pub fn create_class(world: u32, class_id: u32) {
 
 /// 添加二进制格式的css表
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn create_class_by_bin(world: u32) {
-    let value: TypedArray<u8> = js!(return __jsObj;).try_into().unwrap();
-    let value = value.to_vec();
-    let map: XHashMap<usize, Class> = match bincode::deserialize(value.as_slice()) {
+#[wasm_bindgen]
+pub fn create_class_by_bin(world: u32, bin: &[u8]) {
+    let map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
         Ok(r) => r,
         Err(e) => {
             debug_println!("deserialize_class_map error: {:?}", e);

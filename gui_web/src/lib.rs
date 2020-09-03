@@ -1,8 +1,6 @@
 #![feature(nll)]
 #![feature(proc_macro_hygiene)]
-#![feature(rustc_const_unstable)]
 #![feature(core_intrinsics)]
-#![feature(custom_attribute)]
 #![feature(type_ascription)]
 #![feature(link_args)]
 #![feature(vec_remove_item)]
@@ -10,13 +8,15 @@
 #![allow(dead_code)]
 #![feature(rustc_private)]
 #![recursion_limit = "512"]
+#![feature(unboxed_closures)]
+#![feature(maybe_uninit_extra)]
 
 #[macro_use]
 extern crate serde;
-extern crate stdweb_derive;
-extern crate webgl_rendering_context;
-#[macro_use]
-extern crate stdweb;
+
+extern crate js_sys;
+extern crate web_sys;
+extern crate wasm_bindgen;
 extern crate ecs;
 extern crate gui;
 extern crate lazy_static;
@@ -40,13 +40,15 @@ extern crate idtree;
 extern crate flex_layout;
 
 // use std::cell::RefCell;
-use std::mem::transmute;
+use std::mem::{transmute, MaybeUninit,};
+use std::ptr::write;
+
+use wasm_bindgen::prelude::*;
+use web_sys::{WebGlFramebuffer, console};
+use js_sys::{Date, Object, Function};
+use wasm_bindgen::JsCast;
 
 use ordered_float::OrderedFloat;
-// use res::ResMgr;
-use stdweb::unstable::TryInto;
-use stdweb::Object;
-use webgl_rendering_context::WebGLRenderingContext;
 use flex_layout::{Size, Dimension, PositionType, Rect};
 
 use atom::Atom;
@@ -59,39 +61,20 @@ use gui::render::res::TextureRes;
 use gui::single::Class;
 use gui::single::RenderBegin;
 use gui::world::GuiWorld as GuiWorld1;
-use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH};
 use hal_core::*;
+use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH};
 use hal_webgl::*;
 use share::Share;
 
-// // pub mod bc;
 pub mod class;
-#[cfg(not(feature = "no_debug"))]
-pub mod debug;
 pub mod layout;
 pub mod node;
-// // pub mod reset_style;
-#[cfg(not(feature = "no_define_js"))]
-pub mod rs_call_js;
 pub mod style;
+pub mod debug;
 pub mod text;
 pub mod transform;
 pub mod world;
-pub mod yoga;
-
-// use bc::YgNode;
-use node::define_set_class;
-#[cfg(not(feature = "no_define_js"))]
-use rs_call_js::define_js;
-use text::DrawTextSys;
-
-pub struct GuiWorld {
-    pub gui: GuiWorld1<WebglHalContext>,
-    pub draw_text_sys: DrawTextSys,
-    pub default_text_style: TextStyle,
-    pub default_attr: Class,
-    pub performance_inspector: usize,
-}
+use world::{DrawTextSys, useVao, GuiWorld, measureText, set_render_dirty, loadImage};
 
 // /// 设置纹理的缓存配置
 // #[allow(unused_attributes)]
@@ -128,11 +111,9 @@ pub struct GuiWorld {
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */) -> u32 {
-    let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
-    let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
+#[wasm_bindgen]
+pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */, gl: WebGlRenderingContext) -> u32 {
+    let use_vao = useVao();
 
     // let gl = WebglHalContext::new(gl, fbo, false);
     let gl = WebglHalContext::new(gl, use_vao);
@@ -143,12 +124,10 @@ pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */) -> u32 
 
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn create_render_target(world: u32) -> u32 {
+#[wasm_bindgen]
+pub fn create_render_target(world: u32, fbo: WebGlFramebuffer) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let fbo = TryInto::<Object>::try_into(js!(return {wrap: __fbo};)).unwrap();
     let engine = world.engine.lend_mut();
     let rt = Share::new(engine.gl.rt_create_webgl(fbo)); // 创建渲染目标
     Box::into_raw(Box::new(rt)) as u32
@@ -156,8 +135,7 @@ pub fn create_render_target(world: u32) -> u32 {
 
 /// 销毁渲染目标
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn destroy_render_target(render_target: u32) {
     unsafe { Box::from_raw(&mut *(render_target as usize as *mut Share<HalRenderTarget>)) };
 }
@@ -165,8 +143,7 @@ pub fn destroy_render_target(render_target: u32) {
 /// 绑定rendertarget
 /// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn bind_render_target(world: u32, render_target: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -183,8 +160,7 @@ pub fn bind_render_target(world: u32, render_target: u32) {
 
 /// 克隆渲染引擎（某些情况下， 需要多个gui实例共享同一个渲染引擎）
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn clone_engine(engine: u32) -> u32 {
     let engine: ShareEngine<WebglHalContext> =
         ShareEngine::clone(unsafe { &*(engine as usize as *const ShareEngine<WebglHalContext>) });
@@ -193,22 +169,16 @@ pub fn clone_engine(engine: u32) -> u32 {
 
 /// 创建gui实例
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
+#[wasm_bindgen]
+pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<Function>) -> u32 {
     let mut engine =
         *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
     let draw_text_sys = DrawTextSys::new();
-    let c = draw_text_sys.canvas.clone();
+	let ctx = draw_text_sys.ctx.clone();
     let f = Box::new(move |name: &Atom, font_size: usize, ch: char| -> f32 {
         let ch = ch as u32;
-        let font_size = font_size as u32;
-        TryInto::<f64>::try_into(js! {
-            var c = @{&c};
-            c.ctx.font = @{font_size} + "px " + @{name.as_ref()};
-            return c.ctx.measureText(String.fromCharCode(@{ch})).width;
-        })
-        .unwrap() as f32
+		let font_size = font_size as u32;
+		return unsafe { measureText(&ctx, ch, font_size, name.as_ref()) };
     });
     let texture = engine
         .gl
@@ -235,7 +205,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         ),
         0,
     );
-	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
+	let cur_time: u64 = Date::now() as u64;
     let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time);
     let world = GuiWorld1::<WebglHalContext>::new(world);
     let idtree = world.idtree.lend_mut();
@@ -272,21 +242,56 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
 
-    idtree.insert_child(node, 0, 0);
+	idtree.insert_child(node, 0, 0);
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
         default_text_style: TextStyle::default(),
         default_attr: Class::default(),
-        performance_inspector: 0,
-    };
-    Box::into_raw(Box::new(world)) as u32
+		performance_inspector: 0,
+		load_image_success: unsafe {MaybeUninit::uninit().read()},
+		load_image: unsafe {MaybeUninit::uninit().read()},
+	};
+
+	let world_id = Box::into_raw(Box::new(world)) as u32;
+	let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+	
+	unsafe{write(&mut world.load_image_success, Closure::wrap(Box::new(move |
+		opacity: u8,
+		compress: i32,
+		r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+		name: String,
+		width: u32,
+		height: u32,
+		data: Object| {
+			let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data);
+			let world = &mut *(world_id as usize as *mut GuiWorld);
+			let world = &mut world.gui;
+		
+			let image_wait_sheet = world.image_wait_sheet.lend_mut();
+			match image_wait_sheet.wait.remove(&name) {
+				Some(r) => {
+					image_wait_sheet.finish.push((name, res, r));
+					image_wait_sheet.get_notify().modify_event(0, "", 0);
+				}
+				None => (),
+			};
+		}
+	)))};
+	match load_image_fun {
+		Some(r) => unsafe { write(&mut world.load_image, Box::new(move |image_name, callback: &Function| {
+			r.call2(&JsValue::from(None::<u8>), &JsValue::from(image_name), callback).expect("call load_image fail!!!");
+		})) },
+		None => unsafe {write(&mut world.load_image, Box::new(|image_name, callback: &Function| {
+			loadImage(image_name, callback);
+		}) )},
+	}
+	world_id
 }
 
 /// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -302,8 +307,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
 
 /// 使gui渲染不清屏
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn nullify_clear_color(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -314,8 +318,7 @@ pub fn nullify_clear_color(world: u32) {
 
 /// 设置视口
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -330,8 +333,7 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
 
 /// 设置投影变换
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn set_project_transfrom(
     world_id: u32,
     scale_x: f32,
@@ -370,8 +372,7 @@ pub fn set_project_transfrom(
  * 如果
  */
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn force_update_text(world_id: u32, node_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let idtree = world.gui.idtree.lend();
@@ -395,8 +396,7 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
 
 /// 渲染gui， 通常每帧调用
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn render(world_id: u32) {
     let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     // #[cfg(feature = "debug")]
@@ -415,7 +415,7 @@ pub fn render(world_id: u32) {
 	
     // #[cfg(feature = "debug")]
 	// let load_image_time = std::time::Instant::now() - time;
-	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
+	let cur_time: u64 = Date::now() as u64;
 	let sys_time = world.system_time.lend_mut();
 	let cur_time = cur_time - sys_time.start_time;
 	sys_time.cur_time = cur_time as usize;
@@ -424,8 +424,9 @@ pub fn render(world_id: u32) {
     // let time = std::time::Instant::now();
 	world.world.run(&RENDER_DISPATCH);
 	
+	// #[cfg(feature = "debug")]
 	if dirty_list_len > 0 {
-		println!("runtime======={:?}", world.world.runtime);
+		console::log_1(&JsValue::from(format!("runtime======={:?}", world.world.runtime)));
 	}
     // #[cfg(feature = "debug")]
     // let run_all_time = std::time::Instant::now() - time;
@@ -472,13 +473,12 @@ pub struct RunTime {
     pub sys_time: Vec<(String, f64)>,
 }
 
-#[cfg(feature = "debug")]
-js_serializable!(RunTime);
+// #[cfg(feature = "debug")]
+// js_serializable!(RunTime);
 
 /// 强制计算一次布局
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn cal_layout(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -508,11 +508,8 @@ pub fn cal_layout(world_id: u32) {
 
 //设置shader
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn set_shader(engine: u32) {
-    let shader_name: String = js!(return __jsObj;).try_into().unwrap();
-    let shader_code: String = js!(return __jsObj1;).try_into().unwrap();
+#[wasm_bindgen]
+pub fn set_shader(engine: u32, shader_name: String, shader_code: String) {
     let engine = unsafe { &mut *(engine as usize as *mut ShareEngine<WebglHalContext>) };
     engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
@@ -520,15 +517,18 @@ pub fn set_shader(engine: u32) {
 /// 加载图片成功后调用
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn load_image_success(
     world_id: u32,
     opacity: u8,
     compress: i32,
-    r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	name: String,
+	width: u32,
+	height: u32,
+	data: Object,
 ) {
-    let (res, name) = create_texture(world_id, opacity, compress, r_type);
+    let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
@@ -545,30 +545,35 @@ pub fn load_image_success(
 /// 创建纹理资源
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn create_texture_res(
     world_id: u32,
     opacity: u8,
     compress: i32,
-    r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	name: String,
+	width: u32,
+	height: u32,
+	data: Object,
 ) -> u32 {
-    Share::into_raw(create_texture(world_id, opacity, compress, r_type).0) as u32
+    Share::into_raw(create_texture(world_id, opacity, compress, r_type, name, width, height, data).0) as u32
 }
 
 pub fn create_texture(
     world_id: u32,
     opacity: u8,
     compress: i32,
-    mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
+	name: String,
+	width: u32,
+	height: u32,
+	data: Object,
 ) -> (Share<TextureRes>, Atom) {
     if r_type > 2 {
         r_type = 0;
     }
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-
-    let name: String = js! {return __jsObj1}.try_into().unwrap();
     let name = Atom::from(name);
 
     let engine = world.engine.lend_mut();
@@ -576,8 +581,6 @@ pub fn create_texture(
     let res = match engine.texture_res_map.get(&name) {
         Some(r) => return (r, name),
         None => {
-            let width: u32 = js! {return __jsObj.width}.try_into().unwrap();
-            let height: u32 = js! {return __jsObj.height}.try_into().unwrap();
             let opacity = unsafe { transmute(opacity) };
 
             let pformate = match opacity {
@@ -585,38 +588,33 @@ pub fn create_texture(
                 ROpacity::Translucent | ROpacity::Transparent => PixelFormat::RGBA,
             };
 
-            let texture = match TryInto::<Object>::try_into(js! {return {wrap: __jsObj};}) {
-                Ok(obj) => {
-                    if compress < 0 {
-                        engine
-                            .gl
-                            .texture_create_2d_webgl(
-                                0,
-                                width,
-                                height,
-                                pformate,
-                                DataFormat::UnsignedByte,
-                                false,
-                                Some(&obj), // obj = {wrap: Cnavas} | obj = {wrap: Image}
-                            )
-                            .unwrap()
-                    } else {
-                        engine
-                            .gl
-                            .compressed_texture_create_2d_webgl(
-                                0,
-                                width,
-                                height,
-                                CompressedTexFormat(compress as isize),
-                                // unsafe { transmute::<u8, CompressedTexFormat>(compress as u8) },
-                                false,
-                                Some(&obj), // obj = {wrap: Uint8Array} | obj = {wrap: float32Array}
-                            )
-                            .unwrap()
-                    }
-                }
-                Err(s) => panic!("set_src error, {:?}", s),
-            };
+            let texture = if compress < 0 {
+				engine
+					.gl
+					.texture_create_2d_webgl(
+						0,
+						width,
+						height,
+						pformate,
+						DataFormat::UnsignedByte,
+						false,
+						Some(&data), // obj = {wrap: Cnavas} | obj = {wrap: Image}
+					)
+					.unwrap()
+			} else {
+				engine
+					.gl
+					.compressed_texture_create_2d_webgl(
+						0,
+						width,
+						height,
+						CompressedTexFormat(compress as isize),
+						// unsafe { transmute::<u8, CompressedTexFormat>(compress as u8) },
+						false,
+						Some(&data), // obj = {wrap: Uint8Array} | obj = {wrap: float32Array}
+					)
+					.unwrap()
+			};
             let compress = if compress < 0 {
                 None
             } else {
@@ -643,40 +641,25 @@ pub fn create_texture(
 
 /// 加载图片，调用高层接口，加载所有等待中的图片
 fn load_image(world_id: u32) {
+	// let mut clicks = 0;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 
     let image_wait_sheet = &mut world.gui.image_wait_sheet.lend_mut();
     for img_name in image_wait_sheet.loads.iter() {
-        js! {
-            if (window.__load_image) {
-                window.__load_image(@{world_id}, @{img_name.as_ref()});
-            } else {
-                console.log("__load_image is undefined");
-            }
-        }
+		(world.load_image)(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
+		//  load_image(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
+		// unsafe{loadImage(img_name.as_ref().to_string(),
+		// 	world.load_image_success.as_ref().unchecked_ref()
+		// 	)};
     }
     image_wait_sheet.loads.clear();
 }
 
-/// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn set_render_dirty(world: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let render_objs = world.render_objs.lend();
-
-    render_objs.get_notify().modify_event(1, "", 0);
-}
-
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn texture_is_exist(world: u32, group_i: usize) -> bool {
+#[wasm_bindgen]
+pub fn texture_is_exist(world: u32, group_i: usize, name: String) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let name: String = js! {return __jsObj1}.try_into().unwrap();
     let name = Atom::from(name);
 
     let engine = world.gui.engine.lend();
@@ -686,9 +669,9 @@ pub fn texture_is_exist(world: u32, group_i: usize) -> bool {
     }
 }
 
-fn main() {
-    // 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）
-    #[cfg(not(feature = "no_define_js"))]
-    define_js();
-    define_set_class();
-}
+// fn main() {
+//     // // 定义图片加载函数， canvas文字纹理绘制函数（使用feature: “no_define_js”, 将不会有这两个接口， 外部可根据需求自己实现 ）
+//     // #[cfg(not(feature = "no_define_js"))]
+//     // define_js();
+//     // define_set_class();
+// }

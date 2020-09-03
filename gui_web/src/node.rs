@@ -1,7 +1,8 @@
 /// 将设置节点属性的接口导出到js
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
-use stdweb::unstable::TryInto;
+use wasm_bindgen::prelude::*;
+use web_sys::WebGlTexture;
 
 use atom::Atom;
 use cg2d::{include_quad2, InnOuter};
@@ -22,7 +23,7 @@ use hal_core::*;
 use gui::render::res::TextureRes;
 use gui::Z_MAX;
 
-use GuiWorld;
+use world::GuiWorld;
 
 fn create(world: &GuiWorld) -> usize {
     let gui = &world.gui;
@@ -44,8 +45,7 @@ fn create(world: &GuiWorld) -> usize {
 
 /// 创建容器节点， 容器节点可设置背景颜色
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn create_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -54,8 +54,7 @@ pub fn create_node(world: u32) -> u32 {
 
 /// 节点是否存在
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn node_is_exist(world: u32, node: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &world.gui;
@@ -64,8 +63,7 @@ pub fn node_is_exist(world: u32, node: u32) -> bool {
 
 /// 创建文本节点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -79,8 +77,7 @@ pub fn create_text_node(world: u32) -> u32 {
 
 /// 创建图片节点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn create_image_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -89,8 +86,7 @@ pub fn create_image_node(world: u32) -> u32 {
 
 /// 创建图片节点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn create_canvas_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -102,8 +98,7 @@ pub fn create_canvas_node(world: u32) -> u32 {
  * @return __jsObj 纹理
 */
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn set_canvas_size(
     world: u32,
     node: u32,
@@ -112,8 +107,8 @@ pub fn set_canvas_size(
     width: u32,
     height: u32,
     avail_width: u32,
-    avail_height: u32,
-) {
+	avail_height: u32,
+) -> Option<WebGlTexture> {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend_mut();
     let images = world.gui.image.lend_mut();
@@ -156,7 +151,7 @@ pub fn set_canvas_size(
                 // // 设置渲染脏r
                 // let render_objs = world.gui.render_objs.lend();
                 // render_objs.get_notify().modify_event(1, "", 0);
-                return;
+                return None;
             }
         }
         None => (),
@@ -176,10 +171,7 @@ pub fn set_canvas_size(
         .unwrap();
     // engine.gl.texture_pixel_storei(&texture, PixelStore::UnpackFlipYWebgl(true));
 
-    let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap();
-    js! {
-        window.__jsObj = @{js_texture};
-    }
+    let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap().clone();
     // let fbo = engine.gl.rt_create(Some(&texture), width, height, PixelFormat::RGBA, DataFormat::UnsignedByte, false);
     let name = Atom::from(format!("canvas{}", node));
     let texture = engine.create_texture_res(
@@ -235,15 +227,15 @@ pub fn set_canvas_size(
     //         width: Some(w as f32),
     //         height: Some(h as f32),
     //     },
-    // );
+	// );
+	Some(js_texture)
 }
 
 /**
  * canvas内容发生改变时，应该调用此方法更新gui渲染
 */
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn update_canvas(world: u32, _node: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     // let engine = world.gui.engine.lend_mut();
@@ -273,8 +265,7 @@ pub fn update_canvas(world: u32, _node: u32) {
 }
 /// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn append_child(world: u32, child: u32, parent: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -288,8 +279,7 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
 
 /// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn insert_before(world: u32, child: u32, brother: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -307,8 +297,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
 
 /// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn remove_node(world: u32, node_id: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -319,8 +308,7 @@ pub fn remove_node(world: u32, node_id: u32) {
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn first_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -329,8 +317,7 @@ pub fn first_child(world: u32, parent: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn last_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -339,8 +326,7 @@ pub fn last_child(world: u32, parent: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn next_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -349,8 +335,7 @@ pub fn next_sibling(world: u32, node: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn previous_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -379,8 +364,7 @@ pub fn previous_sibling(world: u32, node: u32) -> usize{
 
 /// 返回节点的层级（如果节点未添加在根上，返回0, 不存在节点，返回0）
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn get_layer(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -393,8 +377,7 @@ pub fn get_layer(world: u32, node: u32) -> u32 {
 
 /// 销毁节点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn destroy_node(world: u32, node_id: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -415,18 +398,16 @@ pub fn destroy_node(world: u32, node_id: u32) {
 /// __jsObj: image_name(String)
 /// 设置图片的src
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn set_src(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn set_src(world: u32, node: u32, url: String) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let name: String = js! {return __jsObj}.try_into().unwrap();
 
     let images = world.gui.image.lend_mut();
     images.insert(
         node as usize,
         Image {
             src: None,
-            url: Atom::from(name),
+            url: Atom::from(url),
             width: None,
             height: None,
         },
@@ -435,8 +416,7 @@ pub fn set_src(world: u32, node: u32) {
 
 /// 节点到gui的上边界的距离
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -445,8 +425,7 @@ pub fn offset_top(world: u32, node: u32) -> f32 {
 
 /// 节点到gui的左边界的距离
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -455,8 +434,7 @@ pub fn offset_left(world: u32, node: u32) -> f32 {
 
 /// 节点的布局宽度
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
@@ -466,8 +444,7 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
 
 /// 节点布局高度
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
@@ -516,11 +493,24 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 //     }
 // }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Rect {
+	pub left: f32,
+	pub top: f32,
+	pub width: f32,
+	pub height: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Size {
+	pub width: f32,
+	pub height: f32,
+}
+
 /// 等同于html的getBoundingClientRect
 /// left top width height
-#[no_mangle]
-#[js_export]
-pub fn offset_document(world: u32, node_id: u32) {
+#[wasm_bindgen]
+pub fn offset_document(world: u32, node_id: u32) -> JsValue {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -530,19 +520,9 @@ pub fn offset_document(world: u32, node_id: u32) {
     let octs = world.oct.lend();
     // println!("oct====================={:?}, {:?}", node_id, oct);
     match octs.get(node_id) {
-        Some((oct, _)) => js! {
-            __jsObj.left = @{oct.min.x};
-            __jsObj.top = @{oct.min.y};
-            __jsObj.width = @{oct.max.x - oct.min.x};
-            __jsObj.height = @{oct.max.y - oct.min.y};
-        },
-        None => js! {
-                __jsObj.left = 0;
-                __jsObj.top = 0;
-                __jsObj.width = 0;
-                __jsObj.height = 0;
-        },
-    };
+        Some((oct, _)) => JsValue::from_serde(&Rect{left: oct.min.x, top: oct.min.y, width: oct.max.x - oct.min.x, height: oct.max.y - oct.min.y}).unwrap() ,
+        None => JsValue::from_serde(&Rect{left: 0.0, top: 0.0, width: 0.0, height: 0.0}).unwrap(),
+    }
 
     // let transform;
     // let transform1;
@@ -576,9 +556,8 @@ pub fn offset_document(world: u32, node_id: u32) {
 
 /// content宽高的累加值
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn content_box(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn content_box(world: u32, node: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let layout = world.layout.lend();
@@ -600,17 +579,16 @@ pub fn content_box(world: u32, node: u32) {
         if l.rect.top < top {
             top = l.rect.top;
         }
-    }
-    js! {
-      __jsObj.width = @{right - left};
-      __jsObj.height = @{bottom - top}
-    }
+	}
+	JsValue::from_serde(&Size{
+		width: right - left,
+		height: bottom - top,
+	}).unwrap()
 }
 
 /// 用点命中一个节点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn query(world: u32, x: f32, y: f32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -638,8 +616,7 @@ pub fn query(world: u32, x: f32, y: f32) -> u32 {
 
 /// 判断点是否能命中点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -671,8 +648,7 @@ pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -711,8 +687,7 @@ pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -748,10 +723,7 @@ pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
     }
 }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn add_class_end(world: u32, node_id: u32, old: u32) {
+fn add_class_end(world: u32, node_id: u32, old: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     world
         .gui
@@ -761,10 +733,7 @@ pub fn add_class_end(world: u32, node_id: u32, old: u32) {
         .modify_event(node_id as usize, "", old as usize);
 }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn add_class_start(world: u32, node_id: u32) -> u32 {
+fn add_class_start(world: u32, node_id: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     Box::into_raw(Box::new(
         world
@@ -776,17 +745,13 @@ pub fn add_class_start(world: u32, node_id: u32) -> u32 {
     )) as u32
 }
 
-pub fn define_set_class() {
-    js! {
-        Module._set_class = function(world, node, class_arr){
-            // console.log("_set_class", node, class_arr);
-            var old = Module._add_class_start(world, node);
-            for (var i = 0; i < class_arr.length; i++) {
-                Module._add_class(world, node, class_arr[i], i);
-            }
-            Module._add_class_end(world, node, old);
-        }
-    }
+#[wasm_bindgen]
+pub fn set_class(world_id: u32, node_id: u32, class_names: &[u32]) {
+	let old = add_class_start(world_id, node_id);
+	for i in 0..class_names.len() {
+		add_class(world_id, node_id, class_names[i], i as u32);
+	}
+	add_class_end(world_id, node_id, old)
 }
 
 /// aabb的查询函数的参数

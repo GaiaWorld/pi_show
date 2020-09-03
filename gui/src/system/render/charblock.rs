@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 use ordered_float::NotNan;
+use cgmath::InnerSpace;
 
 use ecs::monitor::NotifyImpl;
 use ecs::{
@@ -19,7 +20,7 @@ use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, Lg
 use res::ResMap;
 use share::Share;
 
-use component::{calc::*, calc::LayoutR};
+use component::{calc::*, calc::LayoutR, calc::CharNode};
 use component::user::*;
 use entity::Node;
 use font::font_sheet::*;
@@ -215,7 +216,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 }
             };
 
-            let world_matrix = &world_matrixs[*id];
+			let world_matrix = &world_matrixs[*id];
+			let scale = world_matrix.y.magnitude();
             let layout = &layouts[*id];
             let transform = match transforms.get(*id) {
                 Some(r) => r,
@@ -307,7 +309,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     class_ubo,
                     &self.index_buffer,
                     l,
-                    engine,
+					engine,
+					scale,
                 );
                 render_objs
                     .get_notify()
@@ -390,7 +393,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                                 class_ubo,
                                 &self.index_buffer,
                                 l,
-                                engine,
+								engine,
+								scale,
                             )
                         }
                     }
@@ -781,7 +785,8 @@ fn create_geo<C: HalContext + 'static>(
     share_data: &RenderCatch,
     share_index_buffer: &Share<BufferRes>,
     index_buffer_max_len: &mut usize,
-    engine: &mut Engine<C>,
+	engine: &mut Engine<C>,
+	scale: f32,
 ) -> Option<Share<GeometryRes>> {
     // 是共享文字
     if text.0 == String::new() {
@@ -818,7 +823,8 @@ fn create_geo<C: HalContext + 'static>(
             engine,
             Some(hash),
             share_index_buffer,
-            index_buffer_max_len,
+			index_buffer_max_len,
+			scale,
         )
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
@@ -832,7 +838,8 @@ fn create_geo<C: HalContext + 'static>(
             engine,
             None,
             share_index_buffer,
-            index_buffer_max_len,
+			index_buffer_max_len,
+			scale,
         )
     }
 }
@@ -891,7 +898,8 @@ fn get_geo_flow<C: HalContext + 'static>(
     engine: &mut Engine<C>,
     hash: Option<u64>,
     index_buffer: &Share<BufferRes>,
-    index_buffer_max_len: &mut usize,
+	index_buffer_max_len: &mut usize,
+	scale: f32,
 ) -> Option<Share<GeometryRes>> {
     let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
@@ -937,7 +945,8 @@ fn get_geo_flow<C: HalContext + 'static>(
 						p.1 + layout.rect.top,
                         &glyph,
 						layout.rect.end - layout.rect.start,
-						layout.rect.bottom - layout.rect.top
+						layout.rect.bottom - layout.rect.top,
+						scale,
                     );
                 }
                 // 更新buffer
@@ -1015,7 +1024,8 @@ fn get_geo_flow<C: HalContext + 'static>(
 						p.1 + layout.rect.top,
                         &glyph,
 						layout.rect.end - layout.rect.start,
-						layout.rect.bottom - layout.rect.top
+						layout.rect.bottom - layout.rect.top,
+						scale,
                     );
 
                     let (ps, indices_arr) = split_by_lg(
@@ -1209,6 +1219,7 @@ fn push_pos_uv(
     glyph: &Glyph,
 	width: f32,
 	height: f32,
+	scale: f32,
 ) {
 	let ratio = width / glyph.advance;
 	// height为行高， 当行高高于字体高度时，需要居中
@@ -1218,8 +1229,8 @@ fn push_pos_uv(
         y  + glyph.oy * ratio,
     );
     let right_bootom = (
-        left_top.0 + glyph.width * ratio,
-        left_top.1 + glyph.height * ratio,
+        left_top.0 + glyph.width/scale,
+        left_top.1 + glyph.height/scale,
 	);
 
 	// println!("glyph==============glyph:{:?}, x: {}, y: {}, width:{}", glyph, x,y, width);

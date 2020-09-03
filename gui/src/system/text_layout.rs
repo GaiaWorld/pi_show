@@ -111,7 +111,7 @@ impl<'a> Runner<'a> for LayoutImpl {
 		
 		// 暂时拷贝， TODO
 		let dirty_list = (read.5).0.clone();
-		let time = std::time::Instant::now();
+		// let time = std::time::Instant::now();
         for id in dirty_list.iter() {
             let r = match read.4.get(*id) {
                 Some(r) => r,

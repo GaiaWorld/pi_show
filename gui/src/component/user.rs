@@ -365,7 +365,7 @@ pub type Polygon = Vec<f32>;
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
 pub fn to_linear_gradient_color(
-    color_and_positions: Vec<f32>,
+    color_and_positions: &[f32],
     direction: f32,
 ) -> LinearGradientColor {
     let arr = color_and_positions;
@@ -388,7 +388,7 @@ pub fn to_linear_gradient_color(
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
 pub fn to_radial_gradient_color(
-    color_and_positions: Vec<f32>,
+    color_and_positions: &[f32],
     center_x: f32,
     center_y: f32,
     shape: u8,

@@ -113,3 +113,247 @@
 
 //     world
 // }
+use std::collections::hash_map::Entry;
+use std::mem::transmute;
+
+use js_sys::{Object, Function};
+use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+
+use ecs::{Lend, LendMut};
+use hash::XHashMap;
+
+use hal_core::HalContext;
+use hal_webgl::WebglHalContext;
+
+use gui::component::user::{TextStyle, Vector2};
+use gui::single::Class;
+use gui::world::GuiWorld as GuiWorld1;
+use gui::font::font_sheet::{TextInfo as TextInfo1};
+
+#[wasm_bindgen(module = "/js/utils.js")]
+extern "C" {
+	#[wasm_bindgen]
+	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
+	#[wasm_bindgen]
+    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font:&str, strokeWidth: u8);
+	#[wasm_bindgen]
+	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32);
+	#[wasm_bindgen]
+	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32);
+	#[wasm_bindgen]
+	pub fn useVao() -> bool;
+	#[wasm_bindgen]
+	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: &str) -> f32;
+	#[wasm_bindgen]
+	pub fn loadImage(image_name: String, callback: &Function);
+	
+}
+
+pub struct GuiWorld {
+    pub gui: GuiWorld1<WebglHalContext>,
+    pub draw_text_sys: DrawTextSys,
+    pub default_text_style: TextStyle,
+    pub default_attr: Class,
+	pub performance_inspector: usize,
+	pub load_image_success: Closure<dyn FnMut(
+		u8,
+		i32,
+		u8, /* 缓存类型，支持0， 1， 2三种类型 */
+		String,
+		u32,
+		u32,
+		Object)>,
+	pub load_image: Box<dyn Fn(String, &Function)>,
+}
+
+pub struct DrawTextSys {
+	pub canvas: HtmlCanvasElement,
+	pub ctx: CanvasRenderingContext2d,
+}
+
+impl DrawTextSys {
+    pub fn new() -> Self {
+		let window = window().expect("no global `window` exists");
+		let document = window.document().expect("should have a document on window");
+		let canvas = document.create_element("canvas").expect("create canvas fail");
+		let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>().expect("create canvas fail");
+		let ctx = canvas.get_context("2d").expect("").unwrap().dyn_into::<CanvasRenderingContext2d>().expect("create canvas fail");
+        // let obj: Object = TryInto::try_into(js! {
+		// 	var c = document.createElement("canvas");
+		// 	// c.style.position = "absolute";
+        //     // document.body.append(c);// 查看效果
+        //     var ctx = c.getContext("2d");
+        //     return {canvas: c, ctx: ctx, wrap: c};
+        // })
+		// .unwrap();
+        DrawTextSys { canvas: canvas, ctx: ctx  }
+    }
+
+    pub fn run(&mut self, world_id: u32) {
+        let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+        let world = &mut world.gui;
+        let font_sheet = world.font_sheet.lend_mut();
+        if font_sheet.wait_draw_list.len() == 0 {
+            return;
+        }
+
+        let list = std::mem::replace(&mut font_sheet.wait_draw_list, Vec::default());
+        let ptr = Box::into_raw(Box::new(list)) as usize as u32;
+
+		// 异步调用， TODO
+		draw_canvas_text(world_id, ptr);
+		font_sheet.wait_draw_map.clear();
+    }
+}
+
+/// 绘制文字
+#[allow(unused_unsafe)]
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn draw_canvas_text(world_id: u32, data: u32) {
+    // let t = std::time::Instant::now();
+    let text_info_list = unsafe { Box::from_raw(data as usize as *mut Vec<TextInfo1>) };
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+	let canvas = &world.draw_text_sys.canvas;
+	let ctx = &world.draw_text_sys.ctx;
+    let world = &mut world.gui;
+    let font_sheet = world.font_sheet.lend_mut();
+    let engine = world.engine.lend_mut();
+    let texture = font_sheet.get_font_tex();
+
+    // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
+    let mut end_v = 0;
+    let mut map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
+    for i in 0..text_info_list.len() {
+        let text_info = &text_info_list[i];
+        let first = &text_info.chars[0];
+        let h = first.y + text_info.size.y as u32;
+        if h > end_v {
+            end_v = h;
+        }
+        match map.entry(first.y) {
+            Entry::Occupied(mut e) => {
+                let r = e.get_mut();
+                r.0.push(i);
+                r.1.x += text_info.size.x;
+                if text_info.size.y > r.1.y {
+                    r.1.y = text_info.size.y;
+                }
+            }
+            Entry::Vacant(r) => {
+                r.insert((vec![i], text_info.size.clone()));
+            }
+        };
+    }
+
+    // 扩展纹理
+    if end_v > texture.height as u32 {
+        end_v = next_power_of_two(end_v);
+        if end_v > 2048 {
+            debug_println!("update_canvas_text fail, height overflow");
+        }
+        engine
+            .gl
+            .texture_extend(&texture.bind, texture.width as u32, end_v);
+        texture.update_size(texture.width, end_v as usize);
+        font_sheet.get_notify().modify_event(0, "", 0);
+    }
+
+    for indexs in map.iter() {
+		unsafe{fillBackGround(canvas, ctx, (indexs.1).1.x as u32, (indexs.1).1.y as u32)}
+        let mut start: (i32, i32) = (-1, -1);
+        for i in (indexs.1).0.iter() {
+            let text_info = &text_info_list[*i];
+            let first = &text_info.chars[0];
+            if start.0 == -1 {
+                start.0 = first.x as i32;
+                start.1 = first.y as i32;
+            }
+            let hal_stroke_width = text_info.stroke_width / 2;
+			// let bottom = text_info.size.y as u32 - hal_stroke_width as u32;
+			unsafe{
+				setFont(
+					ctx, 
+					text_info.weight as u32, 
+					text_info.font_size as u32, 
+					text_info.font.as_ref(), 
+					text_info.stroke_width as u8);
+			};
+            if text_info.stroke_width > 0 {
+                for char_info in text_info.chars.iter() {
+                    let ch_code: u32 = unsafe { transmute(char_info.ch) };
+					let x = char_info.x + hal_stroke_width as u32 - start.0 as u32;
+					unsafe {
+						drawCharWithStroke(ctx, ch_code, x);
+					}
+                }
+            } else {
+                for char_info in text_info.chars.iter() {
+                    let ch_code: u32 = unsafe { transmute(char_info.ch) };
+					let x = char_info.x - start.0 as u32;
+					unsafe {
+						drawChar(ctx, ch_code, x);
+					}
+                }
+            }
+		}
+		// 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
+		// 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
+		
+		let obj = ctx.get_image_data(0.0, 0.0, canvas.width() as f64, canvas.height() as f64).unwrap();
+        engine
+            .gl
+            .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &Object::from(obj));
+    }
+
+    // println!("time: {:?}", std::time::Instant::now() - t);
+    set_render_dirty(world_id);
+}
+
+/// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_render_dirty(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let render_objs = world.render_objs.lend();
+
+    render_objs.get_notify().modify_event(1, "", 0);
+}
+
+
+#[derive(Debug, Serialize)]
+pub struct TextInfoList {
+    list: Vec<TextInfo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TextInfo {
+    pub font: String,
+    pub font_size: usize,
+    pub stroke_width: usize,
+    pub weight: usize,
+    pub size: (f32, f32),
+    pub chars: Vec<WaitChar>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WaitChar {
+    ch: char,
+    width: f32,
+    x: u32,
+    y: u32,
+}
+
+pub fn next_power_of_two(value: u32) -> u32 {
+    let mut value = value - 1;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value += 1;
+    value
+}

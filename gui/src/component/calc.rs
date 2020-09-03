@@ -57,7 +57,7 @@ pub struct ZDepth(pub f32);
 pub struct ByOverflow(pub usize);
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
-#[derive(Debug, Clone, Component, Default)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct WorldMatrix(pub Matrix4, pub bool);
 
 //是否可见,

@@ -61,10 +61,10 @@ impl<'a> Runner<'a> for LayoutSys {
 		&'a mut MultiCaseImpl<Node, NodeState>,
 		&'a mut MultiCaseImpl<Node, StyleMark>, );
     fn run(&mut self, (rect_layout_styles, other_layout_styles, tree, dirty_list, ): Self::ReadData, (layouts, node_states, style_marks): Self::WriteData) {
-		if dirty_list.0.len() == 0 {
-            return;
-		}
-		let time = std::time::Instant::now();
+		// if dirty_list.0.len() == 0 {
+        //     return;
+		// }
+		// let time = std::time::Instant::now();
 		
 		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
 		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};

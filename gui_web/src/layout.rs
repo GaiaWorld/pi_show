@@ -1,3 +1,4 @@
+use wasm_bindgen::prelude::*;
 /// 将设置布局属性的接口导出到js
 use std::mem::transmute;
 
@@ -7,14 +8,13 @@ use gui::component::calc::StyleType1;
 use gui::component::user::{OtherLayoutStyleWrite};
 use flex_layout::style::*;
 use flex_layout::Rect;
-use GuiWorld;
+use world::GuiWorld;
 
 #[macro_use()]
 macro_rules! func_enum {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-		#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32, value: u8) {
             let value = unsafe { transmute(value) };
             let node_id = node_id as usize;
@@ -30,8 +30,7 @@ macro_rules! func_enum {
 macro_rules! func_value_dimension {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-		#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -46,8 +45,7 @@ macro_rules! func_value_dimension {
 
 	($func:ident, $feild1:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-		#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32, edge: u8, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -72,14 +70,41 @@ macro_rules! func_value_dimension {
 			layout_styles.get_notify().modify_event(node_id, $notify_feild1, 0);
         }
 	};
+
+	($func:ident, $feild1:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
+        #[allow(unused_attributes)]
+        #[wasm_bindgen]
+        pub fn $func(world: u32, node_id: u32, edge: u8) {
+            let node_id = node_id as usize;
+            let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+            let world = &mut world.gui;
+            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+				StyleType1::$ty as usize;
+			let layout_styles = world.$style_tyle.lend_mut();
+
+			match unsafe {transmute(edge)} {
+				Edge::All => layout_styles[node_id].$feild1 = Rect{
+					start: Dimension::Auto,
+					end: Dimension::Auto,
+					top: Dimension::Auto,
+					bottom: Dimension::Auto,
+				},
+				Edge::Left => layout_styles[node_id].$feild1.start = Dimension::Auto,
+				Edge::Top => layout_styles[node_id].$feild1.top = Dimension::Auto,
+				Edge::Right => layout_styles[node_id].$feild1.end = Dimension::Auto,
+				Edge::Bottom => layout_styles[node_id].$feild1.bottom = Dimension::Auto,
+				_ => return
+			};
+			layout_styles.get_notify().modify_event(node_id, $notify_feild1, 0);
+        }
+	};
 }
 
 #[macro_use()]
 macro_rules! func_value_dimension_simple {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-		#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -98,8 +123,7 @@ macro_rules! func_value {
 	
 	($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -111,8 +135,7 @@ macro_rules! func_value {
     };
     ($func:ident, $ty:ident, $feild:expr) => {
         #[allow(unused_attributes)]
-        #[no_mangle]
-#[js_export]
+        #[wasm_bindgen]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -155,7 +178,6 @@ func_value_dimension!(set_max_height_percent, max_size, height, Percent, "max_he
 
 func_value_dimension_simple!(set_width_auto, size, width, Auto, "width", Width, rect_layout_style);
 func_value_dimension_simple!(set_height_auto,  size, height, Auto, "height", Height, rect_layout_style);
-// func_value_dimension_simple!(set_margin_auto, margin, margin, Auto, "margin", Margin);
 // func_auto!(set_flex_basis_auto, FlexBasis::Auto);
 
 func_value_dimension!(set_padding,          padding, Points, "padding", Padding, other_layout_style);
@@ -166,6 +188,9 @@ func_value_dimension!(set_position,         position, Points, "position", Positi
 func_value_dimension!(set_padding_percent,  padding, Percent, "padding", Padding, other_layout_style);
 func_value_dimension!(set_margin_percent,   margin, Percent, "margin", Margin, rect_layout_style);
 func_value_dimension!(set_position_percent, position, Percent, "position", Position, other_layout_style);
+
+
+func_value_dimension!(set_margin_auto, margin, "margin", Margin, rect_layout_style);
 
 // #[no_mangle]
 // #[js_export]

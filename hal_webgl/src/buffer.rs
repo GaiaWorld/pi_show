@@ -1,32 +1,32 @@
 use hal_core::{BufferData, BufferType};
-use stdweb::UnsafeTypedArray;
-use webgl_rendering_context::{WebGLBuffer, WebGLRenderingContext};
+use web_sys::{WebGlBuffer, WebGlRenderingContext};
+use js_sys::{Float32Array, Uint16Array, Object};
 
 pub struct WebGLBufferImpl {
     pub size: usize,        // buffer的字节数
     pub btype: BufferType,  // 类型
     pub is_updatable: bool, // 是否更新
-    pub handle: WebGLBuffer,
+    pub handle: WebGlBuffer,
 }
 
 impl WebGLBufferImpl {
     pub fn new(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         btype: BufferType,
         count: usize,
         data: Option<BufferData>,
         is_updatable: bool,
     ) -> Result<WebGLBufferImpl, String> {
         let usage = if is_updatable {
-            WebGLRenderingContext::DYNAMIC_DRAW
+            WebGlRenderingContext::DYNAMIC_DRAW
         } else {
-            WebGLRenderingContext::STATIC_DRAW
+            WebGlRenderingContext::STATIC_DRAW
         };
 
         let t = if btype == BufferType::Attribute {
-            WebGLRenderingContext::ARRAY_BUFFER
+            WebGlRenderingContext::ARRAY_BUFFER
         } else {
-            WebGLRenderingContext::ELEMENT_ARRAY_BUFFER
+            WebGlRenderingContext::ELEMENT_ARRAY_BUFFER
         };
 
         let buffer = gl.create_buffer();
@@ -50,10 +50,11 @@ impl WebGLBufferImpl {
                     count
                 );
 
-                let b = unsafe { UnsafeTypedArray::new(v) };
-                js! {
-                    @{gl.as_ref()}.bufferData(@{t}, @{b}, @{usage});
-                }
+                // let b = unsafe { UnsafeTypedArray::new(v) };
+                // js! {
+                //     @{gl.as_ref()}.bufferData(@{t}, @{b}, @{usage});
+				// }
+				gl.buffer_data_with_array_buffer_view(t, &Object::from(unsafe{Float32Array::view(v)}) , usage);
             }
             Some(BufferData::Short(v)) => {
                 debug_assert!(
@@ -64,14 +65,14 @@ impl WebGLBufferImpl {
                         count
                     )
                 );
-
-                let b = unsafe { UnsafeTypedArray::new(v) };
-                js! {
-                    @{gl.as_ref()}.bufferData(@{t}, @{b}, @{usage});
-                }
+				gl.buffer_data_with_array_buffer_view(t, &Object::from(unsafe{Uint16Array::view(v)}), usage);
+                // let b = unsafe { UnsafeTypedArray::new(v) };
+                // js! {
+                //     @{gl.as_ref()}.bufferData(@{t}, @{b}, @{usage});
+                // }
             }
             None => {
-                gl.buffer_data(t, size as i64, usage);
+				gl.buffer_data_with_i32(t, size as i32, usage);
             }
         };
 
@@ -83,15 +84,15 @@ impl WebGLBufferImpl {
         })
     }
 
-    pub fn delete(&self, gl: &WebGLRenderingContext) {
+    pub fn delete(&self, gl: &WebGlRenderingContext) {
         gl.delete_buffer(Some(&self.handle));
     }
 
-    pub fn update(&mut self, gl: &WebGLRenderingContext, offset: usize, data: BufferData) {
+    pub fn update(&mut self, gl: &WebGlRenderingContext, offset: usize, data: BufferData) {
         let t = if self.btype == BufferType::Attribute {
-            WebGLRenderingContext::ARRAY_BUFFER
+            WebGlRenderingContext::ARRAY_BUFFER
         } else {
-            WebGLRenderingContext::ELEMENT_ARRAY_BUFFER
+            WebGlRenderingContext::ELEMENT_ARRAY_BUFFER
         };
 
         gl.bind_buffer(t, Some(&self.handle));
@@ -100,17 +101,19 @@ impl WebGLBufferImpl {
                 let offset = 4 * offset;
                 debug_assert!(self.is_updatable, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
 
-                let buffer = unsafe { UnsafeTypedArray::new(v) };
+                let buffer = Object::from(unsafe{Float32Array::view(v)});
 
                 if offset < self.size && offset + 4 * v.len() <= self.size {
-                    js! {
-                        @{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
-                    }
+					gl.buffer_sub_data_with_i32_and_array_buffer_view(t, offset as i32, &buffer);
+                    // js! {
+                    //     @{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
+                    // }
                 } else if offset == 0 {
-                    let usage = WebGLRenderingContext::DYNAMIC_DRAW;
-                    js! {
-                        @{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
-                    }
+                    let usage = WebGlRenderingContext::DYNAMIC_DRAW;
+                    // js! {
+                    //     @{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
+					// }
+					gl.buffer_data_with_array_buffer_view(t, &buffer, usage);
                     self.size = 4 * v.len();
                 } else {
                     debug_assert!(false, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
@@ -120,7 +123,8 @@ impl WebGLBufferImpl {
                 let offset = 2 * offset;
                 debug_assert!(self.is_updatable, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));
 
-                let buffer = unsafe { UnsafeTypedArray::new(v) };
+				// let buffer = unsafe { UnsafeTypedArray::new(v) };
+				let buffer = Object::from(unsafe{Uint16Array::view(v)});
 
                 println!(
                     "offset:{}, size:{}, len:{}",
@@ -129,14 +133,16 @@ impl WebGLBufferImpl {
                     offset + 2 * v.len()
                 );
                 if offset < self.size && offset + 2 * v.len() <= self.size {
-                    js! {
-                        @{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
-                    }
+                    // js! {
+                    //     @{gl.as_ref()}.bufferSubData(@{t}, @{offset as u32}, @{buffer});
+					// }
+					gl.buffer_sub_data_with_i32_and_array_buffer_view(t, offset as i32, &buffer);
                 } else if offset == 0 {
-                    let usage = WebGLRenderingContext::DYNAMIC_DRAW;
-                    js! {
-                        @{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
-                    }
+                    let usage = WebGlRenderingContext::DYNAMIC_DRAW;
+                    // js! {
+                    //     @{gl.as_ref()}.bufferData(@{t}, @{buffer}, @{usage});
+					// }
+					gl.buffer_data_with_array_buffer_view(t, &buffer, usage);
                     self.size = 2 * v.len();
                 } else {
                     debug_assert!(false, format!("WebGLBufferImpl update failed, is_updatable: {}, offset: {}, size: {}, len: {}", self.is_updatable, offset, self.size, v.len()));

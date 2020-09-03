@@ -13,10 +13,28 @@ deque = {path="../../pi_lib/deque"}
 hal_core={path="../hal_core"}
 hash={path="../../pi_lib/hash"}
 ordered-float = "1.0"
-stdweb = "0.4.15"
-stdweb-derive = "0.5.1"
-webgl-rendering-context = "0.1.0"
+# stdweb = "0.4.15"
+# stdweb-derive = "0.5.1"
+# webgl-rendering-context = "0.1.0"
+wasm-bindgen = "*"
+js-sys = "0.3.44"
 debug_info = {path="../../pi_lib/debug_info"}
+
+[dependencies.web-sys]
+version = "0.3.44"
+features = [
+	"WebGlRenderingContext",
+	"WebGlBuffer",
+	"WebGlVertexArrayObject",
+	"WebGlShader",
+	"WebGlProgram",
+	"WebGlUniformLocation",
+	"WebGlActiveInfo",
+	"WebGlProgram",
+	"WebGlTexture",
+	"WebGlRenderbuffer",
+	"WebGlFramebuffer",
+]
 
 # [features]
 # frame_stat = []  # 统计每帧信息的feature

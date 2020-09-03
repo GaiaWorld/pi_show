@@ -11,7 +11,7 @@ use res::ResMgr;
 use share::Share;
 
 use component::calc;
-use component::{calc::*, calc::LayoutR};
+use component::{calc::*, calc::LayoutR, calc::CharNode};
 use component::user;
 use component::user::*;
 use component::user::Overflow;

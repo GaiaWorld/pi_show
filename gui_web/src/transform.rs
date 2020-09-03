@@ -1,10 +1,12 @@
 /// 将设置几何变换属性的接口导出到js
 use std::mem::transmute;
 
+use wasm_bindgen::prelude::*;
+
 use ecs::LendMut;
 
 use gui::component::user::*;
-use GuiWorld;
+use world::GuiWorld;
 
 #[macro_use()]
 macro_rules! push_func {
@@ -71,8 +73,7 @@ macro_rules! push_tanslate {
 
 /// 清空所有变换
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn clear_transform(world: u32, node_id: u32) {
     // println!("clear_transform============={}", node_id);
     let node_id = node_id as usize;
@@ -96,8 +97,7 @@ pub fn clear_transform(world: u32, node_id: u32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -114,8 +114,7 @@ pub fn transform_translate(world: u32, node_id: u32, x: f32, y: f32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -134,8 +133,7 @@ pub fn transform_translate_x(world: u32, node_id: u32, value: f32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -158,8 +156,7 @@ pub fn transform_translate_y(world: u32, node_id: u32, value: f32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -181,8 +178,7 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -207,8 +203,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
 
 /// 移动变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
     let transform_translate_m = |transform: &mut Transform| {
         if let Some(r) = transform.funcs.last_mut() {
@@ -229,40 +224,35 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
 
 /// 缩放变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_scale(world: u32, node_id: u32, x: f32, y: f32) {
     push_func!(world, node_id, TransformFunc::Scale(x, y));
 }
 
 /// 缩放变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_scale_x(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleX(value));
 }
 
 /// 缩放变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::ScaleY(value));
 }
 
 /// 旋转变化
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::RotateZ(value));
 }
 
 /// 设置transfrom为none
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_none(world: u32, node_id: u32) {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -281,8 +271,7 @@ pub fn transform_none(world: u32, node_id: u32) {
 
 /// 设置变化原点
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn transform_origin(world: u32, node_id: u32, x_ty: u8, x: f32, y_ty: u8, y: f32) {
     let x_ty = unsafe { transmute(x_ty) };
     let y_ty = unsafe { transmute(y_ty) };

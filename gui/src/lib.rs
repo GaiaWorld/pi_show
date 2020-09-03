@@ -1,8 +1,6 @@
 #![feature(nll)] 
 #![feature(proc_macro_hygiene)]
-#![feature(rustc_const_unstable)] 
 #![feature(core_intrinsics)]
-#![feature(custom_attribute)] 
 #![feature(type_ascription)]
 #![feature(link_args)]
 #![feature(vec_remove_item)]

@@ -1,20 +1,18 @@
 use convert::*;
 use hal_core::{HalRenderBuffer, HalTexture, PixelFormat};
-use stdweb::unstable::TryInto;
-use stdweb::Object;
 use texture::WebGLTextureImpl;
-use webgl_rendering_context::{WebGLRenderbuffer, WebGLRenderingContext};
+use web_sys::{WebGlRenderbuffer, WebGlRenderingContext, WebGlFramebuffer};
 
 pub struct WebGLRenderBufferImpl {
     width: u32,
     height: u32,
     _format: PixelFormat,
-    handle: WebGLRenderbuffer,
+    handle: WebGlRenderbuffer,
 }
 
 impl WebGLRenderBufferImpl {
     pub fn new(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         w: u32,
         h: u32,
         pformat: PixelFormat,
@@ -25,11 +23,11 @@ impl WebGLRenderBufferImpl {
         }
 
         let r = r.unwrap();
-        gl.bind_renderbuffer(WebGLRenderingContext::RENDERBUFFER, Some(&r));
+        gl.bind_renderbuffer(WebGlRenderingContext::RENDERBUFFER, Some(&r));
 
         let format = get_pixel_format(pformat);
         gl.renderbuffer_storage(
-            WebGLRenderingContext::RENDERBUFFER,
+            WebGlRenderingContext::RENDERBUFFER,
             format,
             w as i32,
             h as i32,
@@ -43,7 +41,7 @@ impl WebGLRenderBufferImpl {
         })
     }
 
-    pub fn delete(&self, gl: &WebGLRenderingContext) {
+    pub fn delete(&self, gl: &WebGlRenderingContext) {
         gl.delete_renderbuffer(Some(&self.handle))
     }
 
@@ -54,7 +52,7 @@ impl WebGLRenderBufferImpl {
 
 pub struct WebGLRenderTargetImpl {
     pub is_default: bool, // 注：不能从默认的渲染目标上取color depth
-    pub handle: Option<Object>,
+    pub handle: Option<WebGlFramebuffer>,
     width: u32,
     height: u32,
     pub is_tex_destroy: bool,
@@ -64,7 +62,7 @@ pub struct WebGLRenderTargetImpl {
 
 impl WebGLRenderTargetImpl {
     pub fn new(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         w: u32,
         h: u32,
         texture: &WebGLTextureImpl,
@@ -73,28 +71,29 @@ impl WebGLRenderTargetImpl {
         rb_wrap: Option<HalRenderBuffer>,
         is_tex_destroy: bool,
     ) -> Result<Self, String> {
-        let fbo = TryInto::<Object>::try_into(js! {
-            var fbo = @{gl}.createFramebuffer();
-            var fboWrap = {
-                wrap: fbo
-            };
-            return fboWrap;
-        });
+		let fbo = gl.create_framebuffer();
+        // let fbo = TryInto::<Object>::try_into(js! {
+        //     var fbo = @{gl}.createFramebuffer();
+        //     var fboWrap = {
+        //         wrap: fbo
+        //     };
+        //     return fboWrap;
+        // });
+		
+		if let None = fbo {
+			return Err("create fbo fail".to_string())
+		}
 
-        if let Err(s) = &fbo {
-            return Err(s.to_string());
-        }
-        let fbo = fbo.unwrap();
+		gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, fbo.as_ref());
+        // js! {
+        //     @{gl}.bindFramebuffer(@{WebGlRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
+        // }
 
-        js! {
-            @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
-        }
+        let fb_type = WebGlRenderingContext::FRAMEBUFFER;
+        let tex_target = WebGlRenderingContext::TEXTURE_2D;
+        let color_attachment = WebGlRenderingContext::COLOR_ATTACHMENT0;
 
-        let fb_type = WebGLRenderingContext::FRAMEBUFFER;
-        let tex_target = WebGLRenderingContext::TEXTURE_2D;
-        let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
-
-        gl.framebuffer_texture2_d(
+        gl.framebuffer_texture_2d(
             fb_type,
             color_attachment,
             tex_target,
@@ -103,8 +102,8 @@ impl WebGLRenderTargetImpl {
         );
 
         if rb.is_some() {
-            let rb_type = WebGLRenderingContext::RENDERBUFFER;
-            let depth_attachment = WebGLRenderingContext::DEPTH_ATTACHMENT;
+            let rb_type = WebGlRenderingContext::RENDERBUFFER;
+            let depth_attachment = WebGlRenderingContext::DEPTH_ATTACHMENT;
 
             gl.framebuffer_renderbuffer(
                 fb_type,
@@ -114,14 +113,15 @@ impl WebGLRenderTargetImpl {
             );
         };
 
-        js! {
-            @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
-        }
+		gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, None);
+        // js! {
+        //     @{gl}.bindFramebuffer(@{WebGlRenderingContext::FRAMEBUFFER}, null);
+        // }
 
         Ok(Self {
             is_default: false,
             is_tex_destroy: is_tex_destroy,
-            handle: Some(fbo),
+            handle: fbo,
             width: w,
             height: h,
             color: Some(texture_wrap),
@@ -129,7 +129,7 @@ impl WebGLRenderTargetImpl {
         })
     }
 
-    pub fn new_default(fbo: Option<Object>, w: u32, h: u32) -> Self {
+    pub fn new_default(fbo: Option<WebGlFramebuffer>, w: u32, h: u32) -> Self {
         Self {
             is_tex_destroy: false,
             is_default: true,
@@ -141,11 +141,12 @@ impl WebGLRenderTargetImpl {
         }
     }
 
-    pub fn delete(&self, gl: &WebGLRenderingContext) {
+    pub fn delete(&self, gl: &WebGlRenderingContext) {
         if let Some(fbo) = &self.handle {
-            js! {
-                @{gl}.deleteFramebuffer(@{fbo}.wrap);
-            }
+			gl.delete_framebuffer(Some(fbo));
+            // js! {
+            //     @{gl}.deleteFramebuffer(@{fbo}.wrap);
+            // }
         }
     }
 

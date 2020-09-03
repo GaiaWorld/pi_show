@@ -1,9 +1,11 @@
+use std::convert::TryFrom;
+
 use atom::Atom;
 use hal_core::*;
 use hash::XHashMap;
 use share::Share;
-use stdweb::unstable::TryInto;
-use webgl_rendering_context::{WebGLProgram, WebGLRenderingContext, WebGLUniformLocation};
+use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlUniformLocation};
+use js_sys::{Boolean, Number};
 
 use shader_cache::{LayoutLocation, ShaderCache};
 
@@ -11,14 +13,14 @@ pub struct SamplerUniform {
     // 针对UniformLayout的紧凑结构
     pub slot_uniform: usize,
     pub last: i32, // 上一次的值
-    pub location: WebGLUniformLocation,
+    pub location: WebGlUniformLocation,
 }
 
 pub struct CommonUniform {
     pub slot_uniform: usize,
     pub last: UniformValue, // 上次设置的值
     pub name: Atom,
-    pub location: WebGLUniformLocation,
+    pub location: WebGlUniformLocation,
 }
 
 pub struct CommonUbo {
@@ -29,7 +31,7 @@ pub struct CommonUbo {
 }
 
 pub struct WebGLProgramImpl {
-    pub handle: WebGLProgram,
+    pub handle: WebGlProgram,
 
     pub active_uniforms: Vec<CommonUbo>,
     pub active_single_uniforms: Vec<CommonUniform>,
@@ -37,7 +39,7 @@ pub struct WebGLProgramImpl {
 }
 
 impl SamplerUniform {
-    pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, unit: i32) {
+    pub fn set_gl_uniform(&mut self, gl: &WebGlRenderingContext, unit: i32) {
         if unit != self.last {
             gl.uniform1i(Some(&self.location), unit);
             self.last = unit;
@@ -46,7 +48,7 @@ impl SamplerUniform {
 }
 
 impl CommonUniform {
-    pub fn set_gl_uniform(&mut self, gl: &WebGLRenderingContext, value: &UniformValue) {
+    pub fn set_gl_uniform(&mut self, gl: &WebGlRenderingContext, value: &UniformValue) {
         match (value, &mut self.last) {
             (UniformValue::Float1(c1), UniformValue::Float1(o1)) => {
                 if *c1 != *o1 {
@@ -109,37 +111,37 @@ impl CommonUniform {
                 }
             }
             (UniformValue::FloatV1(v), _) => {
-                gl.uniform1fv(Some(&self.location), v.as_slice());
+                gl.uniform1fv_with_f32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::FloatV2(v), _) => {
-                gl.uniform2fv(Some(&self.location), v.as_slice());
+                gl.uniform2fv_with_f32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::FloatV3(v), _) => {
-                gl.uniform3fv(Some(&self.location), v.as_slice());
+                gl.uniform3fv_with_f32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::FloatV4(v), _) => {
-                gl.uniform4fv(Some(&self.location), v.as_slice());
+                gl.uniform4fv_with_f32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::IntV1(v), _) => {
-                gl.uniform1iv(Some(&self.location), v.as_slice());
+                gl.uniform1iv_with_i32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::IntV2(v), _) => {
-                gl.uniform2iv(Some(&self.location), v.as_slice());
+                gl.uniform2iv_with_i32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::IntV3(v), _) => {
-                gl.uniform3iv(Some(&self.location), v.as_slice());
+                gl.uniform3iv_with_i32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::IntV4(v), _) => {
-                gl.uniform4iv(Some(&self.location), v.as_slice());
+                gl.uniform4iv_with_i32_array(Some(&self.location), v.as_slice());
             }
             (UniformValue::MatrixV2(v), _) => {
-                gl.uniform_matrix2fv(Some(&self.location), false, v.as_slice());
+                gl.uniform_matrix2fv_with_f32_array(Some(&self.location), false, v.as_slice());
             }
             (UniformValue::MatrixV3(v), _) => {
-                gl.uniform_matrix3fv(Some(&self.location), false, v.as_slice());
+                gl.uniform_matrix3fv_with_f32_array(Some(&self.location), false, v.as_slice());
             }
             (UniformValue::MatrixV4(v), _) => {
-                gl.uniform_matrix4fv(Some(&self.location), false, v.as_slice());
+                gl.uniform_matrix4fv_with_f32_array(Some(&self.location), false, v.as_slice());
             }
             _ => panic!(format!(
                 "Invalid Uniform, name: {:?}, value: {:?}",
@@ -160,7 +162,7 @@ impl WebGLProgramImpl {
     }
 
     pub fn new_with_vs_fs(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         caps: &Capabilities,
         shader_cache: &mut ShaderCache,
         vs_id: u64,
@@ -211,22 +213,30 @@ impl WebGLProgramImpl {
         }
 
         // 连接program
-        gl.link_program(&program_handle);
-        let is_link_ok = gl
-            .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
-            .try_into()
-            .unwrap_or(false);
+		gl.link_program(&program_handle);
+        let is_link_ok = match Boolean::try_from(gl
+            .get_program_parameter(&program_handle, WebGlRenderingContext::LINK_STATUS)){
+				Ok(r) => r.into(),
+				Err(_) => false,
+			};
+			// .try_into().unwrap_or(false);
+			// is_link_ok.into()
 
         // 微信小游戏移动端环境，返回的是1-0，所以需要再来一次
         let is_link_ok = if is_link_ok {
             is_link_ok
         } else {
-            let r = gl
-                .get_program_parameter(&program_handle, WebGLRenderingContext::LINK_STATUS)
-                .try_into()
-                .unwrap_or(0);
+			let r:f64 = match Number::try_from(gl
+				.get_program_parameter(&program_handle, WebGlRenderingContext::LINK_STATUS)){
+					Ok(r) => r.value_of() ,
+					Err(_) => 0.0,
+				};
+            // let r = gl
+            //     .get_program_parameter(&program_handle, WebGlRenderingContext::LINK_STATUS)
+            //     .try_into()
+            //     .unwrap_or(0);
 
-            r != 0
+            r != 0.0
         };
 
         if !is_link_ok {
@@ -252,7 +262,7 @@ impl WebGLProgramImpl {
         })
     }
 
-    pub fn delete(&self, gl: &WebGLRenderingContext) {
+    pub fn delete(&self, gl: &WebGlRenderingContext) {
         gl.delete_program(Some(&self.handle));
     }
 
@@ -285,14 +295,16 @@ impl WebGLProgramImpl {
     }
 
     fn init_uniform(
-        gl: &WebGLRenderingContext,
-        program: &WebGLProgram,
+        gl: &WebGlRenderingContext,
+        program: &WebGlProgram,
         location_map: &LayoutLocation,
     ) -> Result<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>), String> {
-        let uniform_num = gl
-            .get_program_parameter(program, WebGLRenderingContext::ACTIVE_UNIFORMS)
-            .try_into()
-            .unwrap_or(0);
+        let uniform_num = match Number::try_from(gl
+            .get_program_parameter(program, WebGlRenderingContext::ACTIVE_UNIFORMS)) {
+				Ok(r) => r.value_of() as i32,
+				Err(_) => 0,
+			};
+            //.unwrap_or(0);
 
         let mut textures = vec![];
         let mut uniforms = vec![];
@@ -318,7 +330,7 @@ impl WebGLProgramImpl {
             let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
 
             match uniform.type_() {
-                WebGLRenderingContext::FLOAT => {
+                WebGlRenderingContext::FLOAT => {
                     if is_array {
                         let size = 1 * uniform.size() as usize;
                         value = UniformValue::FloatV1(vec![0.0; size]);
@@ -326,7 +338,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Float1(0.0);
                     }
                 }
-                WebGLRenderingContext::FLOAT_VEC2 => {
+                WebGlRenderingContext::FLOAT_VEC2 => {
                     if is_array {
                         let size = 2 * uniform.size() as usize;
                         value = UniformValue::FloatV2(vec![0.0; size]);
@@ -334,7 +346,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Float2(0.0, 0.0);
                     }
                 }
-                WebGLRenderingContext::FLOAT_VEC3 => {
+                WebGlRenderingContext::FLOAT_VEC3 => {
                     if is_array {
                         let size = 3 * uniform.size() as usize;
                         value = UniformValue::FloatV3(vec![0.0; size]);
@@ -342,7 +354,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Float3(0.0, 0.0, 0.0);
                     }
                 }
-                WebGLRenderingContext::FLOAT_VEC4 => {
+                WebGlRenderingContext::FLOAT_VEC4 => {
                     if is_array {
                         let size = 4 * uniform.size() as usize;
                         value = UniformValue::FloatV4(vec![0.0; size]);
@@ -350,7 +362,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Float4(0.0, 0.0, 0.0, 0.0);
                     }
                 }
-                WebGLRenderingContext::INT => {
+                WebGlRenderingContext::INT => {
                     if is_array {
                         let size = 1 * uniform.size() as usize;
                         value = UniformValue::IntV1(vec![0; size]);
@@ -358,7 +370,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Int1(0);
                     }
                 }
-                WebGLRenderingContext::INT_VEC2 => {
+                WebGlRenderingContext::INT_VEC2 => {
                     if is_array {
                         let size = 2 * uniform.size() as usize;
                         value = UniformValue::IntV2(vec![0; size]);
@@ -366,7 +378,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Int2(0, 0);
                     }
                 }
-                WebGLRenderingContext::INT_VEC3 => {
+                WebGlRenderingContext::INT_VEC3 => {
                     if is_array {
                         let size = 3 * uniform.size() as usize;
                         value = UniformValue::IntV3(vec![0; size]);
@@ -374,7 +386,7 @@ impl WebGLProgramImpl {
                         value = UniformValue::Int3(0, 0, 0);
                     }
                 }
-                WebGLRenderingContext::INT_VEC4 => {
+                WebGlRenderingContext::INT_VEC4 => {
                     if is_array {
                         let size = 4 * uniform.size() as usize;
                         value = UniformValue::IntV4(vec![0; size]);
@@ -382,19 +394,19 @@ impl WebGLProgramImpl {
                         value = UniformValue::Int4(0, 0, 0, 0);
                     }
                 }
-                WebGLRenderingContext::FLOAT_MAT2 => {
+                WebGlRenderingContext::FLOAT_MAT2 => {
                     let size = 4 * uniform.size() as usize;
                     value = UniformValue::MatrixV2(vec![0.0; size]);
                 }
-                WebGLRenderingContext::FLOAT_MAT3 => {
+                WebGlRenderingContext::FLOAT_MAT3 => {
                     let size = 9 * uniform.size() as usize;
                     value = UniformValue::MatrixV3(vec![0.0; size]);
                 }
-                WebGLRenderingContext::FLOAT_MAT4 => {
+                WebGlRenderingContext::FLOAT_MAT4 => {
                     let size = 16 * uniform.size() as usize;
                     value = UniformValue::MatrixV4(vec![0.0; size]);
                 }
-                WebGLRenderingContext::SAMPLER_2D => {
+                WebGlRenderingContext::SAMPLER_2D => {
                     match location_map.textures.get(&name) {
                         None => return Err(format!("init_uniform fail, location_map texture is not exist, name: {:?}, location_map: {:?}", name, location_map)),
                         Some(i) => {

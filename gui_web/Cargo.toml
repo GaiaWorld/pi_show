@@ -3,6 +3,9 @@ name = "gui_web"
 version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
+[lib]
+crate-type = ["cdylib"]
+
 [dependencies]
 flex_layout = {path="../../pi_lib/flex_layout"}
 atom = {path="../../pi_lib/atom"}
@@ -19,22 +22,52 @@ res = {path="../../pi_lib/res"}
 hal_webgl = {path="../hal_webgl"}
 gui_tool = {path="../gui_tool"}
 hal_core = {path="../hal_core", features = ["serde"]}
+platform = {path="../../pi_lib/platform", features = ["web"]}
 cg2d = { path = "../../pi_math/cg2d" }
 color = { path = "../../pi_math/color" }
 cgmath = { path = "../../pi_math/cgmath" }
 octree = { path = "../../pi_math/octree" }
 gui = {path="../gui", features = ["web"]} #, features = ["performance"]
-stdweb = "0.4"
-stdweb-derive = "0.5.1"
-webgl-rendering-context = "0.1.0"
+# stdweb = "0.4"
+# stdweb-derive = "0.5.1"
+# webgl-rendering-context = "0.1.0"
+wasm-bindgen = { version = "*", features = ["serde-serialize"] }
+js-sys = "0.3.44"
+
 lazy_static = "1"
 serde = { version = "1.0", features = ["derive"]}
 paste = "0.1"
 ordered-float = "1.0"
 
+[dependencies.web-sys]
+version = "0.3.44"
+features = [
+	"WebGlRenderingContext",
+	"WebGlBuffer",
+	"WebGlVertexArrayObject",
+	"WebGlShader",
+	"WebGlProgram",
+	"WebGlUniformLocation",
+	"WebGlActiveInfo",
+	"WebGlProgram",
+	"WebGlTexture",
+	"WebGlRenderbuffer",
+	"WebGlFramebuffer",
+	"Window",
+	"HtmlCanvasElement",
+	"Document",
+	"CanvasRenderingContext2d",
+	"ImageData",
+	"HtmlImageElement",
+	"console",
+]
+
 [profile.release]
-lto = true
-opt-level = "z"
+lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅使.wasm尺寸更小，而且在运行时也更快！缺点是编译将花费更长的时间
+#opt-level = 's'  # 默认情况下，对LLVM的优化通道进行了调整，以提高速度，而不是大小。我们可以通过修改以下
+# opt-level = "z" # 了更积极地优化尺寸，以进一步的潜在速度成本
+# 请注意，令人惊讶的是，opt-level = "s"有时二进制文件的大小可能小于opt-level = "z"。总是测量！
+opt-level = 3 # 性能优先
 panic = 'abort'
 codegen-units = 1
 
@@ -61,3 +94,4 @@ debug = ["share/rc", "ecs/runtime"]
 no_debug = []
 no_define_js = []
 create_class_by_str = []
+

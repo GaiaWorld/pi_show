@@ -2,7 +2,7 @@ use deque::slab_deque::SlabDeque;
 use ordered_float::OrderedFloat;
 use share::Share;
 use slab::Slab;
-use stdweb::Object;
+// use stdweb::Object;
 
 use buffer::WebGLBufferImpl;
 use convert::*;
@@ -12,7 +12,8 @@ use program::WebGLProgramImpl;
 use render_target::WebGLRenderTargetImpl;
 use texture::WebGLTextureImpl;
 use util::*;
-use webgl_rendering_context::{WebGLFramebuffer, WebGLRenderingContext};
+use web_sys::{WebGlFramebuffer, WebGlRenderingContext as WebGlRenderingContext1};
+use webgl_bind::{WebGlRenderingContext, OESVertexArrayObject};
 
 pub struct StateMachine {
     clear_color: (
@@ -36,7 +37,7 @@ pub struct StateMachine {
     dsdesc: DepthStateDesc,
     ssdesc: StencilStateDesc,
 
-    pub copy_fbo: WebGLFramebuffer, // 用于纹理拷贝的FBO
+    pub copy_fbo: WebGlFramebuffer, // 用于纹理拷贝的FBO
 
     program: (u32, u32),                 // program_slab的index, use_count
     geometry: (u32, u32),                // geometry_slab的index, use_count
@@ -65,10 +66,10 @@ impl TextureCache {
             values: SlabDeque::new(),
         }
 	}
-	pub fn restore(&mut self, gl: &WebGLRenderingContext) {
+	pub fn restore(&mut self, gl: &WebGlRenderingContext) {
 		for i in 1..(self.total_units + 1){
-			gl.active_texture(WebGLRenderingContext::TEXTURE0 + i as u32);
-			gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, None);
+			gl.active_texture(WebGlRenderingContext1::TEXTURE0 + i as u32);
+			gl.bind_texture(WebGlRenderingContext1::TEXTURE_2D, None);
 		}
 	}
 
@@ -89,7 +90,7 @@ impl TextureCache {
 
     pub fn use_texture(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         texture: &HalItem,
         sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
@@ -135,8 +136,8 @@ impl TextureCache {
                     .push_front((unit, texture.index, texture.use_count)) as i32;
             t.curr_sampler = (sampler.index, sampler.use_count);
 
-            gl.active_texture(WebGLRenderingContext::TEXTURE0 + (unit as u32));
-            gl.bind_texture(WebGLRenderingContext::TEXTURE_2D, Some(&t.handle));
+            gl.active_texture(WebGlRenderingContext1::TEXTURE0 + (unit as u32));
+            gl.bind_texture(WebGlRenderingContext1::TEXTURE_2D, Some(&t.handle));
             t.apply_sampler(gl, s);
 
             return (unit as u32, true);
@@ -151,7 +152,7 @@ impl TextureCache {
 
 impl StateMachine {
     pub fn new(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         is_vao_extension: bool,
         max_attributes: u32,
         max_tex_unit_num: u32,
@@ -208,7 +209,7 @@ impl StateMachine {
     #[inline(always)]
     pub fn use_texture(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         texture: &HalItem,
         sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
@@ -223,7 +224,7 @@ impl StateMachine {
      */
     pub fn set_render_target(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         rt: &HalRenderTarget,
         rtimpl: &WebGLRenderTargetImpl,
     ) -> bool {
@@ -238,7 +239,7 @@ impl StateMachine {
     /**
      * rect: (x, y, width, height)
      */
-    pub fn set_viewport(&mut self, gl: &WebGLRenderingContext, rect: &(i32, i32, i32, i32)) {
+    pub fn set_viewport(&mut self, gl: &WebGlRenderingContext, rect: &(i32, i32, i32, i32)) {
         if self.viewport_rect != *rect {
             gl.viewport(rect.0, rect.1, rect.2, rect.3);
             gl.scissor(rect.0, rect.1, rect.2, rect.3);
@@ -248,7 +249,7 @@ impl StateMachine {
 
     pub fn set_clear(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         color: &Option<(
             OrderedFloat<f32>,
             OrderedFloat<f32>,
@@ -260,7 +261,7 @@ impl StateMachine {
     ) {
         let mut flag = 0;
         if let Some(color) = color {
-            flag |= WebGLRenderingContext::COLOR_BUFFER_BIT;
+            flag |= WebGlRenderingContext1::COLOR_BUFFER_BIT;
 
             if *color != self.clear_color {
                 gl.clear_color(*color.0, *color.1, *color.2, *color.3);
@@ -269,7 +270,7 @@ impl StateMachine {
         }
 
         if let Some(depth) = depth {
-            flag |= WebGLRenderingContext::DEPTH_BUFFER_BIT;
+            flag |= WebGlRenderingContext1::DEPTH_BUFFER_BIT;
 
             // 清除深度的时候，必须打开深度写。
             self.real_depth_mask = true;
@@ -282,7 +283,7 @@ impl StateMachine {
         }
 
         if let Some(stencil) = stencil {
-            flag |= WebGLRenderingContext::STENCIL_BUFFER_BIT;
+            flag |= WebGlRenderingContext1::STENCIL_BUFFER_BIT;
 
             if *stencil != self.clear_stencil {
                 gl.clear_stencil(*stencil as i32);
@@ -297,7 +298,7 @@ impl StateMachine {
 
     pub fn set_state(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         rs: &HalRasterState,
         bs: &HalBlendState,
         ss: &HalStencilState,
@@ -337,7 +338,7 @@ impl StateMachine {
      */
     pub fn set_program(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         program: &HalProgram,
         pimpl: &WebGLProgramImpl,
     ) -> bool {
@@ -355,7 +356,7 @@ impl StateMachine {
      */
     pub fn set_uniforms(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         program: &mut WebGLProgramImpl,
         pp: &Share<dyn ProgramParamter>,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
@@ -401,8 +402,8 @@ impl StateMachine {
      */
     pub fn draw(
         &mut self,
-        gl: &WebGLRenderingContext,
-        vao_extension: &Option<Object>,
+        gl: &WebGlRenderingContext,
+        vao_extension: &Option<OESVertexArrayObject>,
         geometry: &HalGeometry,
         gimpl: &WebGLGeometryImpl,
         buffer_slab: &Slab<(WebGLBufferImpl, u32)>,
@@ -412,10 +413,11 @@ impl StateMachine {
         if need_set_geometry {
             match &gimpl.vao {
                 Some(vao) => {
-                    let extension = vao_extension.as_ref().unwrap();
-                    js! {
-                        @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
-                    }
+					let extension = vao_extension.as_ref().unwrap();
+					extension.bindVertexArrayOES(Some(vao));
+                    // js! {
+                    //     @{&extension}.wrap.bindVertexArrayOES(@{&vao}.wrap);
+                    // }
                 }
                 None => {
                     for (i, v) in gimpl.attributes.iter().enumerate() {
@@ -426,13 +428,13 @@ impl StateMachine {
                                     gl.enable_vertex_attrib_array(i as u32);
                                 }
                                 gl.bind_buffer(
-                                    WebGLRenderingContext::ARRAY_BUFFER,
+                                    WebGlRenderingContext1::ARRAY_BUFFER,
                                     Some(&a.handle),
                                 );
-                                gl.vertex_attrib_pointer(
+                                gl.vertex_attrib_pointer_with_i32(
                                     i as u32,
                                     v.item_count as i32,
-                                    WebGLRenderingContext::FLOAT,
+                                    WebGlRenderingContext1::FLOAT,
                                     false,
                                     0,
                                     0,
@@ -449,7 +451,7 @@ impl StateMachine {
                     if let Some(indices) = &gimpl.indices {
                         if let Some(i) = get_ref(buffer_slab, indices.handle.0, indices.handle.1) {
                             gl.bind_buffer(
-                                WebGLRenderingContext::ELEMENT_ARRAY_BUFFER,
+                                WebGlRenderingContext1::ELEMENT_ARRAY_BUFFER,
                                 Some(&i.handle),
                             );
                         }
@@ -463,17 +465,17 @@ impl StateMachine {
         match &gimpl.indices {
             None => {
                 gl.draw_arrays(
-                    WebGLRenderingContext::TRIANGLES,
+                    WebGlRenderingContext1::TRIANGLES,
                     0,
                     gimpl.vertex_count as i32,
                 );
             }
             Some(indices) => {
-                gl.draw_elements(
-                    WebGLRenderingContext::TRIANGLES,
+                gl.draw_elements_with_i32(
+                    WebGlRenderingContext1::TRIANGLES,
                     indices.count as i32,
-                    WebGLRenderingContext::UNSIGNED_SHORT,
-                    indices.offset as i64,
+                    WebGlRenderingContext1::UNSIGNED_SHORT,
+                    indices.offset as i32,
                 );
             }
         }
@@ -481,7 +483,7 @@ impl StateMachine {
         need_set_geometry
 	}
 
-	pub fn restore_state(&mut self, gl: &WebGLRenderingContext) {
+	pub fn restore_state(&mut self, gl: &WebGlRenderingContext) {
 		self.tex_caches.restore(gl);
 	}
 
@@ -490,13 +492,13 @@ impl StateMachine {
      */
     pub fn apply_all_state(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         is_vao_extension: bool,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
         rt_slab: &Slab<(WebGLRenderTargetImpl, u32)>,
     ) {
-        gl.enable(WebGLRenderingContext::BLEND);
-        gl.enable(WebGLRenderingContext::SCISSOR_TEST);
+        gl.enable(WebGlRenderingContext1::BLEND);
+        gl.enable(WebGlRenderingContext1::SCISSOR_TEST);
 
         // debug_println!("State::apply_all_state");
 
@@ -537,23 +539,25 @@ impl StateMachine {
 
     pub fn set_render_target_impl(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         rt: &WebGLRenderTargetImpl,
     ) {
-        if rt.handle.is_none() {
-            js! {
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, null);
-            }
-        } else {
-            let fbo = rt.handle.as_ref().unwrap();
-            js! {
-                @{gl}.bindFramebuffer(@{WebGLRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
-            }
-        }
+		gl.bind_framebuffer(WebGlRenderingContext1::FRAMEBUFFER, rt.handle.as_ref());
+        // if rt.handle.is_none() {
+        //     js! {
+        //         @{gl}.bindFramebuffer(@{WebGlRenderingContext1::FRAMEBUFFER}, null);
+        //     }
+        // } else {
+		// 	let fbo = rt.handle.as_ref();
+		// 	gl.bind_framebuffer(WebGlRenderingContext1::FRAMEBUFFER, Some(fbo))
+        //     // js! {
+        //     //     @{gl}.bindFramebuffer(@{WebGlRenderingContext1::FRAMEBUFFER}, @{&fbo}.wrap);
+        //     // }
+        // }
     }
 
     fn set_raster_state(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         old: Option<&RasterStateDesc>,
         curr: &RasterStateDesc,
     ) {
@@ -578,7 +582,7 @@ impl StateMachine {
     }
 
     fn set_depth_state(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         old: Option<&DepthStateDesc>,
         curr: &DepthStateDesc,
         real_depth_write: &mut bool,
@@ -611,7 +615,7 @@ impl StateMachine {
     }
 
     fn set_stencil_state(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         old: Option<&StencilStateDesc>,
         curr: &StencilStateDesc,
     ) {
@@ -644,7 +648,7 @@ impl StateMachine {
     }
 
     fn set_blend_state(
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         old: Option<&BlendStateDesc>,
         curr: &BlendStateDesc,
     ) {
@@ -676,74 +680,74 @@ impl StateMachine {
         }
     }
 
-    fn set_cull_mode(gl: &WebGLRenderingContext, curr: &RasterStateDesc) {
+    fn set_cull_mode(gl: &WebGlRenderingContext, curr: &RasterStateDesc) {
         // debug_println!("State::set_cull_mode, mode = {:?}", &curr.cull_mode);
         match curr.cull_mode {
             None => {
-                gl.disable(WebGLRenderingContext::CULL_FACE);
+                gl.disable(WebGlRenderingContext1::CULL_FACE);
             }
             Some(v) => {
-                gl.enable(WebGLRenderingContext::CULL_FACE);
+                gl.enable(WebGlRenderingContext1::CULL_FACE);
                 gl.cull_face(get_cull_mode(v));
             }
         }
     }
 
-    fn set_front_face(gl: &WebGLRenderingContext, curr: &RasterStateDesc) {
+    fn set_front_face(gl: &WebGlRenderingContext, curr: &RasterStateDesc) {
         // debug_println!("State::set_front_face, is_ccw = {:?}", &curr.is_front_face_ccw);
         let face = if curr.is_front_face_ccw {
-            WebGLRenderingContext::CCW
+            WebGlRenderingContext1::CCW
         } else {
-            WebGLRenderingContext::CW
+            WebGlRenderingContext1::CW
         };
         gl.front_face(face);
     }
 
-    fn set_polygon_offset(gl: &WebGLRenderingContext, curr: &RasterStateDesc) {
+    fn set_polygon_offset(gl: &WebGlRenderingContext, curr: &RasterStateDesc) {
         // debug_println!("State::set_polygon_offset, value = {:?}", &curr.polygon_offset);
         if curr.polygon_offset != (OrderedFloat(0.0), OrderedFloat(0.0)) {
-            gl.enable(WebGLRenderingContext::POLYGON_OFFSET_FILL);
+            gl.enable(WebGlRenderingContext1::POLYGON_OFFSET_FILL);
             gl.polygon_offset(*curr.polygon_offset.0, *curr.polygon_offset.1);
         } else {
-            gl.disable(WebGLRenderingContext::POLYGON_OFFSET_FILL);
+            gl.disable(WebGlRenderingContext1::POLYGON_OFFSET_FILL);
         }
     }
 
-    fn set_depth_test(gl: &WebGLRenderingContext, curr: &DepthStateDesc) {
+    fn set_depth_test(gl: &WebGlRenderingContext, curr: &DepthStateDesc) {
         // debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_test_enable);
         if curr.is_depth_test_enable {
-            gl.enable(WebGLRenderingContext::DEPTH_TEST);
+            gl.enable(WebGlRenderingContext1::DEPTH_TEST);
         } else {
-            gl.disable(WebGLRenderingContext::DEPTH_TEST);
+            gl.disable(WebGlRenderingContext1::DEPTH_TEST);
         }
     }
 
-    fn set_depth_write(gl: &WebGLRenderingContext, curr: &DepthStateDesc) {
+    fn set_depth_write(gl: &WebGlRenderingContext, curr: &DepthStateDesc) {
         // debug_println!("State::set_depth_write, enable = {:?}", &curr.is_depth_write_enable);
         gl.depth_mask(curr.is_depth_write_enable);
     }
 
-    fn set_depth_test_func(gl: &WebGLRenderingContext, curr: &DepthStateDesc) {
+    fn set_depth_test_func(gl: &WebGlRenderingContext, curr: &DepthStateDesc) {
         // debug_println!("State::set_depth_test_func, func = {:?}", &curr.depth_test_func);
         gl.depth_func(get_compare_func(curr.depth_test_func));
     }
 
-    fn set_stencil_test(gl: &WebGLRenderingContext, curr: &StencilStateDesc) {
+    fn set_stencil_test(gl: &WebGlRenderingContext, curr: &StencilStateDesc) {
         // debug_println!("State::set_stencil_test, enable = {:?}", &curr.is_stencil_test_enable);
         if curr.is_stencil_test_enable {
-            gl.enable(WebGLRenderingContext::STENCIL_TEST);
+            gl.enable(WebGlRenderingContext1::STENCIL_TEST);
         } else {
-            gl.disable(WebGLRenderingContext::STENCIL_TEST);
+            gl.disable(WebGlRenderingContext1::STENCIL_TEST);
         }
     }
 
-    fn set_stencil_test_func(gl: &WebGLRenderingContext, curr: &StencilStateDesc) {
+    fn set_stencil_test_func(gl: &WebGlRenderingContext, curr: &StencilStateDesc) {
         // debug_println!("State::set_stencil_test_func, func = {:?}, ref = {:?}, mask = {:?}", &curr.stencil_test_func, &curr.stencil_ref, &curr.stencil_mask);
         let func = get_compare_func(curr.stencil_test_func);
         gl.stencil_func(func, curr.stencil_ref, curr.stencil_mask);
     }
 
-    fn set_stencil_op(gl: &WebGLRenderingContext, curr: &StencilStateDesc) {
+    fn set_stencil_op(gl: &WebGlRenderingContext, curr: &StencilStateDesc) {
         // debug_println!("State::set_stencil_op, fail = {:?}, zfail = {:?}, zpass = {:?}", &curr.stencil_fail_op, &curr.stencil_zfail_op, &curr.stencil_zpass_op);
         let fail = get_stencil_op(curr.stencil_fail_op);
         let zfail = get_stencil_op(curr.stencil_zfail_op);
@@ -751,14 +755,14 @@ impl StateMachine {
         gl.stencil_op(fail, zfail, zpass);
     }
 
-    fn set_blend_equation(gl: &WebGLRenderingContext, curr: &BlendStateDesc) {
+    fn set_blend_equation(gl: &WebGlRenderingContext, curr: &BlendStateDesc) {
         // debug_println!("State::set_blend_equation, rgb = {:?}, alpha = {:?}", &curr.rgb_equation, &curr.alpha_equation);
         let rgb = get_blend_func(curr.rgb_equation);
         let alpha = get_blend_func(curr.alpha_equation);
         gl.blend_equation_separate(rgb, alpha);
     }
 
-    fn set_blend_factor(gl: &WebGLRenderingContext, curr: &BlendStateDesc) {
+    fn set_blend_factor(gl: &WebGlRenderingContext, curr: &BlendStateDesc) {
         // debug_println!("State::set_blend_factor, src_rgb = {:?}, dst_rgb = {:?}, src_alpha = {:?}, dst_alpha = {:?}", &curr.src_rgb_factor, &curr.dst_rgb_factor, &curr.src_alpha_factor, &curr.dst_alpha_factor);
         let srgb = get_blend_factor(curr.src_rgb_factor);
         let drgb = get_blend_factor(curr.dst_rgb_factor);
@@ -767,7 +771,7 @@ impl StateMachine {
         gl.blend_func_separate(srgb, drgb, salpha, dalpha);
     }
 
-    fn set_blend_color(gl: &WebGLRenderingContext, curr: &BlendStateDesc) {
+    fn set_blend_color(gl: &WebGlRenderingContext, curr: &BlendStateDesc) {
         // debug_println!("State::set_blend_color, rgba = {:?}", &curr.const_rgba);
         gl.blend_color(
             *curr.const_rgba.0,

@@ -1,6 +1,9 @@
+use std::convert::TryFrom;
+
 use hash::XHashMap;
-use stdweb::unstable::TryInto;
-use webgl_rendering_context::{WebGLRenderingContext, WebGLShader};
+use web_sys::{WebGlRenderingContext, WebGlShader};
+use js_sys::{Boolean, Number};
+
 
 use atom::Atom;
 use convert::get_shader_type;
@@ -12,7 +15,7 @@ use hal_core::*;
 #[derive(Debug)]
 pub struct Shader {
     pub shader_type: ShaderType,
-    pub handle: WebGLShader,
+    pub handle: WebGlShader,
 }
 
 #[derive(Debug)]
@@ -101,7 +104,7 @@ impl ShaderCache {
      */
     pub fn compile_shader(
         &mut self,
-        gl: &WebGLRenderingContext,
+        gl: &WebGlRenderingContext,
         shader_type: ShaderType,
         id: u64,
         name: &Atom,
@@ -133,21 +136,23 @@ impl ShaderCache {
             gl.shader_source(&shader, &s);
             gl.compile_shader(&shader);
 
-            let is_compile_ok = gl
-                .get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS)
-                .try_into()
-                .unwrap_or(false);
+            let is_compile_ok = match Boolean::try_from(gl
+				.get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)){
+					Ok(r) => r.into(),
+					Err(_) => false,
+				};
 
             // 微信小游戏移动端环境，返回的是1-0，所以需要再来一次
             let is_compile_ok = if is_compile_ok {
                 is_compile_ok
             } else {
-                let r = gl
-                    .get_shader_parameter(&shader, WebGLRenderingContext::COMPILE_STATUS)
-                    .try_into()
-                    .unwrap_or(0);
+				let r:f64 = match Number::try_from(gl
+					.get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)){
+						Ok(r) => r.value_of() ,
+						Err(_) => 0.0,
+					};
 
-                r != 0
+                r != 0.0
             };
 
             if is_compile_ok {

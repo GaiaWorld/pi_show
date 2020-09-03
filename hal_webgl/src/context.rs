@@ -1,14 +1,20 @@
 use atom::Atom;
 use share::Share;
 use slab::Slab;
-use stdweb::unstable::TryInto;
-use stdweb::Object;
-use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
+use std::convert::TryFrom;
+// use stdweb::unstable::TryInto;
+// use stdweb::Object;
+use web_sys::{WebGlRenderingContext as WebGlRenderingContext1, WebGlTexture, WebGlFramebuffer};
+use wasm_bindgen::prelude::{JsValue};
+use js_sys::Object;
+
+use webgl_bind::{WebGlRenderingContext, OESVertexArrayObject};
 
 use hal_core::*;
 
 use buffer::WebGLBufferImpl;
 use extension::*;
+use extension::OESVertexArrayObject as OESVertexArrayObject1;
 use geometry::WebGLGeometryImpl;
 use program::WebGLProgramImpl;
 use render_target::{WebGLRenderBufferImpl, WebGLRenderTargetImpl};
@@ -22,10 +28,10 @@ pub struct WebglHalContextImpl {
     pub stat: RenderStat,
 
     // 具体实现
-    pub gl: WebGLRenderingContext,
+    pub gl: WebGlRenderingContext,
     pub caps: Capabilities,
     pub extensions: Extensions,
-    pub vao_extension: Option<Object>,
+    pub vao_extension: Option<OESVertexArrayObject>,
     pub shader_cache: ShaderCache,
     pub state_machine: StateMachine,
 
@@ -748,10 +754,11 @@ impl HalContext for WebglHalContext {
     fn render_end(&self) {
 		let context = convert_to_mut(self.0.as_ref());
         if let Some(vao_extension) = &self.0.vao_extension {
-            let extension = vao_extension.as_ref();
-            js! {
-				@{&extension}.wrap.bindVertexArrayOES(null);
-			}
+			// let extension = vao_extension.as_ref();
+			vao_extension.bindVertexArrayOES(None);
+            // js! {
+			// 	@{&extension}.wrap.bindVertexArrayOES(null);
+			// }
 		}
 		context.state_machine.restore_state(&context.gl);
     }
@@ -962,7 +969,7 @@ impl WebglHalContextImpl {
 }
 
 impl WebglHalContext {
-    pub fn new(gl: WebGLRenderingContext, use_vao: bool) -> WebglHalContext {
+    pub fn new(gl: WebGlRenderingContext, use_vao: bool) -> WebglHalContext {
         let buffer_slab = Slab::new();
         let geometry_slab = Slab::new();
         let mut texture_slab = Slab::new();
@@ -977,16 +984,23 @@ impl WebglHalContext {
 
         let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
         let vao_extension = if use_vao && caps.vertex_array_object {
-            TryInto::<Object>::try_into(js! {
+			match gl.get_extension("OES_vertex_array_object") {
+				Ok(r) => match r {
+					Some(r) => Some(OESVertexArrayObject::from(JsValue::from(r))),
+					None => None,
+				},
+				Err(_) => None,
+			}
+            // TryInto::<Object>::try_into(js! {
 
-                var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
-                if (!extension) { return; }
-                var vaoExtensionWrap = {
-                    wrap: extension
-                };
-                return vaoExtensionWrap;
-            })
-            .ok()
+            //     var extension = @{gl.as_ref()}.getExtension("OES_vertex_array_object");
+            //     if (!extension) { return; }
+            //     var vaoExtensionWrap = {
+            //         wrap: extension
+            //     };
+            //     return vaoExtensionWrap;
+            // })
+            // .ok()
         } else {
             None
         };
@@ -1046,7 +1060,7 @@ impl WebglHalContext {
         WebglHalContext(context_impl, default_rt)
     }
 
-    pub fn texture_get_object_webgl(&self, tex: &HalTexture) -> Option<&WebGLTexture> {
+    pub fn texture_get_object_webgl(&self, tex: &HalTexture) -> Option<&WebGlTexture> {
         let slab = convert_to_mut(&self.0.texture_slab);
         if let Some(t) = get_mut_ref(slab, tex.item.index, tex.item.use_count) {
             Some(&t.handle)
@@ -1157,9 +1171,9 @@ impl WebglHalContext {
     }
 
     /**
-     * 注：WebGLFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGLFramebuffer}
+     * 注：WebGlFramebuffer在小游戏真机上不是真正的Object对象，所以要封装成：{wrap: WebGlFramebuffer}
      */
-    pub fn rt_create_webgl(&self, fbo: Object) -> HalRenderTarget {
+    pub fn rt_create_webgl(&self, fbo: WebGlFramebuffer) -> HalRenderTarget {
         let rt_slab = convert_to_mut(&self.0.rt_slab);
 
         let rt = WebGLRenderTargetImpl::new_default(Some(fbo), 0, 0);
@@ -1193,14 +1207,14 @@ impl WebglHalContext {
         }
 
         if let Some(src) = get_ref(&self.0.texture_slab, src.item.index, src.item.use_count) {
-            let fb_type = WebGLRenderingContext::FRAMEBUFFER;
-            let tex_target = WebGLRenderingContext::TEXTURE_2D;
-            let color_attachment = WebGLRenderingContext::COLOR_ATTACHMENT0;
+            let fb_type = WebGlRenderingContext1::FRAMEBUFFER;
+            let tex_target = WebGlRenderingContext1::TEXTURE_2D;
+            let color_attachment = WebGlRenderingContext1::COLOR_ATTACHMENT0;
 
             self.0
                 .gl
                 .bind_framebuffer(fb_type, Some(&self.0.state_machine.copy_fbo));
-            self.0.gl.framebuffer_texture2_d(
+            self.0.gl.framebuffer_texture_2d(
                 fb_type,
                 color_attachment,
                 tex_target,
@@ -1224,117 +1238,104 @@ impl WebglHalContext {
         context.state_machine.set_render_target_impl(&self.0.gl, rt);
     }
 
-    fn create_caps_and_extensions(gl: &WebGLRenderingContext) -> (Capabilities, Extensions) {
+    fn create_caps_and_extensions(gl: &WebGlRenderingContext) -> (Capabilities, Extensions) {
         let max_textures_image_units = gl
-            .get_parameter(WebGLRenderingContext::MAX_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
+			.get_parameter(WebGlRenderingContext1::MAX_TEXTURE_IMAGE_UNITS)
+			.unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_vertex_texture_image_units = gl
-            .get_parameter(WebGLRenderingContext::MAX_VERTEX_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_VERTEX_TEXTURE_IMAGE_UNITS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_combined_textures_image_units = gl
-            .get_parameter(WebGLRenderingContext::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_texture_size = gl
-            .get_parameter(WebGLRenderingContext::MAX_TEXTURE_SIZE)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_TEXTURE_SIZE)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_render_texture_size = gl
-            .get_parameter(WebGLRenderingContext::MAX_RENDERBUFFER_SIZE)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_RENDERBUFFER_SIZE)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_vertex_attribs = gl
-            .get_parameter(WebGLRenderingContext::MAX_VERTEX_ATTRIBS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_VERTEX_ATTRIBS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_varying_vectors = gl
-            .get_parameter(WebGLRenderingContext::MAX_VARYING_VECTORS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_VARYING_VECTORS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_vertex_uniform_vectors = gl
-            .get_parameter(WebGLRenderingContext::MAX_VERTEX_UNIFORM_VECTORS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_VERTEX_UNIFORM_VECTORS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
         let max_fragment_uniform_vectors = gl
-            .get_parameter(WebGLRenderingContext::MAX_FRAGMENT_UNIFORM_VECTORS)
-            .try_into()
-            .unwrap();
+            .get_parameter(WebGlRenderingContext1::MAX_FRAGMENT_UNIFORM_VECTORS)
+            .unwrap()
+			.as_f64()
+			.unwrap() as u32;
 
-        let standard_derivatives = gl
-            .get_extension::<OESStandardDerivatives>()
-            .map_or(false, |_v| true);
-        let uint_indices = gl
-            .get_extension::<OESElementIndexUint>()
-            .map_or(false, |_v| true);
+        let standard_derivatives = has_extension::<OESStandardDerivatives>(gl);
+        let uint_indices = has_extension::<OESElementIndexUint>(gl);
 
-        let fragment_depth_supported = gl.get_extension::<EXTFragDepth>().map_or(false, |_v| true);
+        let fragment_depth_supported = has_extension::<EXTFragDepth>(gl);
 
-        let texture_float = gl
-            .get_extension::<OESTextureFloat>()
-            .map_or(false, |_v| true);
+        let texture_float =  has_extension::<OESTextureFloat>(gl);
         let texture_float_linear_filtering = texture_float
-            && gl
-                .get_extension::<OESTextureFloatLinear>()
-                .map_or(false, |_v| true);
+            && has_extension::<OESTextureFloatLinear>(gl);
 
-        let texture_lod = gl
-            .get_extension::<EXTShaderTextureLod>()
-            .map_or(false, |_v| true);
-        let color_buffer_float = gl
-            .get_extension::<WEBGLColorBufferFloat>()
-            .map_or(false, |_v| true);
+        let texture_lod = has_extension::<EXTShaderTextureLod>(gl);
+        let color_buffer_float = has_extension::<WEBGLColorBufferFloat>(gl);
 
-        let depth_texture_extension = gl
-            .get_extension::<WEBGLDepthTexture>()
-            .map_or(false, |_v| true);
+        let depth_texture_extension = has_extension::<WEBGLDepthTexture>(gl);
         // depth_texture_extension.UNSIGNED_INT_24_8_WEBGL;
 
-        let vertex_array_object = gl
-            .get_extension::<OESVertexArrayObject>()
-            .map_or(false, |_v| true);
-        let instanced_arrays = gl
-            .get_extension::<ANGLEInstancedArrays>()
-            .map_or(false, |_v| true);
+        let vertex_array_object = has_extension::<OESVertexArrayObject1>(gl);
+        let instanced_arrays = has_extension::<ANGLEInstancedArrays>(gl);
 
         // let (astc, astc_e) = match gl
         // .get_extension::<CompressedTextureAstc>(){
         // 	Some(e) => (true)
         // 	None => (false, None);
         // };
-        let (astc, astc_e) = gl.get_extension::<CompressedTextureAstc>().map_or(
-            gl.get_extension::<WebkitCompressedTextureAstc>()
-                .map_or((false, None), |v| (true, Some(v.0))),
-            |v| (true, Some(v.0)),
-        );
+		let (astc, astc_e) = get_extension::<CompressedTextureAstc>(gl).map_or(
+			get_extension::<WebkitCompressedTextureAstc>(gl).map_or(
+				(false, None), 
+				|v| (true, Some(v.0))), 
+				|v| (true, Some(v.0)));
 
-        let mut s3tc = gl
-            .get_extension::<CompressedTextureS3tc>()
-            .map_or(false, |_v| true);
+        let mut s3tc = has_extension::<CompressedTextureS3tc>(gl);
         if !s3tc {
-            s3tc = gl
-                .get_extension::<WebkitCompressedTextureS3tc>()
-                .map_or(false, |_v| true);
+            s3tc = has_extension::<WebkitCompressedTextureS3tc>(gl);
         }
 
-        let (pvrtc, pvrtc_e) = gl.get_extension::<CompressedTexturePvrtc>().map_or(
-            gl.get_extension::<WebkitCompressedTexturePvrtc>()
-                .map_or((false, None), |v| (true, Some(v.0))),
-            |v| (true, Some(v.0)),
-        );
+		let (pvrtc, pvrtc_e) = get_extension::<CompressedTexturePvrtc>(gl).map_or(
+			get_extension::<WebkitCompressedTexturePvrtc>(gl).map_or(
+				(false, None), 
+				|v| (true, Some(v.0))), 
+				|v| (true, Some(v.0)));
 
-        let (etc1, etc1_e) = gl.get_extension::<CompressedTextureEtc1>().map_or(
-            gl.get_extension::<WebkitCompressedTextureEtc1>()
-                .map_or((false, None), |v| (true, Some(v.0))),
-            |v| (true, Some(v.0)),
-        );
+		let (etc1, etc1_e) = get_extension::<CompressedTextureEtc1>(gl).map_or(
+			get_extension::<WebkitCompressedTextureEtc1>(gl).map_or(
+				(false, None), 
+				|v| (true, Some(v.0))), 
+				|v| (true, Some(v.0)));
 
-        let (etc2, etc2_e) = gl.get_extension::<CompressedTextureEtc2>().map_or(
-            gl.get_extension::<WebkitCompressedTextureEtc2>()
-                .map_or((false, None), |v| (true, Some(v.0))),
-            |v| (true, Some(v.0)),
-        );
+		let (etc2, etc2_e) = get_extension::<CompressedTextureEtc2>(gl).map_or(
+			get_extension::<WebkitCompressedTextureEtc2>(gl).map_or(
+				(false, None), 
+				|v| (true, Some(v.0))),
+				|v| (true, Some(v.0)));
 
         // if !etc2 {
         //     etc2 = gl
@@ -1428,3 +1429,23 @@ impl WebglHalContext {
 //         _ => panic!("compressed_tex format invaild:{:?}", format),
 //     }
 // }
+
+fn get_extension<E: Extension + TryFrom<JsValue>>(gl: &WebGlRenderingContext) -> Option<E> {
+	match gl.get_extension(E::NAME) {
+		Ok(r) => match r {
+			Some(r) => E::try_from(JsValue::from(r)).ok(),
+			None => None
+		},
+		Err(_) => None,
+	}
+}
+
+fn has_extension<E: Extension>(gl: &WebGlRenderingContext) -> bool {
+	match gl.get_extension(E::NAME) {
+		Ok(r) => match r {
+			Some(_) => true,
+			None => false,
+		},
+		Err(_) => false,
+	}
+}

@@ -36,7 +36,7 @@ impl<'a> Runner<'a> for LayoutPerformanceStatisticians {
     fn run(&mut self, _: Self::ReadData, performance: Self::WriteData) {
         // 累计运行时间
         for t1 in self.runtime.iter() {
-            performance.sum_run_time += t1.cost_time.as_secs_f32();
+            performance.sum_run_time += t1.cost_time;
         }
     }
 }

@@ -1,9 +1,12 @@
 use std::mem::transmute;
 
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+use serde::{Serialize, Deserialize};
+
 use hal_core::*;
 use hal_webgl::*;
 use hash::XHashMap;
-use serde::Serialize;
 use flex_layout::style::*;
 
 use ecs::{Lend, LendMut};
@@ -19,72 +22,69 @@ use gui::render::engine::ShareEngine;
 use gui::single::*;
 use GuiWorld;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Quad {
-    left_top: Point2,
-    left_bottom: Point2,
-    right_bottom: Point2,
-    right_top: Point2,
+    pub left_top: Point2,
+    pub left_bottom: Point2,
+    pub right_bottom: Point2,
+    pub right_top: Point2,
 }
-js_serializable!(Quad);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Layout1 {
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-    border_left: f32,
-    border_top: f32,
-    border_end: f32,
-    border_bottom: f32,
-    padding_left: f32,
-    padding_top: f32,
-    padding_end: f32,
-    padding_bottom: f32,
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border_left: f32,
+    pub border_top: f32,
+    pub border_end: f32,
+    pub border_bottom: f32,
+    pub padding_left: f32,
+    pub padding_top: f32,
+    pub padding_end: f32,
+    pub padding_bottom: f32,
 }
-js_serializable!(Layout1);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct Info {
-    overflow: bool,
-    by_overflow: usize,
-    visibility: bool,
-    enable: bool,
-    opacity: f32,
-    zindex: u32,
-    zdepth: f32,
-    layout: Layout1,
-    border_box: Quad,
-    padding_box: Quad,
-    content_box: Quad,
-    culling: bool,
-    render_obj: Vec<RenderObject>,
+    pub overflow: bool,
+    pub by_overflow: usize,
+    pub visibility: bool,
+    pub enable: bool,
+    pub opacity: f32,
+    pub zindex: u32,
+    pub zdepth: f32,
+    pub layout: Layout1,
+    pub border_box: Quad,
+    pub padding_box: Quad,
+    pub content_box: Quad,
+    pub culling: bool,
+    pub render_obj: Vec<RenderObject>,
     // char_block: Option<CharBlock1>,
-    class_name: Option<ClassName>,
-    image: Option<String>,
-    border_image: Option<String>,
-    background_color: Option<BackgroundColor>,
-    border_color: Option<BorderColor>,
-    transform: Option<Transform>,
-    box_shadow: Option<BoxShadow>,
-    border_image_clip: Option<BorderImageClip>,
-    border_image_slice: Option<BorderImageSlice>,
-    border_image_repeat: Option<BorderImageRepeat>,
-    image_clip: Option<ImageClip>,
-    border_radius: Option<BorderRadius>,
-    object_fit: Option<ObjectFit>,
-    filter: Option<Filter>,
-    transform_will_change: Option<TransformWillChange>,
-    parent_id: Option<u32>,
+    pub class_name: Option<ClassName>,
+    pub image: Option<String>,
+    pub border_image: Option<String>,
+    pub background_color: Option<BackgroundColor>,
+    pub border_color: Option<BorderColor>,
+    pub transform: Option<Transform>,
+    pub box_shadow: Option<BoxShadow>,
+    pub border_image_clip: Option<BorderImageClip>,
+    pub border_image_slice: Option<BorderImageSlice>,
+    pub border_image_repeat: Option<BorderImageRepeat>,
+    pub image_clip: Option<ImageClip>,
+    pub border_radius: Option<BorderRadius>,
+    pub object_fit: Option<ObjectFit>,
+    pub filter: Option<Filter>,
+    pub transform_will_change: Option<TransformWillChange>,
+    pub parent_id: Option<u32>,
 
-    text: Option<TextStyle>,
-	text_content: Option<TextContent>,
-	children: Vec<usize>,
+    pub text: Option<TextStyle>,
+	pub text_content: Option<TextContent>,
+	pub children: Vec<usize>,
 }
-js_serializable!(Info);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct RenderObject {
     pub depth: f32,
     pub depth_diff: f32,
@@ -103,33 +103,29 @@ struct RenderObject {
 
     pub context: usize,
 }
-js_serializable!(RenderObject);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 enum Paramter {
     Uniform(UniformValue),
     Ubo(XHashMap<String, UniformValue>),
 }
-js_serializable!(Paramter);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 struct State {
     pub rs: RasterStateDesc,
     pub bs: BlendStateDesc,
     pub ss: StencilStateDesc,
     pub ds: DepthStateDesc,
 }
-js_serializable!(State);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct RasterStateDesc {
     pub cull_mode: Option<CullMode>,
     pub is_front_face_ccw: bool,
     pub polygon_offset: (f32, f32),
 }
-js_serializable!(RasterStateDesc);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BlendStateDesc {
     pub rgb_equation: BlendFunc,
     pub alpha_equation: BlendFunc,
@@ -142,18 +138,15 @@ pub struct BlendStateDesc {
 
     pub const_rgba: (f32, f32, f32, f32),
 }
-js_serializable!(BlendStateDesc);
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct OverflowClip {
     pub id_map: XHashMap<usize, usize>,
     pub clip: Vec<(usize, Clip)>,
     pub clip_map: XHashMap<usize, Aabb3>,
 }
 
-js_serializable!(OverflowClip);
-
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CharBlock1 {
     pub font_size: f32,    // 字体高度
     pub font_height: f32,  // 字体高度
@@ -172,7 +165,7 @@ pub struct CharBlock1 {
 }
 
 // 字符节点， 对应一个字符的
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CharNode {
     pub ch: char,              // 字符
     pub width: f32,            // 字符宽度
@@ -181,15 +174,11 @@ pub struct CharNode {
     pub base_width: f32,       // font_size 为32 的字符宽度
 }
 
-#[derive(Serialize, Debug)]
-pub struct Clazz(Class);
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Clazz(pub Class);
 
-js_serializable!(Clazz);
-
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn list_class(world: u32) {
+#[wasm_bindgen]
+pub fn list_class(world: u32) -> JsValue {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
@@ -197,42 +186,26 @@ pub fn list_class(world: u32) {
         .class_sheet
         .lend()
 		.class_map;
-	js!{window.__jsObj = [];}
+	let mut r = Vec::new();
 	for ci in class_map.iter() {
-		println!("xxxxxxxxxxxxxxxxxxxxxxx{}", ci.0);
-		js!{
-			window.__jsObj.push(@{*ci.0 as u32});
-		}
+		r.push(ci.0);
 	}
+	JsValue::from_serde(&r).unwrap()
 }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn get_class_name(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn get_class_name(world: u32, node: u32) -> JsValue {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	
 	let class_name = world.class_name.lend();
-	match class_name.get(node as usize) {
-		Some(v) => {
-			js! {
-				window.__jsObj = {one: @{v.one as u32}, tow: @{v.two as u32}};
-				console.log("class_name:", window.__jsObj);
-				// window.__jsObj1 = window.__jsObj;
-				// console.log("style:", @{format!( "{:?}", yoga.get_style() )});
-				// console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
-				// console.log("boundBox:", @{format!( "{:?}", oct )});
-			};
-		},
-		None => {}
-	} 
+
+	JsValue::from_serde(&class_name.get(node as usize)).unwrap()
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn get_class(world: u32, class_name: u32) {
+#[wasm_bindgen]
+pub fn get_class(world: u32, class_name: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
@@ -267,13 +240,7 @@ pub fn get_class(world: u32, class_name: u32) {
         None => None,
     };
 
-    js! {
-        window.__jsObj = @{class};
-        // window.__jsObj1 = window.__jsObj;
-        // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
-        // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
-        // console.log("boundBox:", @{format!( "{:?}", oct )});
-    }
+	JsValue::from_serde(&class).unwrap()
 }
 
 enum Attr<'a> {
@@ -731,9 +698,8 @@ fn to_css_str(attr: Attr) -> String {
 
 // 打印节点信息
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn node_info(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn node_info(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
@@ -1066,20 +1032,12 @@ pub fn node_info(world: u32, node: u32) {
 		children: children,
     };
 
-    js! {
-        window.__jsObj = @{info};
-        // window.__jsObj1 = window.__jsObj;
-        // console.log("node_info:", window.__jsObj);
-        // console.log("style:", @{format!( "{:?}", yoga.get_style() )});
-        // console.log("layout:", @{format!( "{:?}", yoga.get_layout() )});
-        // console.log("boundBox:", @{format!( "{:?}", oct )});
-    }
+    return JsValue::from_serde(&info).unwrap();
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn overflow_clip(world: u32) {
+#[wasm_bindgen]
+pub fn overflow_clip(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let overflow_clip = world.overflow_clip.lend();
@@ -1097,18 +1055,15 @@ pub fn overflow_clip(world: u32) {
         id_map: overflow_clip.id_map.clone(),
         clip: clips,
         clip_map: clip_map,
-    };
-    js! {
-        console.log("overflow_clip:", @{c});
-    }
+	};
+	return JsValue::from_serde(&c).unwrap();
 }
 
 // pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 
 // // 打开性能检视面板
 // #[allow(unused_attributes)]
-// #[no_mangle]
-#[js_export]
+// #[wasm_bindgen]
 // pub fn open_performance_inspector(world: u32, width: f32, height: f32) -> u32 {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector == 0 {
@@ -1123,8 +1078,7 @@ pub fn overflow_clip(world: u32) {
 
 // // 关闭性能检视面板
 // #[allow(unused_attributes)]
-// #[no_mangle]
-#[js_export]
+// #[wasm_bindgen]
 // pub fn close_performance_inspector(world: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector > 0 {
@@ -1134,10 +1088,8 @@ pub fn overflow_clip(world: u32) {
 // 	}
 // }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-fn res_size(world: u32) {
+#[wasm_bindgen]
+pub fn res_size(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let engine = world.engine.lend();
@@ -1274,52 +1226,59 @@ fn res_size(world: u32) {
 
     size.texture_max_capacity = engine.texture_res_map.cache.get_max_capacity();
 
-    js! {
-        console.log("res_mgr_size: ", @{size});
-    }
+    return JsValue::from_serde(&size).unwrap();
 }
 
-#[no_mangle]
-#[js_export]
-pub fn common_statistics(world: u32) {
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+pub fn common_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui.world;
 
-    js! {
-        __jsObj = {};
-    }
-    let mut all_run_time = std::time::Duration::from_millis(0);
+	let mut all_run_time = 0.0;
+	let mut renderTime = 0.0;
+	let mut layoutTime = 0.0;
     for t in world.runtime.iter() {
         // println!("t.sys_name:{:?}", t.sys_name);
         if t.sys_name.as_ref() == "render_sys" {
-            js! {
-                __jsObj.renderTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
-            }
+            renderTime = t.cost_time;
         } else if t.sys_name.as_ref() == "text_layout_sys" {
-            js! {
-                __jsObj.layoutTime = @{(t.cost_time.as_secs_f64() * 1000.0)  as f32};
-            }
+            layoutTime = t.cost_time;
         }
         all_run_time += t.cost_time;
     }
 
     let statistics = world.fetch_single::<Statistics>().unwrap();
-    let statistics = statistics.lend_mut();
-    js! {
-        __jsObj.runTotalTimes = @{(all_run_time.as_secs_f64() * 1000.0)  as f32};
-        __jsObj.drawCallTimes = @{statistics.drawcall_times as u32};
-    }
+	let statistics = statistics.lend_mut();
+	return JsValue::from_serde(&CommonStatistics{
+		renderTime,
+		layoutTime,
+		runTotalTimes: all_run_time,
+		drawCallTimes: statistics.drawcall_times as u32,
+	}).unwrap();
 }
 
-#[no_mangle]
-#[js_export]
-pub fn mem_statistics(world: u32) {
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CommonStatistics {
+	pub renderTime: f32,
+	pub layoutTime: f32,
+	pub runTotalTimes: f32,
+	pub drawCallTimes: u32,
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MemStatistics {
+	pub textureTotalCount: u32,
+	pub textureTotalMemory: u32,
+}
+
+#[wasm_bindgen]
+pub fn mem_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend();
 
-    js! {
-        __jsObj = {};
-    }
     let texture = engine.texture_res_map.all_res();
 
     let mut texture_size = 0;
@@ -1333,17 +1292,16 @@ pub fn mem_statistics(world: u32) {
     for i in texture.1.iter() {
         catch_texture_size += i.1.elem.cost;
         catch_texture_count += 1;
-    }
-    js! {
-        __jsObj.textureTotalCount = @{(catch_texture_count + texture_count) as u32};
-        __jsObj.textureTotalMemory = @{(catch_texture_size + texture_size) as u32};
-    }
+	}
+	return JsValue::from_serde(&MemStatistics{
+		textureTotalCount: (catch_texture_count + texture_count) as u32, 
+		textureTotalMemory: (catch_texture_size + texture_size) as u32,
+	}).unwrap();
 }
 
 /// 打印内存情况
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
+#[wasm_bindgen]
 pub fn print_memory(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1512,68 +1470,66 @@ pub fn print_memory(world: u32) {
     println!("print_memory end");
 }
 
-#[derive(Serialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct ResMgrSize {
-    count_texture: usize,
-    count_geometry: usize,
-    count_buffer: usize,
-    count_sampler: usize,
-    count_rs: usize,
-    count_bs: usize,
-    count_ss: usize,
-    count_ds: usize,
-    count_ucolor: usize,
-    count_hsv: usize,
-    count_msdf_stroke: usize,
-    count_canvas_stroke: usize,
+    pub count_texture: usize,
+    pub count_geometry: usize,
+    pub count_buffer: usize,
+    pub count_sampler: usize,
+    pub count_rs: usize,
+    pub count_bs: usize,
+    pub count_ss: usize,
+    pub count_ds: usize,
+    pub count_ucolor: usize,
+    pub count_hsv: usize,
+    pub count_msdf_stroke: usize,
+    pub count_canvas_stroke: usize,
 
-    count_catch_texture: usize,
-    count_catch_geometry: usize,
-    count_catch_buffer: usize,
-    count_catch_sampler: usize,
-    count_catch_rs: usize,
-    count_catch_bs: usize,
-    count_catch_ss: usize,
-    count_catch_ds: usize,
-    count_catch_ucolor: usize,
-    count_catch_hsv: usize,
-    count_catch_msdf_stroke: usize,
-    count_catch_canvas_stroke: usize,
+    pub count_catch_texture: usize,
+    pub count_catch_geometry: usize,
+    pub count_catch_buffer: usize,
+    pub count_catch_sampler: usize,
+    pub count_catch_rs: usize,
+    pub count_catch_bs: usize,
+    pub count_catch_ss: usize,
+    pub count_catch_ds: usize,
+    pub count_catch_ucolor: usize,
+    pub count_catch_hsv: usize,
+    pub count_catch_msdf_stroke: usize,
+    pub count_catch_canvas_stroke: usize,
 
-    texture: usize,
-    geometry: usize,
-    buffer: usize,
-    sampler: usize,
-    rs: usize,
-    bs: usize,
-    ss: usize,
-    ds: usize,
-    ucolor: usize,
-    hsv: usize,
-    msdf_stroke: usize,
-    canvas_stroke: usize,
+    pub texture: usize,
+    pub geometry: usize,
+    pub buffer: usize,
+    pub sampler: usize,
+    pub rs: usize,
+    pub bs: usize,
+    pub ss: usize,
+    pub ds: usize,
+    pub ucolor: usize,
+    pub hsv: usize,
+    pub msdf_stroke: usize,
+    pub canvas_stroke: usize,
 
-    catch_texture: usize,
-    catch_geometry: usize,
-    catch_buffer: usize,
-    catch_sampler: usize,
-    catch_rs: usize,
-    catch_bs: usize,
-    catch_ss: usize,
-    catch_ds: usize,
-    catch_ucolor: usize,
-    catch_hsv: usize,
-    catch_msdf_stroke: usize,
-    catch_canvas_stroke: usize,
+    pub catch_texture: usize,
+    pub catch_geometry: usize,
+    pub catch_buffer: usize,
+    pub catch_sampler: usize,
+    pub catch_rs: usize,
+    pub catch_bs: usize,
+    pub catch_ss: usize,
+    pub catch_ds: usize,
+    pub catch_ucolor: usize,
+    pub catch_hsv: usize,
+    pub catch_msdf_stroke: usize,
+    pub catch_canvas_stroke: usize,
 
-    total_capacity: usize,
-    texture_max_capacity: usize,
+    pub total_capacity: usize,
+    pub texture_max_capacity: usize,
 }
-js_serializable!(ResMgrSize);
 
 // #[allow(unused_attributes)]
-// #[no_mangle]
-#[js_export]
+// #[wasm_bindgen]
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
@@ -1584,59 +1540,65 @@ js_serializable!(ResMgrSize);
 //     }
 // }
 
-#[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn get_world_matrix(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let world_matrixs = world.world_matrix.lend();
     let world_matrix = match world_matrixs.get(node) {
         Some(r) => r,
-        None => return,
-    };
-    js! {
-        console.log("world_matrix:", @{format!("{:?}", &world_matrix)});
-    }
+        None => return JsValue::null(),
+	};
+	
+    JsValue::from_serde(world_matrix).unwrap()
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn get_transform(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn get_transform(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let transforms = world.transform.lend();
     let transform = match transforms.get(node) {
         Some(r) => r,
-        None => return,
-    };
-    js! {
-        console.log("transform:", @{format!("{:?}", &transform)});
-    }
+        None => return JsValue::null(),
+	};
+	JsValue::from_serde(transform).unwrap()
 }
 
 #[allow(unused_attributes)]
-#[no_mangle]
-#[js_export]
-pub fn get_yoga(world: u32, node: u32) {
+#[wasm_bindgen]
+pub fn get_layout(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let rect_layout_style = world.rect_layout_style.lend();
 	let other_layout_style = world.other_layout_style.lend();
-	let layouts = world.layout.lend();
-    js! {
-		console.log("rect_style:", @{format!("{:?}", rect_layout_style.get(node))});
-		console.log("other_style:", @{format!("{:?}", other_layout_style.get(node))});
-        console.log("layout:", @{format!("{:?}", layouts.get(node))});
-		console.log("node_state:", @{format!("{:?}", world.node_state.lend().get(node))});
-    }
+	// let layouts = world.layout.lend();
+
+	JsValue::from_serde(&Layout{
+		rect: match rect_layout_style.get(node) {
+			Some(r) => Some(r.clone()),
+			None => None
+		},
+		other: match other_layout_style.get(node) {
+			Some(r) => Some(r.clone()),
+			None => None
+		},
+		// node_state: world.node_state.lend().get(node).clone(),
+	}).unwrap()
 }
 
-// #[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Layout{
+	pub rect: Option<RectLayoutStyle>,
+	pub other: Option<OtherLayoutStyle>,
+	// node_state: Option<NodeState>,
+}
+
+// #[derive(Serialize, Deserialize, Debug)]
 // struct Point2{
 //     x: f32,
 //     y: f32,
