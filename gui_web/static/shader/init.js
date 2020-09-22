@@ -311,7 +311,7 @@ window.__load_image = function(gui, image_name){
         if (image_name.endsWith("png")) {
             opacity = 1;
         }
-        Module._load_image_success(gui, opacity/*透明类型*/, 0/*压缩格式*/, 0/*缓存类型*/);
+        Module._load_image_success(gui, opacity/*透明类型*/, -1/*压缩格式*/, 0/*缓存类型*/);
     };
     image.src = image_name;
 }

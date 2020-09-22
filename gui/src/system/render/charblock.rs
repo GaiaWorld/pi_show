@@ -903,9 +903,10 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         &offset,
                         &glyph,
                         c.width,
-                        char_block.font_height,
+						char_block.font_height,
+						char_block.scale,
                     );
-                }
+				}
                 // 更新buffer
                 let l = positions.len() / 8;
                 if l > *index_buffer_max_len {
@@ -971,7 +972,8 @@ fn get_geo_flow<L: FlexNode + 'static, C: HalContext + 'static>(
                         &offset,
                         &glyph,
                         c.width,
-                        char_block.font_height,
+						char_block.font_height,
+						char_block.scale,
                     );
 
                     let (ps, indices_arr) = split_by_lg(
@@ -1172,7 +1174,8 @@ fn push_pos_uv(
     offset: &(f32, f32),
     glyph: &Glyph,
     width: f32,
-    _font_height: f32,
+	font_height: f32,
+	scale: f32,
 ) {
     let ratio = width / glyph.advance;
     let left_top = (
@@ -1180,8 +1183,8 @@ fn push_pos_uv(
         pos.y + offset.1 + glyph.oy * ratio,
     );
     let right_bootom = (
-        left_top.0 + glyph.width * ratio,
-        left_top.1 + glyph.height * ratio,
+        left_top.0 + glyph.width/scale,
+        left_top.1 + glyph.height/scale,
     );
     let ps = [
         left_top.0,

@@ -95,7 +95,3 @@ impl std::ops::Drop for JsRes {
 impl ResRaw for JsRes {
     type Key = usize;
 }
-
-pub fn main() {
-	alert(&format!("Hello!"));
-}

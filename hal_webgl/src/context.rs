@@ -736,7 +736,10 @@ impl HalContext for WebglHalContext {
         }
         context
             .state_machine
-            .set_viewport(&context.gl, &data.viewport);
+			.set_viewport(&context.gl, &data.viewport);
+		context
+			.state_machine
+			.set_scissor(&context.gl, &data.scissor);
         context.state_machine.set_clear(
             &context.gl,
             &data.clear_color,

@@ -169,7 +169,8 @@ pub struct CharBlock<L: FlexNode + 'static> {
     pub line_count: usize,  // 行数，
     pub fix_width: bool,    // 如果有字宽不等于font_size
     pub style_class: usize, // 使用的那个样式类
-    pub is_pixel: bool,
+	pub is_pixel: bool,
+	pub scale: f32,
 }
 
 // 字符节点， 对应一个字符的

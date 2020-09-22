@@ -281,7 +281,7 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
     let notify = idtree.get_notify();
 
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
-    idtree.remove(child as usize, None);
+	idtree.remove(child as usize, None);
     idtree.insert_child(child as usize, parent as usize, UMAX, Some(&notify));
 }
 
@@ -335,7 +335,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
-    idtree.remove(child as usize, None);
+    idtree.remove(child as usize, Some(&notify));
     idtree.insert_brother(
         child as usize,
         brother as usize,
@@ -400,14 +400,18 @@ pub fn destroy_node(world: u32, node_id: u32) {
     let notify = idtree.get_notify();
     let nodes = world.node.lend_mut();
 	
-	idtree.remove(node_id as usize, Some(&notify));
+	if let None = idtree.remove(node_id as usize, Some(&notify)) {
+		return;
+	}
 	let head = unsafe{idtree.get_unchecked(node_id as usize)}.children.head;
 	nodes.delete(node_id as usize);
+
 	for (id, _n) in idtree.recursive_iter(head) {
 		nodes.delete(id);
 	}
 	//销毁节点（remove已经发出了移除事件，这里不需要再次通知）
 	idtree.destroy(node_id as usize, true, None);
+
 }
 
 /// __jsObj: image_name(String)

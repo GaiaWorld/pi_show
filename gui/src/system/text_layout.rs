@@ -101,6 +101,7 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
     type WriteData = Write<'a, L>;
 
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
+		let time = std::time::Instant::now();
         let c = self as *mut LayoutImpl<L> as *mut c_void;
         for id in (read.6).0.iter() {
             let r = match read.5.get(*id) {
@@ -112,7 +113,14 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
             }
 
             calc(*id, &read, &mut write, c);
-        }
+		}
+		// if (read.6).0.len() > 0 {
+		// 	println!(
+		// 		"textlayout=================={:?}",
+		// 		std::time::Instant::now() - time
+		// 	);
+		// }
+		let time = std::time::Instant::now();
         let (w, h) = {
             let layout = &write.1[ROOT];
             (layout.width, layout.height)
@@ -120,14 +128,20 @@ impl<'a, L: FlexNode + 'static> Runner<'a> for LayoutImpl<L> {
         self.read = &read as *const Read<'a, L> as usize;
         self.write = &mut write as *mut Write<'a, L> as usize;
         //计算布局，如果布局更改， 调用回调来设置layout属性，及字符的位置
-        // let time = std::time::Instant::now();
+		// let time = std::time::Instant::now();
         read.1[ROOT].calculate_layout_by_callback(
             w,
             h,
             YGDirection::YGDirectionLTR,
             callback::<L>,
             c,
-        );
+		);
+		// if (read.6).0.len() > 0 {
+		// 	println!(
+		// 		"layout=================={:?}",
+		// 		std::time::Instant::now() - time
+		// 	);
+		// }
         // println!(
         //     "layout=================={:?}",
         //     std::time::Instant::now() - time
@@ -159,7 +173,8 @@ impl<'a, L: FlexNode + 'static> MultiCaseListener<'a, Node, TextContent, CreateE
                 line_count: 1,
                 fix_width: true,
                 style_class: 0,
-                is_pixel: false,
+				is_pixel: false,
+				scale: 1.0,
             },
         );
     }
@@ -332,7 +347,8 @@ fn set_gylph<'a, L: FlexNode + 'static>(id: usize, read: &Read<L>, write: &mut W
         Some(r) => r,
         None => return,
     };
-    let scale = read.4[id].y.magnitude();
+	let scale = read.4[id].y.magnitude();
+	cb.scale = scale;
     let text_style = &write.3[id];
 
     let tex_font = match write.2.get_font_info(&text_style.font.family) {
@@ -741,7 +757,7 @@ fn calc_text<'a, L: FlexNode + 'static>(
         word: 0,
     };
 
-    let letter_spacing = tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width + 1.0;
+    let letter_spacing = tex_param.text_style.text.letter_spacing - tex_param.cb.stroke_width/* + 1.0*/;
     let word_spacing = tex_param.text_style.text.word_spacing;
     let mut pre_is_word_end = false;
     // 根据每个字符, 创建对应的yoga节点, 加入父容器或字容器中

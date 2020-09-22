@@ -1536,7 +1536,10 @@ fn set_attr<L: FlexNode, C: HalContext>(
     let mut text_style = text_style;
     if let Some(r) = text_styles.get_mut(id) {
         text_style = r;
-    }
+	}
+	
+	style_mark.class_style |= class.class_style_mark;
+    style_mark.class_style1 |= class.class_style_mark1;
 
     set_attr1(
         id,
@@ -1586,8 +1589,6 @@ fn set_attr<L: FlexNode, C: HalContext>(
         transforms,
         yogas,
     );
-    style_mark.class_style |= class.class_style_mark;
-    style_mark.class_style1 |= class.class_style_mark1;
 }
 
 #[inline]

@@ -89,7 +89,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
         write.1.insert(event.id, ByOverflow::default());
-        write.0.insert(event.id, Overflow::default());
+		write.0.insert(event.id, Overflow::default());
         write.2.insert(event.id, Culling(false));
     }
 }
@@ -564,7 +564,7 @@ fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
     if clip.clip.len() >= 32 {
         println!("clip overflow!!!!!!!");
         return 0;
-    }
+	}
     let i = clip.clip.insert(Clip {
         view: [
             Point2::new(0.0, 0.0),

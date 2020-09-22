@@ -208,7 +208,7 @@ impl FontSheet {
                     if is_blod {
                         w = w * BLOD_FACTOR;
                     }
-                    r.insert((w, font.name.clone(), font.factor, font.is_pixel));
+					r.insert((w, font.name.clone(), font.factor, font.is_pixel));
                     return ((w * font_size as f32 / FONT_SIZE).round() + sw as f32, w);
                 }
             }
@@ -258,11 +258,11 @@ impl FontSheet {
                     let w = ((base_width as f32 * font_size as f32 / FONT_SIZE).round() * scale)
                         .ceil()
                         + stroke_width as f32;
-                    // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-                    let height = (((font_size as f32 * font.factor).round() * scale).ceil()
-                        + stroke_width as f32) as usize;
+					// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高(不加stroke_width，因为会使布局被撑大)
+					let height = (font_size as f32 * font.factor * scale).ceil() as usize;
+                    // let height = ((font_size as f32 * font.factor + stroke_width as f32) * scale).ceil() as usize;
                     let mut line = self.font_tex.alloc_line(height);
-                    let p = line.alloc(w);
+					let p = line.alloc(w);
                     let id = self.char_slab.insert((
                         c,
                         Glyph {
@@ -397,7 +397,7 @@ impl TexFont {
     #[inline]
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_font_height(&self, size: usize, stroke_width: f32) -> f32 {
-        (size as f32 * self.factor).round() + stroke_width
+        size as f32 * self.factor + stroke_width
     }
 }
 

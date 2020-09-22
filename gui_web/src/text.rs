@@ -548,7 +548,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                 }
                 ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
                 ctx.fillStyle = "#0f0";
-                ctx.textBaseline = "bottom";
+                ctx.textBaseline = "top";
             }
             if text_info.stroke_width > 0 {
                 js! {
@@ -563,8 +563,8 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                         var c = @{canvas};
                         var ch = String.fromCharCode(@{ch_code});
                         //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-                        c.ctx.strokeText(ch, @{x}, @{bottom});
-                        c.ctx.fillText(ch, @{x}, @{bottom});
+                        c.ctx.strokeText(ch, @{x}, 2);
+                        c.ctx.fillText(ch, @{x}, 2);
                     }
                 }
             } else {
@@ -573,16 +573,17 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                     let x = char_info.x - start.0 as u32;
                     js! {
                         var ch = String.fromCharCode(@{ch_code});
-                        @{canvas}.ctx.fillText(ch, @{x}, @{bottom});
+                        @{canvas}.ctx.fillText(ch, @{x}, 2);
                     }
                 }
             }
 		}
 		// 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
 		// 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
-		js!{
-			@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
-		}
+		// 安卓小游戏上，更新纹理不支持使用ImageData,遂将其注释，华为手机的问题依然存在，暂不解决
+		// js!{
+		// 	@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
+		// }
         engine
             .gl
             .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
@@ -627,6 +628,7 @@ impl DrawTextSys {
         let obj: Object = TryInto::try_into(js! {
 			var c = document.createElement("canvas");
 			// c.style.position = "absolute";
+			// c.style.top = "50px";
             // document.body.append(c);// 查看效果
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};

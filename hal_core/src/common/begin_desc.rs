@@ -7,7 +7,8 @@ use ordered_float::OrderedFloat;
  */
 #[derive(Debug, Clone, Hash)]
 pub struct RenderBeginDesc {
-    pub viewport: (i32, i32, i32, i32), // x, y, 宽, 高，左上角为原点
+	pub viewport: (i32, i32, i32, i32), // x, y, 宽, 高，左上角为原点
+	pub scissor: (i32, i32, i32, i32), // x, y, 宽, 高，左上角为原点
     pub clear_color: Option<(
         OrderedFloat<f32>,
         OrderedFloat<f32>,
@@ -29,7 +30,8 @@ impl RenderBeginDesc {
      */
     pub fn new(x: i32, y: i32, width: i32, height: i32) -> Self {
         RenderBeginDesc {
-            viewport: (x, y, width, height),
+			viewport: (x, y, width, height),
+			scissor: (x, y, width, height),
             clear_color: Some((
                 OrderedFloat(1.0),
                 OrderedFloat(1.0),

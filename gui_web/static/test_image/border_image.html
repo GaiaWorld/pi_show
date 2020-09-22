@@ -58,9 +58,8 @@
         var image = new Image();
 
         image.onload = () => {
-            window.__jsObj = image;
-            window.__jsObj1 = "./border.png";
-            Module._set_border_src(gui, node, 0, 0);
+            window.__jsObj = "./border.png";
+            Module._set_border_image(gui, node);
 
             // Module._render(gui);
             render_fram();

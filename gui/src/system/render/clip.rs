@@ -114,7 +114,8 @@ impl<C: HalContext + 'static> ClipSys<C> {
 
             paramter: Share::new(paramter),
             begin_desc: RenderBeginDesc {
-                viewport: (viewport.0, viewport.1, viewport.2, viewport.3),
+				viewport: (viewport.0, viewport.1, viewport.2, viewport.3),
+				scissor: (viewport.0, viewport.1, viewport.2, viewport.3),
                 clear_color: Some((
                     OrderedFloat(0.0),
                     OrderedFloat(0.0),

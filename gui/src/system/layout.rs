@@ -108,7 +108,11 @@ fn add_yoga<L: FlexNode>(
     yogas: &MultiCaseImpl<Node, L>,
 ) {
     let node = &idtree[id];
-    let yoga = &yogas[id];
+	let yoga = &yogas[id];
+	let parent_yoga = yoga.get_parent();
+	if !parent_yoga.is_null() {
+		parent_yoga.remove_child(yoga.clone());
+	}
     if node.parent > 0 {
         let parent_yoga = &yogas[node.parent];
         let child_count = parent_yoga.get_child_count();
