@@ -691,10 +691,15 @@
 		var text_node = Module._create_text_node(gui);
         Module._append_child(gui, text_node, node);
         Module._set_text_rgba_color(gui, text_node, 1.0, 0.0, 0.0, 0.5); // r, g, b, a
-        window.__jsObj = "文字";
+        window.__jsObj = "文字123";
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
+		let text_node1 = text_node;
+		setTimeout(() => {
+			window.__jsObj = "文字1234";
+			Module._set_text_content(gui, text_node1); // 文字内容
+		}, 2000);
 
 		// 在图文混排中被当成块来布局
 		var text_node = Module._create_text_node(gui);
@@ -705,6 +710,7 @@
         Module._set_text_content(gui, text_node); // 文字内容
         window.__jsObj = "common";
         Module._set_font_family(gui, text_node);
+		
     </script>
 
     <!-- <script>

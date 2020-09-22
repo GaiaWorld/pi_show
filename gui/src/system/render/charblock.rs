@@ -1020,6 +1020,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 				if c.ch == char::from(0) {
 					if c.ch_id_or_count > 0 {
 						word_pos = c.pos;
+						count = c.ch_id_or_count - 1;
 					}
 					continue;
 				}

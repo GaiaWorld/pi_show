@@ -26,7 +26,8 @@ use Z_MAX;
 
 lazy_static! {
     pub static ref RENDER_DISPATCH: Atom = Atom::from("render_dispatch");
-    pub static ref LAYOUT_DISPATCH: Atom = Atom::from("layout_dispatch");
+	pub static ref LAYOUT_DISPATCH: Atom = Atom::from("layout_dispatch");
+	pub static ref CALC_DISPATCH: Atom = Atom::from("calc_dispatch");
     pub static ref ZINDEX_N: Atom = Atom::from("z_index_sys");
     pub static ref SHOW_N: Atom = Atom::from("show_sys");
     pub static ref WORLD_MATRIX_N: Atom = Atom::from("world_matrix_sys");
@@ -329,7 +330,11 @@ pub fn create_world<C: HalContext + 'static>(
         "layout_sys, world_matrix_sys, oct_sys".to_string(),
         &world,
     );
-    world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+	world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+	
+	let mut dispatch = SeqDispatcher::default();
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, res_release, style_mark_sys".to_string(), &world);
+    world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
 
     world
 }

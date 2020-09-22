@@ -1619,6 +1619,9 @@ fn set_attr<C: HalContext>(
 		text_style = &mut text_styles[id]
 	}
 
+	style_mark.class_style |= class.class_style_mark;
+    style_mark.class_style1 |= class.class_style_mark1;
+
     set_attr1(
         id,
         dirty_list,
@@ -1668,8 +1671,6 @@ fn set_attr<C: HalContext>(
         transforms,
         rect_layout_styles,
     );
-    style_mark.class_style |= class.class_style_mark;
-    style_mark.class_style1 |= class.class_style_mark1;
 }
 
 #[inline]

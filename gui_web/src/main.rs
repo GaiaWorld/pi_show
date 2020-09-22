@@ -59,7 +59,8 @@ use gui::render::res::TextureRes;
 use gui::single::Class;
 use gui::single::RenderBegin;
 use gui::world::GuiWorld as GuiWorld1;
-use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH};
+use gui::Z_MAX;
+use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
 use hal_core::*;
 use hal_webgl::*;
 use share::Share;
@@ -167,8 +168,8 @@ pub fn destroy_render_target(render_target: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 #[js_export]
-pub fn bind_render_target(world: u32, render_target: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+pub fn bind_render_target(world_id: u32, render_target: u32) {
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     // let engine = world.engine.lend_mut();
     let begin = world.world.fetch_single::<RenderBegin>().unwrap();
@@ -177,7 +178,8 @@ pub fn bind_render_target(world: u32, render_target: u32) {
         begin.1 = None;
     } else {
         begin.1 =
-            Some(unsafe { &*(render_target as usize as *const Share<HalRenderTarget>) }.clone());
+			Some(unsafe { &*(render_target as usize as *const Share<HalRenderTarget>) }.clone());
+		set_render_dirty(world_id);
     }
 }
 
@@ -343,6 +345,22 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     rb_decs.0.viewport = (x, y, width, height);
 }
 
+/// 设置视口
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
+    set_render_dirty(world_id);
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let rb_decs = world
+        .gui
+        .world
+        .fetch_single::<gui::single::RenderBegin>()
+        .unwrap();
+    let rb_decs = rb_decs.lend_mut();
+    rb_decs.0.scissor = (x, y, width, height);
+}
+
 /// 设置投影变换
 #[allow(unused_attributes)]
 #[no_mangle]
@@ -353,7 +371,9 @@ pub fn set_project_transfrom(
     scale_y: f32,
     translate_x: f32,
     translate_y: f32,
-    rotate: f32,
+	rotate: f32,
+	width: u32,
+	height: u32,
 ) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let mut m = Matrix4::default();
@@ -376,8 +396,28 @@ pub fn set_project_transfrom(
         .fetch_single::<gui::single::ProjectionMatrix>()
         .unwrap();
     let project_matrix = project_matrix.lend_mut();
-    project_matrix.0 = gui::component::calc::WorldMatrix(m, true) * (&project_matrix.0);
-    project_matrix.get_notify().modify_event(0, "", 0);
+    project_matrix.0 = gui::component::calc::WorldMatrix(m, true) * gui::single::ProjectionMatrix::new(
+        width as f32,
+        height as f32,
+        -Z_MAX - 1.0,
+        Z_MAX + 1.0,
+    ).0;
+	project_matrix.get_notify().modify_event(0, "", 0);
+	
+	let rect_layout_style = world.gui.rect_layout_style.lend_mut();
+    let rect_layout_style = unsafe { rect_layout_style.get_unchecked_mut(1) };
+
+    // let config = YgConfig::new();
+    // config.set_point_scale_factor(0.0);
+    // let ygnode1 = YgNode::new_with_config(config);
+    // let ygnode1 = YgNode::default();
+	rect_layout_style.size.width = Dimension::Points(width as f32);
+	rect_layout_style.size.height = Dimension::Points(width as f32);
+	
+	let layout = world.gui.layout.lend_mut();
+	let layout = unsafe { layout.get_unchecked_mut(1) };
+	layout.rect.end = width as f32;
+	layout.rect.bottom = height as f32;
 }
 
 /**
@@ -481,6 +521,16 @@ pub struct RunTime {
 
 #[cfg(feature = "debug")]
 js_serializable!(RunTime);
+
+/// 强制计算一次
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn calc(world_id: u32) {
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    world.world.run(&CALC_DISPATCH);
+}
 
 /// 强制计算一次布局
 #[allow(unused_attributes)]

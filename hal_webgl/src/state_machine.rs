@@ -41,7 +41,8 @@ pub struct StateMachine {
     program: (u32, u32),                 // program_slab的index, use_count
     geometry: (u32, u32),                // geometry_slab的index, use_count
     target: (u32, u32),                  // target_slab的index, use_count
-    viewport_rect: (i32, i32, i32, i32), // x, y, w, h
+	viewport_rect: (i32, i32, i32, i32), // x, y, w, h
+	scissor_rect: (i32, i32, i32, i32),
     enable_attrib_indices: Vec<bool>,
     tex_caches: TextureCache,
 }
@@ -173,7 +174,8 @@ impl StateMachine {
             program: (0, 0),
             geometry: (0, 0),
             target: (0, 0),
-            viewport_rect: (0, 0, 0, 0),
+			viewport_rect: (0, 0, 0, 0),
+			scissor_rect: (0, 0, 0, 0),
 
             rs: (0, 0),
             bs: (0, 0),
@@ -238,11 +240,20 @@ impl StateMachine {
     /**
      * rect: (x, y, width, height)
      */
-    pub fn set_viewport(&mut self, gl: &WebGLRenderingContext, rect: &(i32, i32, i32, i32)) {
+	 pub fn set_viewport(&mut self, gl: &WebGLRenderingContext, rect: &(i32, i32, i32, i32)) {
         if self.viewport_rect != *rect {
             gl.viewport(rect.0, rect.1, rect.2, rect.3);
-            gl.scissor(rect.0, rect.1, rect.2, rect.3);
             self.viewport_rect = *rect;
+        }
+	}
+
+	/**
+     * rect: (x, y, width, height)
+     */
+	 pub fn set_scissor(&mut self, gl: &WebGLRenderingContext, rect: &(i32, i32, i32, i32)) {
+        if self.scissor_rect != *rect {
+			gl.scissor(rect.0, rect.1, rect.2, rect.3);
+            self.scissor_rect = *rect;
         }
     }
 
@@ -522,9 +533,10 @@ impl StateMachine {
             self.set_render_target_impl(gl, &rt);
         }
 
-        let rect = &self.viewport_rect;
+		let rect = &self.viewport_rect;
+		let scissor = &self.scissor_rect;
         gl.viewport(rect.0, rect.1, rect.2, rect.3);
-        gl.scissor(rect.0, rect.1, rect.2, rect.3);
+		gl.scissor(scissor.0, scissor.1, scissor.2, scissor.3);
 
         if !is_vao_extension {
             for (i, v) in self.enable_attrib_indices.iter_mut().enumerate() {

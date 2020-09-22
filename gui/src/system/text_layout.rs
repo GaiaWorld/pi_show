@@ -345,19 +345,10 @@ impl<'a> Calc<'a> {
 				}
 				// 存在WordStart， 表示开始一个多字符单词
 				SplitResult::WordStart(c) => {
-					// 容器节点
-					let cn = CharNode {
-						ch: char::from(0),
-						size: (0.0, self.line_height),
-						margin_start: word_margin_start,
-						pos: (0.0, 0.0),
-						base_width: self.font_size,
-						ch_id_or_count: 1,
-					};
-					word_index = chars.len();
+					self.create_or_get_container(chars, char_index, word_margin_start);
+					word_index = char_index;
 					p_x = 0.0;
 					word_margin_start = 0.0;
-					chars.push(cn);
 					char_index += 1;
 
 					let cn = self.create_or_get(c, chars, char_index, p_x);
@@ -430,28 +421,18 @@ impl<'a> Calc<'a> {
 				// 存在WordStart， 表示开始一个多字符单词
 				SplitResult::WordStart(c) => {
 					// 容器节点
-					let cn = CharNode {
-						ch: char::from(0),
-						size: (0.0, self.line_height),
-						margin_start: word_margin_start,
-						pos: (0.0, 0.0),
-						base_width: self.font_size,
-						ch_id_or_count: 1,
-					};
-					cur_child = self.create_entity(cur_child, parent, &cn, word_margin_start, char_index, node_states);
-					word_id = cur_child;
+					let cn = self.create_or_get_container(&mut node_states[id].0.text, char_index, word_margin_start);
+					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
 
+					word_id = cur_child;
 					word_index = char_index;
 					p_x = 0.0;
 					word_margin_start = 0.0;
-					let chars = &mut node_states[id].0.text;
-					chars.push(cn);
 					char_index += 1;
 
-
-					let cn = self.create_char_node(c, 0.0);
+					let chars = &mut node_states[id].0.text;
+					let cn = self.create_or_get(c, chars, char_index, 0.0);
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
-					chars.push(cn);
 					chars[word_index].ch_id_or_count += 1;
 					char_index += 1;
 				}
@@ -547,6 +528,23 @@ impl<'a> Calc<'a> {
 			if cn.ch != ch {
 				chars[index] = self.create_char_node(ch, p_x);
 			}
+		}
+		&mut chars[index]
+	}
+
+	fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, word_margin_start: f32) -> &'b mut CharNode {
+		let r = CharNode {
+			ch: char::from(0),
+			size: (0.0, self.line_height),
+			margin_start: word_margin_start,
+			pos: (0.0, 0.0),
+			base_width: self.font_size,
+			ch_id_or_count: 1,
+		};
+		if index >= chars.len() {
+			chars.push(r);
+		} else {
+			chars[index] = r;
 		}
 		&mut chars[index]
 	}
