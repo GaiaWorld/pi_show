@@ -107,7 +107,7 @@ impl Default for OtherLayoutStyle {
 
 
 //================================== 组件
-#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize, Debug)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
