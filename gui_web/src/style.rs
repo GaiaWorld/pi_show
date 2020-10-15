@@ -326,7 +326,7 @@ pub fn set_display(world: u32, node: u32, value: u8) {
 				.other_layout_style
 				.lend_mut();
 		layouts[node as usize].display = transmute(value);
-		layouts.get_notify().modify_event(node as usize, "display", 0);
+		layouts.get_notify_ref().modify_event(node as usize, "display", 0);
 	}
 
     let value = unsafe { transmute(value) };
@@ -392,13 +392,14 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 #[js_export]
 pub fn set_border_image(world: u32, node: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let name: String = js! {return __jsObj}.try_into().unwrap();
+	// let name: String = js! {return __jsObj}.try_into().unwrap();
+	let name: usize = js! {return __jsObj}.try_into().unwrap();
     let border_images = world.gui.border_image.lend_mut();
     border_images.insert(
         node as usize,
         BorderImage(Image {
             src: None,
-            url: Atom::from(name),
+            url: name,
             width: None,
             height: None,
         }),
@@ -527,5 +528,5 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
     world.default_text_style = text_style;
     let default_table = world.gui.default_table.lend_mut();
     default_table.set(world.default_text_style.clone());
-    default_table.get_notify().modify_event(0, "", 0);
+    default_table.get_notify_ref().modify_event(0, "", 0);
 }

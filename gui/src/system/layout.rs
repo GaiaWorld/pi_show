@@ -65,7 +65,7 @@ impl<'a> Runner<'a> for LayoutSys {
             return;
 		}
 		
-		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
+		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::RectStyle>)};
 		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
 		let flex_layouts = unsafe {&mut *(layouts.get_storage() as *const VecMap<LayoutR> as usize as *mut VecMap<flex_layout::LayoutR>)};
 		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
@@ -123,8 +123,8 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
 		&'a mut MultiCaseImpl<Node, LayoutR>, 
 		&'a mut MultiCaseImpl<Node, NodeState>);
 	fn listen(&mut self, event: &CreateEvent, _tree: Self::ReadData, (rect_layout_styles, other_layout_styles, layouts, node_states): Self::WriteData) {
-		rect_layout_styles.insert(event.id, RectLayoutStyle::default());
-		other_layout_styles.insert(event.id, OtherLayoutStyle::default());
+		// rect_layout_styles.insert(event.id, RectLayoutStyle::default());
+		// other_layout_styles.insert(event.id, OtherLayoutStyle::default());
 		layouts.insert(event.id, LayoutR::default());
 		node_states.insert(event.id, NodeState::default());
 	}
@@ -162,7 +162,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys {
 
 fn notify(context: &mut MultiCaseImpl<Node, LayoutR>, id: usize, _layout:&flex_layout::LayoutR) {
 	// println!("notify======================={}, layout:{:?}", id, layout);
-	context.get_notify().modify_event(id, "", 0);
+	context.get_notify_ref().modify_event(id, "", 0);
 }
 
 

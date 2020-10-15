@@ -14,6 +14,9 @@ use super::user::*;
 use res::Res;
 use flex_layout::*;
 
+use util::vecmap_default::VecMapWithDefault;
+use util::hashmap_default::HashMapWithDefault;
+
 // // 布局计算结果
 // #[derive(Clone, Debug, Default, Component, PartialEq)]
 // pub struct Layout {
@@ -49,35 +52,43 @@ impl Default for LayoutR {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Component, Default, Deref, DerefMut, Debug)]
+#[derive(Component, Default, Deref, DerefMut, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct ZDepth(pub f32);
 
 // gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
-#[derive(Component, Default, Deref, DerefMut, Debug)]
+#[derive(Component, Clone, Default, Deref, DerefMut, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct ByOverflow(pub usize);
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Component, Default)]
+#[storage(VecMapWithDefault)]
 pub struct WorldMatrix(pub Matrix4, pub bool);
 
 //是否可见,
-#[derive(Deref, DerefMut, Component, Debug, Default)]
+#[derive(Deref, DerefMut, Component, Clone, Debug, Default)]
+#[storage(VecMapWithDefault)]
 pub struct Visibility(pub bool);
 
 // 是否被裁剪
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug, Default)]
+#[storage(VecMapWithDefault)]
 pub struct Culling(pub bool);
 
 //不透明度
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Component, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct Opacity(pub f32);
 
 //是否响应事件
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Component, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct Enable(pub bool);
 
 // HSV
 #[derive(Clone, Debug, Component, Default)]
+#[storage(VecMapWithDefault)]
 pub struct HSV {
     pub h: f32, // 0-360
     pub s: f32, // 0 ~ 正无穷  0表示变灰， 1表示不变， 2表示更饱和

@@ -7,10 +7,12 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 use map::vecmap::VecMap;
+use map::Map;
 use ordered_float::NotNan;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::*;
 use component::calc::LayoutR;
@@ -45,6 +47,14 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     pub fn new() -> Self {
         BackgroundColorSys {
             render_map: VecMap::default(),
+            default_paramter: ColorParamter::default(),
+            marker: PhantomData,
+        }
+	}
+	
+	pub fn with_capacity(capacity: usize) -> Self {
+        BackgroundColorSys {
+            render_map: VecMap::with_capacity(capacity),
             default_paramter: ColorParamter::default(),
             marker: PhantomData,
         }
@@ -91,8 +101,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
         ) = read;
         let (render_objs, engine) = write;
 
-        let default_transform = Transform::default();
-        let notify = render_objs.get_notify();
+		let default_transform = Transform::default();
+		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -221,7 +231,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
                 render_objs.remove(index, Some(notify));
             }
             None => (),

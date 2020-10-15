@@ -19,8 +19,8 @@ macro_rules! func_enum {
             let value = unsafe { transmute(value) };
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-            let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+			let world = &mut world.gui;
+            world.style_mark.lend_mut()[node_id].local_style1 |=
                 StyleType1::$ty as usize;
             unsafe { world.other_layout_style.lend_mut().get_unchecked_write(node_id) }.$func(value);
         }
@@ -36,11 +36,11 @@ macro_rules! func_value_dimension {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+            world.style_mark.lend_mut()[node_id].local_style1 |=
 				StyleType1::$ty as usize;
 			let layout_styles = world.$style_tyle.lend_mut();
 			layout_styles[node_id].$feild1.$feild2 = Dimension::$dime(value);
-			layout_styles.get_notify().modify_event(node_id, $notify_feild1, 0);
+			layout_styles.get_notify_ref().modify_event(node_id, $notify_feild1, 0);
         }
 	};
 
@@ -52,7 +52,7 @@ macro_rules! func_value_dimension {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+            world.style_mark.lend_mut()[node_id].local_style1 |=
 				StyleType1::$ty as usize;
 			let layout_styles = world.$style_tyle.lend_mut();
 
@@ -69,7 +69,7 @@ macro_rules! func_value_dimension {
 				Edge::Bottom => layout_styles[node_id].$feild1.bottom = Dimension::$dime(value),
 				_ => return
 			};
-			layout_styles.get_notify().modify_event(node_id, $notify_feild1, 0);
+			layout_styles.get_notify_ref().modify_event(node_id, $notify_feild1, 0);
         }
 	};
 }
@@ -84,11 +84,11 @@ macro_rules! func_value_dimension_simple {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+            world.style_mark.lend_mut()[node_id].local_style1 |=
 				StyleType1::$ty as usize;
 			let layout_styles = world.$style_tyle.lend_mut();
 			layout_styles[node_id].$feild1.$feild2 = Dimension::$dime;
-			layout_styles.get_notify().modify_event(node_id, $notify_feild1, 0);
+			layout_styles.get_notify_ref().modify_event(node_id, $notify_feild1, 0);
         }
 	};
 }
@@ -104,7 +104,7 @@ macro_rules! func_value {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+            world.style_mark.lend_mut()[node_id].local_style1 |=
                 StyleType1::$ty as usize;
             unsafe { world.other_layout_style.lend_mut().get_unchecked_write(node_id) }.$func(value);
         }
@@ -117,7 +117,7 @@ macro_rules! func_value {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
-            unsafe { world.style_mark.lend_mut().get_unchecked_mut(node_id) }.local_style1 |=
+            world.style_mark.lend_mut()[node_id].local_style1 |=
                 StyleType1::$ty as usize;
             unsafe { world.other_layout_style.lend_mut().get_unchecked_write(node_id) }.$func(value);
         }

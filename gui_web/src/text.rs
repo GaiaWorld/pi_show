@@ -444,7 +444,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
             .gl
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
-        font_sheet.get_notify().modify_event(0, "", 0);
+        font_sheet.get_notify_ref().modify_event(0, "", 0);
 	}
     engine.gl.texture_update_webgl(
         &texture.bind,
@@ -504,7 +504,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
             .gl
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
-        font_sheet.get_notify().modify_event(0, "", 0);
+        font_sheet.get_notify_ref().modify_event(0, "", 0);
     }
 
     for indexs in map.iter() {

@@ -14,7 +14,7 @@ use dirty::LayerDirty;
 
 use ecs::{
   system::{Runner, MultiCaseListener, SingleCaseListener, EntityListener},
-  monitor::{CreateEvent, DeleteEvent, ModifyEvent},
+  monitor::{CreateEvent, DeleteEvent, ModifyEvent, NotifyImpl},
   component::MultiCaseImpl,
   single::SingleCaseImpl,
 };
@@ -24,8 +24,10 @@ use single::{DirtyList, IdTree};
 use entity::{Node};
 use component::{
   user::{ZIndex as ZI},
-  calc::{ZDepth, ZDepthWrite},
+  calc::{ZDepth, ZDepthWrite, NodeState},
 };
+use util::vecmap_default::VecMapWithDefault;
+use map::Map;
 use Z_MAX;
 use ROOT;
 
@@ -34,17 +36,18 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type WriteData = (&'a mut MultiCaseImpl<Node, ZI>, &'a mut MultiCaseImpl<Node, ZDepth>);
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-	  let mut zi = ZIndex::default();
+	//   let mut zi = ZIndex::default();
       // 为root节点设置最大范围值
       if event.id == ROOT {
+		  	let zi = &mut self.map[event.id];
             zi.pre_min_z = -Z_MAX;
             zi.pre_max_z = Z_MAX;
             zi.min_z = -Z_MAX;
             zi.max_z = Z_MAX;
       }
-      self.map.insert(event.id, zi);
-      write.0.insert(event.id, ZI::default());
-      write.1.insert(event.id, ZDepth::default());
+    //   self.map.insert(event.id, zi);
+    //   write.0.insert(event.id, ZI::default());
+    //   write.1.insert(event.id, ZDepth::default());
     }
 }
 
@@ -99,10 +102,10 @@ impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
     }
 }
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
-    type ReadData = (&'a SingleCaseImpl<IdTree>,&'a MultiCaseImpl<Node, ZI>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>,&'a MultiCaseImpl<Node, ZI>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ();
 
-    fn listen(&mut self, event: &CreateEvent, (idtree, zindexs): Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &CreateEvent, (idtree, zindexs, node_states): Self::ReadData, _write: Self::WriteData) {
 		let id = event.id;
 		let node = &idtree[id];
 		let zi = &mut self.map[id];
@@ -113,7 +116,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
 			self.dirty.mark(id, node.layer());
 		} else {
 			// 设置自己所有非AUTO的子节点为强制脏
-			recursive_dirty(&mut self.map, &mut self.dirty, idtree, node.children().head);
+			recursive_dirty(&mut self.map, node_states, &mut self.dirty, idtree, node.children().head);
 		}
 
 		if zindexs[id].0 == 0 {
@@ -125,18 +128,18 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
 }
 
 impl<'a> Runner<'a> for ZIndexImpl {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = &'a mut MultiCaseImpl<Node, ZDepth>;
 
     fn setup(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
     }
-    fn run(&mut self, dirty_list: Self::ReadData, write: Self::WriteData) {
+    fn run(&mut self, (idtree, node_states): Self::ReadData, write: Self::WriteData) {
 		// if (read.1).0.len() > 0 {
 		// 	set_print(true);
 		// } else {
 		// 	set_print(false);
 		// }
-		self.calc(dirty_list, write)
+		self.calc(idtree, write, node_states)
     }
     fn dispose(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
 
@@ -182,7 +185,7 @@ impl Default for ZIndex {
 
 pub struct ZIndexImpl {
   dirty: LayerDirty,
-  map: VecMap<ZIndex>,
+  map: VecMapWithDefault<ZIndex>,
   cache: Cache,
 }
 
@@ -190,7 +193,15 @@ impl ZIndexImpl {
   pub fn new() -> ZIndexImpl {
     ZIndexImpl {
       dirty: LayerDirty::default(),
-      map: VecMap::new(),
+      map: VecMapWithDefault::default(),
+      cache: Cache::new(),
+    }
+  }
+
+  pub fn with_capacity(capacity: usize) -> ZIndexImpl {
+    ZIndexImpl {
+      dirty: LayerDirty::default(),
+      map: VecMapWithDefault::with_capacity(capacity),
       cache: Cache::new(),
     }
   }
@@ -252,7 +263,7 @@ impl ZIndexImpl {
   }
 
   // 整理方法
-  fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>) {
+  fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, node_states: &MultiCaseImpl<Node, NodeState>) {
     for (id, layer) in self.dirty.iter() {
       let (min_z, max_z, old_empty_min_z, dirty) = {
         let zi = &mut self.map[*id];
@@ -272,7 +283,7 @@ impl ZIndexImpl {
 			None => continue,
 		};
       // 设置 z_depth, 其他系统会监听该值
-      zdepth.get_write(*id).unwrap().set_0(min_z);
+      unsafe{zdepth.get_unchecked_write(*id)}.set_0(min_z);
       //debug_println!("zindex- calc: {:?} {:?} {:?} {:?}", id, min_z, max_z, normal);
       if node.count() == 0 {
 		self.map[*id].empty_min_z = min_z + 1.;
@@ -281,18 +292,18 @@ impl ZIndexImpl {
 	  
 	  let max_z_z = match dirty {
 		  DirtyType::Normal => {
-			self.cache.sort(zdepth, &self.map, idtree, node.children().head, 0);
+			self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
 			// debug_println!("Normal calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 			self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count())
 		  },
 		  DirtyType::Recursive => {
-			self.cache.sort(zdepth, &self.map, idtree, node.children().head, 0);
+			self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
 			// debug_println!("recursive_calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
-			self.cache.recursive_calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count())
+			self.cache.recursive_calc(node_states, &mut self.map, idtree, zdepth, min_z, max_z, node.count())
 		  },
 		  DirtyType::Empty => { // 
 			if self.cache.node_heap.len() == 0 {
-				let (count, arr) = self.cache.sort_width_empty(zdepth, &self.map, idtree, node.children().head, 0, old_empty_min_z);
+				let (count, arr) = self.cache.sort_width_empty(zdepth, node_states, &self.map, idtree, node.children().head, 0, old_empty_min_z);
 				let empty_z = max_z - old_empty_min_z;
 				// debug_println!("calc_empty, count: {}, empty_z:{}, min_z:{}, max_z: {}", count, empty_z, min_z, max_z);
 				if (count as f32) <= empty_z && empty_z <= max_z - min_z - 1.{ // 如果是空
@@ -302,7 +313,7 @@ impl ZIndexImpl {
 					self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count())
 				}
 			} else {
-				self.cache.sort(zdepth, &self.map, idtree, node.children().head, 0);
+				self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
 				// debug_println!("Empty2 calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 				self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count())
 			}
@@ -348,10 +359,10 @@ impl Cache {
   }
 
   // 循环计算子节点， 分类排序
-  fn sort(&mut self, zdepth: &MultiCaseImpl<Node, ZDepth>, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
+  fn sort(&mut self, zdepth: &MultiCaseImpl<Node, ZDepth>, node_states: &MultiCaseImpl<Node, NodeState>, map: &VecMapWithDefault<ZIndex>, idtree: &IdTree, child: usize, mut order: usize) -> usize {
     // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
     for (id, n) in idtree.iter(child) {
-		if let None = zdepth.get(id) {
+		if !node_states[id].0.is_rnode() {
 			continue;
 		}
 
@@ -362,7 +373,7 @@ impl Cache {
 		}else if zi == -1 {
 			self.z_auto.push(id);
 			// 继续递归其子节点
-			order = self.sort(zdepth, map, idtree, n.children().head, order);
+			order = self.sort(zdepth, node_states, map, idtree, n.children().head, order);
 		}else if zi > 0 {
 			self.node_heap.push(ZSort(zi, order, id, n.count()));
 		}else{
@@ -374,12 +385,12 @@ impl Cache {
   }
 
   // 循环计算子节点， 分类排序
-  fn sort_width_empty(&mut self, zdepth: &MultiCaseImpl<Node, ZDepth>, map: &VecMap<ZIndex>, idtree: &IdTree, child: usize, mut order: usize, empty_min_z: f32) -> (usize, Vec<ZSort>) {
+  fn sort_width_empty(&mut self, zdepth: &MultiCaseImpl<Node, ZDepth>, node_states: &MultiCaseImpl<Node, NodeState>, map: &VecMapWithDefault<ZIndex>, idtree: &IdTree, child: usize, mut order: usize, empty_min_z: f32) -> (usize, Vec<ZSort>) {
 	  let mut last_count = 0;
 	  let mut arr = Vec::new();
     // zindex为0或-1的不参与排序。 zindex排序。用heap排序，确定每个子节点的z范围。如果子节点的zindex==-1，则需要将其子节点纳入排序。
     for (id, n) in idtree.iter(child) {
-		if let None = zdepth.get(id) {
+		if !node_states[id].0.is_rnode() {
 			continue;
 		}
 
@@ -390,7 +401,7 @@ impl Cache {
 		}else if zi == -1 {
 			self.z_auto.push(id);
 			// 继续递归其子节点
-			order = self.sort(zdepth, map, idtree, n.children().head, order);
+			order = self.sort(zdepth, node_states, map, idtree, n.children().head, order);
 		}else if zi > 0 {
 			self.node_heap.push(ZSort(zi, order, id, n.count()));
 		}else{
@@ -408,7 +419,7 @@ impl Cache {
   }
 
   // 计算真正的z
-  fn calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) -> f32 {
+  fn calc(&mut self, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) -> f32 {
     min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     let auto_len = self.z_auto.len();
     // debug_println!("count--------------------------count: {}, auto_len: {}", count, auto_len);
@@ -446,7 +457,7 @@ impl Cache {
 	max_z
   }
 
-  fn calc_empty(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize, arr: Vec<ZSort>) -> f32 {
+  fn calc_empty(&mut self, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize, arr: Vec<ZSort>) -> f32 {
 	min_z += 1.;
     // debug_println!("count--------------------------count: {}, auto_len: {}", count, auto_len);
 	let capacity = max_z - min_z;
@@ -472,7 +483,7 @@ impl Cache {
 	return max_z;
   }
 // 计算真正的z
-  fn recursive_calc(&mut self, map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) -> f32 {
+  fn recursive_calc(&mut self, node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize) -> f32 {
     min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     let auto_len = self.z_auto.len();
     // 计算大致的劈分间距
@@ -514,7 +525,7 @@ impl Cache {
       zi.max_z = max_z;
 	  zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
-      zdepth.get_write(id).unwrap().set_0(min_z);
+      unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
       //debug_println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
@@ -524,23 +535,23 @@ impl Cache {
 		zi.empty_min_z = min_z + 1.;
         continue;
       }
-      self.sort(zdepth, map, idtree, node.children().head, 0);
+      self.sort(zdepth, node_states, map, idtree, node.children().head, 0);
     //   debug_println!("recursive_calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
-      map[id].empty_min_z = self.recursive_calc(map, idtree, zdepth, min_z, max_z, node.count());
+      map[id].empty_min_z = self.recursive_calc(node_states, map, idtree, zdepth, min_z, max_z, node.count());
 	}
 	max_z
   }
 }
 //================================ 内部静态方法
 // 设置自己所有非AUTO的子节点为强制脏
-fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
+fn recursive_dirty(map: &mut VecMapWithDefault<ZIndex>, node_states: &MultiCaseImpl<Node, NodeState>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
   for (id, n) in idtree.iter(child) {
-    let zi = match map.get_mut(child) {
-		Some(r) => r,
-		None => continue,
-	};
+	if !node_states[id].0.is_rnode() {
+		continue;
+	}
+    let zi = &mut map[child];
     if zi.old == -1 {
-      recursive_dirty(map, dirty, idtree, n.children().head);
+      recursive_dirty(map, node_states, dirty, idtree, n.children().head);
     }else {
       zi.dirty = DirtyType::Recursive;
       dirty.mark(id, n.layer());
@@ -551,7 +562,7 @@ fn recursive_dirty(map: &mut VecMap<ZIndex>, dirty: &mut LayerDirty, idtree: &Id
 // 整理方法。z范围变小或相交，则重新扫描修改一次。两种情况。
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
-fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode<usize>, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+fn adjust(map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode<usize>, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
   let (min, r, old_min) = {
     let zi = &mut map[id];
     // debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
@@ -580,7 +591,7 @@ fn adjust(map: &mut VecMap<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<
 	zi.max_z = max;
 	zi.empty_min_z = max;
     // 设置 z_depth, 其他系统会监听该值
-    zdepth.get_write(id).unwrap().set_0(min);
+    unsafe { zdepth.get_unchecked_write(id) }.set_0(min);
     // debug_println!("---------adjust: {:?} {:?} {:?}", id, min, max);
     
     // 判断是否为auto
@@ -651,7 +662,7 @@ fn new_node(mgr: &mut World, parent: usize) -> usize {
 	let idtree = mgr.fetch_single::<IdTree>().unwrap();
 	let idtree = idtree.lend_mut();
 	idtree.create(node);
-	let notify = idtree.get_notify();
+	let notify = unsafe { &* (idtree.get_notify_ref() as *const NotifyImpl)} ;
 
 	idtree.insert_child_with_notify(node, parent, UMAX, &notify);
 	node

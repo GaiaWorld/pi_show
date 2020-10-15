@@ -9,7 +9,8 @@ use atom::Atom;
 use single::IdTree;
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent, MultiCaseImpl,
-    MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+	MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+	monitor::NotifyImpl
 };
 use hal_core::*;
 use res::{ResMap, ResMgr};
@@ -149,7 +150,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
                 .set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap());
         }
         if render_objs.len() > 0 {
-            render_objs.get_notify().modify_event(1, "ubo", 0);
+            render_objs.get_notify_ref().modify_event(1, "ubo", 0);
         }
     }
 }
@@ -252,7 +253,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
         let (render_objs, node_render_map) = write;
         let render_obj = &mut render_objs[event.id];
-        let notify = node_render_map.get_notify();
+        let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
         node_render_map.add(render_obj.context, event.id, &notify);
 
         let paramter = &mut render_obj.paramter;
@@ -292,7 +293,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
         node_render_map: Self::WriteData,
     ) {
         let render_obj = &read[event.id];
-        let notify = node_render_map.get_notify();
+        let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
         node_render_map.remove(render_obj.context, event.id, &notify);
     }
 }
@@ -314,7 +315,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
         for id in obj_ids.iter() {
             let render_obj = &mut render_objs[*id];
             render_obj.depth = z_depth + render_obj.depth_diff;
-            render_objs.get_notify().modify_event(*id, "depth", 0);
+            render_objs.get_notify_ref().modify_event(*id, "depth", 0);
         }
     }
 }
@@ -339,7 +340,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEve
                 .paramter
                 .as_ref()
                 .set_single_uniform("alpha", UniformValue::Float1(opacity));
-            render_objs.get_notify().modify_event(*id, "paramter", 0);
+            render_objs.get_notify_ref().modify_event(*id, "paramter", 0);
         }
     }
 }
@@ -392,7 +393,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
 
         if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
             for id in obj_ids.iter() {
-                let notify = render_objs.get_notify();
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 let render_obj = &mut render_objs[*id];
                 render_obj.fs_defines.add("HSV");
                 render_obj
@@ -404,7 +405,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
             }
         } else {
             for id in obj_ids.iter() {
-                let notify = render_objs.get_notify();
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 let render_obj = &mut render_objs[*id];
                 render_obj.fs_defines.remove("HSV");
 
@@ -432,7 +433,7 @@ fn modify_visible(id: usize, read: ReadData, write: WriteData) {
     let obj_ids = &node_render_map[id];
 
     for id in obj_ids.iter() {
-        let notify = render_objs.get_notify();
+		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let mut render_obj = RenderObjs::get_write(&mut *render_objs, *id, &notify);
         render_obj.set_visibility(visibility & !culling);
     }

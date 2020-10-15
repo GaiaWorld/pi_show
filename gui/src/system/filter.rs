@@ -14,13 +14,13 @@ use entity::Node;
 #[derive(Default)]
 pub struct FilterSys;
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData) {
-        hsvs.insert(event.id, HSV::default());
-    }
-}
+// impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys {
+//     type ReadData = ();
+//     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData) {
+//         hsvs.insert(event.id, HSV::default());
+//     }
+// }
 
 impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
@@ -66,10 +66,7 @@ fn cal_hsv(
         }
         None => return,
     };
-    let hsv = match hsvs.get(parent_id) {
-        Some(hsv) => hsv.clone(),
-        None => return,
-    };
+    let hsv = hsvs[parent_id].clone();
 
     recursive_cal_hsv(id, idtree, &hsv, filters, hsvs)
 }
@@ -82,10 +79,7 @@ fn recursive_cal_hsv(
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
-    let old_hsv =  match hsvs.get(id) {
-		Some(r) => r.clone(),
-		None => return,
-	};
+    let old_hsv =  hsvs[id].clone();
     let hsv = match filters.get(id) {
         Some(filter) => {
             let hsv = HSV {
@@ -144,7 +138,7 @@ impl_system! {
     FilterSys,
     false,
     {
-        EntityListener<Node, CreateEvent>
+        // EntityListener<Node, CreateEvent>
         MultiCaseListener<Node, Filter, CreateEvent>
         MultiCaseListener<Node, Filter, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>

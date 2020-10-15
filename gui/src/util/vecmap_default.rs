@@ -20,7 +20,7 @@ impl<T: Default> Default for VecMapWithDefault<T> {
 	}
 }
 
-impl<T> Index<usize> for VecMapWithDefault<T> {
+impl<T: Default> Index<usize> for VecMapWithDefault<T> {
     type Output = T;
     fn index(&self, index: usize) -> &T {
         match self.map.get(index) {
@@ -30,18 +30,24 @@ impl<T> Index<usize> for VecMapWithDefault<T> {
     }
 }
 
-impl<T> IndexMut<usize> for VecMapWithDefault<T> {
+impl<T: Clone + Default> IndexMut<usize> for VecMapWithDefault<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
-        match self.map.get_mut(index) {
-			Some(r) => r,
-			None => &mut self.default_v
-		}
+		unsafe { Map::get_unchecked_mut(self, &index) }
     }
 }
 
-impl<T> Map for VecMapWithDefault<T> {
+impl<T: Clone+ Default> Map for VecMapWithDefault<T> {
 	type Key = usize;
 	type Val = T;
+
+	#[inline]
+	fn with_capacity(capacity: usize) -> VecMapWithDefault<T> {
+        VecMapWithDefault {
+            default_v: T::default(),
+			map: VecMap::with_capacity(capacity),
+        }
+    }
+	
     #[inline]
     fn get(&self, key: &usize) -> Option<&T> {
         self.map.get(*key)
@@ -59,7 +65,14 @@ impl<T> Map for VecMapWithDefault<T> {
 
     #[inline]
     unsafe fn get_unchecked_mut(&mut self, key: &usize) -> &mut T {
-        self.map.get_unchecked_mut(*key)
+		// 编译器傻逼，所以这个get了两次，优化TODO
+		if self.map.get(*key).is_some() {
+			return &mut self.map[*key];
+		}
+		
+		self.map.insert(*key, self.default_v.clone());
+		&mut self.map[*key]
+        // self.map.get_unchecked_mut(*key)
     }
 
     #[inline]
@@ -95,3 +108,16 @@ impl<T> Map for VecMapWithDefault<T> {
         self.map.capacity() * std::mem::size_of::<T>()
     }
 }
+
+// impl<T: Default> VecMapWithDefault<T> {
+// 	#[inline]
+//     fn get_mut1<'a>(&'a mut self, key: &'a usize) -> Option<&'a mut T> {
+// 		if self.map.get(*key).is_some() {
+// 			return self.map.get_mut(*key);
+// 		}
+		
+// 		self.map.insert(*key, T::default());
+// 		self.map.get_mut(*key)
+//         // self.map.get_mut(*key)
+//     }
+// }

@@ -29,6 +29,7 @@ pub type Aabb3 = collision::Aabb3<f32>;
 pub type Aabb2 = collision::Aabb2<f32>;
 
 #[derive(Clone, Component, Serialize, Deserialize, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct RectLayoutStyle {
     pub margin: Rect<Dimension>,
     pub size: Size<Dimension>,
@@ -108,21 +109,26 @@ impl Default for OtherLayoutStyle {
 
 //================================== 组件
 #[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
 #[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct Overflow(pub bool);
 //不透明度
 #[derive(Deref, DerefMut, Clone, Component, Debug, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct Opacity(pub f32);
 
 // 将display、visibility、enable合并为show组件
 #[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct Show(pub usize);
 
 // 变换
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
@@ -148,7 +154,7 @@ pub struct BorderColor(pub CgColor);
 #[derive(Clone, Component)]
 pub struct Image {
     pub src: Option<Share<TextureRes>>,
-    pub url: Atom,
+    pub url: usize,
     // canvas使用
     pub width: Option<f32>,
     pub height: Option<f32>,

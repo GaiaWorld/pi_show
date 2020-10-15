@@ -126,7 +126,9 @@ pub fn create_world<C: HalContext + 'static>(
 	font_texture: Share<TextureRes>,
 	cur_time: u64,
 ) -> World {
-    let mut world = World::default();
+	let capacity = 4000;
+	let mut world = World::default();
+	world.capacity = capacity;
 
     let mut default_table = DefaultTable::new();
     default_table.set::<TextStyle>(TextStyle::default());
@@ -166,15 +168,16 @@ pub fn create_world<C: HalContext + 'static>(
 
     let default_state = DefaultState::new(&engine.gl);
 
-    let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::new(
+    let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::with_capacity(
         &mut engine,
-        (font_texture.width, font_texture.height),
+		(font_texture.width, font_texture.height),
+		capacity,
     ));
-    let border_image_sys = BorderImageSys::<C>::new(&mut engine);
+    let border_image_sys = BorderImageSys::<C>::with_capacity(&mut engine, capacity);
     let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr));
 
     let clip_sys = ClipSys::<C>::new();
-	let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
+	let image_sys = CellImageSys::new(ImageSys::with_capacity(&mut engine, capacity));
 	let mut sys_time = SystemTime::default();
 	sys_time.start_time = cur_time;
 
@@ -220,14 +223,14 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, Culling>();
 	world.register_multi::<Node, TransformWillChangeMatrix>();
 
-	let mut idtree = IdTree::default();
+	let mut idtree = IdTree::with_capacity(capacity);
 	idtree.set_statistics_count(true);
     //single
     world.register_single::<Statistics>(Statistics::default());
     world.register_single::<IdTree>(idtree);
-    world.register_single::<Oct>(Oct::new());
+    world.register_single::<Oct>(Oct::with_capacity(capacity));
     world.register_single::<OverflowClip>(OverflowClip::default());
-    world.register_single::<RenderObjs>(RenderObjs::default());
+    world.register_single::<RenderObjs>(RenderObjs::with_capacity(capacity));
     world.register_single::<ShareEngine<C>>(engine);
     world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
     world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
@@ -241,16 +244,16 @@ pub fn create_world<C: HalContext + 'static>(
         RenderBeginDesc::new(0, 0, width as i32, height as i32),
         None,
     ));
-    world.register_single::<NodeRenderMap>(NodeRenderMap::new());
+    world.register_single::<NodeRenderMap>(NodeRenderMap::with_capacity(capacity));
     world.register_single::<DefaultTable>(default_table);
     world.register_single::<ClassSheet>(ClassSheet::default());
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
-	world.register_single::<DirtyList>(DirtyList::default());
+	world.register_single::<DirtyList>(DirtyList::with_capacity(capacity));
 	world.register_single::<SystemTime>(sys_time);
 
-    world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
+    world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
@@ -261,7 +264,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
     world.register_system(
         WORLD_MATRIX_N.clone(),
-        CellWorldMatrixSys::new(WorldMatrixSys::default()),
+        CellWorldMatrixSys::new(WorldMatrixSys::with_capacity(capacity)),
     );
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(
@@ -282,11 +285,11 @@ pub fn create_world<C: HalContext + 'static>(
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
     world.register_system(
         BG_COLOR_N.clone(),
-        CellBackgroundColorSys::<C>::new(BackgroundColorSys::new()),
+        CellBackgroundColorSys::<C>::new(BackgroundColorSys::with_capacity(capacity)),
     );
     world.register_system(
         BR_COLOR_N.clone(),
-        CellBorderColorSys::<C>::new(BorderColorSys::new()),
+        CellBorderColorSys::<C>::new(BorderColorSys::with_capacity(capacity)),
     );
     world.register_system(
         BR_IMAGE_N.clone(),
@@ -294,7 +297,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
     world.register_system(
         BOX_SHADOW_N.clone(),
-        CellBoxShadowSys::<C>::new(BoxShadowSys::default()),
+        CellBoxShadowSys::<C>::new(BoxShadowSys::with_capacity(capacity)),
     );
     world.register_system(NODE_ATTR_N.clone(), node_attr_sys);
     world.register_system(

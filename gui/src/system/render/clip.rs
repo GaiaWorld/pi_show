@@ -316,7 +316,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
             engine.gl.render_end();
         }
 
-        let notify = render_objs.get_notify();
+        let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let mut pre_by_overflow = 0;
         let mut aabb = None;
         for id in dirty_list.0.iter() {
@@ -344,14 +344,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                 }
             } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
                 // 裁剪剔除
-                cullings.get_write(*id).unwrap().set_0(false);
+                unsafe {cullings.get_unchecked_write(*id)}.set_0(false);
                 for id in obj_ids.iter() {
                     let render_obj = &mut render_objs[*id];
                     render_obj.vs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP_BOX");
                     render_obj.fs_defines.remove("CLIP");
                     render_objs
-                        .get_notify()
+                        .get_notify_ref()
                         .modify_event(*id, "program_dirty", 0);
                 }
             }

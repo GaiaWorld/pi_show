@@ -8,8 +8,10 @@ use hash::DefaultHasher;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use share::Share;
 
 use component::calc::{Opacity, LayoutR};
@@ -88,8 +90,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         ) = read;
         let (render_objs, mut engine) = write;
 
-        let default_transform = Transform::default();
-        let notify = render_objs.get_notify();
+		let default_transform = Transform::default();
+		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -225,13 +227,22 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
             default_paramter: ImageParamter::default(),
             marker: PhantomData,
         }
+	}
+	
+	pub fn with_capacity(engine: &mut Engine<C>, capacity: usize) -> Self {
+        BorderImageSys {
+            render_map: VecMap::with_capacity(capacity),
+            default_sampler: engine.create_sampler_res(SamplerDesc::default()),
+            default_paramter: ImageParamter::default(),
+            marker: PhantomData,
+        }
     }
 
     #[inline]
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-				let notify = render_objs.get_notify();
+				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
 				println!("remove_render_obj border========================{}, index: {}", id, index);
                 render_objs.remove(index, Some(notify));
             }

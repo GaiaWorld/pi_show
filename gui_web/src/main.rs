@@ -225,7 +225,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         )
         .unwrap();
     let res = engine.create_texture_res(
-        Atom::from("__$text".to_string()),
+        Atom::from("__$text".to_string()).get_hash(),
         TextureRes::new(
             2048,
             32,
@@ -268,8 +268,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
 	rect_layout_style.size = Size{width: Dimension::Points(width), height: Dimension::Points(height)};
 	other_layout_style.position_type = PositionType::Absolute;
 	other_layout_style.position = Rect::default();
-	rect_layout_styles.get_notify().modify_event(node, "width", 0);
-	other_layout_styles.get_notify().modify_event(node, "position_type", 0);
+	rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
+	other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
 	// ygnode.align_items = AlignItems::FlexStart;
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
@@ -402,7 +402,7 @@ pub fn set_project_transfrom(
         -Z_MAX - 1.0,
         Z_MAX + 1.0,
     ).0;
-	project_matrix.get_notify().modify_event(0, "", 0);
+	project_matrix.get_notify_ref().modify_event(0, "", 0);
 	
 	let rect_layout_style = world.gui.rect_layout_style.lend_mut();
     let rect_layout_style = unsafe { rect_layout_style.get_unchecked_mut(1) };
@@ -593,7 +593,7 @@ pub fn load_image_success(
     match image_wait_sheet.wait.remove(&name) {
         Some(r) => {
             image_wait_sheet.finish.push((name, res, r));
-            image_wait_sheet.get_notify().modify_event(0, "", 0);
+            image_wait_sheet.get_notify_ref().modify_event(0, "", 0);
         }
         None => (),
     };
@@ -618,15 +618,16 @@ pub fn create_texture(
     opacity: u8,
     compress: i32,
     mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-) -> (Share<TextureRes>, Atom) {
+) -> (Share<TextureRes>, usize) {
     if r_type > 2 {
         r_type = 0;
     }
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-    let name: String = js! {return __jsObj1}.try_into().unwrap();
-    let name = Atom::from(name);
+	// let name: String = js! {return __jsObj1}.try_into().unwrap();
+	// let name = Atom::from(name);
+	let name: usize = js! {return __jsObj1}.try_into().unwrap();
 
     let engine = world.engine.lend_mut();
 
@@ -706,7 +707,7 @@ fn load_image(world_id: u32) {
     for img_name in image_wait_sheet.loads.iter() {
         js! {
             if (window.__load_image) {
-                window.__load_image(@{world_id}, @{img_name.as_ref()});
+                window.__load_image(@{world_id}, @{*img_name as u32});
             } else {
                 console.log("__load_image is undefined");
             }
@@ -724,7 +725,7 @@ pub fn set_render_dirty(world: u32) {
     let world = &mut world.gui;
     let render_objs = world.render_objs.lend();
 
-    render_objs.get_notify().modify_event(1, "", 0);
+    render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 
 /// 纹理是否存在, 返回0表示不存在
@@ -733,8 +734,9 @@ pub fn set_render_dirty(world: u32) {
 #[js_export]
 pub fn texture_is_exist(world: u32, group_i: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let name: String = js! {return __jsObj1}.try_into().unwrap();
-    let name = Atom::from(name);
+    // let name: String = js! {return __jsObj1}.try_into().unwrap();
+	// let name = Atom::from(name);
+	let name: usize = js! {return __jsObj1}.try_into().unwrap();
 
     let engine = world.gui.engine.lend();
     match engine.res_mgr.get::<TextureRes>(&name, group_i) {

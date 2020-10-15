@@ -27,8 +27,9 @@ type Read<'a> = (
     &'a MultiCaseImpl<Node, LayoutR>,
     &'a SingleCaseImpl<DefaultTable>,
     &'a SingleCaseImpl<Oct>,
-    &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
-    &'a SingleCaseImpl<ViewMatrix>,
+	&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+	&'a MultiCaseImpl<Node, NodeState>,
+	&'a SingleCaseImpl<ViewMatrix>,
 );
 type Write<'a> = (
     &'a mut SingleCaseImpl<OverflowClip>,
@@ -40,6 +41,47 @@ type Write<'a> = (
 #[derive(Default)]
 pub struct OverflowImpl {
     overflow_dirty: LayerDirty,
+}
+
+impl OverflowImpl {
+	fn modify<'a>(&mut self, id: usize, read: Read<'a>, mut write: Write<'a>) {
+		let node = &read.0[id];
+		if node.layer() == 0 {
+			return;
+		}
+		let overflow = *read.1[id];
+		let mut by = *write.1[id] ;
+		let notify = unsafe { &* (write.0.get_notify_ref() as *const NotifyImpl)} ;
+		let index = if overflow {
+			let mut i = create_clip(id, write.0);
+			if i == 0 {
+				return;
+			}
+			self.mark_dirty(
+				id,
+				StyleType1::Overflow as usize,
+				node.layer(),
+				&mut write.3,
+			);
+			i = 1 << (i - 1);
+			by = add_index(by, i);
+			i
+		} else {
+			// 删除根上的overflow的裁剪矩形
+			let mut i = remove_index(&mut *write.0, id, &notify);
+			if i == 0 {
+				return;
+			}
+			i = 1 << (i - 1);
+			by = del_index(by, i);
+			i
+		};
+		if by & index != 0 {
+			adjust(&read.0, write.1, &read.8,node.children().head, index, add_index);
+		} else {
+			adjust(&read.0, write.1, &read.8,node.children().head, index, del_index);
+		}
+	}
 }
 
 impl<'a> Runner<'a> for OverflowImpl {
@@ -79,20 +121,20 @@ impl<'a> Runner<'a> for OverflowImpl {
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
-    type ReadData = ();
-    type WriteData = (
-        &'a mut MultiCaseImpl<Node, Overflow>,
-        &'a mut MultiCaseImpl<Node, ByOverflow>,
-        &'a mut MultiCaseImpl<Node, Culling>,
-    );
+// impl<'a> EntityListener<'a, Node, CreateEvent> for OverflowImpl {
+//     type ReadData = ();
+//     type WriteData = (
+//         &'a mut MultiCaseImpl<Node, Overflow>,
+//         &'a mut MultiCaseImpl<Node, ByOverflow>,
+//         &'a mut MultiCaseImpl<Node, Culling>,
+//     );
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        write.1.insert(event.id, ByOverflow::default());
-        write.0.insert(event.id, Overflow::default());
-        write.2.insert(event.id, Culling(false));
-    }
-}
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+//         write.1.insert(event.id, ByOverflow::default());
+//         write.0.insert(event.id, Overflow::default());
+//         write.2.insert(event.id, Culling(false));
+//     }
+// }
 
 impl<'a> MultiCaseListener<'a, Node, Overflow, DeleteEvent> for OverflowImpl {
     type ReadData = &'a MultiCaseImpl<Node, Overflow>;
@@ -106,10 +148,20 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, DeleteEvent> for OverflowImpl {
     ) {
         let overflow = overflows[event.id].0;
         if overflow {
-            let notify = overflow_clip.get_notify();
+			let notify = unsafe { &* (overflow_clip.get_notify_ref() as *const NotifyImpl)} ;
             remove_index(&mut *overflow_clip, event.id, &notify);
         }
     }
+}
+
+//监听overflow属性的改变
+impl<'a> MultiCaseListener<'a, Node, Overflow, CreateEvent> for OverflowImpl {
+    type ReadData = Read<'a>;
+    type WriteData = Write<'a>;
+
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
+		self.modify(event.id, read, write);
+	}
 }
 
 //监听overflow属性的改变
@@ -118,45 +170,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
     type WriteData = Write<'a>;
 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
-        let node = &read.0[event.id];
-        if node.layer() == 0 {
-            return;
-        }
-        let overflow = match read.1.get(event.id) {
-            Some(r) => **r,
-            _ => return,
-        };
-        let mut by = *write.1[event.id] ;
-        let notify = write.0.get_notify();
-        let index = if overflow {
-            let mut i = create_clip(event.id, write.0);
-            if i == 0 {
-                return;
-            }
-            self.mark_dirty(
-                event.id,
-                StyleType1::Overflow as usize,
-                node.layer(),
-                &mut write.3,
-            );
-            i = 1 << (i - 1);
-            by = add_index(by, i);
-            i
-        } else {
-            // 删除根上的overflow的裁剪矩形
-            let mut i = remove_index(&mut *write.0, event.id, &notify);
-            if i == 0 {
-                return;
-            }
-            i = 1 << (i - 1);
-            by = del_index(by, i);
-            i
-        };
-        if by & index != 0 {
-            adjust(&read.0, write.1, node.children().head, index, add_index);
-        } else {
-            adjust(&read.0, write.1, node.children().head, index, del_index);
-        }
+        self.modify(event.id, read, write);
     }
 }
 
@@ -226,6 +240,18 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl 
     }
 }
 
+impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OverflowImpl {
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ByOverflow>,
+        &'a MultiCaseImpl<Node, Overflow>,
+        &'a SingleCaseImpl<IdTree>,
+    );
+    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+        self.matrix_dirty(event.id, read, write);
+    }
+}
+
 impl<'a> MultiCaseListener<'a, Node, Transform, CreateEvent> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
@@ -254,15 +280,19 @@ impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
+		&'a SingleCaseImpl<IdTree>,
+		&'a MultiCaseImpl<Node, NodeState>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-		// 虚拟节点不需要计算overflow
-		if let None = read.1.get(event.id) {
-			return;
+		// // 虚拟节点不需要计算overflowis_rnode
+		// if let None = read.1.get(event.id) {
+		// 	return;
+		// }
+		let isrnode = read.3[event.id].0.is_rnode();
+		if isrnode {
+			self.matrix_dirty(event.id, (read.0, read.1, read.2), write);
 		}
-        self.matrix_dirty(event.id, read, write);
     }
 }
 
@@ -274,10 +304,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
         let node = &read.0[event.id];
         // 获得父节点的ByOverflow
         let mut by = *write.1[node.parent()];
-        let overflow = match read.1.get(node.parent()) {
-            Some(r) => **r,
-            _ => false,
-        };
+        let overflow = *read.1[node.parent()];
         if overflow {
             let i = get_index(write.0, node.parent());
             if i > 0 {
@@ -291,7 +318,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
 impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
     type ReadData = (
         &'a SingleCaseImpl<IdTree>,
-        &'a MultiCaseImpl<Node, Overflow>,
+		&'a MultiCaseImpl<Node, Overflow>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<OverflowClip>,
@@ -299,24 +326,18 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
     );
 
     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
-        let node = &read.0[event.id];
-        let notify = write.0.get_notify();
+		let node = &read.0[event.id];
+		let notify = unsafe { &* (write.0.get_notify_ref() as *const NotifyImpl)} ;
         if match read.1.get(event.id) {
             Some(r) => **r,
             _ => false,
         } {
             remove_index(&mut *write.0, event.id, &notify);
 		}
-		match write.1.get_write(event.id) {
-			Some(mut r) => r.set_0(0),
-			None => return,
-		};
+		unsafe {write.1.get_unchecked_write(event.id)}.set_0(0);
         // 递归调用，检查是否有overflow， 撤销设置OverflowClip
         for (id, _n) in read.0.recursive_iter(node.children().head) {
-            if match read.1.get(id) {
-                Some(r) => **r,
-                _ => false,
-            } {
+            if *read.1[id] {
                 remove_index(&mut *write.0, id, &notify);
             }
             match write.1.get_write(event.id) {
@@ -338,12 +359,9 @@ impl<'a> EntityListener<'a, Node, ModifyEvent> for OverflowImpl {
     );
 
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        let overflow = match read.1.get(event.id) {
-            Some(r) => **r,
-            _ => false,
-        };
+        let overflow = *read.1[event.id];
         if overflow {
-            let notify = write.0.get_notify();
+			let notify = unsafe { &* (write.0.get_notify_ref() as *const NotifyImpl)} ;
             remove_index(&mut *write.0, event.id, &notify);
         }
     }
@@ -416,12 +434,12 @@ impl OverflowImpl {
 
     // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
     fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
-		let overflow = match read.1.get(id) {
-            Some(r) => **r,
-            _ => return,
-        };
+		if !read.8[id].0.is_rnode() {
+			return;
+		}
+		let overflow = *read.1[id];
         if by > 0 {
-            write.1.get_write(id).unwrap().set_0(by);
+            unsafe {write.1.get_unchecked_write(id)}.set_0(by);
         }
         if overflow {
             // 添加根上的overflow的裁剪矩形
@@ -482,20 +500,20 @@ fn calc_clip<'a>(
                 Some(m) => {
                     // 如果没有旋转
                     if !(m.0).1 {
-                        cullings.get_write(id).unwrap().set_0(!is_intersect(
+                        unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
                             &item.0,
                             &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0),
                         ))
                     }
                 }
-                None => cullings.get_write(id).unwrap().set_0(!is_intersect(
+                None => unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
                     &item.0,
                     &unsafe { read.6.get_unchecked(id) }.0,
                 )),
             }
         }
-        // 通知by_overflow改变，以修改clipBox
-        by_overflows.get_notify().modify_event(id, "", 0);
+		// 通知by_overflow改变，以修改clipBox
+        by_overflows.get_notify_ref().modify_event(id, "", 0);
     }
 
     if let Some(r) = read.7.get(id) {
@@ -514,11 +532,11 @@ fn calc_clip<'a>(
                 by1,
                 i,
                 unsafe { &mut *(overflow_clip as *mut SingleCaseImpl<OverflowClip>) },
-                &(read.8).0,
+                &(read.9).0,
             );
             by = by1;
             // by_clip_aabb
-            overflow_clip.get_notify().modify_event(i, "", id);
+            overflow_clip.get_notify_ref().modify_event(i, "", id);
         }
     }
 
@@ -526,7 +544,7 @@ fn calc_clip<'a>(
 
     let first = read.0[id].children().head;
     for (child_id, _child) in read.0.iter(first) {
-		if let None = read.1.get(child_id) {
+		if !read.8[child_id].0.is_rnode() {
 			continue;
 		}
         calc_clip(
@@ -628,17 +646,18 @@ fn del_index(by: usize, index: usize) -> usize {
 #[inline]
 fn adjust(
     idtree: &SingleCaseImpl<IdTree>,
-    by_overflow: &mut MultiCaseImpl<Node, ByOverflow>,
+	by_overflow: &mut MultiCaseImpl<Node, ByOverflow>,
+	node_states: &MultiCaseImpl<Node, NodeState>,
     child: usize,
     index: usize,
     ops: fn(a: usize, b: usize) -> usize,
 ) {
     for (id, _n) in idtree.recursive_iter(child) {
-        let by = match by_overflow.get(id) {
-			Some(r) => **r, 
-			None => continue,
-		};
-        by_overflow.get_write(id).unwrap().set_0(ops(by, index));
+        let by = *by_overflow[id];
+		by_overflow.get_write(id).unwrap().set_0(ops(by, index));
+		if !node_states[id].is_rnode() {
+			continue;
+		}
     }
 }
 // 计算内容区域矩形的4个点
@@ -795,11 +814,13 @@ impl_system! {
     OverflowImpl,
     true,
     {
-        EntityListener<Node, CreateEvent>
-        EntityListener<Node, ModifyEvent>
+        // EntityListener<Node, CreateEvent>
+		EntityListener<Node, ModifyEvent>
+		MultiCaseListener<Node, Overflow, CreateEvent>
         MultiCaseListener<Node, Overflow, ModifyEvent>
         MultiCaseListener<Node, Overflow, DeleteEvent>
-        MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+		MultiCaseListener<Node, WorldMatrix, CreateEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Transform, CreateEvent>
         MultiCaseListener<Node, Transform, DeleteEvent>

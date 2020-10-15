@@ -1777,7 +1777,7 @@ pub fn set_attr1(
             }
             Attribute1::Enable(r) => {
                 if style_mark.local_style1 & StyleType1::Enable as usize == 0 {
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_enable(*r);
                         true
                     });
@@ -1787,7 +1787,7 @@ pub fn set_attr1(
                 if style_mark.local_style1 & StyleType1::Display as usize == 0 {
 					other_style.display = *r;
                     // layout_style.set_display(unsafe { transmute(*r) });
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_display(*r);
                         true
                     });
@@ -1795,7 +1795,7 @@ pub fn set_attr1(
             }
             Attribute1::Visibility(r) => {
                 if style_mark.local_style1 & StyleType1::Visibility as usize == 0 {
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_visibility(*r);
                         true
                     });
@@ -1803,7 +1803,7 @@ pub fn set_attr1(
             }
             Attribute1::Overflow(r) => {
                 if style_mark.local_style1 & StyleType1::Overflow as usize == 0 {
-                    overflows.get_write(id).unwrap().modify(
+                    unsafe{overflows.get_unchecked_write(id)}.modify(
                         |overflow: &mut Overflow| {
                             overflow.0 = *r;
                             true
@@ -2294,7 +2294,7 @@ fn set_image<C: HalContext>(
             }
             None => {
                 image_wait_sheet.add(
-                    &image.url,
+                    image.url,
                     ImageWait {
                         id: id,
                         ty: wait_ty,

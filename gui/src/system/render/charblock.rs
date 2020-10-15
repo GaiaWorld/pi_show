@@ -16,6 +16,7 @@ use ecs::{
 use idtree::NodeList;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use res::ResMap;
 use share::Share;
@@ -146,7 +147,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         }
 
         let (render_objs, engine, node_states) = write;
-        let notify = render_objs.get_notify();
+        let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let default_transform = default_table.get::<Transform>().unwrap();
 
         if self.texture_change == true {
@@ -313,7 +314,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 					scale,
                 );
                 render_objs
-                    .get_notify()
+                    .get_notify_ref()
                     .modify_event(index.text, "geometry", 0);
 			}
 			
@@ -455,7 +456,7 @@ impl<'a, C: HalContext + 'static>
 
 impl<C: HalContext + 'static> CharBlockSys<C> {
     #[inline]
-    pub fn new(engine: &mut Engine<C>, texture_size: (usize, usize)) -> Self {
+    pub fn with_capacity(engine: &mut Engine<C>, texture_size: (usize, usize), capacity: usize) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
 		canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 		// canvas_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
@@ -487,7 +488,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
         );
 
         Self {
-            render_map: VecMap::default(),
+            render_map: VecMap::with_capacity(capacity),
             canvas_bs: canvas_bs,
             msdf_bs: msdf_bs,
             default_sampler: default_sampler,
@@ -599,7 +600,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
         render_obj
             .paramter
             .set_value("textureSize", self.texture_size_ubo.clone());
-        let notify = render_objs.get_notify();
+			let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         render_objs.insert(render_obj, Some(notify))
     }
 
@@ -607,8 +608,8 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
-                render_objs.remove(index.text, Some(notify.clone()));
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
+                render_objs.remove(index.text, Some(notify));
                 render_objs.remove(index.shadow, Some(notify));
             }
             None => (),

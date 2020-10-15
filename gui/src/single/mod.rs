@@ -119,9 +119,9 @@ impl ProjectionMatrix {
 // 图片等待表
 #[derive(Default)]
 pub struct ImageWaitSheet {
-    pub wait: XHashMap<Atom, Vec<ImageWait>>,
-    pub finish: Vec<(Atom, Share<TextureRes>, Vec<ImageWait>)>,
-    pub loads: Vec<Atom>,
+    pub wait: XHashMap<usize, Vec<ImageWait>>,
+    pub finish: Vec<(usize, Share<TextureRes>, Vec<ImageWait>)>,
+    pub loads: Vec<usize>,
 }
 
 impl ImageWaitSheet {
@@ -138,12 +138,12 @@ impl ImageWaitSheet {
 
         r
     }
-    pub fn add(&mut self, name: &Atom, wait: ImageWait) {
+    pub fn add(&mut self, name: usize, wait: ImageWait) {
         let loads = &mut self.loads;
         self.wait
-            .entry(name.clone())
+            .entry(name)
             .or_insert_with(|| {
-                loads.push(name.clone());
+                loads.push(name);
                 Vec::with_capacity(1)
             })
             .push(wait);
@@ -168,6 +168,12 @@ pub struct UnitQuad(pub Share<GeometryRes>);
 
 #[derive(Default)]
 pub struct DirtyList(pub Vec<usize>);
+
+impl DirtyList {
+	pub fn with_capacity(capacity: usize) -> DirtyList{
+        Self(Vec::with_capacity(capacity))
+    }
+}
 
 pub struct DefaultState {
     pub df_rs: Share<RasterStateRes>,
@@ -309,10 +315,13 @@ impl Default for RenderObjs {
 }
 
 impl RenderObjs {
+	pub fn with_capacity(capacity: usize) -> Self {
+        Self(Slab::with_capacity(capacity))
+    }
     pub fn mem_size(&self) -> usize {
         self.0.mem_size()
     }
-    pub fn insert(&mut self, value: RenderObj, notify: Option<NotifyImpl>) -> usize {
+    pub fn insert(&mut self, value: RenderObj, notify: Option<&NotifyImpl>) -> usize {
         let id = self.0.insert(value);
         match notify {
             Some(n) => n.create_event(id),
@@ -321,7 +330,7 @@ impl RenderObjs {
         id
     }
 
-    pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<NotifyImpl>) {
+    pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<&NotifyImpl>) {
         self.0.remove(id);
         match notify {
             Some(n) => n.delete_event(id),
@@ -329,7 +338,7 @@ impl RenderObjs {
         };
     }
 
-    pub fn remove(&mut self, id: usize, notify: Option<NotifyImpl>) {
+    pub fn remove(&mut self, id: usize, notify: Option<&NotifyImpl>) {
         if self.0.contains(id) {
             self.0.remove(id);
             match notify {
@@ -371,6 +380,10 @@ impl Index<usize> for NodeRenderMap {
 impl NodeRenderMap {
     pub fn new() -> Self {
         Self(VecMap::default())
+	}
+	
+	pub fn with_capacity(capacity: usize) -> Self {
+        Self(VecMap::with_capacity(capacity))
     }
 
 	pub fn add(&mut self, node_id: usize, render_id: usize, notify: &NotifyImpl) {
@@ -420,6 +433,10 @@ pub struct SystemTime {
 pub struct IdTree(idtree::IdTree<usize>);
 
 impl IdTree {
+	pub fn with_capacity(capacity: usize) -> Self {
+        Self(idtree::IdTree::with_capacity(capacity))
+	}
+	
 	pub fn insert_child_with_notify(&mut self, child: usize, parent:usize, index: usize, notify: &NotifyImpl) {
 		self.insert_child(child, parent, index);
 		let node = &self[child];

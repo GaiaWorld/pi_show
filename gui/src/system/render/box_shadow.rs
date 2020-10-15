@@ -3,9 +3,11 @@ use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use entity::Node;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use polygon::*;
 use render::engine::{AttributeDecs, Engine, ShareEngine};
 use render::res::GeometryRes;
@@ -24,6 +26,17 @@ pub struct BoxShadowSys<C: HalContext + 'static> {
     dirty_ty: usize,
     default_paramter: ColorParamter,
     marker: std::marker::PhantomData<C>,
+}
+
+impl<C: HalContext + 'static> BoxShadowSys<C> {
+	pub fn with_capacity(capacity: usize) -> Self {
+		BoxShadowSys {
+			render_map: VecMap::with_capacity(capacity),
+			dirty_ty: 0,
+			default_paramter: ColorParamter::default(),
+			marker: std::marker::PhantomData,
+		}
+	}
 }
 
 impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
@@ -85,8 +98,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             return;
         }
 
-        let (render_objs, engine) = write;
-        let notify = render_objs.get_notify();
+		let (render_objs, engine) = write;
+		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let default_transform = default_table.get::<Transform>().unwrap();
 
         for id in dirty_list.0.iter() {
@@ -190,7 +203,7 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 render_objs.remove(index, Some(notify));
             }
             None => (),

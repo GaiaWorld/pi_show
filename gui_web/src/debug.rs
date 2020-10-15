@@ -739,16 +739,16 @@ pub fn node_info(world: u32, node: u32) {
 	let world = &mut world.gui;
 	let idtree = world.idtree.lend();
 
-    // let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
+    // let z_depth = unsafe { world.z_depth.lend()[node]}.0;
 
-    let parent = unsafe { idtree.get_unchecked(node) }.parent();
+    let parent = idtree[node].parent();
 
-    let enable = unsafe { world.enable.lend().get_unchecked(node) }.0;
-    let visibility = unsafe { world.visibility.lend().get_unchecked(node) }.0;
+    let enable = world.enable.lend()[node].0;
+    let visibility = world.visibility.lend()[node].0;
 
-    let by_overflow = unsafe { world.by_overflow.lend().get_unchecked(node) }.0;
+    let by_overflow = world.by_overflow.lend()[node].0;
 
-    let opacity = unsafe { world.opacity.lend().get_unchecked(node) }.0;
+    let opacity = world.opacity.lend()[node].0;
 
     let layout = world.layout.lend();
 
@@ -757,7 +757,7 @@ pub fn node_info(world: u32, node: u32) {
     let transform = world.transform.lend();
 
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
-    let layout = unsafe { layout.get_unchecked(node) };
+    let layout = &layout[node];
 
 	let width = layout.rect.end - layout.rect.start;
 	let height = layout.rect.bottom - layout.rect.top;
@@ -844,10 +844,10 @@ pub fn node_info(world: u32, node: u32) {
     };
 
     // let yogas = world.yoga.lend();
-    // let yoga = unsafe { yogas.get_unchecked(node) };
+    // let yoga = yogas[node];
 
     // let octs = world.oct.lend();
-    // let oct = unsafe { octs.get_unchecked(node) };
+    // let oct = octs[node];
 
     let mut render_map = Vec::new();
     let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
@@ -981,18 +981,18 @@ pub fn node_info(world: u32, node: u32) {
 
     let info = Info {
         // char_block: char_block,
-        overflow: unsafe { world.overflow.lend().get_unchecked(node) }.0,
+        overflow: world.overflow.lend()[node].0,
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
         opacity: opacity,
-        zindex: unsafe { world.z_index.lend().get_unchecked(node) }.0 as u32,
-        zdepth: unsafe { world.z_depth.lend().get_unchecked(node) }.0,
+        zindex: world.z_index.lend()[node].0 as u32,
+        zdepth: world.z_depth.lend()[node].0,
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
-        culling: unsafe { world.culling.lend().get_unchecked(node) }.0,
+        culling: world.culling.lend()[node].0,
         text: match world.text_style.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
@@ -1007,11 +1007,11 @@ pub fn node_info(world: u32, node: u32) {
             None => None,
         },
         image: match world.image.lend().get(node) {
-            Some(r) => Some(r.url.as_ref().to_string()),
+            Some(r) => Some(r.url.to_string()),
             None => None,
         },
         border_image: match world.border_image.lend().get(node) {
-            Some(r) => Some(r.0.url.as_ref().to_string()),
+            Some(r) => Some(r.0.url.to_string()),
             None => None,
         },
         background_color: match world.background_color.lend().get(node) {

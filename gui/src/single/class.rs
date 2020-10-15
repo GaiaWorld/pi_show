@@ -73,8 +73,8 @@ pub enum Attribute2 {
     Opacity(Opacity),
     BorderImageRepeat(BorderImageRepeat),
 
-    ImageUrl(Atom),
-    BorderImageUrl(Atom),
+    ImageUrl(usize),
+    BorderImageUrl(usize),
 
     FlexShrink(f32),
     FlexGrow(f32),

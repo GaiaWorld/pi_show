@@ -142,7 +142,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
 
         "background-image" => {
-            class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?));
+            class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?.get_hash()));
             class.class_style_mark |= StyleType::Image as usize;
 		}
 		"image-clip" => {
@@ -167,7 +167,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "border-image" => {
             class
                 .attrs2
-                .push(Attribute2::BorderImageUrl(parse_url(value)?));
+                .push(Attribute2::BorderImageUrl(parse_url(value)?.get_hash()));
             class.class_style_mark |= StyleType::BorderImage as usize;
         }
         "border-image-clip" => {

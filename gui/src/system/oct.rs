@@ -7,6 +7,7 @@ use component::user::*;
 use entity::Node;
 use single::oct::Oct;
 use single::*;
+use ecs::monitor::NotifyImpl;
 use Z_MAX;
 
 #[derive(Default)]
@@ -32,6 +33,34 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys {
 	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, oct: Self::WriteData) {
+		let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
+            read;
+		let default_transform = default_table.get_unchecked::<Transform>();
+        OctSys::modify_oct(
+			event.id,
+			id_tree,
+			world_matrixs,
+			layouts,
+			transforms,
+			default_transform,
+			oct,
+		);
+    }
+}
+
+impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
+    type ReadData = (
+		&'a MultiCaseImpl<Node, WorldMatrix>,
+        &'a MultiCaseImpl<Node, LayoutR>,
+        &'a MultiCaseImpl<Node, Transform>,
+        &'a MultiCaseImpl<Node, StyleMark>,
+        &'a SingleCaseImpl<DefaultTable>,
+        &'a SingleCaseImpl<IdTree>,
+        &'a SingleCaseImpl<DirtyList>,
+	);
+    type WriteData = &'a mut SingleCaseImpl<Oct>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, oct: Self::WriteData) {
+		println!("WorldMatrix create==============={}",event.id );
         let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
             read;
 		let default_transform = default_table.get_unchecked::<Transform>();
@@ -80,33 +109,37 @@ impl OctSys {
         let origin = transform.origin.to_value(width, height);
         let aabb = cal_bound_box((width, height), world_matrix, &origin);
 
-		let notify = octree.get_notify();
-        octree.update(id, aabb, Some(notify));
+		let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
+		if let Some(_r) = octree.get(id) {
+			octree.update(id, aabb, Some(notify));
+		} else {
+			octree.add(id, aabb, id, Some(notify));
+		}
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let notify = write.get_notify();
-        write.add(
-            event.id,
-            Aabb3::new(
-                Point3::new(-1024f32, -1024f32, -Z_MAX),
-                Point3::new(3072f32, 3072f32, Z_MAX),
-            ),
-            event.id,
-            Some(notify),
-        );
-    }
-}
+// impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
+//     type ReadData = ();
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+//         let notify = write.get_notify();
+//         write.add(
+//             event.id,
+//             Aabb3::new(
+//                 Point3::new(-1024f32, -1024f32, -Z_MAX),
+//                 Point3::new(3072f32, 3072f32, Z_MAX),
+//             ),
+//             event.id,
+//             Some(notify),
+//         );
+//     }
+// }
 
 impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let notify = write.get_notify();
+        let notify = unsafe { &* (write.get_notify_ref() as *const NotifyImpl)} ;
         write.remove(event.id, Some(notify));
     }
 }
@@ -153,9 +186,10 @@ impl_system! {
     OctSys,
     true,
     {
-        EntityListener<Node, CreateEvent>
+        // EntityListener<Node, CreateEvent>
 		EntityListener<Node, DeleteEvent>
 		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+		MultiCaseListener<Node, WorldMatrix, CreateEvent>
     }
 }
 
