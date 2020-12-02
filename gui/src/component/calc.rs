@@ -137,29 +137,98 @@ pub enum StyleType {
     Filter = 0x40000000,
 }
 
+// 布局属性标记
+pub enum StyleType2 {
+	Width = 1,
+    Height = 2,
+	
+	MarginTop = 4,
+	MarginRight = 8,
+	MarginBottom = 0x10,
+	MarginLeft = 0x20,
+
+	PaddingTop = 0x40,
+	PaddingRight = 0x80,
+	PaddingBottom = 0x100,
+	PaddingLeft = 0x200,
+
+	BorderTop = 0x400,
+	BorderRight = 0x800,
+	BorderBottom = 0x1000,
+	BorderLeft = 0x2000,
+
+	PositionTop = 0x4000,
+	PositionRight = 0x8000,
+	PositionBottom = 0x10000,
+	PositionLeft = 0x20000,
+	
+    MinWidth = 0x40000,
+    MinHeight = 0x80000,
+    MaxHeight = 0x100000,
+	MaxWidth = 0x200000,
+	JustifyContent = 0x400000,
+    FlexShrink = 0x800000,
+	FlexGrow = 0x1000000,
+	PositionType = 0x2000000,
+    FlexWrap = 0x4000000,
+    FlexDirection = 0x8000000,
+    AlignContent = 0x10000000,
+    AlignItems = 0x20000000,
+    AlignSelf = 0x40000000,
+}
+
+// margin标记
+pub const LAYOUT_MARGIN_MARK: usize = StyleType2::MarginTop as usize
+	| StyleType2::MarginRight as usize
+	| StyleType2::MarginBottom as usize
+	| StyleType2::MarginLeft as usize;
+// pading标记
+pub const LAYOUT_PADDING_MARK: usize = StyleType2::PaddingTop as usize
+	| StyleType2::PaddingRight as usize
+	| StyleType2::PaddingBottom as usize
+	| StyleType2::PaddingLeft as usize;
+// border标记
+pub const LAYOUT_BORDER_MARK: usize = StyleType2::BorderTop as usize
+	| StyleType2::BorderRight as usize
+	| StyleType2::BorderBottom as usize
+	| StyleType2::BorderLeft as usize;
+// border标记
+pub const LAYOUT_POSITION_MARK: usize = StyleType2::PositionTop as usize
+	| StyleType2::PositionRight as usize
+	| StyleType2::PositionBottom as usize
+	| StyleType2::PositionLeft as usize;
+// 矩形属性标记
+pub const LAYOUT_RECT_MARK: usize = StyleType2::Width as usize
+	| StyleType2::Height as usize
+	| LAYOUT_MARGIN_MARK;
+
 // 枚举样式的类型
 #[derive(Debug)]
 pub enum StyleType1 {
-    Width = 1,
-    Height = 2,
-    Margin = 4,
-    Padding = 8,
-    Border = 0x10,
-    Position = 0x20,
-    MinWidth = 0x40,
-    MinHeight = 0x80,
-    MaxHeight = 0x100,
-    MaxWidth = 0x200,
-    FlexBasis = 0x400,
-    FlexShrink = 0x800,
-    FlexGrow = 0x1000,
-    PositionType = 0x2000,
-    FlexWrap = 0x4000,
-    FlexDirection = 0x8000,
-    AlignContent = 0x10000,
-    AlignItems = 0x20000,
-    AlignSelf = 0x40000,
-    JustifyContent = 0x80000,
+    // Width = 1,
+    // Height = 2,
+    // Margin = 4,
+    // Padding = 8,
+    // Border = 0x10,
+    // Position = 0x20,
+    // MinWidth = 0x40,
+    // MinHeight = 0x80,
+    // MaxHeight = 0x100,
+    // MaxWidth = 0x200,
+    // FlexBasis = 0x400,
+    // FlexShrink = 0x800,
+    // FlexGrow = 0x1000,
+    // PositionType = 0x2000,
+    // FlexWrap = 0x4000,
+    // FlexDirection = 0x8000,
+    // AlignContent = 0x10000,
+    // AlignItems = 0x20000,
+    // AlignSelf = 0x40000,
+	// JustifyContent = 0x80000,
+	Direction = 0x10000,
+	AspectRatio = 0x20000,
+	Order = 0x40000,
+	FlexBasis = 0x80000,
 
     Display = 0x100000,
     Visibility = 0x200000,
@@ -174,15 +243,18 @@ pub enum StyleType1 {
 }
 
 // 样式标记
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct StyleMark {
     pub dirty: usize, // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
-	pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType1::Height as usize 表示Width和Height脏了
+	pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
+	pub dirty2: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
 	pub dirty_other: usize, // 其它脏， 仅标记，不会记入脏列表
     pub local_style: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+	pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+	pub local_style2: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
-    pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub class_style2: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
 pub enum LayoutDirtyType {
 	Rect = 1, // 矩形区间发生改变时，设置脏
@@ -190,7 +262,7 @@ pub enum LayoutDirtyType {
 	NormalStyle = 4, // 矩形区间发生改变时，设置脏
 }
 
-#[derive(Component, Clone, Default, Deref, DerefMut, Debug)]
+#[derive(Component, Clone, Default, Deref, DerefMut, Debug, Serialize)]
 pub struct NodeState(pub INode);
 
 

@@ -353,16 +353,16 @@ pub fn set_font_family(world: u32, node_id: u32) {
 #[no_mangle]
 #[js_export]
 pub fn add_msdf_font_res(world_id: u32) {
-    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world1.gui;
     let cfg: TypedArray<u8> = js!(return __jsObj1;).try_into().unwrap();
     let cfg = cfg.to_vec();
     let width: u32 = js!(return __jsObj.width;).try_into().unwrap();
     let height: u32 = js!(return __jsObj.height;).try_into().unwrap();
     let font_sheet = world.font_sheet.lend_mut();
 
-    if width > 2048 {
-        debug_println!("add_msdf_font_res fail, width > 2048");
+    if width > world1.max_texture_size {
+        debug_println!("add_msdf_font_res fail");
     }
 
     update_text_texture(world_id, 0, 0, height);
@@ -428,8 +428,8 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32) {
 #[no_mangle]
 #[js_export]
 pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world1 = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world1.gui;
     let font_sheet = world.font_sheet.lend_mut();
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
@@ -437,8 +437,8 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
     let mut end_v = v + height;
     if end_v > texture.height as u32 {
         end_v = next_power_of_two(end_v);
-        if end_v > 2048 {
-            debug_println!("update_canvas_text fail, height overflow");
+        if end_v > world1.max_texture_size {
+            debug_println!("update_canvas_text fail, height overflow, height");
         }
         engine
             .gl
@@ -462,9 +462,9 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
 pub fn draw_canvas_text(world_id: u32, data: u32) {
     // let t = std::time::Instant::now();
     let text_info_list = unsafe { Box::from_raw(data as usize as *mut Vec<TextInfo1>) };
-    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let canvas = &world.draw_text_sys.canvas;
-    let world = &mut world.gui;
+    let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let canvas = &world1.draw_text_sys.canvas;
+    let world = &mut world1.gui;
     let font_sheet = world.font_sheet.lend_mut();
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
@@ -497,7 +497,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
     // 扩展纹理
     if end_v > texture.height as u32 {
         end_v = next_power_of_two(end_v);
-        if end_v > 2048 {
+        if end_v > world1.max_texture_size {
             debug_println!("update_canvas_text fail, height overflow");
         }
         engine

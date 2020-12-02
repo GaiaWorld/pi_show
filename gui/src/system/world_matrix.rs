@@ -59,18 +59,22 @@ impl WorldMatrixSys {
 		node_states: &MultiCaseImpl<Node, NodeState>,
     ) {
         let mut count = 0;
-        // let time = std::time::Instant::now();
+		// let time = std::time::Instant::now();
 		let default_transform = default_table.get_unchecked::<Transform>();
-		// println!("matrix dirty==================={:?}", &self.dirty.0);
         for (id, layer) in self.dirty.iter() {
             {
-				if !node_states[*id].0.is_rnode() {
-					continue;
-				}
+				match node_states.get(*id) {
+					Some(node_state) => {
+						if !node_state.0.is_rnode() {
+							continue;
+						}
+					},
+					None => continue,
+				};
                 let dirty_mark = match self.dirty_mark_list.get_mut(id) {
                     Some(r) => r,
                     None => continue, //panic!("dirty_mark_list err: {}", *id),
-                };
+				};
                 if *dirty_mark == 0 {
                     continue;
                 }
@@ -86,12 +90,12 @@ impl WorldMatrixSys {
                     }
                 }
                 None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
-            };
+			};
             // let transform_value = get_or_default(parent_id, transform, default_table);
             let transform_value = match transform.get(parent_id) {
                 Some(r) => r,
                 None => default_transform,
-            };
+			};
             recursive_cal_matrix(
                 &mut self.dirty_mark_list,
                 parent_id,

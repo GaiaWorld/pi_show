@@ -1047,7 +1047,11 @@ impl WebglHalContext {
             .set_render_target(&context_impl.gl, &default_rt, &rt);
 
         WebglHalContext(context_impl, default_rt)
-    }
+	}
+	
+	pub fn get_raw_gl(&self) -> &WebGLRenderingContext {
+		&self.0.gl
+	}
 
     pub fn texture_get_object_webgl(&self, tex: &HalTexture) -> Option<&WebGLTexture> {
         let slab = convert_to_mut(&self.0.texture_slab);
@@ -1228,10 +1232,11 @@ impl WebglHalContext {
     }
 
     fn create_caps_and_extensions(gl: &WebGLRenderingContext) -> (Capabilities, Extensions) {
-        let max_textures_image_units = gl
-            .get_parameter(WebGLRenderingContext::MAX_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
+        // let max_textures_image_units = gl
+        //     .get_parameter(WebGLRenderingContext::MAX_TEXTURE_IMAGE_UNITS)
+        //     .try_into()
+		//     .unwrap();
+		let max_textures_image_units = 8; // qq小游戏取到最大纹理数量是16，但实际可用的只有8个，等待qq小游戏修复bug
         let max_vertex_texture_image_units = gl
             .get_parameter(WebGLRenderingContext::MAX_VERTEX_TEXTURE_IMAGE_UNITS)
             .try_into()

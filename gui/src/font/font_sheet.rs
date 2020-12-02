@@ -469,6 +469,7 @@ pub struct WaitChar {
     pub y: u32,
 }
 
+#[derive(Debug)]
 // 劈分结果
 pub enum SplitResult {
     Newline,
@@ -478,6 +479,7 @@ pub enum SplitResult {
     WordNext(char),  // 单词字符继续
     WordEnd,         // 单词字符结束
 }
+
 // 劈分字符迭代器
 pub struct SplitChar<'a> {
     iter: Chars<'a>,

@@ -21,9 +21,14 @@ use std::slice;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use system::util::*;
 
+const DITY_TYPE: usize = StyleType::BoxShadow as usize
+            | StyleType::Matrix as usize
+            | StyleType::BorderRadius as usize
+            | StyleType::Opacity as usize
+			| StyleType::Layout as usize;
+			
 pub struct BoxShadowSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
-    dirty_ty: usize,
     default_paramter: ColorParamter,
     marker: std::marker::PhantomData<C>,
 }
@@ -32,7 +37,6 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
 	pub fn with_capacity(capacity: usize) -> Self {
 		BoxShadowSys {
 			render_map: VecMap::with_capacity(capacity),
-			dirty_ty: 0,
 			default_paramter: ColorParamter::default(),
 			marker: std::marker::PhantomData,
 		}
@@ -41,14 +45,7 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
 
 impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
     fn default() -> Self {
-        let dirty_ty = StyleType::BoxShadow as usize
-            | StyleType::Matrix as usize
-            | StyleType::BorderRadius as usize
-            | StyleType::Opacity as usize
-            | StyleType::Layout as usize;
-
         Self {
-            dirty_ty,
             render_map: VecMap::default(),
             default_paramter: ColorParamter::default(),
             marker: PhantomData,
@@ -113,10 +110,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
             let dirty = style_mark.dirty;
 
-            // 不存在BuckgroundColor关心的脏, 跳过
-            if dirty & self.dirty_ty == 0 {
+            // 不存在BoxShadow关心的脏, 跳过
+            if dirty & DITY_TYPE == 0 {
                 continue;
-            }
+			}
 
             // 阴影脏
             let render_index = if dirty & StyleType::BoxShadow as usize != 0 {

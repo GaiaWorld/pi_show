@@ -30,18 +30,17 @@ js_serializable!(Quad);
 
 #[derive(Serialize, Debug)]
 struct Layout1 {
-    left: f32,
-    top: f32,
-    width: f32,
-    height: f32,
-    border_left: f32,
-    border_top: f32,
-    border_end: f32,
-    border_bottom: f32,
-    padding_left: f32,
-    padding_top: f32,
-    padding_end: f32,
-    padding_bottom: f32,
+	rect:Rect<f32>,
+	border:Rect<f32>,
+	padding:Rect<f32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rect<T> {
+    pub left: T,
+    pub right: T,
+    pub top: T,
+    pub bottom: T,
 }
 js_serializable!(Layout1);
 
@@ -80,6 +79,7 @@ struct Info {
 
     text: Option<TextStyle>,
 	text_content: Option<TextContent>,
+	style_mark: StyleMark,
 	children: Vec<usize>,
 }
 js_serializable!(Info);
@@ -88,7 +88,7 @@ js_serializable!(Info);
 struct RenderObject {
     pub depth: f32,
     pub depth_diff: f32,
-    pub visibility: bool,
+	pub visibility: bool,
     pub is_opacity: bool,
     pub vs_name: String,
     pub fs_name: String,
@@ -1057,7 +1057,8 @@ pub fn node_info(world: u32, node: u32) {
         filter: match world.filter.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
-        },
+		},
+		style_mark: world.style_mark.lend()[node],
         transform_will_change: match world.transform_will_change.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,

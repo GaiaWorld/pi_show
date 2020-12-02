@@ -28,7 +28,7 @@ use GuiWorld;
 fn create(world: &GuiWorld) -> usize {
     let gui = &world.gui;
     let idtree = gui.idtree.lend_mut();
-    let node = gui.node.lend_mut().create();
+	let node = gui.node.lend_mut().create();
     let border_radius = gui.border_radius.lend_mut();
     border_radius.insert(
         node,
@@ -37,8 +37,8 @@ fn create(world: &GuiWorld) -> usize {
             y: LengthUnit::Pixel(0.0),
         },
     );
-    idtree.create(node);
-	// println!("create================={}", node);
+	idtree.create(node);
+	// debug_println!("create================={}", node);
     // set_layout_style(&world.default_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
 }
@@ -59,8 +59,15 @@ pub fn create_node(world: u32) -> u32 {
 #[js_export]
 pub fn node_is_exist(world: u32, node: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &world.gui;
-	return world.node.lend_mut().is_exist(node as usize);
+	let node_states = &world.gui.node_state.lend_mut();
+	return match node_states.get(node as usize) {
+		Some(r) => if r.0.is_rnode(){ 
+			true
+		} else {
+			false
+		},
+		None => false,
+	};
 }
 
 /// 创建文本节点
@@ -133,10 +140,6 @@ pub fn set_canvas_size(
             )),
         );
     } else {
-        println!(
-            "warn, texture size invalid, width: {}, height: {}",
-            width, height
-        );
         image_clips.insert(
             node as usize,
             ImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))),
@@ -281,7 +284,6 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
     let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
     let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
-
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
 	// idtree.remove(child as usize, None);
 	idtree.insert_child_with_notify(child as usize, parent as usize, UMAX, notify);
@@ -315,7 +317,6 @@ pub fn remove_node(world: u32, node_id: u32) {
     let world = &mut world.gui;
 	let idtree = world.idtree.lend_mut();
 	let notify = idtree.get_notify();
-	println!("remove=============={}", node_id);
 	idtree.remove_with_notify(node_id as usize, &notify);
 }
 
@@ -532,7 +533,7 @@ pub fn offset_document(world: u32, node_id: u32) {
     // let world_matrixs = world.world_matrix.lend();
     // let transforms = world.transform.lend();
     let octs = world.oct.lend();
-    // println!("oct====================={:?}, {:?}", node_id, oct);
+    // debug_println!("oct====================={:?}, {:?}", node_id, oct);
     match octs.get(node_id) {
         Some((oct, _)) => js! {
             __jsObj.left = @{oct.min.x};
@@ -738,7 +739,7 @@ pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
         }
         .two = key as usize;
     }
-    if index > 2 {
+    if index > 1 {
         unsafe {
             world
                 .gui
@@ -774,15 +775,13 @@ pub fn add_class_start(world: u32, node_id: u32) -> u32 {
             .gui
             .class_name
             .lend_mut()
-            .insert_no_notify(node_id as usize, ClassName::default())
-            .unwrap(),
+            .insert_no_notify(node_id as usize, ClassName::default()),
     )) as u32
 }
 
 pub fn define_set_class() {
     js! {
         Module._set_class = function(world, node, class_arr){
-            // console.log("_set_class", node, class_arr);
             var old = Module._add_class_start(world, node);
             for (var i = 0; i < class_arr.length; i++) {
                 Module._add_class(world, node, class_arr[i], i);

@@ -231,6 +231,7 @@ pub struct Text {
 pub struct TextContent(pub String, pub Atom);
 
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,

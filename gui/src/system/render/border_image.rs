@@ -141,7 +141,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
 			
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
-				println!("Matrix========================{}", id);
                 let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -243,7 +242,6 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
         match self.render_map.remove(id) {
             Some(index) => {
 				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
-				println!("remove_render_obj border========================{}, index: {}", id, index);
                 render_objs.remove(index, Some(notify));
             }
             None => (),
@@ -381,7 +379,7 @@ fn get_border_image_stream(
             uv1.y + 0.25 * uvh,
             uv2.y - 0.25 * uvh,
         ),
-    };
+	};
 
     //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
     // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
@@ -567,67 +565,73 @@ fn get_border_image_stream(
             (ustep, vstep)
         }
         _ => (w, h),
-    };
-    push_u_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_left_y1,
-        p_left_top,
-        p_right_top,
-        p_right_y1,
-        uv_left,
-        uv1.y,
-        uv_right,
-        uv_top,
-        ustep,
-        &mut pi,
-    ); // 上边
-    push_u_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_left_bottom,
-        p_left_y2,
-        p_right_y2,
-        p_right_bottom,
-        uv_left,
-        uv_bottom,
-        uv_right,
-        uv2.y,
-        ustep,
-        &mut pi,
-    ); // 下边
-    push_v_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_x1_top,
-        p_x1_bottom,
-        p_left_bottom,
-        p_left_top,
-        uv1.x,
-        uv_top,
-        uv_left,
-        uv_bottom,
-        vstep,
-        &mut pi,
-    ); // 左边
-    push_v_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_right_top,
-        p_right_bottom,
-        p_x2_bottom,
-        p_x2_top,
-        uv_right,
-        uv_top,
-        uv2.x,
-        uv_bottom,
-        vstep,
-        &mut pi,
-    ); // 右边
+	};
+	if ustep > 0.0 {
+		push_u_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_left_y1,
+			p_left_top,
+			p_right_top,
+			p_right_y1,
+			uv_left,
+			uv1.y,
+			uv_right,
+			uv_top,
+			ustep,
+			&mut pi,
+		); // 上边
+		push_u_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_left_bottom,
+			p_left_y2,
+			p_right_y2,
+			p_right_bottom,
+			uv_left,
+			uv_bottom,
+			uv_right,
+			uv2.y,
+			ustep,
+			&mut pi,
+		); // 下边
+	}
+	
+	if vstep > 0.0 {
+		push_v_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_x1_top,
+			p_x1_bottom,
+			p_left_bottom,
+			p_left_top,
+			uv1.x,
+			uv_top,
+			uv_left,
+			uv_bottom,
+			vstep,
+			&mut pi,
+		); // 左边
+		push_v_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_right_top,
+			p_right_bottom,
+			p_x2_bottom,
+			p_x2_top,
+			uv_right,
+			uv_top,
+			uv2.x,
+			uv_bottom,
+			vstep,
+			&mut pi,
+		); // 右边
+	}
+	
        // 处理中间
     if let Some(slice) = slice {
         if slice.fill {
@@ -639,7 +643,8 @@ fn get_border_image_stream(
                 p_right_top,
             );
         }
-    }
+	}
+	// println!("border1, point_arr: {:?}, uv_arr: {:?}, index_arr: {:?}", point_arr, uv_arr, index_arr);
     (point_arr, uv_arr, index_arr)
 }
 // 将四边形放进数组中

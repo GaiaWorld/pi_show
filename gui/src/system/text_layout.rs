@@ -72,7 +72,7 @@ impl<'a> Runner<'a> for TextGlphySys {
                 None => continue,
             };
 
-            if r.dirty & MARK == 0 {
+            if (r.dirty & MARK == 0) || read.1.get(*id).is_none(){
                 continue;
 			}
             set_gylph(*id, &read, &mut write);
@@ -91,17 +91,17 @@ impl<'a> LayoutImpl {
 
 // node.data.state.vnode_true()
 
-impl<'a> MultiCaseListener<'a, Node, TextContent, CreateEvent> for LayoutImpl {
-	type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, TextStyle>;
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, text_styles: Self::WriteData) {
-		// node_states[event.id].0.set_vnode(true);
-		// 如果不存在TextStyle， 默认插入
-		if let None = text_styles.get(event.id) {
-			text_styles.insert_no_notify(event.id, TextStyle::default());
-		}
-	}
-}
+// impl<'a> MultiCaseListener<'a, Node, TextContent, CreateEvent> for LayoutImpl {
+// 	type ReadData = ();
+//     type WriteData = &'a mut MultiCaseImpl<Node, TextStyle>;
+//     fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, text_styles: Self::WriteData) {
+// 		// node_states[event.id].0.set_vnode(true);
+// 		// 如果不存在TextStyle， 默认插入
+// 		// if let None = text_styles.get(event.id) {
+// 		// 	text_styles.insert_no_notify(event.id, TextStyle::default());
+// 		// }
+// 	}
+// }
 
 impl<'a> Runner<'a> for LayoutImpl {
     type ReadData = Read<'a>;
@@ -119,7 +119,7 @@ impl<'a> Runner<'a> for LayoutImpl {
 			};
 
 			
-            if r.dirty & MARK == 0 {
+            if (r.dirty & MARK == 0) || read.1.get(*id).is_none(){
                 continue;
 			}
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
@@ -269,7 +269,7 @@ struct Calc<'a> {
 impl<'a> Calc<'a> {
 	// 将文字样式用flex布局属性替换, 可以考虑不支持文字的布局属性？
 	fn fit_text_style(&mut self) {
-		let (local_style, class_style, local_style1, class_style1, text, other_layout_styles, id) = (self.style_mark.local_style, self.style_mark.class_style, self.style_mark.local_style1, self.style_mark.class_style1, &self.text_style.text, &mut self.other_layout_styles, self.id);
+		let (local_style, class_style, local_style2, class_style2, text, other_layout_styles, id) = (self.style_mark.local_style, self.style_mark.class_style, self.style_mark.local_style2, self.style_mark.class_style2, &self.text_style.text, &mut self.other_layout_styles, self.id);
 		// 兼容目前使用父节点的对齐属性来对齐文本， 如果项目将其修改正确， 应该去掉该段TODO
 		if local_style & StyleType::TextAlign as usize > 0 || class_style & StyleType::TextAlign as usize > 0 {
 			other_layout_styles[id].justify_content = match text.text_align {
@@ -294,7 +294,7 @@ impl<'a> Calc<'a> {
 			};
 			other_layout_styles[id].align_content = r;
 		
-		} else if local_style1 & StyleType1::AlignContent as usize == 0 && class_style1 & StyleType1::AlignContent as usize == 0 {
+		} else if local_style2 & StyleType2::AlignContent as usize == 0 && class_style2 & StyleType2::AlignContent as usize == 0 {
 			// 文字的容器默认align_content为FlexStart
 			other_layout_styles[id].align_content = AlignContent::FlexStart;
 		}
@@ -305,7 +305,7 @@ impl<'a> Calc<'a> {
 			} else {
 				FlexWrap::NoWrap
 			}
-		} else if local_style1 & StyleType1::FlexWrap as usize == 0 && class_style1 & StyleType1::FlexWrap as usize == 0{
+		} else if local_style2 & StyleType2::FlexWrap as usize == 0 && class_style2 & StyleType2::FlexWrap as usize == 0{
 			// 文字的容器默认flex_wrap为FlexWrap::Wrap
 			other_layout_styles[id].flex_wrap = FlexWrap::Wrap;
 		}
@@ -329,13 +329,14 @@ impl<'a> Calc<'a> {
 		}
 		// 根据每个字符, 创建charNode
 		for cr in split(self.text, true, text_style.text.white_space.preserve_spaces()) {
+			// println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, word_margin_start: {}, p_x:{}", cr, char_index, word_index, word_margin_start, p_x);
 			// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
 			match cr {
 				SplitResult::Word(c) => {
 					let cn = self.create_or_get(c, chars, char_index, p_x);
-					cn.margin_start += word_margin_start;
+					cn.margin_start = word_margin_start;
 					char_index += 1;
-					word_margin_start = 0.0;
+					word_margin_start = self.char_margin;
 				}
 				SplitResult::WordNext(c) => {
 					let cn = self.create_or_get(c, chars, char_index, p_x);
@@ -348,7 +349,7 @@ impl<'a> Calc<'a> {
 					self.create_or_get_container(chars, char_index, word_margin_start);
 					word_index = char_index;
 					p_x = 0.0;
-					word_margin_start = 0.0;
+					word_margin_start = self.char_margin;
 					char_index += 1;
 
 					let cn = self.create_or_get(c, chars, char_index, p_x);
@@ -405,8 +406,8 @@ impl<'a> Calc<'a> {
 				SplitResult::Word(c) => {
 					let chars = &mut node_states[id].0.text;
 					let cn = self.create_or_get(c, chars, char_index, 0.0);
-					cn.margin_start += word_margin_start;
-					word_margin_start = 0.0;
+					cn.margin_start = word_margin_start;
+					word_margin_start = self.char_margin;
 					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
 					char_index += 1;
 				}
@@ -427,7 +428,7 @@ impl<'a> Calc<'a> {
 					word_id = cur_child;
 					word_index = char_index;
 					p_x = 0.0;
-					word_margin_start = 0.0;
+					word_margin_start = self.char_margin;
 					char_index += 1;
 
 					let chars = &mut node_states[id].0.text;
@@ -662,13 +663,19 @@ fn calc<'a>(
 		node_states[id].0.text.clear();
 	}
 	
-	let size = &calc.rect_layout_styles[id].size;
+	let size = &mut calc.rect_layout_styles[id].size;
 	// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
-	if calc.idtree[parent].children().len == 1 || 
-		size.width != Dimension::Undefined || 
-		size.height != Dimension::Undefined {
+	if calc.idtree[parent].children().len == 1 {
+		// if size.width == Dimension::Undefined {
+		// 	size.width = Dimension::Percent(1.0);
+		// }
+		// if size.height == Dimension::Undefined {
+		// 	size.height = Dimension::Percent(1.0);
+		// }
 		calc.cacl_simple(node_states);
-	} else {
+	} else if size.width != Dimension::Undefined || size.height != Dimension::Undefined {
+		calc.cacl_simple(node_states);
+	}else {
 		calc.calc_mixed(node_states);
 	}
 }
@@ -689,7 +696,6 @@ impl_system! {
     LayoutImpl,
     true,
     {
-		MultiCaseListener<Node, TextContent, CreateEvent>
     }
 }
 

@@ -20,7 +20,7 @@ extern crate stdweb;
 extern crate ecs;
 extern crate gui;
 extern crate lazy_static;
-extern crate paste;
+pub extern crate paste;
 extern crate map;
 #[macro_use]
 extern crate debug_info;
@@ -91,7 +91,8 @@ pub struct GuiWorld {
     pub draw_text_sys: DrawTextSys,
     pub default_text_style: TextStyle,
     pub default_attr: Class,
-    pub performance_inspector: usize,
+	pub performance_inspector: usize,
+	pub max_texture_size: u32,
 }
 
 // /// 设置纹理的缓存配置
@@ -211,12 +212,16 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
             return c.ctx.measureText(String.fromCharCode(@{ch})).width;
         })
         .unwrap() as f32
-    });
+	});
+	let mut max_texture_size = TryInto::<u32>::try_into(engine.gl.get_raw_gl().get_parameter(WebGLRenderingContext::MAX_TEXTURE_SIZE)).unwrap();
+	if max_texture_size > 4096 {
+		max_texture_size = 4096;
+	}
     let texture = engine
         .gl
         .texture_create_2d(
             0,
-            2048,
+            max_texture_size,
             32,
             PixelFormat::RGBA,
             DataFormat::UnsignedByte,
@@ -227,7 +232,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
     let res = engine.create_texture_res(
         Atom::from("__$text".to_string()).get_hash(),
         TextureRes::new(
-            2048,
+            max_texture_size as usize,
             32,
             PixelFormat::RGBA,
             DataFormat::UnsignedByte,
@@ -280,7 +285,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         draw_text_sys: draw_text_sys,
         default_text_style: TextStyle::default(),
         default_attr: Class::default(),
-        performance_inspector: 0,
+		performance_inspector: 0,
+		max_texture_size,
 	};
 	
 	
@@ -404,25 +410,27 @@ pub fn set_project_transfrom(
     ).0;
 	project_matrix.get_notify_ref().modify_event(0, "", 0);
 	
-	let rect_layout_style = world.gui.rect_layout_style.lend_mut();
-    let rect_layout_style = unsafe { rect_layout_style.get_unchecked_mut(1) };
+	let rect_layout_style1 = world.gui.rect_layout_style.lend_mut();
+    let rect_layout_style = &mut rect_layout_style1[1];
 
     // let config = YgConfig::new();
     // config.set_point_scale_factor(0.0);
     // let ygnode1 = YgNode::new_with_config(config);
     // let ygnode1 = YgNode::default();
 	rect_layout_style.size.width = Dimension::Points(width as f32);
-	rect_layout_style.size.height = Dimension::Points(width as f32);
+	rect_layout_style.size.height = Dimension::Points(height as f32);
 	
-	let layout = world.gui.layout.lend_mut();
-	let layout = unsafe { layout.get_unchecked_mut(1) };
-	layout.rect.end = width as f32;
-	layout.rect.bottom = height as f32;
+	// let layouts = world.gui.layout.lend_mut();
+	// let layout = &mut layouts[1];
+	// layout.rect.end = width as f32;
+	// layout.rect.bottom = height as f32;
+	rect_layout_style1.get_notify_ref().modify_event(1, "width", 0);
+	// debug_println!("layout change, width: {}, height:{}", width, height);
 }
 
 /**
  * 文字纹理绘制时， 总是按照第一次取到的节点缩放值以及文字本身的样式来绘制， 以后更改缩放值， 无法重绘纹理
- * 如果
+ * 调用此犯法，可强制更新一次缩放值
  */
 #[allow(unused_attributes)]
 #[no_mangle]

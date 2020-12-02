@@ -466,12 +466,16 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
         msdf_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         let msdf_bs = engine.create_bs_res(msdf_bs);
 
-        let default_sampler = engine.create_sampler_res(SamplerDesc::default());
+		let mut default_sampler = SamplerDesc::default();
+		default_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		default_sampler.v_wrap = TextureWrapMode::ClampToEdge;
+        let default_sampler = engine.create_sampler_res(default_sampler);
 
         let mut point_sampler = SamplerDesc::default();
         point_sampler.min_filter = TextureFilterMode::Nearest;
-        point_sampler.mag_filter = TextureFilterMode::Nearest;
-
+		point_sampler.mag_filter = TextureFilterMode::Nearest;
+		point_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		point_sampler.v_wrap = TextureWrapMode::ClampToEdge;
         let point_sampler = engine.create_sampler_res(point_sampler);
 
         let default_color_ubo = engine.create_u_color_ubo(&CgColor::new(0.0, 0.0, 0.0, 1.0));

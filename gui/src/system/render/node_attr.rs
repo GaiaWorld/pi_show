@@ -312,11 +312,13 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
         let obj_ids = &node_render_map[event.id];
         let z_depth = z_depths[event.id].0;
 
-        for id in obj_ids.iter() {
-            let render_obj = &mut render_objs[*id];
-            render_obj.depth = z_depth + render_obj.depth_diff;
-            render_objs.get_notify_ref().modify_event(*id, "depth", 0);
-        }
+		if obj_ids.len() > 0 {
+			for id in obj_ids.iter() {
+				let render_obj = &mut render_objs[*id];
+				render_obj.depth = z_depth + render_obj.depth_diff;
+				render_objs.get_notify_ref().modify_event(*id, "depth", 0);
+			}
+		}
     }
 }
 

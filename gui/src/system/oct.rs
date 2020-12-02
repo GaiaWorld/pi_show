@@ -60,7 +60,6 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
 	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, oct: Self::WriteData) {
-		println!("WorldMatrix create==============={}",event.id );
         let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
             read;
 		let default_transform = default_table.get_unchecked::<Transform>();

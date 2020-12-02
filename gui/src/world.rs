@@ -126,7 +126,7 @@ pub fn create_world<C: HalContext + 'static>(
 	font_texture: Share<TextureRes>,
 	cur_time: u64,
 ) -> World {
-	let capacity = 4000;
+	let capacity = 2000;
 	let mut world = World::default();
 	world.capacity = capacity;
 
