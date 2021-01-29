@@ -7,6 +7,7 @@ use hal_core::*;
 
 use single::IdTree;
 use ecs::*;
+use ecs::StdCell;
 use res::ResMgr;
 use share::Share;
 
@@ -125,6 +126,9 @@ pub fn create_world<C: HalContext + 'static>(
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
 	font_texture: Share<TextureRes>,
 	cur_time: u64,
+
+	share_class_sheet: Option<Share<StdCell<ClassSheet>>>,
+	share_font_sheet: Option<Share<StdCell<FontSheet>>>,
 ) -> World {
 	let capacity = 2000;
 	let mut world = World::default();
@@ -231,8 +235,13 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<Oct>(Oct::with_capacity(capacity));
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs>(RenderObjs::with_capacity(capacity));
-    world.register_single::<ShareEngine<C>>(engine);
-    world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
+	world.register_single::<ShareEngine<C>>(engine);
+
+	match share_font_sheet {
+		Some(r) => world.register_single::<Share<StdCell<FontSheet>>>(r),
+		None => world.register_single::<Share<StdCell<FontSheet>>>(Share::new(StdCell::new(FontSheet::new(font_texture, font_measure)))),
+	}
+    
     world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(
         width,
@@ -245,8 +254,12 @@ pub fn create_world<C: HalContext + 'static>(
         None,
     ));
     world.register_single::<NodeRenderMap>(NodeRenderMap::with_capacity(capacity));
-    world.register_single::<DefaultTable>(default_table);
-    world.register_single::<ClassSheet>(ClassSheet::default());
+	world.register_single::<DefaultTable>(default_table);
+	match share_class_sheet {
+		Some(r) => world.register_single::<Share<StdCell<ClassSheet>>>(r),
+		None => world.register_single::<Share<StdCell<ClassSheet>>>(Share::new(StdCell::new(ClassSheet::default()))),
+	}
+
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
@@ -388,12 +401,14 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
     pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
-    pub font_sheet: Arc<CellSingleCase<FontSheet>>,
+    pub font_sheet: Arc<CellSingleCase<Share<StdCell<FontSheet>>>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
-    pub class_sheet: Arc<CellSingleCase<ClassSheet>>,
+    pub class_sheet: Arc<CellSingleCase<Share<StdCell<ClassSheet>>>>,
     pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
 	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
 	pub system_time: Arc<CellSingleCase<SystemTime>>,
+
+	pub renderSys: Arc<CellRenderSys<C>>,
 
     pub world: World,
 }
@@ -446,14 +461,18 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
             engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
             render_objs: world.fetch_single::<RenderObjs>().unwrap(),
-            font_sheet: world.fetch_single::<FontSheet>().unwrap(),
+            font_sheet: world.fetch_single::<Share<StdCell<FontSheet>>>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
-            class_sheet: world.fetch_single::<ClassSheet>().unwrap(),
+            class_sheet: world.fetch_single::<Share<StdCell<ClassSheet>>>().unwrap(),
             image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
 			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
 			system_time: world.fetch_single::<SystemTime>().unwrap(),
 
-            world: world,
+			renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
+
+			world: world,
+			
+			
         }
     }
 }

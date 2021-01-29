@@ -17,7 +17,7 @@ pub struct RenderSys<C: HalContext + 'static> {
     program_dirtys: Vec<usize>,
     transparent_dirty: bool,
     opacity_dirty: bool,
-    dirty: bool,
+    pub dirty: bool,
     opacity_list: Vec<usize>,
     transparent_list: Vec<usize>,
     marker: PhantomData<C>,

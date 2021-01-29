@@ -192,11 +192,13 @@ impl DefaultState {
         let df_ss = StencilStateDesc::default();
         let mut df_ds = DepthStateDesc::default();
 
-        df_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+		df_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+		df_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         df_ds.set_write_enable(true);
 
         let mut tarns_bs = BlendStateDesc::default();
-        tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+		tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+		tarns_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
         // let mut tarns_ds = DepthStateDesc::default();
         let tarns_ds = DepthStateDesc::default();

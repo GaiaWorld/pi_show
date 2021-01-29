@@ -65,7 +65,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DefaultTable>,
-        &'a SingleCaseImpl<ClassSheet>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
@@ -86,7 +85,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             transforms,
             style_marks,
             default_table,
-            _class_sheet,
             dirty_list,
             default_state,
         ) = read;
@@ -147,9 +145,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BoxShadow as usize != 0
             {
-                let opacity = opacitys[*id].0;
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
                 render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
-                notify.modify_event(render_index, "is_opacity", 0);
+                if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
 

@@ -35,7 +35,7 @@ impl WorldMatrixSys {
         match id_tree.get(id) {
             Some(r) => {
                 if r.layer() != 0 {
-                    let d = &mut self.dirty_mark_list[id];
+					let d = &mut self.dirty_mark_list[id];
                     if *d != r.layer() {
                         if *d != 0 {
                             self.dirty.delete(id, *d);
@@ -174,7 +174,7 @@ impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for WorldMatrixSys {
     type WriteData = ();
     fn listen(&mut self, event: &ModifyEvent, (id_tree, node_states): Self::ReadData, _write: Self::WriteData) {
 		// 虚拟节点的子节点会发出该事件，但虚拟节点不存在WorldMatrix组件
-		if !node_states[event.id].0.is_rnode() {;
+		if !node_states[event.id].0.is_rnode() {
 			return;
 		}
         self.marked_dirty(event.id, id_tree);
@@ -186,6 +186,14 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     type WriteData = ();
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData) {
         self.marked_dirty(event.id, read);
+    }
+}
+
+impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
+        self.dirty_mark_list.remove(&event.id);
     }
 }
 
@@ -282,7 +290,8 @@ impl_system! {
         MultiCaseListener<Node, Transform, CreateEvent>
         MultiCaseListener<Node, Transform, DeleteEvent>
         MultiCaseListener<Node, LayoutR, ModifyEvent>
-        SingleCaseListener<IdTree, CreateEvent>
+		SingleCaseListener<IdTree, CreateEvent>
+		EntityListener<Node, DeleteEvent>
     }
 }
 

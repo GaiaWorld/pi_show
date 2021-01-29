@@ -4,13 +4,16 @@
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 use cgmath::InnerSpace;
 
+use ecs::StdCell;
 use ecs::{
 	component::MultiCaseImpl,
 	entity::EntityImpl,
     monitor::{CreateEvent, ModifyEvent},
     single::SingleCaseImpl,
-    system::{MultiCaseListener, Runner},
+	system::{MultiCaseListener, Runner},
 };
+
+use share::Share;
 
 use flex_layout::*;
 use flex_layout::{Dimension, INodeStateType};
@@ -36,7 +39,6 @@ const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize
 const MARK: usize = MARK_LAYOUT | StyleType::Text as usize;
 
 type Read<'a> = (
-    &'a SingleCaseImpl<ClassSheet>,
     &'a MultiCaseImpl<Node, TextContent>,
     &'a MultiCaseImpl<Node, ClassName>,
     &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -49,7 +51,7 @@ type Write<'a> = (
 	&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
 	&'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
 	&'a mut MultiCaseImpl<Node, TextStyle>,
-	&'a mut SingleCaseImpl<FontSheet>,
+	&'a mut SingleCaseImpl<Share<StdCell<FontSheet>>>,
 	&'a mut SingleCaseImpl<IdTree>,
 	&'a mut EntityImpl<Node>,
 );
@@ -66,13 +68,13 @@ impl<'a> Runner<'a> for TextGlphySys {
     type WriteData = Write<'a>;
 
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
-        for id in (read.5).0.iter() {
-            let r = match read.4.get(*id) {
+        for id in (read.4).0.iter() {
+            let r = match read.3.get(*id) {
                 Some(r) => r,
                 None => continue,
             };
 
-            if (r.dirty & MARK == 0) || read.1.get(*id).is_none(){
+            if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
                 continue;
 			}
             set_gylph(*id, &read, &mut write);
@@ -110,16 +112,16 @@ impl<'a> Runner<'a> for LayoutImpl {
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		
 		// 暂时拷贝， TODO
-		let dirty_list = (read.5).0.clone();
+		let dirty_list = (read.4).0.clone();
 		// let time = std::time::Instant::now();
         for id in dirty_list.iter() {
-            let r = match read.4.get(*id) {
+            let r = match read.3.get(*id) {
                 Some(r) => r,
                 None => continue,
 			};
 
 			
-            if (r.dirty & MARK == 0) || read.1.get(*id).is_none(){
+            if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
                 continue;
 			}
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
@@ -206,10 +208,11 @@ fn update_layout(
 // 设置字形的id
 fn set_gylph<'a>(
 	id: usize, 
-	(_class_sheet, _text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
+	(_text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
 	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) {
     let scale = world_matrixs[id].y.magnitude();
-    let text_style = &text_styles[id];
+	let text_style = &text_styles[id];
+	let font_sheet = &mut font_sheet.borrow_mut();
 	
     let (tex_font, font_size) = match font_sheet.get_font_info(&text_style.font.family) {
         Some(r) => (r.0.clone(), get_size(r.1, &text_style.font.size) as f32),
@@ -226,7 +229,9 @@ fn set_gylph<'a>(
 	let weight = text_style.font.weight;
 	let sw = text_style.text.stroke.width;
 
+	node_states[id].0.scale = scale;
 	let chars = &mut node_states[id].0.text;
+	
     for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
             char_node.ch_id_or_count = font_sheet.calc_gylph(
@@ -251,7 +256,7 @@ struct Calc<'a> {
 	other_layout_styles: &'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
 	nodes: &'a mut EntityImpl<Node>,
 	idtree: &'a mut SingleCaseImpl<IdTree>,
-	font_sheet: &'a mut SingleCaseImpl<FontSheet>,
+	font_sheet: &'a mut FontSheet,
 
 	text: &'a str,
 	style_mark: &'a StyleMark,
@@ -340,6 +345,7 @@ impl<'a> Calc<'a> {
 				}
 				SplitResult::WordNext(c) => {
 					let cn = self.create_or_get(c, chars, char_index, p_x);
+					
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
 					char_index += 1;
 					chars[word_index].ch_id_or_count += 1;
@@ -361,7 +367,11 @@ impl<'a> Calc<'a> {
 					chars[word_index].size = (p_x - self.char_margin, self.line_height);
 				},
 				SplitResult::Whitespace => {
-					word_margin_start += self.font_size/3.0 + self.word_margin;
+					let cn = self.create_or_get(' ', chars, char_index, p_x);
+					cn.margin_start = word_margin_start;
+					char_index += 1;
+					word_margin_start = self.char_margin;
+					// word_margin_start += self.font_size/3.0 + self.word_margin;
 				}
 				SplitResult::Newline => {
 					self.create_or_get_breakline(chars, char_index);
@@ -447,8 +457,16 @@ impl<'a> Calc<'a> {
 					continue;
 				},
 				SplitResult::Whitespace => {
-					word_margin_start += self.font_size/3.0 + self.word_margin;
-					continue;
+					let chars = &mut node_states[id].0.text;
+					let cn = self.create_or_get(' ', chars, char_index, 0.0);
+					cn.margin_start = word_margin_start;
+					word_margin_start = self.char_margin;
+					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
+					char_index += 1;
+
+					// 如果用magine-start来表示空格，会导致行首的空格无效
+					// word_margin_start += self.font_size/3.0 + self.word_margin;
+					// continue;
 				}
 				SplitResult::Newline => {
 					let chars = &mut node_states[id].0.text;
@@ -530,7 +548,9 @@ impl<'a> Calc<'a> {
 				chars[index] = self.create_char_node(ch, p_x);
 			}
 		}
-		&mut chars[index]
+		let cn = &mut chars[index];
+		cn.pos.0 = p_x;
+		cn
 	}
 
 	fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, word_margin_start: f32) -> &'b mut CharNode {
@@ -607,9 +627,10 @@ impl<'a> Calc<'a> {
 
 fn calc<'a>(
 	id: usize,
-	(_class_sheet, text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
+	(text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
 	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
 	layout_dirty: usize,) {
+	let font_sheet = &mut font_sheet.borrow_mut();
 
 	let text_style = &text_styles[id];
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {

@@ -104,7 +104,7 @@ impl<'a> Runner<'a> for OverflowImpl {
                     .clip_map
                     .get(&by);
                 let parent_will_change_matrix = get_will_change_matrix(*id, &read.0, read.7);
-                calc_clip(
+				calc_clip(
                     *id,
                     by,
                     parent_will_change_matrix,
@@ -595,7 +595,7 @@ fn set_clip(
 //================================ 内部静态方法
 // 创建裁剪区域，需要 world_matrix LayoutR
 fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
-    if clip.clip.len() >= 32 {
+	if clip.clip.len() >= 32 {
         println!("clip overflow!!!!!!!");
         return 0;
     }

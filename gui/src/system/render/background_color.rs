@@ -147,9 +147,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             if dirty & StyleType::BackgroundColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = opacitys[*id].0;
-                render_obj.is_opacity = background_is_opacity(opacity, color);
-                notify.modify_event(render_index, "is_opacity", 0);
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
+				render_obj.is_opacity = background_is_opacity(opacity, color);
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
 

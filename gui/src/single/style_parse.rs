@@ -552,10 +552,62 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
                 .attrs1
                 .push(Attribute1::JustifyContent(parse_yg_justify_content(value)?));
             class.class_style_mark2 |= StyleType2::JustifyContent as usize;
+		},
+		"filter" => {
+            class
+                .attrs3
+                .push(Attribute3::Filter(parse_filter(value)?));
+            class.class_style_mark2 |= StyleType2::JustifyContent as usize;
         }
         _ => (),
     };
     Ok(())
+}
+
+fn parse_filter(value: &str) -> Result<Filter, String>{
+	let err = Err(format!("parse_filter fail, str: {:?}", value));
+	if value.starts_with("hsi(") && value.starts_with(")") {
+		let mut iter = value[4..value.len() - 1].trim().split(",");
+		let h = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		} ;
+		let s = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		};
+		let i = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		};
+		return Ok(trans_filter(h, s, i));
+
+	} else {
+		return err;
+	}
+}
+
+fn trans_filter(mut h: f32, mut s: f32, mut i: f32) -> Filter {
+	if h > 180.0 {
+        h = 180.0;
+    } else if h < -180.0 {
+        h = -180.0
+    }
+    if s > 100.0 {
+        s = 100.0;
+    } else if s < -100.0 {
+        s = -100.0
+    }
+    if i > 100.0 {
+        i = 100.0;
+    } else if i < -100.0 {
+        i = -100.0
+    }
+    return Filter {
+        hue_rotate: h / 360.0,
+        saturate: s / 100.0,
+        bright_ness: i / 100.0,
+	};
 }
 
 fn parse_enable(value: &str) -> Result<EnableType, String> {
@@ -1414,7 +1466,7 @@ fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
     } else if arr.len() == 2 {
         let v = arr[0];
         let v1 = arr[1];
-        Ok([v, v, v1, v1])
+        Ok([v, v1, v, v1])
     } else if arr.len() == 3 {
         let v = arr[0];
         let v1 = arr[1];
@@ -1440,7 +1492,7 @@ fn to_four(arr: Vec<&str>) -> Result<[Dimension; 4], String> {
     } else if arr.len() == 2 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;
-        [v.clone(), v, v1.clone(), v1]
+        [v.clone(), v1.clone(), v, v1]
     } else if arr.len() == 3 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;

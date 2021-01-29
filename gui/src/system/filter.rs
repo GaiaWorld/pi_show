@@ -86,7 +86,7 @@ fn recursive_cal_hsv(
                 h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
                 s: cal_range(filter.saturate + parent_hsv.s, -1.0, 1.0),
                 v: cal_range(filter.bright_ness + parent_hsv.v, -1.0, 1.0),
-            };
+			};
             if hsv.h != old_hsv.h || hsv.s != old_hsv.s || hsv.v != old_hsv.v {
                 hsvs.insert(id, hsv.clone());
             }

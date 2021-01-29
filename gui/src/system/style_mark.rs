@@ -12,11 +12,12 @@ use std::rc::Rc;
 
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent,
-    MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+    MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener, StdCell
 };
 use single::IdTree;
 use hal_core::*;
 use flex_layout::*;
+use share::Share;
 
 use component::calc::{Opacity as COpacity, LayoutR};
 use component::calc::*;
@@ -771,7 +772,7 @@ impl<'a, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
+		let (style_marks, dirty_list) = write;
         set_local_dirty(
             dirty_list,
             event.id,
@@ -875,7 +876,7 @@ impl<'a, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
+		let style_mark = &mut style_marks[event.id];
         set_dirty(
             dirty_list,
             event.id,
@@ -966,7 +967,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent>
 
 type ReadData<'a> = (
     &'a MultiCaseImpl<Node, ClassName>,
-    &'a SingleCaseImpl<ClassSheet>,
+    &'a SingleCaseImpl<Share<StdCell<ClassSheet>>>,
 );
 type WriteData<'a, C> = (
     &'a mut MultiCaseImpl<Node, TextStyle>,
@@ -1005,6 +1006,7 @@ impl<'a, C: HalContext + 'static>
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
 		let (class_names, class_sheet) = read;
 		let class_name = &class_names[event.id];
+		let class_sheet = &class_sheet.borrow();
 
 		//event.index是接的className的指针
         let oldr = unsafe { &* Box::from_raw(event.index as *mut Option<ClassName>) };
@@ -1338,10 +1340,10 @@ fn reset_attr<C: HalContext>(
 	let old_style2 =
 		!(!old_style2 | (old_style2 & (style_mark.class_style2 | style_mark.local_style2)));
     if old_style != 0 {
-        if style_mark.local_style & TEXT_STYLE_DIRTY == 0 {
+        if old_style & TEXT_STYLE_DIRTY != 0 {
             if let Some(text_style) = text_styles.get_mut(id) {
-                if style_mark.local_style & TEXT_DIRTY == 0 {
-                    if old_style & StyleType::LetterSpacing as usize == 0 {
+                if old_style & TEXT_DIRTY != 0 {
+                    if old_style & StyleType::LetterSpacing as usize != 0 {
                         text_style.text.letter_spacing = defualt_text.text.letter_spacing;
                         set_dirty(
                             dirty_list,
@@ -1350,39 +1352,39 @@ fn reset_attr<C: HalContext>(
                             style_mark,
                         );
                     }
-                    if old_style & StyleType::WordSpacing as usize == 0 {
+                    if old_style & StyleType::WordSpacing as usize != 0 {
                         text_style.text.word_spacing = defualt_text.text.word_spacing;
                         set_dirty(dirty_list, id, StyleType::WordSpacing as usize, style_mark);
                     }
-                    if old_style & StyleType::LineHeight as usize == 0 {
+                    if old_style & StyleType::LineHeight as usize != 0 {
                         text_style.text.line_height = defualt_text.text.line_height;
                         set_dirty(dirty_list, id, StyleType::LineHeight as usize, style_mark);
                     }
-                    if old_style & StyleType::Indent as usize == 0 {
+                    if old_style & StyleType::Indent as usize != 0 {
                         text_style.text.indent = defualt_text.text.indent;
                         set_dirty(dirty_list, id, StyleType::Indent as usize, style_mark);
                     }
-                    if old_style & StyleType::WhiteSpace as usize == 0 {
+                    if old_style & StyleType::WhiteSpace as usize != 0 {
                         text_style.text.white_space = defualt_text.text.white_space;
                         set_dirty(dirty_list, id, StyleType::WhiteSpace as usize, style_mark);
                     }
 
-                    if old_style & StyleType::Color as usize == 0 {
+                    if old_style & StyleType::Color as usize != 0 {
                         text_style.text.color = defualt_text.text.color.clone();
                         set_dirty(dirty_list, id, StyleType::Color as usize, style_mark);
                     }
 
-                    if old_style & StyleType::Stroke as usize == 0 {
+                    if old_style & StyleType::Stroke as usize != 0 {
                         text_style.text.stroke = defualt_text.text.stroke.clone();
                         set_dirty(dirty_list, id, StyleType::Stroke as usize, style_mark);
                     }
 
-                    if old_style & StyleType::TextAlign as usize == 0 {
+                    if old_style & StyleType::TextAlign as usize != 0 {
                         text_style.text.text_align = defualt_text.text.text_align;
                         set_dirty(dirty_list, id, StyleType::TextAlign as usize, style_mark);
                     }
 
-                    if old_style & StyleType::VerticalAlign as usize == 0 {
+                    if old_style & StyleType::VerticalAlign as usize != 0 {
                         text_style.text.vertical_align = defualt_text.text.vertical_align;
                         set_dirty(
                             dirty_list,
@@ -1393,25 +1395,25 @@ fn reset_attr<C: HalContext>(
                     }
                 }
 
-                if old_style & StyleType::TextShadow as usize == 0 {
+                if old_style & StyleType::TextShadow as usize != 0 {
                     text_style.shadow = defualt_text.shadow.clone();
                     set_dirty(dirty_list, id, StyleType::TextShadow as usize, style_mark);
                 }
 
                 if old_style & FONT_DIRTY == 0 {
-                    if old_style & StyleType::FontStyle as usize == 0 {
+                    if old_style & StyleType::FontStyle as usize != 0 {
                         text_style.font.style = defualt_text.font.style;
                         set_dirty(dirty_list, id, StyleType::FontStyle as usize, style_mark);
                     }
-                    if old_style & StyleType::FontWeight as usize == 0 {
+                    if old_style & StyleType::FontWeight as usize != 0 {
                         text_style.font.weight = defualt_text.font.weight;
                         set_dirty(dirty_list, id, StyleType::FontWeight as usize, style_mark);
                     }
-                    if old_style & StyleType::FontSize as usize == 0 {
+                    if old_style & StyleType::FontSize as usize != 0 {
 						text_style.font.size = defualt_text.font.size;
                         set_dirty(dirty_list, id, StyleType::FontSize as usize, style_mark);
                     }
-                    if old_style & StyleType::FontFamily as usize == 0 {
+                    if old_style & StyleType::FontFamily as usize != 0 {
                         text_style.font.family = defualt_text.font.family.clone();
                         set_dirty(dirty_list, id, StyleType::FontFamily as usize, style_mark);
                     }
@@ -1420,26 +1422,26 @@ fn reset_attr<C: HalContext>(
         }
 
         if old_style & IMAGE_DIRTY != 0 {
-            if old_style & StyleType::Image as usize == 0 {
+            if old_style & StyleType::Image as usize != 0 {
                 images.delete(id);
                 set_dirty(dirty_list, id, StyleType::Image as usize, style_mark);
             }
-            if old_style & StyleType::ImageClip as usize == 0 {
+            if old_style & StyleType::ImageClip as usize != 0 {
                 image_clips.delete(id);
                 set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
             }
-            if old_style & StyleType::ObjectFit as usize == 0 {
+            if old_style & StyleType::ObjectFit as usize != 0 {
                 obj_fits.delete(id);
                 set_dirty(dirty_list, id, StyleType::ObjectFit as usize, style_mark);
             }
         }
 
         if old_style & BORDER_IMAGE_DIRTY != 0 {
-            if old_style & StyleType::BorderImage as usize == 0 {
+            if old_style & StyleType::BorderImage as usize != 0 {
                 border_images.delete(id);
                 set_dirty(dirty_list, id, StyleType::BorderImage as usize, style_mark);
             }
-            if old_style & StyleType::BorderImageClip as usize == 0 {
+            if old_style & StyleType::BorderImageClip as usize != 0 {
                 border_image_clips.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1448,7 +1450,7 @@ fn reset_attr<C: HalContext>(
                     style_mark,
                 );
             }
-            if old_style & StyleType::BorderImageSlice as usize == 0 {
+            if old_style & StyleType::BorderImageSlice as usize != 0 {
                 border_image_slices.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1457,7 +1459,7 @@ fn reset_attr<C: HalContext>(
                     style_mark,
                 );
             }
-            if old_style & StyleType::BorderImageRepeat as usize == 0 {
+            if old_style & StyleType::BorderImageRepeat as usize != 0 {
                 border_image_repeats.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1468,12 +1470,12 @@ fn reset_attr<C: HalContext>(
             }
         }
 
-        if old_style & StyleType::BorderColor as usize == 0 {
+        if old_style & StyleType::BorderColor as usize != 0 {
             border_colors.delete(id);
             set_dirty(dirty_list, id, StyleType::BorderColor as usize, style_mark);
         }
 
-        if old_style & StyleType::BackgroundColor as usize == 0 {
+        if old_style & StyleType::BackgroundColor as usize != 0 {
             background_colors.delete(id);
             set_dirty(
                 dirty_list,
@@ -1483,23 +1485,23 @@ fn reset_attr<C: HalContext>(
             );
         }
 
-        if old_style & StyleType::BoxShadow as usize == 0 {
+        if old_style & StyleType::BoxShadow as usize != 0 {
             box_shadows.delete(id);
             set_dirty(dirty_list, id, StyleType::BoxShadow as usize, style_mark);
         }
 
         if old_style & NODE_DIRTY != 0 {
-            if old_style & StyleType::Opacity as usize == 0 {
+            if old_style & StyleType::Opacity as usize != 0 {
                 opacitys.delete(id);
                 set_dirty(dirty_list, id, StyleType::Opacity as usize, style_mark);
             }
 
-            if old_style & StyleType::BorderRadius as usize == 0 {
+            if old_style & StyleType::BorderRadius as usize != 0 {
                 border_radiuss.delete(id);
                 set_dirty(dirty_list, id, StyleType::BorderRadius as usize, style_mark);
             }
 
-            if old_style & StyleType::Filter as usize == 0 {
+            if old_style & StyleType::Filter as usize != 0 {
                 filters.delete(id);
                 set_dirty(dirty_list, id, StyleType::Filter as usize, style_mark);
             }
@@ -1508,29 +1510,29 @@ fn reset_attr<C: HalContext>(
 
     if old_style1 != 0 {
         if old_style1 & NODE_DIRTY1 != 0 {
-            if old_style1 & StyleType1::Enable as usize == 0
-                || old_style1 & StyleType1::Display as usize == 0
-                || old_style1 & StyleType1::Visibility as usize == 0
+            if old_style1 & StyleType1::Enable as usize != 0
+                || old_style1 & StyleType1::Display as usize != 0
+                || old_style1 & StyleType1::Visibility as usize != 0
             {
                 if let Some(show) = shows.get_mut(id) {
-                    if old_style1 & StyleType1::Enable as usize == 0 {
+                    if old_style1 & StyleType1::Enable as usize != 0 {
                         show.set_enable(EnableType::Auto);
                     }
-                    if old_style1 & StyleType1::Display as usize == 0 {
+                    if old_style1 & StyleType1::Display as usize != 0 {
 						other_layout_style.display = Display::Flex;
                         show.set_display(Display::Flex);
                     }
-                    if old_style1 & StyleType1::Visibility as usize == 0 {
+                    if old_style1 & StyleType1::Visibility as usize != 0 {
                         show.set_visibility(true);
                     }
                 }
                 shows.get_notify_ref().modify_event(id, "", 0);
 
-                if old_style1 & StyleType1::ZIndex as usize == 0 {
+                if old_style1 & StyleType1::ZIndex as usize != 0 {
                     zindexs.insert(id, ZIndex(0));
                 }
 
-                if old_style1 & StyleType1::Transform as usize == 0 {
+                if old_style1 & StyleType1::Transform as usize != 0 {
                     transforms.delete(id);
                 }
             }
@@ -1760,7 +1762,8 @@ fn set_attr<C: HalContext>(
         engine,
         image_wait_sheet,
         dirty_list,
-    ) = write;
+	) = write;
+	let class_sheet = &class_sheet.borrow();
     let style_mark = &mut style_marks[id];
     // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
 	let rect_layout_style = &mut rect_layout_styles[id];
@@ -2717,7 +2720,9 @@ impl_system! {
         MultiCaseListener<Node, BorderRadius, ModifyEvent>
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>
-        // MultiCaseListener<Node, Visibility, ModifyEvent>
+		// MultiCaseListener<Node, Visibility, ModifyEvent>
+		
+		MultiCaseListener<Node, COpacity, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent>
         SingleCaseListener<ImageWaitSheet, ModifyEvent>

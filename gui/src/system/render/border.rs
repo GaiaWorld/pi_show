@@ -124,9 +124,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             if dirty & StyleType::BorderColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = opacitys[*id].0;
-                render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
-                notify.modify_event(render_index, "is_opacity", 0);
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
+				render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				};
                 modify_opacity(engine, render_obj, default_state);
             }
 

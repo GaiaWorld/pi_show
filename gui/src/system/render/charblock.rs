@@ -11,7 +11,8 @@ use ordered_float::NotNan;
 use ecs::monitor::NotifyImpl;
 use ecs::{
     DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl,
-    SingleCaseListener,
+	SingleCaseListener,
+	StdCell,
 };
 use idtree::NodeList;
 use hal_core::*;
@@ -96,7 +97,8 @@ pub struct CharBlockSys<C: HalContext + 'static> {
     index_buffer: Share<BufferRes>, // 索引 buffer， 长度： 600
     index_len: usize,
     texture_size_ubo: Share<TextTextureSize>,
-    texture_change: bool,
+	
+	old_texture_tex_version: usize,
 
     msdf_stroke_ubo_map: UnsafeMut<ResMap<MsdfStrokeUbo>>,
     canvas_stroke_ubo_map: UnsafeMut<ResMap<CanvasTextStrokeColorUbo>>,
@@ -115,10 +117,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         &'a MultiCaseImpl<Node, TextContent>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a MultiCaseImpl<Node, TextStyle>,
-        &'a SingleCaseImpl<FontSheet>,
+        &'a SingleCaseImpl<Share<StdCell<FontSheet>>>,
         &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DefaultState>,
-        &'a SingleCaseImpl<ClassSheet>,
 		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<IdTree>,
     );
@@ -138,20 +139,24 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             font_sheet,
             default_table,
             default_state,
-            _class_sheet,
 			dirty_list,
 			idtree
-        ) = read;
-        if dirty_list.0.len() == 0 && !self.texture_change {
+		) = read;
+		let font_sheet = &font_sheet.borrow();
+		let t = font_sheet.get_font_tex();
+		let mut texture_change = false;
+		if font_sheet.tex_version != self.old_texture_tex_version {
+			texture_change = true;
+			self.old_texture_tex_version = font_sheet.tex_version;
+		}
+        if dirty_list.0.len() == 0 && !texture_change {
             return;
         }
-
         let (render_objs, engine, node_states) = write;
         let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let default_transform = default_table.get::<Transform>().unwrap();
 
-        if self.texture_change == true {
-            let t = font_sheet.get_font_tex();
+        if texture_change == true {
             self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(
                 t.width as f32,
                 t.height as f32,
@@ -172,13 +177,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     None => (),
                 }
             }
-            self.texture_change = false;
         }
 
         for id in dirty_list.0.iter() {
-            let style_mark = match style_marks.get(*id) {
-                Some(r) => r,
-                None => {
+            let (style_mark, text) = match (style_marks.get(*id), texts.get(*id)) {
+                (Some(r), Some(r1)) => (r, r1),
+                _ => {
                     self.remove_render_obj(*id, render_objs);
                     continue;
                 }
@@ -216,10 +220,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     None => continue,
                 }
             };
-
 			let world_matrix = &world_matrixs[*id];
-			let scale = world_matrix.y.magnitude();
-            let layout = &layouts[*id];
+			let layout = &layouts[*id];
             let transform = match transforms.get(*id) {
                 Some(r) => r,
                 None => default_transform,
@@ -229,8 +231,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 &mut *(&render_objs[index.text] as *const RenderObj as usize
                     as *mut RenderObj)
             };
-
-            let text = &texts[*id];
 
             let class_ubo = &self.default_ubos;
 
@@ -251,7 +251,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 program_change = program_change | exchange;
                 geometry_change = geometry_change | exchange;
             }
-
             // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置program_change脏
             if dirty & (StyleType::Stroke as usize) != 0 {
                 program_change = program_change
@@ -267,7 +266,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                         &mut *self.msdf_stroke_ubo_map,
                     );
             }
-
             // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
             if dirty & FONT_DIRTY != 0 {
                 modify_font(
@@ -293,7 +291,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 notify.modify_event(index.text, "program_dirty", 0);
                 // modify_program(render_obj, charblock.is_pixel, engine, &self.canvas_default_stroke_color);
             }
-
             // 文字属性流改变， 重新生成geometry
             if geometry_change {
                 let l = &mut self.index_len;
@@ -311,13 +308,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     &self.index_buffer,
                     l,
 					engine,
-					scale,
+					node_states[*id].0.scale
                 );
                 render_objs
                     .get_notify_ref()
                     .modify_event(index.text, "geometry", 0);
 			}
-			
 			let (mut h, mut v) = (0.0, 0.0);
 			if node_states[*id].0.is_vnode() {
 				h = -layout.rect.start;
@@ -342,7 +338,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 );
             }
             notify.modify_event(index.text, "", 0);
-
             // 阴影存在
             if index.shadow > 0 {
                 let shadow_render_obj = &mut render_objs[index.shadow];
@@ -402,7 +397,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                                 &self.index_buffer,
                                 l,
 								engine,
-								scale,
+								node_states[*id].0.scale,
                             )
                         }
                     }
@@ -427,20 +422,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     );
                 }
                 notify.modify_event(index.shadow, "", 0);
-            }
+			}
         }
-        // println!("run---------------------------{:?}", std::time::Instant::now() - time);
-    }
-}
-
-// 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, C: HalContext + 'static>
-    SingleCaseListener<'a, FontSheet, ModifyEvent> for CharBlockSys<C>
-{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, _: &ModifyEvent, _read: Self::ReadData, _write: Self::WriteData) {
-        self.texture_change = true;
     }
 }
 
@@ -459,6 +442,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
     pub fn with_capacity(engine: &mut Engine<C>, texture_size: (usize, usize), capacity: usize) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
 		canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		canvas_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 		// canvas_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         let canvas_bs = engine.create_bs_res(canvas_bs);
 
@@ -528,7 +512,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
                 texture_size.0 as f32,
                 texture_size.1 as f32,
             ))),
-            texture_change: false,
+			old_texture_tex_version: 0,
 
             msdf_stroke_ubo_map,
             canvas_stroke_ubo_map,
@@ -946,7 +930,6 @@ fn get_geo_flow<C: HalContext + 'static>(
 					Some(r) => r.1.clone(),
 					None => continue,
 				};
-
 				if count > 0 {
 					count -= 1;
 					push_pos_uv(
@@ -1253,16 +1236,18 @@ fn push_pos_uv(
 	height: f32,
 	scale: f32,
 ) {
-	let ratio = width / glyph.advance;
+	let ratio = 1.0/scale;
+	let w = glyph.width.ceil();
+	let h = glyph.height.ceil();
 	// height为行高， 当行高高于字体高度时，需要居中
 	y += (height - ratio * glyph.height)/2.0;
     let left_top = (
         x + ratio * glyph.ox,
-        y  + glyph.oy * ratio,
+        ((y  + glyph.oy * ratio) * scale).ceil()/scale, // 保证顶点对应整数像素
     );
     let right_bootom = (
-        left_top.0 + glyph.width / scale,
-        left_top.1 + glyph.height / scale,
+        left_top.0 + w / scale,
+        left_top.1 + h / scale,
 	);
 
     let ps = [
@@ -1274,17 +1259,18 @@ fn push_pos_uv(
         right_bootom.1,
         right_bootom.0,
         left_top.1,
-    ];
-    uvs.extend_from_slice(&[
+	];
+	let uv = [
         glyph.x,
         glyph.y,
         glyph.x,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
+        glyph.y + h,
+        glyph.x + w,
+        glyph.y + h,
+        glyph.x + w,
         glyph.y,
-    ]);
+	];
+    uvs.extend_from_slice(&uv);
     positions.extend_from_slice(&ps[..]);
 }
 
@@ -1302,7 +1288,6 @@ impl_system! {
     CharBlockSys<C> where [C: HalContext + 'static],
     true,
     {
-        SingleCaseListener<FontSheet, ModifyEvent>
         MultiCaseListener<Node, TextStyle, DeleteEvent>
     }
 }

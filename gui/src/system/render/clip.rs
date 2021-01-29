@@ -1,5 +1,7 @@
 /**
- * 渲染对象的裁剪属性设置
+ * 裁剪
+ * 非旋转矩形裁剪区域采用向shader传入裁剪区域的的aabb， 在shader中通过aabb来判断是否裁剪
+ * 旋转矩形裁剪区域采用在纹理中填入每像素的裁剪位标记，shader通过采样该纹理来确定是否渲染该像素
  */
 use std::marker::PhantomData;
 
@@ -23,12 +25,14 @@ pub struct ClipSys<C> {
     dirty: bool,
     no_rotate_dirtys: VecMap<bool>,
     render_obj: Option<ClipTextureRender>,
-    marker: PhantomData<C>,
+	marker: PhantomData<C>,
+	
+	rotate_index: usize,
 }
 
 struct ClipTextureRender {
     clip_size_ubo: Share<ClipTextureSize>,
-    sampler: Share<SamplerRes>,
+	sampler: Share<SamplerRes>,
 
     rs: Share<RasterStateRes>,
     bs: Share<BlendStateRes>,
@@ -36,7 +40,7 @@ struct ClipTextureRender {
     ds: Share<DepthStateRes>,
     render_target: HalRenderTarget,
     program: Share<HalProgram>,
-    geometry: HalGeometry,
+	geometry: HalGeometry,
 
     paramter: Share<dyn ProgramParamter>,
     begin_desc: RenderBeginDesc,
@@ -46,7 +50,8 @@ impl<C: HalContext + 'static> ClipSys<C> {
     pub fn init_render(
         &mut self,
         engine: &mut Engine<C>,
-        viewport: &(i32, i32, i32, i32),
+		viewport: &(i32, i32, i32, i32),
+		scissor: &(i32, i32, i32, i32),
         view_matrix: &ViewMatrix,
         projection_matrix: &ProjectionMatrix,
     ) {
@@ -74,20 +79,20 @@ impl<C: HalContext + 'static> ClipSys<C> {
             &paramter,
         );
 
-        let size = next_power_of_two((viewport.2 as u32).max(viewport.2 as u32));
         let target = engine
             .gl
             .rt_create(
                 None,
-                size,
-                size,
-                PixelFormat::RGB,
+                (viewport.0 + viewport.2) as u32,
+                (viewport.1 + viewport.3) as u32,
+                PixelFormat::RGBA,
                 DataFormat::UnsignedByte,
                 false,
             )
-            .unwrap();
+			.unwrap();
+			
         let mut clip_size_ubo = ClipTextureSize::default();
-        clip_size_ubo.set_value("clipTextureSize", UniformValue::Float1(size as f32));
+        clip_size_ubo.set_value("clipTextureSize", UniformValue::Float2((viewport.0 + viewport.2) as f32, (viewport.1 + viewport.3) as f32));
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
@@ -97,11 +102,18 @@ impl<C: HalContext + 'static> ClipSys<C> {
             ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
 
         paramter.set_value("viewMatrix", Share::new(view_matrix_ubo)); // VIEW_MATRIX
-        paramter.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
+		paramter.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
+		
+		//https://stackoverflow.com/questions/3792027/webgl-and-the-power-of-two-image-size
+		let mut sampler = SamplerDesc::default();
+		sampler.min_filter = TextureFilterMode::Nearest;
+		sampler.mag_filter = TextureFilterMode::Nearest;
+		sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		sampler.v_wrap = TextureWrapMode::ClampToEdge;
 
         self.render_obj = Some(ClipTextureRender {
             clip_size_ubo: Share::new(clip_size_ubo),
-            sampler: engine.create_sampler_res(SamplerDesc::default()),
+            sampler: engine.create_sampler_res(sampler),
 
             rs: engine.create_rs_res(rs),
             bs: engine.create_bs_res(bs),
@@ -120,7 +132,7 @@ impl<C: HalContext + 'static> ClipSys<C> {
                     OrderedFloat(0.0),
                     OrderedFloat(0.0),
                     OrderedFloat(0.0),
-                    OrderedFloat(1.0),
+                    OrderedFloat(0.0),
                 )),
                 clear_depth: None,
                 clear_stencil: None,
@@ -133,7 +145,8 @@ impl<C: HalContext + 'static> ClipSys<C> {
             dirty: false,
             no_rotate_dirtys: VecMap::default(),
             render_obj: None,
-            marker: PhantomData,
+			marker: PhantomData,
+			rotate_index: 0,
         }
     }
 
@@ -158,9 +171,13 @@ impl<C: HalContext + 'static> ClipSys<C> {
                 // }
             }
             None => {
+				let by_overflow = by_overflow & self.rotate_index;
                 render_obj
                     .paramter
-                    .set_single_uniform("clipIndices", UniformValue::Float1(by_overflow as f32));
+					.set_single_uniform("clipIndices1", UniformValue::Float1(by_overflow as f32));
+				render_obj
+                    .paramter
+                    .set_single_uniform("clipIndices2", UniformValue::Float1((by_overflow >> 24) as f32));
                 let clip_render = self.render_obj.as_ref().unwrap();
                 // 插入裁剪ubo 插入裁剪宏
                 if let None = render_obj.fs_defines.add("CLIP") {
@@ -219,12 +236,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
         if self.dirty {
             self.dirty = false;
             if self.render_obj.is_none() {
-                self.init_render(engine, &view_port.0.viewport, view, projection);
+                self.init_render(engine, &view_port.0.viewport, &view_port.0.scissor, view, projection);
             }
             let clip_render = self.render_obj.as_ref().unwrap();
 
-            let mut positions = Vec::default();
-            for (_i, c) in overflow.clip.iter() {
+			let mut positions: Vec<f32> = Vec::new();
+			let mut mumbers: Vec<f32> = Vec::new();
+
+			self.rotate_index = 0;
+            for (i, c) in overflow.clip.iter() {
                 if c.has_rotate {
                     let p = &c.view;
                     positions.push(p[0].x);
@@ -234,21 +254,22 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                     positions.push(p[2].x);
                     positions.push(p[2].y);
                     positions.push(p[3].x);
-                    positions.push(p[3].y);
-                }
+					positions.push(p[3].y);
+					let m = i as f32 -1.0;
+					mumbers.extend_from_slice(&[m,m,m,m]);
+					self.rotate_index |= 1 << m as usize;
+				}
             }
 
-            let mut mumbers: Vec<f32> = Vec::new();
             let mut indices: Vec<u16> = Vec::new();
 
 			// clip数量超出16个，设置clip只有16个
             let mut count = positions.len() / 8;
-            if count > 16 {
-                count = 16;
-                unsafe { positions.set_len(128) };
+            if count > 32 {
+                count = 32;
+                unsafe { positions.set_len(256) };
             }
             for i in 0..count as u16 {
-                mumbers.extend_from_slice(&[i as f32, i as f32, i as f32, i as f32]);
                 indices.extend_from_slice(&[
                     4 * i + 0,
                     4 * i + 1,
@@ -259,7 +280,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                 ]);
             }
 
-            let p_buffer = engine.create_buffer(BufferType::Attribute, 128, None, false);
+            let p_buffer = engine.create_buffer(BufferType::Attribute, positions.len(), Some(BufferData::Float(positions.as_slice())), false);
             let m_buffer = engine.create_buffer(
                 BufferType::Attribute,
                 mumbers.len(),
@@ -376,17 +397,37 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
                 ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
             render_obj
                 .paramter
-                .set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
+				.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
             self.dirty = true;
         }
     }
+}
+
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEvent>
+    for ClipSys<C>
+{
+    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type WriteData = ();
+    fn listen(
+        &mut self,
+        _event: &ModifyEvent,
+        render_begin: Self::ReadData,
+        _: Self::WriteData,
+    ) {
+        if let Some(render_obj) = &mut self.render_obj {
+			let viewport = &render_begin.0.viewport;
+			render_obj.begin_desc.viewport = (viewport.0, viewport.1, viewport.2, viewport.3);
+			render_obj.begin_desc.scissor = (viewport.0, viewport.1, viewport.2, viewport.3);
+			self.dirty = true;
+		}
+	}
 }
 
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C> {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<OverflowClip>;
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let c = &write.clip[event.id];
+		let c = &write.clip[event.id];
         if c.has_rotate || c.old_has_rotate {
             self.dirty = true;
         }
@@ -429,6 +470,7 @@ impl_system! {
     true,
     {
         SingleCaseListener<OverflowClip, ModifyEvent>
-        SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		SingleCaseListener<RenderBegin, ModifyEvent>
     }
 }

@@ -236,7 +236,8 @@ impl ZIndexImpl {
       // 如果为z为auto，则向上找zindex不为auto的节点，zindex不为auto的节点有堆叠上下文
       if zi.old != AUTO {
         if zi.dirty == DirtyType::None {
-          zi.dirty = DirtyType::Normal;
+		//   zi.dirty = DirtyType::Normal; // bug, 等待修复， TODO
+		  zi.dirty = DirtyType::Recursive;
           self.dirty.mark(id, node.layer());
           debug_println!("zindex- set_parent_dirty: {:?} {:?} {:?} {:?} {:?} {:?}", id, zi, node.parent(), node.layer(), node.count(), node.children().head);
         }

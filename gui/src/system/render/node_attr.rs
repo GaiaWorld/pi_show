@@ -16,6 +16,7 @@ use hal_core::*;
 use res::{ResMap, ResMgr};
 
 use component::calc::*;
+use component::calc::Opacity;
 use entity::Node;
 use render::engine::{ShareEngine, UnsafeMut};
 use single::*;
@@ -57,7 +58,38 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
                 0,
             ), // TODO cost
         }
-    }
+	}
+	
+	pub fn modifyHsv<'a>(&mut self, id: usize, hsvs: &'a MultiCaseImpl<Node, HSV>, write: (
+		&'a mut SingleCaseImpl<RenderObjs>,
+		&'a mut SingleCaseImpl<NodeRenderMap>,
+	)) {
+		let (render_objs, node_render_map) = write;
+		let hsv = &hsvs[id];
+		let obj_ids = &node_render_map[id];
+		if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
+			for id in obj_ids.iter() {
+				let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
+				let render_obj = &mut render_objs[*id];
+				render_obj.fs_defines.add("HSV");
+				render_obj
+					.paramter
+					.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
+	
+				notify.modify_event(*id, "paramter", 0);
+				notify.modify_event(*id, "program_dirty", 0);
+			}
+		} else {
+			for id in obj_ids.iter() {
+				let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
+				let render_obj = &mut render_objs[*id];
+				render_obj.fs_defines.remove("HSV");
+	
+				notify.modify_event(*id, "paramter", 0);
+				notify.modify_event(*id, "program_dirty", 0);
+			}
+		}
+	}
 }
 
 impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
@@ -341,7 +373,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEve
             render_obj
                 .paramter
                 .as_ref()
-                .set_single_uniform("alpha", UniformValue::Float1(opacity));
+				.set_single_uniform("alpha", UniformValue::Float1(opacity));
             render_objs.get_notify_ref().modify_event(*id, "paramter", 0);
         }
     }
@@ -360,6 +392,23 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, Modify
         &'a mut SingleCaseImpl<NodeRenderMap>,
     );
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+        modify_visible(event.id, read, write);
+    }
+}
+
+// 设置visibility
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, CreateEvent>
+    for NodeAttrSys<C>
+{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Visibility>,
+        &'a MultiCaseImpl<Node, Culling>,
+    );
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+    );
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
         modify_visible(event.id, read, write);
     }
 }
@@ -389,32 +438,19 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
         &'a mut SingleCaseImpl<NodeRenderMap>,
     );
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData) {
-        let (render_objs, node_render_map) = write;
-        let hsv = &hsvs[event.id];
-        let obj_ids = &node_render_map[event.id];
+        self.modifyHsv(event.id, hsvs, write);
+    }
+}
 
-        if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
-            for id in obj_ids.iter() {
-                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
-                let render_obj = &mut render_objs[*id];
-                render_obj.fs_defines.add("HSV");
-                render_obj
-                    .paramter
-                    .set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
-
-                notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "program_dirty", 0);
-            }
-        } else {
-            for id in obj_ids.iter() {
-                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
-                let render_obj = &mut render_objs[*id];
-                render_obj.fs_defines.remove("HSV");
-
-                notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "program_dirty", 0);
-            }
-        }
+// 设置hsv
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, CreateEvent> for NodeAttrSys<C> {
+    type ReadData = &'a MultiCaseImpl<Node, HSV>;
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+    );
+    fn listen(&mut self, event: &CreateEvent, hsvs: Self::ReadData, write: Self::WriteData) {
+        self.modifyHsv(event.id, hsvs, write);
     }
 }
 
@@ -449,10 +485,12 @@ impl_system! {
         SingleCaseListener<RenderObjs, CreateEvent>
         SingleCaseListener<RenderObjs, DeleteEvent>
         SingleCaseListener<ProjectionMatrix, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, Visibility, ModifyEvent>
+		MultiCaseListener<Node, Opacity, ModifyEvent>
+		MultiCaseListener<Node, Visibility, ModifyEvent>
+		MultiCaseListener<Node, Visibility, CreateEvent>
         MultiCaseListener<Node, Culling, ModifyEvent>
-        MultiCaseListener<Node, HSV, ModifyEvent>
+		MultiCaseListener<Node, HSV, ModifyEvent>
+		MultiCaseListener<Node, HSV, CreateEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>

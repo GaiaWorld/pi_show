@@ -191,7 +191,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BorderImage as usize != 0
             {
-                let opacity = opacitys[*id].0;
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
                 let is_opacity = if opacity < 1.0 {
                     false
                 } else if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {
@@ -199,8 +200,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 } else {
                     false
                 };
-                render_obj.is_opacity = is_opacity;
-                notify.modify_event(render_index, "is_opacity", 0);
+				render_obj.is_opacity = is_opacity;
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
             notify.modify_event(render_index, "", 0);
@@ -220,18 +223,24 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, Delet
 
 impl<C: HalContext + 'static> BorderImageSys<C> {
     pub fn new(engine: &mut Engine<C>) -> Self {
+		let mut default_sampler = SamplerDesc::default();
+		default_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		default_sampler.v_wrap = TextureWrapMode::ClampToEdge;
         BorderImageSys {
             render_map: VecMap::default(),
-            default_sampler: engine.create_sampler_res(SamplerDesc::default()),
+            default_sampler: engine.create_sampler_res(default_sampler),
             default_paramter: ImageParamter::default(),
             marker: PhantomData,
         }
 	}
 	
 	pub fn with_capacity(engine: &mut Engine<C>, capacity: usize) -> Self {
+		let mut default_sampler = SamplerDesc::default();
+		default_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		default_sampler.v_wrap = TextureWrapMode::ClampToEdge;
         BorderImageSys {
             render_map: VecMap::with_capacity(capacity),
-            default_sampler: engine.create_sampler_res(SamplerDesc::default()),
+            default_sampler: engine.create_sampler_res(default_sampler),
             default_paramter: ImageParamter::default(),
             marker: PhantomData,
         }
@@ -644,7 +653,7 @@ fn get_border_image_stream(
             );
         }
 	}
-	// println!("border1, point_arr: {:?}, uv_arr: {:?}, index_arr: {:?}", point_arr, uv_arr, index_arr);
+
     (point_arr, uv_arr, index_arr)
 }
 // 将四边形放进数组中
