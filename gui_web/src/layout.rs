@@ -14,8 +14,8 @@ macro_rules! func_enum {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-		#[js_export]
-        pub fn $func(world: u32, node_id: u32, value: u8) {
+#[js_export]
+		        pub fn $func(world: u32, node_id: u32, value: u8) {
             let value = unsafe { transmute(value) };
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -31,8 +31,8 @@ macro_rules! func_value_dimension {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-		#[js_export]
-        pub fn $func(world: u32, node_id: u32, value: f32) {
+#[js_export]
+		        pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
@@ -47,8 +47,8 @@ macro_rules! func_value_dimension {
 	($func:ident, $feild1:ident, $dime:ident, $notify_feild0:expr, $notify_feild1:expr, $notify_feild2:expr, $notify_feild3:expr, $notify_feild4:expr,$ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-		#[js_export]
-        pub fn $func(world: u32, node_id: u32, edge: u8, value: f32) {
+#[js_export]
+		        pub fn $func(world: u32, node_id: u32, edge: u8, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
@@ -99,8 +99,8 @@ macro_rules! func_value_dimension_simple {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
         #[no_mangle]
-		#[js_export]
-        pub fn $func(world: u32, node_id: u32) {
+#[js_export]
+		        pub fn $func(world: u32, node_id: u32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
             let world = &mut world.gui;
@@ -235,7 +235,7 @@ pub fn set_margin_auto(world: u32, node_id: u32, edge: u8) {
 
 // #[no_mangle]
 // #[js_export]
-// pub fn init_height(world: u32, node_id: u32, height: u32) {
+// // pub fn init_height(world: u32, node_id: u32, height: u32) {
 //     let node_id = node_id as usize;
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let yogas = world.gui.yoga.lend_mut();

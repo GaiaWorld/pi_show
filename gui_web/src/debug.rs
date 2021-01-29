@@ -1,4 +1,5 @@
 use std::mem::transmute;
+use std::ops::{Deref};
 
 use hal_core::*;
 use hal_webgl::*;
@@ -196,7 +197,7 @@ pub fn list_class(world: u32) {
 	let class_map = &world
         .class_sheet
         .lend()
-		.class_map;
+		.borrow_mut().class_map;
 	js!{window.__jsObj = [];}
 	for ci in class_map.iter() {
 		println!("xxxxxxxxxxxxxxxxxxxxxxx{}", ci.0);
@@ -239,7 +240,7 @@ pub fn get_class(world: u32, class_name: u32) {
     let class = match world
         .class_sheet
         .lend()
-        .class_map
+        .borrow_mut().class_map
         .get(&(class_name as usize))
     {
         Some(r) => {
@@ -1109,7 +1110,7 @@ pub fn overflow_clip(world: u32) {
 // // 打开性能检视面板
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn open_performance_inspector(world: u32, width: f32, height: f32) -> u32 {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector == 0 {
@@ -1125,7 +1126,7 @@ pub fn overflow_clip(world: u32) {
 // // 关闭性能检视面板
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn close_performance_inspector(world: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector > 0 {
@@ -1311,8 +1312,8 @@ pub fn is_dirty(world: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	if world.gui.dirty_list.lend().0.len() > 0 {
 		true
-	} else {
-		false
+	} else{
+		world.gui.renderSys.owner.deref().borrow().dirty
 	}
 }
 
@@ -1473,13 +1474,13 @@ pub fn print_memory(world: u32) {
     let r = world.render_objs.lend().mem_size();
     total += r;
     println!("    world::render_objs = {:?}", r);
-    let r = world.font_sheet.lend().mem_size();
+    let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::font_sheet = {:?}", r);
     let r = world.default_table.lend().mem_size();
     total += r;
     println!("    world::default_table = {:?}", r);
-    let r = world.class_sheet.lend().mem_size();
+    let r = world.class_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::class_sheet = {:?}", r);
     let r = world.image_wait_sheet.lend().mem_size();
@@ -1578,7 +1579,7 @@ js_serializable!(ResMgrSize);
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
@@ -1657,7 +1658,7 @@ pub fn get_yoga(world: u32, node: u32) {
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // #[js_export]
-// pub fn test_create_render_obj(world: u32, count: u32) {
+// // pub fn test_create_render_obj(world: u32, count: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	let world = &mut world.gui;
 

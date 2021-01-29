@@ -359,7 +359,8 @@ pub fn add_msdf_font_res(world_id: u32) {
     let cfg = cfg.to_vec();
     let width: u32 = js!(return __jsObj.width;).try_into().unwrap();
     let height: u32 = js!(return __jsObj.height;).try_into().unwrap();
-    let font_sheet = world.font_sheet.lend_mut();
+	let font_sheet = world.font_sheet.lend_mut();
+	let font_sheet = &mut font_sheet.borrow_mut();
 
     if width > world1.max_texture_size {
         debug_println!("add_msdf_font_res fail");
@@ -377,7 +378,7 @@ pub fn add_msdf_font_res(world_id: u32) {
 #[no_mangle]
 #[js_export]
 pub fn set_text_content(world_id: u32, node: u32) {
-    let value: String = js!(return __jsObj;).try_into().unwrap();
+	let value: String = js!(return __jsObj;).try_into().unwrap();
     let node = node as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -393,12 +394,12 @@ pub fn set_text_content(world_id: u32, node: u32) {
 #[allow(unused_attributes)]
 #[no_mangle]
 #[js_export]
-pub fn add_canvas_font(world: u32, factor: f32) {
+pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let name: String = js!(return __jsObj;).try_into().unwrap();
-    let font_sheet = world.font_sheet.lend_mut();
-    font_sheet.set_src(Atom::from(name), true, factor);
+	let font_sheet = world.font_sheet.lend_mut();
+    font_sheet.borrow_mut().set_src(Atom::from(name), true, factor_t, factor_b);
 }
 
 /// 添加font-face
@@ -412,8 +413,8 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32) {
     let world = &mut world.gui;
     let family: String = js!(return __jsObj;).try_into().unwrap();
     let src: String = js!(return __jsObj1;).try_into().unwrap();
-    let font_sheet = world.font_sheet.lend_mut();
-    font_sheet.set_face(
+	let font_sheet = world.font_sheet.lend_mut();
+    font_sheet.borrow_mut().set_face(
         Atom::from(family),
         oblique,
         size as usize,
@@ -429,8 +430,9 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32) {
 #[js_export]
 pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
     let world1 = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world1.gui;
-    let font_sheet = world.font_sheet.lend_mut();
+	let world = &mut world1.gui;
+	let single_font_sheet = world.font_sheet.lend_mut();
+    let font_sheet = &mut single_font_sheet.borrow_mut();
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
 
@@ -444,7 +446,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32) {
             .gl
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
-        font_sheet.get_notify_ref().modify_event(0, "", 0);
+        single_font_sheet.get_notify_ref().modify_event(0, "", 0);
 	}
     engine.gl.texture_update_webgl(
         &texture.bind,
@@ -465,7 +467,9 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
     let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let canvas = &world1.draw_text_sys.canvas;
     let world = &mut world1.gui;
-    let font_sheet = world.font_sheet.lend_mut();
+	let single_font_sheet = &mut world.font_sheet.lend_mut();
+	let font_sheet = &mut single_font_sheet.borrow_mut();
+	font_sheet.tex_version += 1;
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
 
@@ -504,7 +508,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
             .gl
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
-        font_sheet.get_notify_ref().modify_event(0, "", 0);
+        single_font_sheet.get_notify_ref().modify_event(0, "", 0);
     }
 
     for indexs in map.iter() {
@@ -559,8 +563,8 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                         var c = @{canvas};
                         var ch = String.fromCharCode(@{ch_code});
                         //fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-                        c.ctx.strokeText(ch, @{x}, 2);
-                        c.ctx.fillText(ch, @{x}, 2);
+                        c.ctx.strokeText(ch, @{x}, @{text_info.top as u32});
+                        c.ctx.fillText(ch, @{x}, @{text_info.top as u32});
                     }
                 }
             } else {
@@ -569,13 +573,13 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
                     let x = char_info.x - start.0 as u32;
                     js! {
                         var ch = String.fromCharCode(@{ch_code});
-                        @{canvas}.ctx.fillText(ch, @{x}, 2);
+                        @{canvas}.ctx.fillText(ch, @{x}, @{text_info.top as u32});
                     }
                 }
             }
 		}
-		// 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
-		// 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
+		// // 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
+		// // 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
 		// js!{
 		// 	@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
 		// }
@@ -595,7 +599,8 @@ pub struct TextInfo {
     pub stroke_width: usize,
     pub weight: usize,
     pub size: (f32, f32),
-    pub chars: Vec<WaitChar>,
+	pub chars: Vec<WaitChar>,
+	pub top: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -622,7 +627,7 @@ impl DrawTextSys {
     pub fn new() -> Self {
         let obj: Object = TryInto::try_into(js! {
 			var c = document.createElement("canvas");
-			// c.style.position = "absolute";
+			// c.style = "position:absolute;bottom:20px";
             // document.body.append(c);// 查看效果
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};
@@ -634,7 +639,8 @@ impl DrawTextSys {
     pub fn run(&mut self, world_id: u32) {
         let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-        let font_sheet = world.font_sheet.lend_mut();
+		let font_sheet = world.font_sheet.lend_mut();
+		let font_sheet = &mut font_sheet.borrow_mut();
         if font_sheet.wait_draw_list.len() == 0 {
             return;
         }
@@ -670,7 +676,8 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), S
     let mut tex_font = TexFont {
         name: Atom::from(""),
         is_pixel: false,
-        factor: 1.0,
+		factor_t: 0.0,
+		factor_b: 0.0,
     };
 
     match String::from_utf8(Vec::from(&value[0..11])) {

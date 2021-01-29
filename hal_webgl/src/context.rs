@@ -978,7 +978,7 @@ impl WebglHalContext {
         let ss_slab = Slab::new();
         let program_slab = Slab::new();
 
-        let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
+		let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
         let vao_extension = if use_vao && caps.vertex_array_object {
             TryInto::<Object>::try_into(js! {
 
@@ -992,7 +992,7 @@ impl WebglHalContext {
             .ok()
         } else {
             None
-        };
+		};
 
         let shader_cache = ShaderCache::new();
         let state_machine = StateMachine::new(
@@ -1035,7 +1035,6 @@ impl WebglHalContext {
                 context_clone.rt_destroy(index, use_count)
             }),
         };
-
         let rt = get_ref(
             &context_impl.rt_slab,
             default_rt.item.index,
@@ -1237,42 +1236,81 @@ impl WebglHalContext {
         //     .try_into()
 		//     .unwrap();
 		let max_textures_image_units = 8; // qq小游戏取到最大纹理数量是16，但实际可用的只有8个，等待qq小游戏修复bug
-        let max_vertex_texture_image_units = gl
+        let max_vertex_texture_image_units = match gl
             .get_parameter(WebGLRenderingContext::MAX_VERTEX_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
-        let max_combined_textures_image_units = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_VERTEX_TEXTURE_IMAGE_UNITS");
+					0
+				}
+			};
+        let max_combined_textures_image_units = match gl
             .get_parameter(WebGLRenderingContext::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
-            .try_into()
-            .unwrap();
-        let max_texture_size = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_COMBINED_TEXTURE_IMAGE_UNITS");
+					48
+				}
+			};
+        let max_texture_size = match gl
             .get_parameter(WebGLRenderingContext::MAX_TEXTURE_SIZE)
-            .try_into()
-            .unwrap();
-        let max_render_texture_size = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_TEXTURE_SIZE");
+					2048
+				}
+			};
+        let max_render_texture_size = match gl
             .get_parameter(WebGLRenderingContext::MAX_RENDERBUFFER_SIZE)
-            .try_into()
-            .unwrap();
-        let max_vertex_attribs = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_RENDERBUFFER_SIZE");
+					4096
+				}
+			};
+        let max_vertex_attribs = match gl
             .get_parameter(WebGLRenderingContext::MAX_VERTEX_ATTRIBS)
-            .try_into()
-            .unwrap();
-        let max_varying_vectors = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_VERTEX_ATTRIBS");
+					16
+				}
+			};
+        let max_varying_vectors = match gl
             .get_parameter(WebGLRenderingContext::MAX_VARYING_VECTORS)
-            .try_into()
-            .unwrap();
-        let max_vertex_uniform_vectors = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_VARYING_VECTORS");
+					15
+				}
+			};
+        let max_vertex_uniform_vectors = match gl
             .get_parameter(WebGLRenderingContext::MAX_VERTEX_UNIFORM_VECTORS)
-            .try_into()
-            .unwrap();
-        let max_fragment_uniform_vectors = gl
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_VERTEX_UNIFORM_VECTORS");
+					1024
+				}
+			};
+        let max_fragment_uniform_vectors = match gl
             .get_parameter(WebGLRenderingContext::MAX_FRAGMENT_UNIFORM_VECTORS)
-            .try_into()
-            .unwrap();
-
+            .try_into(){
+				Ok(r) => r,
+				Err(r) => {
+					println!("get_parameter fail, paramName: MAX_FRAGMENT_UNIFORM_VECTORS");
+					1024
+				}
+			};
         let standard_derivatives = gl
             .get_extension::<OESStandardDerivatives>()
-            .map_or(false, |_v| true);
+			.map_or(false, |_v| true);
         let uint_indices = gl
             .get_extension::<OESElementIndexUint>()
             .map_or(false, |_v| true);

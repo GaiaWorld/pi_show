@@ -64,7 +64,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 // // 设置一个径向渐变的背景颜色
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8 ){
 //     let color_and_positions: TypedArray<f32> = js!(return __jsObj;).try_into().unwrap();
 //     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
@@ -135,7 +135,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影颜色
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
 //     let color = 0;
 //     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
@@ -143,7 +143,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
 //     let spread = 0;
 //     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
@@ -151,7 +151,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
 //     let blur = 0;
 //     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
@@ -160,7 +160,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影h
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
 //     let h = 0;
 //     set_attr!(world, node, BoxShadow, h, value, box_shadow);
@@ -169,7 +169,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影v
 // #[allow(unused_attributes)]
 // #[no_mangle]
-#[js_export]
+// #[js_export]
 // pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
 //     let v = 0;
 //     set_attr!(world, node, BoxShadow, v, value, box_shadow);
@@ -313,7 +313,7 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
         value = 1.0;
     } else if value < 0.0 {
         value = 0.0;
-    }
+	}
     insert_value!(world, node, Opacity, value, opacity);
 }
 
@@ -461,24 +461,15 @@ pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
     let transform_will_changes = world.gui.transform_will_change.lend_mut();
     if value == 0 {
         if transform_will_changes.get(node_id).is_some() {
-            // println!(
-            //     "clear will change=================={:?}",
-            //     transform_will_changes.get(node_id)
-            // );
             transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
         }
     } else {
         if transforms.get(node_id).is_some() {
-            // println!(
-            //     "add1 will change=================={:?}",
-            //     transforms.get(node_id)
-            // );
             transform_will_changes.insert(
                 node_id,
                 TransformWillChange(transforms.delete(node_id).unwrap()),
             );
         } else if transform_will_changes.get(node_id).is_none() {
-            // println!("add2 will change==================");
             transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
         }
     }

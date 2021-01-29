@@ -38,7 +38,6 @@ fn create(world: &GuiWorld) -> usize {
         },
     );
 	idtree.create(node);
-	// debug_println!("create================={}", node);
     // set_layout_style(&world.default_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
 }
@@ -49,7 +48,7 @@ fn create(world: &GuiWorld) -> usize {
 #[js_export]
 pub fn create_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let node = create(world);
+	let node = create(world);
     node as u32
 }
 
@@ -283,7 +282,7 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
-    let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
+	let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
 	// idtree.remove(child as usize, None);
 	idtree.insert_child_with_notify(child as usize, parent as usize, UMAX, notify);
@@ -297,7 +296,7 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
-    let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
+	let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
     // idtree.remove(child as usize, None);
     idtree.insert_brother_with_notify(
@@ -364,7 +363,7 @@ pub fn previous_sibling(world: u32, node: u32) -> usize{
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // #[js_export]
-// pub fn insert_after(world: u32, child: u32, brother: u32) {
+// // pub fn insert_after(world: u32, child: u32, brother: u32) {
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let world = &mut world.gui;
 //     let idtree = world.idtree.lend_mut();
@@ -483,7 +482,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
 // /// left top width height
 // #[no_mangle]
 // #[js_export]
-// pub fn offset_document(world: u32, node_id: u32) {
+// // pub fn offset_document(world: u32, node_id: u32) {
 //     let node_id = node_id as usize;
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 //     let world = &mut world.gui;
@@ -756,7 +755,7 @@ pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
 #[no_mangle]
 #[js_export]
 pub fn add_class_end(world: u32, node_id: u32, old: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     world
         .gui
         .class_name
@@ -836,19 +835,20 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
         }
         None => return,
     };
-    // println!("ab_query_func----------------------------{}, {:?}, {:?}", *bind, aabb, arg.aabb);
+    // println!("ab_query_func----------------------------bind: {}, aabb: {:?}, arg: {:?}", *bind, aabb, arg.aabb);
     if intersects(&arg.aabb, aabb) {
         // debug_println!("bind----------------------------{}", *bind);
-        let enable = arg.enables[*bind].0;
+		let enable = arg.enables[*bind].0;
+		let z_depth = arg.z_depths[*bind].0;
         // println!("enable----------------------------{}, bind:{}", enable, bind);
-        // println!("enable----------id: {}, enable: {}", bind, enable);
+        // println!("enable----------id: {}, enable: {}, z_depth: {}, max_z: {}", bind, enable, z_depth,  arg.max_z);
         //如果enable true 表示不接收事件
         match enable {
             true => (),
             false => return,
         };
 
-        let z_depth = arg.z_depths[*bind].0;
+        
         // println!("z_depth----------id: {}, z_depth: {}, arg.max_z:{}", bind, z_depth, arg.max_z);
         // debug_println!("----------------------------z_depth: {}, arg.max_z: {}", z_depth, arg.max_z);
         // 取最大z的node

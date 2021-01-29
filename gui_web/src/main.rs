@@ -50,14 +50,15 @@ use webgl_rendering_context::WebGLRenderingContext;
 use flex_layout::{Size, Dimension, PositionType, Rect};
 
 use atom::Atom;
-use ecs::{Lend, LendMut};
+use ecs::{Lend, LendMut, StdCell};
 use gui::component::calc::Visibility;
+use gui::font::font_sheet::FontSheet;
 use gui::component::user::*;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::render::res::TextureRes;
 use gui::single::Class;
-use gui::single::RenderBegin;
+use gui::single::{RenderBegin, ClassSheet};
 use gui::world::GuiWorld as GuiWorld1;
 use gui::Z_MAX;
 use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
@@ -99,7 +100,7 @@ pub struct GuiWorld {
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // #[js_export]
-// pub fn set_texture_catch_cfg(
+// // pub fn set_texture_catch_cfg(
 //     res_mgr: u32, /* res_mgr指针 */
 //     min_c1: u32,
 //     max_c1: u32,
@@ -133,14 +134,31 @@ pub struct GuiWorld {
 #[no_mangle]
 #[js_export]
 pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */) -> u32 {
-    let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
+	let gl: WebGLRenderingContext = js!(return __gl;).try_into().unwrap();
     let use_vao = TryInto::<bool>::try_into(js!(var u = navigator.userAgent.toLowerCase(); return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;)).unwrap();
-
     // let gl = WebglHalContext::new(gl, fbo, false);
-    let gl = WebglHalContext::new(gl, use_vao);
-    let engine = Engine::new(gl, create_res_mgr(total_capacity as usize));
-    let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
+	let gl = WebglHalContext::new(gl, use_vao);
+	let engine = Engine::new(gl, create_res_mgr(total_capacity as usize));
+	let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
     r
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn get_font_sheet(world: u32) -> u32{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let font_sheet = (*world.gui.font_sheet.lend()).clone();
+	Box::into_raw(Box::new(font_sheet)) as u32
+}
+
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn get_class_sheet(world: u32) -> u32{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let class_sheet = (*world.gui.class_sheet.lend()).clone();
+	Box::into_raw(Box::new(class_sheet)) as u32
 }
 
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
@@ -198,7 +216,7 @@ pub fn clone_engine(engine: u32) -> u32 {
 #[allow(unused_attributes)]
 #[no_mangle]
 #[js_export]
-pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
+pub fn create_gui(engine: u32, width: f32, height: f32, class_sheet: u32, font_sheet: u32) -> u32 {
     let mut engine =
         *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
     let draw_text_sys = DrawTextSys::new();
@@ -228,7 +246,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
             false,
             None,
         )
-        .unwrap();
+		.unwrap();
     let res = engine.create_texture_res(
         Atom::from("__$text".to_string()).get_hash(),
         TextureRes::new(
@@ -243,7 +261,17 @@ pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
         0,
     );
 	let cur_time: u64 = js!{return Date.now()}.try_into().unwrap();
-    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time);
+	let mut class_sheet_option = None;
+	let mut font_sheet_option = None;
+	if class_sheet > 0 {
+		class_sheet_option =
+        Some(*unsafe { Box::from_raw(class_sheet as usize as *mut Share<StdCell<ClassSheet>>) });
+	}
+	if font_sheet > 0 {
+		font_sheet_option =
+        Some(*unsafe { Box::from_raw(font_sheet as usize as *mut Share<StdCell<FontSheet>>) });
+	}
+    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option);
     let world = GuiWorld1::<WebglHalContext>::new(world);
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
@@ -348,7 +376,8 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
         .fetch_single::<gui::single::RenderBegin>()
         .unwrap();
     let rb_decs = rb_decs.lend_mut();
-    rb_decs.0.viewport = (x, y, width, height);
+	rb_decs.0.viewport = (x, y, width, height);
+	rb_decs.get_notify_ref().modify_event(0, "", 0);
 }
 
 /// 设置视口
@@ -364,7 +393,7 @@ pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
         .fetch_single::<gui::single::RenderBegin>()
         .unwrap();
     let rb_decs = rb_decs.lend_mut();
-    rb_decs.0.scissor = (x, y, width, height);
+	rb_decs.0.scissor = (x, y, width, height);
 }
 
 /// 设置投影变换
