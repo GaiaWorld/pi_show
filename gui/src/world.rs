@@ -251,8 +251,11 @@ pub fn create_world<C: HalContext + 'static>(
     ));
     world.register_single::<RenderBegin>(RenderBegin(
         RenderBeginDesc::new(0, 0, width as i32, height as i32),
-        None,
-    ));
+		None,
+	));
+
+	world.register_single::<DirtyViewRect>(DirtyViewRect(0.0, 0.0, width as f32, height as f32, true));
+
     world.register_single::<NodeRenderMap>(NodeRenderMap::with_capacity(capacity));
 	world.register_single::<DefaultTable>(default_table);
 	match share_class_sheet {
@@ -334,7 +337,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -349,7 +352,7 @@ pub fn create_world<C: HalContext + 'static>(
 	world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 	
 	let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
 
     world
@@ -407,6 +410,7 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
 	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
 	pub system_time: Arc<CellSingleCase<SystemTime>>,
+	pub dirty_view_rect: Arc<CellSingleCase<DirtyViewRect>>,
 
 	pub renderSys: Arc<CellRenderSys<C>>,
 
@@ -467,6 +471,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
 			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
 			system_time: world.fetch_single::<SystemTime>().unwrap(),
+			dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
 
 			renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
 

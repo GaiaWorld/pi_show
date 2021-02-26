@@ -134,7 +134,8 @@ pub enum StyleType {
     Layout = 0x8000000,
     BorderRadius = 0x10000000,
     ByOverflow = 0x20000000,
-    Filter = 0x40000000,
+	Filter = 0x40000000,
+	Oct = std::isize::MIN,
 }
 
 // 布局属性标记

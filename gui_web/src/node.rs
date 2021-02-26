@@ -270,9 +270,13 @@ pub fn update_canvas(world: u32, _node: u32) {
     //     ),
     //     Err(s) => panic!("set_src error, {:?}", s),
     // };
+
+	// 设置视口脏区域为全屏（优化TODO: 设置为改canvas所在的区域为脏区域）
+	let dirty_view_rect = world.gui.dirty_view_rect.lend_mut();
+	dirty_view_rect.4 = true;
     // 设置渲染脏
     let render_objs = world.gui.render_objs.lend();
-    render_objs.get_notify().modify_event(1, "", 0);
+    render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 /// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]

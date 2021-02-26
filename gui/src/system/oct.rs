@@ -1,9 +1,13 @@
 //八叉树系统
 use single::IdTree;
 use ecs::{CreateEvent, DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl, MultiCaseListener, ModifyEvent};
+use dirty::LayerDirty;
+use idtree::Node as TreeNode;
+
 
 use component::calc::{LayoutR, StyleMark, WorldMatrix};
 use component::user::*;
+use component::calc::{NodeState, TransformWillChangeMatrix};
 use entity::Node;
 use single::oct::Oct;
 use single::*;
@@ -11,13 +15,43 @@ use ecs::monitor::NotifyImpl;
 use Z_MAX;
 
 #[derive(Default)]
-pub struct OctSys;
+pub struct OctSys{
+	dirty: LayerDirty,
+}
 
 impl<'a> Runner<'a> for OctSys {
-    type ReadData = ();
+    type ReadData = (
+		&'a MultiCaseImpl<Node, NodeState>,
+		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+        &'a SingleCaseImpl<IdTree>,
+	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, _read: Self::ReadData, oct: Self::WriteData) {
-        oct.collect();
+    fn run(&mut self, read: Self::ReadData, oct: Self::WriteData) {
+		// if self.dirty.count() > 0 {
+		// 	// println!("count: {}", self.dirty.count());
+		// 	let (node_states, will_change_matrixs, idtree) = read;
+			
+		// 	for (id, layer) in self.dirty.iter() {
+		// 		// println!("recursive_calc_aabb1 start: {}", id);
+		// 		let node = match idtree.get(*id) {
+		// 			Some(r) => r,
+		// 			None => continue,
+		// 		};
+		// 		// println!("recursive_calc_aabb2 start: {}", id);
+		// 		if node.layer() == 0 {
+		// 			continue;
+		// 		}
+
+		// 		// println!("recursive_calc_aabb3 start: {}", id);
+
+		// 		// 递归重新计算包围盒
+		// 		recursive_calc_aabb(*id, node_states, will_change_matrixs, idtree, oct, will_change_matrixs.get(*id));
+		// 	}
+		// 	self.dirty.clear();
+		// }
+		
+		// 整理
+		oct.collect();
     }
 }
 
@@ -75,7 +109,57 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
     }
 }
 
+//监听TransformWillChangeMatrix组件的修改
+impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OctSys {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+		println!(" matrix_will_change modify============");
+        self.matrix_will_change_dirty(event.id, read);
+    }
+}
+
+//监听TransformWillChangeMatrix组件的修改
+impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for OctSys {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+		println!(" matrix_will_change create============");
+        self.matrix_will_change_dirty(event.id, read);
+    }
+}
+
+// //监听TransformWillChangeMatrix组件的修改
+// impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for OctSys {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+// 	type WriteData = ();
+	
+//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+// 		println!(" matrix_will_change delete============");
+//         self.matrix_will_change_dirty(event.id, read);
+//     }
+// }
+
 impl OctSys {
+
+	// 标记脏
+	fn matrix_will_change_dirty(
+        &mut self,
+        id: usize,
+        idtree: &SingleCaseImpl<IdTree>
+    ) {
+        let node = match idtree.get(id) {
+            Some(r) => r,
+            None => return,
+        };
+        if node.layer() == 0 {
+            return;
+        }
+        self.dirty.mark(id, node.layer());
+    }
+
     fn modify_oct(
         id: usize,
         idtree: &SingleCaseImpl<IdTree>,
@@ -115,6 +199,54 @@ impl OctSys {
 			octree.add(id, aabb, id, Some(notify));
 		}
     }
+}
+
+fn recursive_calc_aabb<'a>(
+	id: usize,
+	node_states: &'a MultiCaseImpl<Node, NodeState>,
+	will_change_matrix: &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+	idtree: &'a SingleCaseImpl<IdTree>,
+	octree: &'a mut SingleCaseImpl<Oct>,
+	mut parent_will_change_matrix: Option<&'a TransformWillChangeMatrix>) {
+	
+	// 如果不存在will_change_matrix， 或者不是真实节点则不再继续处理
+	if parent_will_change_matrix.is_none() || !node_states[id].0.is_rnode() {
+		return;
+	}
+
+	// will_change
+	if let Some(r) = will_change_matrix.get(id) {
+		parent_will_change_matrix = Some(r);
+	}
+	if id == 804 {
+		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
+	}
+	
+
+	// 此时，一定存在一个原来的包围盒
+	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
+	if id == 804 {
+		println!("id: {:?}, aabb: {:?}", id, aabb);
+	}
+	// 更新包围盒
+	let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
+	octree.update(id, aabb, Some(notify));
+
+	// 递归计算子节点的包围盒
+	let first = idtree[id].children().head;
+	for (child_id, _child) in idtree.iter(first) {
+		recursive_calc_aabb(child_id, node_states, will_change_matrix, idtree, octree, parent_will_change_matrix);
+	}
+}
+
+// 计算aabb
+fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb3) -> Aabb3 {
+    let min = m * Vector4::new(aabb.min.x, aabb.min.y, 0.0, 1.0);
+    let max = m * Vector4::new(aabb.max.x, aabb.max.y, 0.0, 1.0);
+    Aabb3::new(
+        Point3::new(min.x, min.y, 1.0),
+        Point3::new(max.x, max.y, 1.0),
+    )
 }
 
 // impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
@@ -189,6 +321,10 @@ impl_system! {
 		EntityListener<Node, DeleteEvent>
 		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
 		MultiCaseListener<Node, WorldMatrix, CreateEvent>
+
+		// MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
+		// MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
+		// MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
     }
 }
 

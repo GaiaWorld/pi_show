@@ -99,6 +99,15 @@ impl FontSheet {
 			tex_version: 0,
         }
     }
+
+	// 清空字形
+	pub fn clear_gylph(&mut self) {
+		self.wait_draw_list.clear();
+		self.wait_draw_map.clear();
+		self.char_map.clear();
+		self.char_slab.clear();
+	}
+	
     pub fn mem_size(&self) -> usize {
         self.src_map.capacity() * (std::mem::size_of::<Atom>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
@@ -269,6 +278,12 @@ impl FontSheet {
 						
                     let mut line = self.font_tex.alloc_line(hh as usize);
                     let p = line.alloc(ww);
+
+					// 超出最大纹理范围，需要清空所有文字，重新布局
+					if *(line.last_v) > line.tex_width {
+						return 0; // 0表示异常情况，不能计算字形
+					}
+
                     let id = self.char_slab.insert((
                         c,
                         Glyph {

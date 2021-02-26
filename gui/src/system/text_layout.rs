@@ -2,6 +2,7 @@
 // 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yoga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
+use std::result::Result;
 use cgmath::InnerSpace;
 
 use ecs::StdCell;
@@ -68,17 +69,43 @@ impl<'a> Runner<'a> for TextGlphySys {
     type WriteData = Write<'a>;
 
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
-        for id in (read.4).0.iter() {
-            let r = match read.3.get(*id) {
-                Some(r) => r,
-                None => continue,
-            };
-
-            if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
-                continue;
+		let mut flag = true;
+		let mut count = 0;
+		while flag {
+			flag = false;
+			count += 1;
+			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
+				panic!("TextGlphySys 死循环");
 			}
-            set_gylph(*id, &read, &mut write);
-        }
+			for id in (read.4).0.iter() {
+				let r = match read.3.get(*id) {
+					Some(r) => r,
+					None => continue,
+				};
+	
+				if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
+					continue;
+				}
+	
+				match set_gylph(*id, &read, &mut write) {
+					Result::Err(_) => {
+						write.5.borrow_mut().clear_gylph();
+						// 对界面上的文字全部重新计算字形
+						let idtree = &write.6;
+						let root = &idtree[0];
+						let notify = read.0.get_notify_ref();
+						for (id, _node) in idtree.recursive_iter(root.children().head) {
+							if read.0.get(id).is_some() { // 文字节点，发送修改事件
+								notify.modify_event(id, "", 0)
+							}
+						}
+						flag = true; // 重新迭代
+						break;
+					},
+					_ => ()
+				};
+			}
+		}
     }
 }
 
@@ -209,7 +236,7 @@ fn update_layout(
 fn set_gylph<'a>(
 	id: usize, 
 	(_text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
-	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) {
+	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), ()> {
     let scale = world_matrixs[id].y.magnitude();
 	let text_style = &text_styles[id];
 	let font_sheet = &mut font_sheet.borrow_mut();
@@ -222,7 +249,7 @@ fn set_gylph<'a>(
                 text_style.font.family.as_ref(),
                 id
             );
-            return;
+            return Ok(());
         }
 	};
 
@@ -231,10 +258,11 @@ fn set_gylph<'a>(
 
 	node_states[id].0.scale = scale;
 	let chars = &mut node_states[id].0.text;
-	
+	let mut id;
+	// clear_gylph
     for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
-            char_node.ch_id_or_count = font_sheet.calc_gylph(
+            id = font_sheet.calc_gylph(
                 &tex_font,
                 font_size as usize,
                 sw as usize,
@@ -243,8 +271,14 @@ fn set_gylph<'a>(
                 char_node.base_width,
                 char_node.ch,
             );
+			// 异常，无法计算字形
+			if id == 0 {
+				return Result::Err(());
+			}
+			char_node.ch_id_or_count = id;
         }
     }
+	return Ok(())
 }
 
 struct Calc<'a> {

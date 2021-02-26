@@ -589,6 +589,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32) {
     }
 
     // println!("time: {:?}", std::time::Instant::now() - t);
+	// println!("set_render_dirty11============={}", world_id);
     set_render_dirty(world_id);
 }
 
@@ -627,7 +628,7 @@ impl DrawTextSys {
     pub fn new() -> Self {
         let obj: Object = TryInto::try_into(js! {
 			var c = document.createElement("canvas");
-			// c.style = "position:absolute;bottom:20px";
+			// c.style = "position:absolute;bottom:20px;z-index:100000";
             // document.body.append(c);// 查看效果
             var ctx = c.getContext("2d");
             return {canvas: c, ctx: ctx, wrap: c};

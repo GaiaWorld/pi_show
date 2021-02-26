@@ -174,6 +174,30 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
     }
 }
 
+impl<'a> SingleCaseListener<'a, Oct, ModifyEvent> for OverflowImpl {
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ByOverflow>,
+        &'a MultiCaseImpl<Node, Overflow>,
+        &'a SingleCaseImpl<IdTree>,
+    );
+    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+        self.matrix_dirty(event.id, read, write);
+    }
+}
+
+impl<'a> SingleCaseListener<'a, Oct, CreateEvent> for OverflowImpl {
+    type ReadData = (
+        &'a MultiCaseImpl<Node, ByOverflow>,
+        &'a MultiCaseImpl<Node, Overflow>,
+        &'a SingleCaseImpl<IdTree>,
+    );
+    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+        self.matrix_dirty(event.id, read, write);
+    }
+}
+
 //监听WorldMatrix组件的修改
 impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OverflowImpl {
     type ReadData = (
@@ -498,9 +522,15 @@ fn calc_clip<'a>(
         if let Some(item) = by_clip_aabb {
             match transform_will_change_matrix {
                 Some(m) => {
-                    // 如果没有旋转
-                    if !(m.0).1 {
-                        unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
+                    // // 如果没有旋转
+                    // if !(m.0).1 {
+                    //     unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
+                    //         &item.0,
+                    //         &unsafe { read.6.get_unchecked(id) }.0,
+                    //     ))
+                    // }
+					if !(m.0).1 {
+                        cullings.get_write(id).unwrap().set_0(!is_intersect(
                             &item.0,
                             &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0),
                         ))
@@ -818,7 +848,9 @@ impl_system! {
 		EntityListener<Node, ModifyEvent>
 		MultiCaseListener<Node, Overflow, CreateEvent>
         MultiCaseListener<Node, Overflow, ModifyEvent>
-        MultiCaseListener<Node, Overflow, DeleteEvent>
+		MultiCaseListener<Node, Overflow, DeleteEvent>
+		SingleCaseListener<Oct, CreateEvent>
+		SingleCaseListener<Oct, ModifyEvent>
 		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
 		MultiCaseListener<Node, WorldMatrix, CreateEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>

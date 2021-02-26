@@ -20,6 +20,7 @@ use component::calc::Opacity;
 use entity::Node;
 use render::engine::{ShareEngine, UnsafeMut};
 use single::*;
+use single::oct::Oct;
 use system::util::*;
 
 lazy_static! {
@@ -94,20 +95,57 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
 
 impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+		&'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
-        &'a SingleCaseImpl<NodeRenderMap>,
-        &'a EntityImpl<Node>,
+		&'a SingleCaseImpl<NodeRenderMap>,
+		&'a SingleCaseImpl<DirtyList>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
+		&'a EntityImpl<Node>,
+		
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
-        &'a mut SingleCaseImpl<ShareEngine<C>>,
-    );
+		&'a mut SingleCaseImpl<ShareEngine<C>>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
+	);
+	
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        let (transform_will_change_matrixs, idtree, view_matrix, _, node_render_map, nodes) = read;
-        let (render_objs, _) = write;
+        let (transform_will_change_matrixs, style_marks, idtree, view_matrix, _, node_render_map, dirty_list, octree, render_begin, nodes) = read;
+		let (render_objs, _, dirty_view_rect) = write;
+		
+		for id in dirty_list.0.iter() {
+			// dirty_view_rect已经是最大范围了，不需要再修改
+			if dirty_view_rect.4 == true {
+				break;
+			}
+			let node = match idtree.get(*id) {
+				Some(r) => r,
+				None => continue,
+			};
+			if node.layer() == 0 {
+				continue;
+			}
+			
+			
+			match style_marks.get(*id) {
+				Some(r) => {
+					if r.dirty & StyleType::Oct as usize != 0 {
+						continue;
+					}
+				},
+				None => continue,
+			};
+
+			
+			handler_modify_oct(*id, octree, render_begin, dirty_view_rect);
+		}
+
         let mut modify = false;
         for id in self.transform_will_change_matrix_dirtys.iter() {
             if !nodes.is_exist(*id) {
@@ -148,7 +186,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         }
     }
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData) {
-        let (_, _, view_matrix, projection_matrix, _, _) = read;
+        let (_, _, _, view_matrix, projection_matrix, _, _, _, _, _) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
@@ -160,6 +198,70 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
         self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
     }
+}
+
+fn handler_modify_oct(
+	id: usize,
+	octree: &SingleCaseImpl<Oct>,
+	render_begin: &SingleCaseImpl<RenderBegin>,
+	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
+) {
+	let oct = match octree.get(id){
+		Some(r) => r,
+		None => return,
+	};
+	let oct = &oct.0;
+	let viewport = render_begin.0.viewport;
+	// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
+	// 与包围盒求并
+	dirty_view_rect.0 = dirty_view_rect.0.min(oct.min.x.max(0.0));
+	dirty_view_rect.1 = dirty_view_rect.1.min(oct.min.y.max(0.0));
+	dirty_view_rect.2 = dirty_view_rect.2.max(oct.max.x.min(viewport.2 as f32));
+	dirty_view_rect.3 = dirty_view_rect.3.max(oct.max.y.min(viewport.3 as f32));
+	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
+
+	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
+	// 由于包围盒改变事件通常是从父到子的顺序传递，因此如果界面有大范围的改变，能够很快的将dirty_view_rect.4设置为true
+	// 因此在大范围改变时，具有较好的优化
+	// 另外，dirty_view_rect.4被设计的另一个原因是，外部很多时候能够预计即将改变的界面将是大范围，可以提前设置该值，来优化掉后面的计算（尽管这种计算并不很费）
+	if dirty_view_rect.0 == 0.0 && 
+	dirty_view_rect.1 == 0.0 && 
+	dirty_view_rect.2 == viewport.2 as f32 && 
+	dirty_view_rect.3 == viewport.3  as f32 {
+
+		// println!("true1======================oct: {:?}, dirty_view_rect:{:?}", oct, **dirty_view_rect);
+		dirty_view_rect.4 = true;
+	}
+}
+
+// 设置为最大视口
+fn set_max_view(
+	render_begin: &SingleCaseImpl<RenderBegin>,
+	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
+) {
+	let viewport = render_begin.0.viewport;
+	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
+	// 由于包围盒改变事件通常是从父到子的顺序传递，因此如果界面有大范围的改变，能够很快的将dirty_view_rect.4设置为true
+	// 因此在大范围改变时，具有较好的优化
+	// 另外，dirty_view_rect.4被设计的另一个原因是，外部很多时候能够预计即将改变的界面将是大范围，可以提前设置该值，来优化掉后面的计算（尽管这种计算并不很费）
+	if dirty_view_rect.0 != 0.0 || 
+	dirty_view_rect.1 != 0.0 || 
+	dirty_view_rect.2 != viewport.2 as f32 || 
+	dirty_view_rect.3 != viewport.3  as f32 {
+
+		// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
+		// 与包围盒求并
+		dirty_view_rect.0 = 0.0;
+		dirty_view_rect.1 = 0.0;
+		dirty_view_rect.2 = viewport.2 as f32;
+		dirty_view_rect.3 = viewport.3 as f32;
+	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
+
+		// println!("true1======================oct: {:?}, dirty_view_rect:{:?}", oct, **dirty_view_rect);
+		dirty_view_rect.4 = true;
+	}
+	
+	
 }
 
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, ModifyEvent>
@@ -203,20 +305,22 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent> for Node
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for NodeAttrSys<C>
 {
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData) {
+    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
         self.transform_will_change_matrix_dirtys.push(event.id);
+		set_max_view(read, write);
     }
 }
 
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for NodeAttrSys<C>
 {
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData) {
+    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
         self.transform_will_change_matrix_dirtys.push(event.id);
+		set_max_view(read, write);
     }
 }
 
@@ -378,21 +482,33 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEve
         }
     }
 }
+// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+// 	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
 
 // 设置visibility
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent>
     for NodeAttrSys<C>
 {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Visibility>,
+        &'a MultiCaseImpl<Node, Visibility>, 
         &'a MultiCaseImpl<Node, Culling>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<NodeRenderMap>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
     );
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        modify_visible(event.id, read, write);
+		
+        modify_visible(event.id, (read.0, read.1), (write.0, write.1));
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if (write.2).4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.2, read.3, write.2);
     }
 }
 
@@ -401,15 +517,24 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, Create
     for NodeAttrSys<C>
 {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Visibility>,
+        &'a MultiCaseImpl<Node, Visibility>, 
         &'a MultiCaseImpl<Node, Culling>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<NodeRenderMap>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
     );
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
-        modify_visible(event.id, read, write);
+        modify_visible(event.id, (read.0, read.1), (write.0, write.1));;
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if (write.2).4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.2, read.3, write.2);
     }
 }
 
@@ -454,6 +579,69 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, CreateEvent> 
     }
 }
 
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, DeleteEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &DeleteEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, ModifyEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &ModifyEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, CreateEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &CreateEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+    }
+}
+
 type ReadData<'a> = (
     &'a MultiCaseImpl<Node, Visibility>,
     &'a MultiCaseImpl<Node, Culling>,
@@ -483,8 +671,11 @@ impl_system! {
     {
         EntityListener<Node, CreateEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
-        SingleCaseListener<RenderObjs, DeleteEvent>
-        SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		SingleCaseListener<RenderObjs, DeleteEvent>
+		SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		SingleCaseListener<Oct, DeleteEvent>
+		SingleCaseListener<Oct, CreateEvent>
+		SingleCaseListener<Oct, ModifyEvent>
 		MultiCaseListener<Node, Opacity, ModifyEvent>
 		MultiCaseListener<Node, Visibility, ModifyEvent>
 		MultiCaseListener<Node, Visibility, CreateEvent>

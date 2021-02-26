@@ -6,12 +6,15 @@ use std::default::Default;
 use std::marker::PhantomData;
 
 use ecs::{
-    CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener,
+    CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener, MultiCaseImpl,
 };
 use hal_core::*;
+use component::user::{Vector4, Aabb3, Point3};
+use component::calc::WorldMatrix;
+use entity::Node;
 
 use render::engine::ShareEngine;
-use single::{RenderBegin, RenderObj, RenderObjs, Statistics};
+use single::{RenderBegin, RenderObj, RenderObjs, Statistics, ProjectionMatrix, DirtyViewRect, Oct};
 
 pub struct RenderSys<C: HalContext + 'static> {
     program_dirtys: Vec<usize>,
@@ -38,15 +41,32 @@ impl<C: HalContext + 'static> Default for RenderSys<C> {
     }
 }
 
+#[inline]
+fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
+    if a.min.x > b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
+        return false;
+    } else {
+        true
+    }
+}
+
 impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
-    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type ReadData = (
+		&'a SingleCaseImpl<ProjectionMatrix>,
+		&'a SingleCaseImpl<Oct>,
+		&'a MultiCaseImpl<Node, WorldMatrix>,
+	);
     type WriteData = (
-        &'a mut SingleCaseImpl<RenderObjs>,
+		&'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
 		&'a mut SingleCaseImpl<Statistics>,
-    );
-    fn run(&mut self, render_begin: Self::ReadData, write: Self::WriteData) {
-        let (render_objs, engine, statistics) = write;
+		&'a mut SingleCaseImpl<DirtyViewRect>,
+		&'a mut SingleCaseImpl<RenderBegin>
+	);
+	
+    fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
+		let (projection_matrix, octree, world_matrixs) = read;
+        let (render_objs, engine, statistics, dirty_view_rect, render_begin) = write;
 
         for id in self.program_dirtys.iter() {
             let render_obj = match render_objs.get_mut(*id) {
@@ -175,20 +195,84 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
             Some(r) => Some(&**r),
             None => None,
         };
-        let gl = &engine.gl;
+		let gl = &engine.gl;
+		let render_begin_desc = &render_begin.0;
         // #[cfg(feature = "performance")]
-        statistics.drawcall_times = 0;
-        gl.render_begin(target, &render_begin.0);
-        for id in self.opacity_list.iter() {
-            let obj = &render_objs[*id];
-            render(gl, obj, statistics);
-        }
-        for id in self.transparent_list.iter() {
-            let obj = &render_objs[*id];
-            render(gl, obj, statistics);
-        }
+		statistics.drawcall_times = 0;
+		let viewport = render_begin_desc.viewport;
+		// 如果局部视口就是最大视口，则按最大视口来渲染
+		if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
+			// println!("render_all=============");
+			dirty_view_rect.4 = false;
+			gl.render_begin(target, &render_begin_desc);
+			for id in self.opacity_list.iter() {
+				let obj = &render_objs[*id];
+				render(gl, obj, statistics);
+			}
+			for id in self.transparent_list.iter() {
+				let obj = &render_objs[*id];
+				render(gl, obj, statistics);
+			}
+		} else {
+			// let root_matrix = &world_matrixs[1];
+			// // 将渲染视口(这个视口的原点是根节点的0,0点)，转换到-1~1范围，再将其转换为裁剪区域（以渲染目标的左上角为原点）
+			// let left_top = &(projection_matrix.0).0 * &root_matrix.0 * &Vector4::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32, 0.0, 0.0);
+			// let right_bottom = &(projection_matrix.0).0 * &root_matrix.0 * &Vector4::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32, 0.0, 0.0);
+			// let scissor_left_top = (
+			// 	((left_top.x + 1.0)/2.0 * viewport.2 as f32) as i32,
+			// 	((1.0 - (left_top.y + 1.0)/2.0) * viewport.3 as f32) as i32,);
+			
+			
+			// let scissor = (
+			// 	scissor_left_top.0,
+			// 	scissor_left_top.1,
+			// 	((right_bottom.x + 1.0)/2.0 * viewport.2 as f32) as i32 - scissor_left_top.0,
+			// 	((1.0 - (right_bottom.y + 1.0)/2.0) * viewport.3 as f32) as i32 - scissor_left_top.1,
+			// );
+			let scissor = (
+				render_begin.0.viewport.0 + dirty_view_rect.0.floor() as i32,
+				render_begin.0.viewport.1 + render_begin.0.viewport.3 - dirty_view_rect.3.ceil() as i32,
+				(dirty_view_rect.2.ceil() - dirty_view_rect.0.floor()) as i32,
+				(dirty_view_rect.3.ceil() - dirty_view_rect.1.floor()) as i32,
+			);
 
-        gl.render_end();
+			// println!("render_part============={:?}", scissor);
+
+			// let old_scissor = std::mem::replace(&mut render_begin.0.scissor, scissor);
+			gl.render_begin(target, &RenderBeginDesc{
+				viewport: viewport.clone(),
+				scissor: scissor,
+				clear_color: render_begin_desc.clear_color.clone(),
+				clear_depth: render_begin_desc.clear_depth.clone(),
+				clear_stencil: render_begin_desc.clear_stencil.clone(),
+			});
+
+			// 视口的Aabb，用于剔除视口之外的渲染对象
+			let viewPortAabb = Aabb3::new(
+				Point3::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32, 0.0), Point3::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32, 0.0)
+			);
+
+			for id in self.opacity_list.iter() {
+				let obj = &render_objs[*id];
+				// 如果相交才渲染
+				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
+					render(gl, obj, statistics);
+				}
+			}
+			for id in self.transparent_list.iter() {
+				let obj = &render_objs[*id];
+				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
+					render(gl, obj, statistics);
+				}
+			}
+		}
+
+		gl.render_end();
+		
+		dirty_view_rect.0 = viewport.2 as f32;
+		dirty_view_rect.1 = viewport.3 as f32;
+		dirty_view_rect.2 = 0.0;
+		dirty_view_rect.3 = 0.0;
 
         // #[cfg(feature = "performance")]
         // js! {

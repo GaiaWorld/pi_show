@@ -418,6 +418,11 @@ impl NodeRenderMap {
 
 pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>>);
 
+/// 脏区域，描述了界面发生修改的区域，用于优化界面局部修改时，进渲染该区域
+/// 该区域以根节点的原点最为原点
+#[derive(Debug)]
+pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
+
 pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
 
 #[derive(Default)]

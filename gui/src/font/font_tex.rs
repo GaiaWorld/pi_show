@@ -56,8 +56,8 @@ impl FontTex {
 #[derive(Debug)]
 pub struct TexLine<'a> {
     line: &'a mut (Point2, usize),
-    last_v: &'a mut f32,
-    tex_width: f32,
+    pub last_v: &'a mut f32,
+    pub tex_width: f32,
     line_height: f32,
 }
 impl<'a> TexLine<'a> {

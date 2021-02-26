@@ -905,6 +905,52 @@ impl<'a, C: HalContext + 'static>
     }
 }
 
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, ModifyEvent>
+    for StyleMarkSys<C>
+{
+	type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &ModifyEvent,
+        read: Self::ReadData,
+        write: Self::WriteData,
+    ) {
+		let (style_marks, dirty_list) = write;
+		let style_mark = &mut style_marks[event.id];
+        set_dirty(dirty_list, event.id, StyleType::Oct as usize, style_mark);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, CreateEvent>
+    for StyleMarkSys<C>
+{
+	type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &CreateEvent,
+        read: Self::ReadData,
+        write: Self::WriteData,
+    ) {
+		let (style_marks, dirty_list) = write;
+		let style_mark = &mut style_marks[event.id];
+        set_dirty(dirty_list, event.id, StyleType::Oct as usize, style_mark);
+    }
+}
+
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for StyleMarkSys<C>
 {
@@ -2721,7 +2767,10 @@ impl_system! {
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>
 		// MultiCaseListener<Node, Visibility, ModifyEvent>
-		
+		SingleCaseListener<Oct, ModifyEvent>
+		SingleCaseListener<Oct, CreateEvent>
+		// SingleCaseListener<Oct, DeleteEvent>
+
 		MultiCaseListener<Node, COpacity, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent>

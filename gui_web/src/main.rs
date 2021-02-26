@@ -448,6 +448,8 @@ pub fn set_project_transfrom(
     // let ygnode1 = YgNode::default();
 	rect_layout_style.size.width = Dimension::Points(width as f32);
 	rect_layout_style.size.height = Dimension::Points(height as f32);
+
+	// println!("project_matrix============={:?}, {}, {}, {}, {}", &project_matrix.0, scale_x, scale_y, width, height);
 	
 	// let layouts = world.gui.layout.lend_mut();
 	// let layout = &mut layouts[1];
@@ -758,10 +760,15 @@ fn load_image(world_id: u32) {
 #[no_mangle]
 #[js_export]
 pub fn set_render_dirty(world: u32) {
+	// println!("set_render_dirty============={}", world);
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let render_objs = world.render_objs.lend();
+	let dirty_view_rect = world.dirty_view_rect.lend_mut();
+	dirty_view_rect.4 = true;
 
+
+	
     render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 

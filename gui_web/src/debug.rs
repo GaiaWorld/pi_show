@@ -1346,6 +1346,16 @@ pub fn mem_statistics(world: u32) {
     }
 }
 
+#[allow(unused_attributes)]
+#[no_mangle]
+#[js_export]
+pub fn get_font_sheet_debug(world: u32){
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let font_sheet = world.gui.font_sheet.lend();
+	println!("char_slab: {:?}", font_sheet.borrow().char_slab);
+	
+}
+
 /// 打印内存情况
 #[allow(unused_attributes)]
 #[no_mangle]

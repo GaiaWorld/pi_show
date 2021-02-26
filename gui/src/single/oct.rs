@@ -57,6 +57,11 @@ impl Oct {
 
     // 更新指定id的aabb
     pub fn update(&mut self, id: usize, aabb: Aabb3, notify: Option<&NotifyImpl>) -> bool {
+		// 更新前发出修改事件（特殊处理，因为需要修改前的包围盒用于计算最终显示界面的最大修改包围盒）
+		match notify {
+			Some(n) => n.modify_event(id, "", 0),
+			_ => (),
+		};
         let r = self.0.update(id, aabb);
         if r {
             match notify {
@@ -80,13 +85,14 @@ impl Oct {
 
     // 移除指定id的aabb及其绑定
     pub fn remove(&mut self, id: usize, notify: Option<&NotifyImpl>) -> Option<(Aabb3, usize)> {
-        let r = self.0.remove(id);
-        if r != None {
-            match notify {
-                Some(n) => n.delete_event(id),
-                _ => (),
-            }
-        }
-        r
+		if self.0.get(id).is_some() {
+			match notify {
+				Some(n) => n.delete_event(id),
+				_ => (),
+			}
+			let r = self.0.remove(id);
+			return r;
+		}
+        None
     }
 }
