@@ -244,10 +244,8 @@ fn set_max_view(
 	// 由于包围盒改变事件通常是从父到子的顺序传递，因此如果界面有大范围的改变，能够很快的将dirty_view_rect.4设置为true
 	// 因此在大范围改变时，具有较好的优化
 	// 另外，dirty_view_rect.4被设计的另一个原因是，外部很多时候能够预计即将改变的界面将是大范围，可以提前设置该值，来优化掉后面的计算（尽管这种计算并不很费）
-	if dirty_view_rect.0 != 0.0 || 
-	dirty_view_rect.1 != 0.0 || 
-	dirty_view_rect.2 != viewport.2 as f32 || 
-	dirty_view_rect.3 != viewport.3  as f32 {
+	if dirty_view_rect.4 != true {
+		
 
 		// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
 		// 与包围盒求并
@@ -256,7 +254,7 @@ fn set_max_view(
 		dirty_view_rect.2 = viewport.2 as f32;
 		dirty_view_rect.3 = viewport.3 as f32;
 	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
-
+		println!("dirty_view_rect======================");
 		// println!("true1======================oct: {:?}, dirty_view_rect:{:?}", oct, **dirty_view_rect);
 		dirty_view_rect.4 = true;
 	}

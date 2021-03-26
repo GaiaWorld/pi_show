@@ -566,7 +566,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
 
 fn parse_filter(value: &str) -> Result<Filter, String>{
 	let err = Err(format!("parse_filter fail, str: {:?}", value));
-	if value.starts_with("hsi(") && value.starts_with(")") {
+	if value.starts_with("hsi(") && value.ends_with(")") {
 		let mut iter = value[4..value.len() - 1].trim().split(",");
 		let h = match iter.next() {
 			Some(r) => parse_f32(r)?,

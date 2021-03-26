@@ -178,7 +178,10 @@ impl<C: HalContext + 'static> ClipSys<C> {
 				render_obj
                     .paramter
                     .set_single_uniform("clipIndices2", UniformValue::Float1((by_overflow >> 24) as f32));
-                let clip_render = self.render_obj.as_ref().unwrap();
+                let clip_render = match self.render_obj.as_ref(){
+					Some(r) => r,
+					None => panic!("xxxxxxxxxxxxxxxxxxx, by_overflow: {}", by_overflow)
+				};
                 // 插入裁剪ubo 插入裁剪宏
                 if let None = render_obj.fs_defines.add("CLIP") {
                     render_obj.vs_defines.remove("CLIP_BOX");
@@ -186,10 +189,12 @@ impl<C: HalContext + 'static> ClipSys<C> {
                     render_obj.paramter.set_texture(
                         "clipTexture",
                         (
-                            engine
+                            match engine
                                 .gl
-                                .rt_get_color_texture(&clip_render.render_target, 0)
-                                .unwrap(),
+                                .rt_get_color_texture(&clip_render.render_target, 0){
+									Some(r) => r,
+									None => panic!("yyyyyyyyyyyyyyyyyyy")
+								},
                             &clip_render.sampler,
                         ),
                     );
@@ -357,10 +362,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                     pre_by_overflow = by_overflow;
                     aabb = overflow_clip.clip_map.get(&by_overflow);
                 }
-
                 for id in obj_ids.iter() {
                     let render_obj = &mut render_objs[*id];
-                    // println!("set_clip_uniform--------------{}", *id);
+                   
                     self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
                 }
             } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {

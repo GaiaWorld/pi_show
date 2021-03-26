@@ -200,9 +200,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
         // #[cfg(feature = "performance")]
 		statistics.drawcall_times = 0;
 		let viewport = render_begin_desc.viewport;
+		// println!("render_all1============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 		// 如果局部视口就是最大视口，则按最大视口来渲染
 		if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
-			// println!("render_all=============");
+			// println!("render_all============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 			dirty_view_rect.4 = false;
 			gl.render_begin(target, &render_begin_desc);
 			for id in self.opacity_list.iter() {

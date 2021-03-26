@@ -530,10 +530,10 @@ fn calc_clip<'a>(
                     //     ))
                     // }
 					if !(m.0).1 {
-                        cullings.get_write(id).unwrap().set_0(!is_intersect(
+                        unsafe { cullings.get_unchecked_write(id).set_0(!is_intersect(
                             &item.0,
                             &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0),
-                        ))
+                        ))};
                     }
                 }
                 None => unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
@@ -629,6 +629,10 @@ fn create_clip(id: usize, clip: &mut SingleCaseImpl<OverflowClip>) -> usize {
         println!("clip overflow!!!!!!!");
         return 0;
     }
+	if let Some(r) = clip.id_map.get(&id) {
+		return *r;
+	}
+
     let i = clip.clip.insert(Clip {
         view: [
             Point2::new(0.0, 0.0),
@@ -683,11 +687,11 @@ fn adjust(
     ops: fn(a: usize, b: usize) -> usize,
 ) {
     for (id, _n) in idtree.recursive_iter(child) {
-        let by = *by_overflow[id];
-		by_overflow.get_write(id).unwrap().set_0(ops(by, index));
 		if !node_states[id].is_rnode() {
 			continue;
 		}
+        let by = *by_overflow[id];
+		unsafe { by_overflow.get_unchecked_write(id).set_0(ops(by, index)) };
     }
 }
 // 计算内容区域矩形的4个点
