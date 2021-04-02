@@ -10,7 +10,7 @@ use ecs::LendMut;
 #[cfg(feature = "create_class_by_str")]
 use gui::single::style_parse::parse_class_from_string;
 use gui::single::Class;
-use world::GuiWorld;
+use crate::world::GuiWorld;
 
 /// 在指定上下文中创建一个 文本样式表
 ///__jsObj: class样式的文本描述
@@ -29,7 +29,7 @@ pub fn create_class(world: u32, class_id: u32, css: &str) {
     };
 
     let class_sheet = world.gui.class_sheet.lend_mut();
-    class_sheet.class_map.insert(class_id as usize, r);
+    class_sheet.borrow_mut().class_map.insert(class_id as usize, r);
 }
 
 /// 添加二进制格式的css表
@@ -48,5 +48,5 @@ pub fn create_class_by_bin(world: u32, bin: &[u8]) {
 
     let class_sheet = world.gui.class_sheet.lend_mut();
 
-    class_sheet.class_map.extend(map.into_iter());
+    class_sheet.borrow_mut().class_map.extend(map.into_iter());
 }

@@ -14,13 +14,13 @@ use entity::Node;
 #[derive(Default)]
 pub struct FilterSys;
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys {
-    type ReadData = ();
-    type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData) {
-        hsvs.insert(event.id, HSV::default());
-    }
-}
+// impl<'a> EntityListener<'a, Node, CreateEvent> for FilterSys {
+//     type ReadData = ();
+//     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, hsvs: Self::WriteData) {
+//         hsvs.insert(event.id, HSV::default());
+//     }
+// }
 
 impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
@@ -66,10 +66,7 @@ fn cal_hsv(
         }
         None => return,
     };
-    let hsv = match hsvs.get(parent_id) {
-        Some(hsv) => hsv.clone(),
-        None => return,
-    };
+    let hsv = hsvs[parent_id].clone();
 
     recursive_cal_hsv(id, idtree, &hsv, filters, hsvs)
 }
@@ -82,14 +79,14 @@ fn recursive_cal_hsv(
     filters: &MultiCaseImpl<Node, Filter>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
-    let old_hsv = hsvs[id].clone();
+    let old_hsv =  hsvs[id].clone();
     let hsv = match filters.get(id) {
         Some(filter) => {
             let hsv = HSV {
                 h: cal_h_from_hue(filter.hue_rotate + parent_hsv.h),
                 s: cal_range(filter.saturate + parent_hsv.s, -1.0, 1.0),
                 v: cal_range(filter.bright_ness + parent_hsv.v, -1.0, 1.0),
-            };
+			};
             if hsv.h != old_hsv.h || hsv.s != old_hsv.s || hsv.v != old_hsv.v {
                 hsvs.insert(id, hsv.clone());
             }
@@ -141,7 +138,7 @@ impl_system! {
     FilterSys,
     false,
     {
-        EntityListener<Node, CreateEvent>
+        // EntityListener<Node, CreateEvent>
         MultiCaseListener<Node, Filter, CreateEvent>
         MultiCaseListener<Node, Filter, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>

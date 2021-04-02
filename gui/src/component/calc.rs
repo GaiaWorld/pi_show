@@ -14,6 +14,8 @@ use super::user::*;
 use res::Res;
 use flex_layout::*;
 
+use util::vecmap_default::VecMapWithDefault;
+
 // // 布局计算结果
 // #[derive(Clone, Debug, Default, Component, PartialEq)]
 // pub struct Layout {
@@ -31,7 +33,7 @@ use flex_layout::*;
 //     pub padding_bottom: f32,
 // }
 
-#[derive(Clone, Debug, Component, PartialEq)]
+#[derive(Clone, Debug, Component, PartialEq, Deserialize, Serialize)]
 pub struct LayoutR {
     pub rect: Rect<f32>,
     pub border: Rect<f32>,
@@ -49,35 +51,43 @@ impl Default for LayoutR {
 }
 
 // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Default, Deref, DerefMut, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct ZDepth(pub f32);
 
 // gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
-#[derive(Component, Default, Deref, DerefMut)]
+#[derive(Component, Clone, Default, Deref, DerefMut, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct ByOverflow(pub usize);
 
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct WorldMatrix(pub Matrix4, pub bool);
 
 //是否可见,
-#[derive(Deref, DerefMut, Component, Debug, Default)]
+#[derive(Deref, DerefMut, Component, Clone, Debug, Default)]
+#[storage(VecMapWithDefault)]
 pub struct Visibility(pub bool);
 
 // 是否被裁剪
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug, Default)]
+#[storage(VecMapWithDefault)]
 pub struct Culling(pub bool);
 
 //不透明度
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Component, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct Opacity(pub f32);
 
 //是否响应事件
-#[derive(Deref, DerefMut, Component, Debug)]
+#[derive(Deref, DerefMut, Component, Clone, Debug)]
+#[storage(VecMapWithDefault)]
 pub struct Enable(pub bool);
 
 // HSV
 #[derive(Clone, Debug, Component, Default)]
+#[storage(VecMapWithDefault)]
 pub struct HSV {
     pub h: f32, // 0-360
     pub s: f32, // 0 ~ 正无穷  0表示变灰， 1表示不变， 2表示更饱和
@@ -123,32 +133,102 @@ pub enum StyleType {
     Layout = 0x8000000,
     BorderRadius = 0x10000000,
     ByOverflow = 0x20000000,
-    Filter = 0x40000000,
+	Filter = 0x40000000,
+	Oct = std::isize::MIN,
 }
+
+// 布局属性标记
+pub enum StyleType2 {
+	Width = 1,
+    Height = 2,
+	
+	MarginTop = 4,
+	MarginRight = 8,
+	MarginBottom = 0x10,
+	MarginLeft = 0x20,
+
+	PaddingTop = 0x40,
+	PaddingRight = 0x80,
+	PaddingBottom = 0x100,
+	PaddingLeft = 0x200,
+
+	BorderTop = 0x400,
+	BorderRight = 0x800,
+	BorderBottom = 0x1000,
+	BorderLeft = 0x2000,
+
+	PositionTop = 0x4000,
+	PositionRight = 0x8000,
+	PositionBottom = 0x10000,
+	PositionLeft = 0x20000,
+	
+    MinWidth = 0x40000,
+    MinHeight = 0x80000,
+    MaxHeight = 0x100000,
+	MaxWidth = 0x200000,
+	JustifyContent = 0x400000,
+    FlexShrink = 0x800000,
+	FlexGrow = 0x1000000,
+	PositionType = 0x2000000,
+    FlexWrap = 0x4000000,
+    FlexDirection = 0x8000000,
+    AlignContent = 0x10000000,
+    AlignItems = 0x20000000,
+    AlignSelf = 0x40000000,
+}
+
+// margin标记
+pub const LAYOUT_MARGIN_MARK: usize = StyleType2::MarginTop as usize
+	| StyleType2::MarginRight as usize
+	| StyleType2::MarginBottom as usize
+	| StyleType2::MarginLeft as usize;
+// pading标记
+pub const LAYOUT_PADDING_MARK: usize = StyleType2::PaddingTop as usize
+	| StyleType2::PaddingRight as usize
+	| StyleType2::PaddingBottom as usize
+	| StyleType2::PaddingLeft as usize;
+// border标记
+pub const LAYOUT_BORDER_MARK: usize = StyleType2::BorderTop as usize
+	| StyleType2::BorderRight as usize
+	| StyleType2::BorderBottom as usize
+	| StyleType2::BorderLeft as usize;
+// border标记
+pub const LAYOUT_POSITION_MARK: usize = StyleType2::PositionTop as usize
+	| StyleType2::PositionRight as usize
+	| StyleType2::PositionBottom as usize
+	| StyleType2::PositionLeft as usize;
+// 矩形属性标记
+pub const LAYOUT_RECT_MARK: usize = StyleType2::Width as usize
+	| StyleType2::Height as usize
+	| LAYOUT_MARGIN_MARK;
 
 // 枚举样式的类型
 #[derive(Debug)]
 pub enum StyleType1 {
-    Width = 1,
-    Height = 2,
-    Margin = 4,
-    Padding = 8,
-    Border = 0x10,
-    Position = 0x20,
-    MinWidth = 0x40,
-    MinHeight = 0x80,
-    MaxHeight = 0x100,
-    MaxWidth = 0x200,
-    FlexBasis = 0x400,
-    FlexShrink = 0x800,
-    FlexGrow = 0x1000,
-    PositionType = 0x2000,
-    FlexWrap = 0x4000,
-    FlexDirection = 0x8000,
-    AlignContent = 0x10000,
-    AlignItems = 0x20000,
-    AlignSelf = 0x40000,
-    JustifyContent = 0x80000,
+    // Width = 1,
+    // Height = 2,
+    // Margin = 4,
+    // Padding = 8,
+    // Border = 0x10,
+    // Position = 0x20,
+    // MinWidth = 0x40,
+    // MinHeight = 0x80,
+    // MaxHeight = 0x100,
+    // MaxWidth = 0x200,
+    // FlexBasis = 0x400,
+    // FlexShrink = 0x800,
+    // FlexGrow = 0x1000,
+    // PositionType = 0x2000,
+    // FlexWrap = 0x4000,
+    // FlexDirection = 0x8000,
+    // AlignContent = 0x10000,
+    // AlignItems = 0x20000,
+    // AlignSelf = 0x40000,
+	// JustifyContent = 0x80000,
+	Direction = 0x10000,
+	AspectRatio = 0x20000,
+	Order = 0x40000,
+	FlexBasis = 0x80000,
 
     Display = 0x100000,
     Visibility = 0x200000,
@@ -163,15 +243,18 @@ pub enum StyleType1 {
 }
 
 // 样式标记
-#[derive(Component, Debug, Clone, Copy, Default)]
+#[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct StyleMark {
     pub dirty: usize, // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
-	pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType1::Height as usize 表示Width和Height脏了
+	pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
+	pub dirty2: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
 	pub dirty_other: usize, // 其它脏， 仅标记，不会记入脏列表
     pub local_style: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+	pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+	pub local_style2: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
     pub class_style: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
-    pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+	pub class_style2: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
 pub enum LayoutDirtyType {
 	Rect = 1, // 矩形区间发生改变时，设置脏
@@ -179,7 +262,7 @@ pub enum LayoutDirtyType {
 	NormalStyle = 4, // 矩形区间发生改变时，设置脏
 }
 
-#[derive(Component, Clone, Default, Deref, DerefMut, Debug)]
+#[derive(Component, Clone, Default, Deref, DerefMut, Debug, Serialize, Deserialize)]
 pub struct NodeState(pub INode);
 
 
@@ -213,6 +296,12 @@ pub struct CharNode{
 	pub width: f32,
     // pub node: L,               // 对应的yoga节点
 }
+
+// // span节点对应的字符布局
+// #[derive(Component, Debug, Clone, Default)]
+// pub struct CharBlock{
+// 	pub chars: Vec<CharNode>,
+// }
 
 // TransformWillChange的矩阵计算结果， 用于优化Transform的频繁改变
 #[derive(Component, Debug, Clone, Default)]
@@ -493,7 +582,8 @@ program_paramter! {
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
         hsvValue: HsvUbo,
-        clipIndices: UniformValue,
+        clipIndices1: UniformValue,
+		clipIndices2: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         clipBox: ClipBox,
@@ -522,7 +612,8 @@ program_paramter! {
         viewMatrix: ViewMatrixUbo,
         hsvValue: HsvUbo,
         projectMatrix: ProjectMatrixUbo,
-        clipIndices: UniformValue,
+		clipIndices1: UniformValue,
+		clipIndices2: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         clipBox: ClipBox,
@@ -539,7 +630,8 @@ program_paramter! {
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
         hsvValue: HsvUbo,
-        clipIndices: UniformValue,
+        clipIndices1: UniformValue,
+		clipIndices2: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         clipBox: ClipBox,
@@ -556,7 +648,8 @@ program_paramter! {
         viewMatrix: ViewMatrixUbo,
         projectMatrix: ProjectMatrixUbo,
         hsvValue: HsvUbo,
-        clipIndices: UniformValue,
+        clipIndices1: UniformValue,
+		clipIndices2: UniformValue,
         clipTexture: (HalTexture, HalSampler),
         clipTextureSize: ClipTextureSize,
         clipBox: ClipBox,

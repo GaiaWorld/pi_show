@@ -17,7 +17,8 @@ pub struct Class {
     pub attrs3: Vec<Attribute3>,
 
     pub class_style_mark: usize,  // 标记class中的有效属性
-    pub class_style_mark1: usize, // 标记class中布局的有效属性
+	pub class_style_mark1: usize, // 标记class中布局的有效属性
+	pub class_style_mark2: usize, // 标记class中布局的有效属性
 }
 
 // 全局Class表
@@ -73,8 +74,8 @@ pub enum Attribute2 {
     Opacity(Opacity),
     BorderImageRepeat(BorderImageRepeat),
 
-    ImageUrl(Atom),
-    BorderImageUrl(Atom),
+    ImageUrl(usize),
+    BorderImageUrl(usize),
 
     FlexShrink(f32),
     FlexGrow(f32),

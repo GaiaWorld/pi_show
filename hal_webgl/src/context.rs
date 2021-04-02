@@ -742,7 +742,10 @@ impl HalContext for WebglHalContext {
         }
         context
             .state_machine
-            .set_viewport(&context.gl, &data.viewport);
+			.set_viewport(&context.gl, &data.viewport);
+		context
+			.state_machine
+			.set_scissor(&context.gl, &data.scissor);
         context.state_machine.set_clear(
             &context.gl,
             &data.clear_color,
@@ -982,7 +985,7 @@ impl WebglHalContext {
         let ss_slab = Slab::new();
         let program_slab = Slab::new();
 
-        let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
+		let (caps, extensions) = WebglHalContext::create_caps_and_extensions(&gl);
         let vao_extension = if use_vao && caps.vertex_array_object {
 			match gl.get_extension("OES_vertex_array_object") {
 				Ok(r) => match r {
@@ -1003,7 +1006,7 @@ impl WebglHalContext {
             // .ok()
         } else {
             None
-        };
+		};
 
         let shader_cache = ShaderCache::new();
         let state_machine = StateMachine::new(
@@ -1046,7 +1049,6 @@ impl WebglHalContext {
                 context_clone.rt_destroy(index, use_count)
             }),
         };
-
         let rt = get_ref(
             &context_impl.rt_slab,
             default_rt.item.index,
@@ -1058,7 +1060,11 @@ impl WebglHalContext {
             .set_render_target(&context_impl.gl, &default_rt, &rt);
 
         WebglHalContext(context_impl, default_rt)
-    }
+	}
+	
+	pub fn get_raw_gl(&self) -> &WebGlRenderingContext {
+		&self.0.gl
+	}
 
     pub fn texture_get_object_webgl(&self, tex: &HalTexture) -> Option<&WebGlTexture> {
         let slab = convert_to_mut(&self.0.texture_slab);

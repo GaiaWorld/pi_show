@@ -81,7 +81,7 @@ impl TextureRes {
 }
 
 impl Res for TextureRes {
-    type Key = Atom;
+    type Key = usize;
 }
 
 #[derive(Deref, DerefMut)]

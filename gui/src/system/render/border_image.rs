@@ -8,8 +8,10 @@ use hash::DefaultHasher;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use share::Share;
 
 use component::calc::{Opacity, LayoutR};
@@ -88,8 +90,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         ) = read;
         let (render_objs, mut engine) = write;
 
-        let default_transform = Transform::default();
-        let notify = render_objs.get_notify();
+		let default_transform = Transform::default();
+		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -139,7 +141,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
 			
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
-				println!("Matrix========================{}", id);
                 let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -190,7 +191,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BorderImage as usize != 0
             {
-                let opacity = opacitys[*id].0;
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
                 let is_opacity = if opacity < 1.0 {
                     false
                 } else if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {
@@ -198,8 +200,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 } else {
                     false
                 };
-                render_obj.is_opacity = is_opacity;
-                notify.modify_event(render_index, "is_opacity", 0);
+				render_obj.is_opacity = is_opacity;
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
             notify.modify_event(render_index, "", 0);
@@ -219,9 +223,24 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, Delet
 
 impl<C: HalContext + 'static> BorderImageSys<C> {
     pub fn new(engine: &mut Engine<C>) -> Self {
+		let mut default_sampler = SamplerDesc::default();
+		default_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		default_sampler.v_wrap = TextureWrapMode::ClampToEdge;
         BorderImageSys {
             render_map: VecMap::default(),
-            default_sampler: engine.create_sampler_res(SamplerDesc::default()),
+            default_sampler: engine.create_sampler_res(default_sampler),
+            default_paramter: ImageParamter::default(),
+            marker: PhantomData,
+        }
+	}
+	
+	pub fn with_capacity(engine: &mut Engine<C>, capacity: usize) -> Self {
+		let mut default_sampler = SamplerDesc::default();
+		default_sampler.u_wrap = TextureWrapMode::ClampToEdge;
+		default_sampler.v_wrap = TextureWrapMode::ClampToEdge;
+        BorderImageSys {
+            render_map: VecMap::with_capacity(capacity),
+            default_sampler: engine.create_sampler_res(default_sampler),
             default_paramter: ImageParamter::default(),
             marker: PhantomData,
         }
@@ -231,8 +250,7 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-				let notify = render_objs.get_notify();
-				println!("remove_render_obj border========================{}, index: {}", id, index);
+				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
                 render_objs.remove(index, Some(notify));
             }
             None => (),
@@ -370,7 +388,7 @@ fn get_border_image_stream(
             uv1.y + 0.25 * uvh,
             uv2.y - 0.25 * uvh,
         ),
-    };
+	};
 
     //  p1, p2, w, h, left, right, top, bottom, "UV::", uv1, uv2, uvw, uvh, uv_left, uv_right, uv_top, uv_bottom);
     // TODO 在仅使用左或上的边框时， 应该优化成8个顶点
@@ -556,67 +574,73 @@ fn get_border_image_stream(
             (ustep, vstep)
         }
         _ => (w, h),
-    };
-    push_u_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_left_y1,
-        p_left_top,
-        p_right_top,
-        p_right_y1,
-        uv_left,
-        uv1.y,
-        uv_right,
-        uv_top,
-        ustep,
-        &mut pi,
-    ); // 上边
-    push_u_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_left_bottom,
-        p_left_y2,
-        p_right_y2,
-        p_right_bottom,
-        uv_left,
-        uv_bottom,
-        uv_right,
-        uv2.y,
-        ustep,
-        &mut pi,
-    ); // 下边
-    push_v_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_x1_top,
-        p_x1_bottom,
-        p_left_bottom,
-        p_left_top,
-        uv1.x,
-        uv_top,
-        uv_left,
-        uv_bottom,
-        vstep,
-        &mut pi,
-    ); // 左边
-    push_v_arr(
-        &mut point_arr,
-        &mut uv_arr,
-        &mut index_arr,
-        p_right_top,
-        p_right_bottom,
-        p_x2_bottom,
-        p_x2_top,
-        uv_right,
-        uv_top,
-        uv2.x,
-        uv_bottom,
-        vstep,
-        &mut pi,
-    ); // 右边
+	};
+	if ustep > 0.0 {
+		push_u_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_left_y1,
+			p_left_top,
+			p_right_top,
+			p_right_y1,
+			uv_left,
+			uv1.y,
+			uv_right,
+			uv_top,
+			ustep,
+			&mut pi,
+		); // 上边
+		push_u_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_left_bottom,
+			p_left_y2,
+			p_right_y2,
+			p_right_bottom,
+			uv_left,
+			uv_bottom,
+			uv_right,
+			uv2.y,
+			ustep,
+			&mut pi,
+		); // 下边
+	}
+	
+	if vstep > 0.0 {
+		push_v_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_x1_top,
+			p_x1_bottom,
+			p_left_bottom,
+			p_left_top,
+			uv1.x,
+			uv_top,
+			uv_left,
+			uv_bottom,
+			vstep,
+			&mut pi,
+		); // 左边
+		push_v_arr(
+			&mut point_arr,
+			&mut uv_arr,
+			&mut index_arr,
+			p_right_top,
+			p_right_bottom,
+			p_x2_bottom,
+			p_x2_top,
+			uv_right,
+			uv_top,
+			uv2.x,
+			uv_bottom,
+			vstep,
+			&mut pi,
+		); // 右边
+	}
+	
        // 处理中间
     if let Some(slice) = slice {
         if slice.fill {
@@ -628,7 +652,8 @@ fn get_border_image_stream(
                 p_right_top,
             );
         }
-    }
+	}
+
     (point_arr, uv_arr, index_arr)
 }
 // 将四边形放进数组中

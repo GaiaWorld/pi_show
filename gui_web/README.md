@@ -1,11 +1,22 @@
 ### release
 * wasm-pack build --release --target web -d --out-name gui
 * ..\wasm2js --emscripten  pkg/gui_bg.wasm -o pkg/gui_bg_asm.js
+* ..\wasm2js --emscripten  pkg/gui.wasm -o pkg/gui_asm.js
+
+### release
+* wasm-pack build --profiling  --target web -d --out-name gui
+* ..\wasm2js --emscripten  pkg/gui_bg.wasm -o pkg/gui_bg_asm.js
+* ..\wasm2js --emscripten  pkg/gui.wasm -o pkg/gui_asm.js
 
 ### debug
 * wasm-pack build --debug --target web --out-dir pkg_debug --out-name gui
 * ..\wasm2js --emscripten  pkg_debug/gui_bg.wasm -o pkg_debug/gui_bg_asm.js
+*  ..\wasm2js --emscripten  pkg_debug/gui.wasm -o pkg_debug/gui_asm.js
 
+
+
+## set RUST_LOG=info 
+##  
 ## wasm-pack build --target -d --out-name gui
 
 ## 打包为js

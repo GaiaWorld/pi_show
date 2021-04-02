@@ -5,8 +5,10 @@ use share::Share;
 use std::marker::PhantomData;
 
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use polygon::*;
 
 use component::calc::{Opacity, LayoutR};
@@ -80,7 +82,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
         let (render_objs, engine) = write;
 
         let default_transform = default_table.get::<Transform>().unwrap();
-        let notify = render_objs.get_notify();
+		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
 
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
@@ -122,9 +124,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             if dirty & StyleType::BorderColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = opacitys[*id].0;
-                render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
-                notify.modify_event(render_index, "is_opacity", 0);
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
+				render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				};
                 modify_opacity(engine, render_obj, default_state);
             }
 
@@ -190,6 +195,14 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
             default_paramter: ColorParamter::default(),
             mark: PhantomData,
         }
+	}
+	
+	pub fn with_capacity(capacity: usize) -> Self {
+		BorderColorSys {
+            render_map: VecMap::with_capacity(capacity),
+            default_paramter: ColorParamter::default(),
+            mark: PhantomData,
+        }
     }
 
     // 删除渲染对象
@@ -197,7 +210,7 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
                 render_objs.remove(index, Some(notify));
             }
             None => (),

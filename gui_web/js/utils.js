@@ -5,17 +5,17 @@ export function fillBackGround(canvas, ctx, x, y) {
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-export function drawCharWithStroke(ctx, ch_code, x) {
+export function drawCharWithStroke(ctx, ch_code, x, y) {
 	var ch = String.fromCharCode(ch_code);
 	//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-	ctx.strokeText(ch, x, 0);
-	ctx.fillText(ch, x, 0);
+	ctx.strokeText(ch, x, y);
+	ctx.fillText(ch, x, y);
 }
 
-export function drawChar(ctx, ch_code, x) {
+export function drawChar(ctx, ch_code, x, y) {
 	var ch = String.fromCharCode(ch_code);
 	//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-    ctx.fillText(ch, x, 0);
+    ctx.fillText(ch, x, y);
 }
 
 export function setFont(ctx, weight, fontSize, font, strokeWidth) {
@@ -37,6 +37,25 @@ export function setFont(ctx, weight, fontSize, font, strokeWidth) {
 		ctx.lineWidth = stroke_width;
 		ctx.strokeStyle = "#f00";
 	}
+}
+
+
+export function useVao() {
+	var u = navigator.userAgent.toLowerCase(); 
+	return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;
+}
+
+export function measureText(ctx, ch, font_size, name) {
+	ctx.font = font_size + "px " + name;
+	return ctx.measureText(String.fromCharCode(ch)).width;
+}
+
+export function loadImage(image_name, callback) {
+	var image = new Image();
+	image.onload = function() {
+		callback(image_name.endsWith("png")?1:0, -1, 0, image_name, image.width, image.height, image);
+	};
+	image.src = image_name;
 }
 
 export function set_class(world, node, class_arr){
@@ -61,21 +80,3 @@ export function __load_image(gui, image_name, r_type){
 	};
 	image.src = image_name;
 };
-
-export function useVao() {
-	var u = navigator.userAgent.toLowerCase(); 
-	return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;
-}
-
-export function measureText(ctx, ch, font_size, name) {
-	ctx.font = font_size + "px " + name;
-	return ctx.measureText(String.fromCharCode(ch)).width;
-}
-
-export function loadImage(image_name, callback) {
-	var image = new Image();
-	image.onload = function() {
-		callback(image_name.endsWith("png")?1:0, -1, 0, image_name, image.width, image.height, image);
-	};
-	image.src = image_name;
-}

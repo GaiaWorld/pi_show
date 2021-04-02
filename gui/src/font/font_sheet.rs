@@ -48,7 +48,9 @@ pub struct FontSheet {
             f32,
             /* char width */ Atom,
             /* font */ f32,
-            /* factor */ bool,
+			/* factor_t */ f32,
+			/* factor_b */
+			 bool,
         ),
     >,
     pub char_map: XHashMap<
@@ -73,7 +75,8 @@ pub struct FontSheet {
         (usize /* TextInfo_Index */, f32 /* v */),
     >,
     measure_char: Box<dyn Fn(&Atom, usize, char) -> f32>,
-    pub font_tex: FontTex,
+	pub font_tex: FontTex,
+	pub tex_version: usize,
 }
 
 impl FontSheet {
@@ -92,9 +95,19 @@ impl FontSheet {
             wait_draw_list: Vec::new(),
             wait_draw_map: XHashMap::default(),
             measure_char: measure,
-            font_tex: FontTex::new(texture),
+			font_tex: FontTex::new(texture),
+			tex_version: 0,
         }
     }
+
+	// 清空字形
+	pub fn clear_gylph(&mut self) {
+		self.wait_draw_list.clear();
+		self.wait_draw_map.clear();
+		self.char_map.clear();
+		self.char_slab.clear();
+	}
+	
     pub fn mem_size(&self) -> usize {
         self.src_map.capacity() * (std::mem::size_of::<Atom>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
@@ -119,11 +132,12 @@ impl FontSheet {
         self.color = color;
     }
     // 设置Font
-    pub fn set_src(&mut self, name: Atom, is_pixel: bool, factor: f32) {
+    pub fn set_src(&mut self, name: Atom, is_pixel: bool, factor_t: f32, factor_b: f32) {
         self.src_map.entry(name.clone()).or_insert(TexFont {
             name,
             is_pixel,
-            factor,
+			factor_t,
+			factor_b,
         });
     }
 
@@ -205,10 +219,10 @@ impl FontSheet {
             Entry::Vacant(r) => {
                 let mut w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
                 if w > 0.0 {
-                    // if is_blod {
-                    //     w = w * BLOD_FACTOR;
-                    // }
-					r.insert((w, font.name.clone(), font.factor, font.is_pixel));
+                    if is_blod {
+                        w = w * BLOD_FACTOR;
+                    }
+                    r.insert((w, font.name.clone(), font.factor_t, font.factor_b, font.is_pixel));
                     return (w * font_size as f32 / FONT_SIZE + sw as f32, w);
                 }
             }
@@ -255,12 +269,21 @@ impl FontSheet {
                 Entry::Occupied(e) => *e.get(),
                 Entry::Vacant(r) => {
                     // 在指定字体及字号下，查找该字符的宽度
-                    let w = ((base_width as f32 * font_size as f32 / FONT_SIZE + stroke_width as f32) * scale).ceil();
-					// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高(不加stroke_width，因为会使布局被撑大)
-					let height = (font_size as f32 * font.factor * scale).ceil() as usize;
-                    // let height = ((font_size as f32 * font.factor + stroke_width as f32) * scale).ceil() as usize;
-                    let mut line = self.font_tex.alloc_line(height);
-					let p = line.alloc(w);
+                    let w = (base_width as f32 * font_size as f32 / FONT_SIZE + stroke_width as f32) * scale;
+                    // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
+					let height = (font_size as f32 * (font.factor_t + font.factor_b + 1.0) + stroke_width as f32) * scale;
+					
+					let ww = w.ceil();
+					let hh = height.ceil();
+						
+                    let mut line = self.font_tex.alloc_line(hh as usize);
+                    let p = line.alloc(ww);
+
+					// 超出最大纹理范围，需要清空所有文字，重新布局
+					if *(line.last_v) > line.tex_width {
+						return 0; // 0表示异常情况，不能计算字形
+					}
+
                     let id = self.char_slab.insert((
                         c,
                         Glyph {
@@ -284,11 +307,11 @@ impl FontSheet {
                                 let info = &mut self.wait_draw_list[r.0];
                                 info.chars.push(WaitChar {
                                     ch: c,
-                                    width: w,
+                                    width: ww,
                                     x: p.x as u32,
                                     y: p.y as u32,
                                 });
-                                info.size.x += w;
+                                info.size.x += ww;
                             } else {
                                 r.0 = self.wait_draw_list.len();
                                 r.1 = p.y;
@@ -296,11 +319,12 @@ impl FontSheet {
                                     font: font.name.clone(),
                                     font_size: fs_scale,
                                     stroke_width: sw,
-                                    weight: weight,
-                                    size: Vector2::new(w, height as f32),
+									weight: weight,
+									top: (fs_scale as f32 * font.factor_t) as usize,
+                                    size: Vector2::new(ww, hh as f32),
                                     chars: vec![WaitChar {
                                         ch: c,
-                                        width: w,
+                                        width: ww,
                                         x: p.x as u32,
                                         y: p.y as u32,
                                     }],
@@ -311,13 +335,14 @@ impl FontSheet {
                             r.insert((self.wait_draw_list.len(), p.y));
                             self.wait_draw_list.push(TextInfo {
                                 font: font.name.clone(),
-                                font_size: fs_scale,
+								font_size: fs_scale,
+								top: (fs_scale as f32 * font.factor_t) as usize,
                                 stroke_width: sw,
                                 weight: weight,
-                                size: Vector2::new(w, height as f32),
+                                size: Vector2::new(ww, hh),
                                 chars: vec![WaitChar {
                                     ch: c,
-                                    width: w,
+                                    width: ww,
                                     x: p.x as u32,
                                     y: p.y as u32,
                                 }],
@@ -388,14 +413,15 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 pub struct TexFont {
     pub name: Atom,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
-    pub factor: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
+	pub factor_t: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
+	pub factor_b: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
 }
 
 impl TexFont {
     #[inline]
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_font_height(&self, size: usize, stroke_width: f32) -> f32 {
-        size as f32 * self.factor + stroke_width
+        size as f32 + (size as f32 * self.factor_t + size as f32 * self.factor_b).round() + stroke_width
     }
 }
 
@@ -456,7 +482,8 @@ pub struct TextInfo {
     pub stroke_width: usize,
     pub weight: usize,
     pub size: Vector2,
-    pub chars: Vec<WaitChar>,
+	pub chars: Vec<WaitChar>,
+	pub top: usize,
 }
 
 #[derive(Debug)]
@@ -467,6 +494,7 @@ pub struct WaitChar {
     pub y: u32,
 }
 
+#[derive(Debug)]
 // 劈分结果
 pub enum SplitResult {
     Newline,
@@ -476,6 +504,7 @@ pub enum SplitResult {
     WordNext(char),  // 单词字符继续
     WordEnd,         // 单词字符结束
 }
+
 // 劈分字符迭代器
 pub struct SplitChar<'a> {
     iter: Chars<'a>,

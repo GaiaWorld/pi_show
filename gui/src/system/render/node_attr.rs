@@ -9,15 +9,18 @@ use atom::Atom;
 use single::IdTree;
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent, MultiCaseImpl,
-    MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+	MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+	monitor::NotifyImpl
 };
 use hal_core::*;
 use res::{ResMap, ResMgr};
 
 use component::calc::*;
+use component::calc::Opacity;
 use entity::Node;
 use render::engine::{ShareEngine, UnsafeMut};
 use single::*;
+use single::oct::Oct;
 use system::util::*;
 
 lazy_static! {
@@ -56,25 +59,93 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
                 0,
             ), // TODO cost
         }
-    }
+	}
+	
+	pub fn modifyHsv<'a>(&mut self, id: usize, hsvs: &'a MultiCaseImpl<Node, HSV>, write: (
+		&'a mut SingleCaseImpl<RenderObjs>,
+		&'a mut SingleCaseImpl<NodeRenderMap>,
+	)) {
+		let (render_objs, node_render_map) = write;
+		let hsv = &hsvs[id];
+		let obj_ids = &node_render_map[id];
+		if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
+			for id in obj_ids.iter() {
+				let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
+				let render_obj = &mut render_objs[*id];
+				render_obj.fs_defines.add("HSV");
+				render_obj
+					.paramter
+					.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
+	
+				notify.modify_event(*id, "paramter", 0);
+				notify.modify_event(*id, "program_dirty", 0);
+			}
+		} else {
+			for id in obj_ids.iter() {
+				let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
+				let render_obj = &mut render_objs[*id];
+				render_obj.fs_defines.remove("HSV");
+	
+				notify.modify_event(*id, "paramter", 0);
+				notify.modify_event(*id, "program_dirty", 0);
+			}
+		}
+	}
 }
 
 impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
     type ReadData = (
-        &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+		&'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
-        &'a SingleCaseImpl<NodeRenderMap>,
-        &'a EntityImpl<Node>,
+		&'a SingleCaseImpl<NodeRenderMap>,
+		&'a SingleCaseImpl<DirtyList>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
+		&'a EntityImpl<Node>,
+		
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
-        &'a mut SingleCaseImpl<ShareEngine<C>>,
-    );
+		&'a mut SingleCaseImpl<ShareEngine<C>>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
+	);
+	
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        let (transform_will_change_matrixs, idtree, view_matrix, _, node_render_map, nodes) = read;
-        let (render_objs, _) = write;
+        let (transform_will_change_matrixs, style_marks, idtree, view_matrix, _, node_render_map, dirty_list, octree, render_begin, nodes) = read;
+		let (render_objs, _, dirty_view_rect) = write;
+		
+		for id in dirty_list.0.iter() {
+			// dirty_view_rect已经是最大范围了，不需要再修改
+			if dirty_view_rect.4 == true {
+				break;
+			}
+			let node = match idtree.get(*id) {
+				Some(r) => r,
+				None => continue,
+			};
+			if node.layer() == 0 {
+				continue;
+			}
+			
+			
+			match style_marks.get(*id) {
+				Some(r) => {
+					if r.dirty & StyleType::Oct as usize != 0 {
+						continue;
+					}
+				},
+				None => continue,
+			};
+
+			
+			handler_modify_oct(*id, octree, render_begin, dirty_view_rect);
+		}
+
         let mut modify = false;
         for id in self.transform_will_change_matrix_dirtys.iter() {
             if !nodes.is_exist(*id) {
@@ -115,7 +186,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         }
     }
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData) {
-        let (_, _, view_matrix, projection_matrix, _, _) = read;
+        let (_, _, _, view_matrix, projection_matrix, _, _, _, _, _) = read;
 
         let slice: &[f32; 16] = view_matrix.0.as_ref();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
@@ -127,6 +198,68 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
         self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
     }
+}
+
+fn handler_modify_oct(
+	id: usize,
+	octree: &SingleCaseImpl<Oct>,
+	render_begin: &SingleCaseImpl<RenderBegin>,
+	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
+) {
+	let oct = match octree.get(id){
+		Some(r) => r,
+		None => return,
+	};
+	let oct = &oct.0;
+	let viewport = render_begin.0.viewport;
+	// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
+	// 与包围盒求并
+	dirty_view_rect.0 = dirty_view_rect.0.min(oct.min.x.max(0.0));
+	dirty_view_rect.1 = dirty_view_rect.1.min(oct.min.y.max(0.0));
+	dirty_view_rect.2 = dirty_view_rect.2.max(oct.max.x.min(viewport.2 as f32));
+	dirty_view_rect.3 = dirty_view_rect.3.max(oct.max.y.min(viewport.3 as f32));
+	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
+
+	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
+	// 由于包围盒改变事件通常是从父到子的顺序传递，因此如果界面有大范围的改变，能够很快的将dirty_view_rect.4设置为true
+	// 因此在大范围改变时，具有较好的优化
+	// 另外，dirty_view_rect.4被设计的另一个原因是，外部很多时候能够预计即将改变的界面将是大范围，可以提前设置该值，来优化掉后面的计算（尽管这种计算并不很费）
+	if dirty_view_rect.0 == 0.0 && 
+	dirty_view_rect.1 == 0.0 && 
+	dirty_view_rect.2 == viewport.2 as f32 && 
+	dirty_view_rect.3 == viewport.3  as f32 {
+
+		// println!("true1======================oct: {:?}, dirty_view_rect:{:?}", oct, **dirty_view_rect);
+		dirty_view_rect.4 = true;
+	}
+}
+
+// 设置为最大视口
+fn set_max_view(
+	render_begin: &SingleCaseImpl<RenderBegin>,
+	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
+) {
+	let viewport = render_begin.0.viewport;
+	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
+	// 由于包围盒改变事件通常是从父到子的顺序传递，因此如果界面有大范围的改变，能够很快的将dirty_view_rect.4设置为true
+	// 因此在大范围改变时，具有较好的优化
+	// 另外，dirty_view_rect.4被设计的另一个原因是，外部很多时候能够预计即将改变的界面将是大范围，可以提前设置该值，来优化掉后面的计算（尽管这种计算并不很费）
+	if dirty_view_rect.4 != true {
+		
+
+		// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
+		// 与包围盒求并
+		dirty_view_rect.0 = 0.0;
+		dirty_view_rect.1 = 0.0;
+		dirty_view_rect.2 = viewport.2 as f32;
+		dirty_view_rect.3 = viewport.3 as f32;
+	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
+		println!("dirty_view_rect======================");
+		// println!("true1======================oct: {:?}, dirty_view_rect:{:?}", oct, **dirty_view_rect);
+		dirty_view_rect.4 = true;
+	}
+	
+	
 }
 
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, ModifyEvent>
@@ -149,7 +282,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
                 .set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap());
         }
         if render_objs.len() > 0 {
-            render_objs.get_notify().modify_event(1, "ubo", 0);
+            render_objs.get_notify_ref().modify_event(1, "ubo", 0);
         }
     }
 }
@@ -170,20 +303,22 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent> for Node
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for NodeAttrSys<C>
 {
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, _: Self::ReadData, _: Self::WriteData) {
+    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
         self.transform_will_change_matrix_dirtys.push(event.id);
+		set_max_view(read, write);
     }
 }
 
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for NodeAttrSys<C>
 {
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, _: Self::ReadData, _: Self::WriteData) {
+    type ReadData = &'a SingleCaseImpl<RenderBegin>;
+    type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
         self.transform_will_change_matrix_dirtys.push(event.id);
+		set_max_view(read, write);
     }
 }
 
@@ -252,7 +387,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
         let (render_objs, node_render_map) = write;
         let render_obj = &mut render_objs[event.id];
-        let notify = node_render_map.get_notify();
+        let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
         node_render_map.add(render_obj.context, event.id, &notify);
 
         let paramter = &mut render_obj.paramter;
@@ -292,7 +427,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
         node_render_map: Self::WriteData,
     ) {
         let render_obj = &read[event.id];
-        let notify = node_render_map.get_notify();
+        let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
         node_render_map.remove(render_obj.context, event.id, &notify);
     }
 }
@@ -311,11 +446,13 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
         let obj_ids = &node_render_map[event.id];
         let z_depth = z_depths[event.id].0;
 
-        for id in obj_ids.iter() {
-            let render_obj = &mut render_objs[*id];
-            render_obj.depth = z_depth + render_obj.depth_diff;
-            render_objs.get_notify().modify_event(*id, "depth", 0);
-        }
+		if obj_ids.len() > 0 {
+			for id in obj_ids.iter() {
+				let render_obj = &mut render_objs[*id];
+				render_obj.depth = z_depth + render_obj.depth_diff;
+				render_objs.get_notify_ref().modify_event(*id, "depth", 0);
+			}
+		}
     }
 }
 
@@ -338,26 +475,64 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEve
             render_obj
                 .paramter
                 .as_ref()
-                .set_single_uniform("alpha", UniformValue::Float1(opacity));
-            render_objs.get_notify().modify_event(*id, "paramter", 0);
+				.set_single_uniform("alpha", UniformValue::Float1(opacity));
+            render_objs.get_notify_ref().modify_event(*id, "paramter", 0);
         }
     }
 }
+// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+// 	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
 
 // 设置visibility
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent>
     for NodeAttrSys<C>
 {
     type ReadData = (
-        &'a MultiCaseImpl<Node, Visibility>,
+        &'a MultiCaseImpl<Node, Visibility>, 
         &'a MultiCaseImpl<Node, Culling>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<NodeRenderMap>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
     );
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        modify_visible(event.id, read, write);
+		
+        modify_visible(event.id, (read.0, read.1), (write.0, write.1));
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if (write.2).4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.2, read.3, write.2);
+    }
+}
+
+// 设置visibility
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, CreateEvent>
+    for NodeAttrSys<C>
+{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Visibility>, 
+        &'a MultiCaseImpl<Node, Culling>,
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
+    );
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+		&'a mut SingleCaseImpl<DirtyViewRect>
+    );
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+        modify_visible(event.id, (read.0, read.1), (write.0, write.1));;
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if (write.2).4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.2, read.3, write.2);
     }
 }
 
@@ -386,32 +561,82 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, ModifyEvent> 
         &'a mut SingleCaseImpl<NodeRenderMap>,
     );
     fn listen(&mut self, event: &ModifyEvent, hsvs: Self::ReadData, write: Self::WriteData) {
-        let (render_objs, node_render_map) = write;
-        let hsv = &hsvs[event.id];
-        let obj_ids = &node_render_map[event.id];
+        self.modifyHsv(event.id, hsvs, write);
+    }
+}
 
-        if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
-            for id in obj_ids.iter() {
-                let notify = render_objs.get_notify();
-                let render_obj = &mut render_objs[*id];
-                render_obj.fs_defines.add("HSV");
-                render_obj
-                    .paramter
-                    .set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
+// 设置hsv
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, HSV, CreateEvent> for NodeAttrSys<C> {
+    type ReadData = &'a MultiCaseImpl<Node, HSV>;
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+    );
+    fn listen(&mut self, event: &CreateEvent, hsvs: Self::ReadData, write: Self::WriteData) {
+        self.modifyHsv(event.id, hsvs, write);
+    }
+}
 
-                notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "program_dirty", 0);
-            }
-        } else {
-            for id in obj_ids.iter() {
-                let notify = render_objs.get_notify();
-                let render_obj = &mut render_objs[*id];
-                render_obj.fs_defines.remove("HSV");
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, DeleteEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &DeleteEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
 
-                notify.modify_event(*id, "paramter", 0);
-                notify.modify_event(*id, "program_dirty", 0);
-            }
-        }
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, ModifyEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &ModifyEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, CreateEvent>
+    for NodeAttrSys<C>
+{
+	type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &CreateEvent,
+        read: Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+
+		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
     }
 }
 
@@ -432,7 +657,7 @@ fn modify_visible(id: usize, read: ReadData, write: WriteData) {
     let obj_ids = &node_render_map[id];
 
     for id in obj_ids.iter() {
-        let notify = render_objs.get_notify();
+		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let mut render_obj = RenderObjs::get_write(&mut *render_objs, *id, &notify);
         render_obj.set_visibility(visibility & !culling);
     }
@@ -444,12 +669,17 @@ impl_system! {
     {
         EntityListener<Node, CreateEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
-        SingleCaseListener<RenderObjs, DeleteEvent>
-        SingleCaseListener<ProjectionMatrix, ModifyEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
-        MultiCaseListener<Node, Visibility, ModifyEvent>
+		SingleCaseListener<RenderObjs, DeleteEvent>
+		SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		SingleCaseListener<Oct, DeleteEvent>
+		SingleCaseListener<Oct, CreateEvent>
+		SingleCaseListener<Oct, ModifyEvent>
+		MultiCaseListener<Node, Opacity, ModifyEvent>
+		MultiCaseListener<Node, Visibility, ModifyEvent>
+		MultiCaseListener<Node, Visibility, CreateEvent>
         MultiCaseListener<Node, Culling, ModifyEvent>
-        MultiCaseListener<Node, HSV, ModifyEvent>
+		MultiCaseListener<Node, HSV, ModifyEvent>
+		MultiCaseListener<Node, HSV, CreateEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>

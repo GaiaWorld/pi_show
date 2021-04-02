@@ -7,10 +7,12 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 use map::vecmap::VecMap;
+use map::Map;
 use ordered_float::NotNan;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::*;
 use component::calc::LayoutR;
@@ -45,6 +47,14 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     pub fn new() -> Self {
         BackgroundColorSys {
             render_map: VecMap::default(),
+            default_paramter: ColorParamter::default(),
+            marker: PhantomData,
+        }
+	}
+	
+	pub fn with_capacity(capacity: usize) -> Self {
+        BackgroundColorSys {
+            render_map: VecMap::with_capacity(capacity),
             default_paramter: ColorParamter::default(),
             marker: PhantomData,
         }
@@ -91,8 +101,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
         ) = read;
         let (render_objs, engine) = write;
 
-        let default_transform = Transform::default();
-        let notify = render_objs.get_notify();
+		let default_transform = Transform::default();
+		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -137,9 +147,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             if dirty & StyleType::BackgroundColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-                let opacity = opacitys[*id].0;
-                render_obj.is_opacity = background_is_opacity(opacity, color);
-                notify.modify_event(render_index, "is_opacity", 0);
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
+				render_obj.is_opacity = background_is_opacity(opacity, color);
+				if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
 
@@ -221,7 +234,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+				let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
                 render_objs.remove(index, Some(notify));
             }
             None => (),
@@ -272,7 +285,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
         return Some(unit_quad.clone());
     } else {
         let mut hasher = DefaultHasher::default();
-        radius_quad_hash(&mut hasher, radius.x, layout.border.end - layout.border.start, layout.border.bottom - layout.border.top);
+        radius_quad_hash(&mut hasher, radius.x, layout.rect.end - layout.rect.start - layout.border.start - layout.border.end, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
         let hash = hasher.finish();
         match engine.geometry_res_map.get(&hash) {
             Some(r) => Some(r.clone()),
@@ -369,8 +382,8 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
             }
 
-			let width = layout.rect.end - layout.rect.start;
-			let height = layout.rect.bottom - layout.rect.top;
+			let width = layout.rect.end - layout.rect.start - layout.border.start - layout.border.end;
+			let height = layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top;
             //渐变端点
             let endp = find_lg_endp(
                 &[

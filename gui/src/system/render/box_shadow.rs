@@ -3,9 +3,11 @@ use component::calc::{Opacity, LayoutR};
 use component::calc::*;
 use component::user::*;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use entity::Node;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use polygon::*;
 use render::engine::{AttributeDecs, Engine, ShareEngine};
 use render::res::GeometryRes;
@@ -19,23 +21,31 @@ use std::slice;
 use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use system::util::*;
 
+const DITY_TYPE: usize = StyleType::BoxShadow as usize
+            | StyleType::Matrix as usize
+            | StyleType::BorderRadius as usize
+            | StyleType::Opacity as usize
+			| StyleType::Layout as usize;
+			
 pub struct BoxShadowSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
-    dirty_ty: usize,
     default_paramter: ColorParamter,
     marker: std::marker::PhantomData<C>,
 }
 
+impl<C: HalContext + 'static> BoxShadowSys<C> {
+	pub fn with_capacity(capacity: usize) -> Self {
+		BoxShadowSys {
+			render_map: VecMap::with_capacity(capacity),
+			default_paramter: ColorParamter::default(),
+			marker: std::marker::PhantomData,
+		}
+	}
+}
+
 impl<C: HalContext + 'static> Default for BoxShadowSys<C> {
     fn default() -> Self {
-        let dirty_ty = StyleType::BoxShadow as usize
-            | StyleType::Matrix as usize
-            | StyleType::BorderRadius as usize
-            | StyleType::Opacity as usize
-            | StyleType::Layout as usize;
-
         Self {
-            dirty_ty,
             render_map: VecMap::default(),
             default_paramter: ColorParamter::default(),
             marker: PhantomData,
@@ -55,7 +65,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DefaultTable>,
-        &'a SingleCaseImpl<ClassSheet>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
@@ -76,7 +85,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             transforms,
             style_marks,
             default_table,
-            _class_sheet,
             dirty_list,
             default_state,
         ) = read;
@@ -85,8 +93,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             return;
         }
 
-        let (render_objs, engine) = write;
-        let notify = render_objs.get_notify();
+		let (render_objs, engine) = write;
+		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let default_transform = default_table.get::<Transform>().unwrap();
 
         for id in dirty_list.0.iter() {
@@ -100,10 +108,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
             let dirty = style_mark.dirty;
 
-            // 不存在BuckgroundColor关心的脏, 跳过
-            if dirty & self.dirty_ty == 0 {
+            // 不存在BoxShadow关心的脏, 跳过
+            if dirty & DITY_TYPE == 0 {
                 continue;
-            }
+			}
 
             // 阴影脏
             let render_index = if dirty & StyleType::BoxShadow as usize != 0 {
@@ -137,9 +145,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BoxShadow as usize != 0
             {
-                let opacity = opacitys[*id].0;
+				let opacity = opacitys[*id].0;
+				let is_opacity_old = render_obj.is_opacity;
                 render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
-                notify.modify_event(render_index, "is_opacity", 0);
+                if render_obj.is_opacity != is_opacity_old {
+					notify.modify_event(render_index, "is_opacity", 0);
+				}
                 modify_opacity(engine, render_obj, default_state);
             }
 
@@ -190,7 +201,7 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 render_objs.remove(index, Some(notify));
             }
             None => (),

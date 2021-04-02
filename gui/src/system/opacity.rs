@@ -6,49 +6,57 @@ use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCas
 use single::IdTree;
 
 use component::user::{ Opacity};
-use component::calc::{Opacity as COpacity, OpacityWrite as COpacityWrite};
+use component::calc::{Opacity as COpacity, NodeState, OpacityWrite as COpacityWrite};
 use entity::{Node};
 
 #[derive(Default)]
 pub struct OpacitySys;
 
 impl OpacitySys {
-    fn modify_opacity(id: usize, idtree: &SingleCaseImpl<IdTree>, opacity: &MultiCaseImpl<Node, Opacity>, c_opacity: &mut MultiCaseImpl<Node, COpacity>){
+    fn modify_opacity(id: usize, idtree: &SingleCaseImpl<IdTree>, opacity: &MultiCaseImpl<Node, Opacity>, c_opacity: &mut MultiCaseImpl<Node, COpacity>, node_states: &MultiCaseImpl<Node, NodeState>){
         let parent_id = match idtree.get(id) {
             Some(node) => if node.layer() != 0 { node.parent() } else { return; },
             None => return,
         };
         if parent_id > 0 {
             let parent_c_opacity = *c_opacity[parent_id];
-            modify_opacity(parent_c_opacity, id, idtree, opacity, c_opacity);
+            modify_opacity(parent_c_opacity, id, idtree, opacity, c_opacity, node_states);
         }else {
-            modify_opacity(1.0, id, idtree, opacity, c_opacity);
+            modify_opacity(1.0, id, idtree, opacity, c_opacity, node_states);
         }
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for OpacitySys{
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, Opacity>, &'a mut MultiCaseImpl<Node, COpacity>);
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
-        write.0.insert(event.id, Opacity::default());
-        write.1.insert(event.id, COpacity::default());
+// impl<'a> EntityListener<'a, Node, CreateEvent> for OpacitySys{
+//     type ReadData = ();
+//     type WriteData = (&'a mut MultiCaseImpl<Node, Opacity>, &'a mut MultiCaseImpl<Node, COpacity>);
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData){
+//         write.0.insert(event.id, Opacity::default());
+//         write.1.insert(event.id, COpacity::default());
+//     }
+// }
+
+impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for OpacitySys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, NodeState>);
+    type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
+    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
+        OpacitySys::modify_opacity(event.id, read.0, read.1, write, read.2);
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for OpacitySys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>);
+impl<'a> MultiCaseListener<'a, Node, Opacity, CreateEvent> for OpacitySys{
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData){
-        OpacitySys::modify_opacity(event.id, read.0, read.1, write);
+    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
+        OpacitySys::modify_opacity(event.id, read.0, read.1, write, read.2);
     }
 }
 
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OpacitySys{
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = &'a mut MultiCaseImpl<Node, COpacity>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData){
-        OpacitySys::modify_opacity(event.id, read.0, read.1, write);
+        OpacitySys::modify_opacity(event.id, read.0, read.1, write, read.2);
     }
 }
 
@@ -58,18 +66,19 @@ fn modify_opacity(
     id: usize,
     id_tree: &SingleCaseImpl<IdTree>,
     opacity: &MultiCaseImpl<Node, Opacity>,
-    copacity: &mut MultiCaseImpl<Node,COpacity>
+	copacity: &mut MultiCaseImpl<Node,COpacity>,
+	node_states: &MultiCaseImpl<Node, NodeState>
 ) {
-    let opacity_value: f32 = match opacity.get(id) {
-		Some(r) => **r,
-		None => return,
-	};
+	if !node_states[id].0.is_rnode() {
+		return;
+	}
+    let opacity_value: f32 = opacity[id].0;
     let node_real_opacity = opacity_value * parent_real_opacity;
-    copacity.get_write(id).unwrap().set_0(node_real_opacity);
+    unsafe { copacity.get_unchecked_write(id) }.set_0(node_real_opacity);
 	
     let first = id_tree[id].children().head;
     for child_id in id_tree.iter(first) {
-        modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity);
+        modify_opacity(node_real_opacity, child_id.0, id_tree, opacity, copacity, node_states);
     }
 }
 
@@ -77,8 +86,9 @@ impl_system!{
     OpacitySys,
     false,
     {
-        EntityListener<Node, CreateEvent>
-        MultiCaseListener<Node, Opacity, ModifyEvent>
+        // EntityListener<Node, CreateEvent>
+		MultiCaseListener<Node, Opacity, ModifyEvent>
+		MultiCaseListener<Node, Opacity, CreateEvent>
         SingleCaseListener<IdTree, CreateEvent>
     }
 }
@@ -151,8 +161,8 @@ fn test(){
     opacitys.insert(e012, Opacity::default());
     world.run(&Atom::from("test_opacity_sys"));
 
-    opacitys.get_write(e0).unwrap().set_0(0.5);
-    opacitys.get_write(e00).unwrap().set_0(0.5);
+    unsafe { opacitys.get_unchecked_write(e0) }.set_0(0.5);
+    unsafe { opacitys.get_unchecked_write(e00)}.set_0(0.5);
 
     world.run(&Atom::from("test_opacity_sys"));
 

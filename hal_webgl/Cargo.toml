@@ -3,6 +3,8 @@ name = "hal_webgl"
 version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
+# [lib]
+# crate-type = ["cdylib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -13,15 +15,12 @@ deque = {path="../../pi_lib/deque"}
 hal_core={path="../hal_core"}
 hash={path="../../pi_lib/hash"}
 ordered-float = "1.0"
-# stdweb = "0.4.15"
-# stdweb-derive = "0.5.1"
-# webgl-rendering-context = "0.1.0"
-wasm-bindgen = "*"
-js-sys = "0.3.44"
+wasm-bindgen = {version="*", features = ["serde-serialize"]}
+js-sys = "*"
 debug_info = {path="../../pi_lib/debug_info"}
 
 [dependencies.web-sys]
-version = "0.3.44"
+version = "*"
 features = [
 	"WebGlRenderingContext",
 	"WebGlBuffer",
@@ -30,7 +29,6 @@ features = [
 	"WebGlProgram",
 	"WebGlUniformLocation",
 	"WebGlActiveInfo",
-	"WebGlProgram",
 	"WebGlTexture",
 	"WebGlRenderbuffer",
 	"WebGlFramebuffer",

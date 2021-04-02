@@ -11,8 +11,10 @@ use hash::DefaultHasher;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use map::vecmap::VecMap;
+use map::Map;
 use polygon::*;
 
 use component::calc::{Opacity, LayoutR};
@@ -98,7 +100,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
         let (render_objs, engine) = write;
         let default_transform = default_table.get::<Transform>().unwrap();
-        let notify = render_objs.get_notify();
+        let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
 
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
@@ -242,7 +244,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent
 }
 
 impl<C: HalContext + 'static> ImageSys<C> {
-    pub fn new(engine: &mut Engine<C>) -> Self {
+    pub fn with_capacity(engine: &mut Engine<C>, capacity: usize) -> Self {
 		let mut sm = SamplerDesc::default();
 		sm.u_wrap = TextureWrapMode::ClampToEdge;
 		sm.v_wrap = TextureWrapMode::ClampToEdge;
@@ -275,7 +277,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
             .unwrap();
 
         ImageSys {
-            render_map: VecMap::default(),
+            render_map: VecMap::with_capacity(capacity),
             default_sampler: default_sampler,
             unit_geo: Share::new(GeometryRes {
                 geo: geo,
@@ -290,7 +292,7 @@ impl<C: HalContext + 'static> ImageSys<C> {
     fn remove_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>) {
         match self.render_map.remove(id) {
             Some(index) => {
-                let notify = render_objs.get_notify();
+                let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 render_objs.remove(index, Some(notify));
             }
             None => (),

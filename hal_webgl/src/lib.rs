@@ -1,4 +1,4 @@
-#![feature(weak_ptr_eq)]
+// #![feature(weak_ptr_eq)]
 
 /**
  * 抽象硬件层HAL的WebGL实现
@@ -44,9 +44,27 @@ pub use webgl_bind::WebGlRenderingContext;
 
 pub use context::WebglHalContext;
 
+// use wasm_bindgen::prelude::*;
+// use hal_core::HalContext;
+
 /**
  * 注: 苹果最好不要用VAO版本
  */
+
 pub fn create_hal_webgl(gl: WebGlRenderingContext, use_vao: bool) -> WebglHalContext {
     WebglHalContext::new(gl, use_vao)
 }
+// #[wasm_bindgen]
+// pub fn c(gl: WebGlRenderingContext, use_vao: bool) {
+// 	let r =  create_hal_webgl(gl, use_vao);
+// 	// r.program_create_with_vs_fs(1, 2, "", &[], "", &[], &hal_core::UniformLayout {
+// 	// 	ubos: &[],
+// 	// 	uniforms: &[],
+// 	// 	textures: &[],
+// 	// 	single_uniforms: &[]
+// 	// });
+// }
+
+// pub fn main() {
+	
+// }

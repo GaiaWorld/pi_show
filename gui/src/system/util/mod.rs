@@ -375,7 +375,7 @@ pub fn create_render_obj(
         ss: default_state.df_ss.clone(),
         ds: default_state.df_ds.clone(),
     };
-    let notify = render_objs.get_notify();
+    let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
     let render_index = render_objs.insert(
         new_render_obj(
             context, depth_diff, is_opacity, vs_name, fs_name, paramter, state,

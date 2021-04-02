@@ -1,8 +1,10 @@
 use std::mem::transmute;
+use std::ops::{Deref};
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 use serde::{Serialize, Deserialize};
+use web_sys::console;
 
 use hal_core::*;
 use hal_webgl::*;
@@ -11,16 +13,13 @@ use flex_layout::style::*;
 
 use ecs::{Lend, LendMut};
 use gui::component::calc::*;
+use gui::component::calc::LayoutR as Layout2;
 use gui::component::user::*;
-// use gui::render::res::*;
 use gui::system::util::cal_matrix;
-// use gui::single::Oct;
-// use gui::component::user::*;
-// use gui::layout::*;
 
 use gui::render::engine::ShareEngine;
 use gui::single::*;
-use GuiWorld;
+use crate::world::GuiWorld;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Quad {
@@ -32,18 +31,17 @@ struct Quad {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Layout1 {
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
-    pub height: f32,
-    pub border_left: f32,
-    pub border_top: f32,
-    pub border_end: f32,
-    pub border_bottom: f32,
-    pub padding_left: f32,
-    pub padding_top: f32,
-    pub padding_end: f32,
-    pub padding_bottom: f32,
+	rect:Rect<f32>,
+	border:Rect<f32>,
+	padding:Rect<f32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rect<T> {
+    pub left: T,
+    pub right: T,
+    pub top: T,
+    pub bottom: T,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -79,16 +77,17 @@ struct Info {
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<u32>,
 
-    pub text: Option<TextStyle>,
-	pub text_content: Option<TextContent>,
-	pub children: Vec<usize>,
+    text: Option<TextStyle>,
+	text_content: Option<TextContent>,
+	style_mark: StyleMark,
+	children: Vec<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RenderObject {
     pub depth: f32,
     pub depth_diff: f32,
-    pub visibility: bool,
+	pub visibility: bool,
     pub is_opacity: bool,
     pub vs_name: String,
     pub fs_name: String,
@@ -185,13 +184,60 @@ pub fn list_class(world: u32) -> JsValue {
 	let class_map = &world
         .class_sheet
         .lend()
-		.class_map;
+		.borrow_mut().class_map;
 	let mut r = Vec::new();
 	for ci in class_map.iter() {
 		r.push(ci.0);
 	}
 	JsValue::from_serde(&r).unwrap()
 }
+
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_layout(world: u32, node: u32) -> JsValue {
+    let node = node as usize;
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let rect_layout_style = world.rect_layout_style.lend();
+	let other_layout_style = world.other_layout_style.lend();
+	let layouts = world.layout.lend();
+
+	JsValue::from_serde(&Layout{
+		rect: match rect_layout_style.get(node) {
+			Some(r) => Some(r.clone()),
+			None => None
+		},
+		other: match other_layout_style.get(node) {
+			Some(r) => Some(r.clone()),
+			None => None
+		},
+		layoutRet:match layouts.get(node) {
+			Some(r) => Some(r.clone()),
+			None => None
+		},
+		node_state: match world.node_state.lend().get(node){
+			Some(r) => Some(r.clone()),
+			None => None,
+		},
+	}).unwrap()
+}
+
+// #[wasm_bindgen]
+// pub fn get_layout(world: u32, node: u32) {
+//     let node = node as usize;
+//     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+//     let world = &mut world.gui;
+// 	let rect_layout_style = world.rect_layout_style.lend();
+// 	let other_layout_style = world.other_layout_style.lend();
+// 	let layouts = world.layout.lend();
+    
+// 	unsafe{ 
+// 		console::log_2(&"rect_style:".into(), &format!("{:?}", rect_layout_style.get(node)).into());
+// 		console::log_2(&"other_style:".into(),&format!("{:?}", other_layout_style.get(node)).into());
+// 		console::log_2(&"layout:".into(), &format!("{:?}", layouts.get(node)).into());
+// 		console::log_2(&"node_state:".into(), &format!("{:?}", world.node_state.lend().get(node)).into());
+// 	}
+// }
 
 #[wasm_bindgen]
 pub fn get_class_name(world: u32, node: u32) -> JsValue {
@@ -212,7 +258,7 @@ pub fn get_class(world: u32, class_name: u32) -> JsValue {
     let class = match world
         .class_sheet
         .lend()
-        .class_map
+        .borrow_mut().class_map
         .get(&(class_name as usize))
     {
         Some(r) => {
@@ -705,16 +751,16 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 	let world = &mut world.gui;
 	let idtree = world.idtree.lend();
 
-    // let z_depth = unsafe { world.z_depth.lend().get_unchecked(node) }.0;
+    // let z_depth = unsafe { world.z_depth.lend()[node]}.0;
 
-    let parent = unsafe { idtree.get_unchecked(node) }.parent();
+    let parent = idtree[node].parent();
 
-    let enable = unsafe { world.enable.lend().get_unchecked(node) }.0;
-    let visibility = unsafe { world.visibility.lend().get_unchecked(node) }.0;
+    let enable = world.enable.lend()[node].0;
+    let visibility = world.visibility.lend()[node].0;
 
-    let by_overflow = unsafe { world.by_overflow.lend().get_unchecked(node) }.0;
+    let by_overflow = world.by_overflow.lend()[node].0;
 
-    let opacity = unsafe { world.opacity.lend().get_unchecked(node) }.0;
+    let opacity = world.opacity.lend()[node].0;
 
     let layout = world.layout.lend();
 
@@ -723,7 +769,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let transform = world.transform.lend();
 
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
-    let layout = unsafe { layout.get_unchecked(node) };
+    let layout = &layout[node];
 
 	let width = layout.rect.end - layout.rect.start;
 	let height = layout.rect.bottom - layout.rect.top;
@@ -810,10 +856,10 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     };
 
     // let yogas = world.yoga.lend();
-    // let yoga = unsafe { yogas.get_unchecked(node) };
+    // let yoga = yogas[node];
 
     // let octs = world.oct.lend();
-    // let oct = unsafe { octs.get_unchecked(node) };
+    // let oct = octs[node];
 
     let mut render_map = Vec::new();
     let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
@@ -947,18 +993,18 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 
     let info = Info {
         // char_block: char_block,
-        overflow: unsafe { world.overflow.lend().get_unchecked(node) }.0,
+        overflow: world.overflow.lend()[node].0,
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
         opacity: opacity,
-        zindex: unsafe { world.z_index.lend().get_unchecked(node) }.0 as u32,
-        zdepth: unsafe { world.z_depth.lend().get_unchecked(node) }.0,
+        zindex: world.z_index.lend()[node].0 as u32,
+        zdepth: world.z_depth.lend()[node].0,
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
-        culling: unsafe { world.culling.lend().get_unchecked(node) }.0,
+        culling: world.culling.lend()[node].0,
         text: match world.text_style.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
@@ -973,11 +1019,11 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
             None => None,
         },
         image: match world.image.lend().get(node) {
-            Some(r) => Some(r.url.as_ref().to_string()),
+            Some(r) => Some(r.url.to_string()),
             None => None,
         },
         border_image: match world.border_image.lend().get(node) {
-            Some(r) => Some(r.0.url.as_ref().to_string()),
+            Some(r) => Some(r.0.url.to_string()),
             None => None,
         },
         background_color: match world.background_color.lend().get(node) {
@@ -1023,7 +1069,8 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         filter: match world.filter.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
-        },
+		},
+		style_mark: world.style_mark.lend()[node],
         transform_will_change: match world.transform_will_change.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
@@ -1235,27 +1282,29 @@ pub fn common_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui.world;
 
-	let mut all_run_time = 0.0;
-	let mut renderTime = 0.0;
-	let mut layoutTime = 0.0;
+    let mut all_run_time = std::time::Duration::from_millis(0);
+	let mut sys_time = Vec::new();
     for t in world.runtime.iter() {
-        // println!("t.sys_name:{:?}", t.sys_name);
-        if t.sys_name.as_ref() == "render_sys" {
-            renderTime = t.cost_time;
-        } else if t.sys_name.as_ref() == "text_layout_sys" {
-            layoutTime = t.cost_time;
-        }
+		sys_time.push((t.sys_name.as_ref().to_string(),(t.cost_time.as_secs_f64() * 1000.0) as f32));
         all_run_time += t.cost_time;
     }
 
     let statistics = world.fetch_single::<Statistics>().unwrap();
-	let statistics = statistics.lend_mut();
-	return JsValue::from_serde(&CommonStatistics{
-		renderTime,
-		layoutTime,
-		runTotalTimes: all_run_time,
-		drawCallTimes: statistics.drawcall_times as u32,
-	}).unwrap();
+    let statistics = statistics.lend_mut();
+    sys_time.push(("runTotalTimes".to_string(), (all_run_time.as_secs_f64() * 1000.0)  as f32));
+	sys_time.push(("drawCallTimes".to_string(), statistics.drawcall_times as f32));
+
+	return JsValue::from_serde(&sys_time).unwrap();
+}
+
+#[wasm_bindgen]
+pub fn is_dirty(world: u32) -> bool {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	if world.gui.dirty_list.lend().0.len() > 0 {
+		true
+	} else{
+		world.gui.renderSys.owner.deref().borrow().dirty
+	}
 }
 
 #[allow(non_snake_case)]
@@ -1297,6 +1346,14 @@ pub fn mem_statistics(world: u32) -> JsValue {
 		textureTotalCount: (catch_texture_count + texture_count) as u32, 
 		textureTotalMemory: (catch_texture_size + texture_size) as u32,
 	}).unwrap();
+}
+
+#[wasm_bindgen]
+pub fn get_font_sheet_debug(world: u32){
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let font_sheet = world.gui.font_sheet.lend();
+	println!("char_slab: {:?}", font_sheet.borrow().char_slab);
+	
 }
 
 /// 打印内存情况
@@ -1426,13 +1483,13 @@ pub fn print_memory(world: u32) {
     let r = world.render_objs.lend().mem_size();
     total += r;
     println!("    world::render_objs = {:?}", r);
-    let r = world.font_sheet.lend().mem_size();
+    let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::font_sheet = {:?}", r);
     let r = world.default_table.lend().mem_size();
     total += r;
     println!("    world::default_table = {:?}", r);
-    let r = world.class_sheet.lend().mem_size();
+    let r = world.class_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::class_sheet = {:?}", r);
     let r = world.image_wait_sheet.lend().mem_size();
@@ -1568,34 +1625,14 @@ pub fn get_transform(world: u32, node: u32) -> JsValue {
 	JsValue::from_serde(transform).unwrap()
 }
 
-#[allow(unused_attributes)]
-#[wasm_bindgen]
-pub fn get_layout(world: u32, node: u32) -> JsValue {
-    let node = node as usize;
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-	let rect_layout_style = world.rect_layout_style.lend();
-	let other_layout_style = world.other_layout_style.lend();
-	// let layouts = world.layout.lend();
 
-	JsValue::from_serde(&Layout{
-		rect: match rect_layout_style.get(node) {
-			Some(r) => Some(r.clone()),
-			None => None
-		},
-		other: match other_layout_style.get(node) {
-			Some(r) => Some(r.clone()),
-			None => None
-		},
-		// node_state: world.node_state.lend().get(node).clone(),
-	}).unwrap()
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Layout{
 	pub rect: Option<RectLayoutStyle>,
 	pub other: Option<OtherLayoutStyle>,
-	// node_state: Option<NodeState>,
+	pub node_state: Option<NodeState>,
+	pub layoutRet: Option<Layout2>
 }
 
 // #[derive(Serialize, Deserialize, Debug)]
@@ -1614,7 +1651,7 @@ pub struct Layout{
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // #[js_export]
-// pub fn test_create_render_obj(world: u32, count: u32) {
+// // pub fn test_create_render_obj(world: u32, count: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	let world = &mut world.gui;
 

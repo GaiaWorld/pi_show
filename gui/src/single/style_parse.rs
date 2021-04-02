@@ -142,8 +142,15 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
 
         "background-image" => {
-            class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?));
-            class.class_style_mark |= StyleType::Image as usize;
+			if value.starts_with("linear-gradient") {
+                class.attrs3.push(Attribute3::BGColor(BackgroundColor(
+                    parse_linear_gradient_color_string(value)?,
+                )));
+                class.class_style_mark |= StyleType::BackgroundColor as usize;
+            } else {
+				class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?.get_hash()));
+				class.class_style_mark |= StyleType::Image as usize;
+			}
 		}
 		"image-clip" => {
             class.attrs3.push(Attribute3::ImageClip(unsafe {
@@ -167,7 +174,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "border-image" => {
             class
                 .attrs2
-                .push(Attribute2::BorderImageUrl(parse_url(value)?));
+                .push(Attribute2::BorderImageUrl(parse_url(value)?.get_hash()));
             class.class_style_mark |= StyleType::BorderImage as usize;
         }
         "border-image-clip" => {
@@ -190,8 +197,11 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
                 .attrs2
                 .push(Attribute2::BorderImageRepeat(BorderImageRepeat(ty, ty)));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
-        }
-
+		}
+		"text-gradient" => {
+			class.attrs3.push(Attribute3::Color(parse_linear_gradient_color_string(value)?));
+			class.class_style_mark |= StyleType::Color as usize;
+		}
         "color" => {
             class
                 .attrs3
@@ -325,59 +335,59 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
         "width" => {
             class.attrs2.push(Attribute2::Width(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Width as usize;
+            class.class_style_mark2 |= StyleType2::Width as usize;
         }
         "height" => {
             class.attrs2.push(Attribute2::Height(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Height as usize;
+            class.class_style_mark2 |= StyleType2::Height as usize;
         }
         "left" => {
             class
                 .attrs2
                 .push(Attribute2::PositionLeft(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Position as usize;
+            class.class_style_mark2 |= StyleType2::PositionLeft as usize;
         }
         "bottom" => {
             class
                 .attrs2
                 .push(Attribute2::PositionBottom(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Position as usize;
+            class.class_style_mark2 |= StyleType2::PositionBottom as usize;
         }
         "right" => {
             class
                 .attrs2
                 .push(Attribute2::PositionRight(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Position as usize;
+            class.class_style_mark2 |= StyleType2::PositionRight as usize;
         }
         "top" => {
             class
                 .attrs2
                 .push(Attribute2::PositionTop(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Position as usize;
+            class.class_style_mark2 |= StyleType2::PositionTop as usize;
         }
         "margin-left" => {
             class
                 .attrs2
                 .push(Attribute2::MarginLeft(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Margin as usize;
+            class.class_style_mark2 |= StyleType2::MarginLeft as usize;
         }
         "margin-bottom" => {
             class
                 .attrs2
                 .push(Attribute2::MarginBottom(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Margin as usize;
+            class.class_style_mark2 |= StyleType2::MarginBottom as usize;
         }
         "margin-right" => {
             class
                 .attrs2
                 .push(Attribute2::MarginRight(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Margin as usize;
+            class.class_style_mark2 |= StyleType2::MarginRight as usize;
         }
         "margin-top" => {
             class
                 .attrs2
                 .push(Attribute2::MarginTop(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Margin as usize;
+            class.class_style_mark2 |= StyleType2::MarginTop as usize;
         }
         "margin" => {
             let [r1, r2, r3, r4] = parse_four_f32(value)?;
@@ -385,31 +395,34 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::MarginRight(r2));
             class.attrs2.push(Attribute2::MarginBottom(r3));
             class.attrs2.push(Attribute2::MarginLeft(r4));
-            class.class_style_mark1 |= StyleType1::Margin as usize;
+			class.class_style_mark2 |= StyleType2::MarginTop as usize 
+			| StyleType2::MarginRight as usize 
+			| StyleType2::MarginBottom as usize 
+			| StyleType2::MarginLeft as usize;
         }
         "padding-left" => {
             class
                 .attrs2
                 .push(Attribute2::PaddingLeft(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Padding as usize;
+            class.class_style_mark2 |= StyleType2::PaddingLeft as usize;
         }
         "padding-bottom" => {
             class
                 .attrs2
                 .push(Attribute2::PaddingBottom(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Padding as usize;
+            class.class_style_mark2 |= StyleType2::PaddingBottom as usize;
         }
         "padding-right" => {
             class
                 .attrs2
                 .push(Attribute2::PaddingRight(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Padding as usize;
+            class.class_style_mark2 |= StyleType2::PaddingRight as usize;
         }
         "padding-top" => {
             class
                 .attrs2
                 .push(Attribute2::PaddingTop(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::Padding as usize;
+            class.class_style_mark2 |= StyleType2::PaddingTop as usize;
         }
         "padding" => {
             let [r1, r2, r3, r4] = parse_four_f32(value)?;
@@ -417,35 +430,41 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::PaddingRight(r2));
             class.attrs2.push(Attribute2::PaddingBottom(r3));
             class.attrs2.push(Attribute2::PaddingLeft(r4));
-            class.class_style_mark1 |= StyleType1::Padding as usize;
+			class.class_style_mark2 |= StyleType2::PaddingTop as usize
+				| StyleType2::PaddingRight as usize
+				| StyleType2::PaddingBottom as usize
+				| StyleType2::PaddingLeft as usize;
         }
         "border-left" => {
             let r = parse_border(value)?;
             class.attrs2.push(Attribute2::BorderLeft(r.0));
             class.attrs3.push(Attribute3::BorderColor(BorderColor(r.1)));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+            class.class_style_mark2 |= StyleType2::BorderLeft as usize;
             class.class_style_mark |= StyleType::BorderColor as usize;
         }
         "border-bottom" => {
             let r = parse_border(value)?;
             class.attrs2.push(Attribute2::BorderBottom(r.0));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+            class.class_style_mark2 |= StyleType2::BorderBottom as usize;
         }
         "border-right" => {
             let r = parse_border(value)?;
             class.attrs2.push(Attribute2::BorderRight(r.0));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+            class.class_style_mark2 |= StyleType2::BorderRight as usize;
         }
         "border-top" => {
             let r = parse_border(value)?;
             class.attrs2.push(Attribute2::BorderTop(r.0));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+            class.class_style_mark2 |= StyleType2::BorderTop as usize;
         }
         "border" => {
             let r = parse_border(value)?;
             class.attrs3.push(Attribute3::BorderColor(BorderColor(r.1)));
             class.attrs2.push(Attribute2::Border(r.0));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+			class.class_style_mark2 |= StyleType2::BorderTop as usize 
+				| StyleType2::BorderRight as usize 
+				| StyleType2::BorderBottom as usize 
+				| StyleType2::BorderLeft as usize;
         }
         "border-width" => {
             let [r1, r2, r3, r4] = parse_four_f32(value)?;
@@ -453,27 +472,30 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::BorderRight(r2));
             class.attrs2.push(Attribute2::BorderBottom(r3));
             class.attrs2.push(Attribute2::BorderLeft(r4));
-            class.class_style_mark1 |= StyleType1::Border as usize;
+            class.class_style_mark2 |= StyleType2::BorderTop as usize 
+				| StyleType2::BorderRight as usize 
+				| StyleType2::BorderBottom as usize 
+				| StyleType2::BorderLeft as usize;
         }
         "min-width" => {
             class.attrs2.push(Attribute2::MinWidth(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::MinWidth as usize;
+            class.class_style_mark2 |= StyleType2::MinWidth as usize;
         }
         "min-height" => {
             class
                 .attrs2
                 .push(Attribute2::MinHeight(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::MinHeight as usize;
+            class.class_style_mark2 |= StyleType2::MinHeight as usize;
         }
         "max-width" => {
             class.attrs2.push(Attribute2::MaxWidth(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::MaxWidth as usize;
+            class.class_style_mark2 |= StyleType2::MaxWidth as usize;
         }
         "max-height" => {
             class
                 .attrs2
                 .push(Attribute2::MaxHeight(parse_unity(value)?));
-            class.class_style_mark1 |= StyleType1::MaxHeight as usize;
+            class.class_style_mark2 |= StyleType2::MaxHeight as usize;
         }
         "flex-basis" => {
             class
@@ -483,57 +505,109 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
         "flex-shrink" => {
             class.attrs2.push(Attribute2::FlexShrink(parse_f32(value)?));
-            class.class_style_mark1 |= StyleType1::FlexShrink as usize;
+            class.class_style_mark2 |= StyleType2::FlexShrink as usize;
         }
         "flex-grow" => {
             class.attrs2.push(Attribute2::FlexGrow(parse_f32(value)?));
-            class.class_style_mark1 |= StyleType1::FlexGrow as usize;
+            class.class_style_mark2 |= StyleType2::FlexGrow as usize;
         }
         "position" => {
             class
                 .attrs1
                 .push(Attribute1::PositionType(parse_yg_position_type(value)?));
-            class.class_style_mark1 |= StyleType1::PositionType as usize;
+            class.class_style_mark2 |= StyleType2::PositionType as usize;
         }
         "flex-wrap" => {
             class
                 .attrs1
                 .push(Attribute1::FlexWrap(parse_yg_wrap(value)?));
-            class.class_style_mark1 |= StyleType1::FlexWrap as usize;
+            class.class_style_mark2 |= StyleType2::FlexWrap as usize;
         }
         "flex-direction" => {
             class
                 .attrs1
                 .push(Attribute1::FlexDirection(parse_yg_direction(value)?));
-            class.class_style_mark1 |= StyleType1::FlexDirection as usize;
+            class.class_style_mark2 |= StyleType2::FlexDirection as usize;
         }
         "align-content" => {
             class
                 .attrs1
                 .push(Attribute1::AlignContent(parse_yg_align_content(value)?));
-            class.class_style_mark1 |= StyleType1::AlignContent as usize;
+            class.class_style_mark2 |= StyleType2::AlignContent as usize;
         }
         "align-items" => {
             class
                 .attrs1
                 .push(Attribute1::AlignItems(parse_yg_align_items(value)?));
-            class.class_style_mark1 |= StyleType1::AlignItems as usize;
+            class.class_style_mark2 |= StyleType2::AlignItems as usize;
         }
         "align-self" => {
             class
                 .attrs1
                 .push(Attribute1::AlignSelf(parse_yg_align_self(value)?));
-            class.class_style_mark1 |= StyleType1::AlignSelf as usize;
+            class.class_style_mark2 |= StyleType2::AlignSelf as usize;
         }
         "justify-content" => {
             class
                 .attrs1
                 .push(Attribute1::JustifyContent(parse_yg_justify_content(value)?));
-            class.class_style_mark1 |= StyleType1::JustifyContent as usize;
+            class.class_style_mark2 |= StyleType2::JustifyContent as usize;
+		},
+		"filter" => {
+            class
+                .attrs3
+                .push(Attribute3::Filter(parse_filter(value)?));
+            class.class_style_mark2 |= StyleType2::JustifyContent as usize;
         }
         _ => (),
     };
     Ok(())
+}
+
+fn parse_filter(value: &str) -> Result<Filter, String>{
+	let err = Err(format!("parse_filter fail, str: {:?}", value));
+	if value.starts_with("hsi(") && value.ends_with(")") {
+		let mut iter = value[4..value.len() - 1].trim().split(",");
+		let h = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		} ;
+		let s = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		};
+		let i = match iter.next() {
+			Some(r) => parse_f32(r)?,
+			None => return err,
+		};
+		return Ok(trans_filter(h, s, i));
+
+	} else {
+		return err;
+	}
+}
+
+fn trans_filter(mut h: f32, mut s: f32, mut i: f32) -> Filter {
+	if h > 180.0 {
+        h = 180.0;
+    } else if h < -180.0 {
+        h = -180.0
+    }
+    if s > 100.0 {
+        s = 100.0;
+    } else if s < -100.0 {
+        s = -100.0
+    }
+    if i > 100.0 {
+        i = 100.0;
+    } else if i < -100.0 {
+        i = -100.0
+    }
+    return Filter {
+        hue_rotate: h / 360.0,
+        saturate: s / 100.0,
+        bright_ness: i / 100.0,
+	};
 }
 
 fn parse_enable(value: &str) -> Result<EnableType, String> {
@@ -745,19 +819,19 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     }
     let r = to_four(arr)?;
     match r[0] {
-        Dimension::Percent(r) => slice.top = r/100.0,
+        Dimension::Percent(r) => slice.top = r,
         _ => (),
     };
     match r[1] {
-        Dimension::Percent(r) => slice.right = r/100.0,
+        Dimension::Percent(r) => slice.right = r,
         _ => (),
     };
     match r[2] {
-        Dimension::Percent(r) => slice.bottom = r/100.0,
+        Dimension::Percent(r) => slice.bottom = r,
         _ => (),
     };
     match r[3] {
-        Dimension::Percent(r) => slice.left = r/100.0,
+        Dimension::Percent(r) => slice.left = r,
         _ => (),
     };
     Ok(slice)
@@ -1362,7 +1436,7 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
                 return Err(format!("parse color err: '{}'", value));
             }
         }
-    };
+	};
     Ok(color)
 }
 
@@ -1392,7 +1466,7 @@ fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
     } else if arr.len() == 2 {
         let v = arr[0];
         let v1 = arr[1];
-        Ok([v, v, v1, v1])
+        Ok([v, v1, v, v1])
     } else if arr.len() == 3 {
         let v = arr[0];
         let v1 = arr[1];
@@ -1418,7 +1492,7 @@ fn to_four(arr: Vec<&str>) -> Result<[Dimension; 4], String> {
     } else if arr.len() == 2 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;
-        [v.clone(), v, v1.clone(), v1]
+        [v.clone(), v1.clone(), v, v1]
     } else if arr.len() == 3 {
         let v = parse_unity(arr[0])?;
         let v1 = parse_unity(arr[1])?;

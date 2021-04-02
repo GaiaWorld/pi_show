@@ -7,27 +7,35 @@ use ecs::{
     CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener,
     Runner, SingleCaseImpl, SingleCaseListener,
 };
+use map::Map;
 
-use component::calc::{LayoutR, WorldMatrix, WorldMatrixWrite};
+use component::calc::{NodeState, LayoutR, WorldMatrix, WorldMatrixWrite};
 use component::user::Transform;
 use map::vecmap::VecMap;
 use single::DefaultTable;
 
 use component::user::*;
 use entity::Node;
+use util::vecmap_default::VecMapWithDefault;
 
 #[derive(Default)]
 pub struct WorldMatrixSys {
-    dirty_mark_list: VecMap<usize>, // VecMap<layer>
+    dirty_mark_list: VecMapWithDefault<usize>, // VecMap<layer>
     dirty: LayerDirty,
 }
 
 impl WorldMatrixSys {
+	pub fn with_capacity(capacity: usize) -> WorldMatrixSys {
+		WorldMatrixSys{
+			dirty_mark_list: VecMapWithDefault::with_capacity(capacity), // VecMap<layer>
+    		dirty: LayerDirty::default(),
+		}
+	}
     fn marked_dirty(&mut self, id: usize, id_tree: &SingleCaseImpl<IdTree>) {
         match id_tree.get(id) {
             Some(r) => {
                 if r.layer() != 0 {
-                    let d = &mut self.dirty_mark_list[id];
+					let d = &mut self.dirty_mark_list[id];
                     if *d != r.layer() {
                         if *d != 0 {
                             self.dirty.delete(id, *d);
@@ -47,18 +55,26 @@ impl WorldMatrixSys {
         transform: &MultiCaseImpl<Node, Transform>,
         layout: &MultiCaseImpl<Node, LayoutR>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
-        default_table: &SingleCaseImpl<DefaultTable>,
+		default_table: &SingleCaseImpl<DefaultTable>,
+		node_states: &MultiCaseImpl<Node, NodeState>,
     ) {
         let mut count = 0;
-        // let time = std::time::Instant::now();
+		// let time = std::time::Instant::now();
 		let default_transform = default_table.get_unchecked::<Transform>();
-		// println!("matrix dirty==================={:?}", &self.dirty.0);
         for (id, layer) in self.dirty.iter() {
             {
-                let dirty_mark = match self.dirty_mark_list.get_mut(*id) {
+				match node_states.get(*id) {
+					Some(node_state) => {
+						if !node_state.0.is_rnode() {
+							continue;
+						}
+					},
+					None => continue,
+				};
+                let dirty_mark = match self.dirty_mark_list.get_mut(id) {
                     Some(r) => r,
                     None => continue, //panic!("dirty_mark_list err: {}", *id),
-                };
+				};
                 if *dirty_mark == 0 {
                     continue;
                 }
@@ -74,12 +90,12 @@ impl WorldMatrixSys {
                     }
                 }
                 None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
-            };
+			};
             // let transform_value = get_or_default(parent_id, transform, default_table);
             let transform_value = match transform.get(parent_id) {
                 Some(r) => r,
                 None => default_transform,
-            };
+			};
             recursive_cal_matrix(
                 &mut self.dirty_mark_list,
                 parent_id,
@@ -90,7 +106,8 @@ impl WorldMatrixSys {
                 layout,
                 world_matrix,
                 default_transform,
-                &mut count,
+				&mut count,
+				node_states
             );
         }
         self.dirty.clear();
@@ -102,30 +119,31 @@ impl<'a> Runner<'a> for WorldMatrixSys {
         &'a SingleCaseImpl<IdTree>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, LayoutR>,
-        &'a SingleCaseImpl<DefaultTable>,
+		&'a SingleCaseImpl<DefaultTable>,
+		&'a MultiCaseImpl<Node, NodeState>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        self.cal_matrix(read.0, read.1, read.2, write, read.3);
+        self.cal_matrix(read.0, read.1, read.2, write, read.3, read.4);
     }
 }
 
-impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys {
-    type ReadData = ();
-    type WriteData = (
-        &'a mut MultiCaseImpl<Node, Transform>,
-        &'a mut MultiCaseImpl<Node, WorldMatrix>,
-    );
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        write.1.insert(event.id, WorldMatrix::default());
-        match self.dirty_mark_list.get_mut(event.id) {
-            None => {
-                self.dirty_mark_list.insert(event.id, 0);
-            }
-            _ => (),
-        };
-    }
-}
+// impl<'a> EntityListener<'a, Node, CreateEvent> for WorldMatrixSys {
+//     type ReadData = ();
+//     type WriteData = (
+//         &'a mut MultiCaseImpl<Node, Transform>,
+//         &'a mut MultiCaseImpl<Node, WorldMatrix>,
+//     );
+//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+//         write.1.insert(event.id, WorldMatrix::default());
+//         match self.dirty_mark_list.get_mut(event.id) {
+//             None => {
+//                 self.dirty_mark_list.insert(event.id, 0);
+//             }
+//             _ => (),
+//         };
+//     }
+// }
 
 impl<'a> MultiCaseListener<'a, Node, Transform, ModifyEvent> for WorldMatrixSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
@@ -152,11 +170,11 @@ impl<'a> MultiCaseListener<'a, Node, Transform, DeleteEvent> for WorldMatrixSys 
 }
 
 impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for WorldMatrixSys {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, WorldMatrix>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, (id_tree, matrix): Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &ModifyEvent, (id_tree, node_states): Self::ReadData, _write: Self::WriteData) {
 		// 虚拟节点的子节点会发出该事件，但虚拟节点不存在WorldMatrix组件
-		if let None = matrix.get(event.id) {
+		if !node_states[event.id].0.is_rnode() {
 			return;
 		}
         self.marked_dirty(event.id, id_tree);
@@ -171,6 +189,14 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     }
 }
 
+impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = ();
+    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
+        self.dirty_mark_list.remove(&event.id);
+    }
+}
+
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
 fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &LayoutR) -> Point2 {
@@ -182,7 +208,7 @@ fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &
 }
 
 fn recursive_cal_matrix(
-    dirty_mark_list: &mut VecMap<usize>,
+    dirty_mark_list: &mut VecMapWithDefault<usize>,
     parent: usize,
     id: usize,
     parent_transform: &Transform,
@@ -191,7 +217,8 @@ fn recursive_cal_matrix(
     layouts: &MultiCaseImpl<Node, LayoutR>,
     world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
     default_transform: &Transform,
-    count: &mut usize,
+	count: &mut usize,
+	node_states: &MultiCaseImpl<Node, NodeState>,
 ) {
     // *count = 1 + *count;
     // match dirty_mark_list.get_mut(id) {
@@ -200,7 +227,7 @@ fn recursive_cal_matrix(
     // }
 
 	// 虚拟节点不存在WorlMatrix组件， 不需要计算
-	if let None = world_matrix.get(id) {
+	if !node_states[id].is_rnode() {
 		return;
 	}
 	dirty_mark_list[id] = 0;
@@ -228,9 +255,10 @@ fn recursive_cal_matrix(
         let offset = get_lefttop_offset(&layout, &parent_transform_origin, &parent_layout);
         parent_world_matrix
             * transform_value.matrix(width, height, &offset)
-    };
-    world_matrix
-		.get_write(id).unwrap()
+	};
+	// world_matrix.insert(id, matrix);
+    unsafe{world_matrix
+		.get_unchecked_write(id)}
 		.modify(|w: &mut WorldMatrix| {
 			*w = matrix;
 			true
@@ -247,7 +275,8 @@ fn recursive_cal_matrix(
             layouts,
             world_matrix,
             default_transform,
-            count,
+			count,
+			node_states
         );
     }
 }
@@ -256,12 +285,13 @@ impl_system! {
     WorldMatrixSys,
     true,
     {
-        EntityListener<Node, CreateEvent>
+        // EntityListener<Node, CreateEvent>
         MultiCaseListener<Node, Transform, ModifyEvent>
         MultiCaseListener<Node, Transform, CreateEvent>
         MultiCaseListener<Node, Transform, DeleteEvent>
         MultiCaseListener<Node, LayoutR, ModifyEvent>
-        SingleCaseListener<IdTree, CreateEvent>
+		SingleCaseListener<IdTree, CreateEvent>
+		EntityListener<Node, DeleteEvent>
     }
 }
 

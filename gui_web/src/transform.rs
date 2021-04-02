@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::*;
 use ecs::LendMut;
 
 use gui::component::user::*;
-use world::GuiWorld;
+use crate::world::GuiWorld;
 
 #[macro_use()]
 macro_rules! push_func {
@@ -162,8 +162,8 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(x1, y1) => {
-                    *x1 += x / 100.0;
-                    *y1 += y / 100.0;
+                    *x1 += x;
+                    *y1 += y;
                     return;
                 }
                 _ => (),
@@ -171,7 +171,7 @@ pub fn transform_translate_percent(world: u32, node_id: u32, x: f32, y: f32) {
         }
         transform
             .funcs
-            .push(TransformFunc::TranslatePercent(x / 100.0, y / 100.0));
+            .push(TransformFunc::TranslatePercent(x, y));
     };
     push_tanslate!(world, node_id, transform_translate_m);
 }
@@ -184,7 +184,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(x1, _) => {
-                    *x1 += value / 100.0;
+                    *x1 += value;
                     return;
                 }
                 // TransformFunc::TranslateXPercent(x1) => {
@@ -196,7 +196,7 @@ pub fn transform_translate_x_percent(world: u32, node_id: u32, value: f32) {
         }
         transform
             .funcs
-            .push(TransformFunc::TranslatePercent(value / 100.0, 0.0));
+            .push(TransformFunc::TranslatePercent(value, 0.0));
     };
     push_tanslate!(world, node_id, transform_translate_m);
 }
@@ -209,7 +209,7 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
         if let Some(r) = transform.funcs.last_mut() {
             match r {
                 TransformFunc::TranslatePercent(_, y1) => {
-                    *y1 += value / 100.0;
+                    *y1 += value;
                     return;
                 }
                 _ => (),
@@ -217,7 +217,7 @@ pub fn transform_translate_y_percent(world: u32, node_id: u32, value: f32) {
         }
         transform
             .funcs
-            .push(TransformFunc::TranslatePercent(0.0, value / 100.0));
+            .push(TransformFunc::TranslatePercent(0.0, value));
     };
     push_tanslate!(world, node_id, transform_translate_m);
 }

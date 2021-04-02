@@ -87,7 +87,7 @@
 // #[allow(unused_attributes)]
 // #[no_mangle]
 // #[js_export]
-// pub fn reset_style(world: u32, node_id: u32, ty: u32) {
+// // pub fn reset_style(world: u32, node_id: u32, ty: u32) {
 //     let defult_text = unsafe { &mut *(world as usize as *mut GuiWorld) }
 //         .default_text_style
 //         .clone();

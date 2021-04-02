@@ -7,11 +7,12 @@ use hal_core::*;
 
 use single::IdTree;
 use ecs::*;
+use ecs::StdCell;
 use res::ResMgr;
 use share::Share;
 
 use component::calc;
-use component::{calc::*, calc::LayoutR, calc::CharNode};
+use component::{calc::*, calc::LayoutR};
 use component::user;
 use component::user::*;
 use component::user::Overflow;
@@ -26,13 +27,15 @@ use Z_MAX;
 
 lazy_static! {
     pub static ref RENDER_DISPATCH: Atom = Atom::from("render_dispatch");
-    pub static ref LAYOUT_DISPATCH: Atom = Atom::from("layout_dispatch");
+	pub static ref LAYOUT_DISPATCH: Atom = Atom::from("layout_dispatch");
+	pub static ref CALC_DISPATCH: Atom = Atom::from("calc_dispatch");
     pub static ref ZINDEX_N: Atom = Atom::from("z_index_sys");
     pub static ref SHOW_N: Atom = Atom::from("show_sys");
     pub static ref WORLD_MATRIX_N: Atom = Atom::from("world_matrix_sys");
     pub static ref OCT_N: Atom = Atom::from("oct_sys");
     pub static ref LYOUT_N: Atom = Atom::from("layout_sys");
-    pub static ref TEXT_LAYOUT_N: Atom = Atom::from("text_layout_sys");
+	pub static ref TEXT_LAYOUT_N: Atom = Atom::from("text_layout_sys");
+	pub static ref TEXT_LAYOUT_UPDATE_N: Atom = Atom::from("text_layout_update_sys");
     pub static ref CLIP_N: Atom = Atom::from("clip_sys");
     pub static ref OPCITY_N: Atom = Atom::from("opacity_sys");
     pub static ref OVERFLOW_N: Atom = Atom::from("overflow_sys");
@@ -123,8 +126,14 @@ pub fn create_world<C: HalContext + 'static>(
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
 	font_texture: Share<TextureRes>,
 	cur_time: u64,
+
+	share_class_sheet: Option<Share<StdCell<ClassSheet>>>,
+	share_font_sheet: Option<Share<StdCell<FontSheet>>>,
 ) -> World {
-    let mut world = World::default();
+
+	let capacity = 2000;
+	let mut world = World::default();
+	world.capacity = capacity;
 
     let mut default_table = DefaultTable::new();
     default_table.set::<TextStyle>(TextStyle::default());
@@ -140,6 +149,7 @@ pub fn create_world<C: HalContext + 'static>(
         Some(BufferData::Float(&[0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0])),
         false,
     );
+
     let indices = engine.create_buffer_res(
         INDEXUNIT.get_hash() as u64,
         BufferType::Indices,
@@ -164,18 +174,18 @@ pub fn create_world<C: HalContext + 'static>(
 
     let default_state = DefaultState::new(&engine.gl);
 
-    let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::new(
+    let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::with_capacity(
         &mut engine,
-        (font_texture.width, font_texture.height),
+		(font_texture.width, font_texture.height),
+		capacity,
     ));
-    let border_image_sys = BorderImageSys::<C>::new(&mut engine);
+    let border_image_sys = BorderImageSys::<C>::with_capacity(&mut engine, capacity);
     let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr));
 
     let clip_sys = ClipSys::<C>::new();
-	let image_sys = CellImageSys::new(ImageSys::new(&mut engine));
+	let image_sys = CellImageSys::new(ImageSys::with_capacity(&mut engine, capacity));
 	let mut sys_time = SystemTime::default();
 	sys_time.start_time = cur_time;
-
     //user
     world.register_entity::<Node>();
     world.register_multi::<Node, Transform>();
@@ -190,6 +200,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, BorderImageClip>();
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
+
     // world.register_multi::<Node, CharBlock<L>>();
     world.register_multi::<Node, TextStyle>();
     world.register_multi::<Node, TextContent>();
@@ -217,18 +228,22 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, Culling>();
 	world.register_multi::<Node, TransformWillChangeMatrix>();
-	world.register_multi::<Node, CharNode>();
 
-	let mut idtree = IdTree::default();
+	let mut idtree = IdTree::with_capacity(capacity);
 	idtree.set_statistics_count(true);
     //single
     world.register_single::<Statistics>(Statistics::default());
     world.register_single::<IdTree>(idtree);
-    world.register_single::<Oct>(Oct::new());
+    world.register_single::<Oct>(Oct::with_capacity(capacity));
     world.register_single::<OverflowClip>(OverflowClip::default());
-    world.register_single::<RenderObjs>(RenderObjs::default());
-    world.register_single::<ShareEngine<C>>(engine);
-    world.register_single::<FontSheet>(FontSheet::new(font_texture, font_measure));
+    world.register_single::<RenderObjs>(RenderObjs::with_capacity(capacity));
+	world.register_single::<ShareEngine<C>>(engine);
+
+	match share_font_sheet {
+		Some(r) => world.register_single::<Share<StdCell<FontSheet>>>(r),
+		None => world.register_single::<Share<StdCell<FontSheet>>>(Share::new(StdCell::new(FontSheet::new(font_texture, font_measure)))),
+	}
+    
     world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(
         width,
@@ -238,18 +253,25 @@ pub fn create_world<C: HalContext + 'static>(
     ));
     world.register_single::<RenderBegin>(RenderBegin(
         RenderBeginDesc::new(0, 0, width as i32, height as i32),
-        None,
-    ));
-    world.register_single::<NodeRenderMap>(NodeRenderMap::new());
-    world.register_single::<DefaultTable>(default_table);
-    world.register_single::<ClassSheet>(ClassSheet::default());
+		None,
+	));
+
+	world.register_single::<DirtyViewRect>(DirtyViewRect(0.0, 0.0, width as f32, height as f32, true));
+
+    world.register_single::<NodeRenderMap>(NodeRenderMap::with_capacity(capacity));
+	world.register_single::<DefaultTable>(default_table);
+	match share_class_sheet {
+		Some(r) => world.register_single::<Share<StdCell<ClassSheet>>>(r),
+		None => world.register_single::<Share<StdCell<ClassSheet>>>(Share::new(StdCell::new(ClassSheet::default()))),
+	}
+
     world.register_single::<UnitQuad>(unit_quad);
     world.register_single::<DefaultState>(default_state);
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
-	world.register_single::<DirtyList>(DirtyList::default());
+	world.register_single::<DirtyList>(DirtyList::with_capacity(capacity));
 	world.register_single::<SystemTime>(sys_time);
 
-    world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
+    world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
@@ -260,7 +282,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
     world.register_system(
         WORLD_MATRIX_N.clone(),
-        CellWorldMatrixSys::new(WorldMatrixSys::default()),
+        CellWorldMatrixSys::new(WorldMatrixSys::with_capacity(capacity)),
     );
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
     world.register_system(
@@ -281,11 +303,11 @@ pub fn create_world<C: HalContext + 'static>(
     // world.register_system(CHAR_BLOCK_SHADOW_N.clone(), CellCharBlockShadowSys::<L>::new(CharBlockShadowSys::new()));
     world.register_system(
         BG_COLOR_N.clone(),
-        CellBackgroundColorSys::<C>::new(BackgroundColorSys::new()),
+        CellBackgroundColorSys::<C>::new(BackgroundColorSys::with_capacity(capacity)),
     );
     world.register_system(
         BR_COLOR_N.clone(),
-        CellBorderColorSys::<C>::new(BorderColorSys::new()),
+        CellBorderColorSys::<C>::new(BorderColorSys::with_capacity(capacity)),
     );
     world.register_system(
         BR_IMAGE_N.clone(),
@@ -293,7 +315,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
     world.register_system(
         BOX_SHADOW_N.clone(),
-        CellBoxShadowSys::<C>::new(BoxShadowSys::default()),
+        CellBoxShadowSys::<C>::new(BoxShadowSys::with_capacity(capacity)),
     );
     world.register_system(NODE_ATTR_N.clone(), node_attr_sys);
     world.register_system(
@@ -309,10 +331,15 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_system(
         STYLE_MARK_N.clone(),
         CellStyleMarkSys::<C>::new(StyleMarkSys::new()),
+	);
+	
+	world.register_system(
+        TEXT_LAYOUT_UPDATE_N.clone(),
+        CellTextLayoutUpdateSys::new(TextLayoutUpdateSys::default()),
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, world_matrix_sys, text_glphy_sys, oct_sys, transform_will_change_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -324,8 +351,11 @@ pub fn create_world<C: HalContext + 'static>(
         "layout_sys, world_matrix_sys, oct_sys".to_string(),
         &world,
     );
-    world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
-
+	world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
+	
+	let mut dispatch = SeqDispatcher::default();
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, res_release, style_mark_sys".to_string(), &world);
+    world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }
 
@@ -375,12 +405,15 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
     pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
-    pub font_sheet: Arc<CellSingleCase<FontSheet>>,
+    pub font_sheet: Arc<CellSingleCase<Share<StdCell<FontSheet>>>>,
     pub default_table: Arc<CellSingleCase<DefaultTable>>,
-    pub class_sheet: Arc<CellSingleCase<ClassSheet>>,
+    pub class_sheet: Arc<CellSingleCase<Share<StdCell<ClassSheet>>>>,
     pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
 	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
 	pub system_time: Arc<CellSingleCase<SystemTime>>,
+	pub dirty_view_rect: Arc<CellSingleCase<DirtyViewRect>>,
+
+	pub renderSys: Arc<CellRenderSys<C>>,
 
     pub world: World,
 }
@@ -433,14 +466,19 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
             engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
             render_objs: world.fetch_single::<RenderObjs>().unwrap(),
-            font_sheet: world.fetch_single::<FontSheet>().unwrap(),
+            font_sheet: world.fetch_single::<Share<StdCell<FontSheet>>>().unwrap(),
             default_table: world.fetch_single::<DefaultTable>().unwrap(),
-            class_sheet: world.fetch_single::<ClassSheet>().unwrap(),
+            class_sheet: world.fetch_single::<Share<StdCell<ClassSheet>>>().unwrap(),
             image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
 			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
 			system_time: world.fetch_single::<SystemTime>().unwrap(),
+			dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
 
-            world: world,
+			renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
+
+			world: world,
+			
+			
         }
     }
 }

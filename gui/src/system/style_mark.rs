@@ -12,11 +12,12 @@ use std::rc::Rc;
 
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent,
-    MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
+    MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener, StdCell
 };
 use single::IdTree;
 use hal_core::*;
 use flex_layout::*;
+use share::Share;
 
 use component::calc::{Opacity as COpacity, LayoutR};
 use component::calc::*;
@@ -67,31 +68,26 @@ const BORDER_IMAGE_DIRTY: usize = StyleType::BorderImage as usize
     | StyleType::BorderImageSlice as usize
 	| StyleType::BorderImageRepeat as usize;
 
-	// 布局脏
-const LAYOUT_RECT_DIRTY: usize = StyleType1::Width as usize
-| StyleType1::Height as usize
-| StyleType1::Margin as usize;
 // 布局脏
-const LAYOUT_OTHER_DIRTY: usize = StyleType1::Width as usize
-    | StyleType1::Height as usize
-    | StyleType1::Margin as usize
-    | StyleType1::Padding as usize
-    | StyleType1::Border as usize
-    | StyleType1::Position as usize
-    | StyleType1::MinWidth as usize
-    | StyleType1::MinHeight as usize
-    | StyleType1::MaxHeight as usize
-    | StyleType1::MaxWidth as usize
-    | StyleType1::FlexBasis as usize
-    | StyleType1::FlexShrink as usize
-    | StyleType1::FlexGrow as usize
-    | StyleType1::PositionType as usize
-    | StyleType1::FlexWrap as usize
-    | StyleType1::FlexDirection as usize
-    | StyleType1::AlignContent as usize
-    | StyleType1::AlignItems as usize
-    | StyleType1::AlignSelf as usize
-    | StyleType1::JustifyContent as usize;
+const LAYOUT_OTHER_DIRTY: usize = StyleType2::Width as usize
+    | StyleType2::Height as usize
+    | LAYOUT_MARGIN_MARK
+	| LAYOUT_PADDING_MARK
+	| LAYOUT_BORDER_MARK
+	| LAYOUT_POSITION_MARK
+    | StyleType2::MinWidth as usize
+    | StyleType2::MinHeight as usize
+    | StyleType2::MaxHeight as usize
+    | StyleType2::MaxWidth as usize
+    | StyleType2::FlexShrink as usize
+    | StyleType2::FlexGrow as usize
+    | StyleType2::PositionType as usize
+    | StyleType2::FlexWrap as usize
+    | StyleType2::FlexDirection as usize
+    | StyleType2::AlignContent as usize
+    | StyleType2::AlignItems as usize
+    | StyleType2::AlignSelf as usize
+    | StyleType2::JustifyContent as usize;
 
 pub struct StyleMarkSys<C> {
     text_style: TextStyle,
@@ -136,8 +132,20 @@ fn set_local_dirty1(
 }
 
 #[inline]
+fn set_local_dirty2(
+    dirty_list: &mut DirtyList,
+    id: usize,
+    ty: usize,
+    style_marks: &mut MultiCaseImpl<Node, StyleMark>,
+) {
+    let style_mark = &mut style_marks[id];
+    set_dirty2(dirty_list, id, ty, style_mark);
+    style_mark.local_style2 |= ty;
+}
+
+#[inline]
 fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
-    if style_mark.dirty == 0 && style_mark.dirty1 == 0 {
+    if style_mark.dirty == 0 && style_mark.dirty1 == 0 && style_mark.dirty2 == 0{
         dirty_list.0.push(id);
 	}
     style_mark.dirty |= ty;
@@ -145,10 +153,18 @@ fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut 
 
 #[inline]
 fn set_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
-    if style_mark.dirty == 0 && style_mark.dirty1 == 0 {
+    if style_mark.dirty == 0 && style_mark.dirty1 == 0 && style_mark.dirty2 == 0 {
         dirty_list.0.push(id);
     }
     style_mark.dirty1 |= ty;
+}
+
+#[inline]
+fn set_dirty2(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    if style_mark.dirty == 0 && style_mark.dirty1 == 0 && style_mark.dirty2 == 0{
+        dirty_list.0.push(id);
+	}
+    style_mark.dirty2 |= ty;
 }
 
 impl<'a, C: HalContext + 'static> Runner<'a> for StyleMarkSys<C> {
@@ -164,6 +180,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for StyleMarkSys<C> {
                 Some(style_mark) => {
 					style_mark.dirty = 0;
 					style_mark.dirty1 = 0;
+					style_mark.dirty2 = 0;
 					style_mark.dirty_other = 0;
 				},
                 None => (),
@@ -219,14 +236,18 @@ impl<'a, C: HalContext + 'static>
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
 		
         let r = match event.field {
-			"margin" => StyleType1::Margin,
-			"width" => StyleType1::Width,
-			"height" => StyleType1::Height,
+			"margin" => LAYOUT_MARGIN_MARK,
+			"margin-top" => StyleType2::MarginTop as usize,
+			"margin-right" => StyleType2::MarginRight as usize,
+			"margin-bottom" => StyleType2::MarginBottom as usize,
+			"margin-left" => StyleType2::MarginLeft as usize,
+			"width" => StyleType2::Width as usize,
+			"height" => StyleType2::Height as usize,
 			// "aspect_ratio" => StyleType1::As,
             _ => return,
 		};
 		let (style_marks, dirty_list) = write;
-		set_local_dirty1(dirty_list, event.id, r as usize, style_marks);
+		set_local_dirty2(dirty_list, event.id, r as usize, style_marks);
     }
 }
 
@@ -243,34 +264,54 @@ impl<'a, C: HalContext + 'static>
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
 		
         let r = match event.field {
-            "display" => StyleType1::Display,
-			"position_type" => StyleType1::PositionType,
-			"direction" => StyleType1::FlexDirection,
+			"position_type" => StyleType2::PositionType as usize,
+			"direction" => StyleType2::FlexDirection as usize,
 
-			"flex_direction" => StyleType1::FlexDirection,
-			"flex_wrap" => StyleType1::FlexWrap,
-			"justify_content" => StyleType1::JustifyContent,
-			"align_items" => StyleType1::AlignItems,
-			"align_content" => StyleType1::AlignContent,
+			"flex_direction" => StyleType2::FlexDirection as usize,
+			"flex_wrap" => StyleType2::FlexWrap as usize,
+			"justify_content" => StyleType2::JustifyContent as usize,
+			"align_items" => StyleType2::AlignItems as usize,
+			"align_content" => StyleType2::AlignContent as usize,
 
 			// "order" => StyleType1::FlexDirection,
-			// "flex_basis" => StyleType1::,
-			"flex_grow" => StyleType1::FlexGrow,
-			"flex_shrink" => StyleType1::FlexShrink,
-			"align_self" => StyleType1::AlignSelf,
+			"flex_grow" => StyleType2::FlexGrow as usize,
+			"flex_shrink" => StyleType2::FlexShrink as usize,
+			"align_self" => StyleType2::AlignSelf as usize,
 
-			"overflow" =>  StyleType1::Overflow,
-			"position" => StyleType1::Position,
-			"padding" =>  StyleType1::Padding,
-			"border" => StyleType1::Border,
-			"min_width" => StyleType1::MinWidth,
-			"min_height" => StyleType1::MinHeight,
-			"max_width" => StyleType1::MaxWidth,
-			"max_height" => StyleType1::MaxHeight,
+			"position" => LAYOUT_PADDING_MARK,
+			"top" => StyleType2::PositionTop as usize,
+			"right" => StyleType2::PositionRight as usize,
+			"bottom" => StyleType2::PositionBottom as usize,
+			"left" => StyleType2::PositionLeft as usize,
+			"padding" => LAYOUT_PADDING_MARK,
+			"padding-top" => StyleType2::PaddingTop as usize,
+			"padding-right" => StyleType2::PaddingRight as usize,
+			"padding-bottom" => StyleType2::PaddingBottom as usize,
+			"padding-left" => StyleType2::PaddingLeft as usize,
+			"border" => LAYOUT_BORDER_MARK,
+			"border-top" => StyleType2::BorderTop as usize,
+			"border-right" => StyleType2::BorderRight as usize,
+			"border-bottom" => StyleType2::BorderBottom as usize,
+			"border-left" => StyleType2::BorderLeft as usize,
+			"min_width" => StyleType2::MinWidth as usize,
+			"min_height" => StyleType2::MinHeight as usize,
+			"max_width" => StyleType2::MaxWidth as usize,
+			"max_height" => StyleType2::MaxHeight as usize,
 			// "aspect_ratio" => StyleType1::As,
-            _ => return,
+            _ => 0,
 		};
 		let (style_marks, dirty_list) = write;
+		if r > 0 {
+			set_local_dirty2(dirty_list, event.id, r as usize, style_marks);
+			return;
+		}
+		
+		let r = match event.field {
+			"display" => StyleType1::Display as usize,
+			"overflow" =>  StyleType1::Overflow as usize,
+			"flex_basis" => StyleType1::FlexBasis as usize,
+			_ => return,
+		};
 		set_local_dirty1(dirty_list, event.id, r as usize, style_marks);
     }
 }
@@ -314,14 +355,14 @@ impl<'a, C: HalContext + 'static>
 {
     type ReadData = ();
     type WriteData = (
-        &'a mut MultiCaseImpl<Node, TextStyle>,
+        // &'a mut MultiCaseImpl<Node, TextStyle>,
         &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut SingleCaseImpl<DirtyList>,
     );
 
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (text_styles, style_marks, dirty_list) = write;
-        text_styles.insert_no_notify(event.id, self.default_text.clone());
+        let (/*text_styles, */style_marks, dirty_list) = write;
+		// text_styles.insert_no_notify(event.id, self.default_text.clone());
         let style_mark = &mut style_marks[event.id];
         set_dirty(
             dirty_list,
@@ -559,7 +600,7 @@ impl<'a, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
+		let (style_marks, dirty_list) = write;
         set_local_dirty(
             dirty_list,
             event.id,
@@ -712,7 +753,7 @@ impl<'a, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
+		let (style_marks, dirty_list) = write;
         set_local_dirty(
             dirty_list,
             event.id,
@@ -731,7 +772,7 @@ impl<'a, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
+		let (style_marks, dirty_list) = write;
         set_local_dirty(
             dirty_list,
             event.id,
@@ -835,7 +876,7 @@ impl<'a, C: HalContext + 'static>
     );
     fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
+		let style_mark = &mut style_marks[event.id];
         set_dirty(
             dirty_list,
             event.id,
@@ -861,6 +902,52 @@ impl<'a, C: HalContext + 'static>
 			None => return,
 		};
         set_dirty(dirty_list, event.id, StyleType::Layout as usize, style_mark);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, ModifyEvent>
+    for StyleMarkSys<C>
+{
+	type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &ModifyEvent,
+        read: Self::ReadData,
+        write: Self::WriteData,
+    ) {
+		let (style_marks, dirty_list) = write;
+		let style_mark = &mut style_marks[event.id];
+        set_dirty(dirty_list, event.id, StyleType::Oct as usize, style_mark);
+    }
+}
+
+// 包围盒修改，
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, CreateEvent>
+    for StyleMarkSys<C>
+{
+	type ReadData = ();
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+    );
+	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &CreateEvent,
+        read: Self::ReadData,
+        write: Self::WriteData,
+    ) {
+		let (style_marks, dirty_list) = write;
+		let style_mark = &mut style_marks[event.id];
+        set_dirty(dirty_list, event.id, StyleType::Oct as usize, style_mark);
     }
 }
 
@@ -926,7 +1013,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent>
 
 type ReadData<'a> = (
     &'a MultiCaseImpl<Node, ClassName>,
-    &'a SingleCaseImpl<ClassSheet>,
+    &'a SingleCaseImpl<Share<StdCell<ClassSheet>>>,
 );
 type WriteData<'a, C> = (
     &'a mut MultiCaseImpl<Node, TextStyle>,
@@ -963,16 +1050,28 @@ impl<'a, C: HalContext + 'static>
     type ReadData = ReadData<'a>;
     type WriteData = WriteData<'a, C>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
-        let (class_names, class_sheet) = read;
-        let class_name = &class_names[event.id];
+		let (class_names, class_sheet) = read;
+		let class_name = &class_names[event.id];
+		let class_sheet = &class_sheet.borrow();
 
 		//event.index是接的className的指针
-        let old = unsafe { &* Box::from_raw(event.index as *mut ClassName) };
-        let mark = &mut write.19[event.id];
-        let (old_style, old_style1) = (mark.class_style, mark.class_style1);
+        let oldr = unsafe { &* Box::from_raw(event.index as *mut Option<ClassName>) };
+		let mark = &mut write.19[event.id];
+        let (old_style, old_style1, old_style2) = (mark.class_style, mark.class_style1, mark.class_style2);
         mark.class_style = 0;
-        mark.class_style1 = 0;
+		mark.class_style1 = 0;
+		mark.class_style2 = 0;
 
+		// TODO
+		let oldt;
+		let old;
+		match oldr {
+			Some(r) => old = r,
+			None => {
+				oldt = ClassName::default();
+				old = &oldt;
+			},
+		}
         if class_name.one > 0 {
             if old.one != class_name.one {
                 set_attr(
@@ -1050,19 +1149,20 @@ impl<'a, C: HalContext + 'static>
                     }
                 }
             }
-        }
+		}
 
         // 重置旧的class中设置的属性
-        if old_style > 0 || old_style1 > 0 {
+        if old_style > 0 || old_style1 > 0 || old_style2 > 0 {
             reset_attr(
                 event.id,
                 read,
                 &mut write,
                 old_style,
-                old_style1,
+				old_style1,
+				old_style2,
                 &self.default_text,
             );
-        }
+		}
     }
 }
 
@@ -1217,20 +1317,21 @@ fn set_image_size(
 		},
 	};
 
-	if style_mark.local_style1 & (StyleType1::Width as usize) == 0
-		&& style_mark.class_style1 & (StyleType1::Width as usize) == 0
+	if style_mark.local_style2 & (StyleType2::Width as usize) == 0
+		&& style_mark.class_style2 & (StyleType2::Width as usize) == 0
 	{
+		
 		layout_style.size.width = Dimension::Points(src.width as f32 * (image_clip.max.x - image_clip.min.x));
 		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
-		style_mark.dirty1 |= StyleType1::Width as usize;
+		style_mark.dirty2 |= StyleType2::Width as usize;
 	}
 
-	if style_mark.local_style1 & (StyleType1::Height as usize) == 0
-		&& style_mark.class_style1 & (StyleType1::Height as usize) == 0
+	if style_mark.local_style2 & (StyleType2::Height as usize) == 0
+		&& style_mark.class_style2 & (StyleType2::Height as usize) == 0
 	{
 		layout_style.size.height = Dimension::Points(src.height as f32 * (image_clip.max.y - image_clip.min.y));
 		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
-		style_mark.dirty1 |= StyleType1::Height as usize;
+		style_mark.dirty2 |= StyleType2::Height as usize;
 	}
 }
 
@@ -1241,7 +1342,8 @@ fn reset_attr<C: HalContext>(
     read: ReadData,
     write: &mut WriteData<C>,
     old_style: usize,
-    old_style1: usize,
+	old_style1: usize,
+	old_style2: usize,
     defualt_text: &TextStyle,
 ) {
     let (_class_names, _class_sheet) = read;
@@ -1280,12 +1382,14 @@ fn reset_attr<C: HalContext>(
     // old_style中为1， class_style和local_style不为1的属性, 应该删除
     let old_style = !(!old_style | (old_style & (style_mark.class_style | style_mark.local_style)));
     let old_style1 =
-        !(!old_style1 | (old_style1 & (style_mark.class_style1 | style_mark.local_style1)));
+		!(!old_style1 | (old_style1 & (style_mark.class_style1 | style_mark.local_style1)));
+	let old_style2 =
+		!(!old_style2 | (old_style2 & (style_mark.class_style2 | style_mark.local_style2)));
     if old_style != 0 {
-        if style_mark.local_style & TEXT_STYLE_DIRTY == 0 {
+        if old_style & TEXT_STYLE_DIRTY != 0 {
             if let Some(text_style) = text_styles.get_mut(id) {
-                if style_mark.local_style & TEXT_DIRTY == 0 {
-                    if old_style & StyleType::LetterSpacing as usize == 0 {
+                if old_style & TEXT_DIRTY != 0 {
+                    if old_style & StyleType::LetterSpacing as usize != 0 {
                         text_style.text.letter_spacing = defualt_text.text.letter_spacing;
                         set_dirty(
                             dirty_list,
@@ -1294,39 +1398,39 @@ fn reset_attr<C: HalContext>(
                             style_mark,
                         );
                     }
-                    if old_style & StyleType::WordSpacing as usize == 0 {
+                    if old_style & StyleType::WordSpacing as usize != 0 {
                         text_style.text.word_spacing = defualt_text.text.word_spacing;
                         set_dirty(dirty_list, id, StyleType::WordSpacing as usize, style_mark);
                     }
-                    if old_style & StyleType::LineHeight as usize == 0 {
+                    if old_style & StyleType::LineHeight as usize != 0 {
                         text_style.text.line_height = defualt_text.text.line_height;
                         set_dirty(dirty_list, id, StyleType::LineHeight as usize, style_mark);
                     }
-                    if old_style & StyleType::Indent as usize == 0 {
+                    if old_style & StyleType::Indent as usize != 0 {
                         text_style.text.indent = defualt_text.text.indent;
                         set_dirty(dirty_list, id, StyleType::Indent as usize, style_mark);
                     }
-                    if old_style & StyleType::WhiteSpace as usize == 0 {
+                    if old_style & StyleType::WhiteSpace as usize != 0 {
                         text_style.text.white_space = defualt_text.text.white_space;
                         set_dirty(dirty_list, id, StyleType::WhiteSpace as usize, style_mark);
                     }
 
-                    if old_style & StyleType::Color as usize == 0 {
+                    if old_style & StyleType::Color as usize != 0 {
                         text_style.text.color = defualt_text.text.color.clone();
                         set_dirty(dirty_list, id, StyleType::Color as usize, style_mark);
                     }
 
-                    if old_style & StyleType::Stroke as usize == 0 {
+                    if old_style & StyleType::Stroke as usize != 0 {
                         text_style.text.stroke = defualt_text.text.stroke.clone();
                         set_dirty(dirty_list, id, StyleType::Stroke as usize, style_mark);
                     }
 
-                    if old_style & StyleType::TextAlign as usize == 0 {
+                    if old_style & StyleType::TextAlign as usize != 0 {
                         text_style.text.text_align = defualt_text.text.text_align;
                         set_dirty(dirty_list, id, StyleType::TextAlign as usize, style_mark);
                     }
 
-                    if old_style & StyleType::VerticalAlign as usize == 0 {
+                    if old_style & StyleType::VerticalAlign as usize != 0 {
                         text_style.text.vertical_align = defualt_text.text.vertical_align;
                         set_dirty(
                             dirty_list,
@@ -1337,25 +1441,25 @@ fn reset_attr<C: HalContext>(
                     }
                 }
 
-                if old_style & StyleType::TextShadow as usize == 0 {
+                if old_style & StyleType::TextShadow as usize != 0 {
                     text_style.shadow = defualt_text.shadow.clone();
                     set_dirty(dirty_list, id, StyleType::TextShadow as usize, style_mark);
                 }
 
                 if old_style & FONT_DIRTY == 0 {
-                    if old_style & StyleType::FontStyle as usize == 0 {
+                    if old_style & StyleType::FontStyle as usize != 0 {
                         text_style.font.style = defualt_text.font.style;
                         set_dirty(dirty_list, id, StyleType::FontStyle as usize, style_mark);
                     }
-                    if old_style & StyleType::FontWeight as usize == 0 {
+                    if old_style & StyleType::FontWeight as usize != 0 {
                         text_style.font.weight = defualt_text.font.weight;
                         set_dirty(dirty_list, id, StyleType::FontWeight as usize, style_mark);
                     }
-                    if old_style & StyleType::FontSize as usize == 0 {
+                    if old_style & StyleType::FontSize as usize != 0 {
 						text_style.font.size = defualt_text.font.size;
                         set_dirty(dirty_list, id, StyleType::FontSize as usize, style_mark);
                     }
-                    if old_style & StyleType::FontFamily as usize == 0 {
+                    if old_style & StyleType::FontFamily as usize != 0 {
                         text_style.font.family = defualt_text.font.family.clone();
                         set_dirty(dirty_list, id, StyleType::FontFamily as usize, style_mark);
                     }
@@ -1364,26 +1468,26 @@ fn reset_attr<C: HalContext>(
         }
 
         if old_style & IMAGE_DIRTY != 0 {
-            if old_style & StyleType::Image as usize == 0 {
+            if old_style & StyleType::Image as usize != 0 {
                 images.delete(id);
                 set_dirty(dirty_list, id, StyleType::Image as usize, style_mark);
             }
-            if old_style & StyleType::ImageClip as usize == 0 {
+            if old_style & StyleType::ImageClip as usize != 0 {
                 image_clips.delete(id);
                 set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
             }
-            if old_style & StyleType::ObjectFit as usize == 0 {
+            if old_style & StyleType::ObjectFit as usize != 0 {
                 obj_fits.delete(id);
                 set_dirty(dirty_list, id, StyleType::ObjectFit as usize, style_mark);
             }
         }
 
         if old_style & BORDER_IMAGE_DIRTY != 0 {
-            if old_style & StyleType::BorderImage as usize == 0 {
+            if old_style & StyleType::BorderImage as usize != 0 {
                 border_images.delete(id);
                 set_dirty(dirty_list, id, StyleType::BorderImage as usize, style_mark);
             }
-            if old_style & StyleType::BorderImageClip as usize == 0 {
+            if old_style & StyleType::BorderImageClip as usize != 0 {
                 border_image_clips.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1392,7 +1496,7 @@ fn reset_attr<C: HalContext>(
                     style_mark,
                 );
             }
-            if old_style & StyleType::BorderImageSlice as usize == 0 {
+            if old_style & StyleType::BorderImageSlice as usize != 0 {
                 border_image_slices.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1401,7 +1505,7 @@ fn reset_attr<C: HalContext>(
                     style_mark,
                 );
             }
-            if old_style & StyleType::BorderImageRepeat as usize == 0 {
+            if old_style & StyleType::BorderImageRepeat as usize != 0 {
                 border_image_repeats.delete(id);
                 set_dirty(
                     dirty_list,
@@ -1412,12 +1516,12 @@ fn reset_attr<C: HalContext>(
             }
         }
 
-        if old_style & StyleType::BorderColor as usize == 0 {
+        if old_style & StyleType::BorderColor as usize != 0 {
             border_colors.delete(id);
             set_dirty(dirty_list, id, StyleType::BorderColor as usize, style_mark);
         }
 
-        if old_style & StyleType::BackgroundColor as usize == 0 {
+        if old_style & StyleType::BackgroundColor as usize != 0 {
             background_colors.delete(id);
             set_dirty(
                 dirty_list,
@@ -1427,23 +1531,23 @@ fn reset_attr<C: HalContext>(
             );
         }
 
-        if old_style & StyleType::BoxShadow as usize == 0 {
+        if old_style & StyleType::BoxShadow as usize != 0 {
             box_shadows.delete(id);
             set_dirty(dirty_list, id, StyleType::BoxShadow as usize, style_mark);
         }
 
         if old_style & NODE_DIRTY != 0 {
-            if old_style & StyleType::Opacity as usize == 0 {
+            if old_style & StyleType::Opacity as usize != 0 {
                 opacitys.delete(id);
                 set_dirty(dirty_list, id, StyleType::Opacity as usize, style_mark);
             }
 
-            if old_style & StyleType::BorderRadius as usize == 0 {
+            if old_style & StyleType::BorderRadius as usize != 0 {
                 border_radiuss.delete(id);
                 set_dirty(dirty_list, id, StyleType::BorderRadius as usize, style_mark);
             }
 
-            if old_style & StyleType::Filter as usize == 0 {
+            if old_style & StyleType::Filter as usize != 0 {
                 filters.delete(id);
                 set_dirty(dirty_list, id, StyleType::Filter as usize, style_mark);
             }
@@ -1451,52 +1555,156 @@ fn reset_attr<C: HalContext>(
     }
 
     if old_style1 != 0 {
-        if old_style & NODE_DIRTY1 != 0 {
-            if old_style & StyleType1::Enable as usize == 0
-                || old_style & StyleType1::Display as usize == 0
-                || old_style & StyleType1::Visibility as usize == 0
+        if old_style1 & NODE_DIRTY1 != 0 {
+            if old_style1 & StyleType1::Enable as usize != 0
+                || old_style1 & StyleType1::Display as usize != 0
+                || old_style1 & StyleType1::Visibility as usize != 0
             {
                 if let Some(show) = shows.get_mut(id) {
-                    if old_style & StyleType1::Enable as usize == 0 {
+                    if old_style1 & StyleType1::Enable as usize != 0 {
                         show.set_enable(EnableType::Auto);
                     }
-                    if old_style & StyleType1::Display as usize == 0 {
+                    if old_style1 & StyleType1::Display as usize != 0 {
 						other_layout_style.display = Display::Flex;
                         show.set_display(Display::Flex);
                     }
-                    if old_style & StyleType1::Visibility as usize == 0 {
+                    if old_style1 & StyleType1::Visibility as usize != 0 {
                         show.set_visibility(true);
                     }
                 }
                 shows.get_notify_ref().modify_event(id, "", 0);
 
-                if old_style & StyleType1::ZIndex as usize == 0 {
+                if old_style1 & StyleType1::ZIndex as usize != 0 {
                     zindexs.insert(id, ZIndex(0));
                 }
 
-                if old_style & StyleType1::Transform as usize == 0 {
+                if old_style1 & StyleType1::Transform as usize != 0 {
                     transforms.delete(id);
                 }
             }
-        }
+		}
 
-        if old_style1 & LAYOUT_RECT_DIRTY != 0 {
-			*rect_layout_style = RectLayoutStyle::default();
-            // reset_layout_attr(layout_style, old_style1);
+		if old_style1 & StyleType1::FlexBasis as usize != 0 {
+			other_layout_style.flex_basis = Dimension::Undefined;
+		}
+	}
+	
+	if old_style2 != 0 {
+		if old_style2 & LAYOUT_RECT_MARK != 0 {
+			if old_style2 & StyleType2::Width as usize != 0 {
+				rect_layout_style.size.width = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::Height as usize != 0 {
+				rect_layout_style.size.height = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MarginTop as usize != 0 {
+				rect_layout_style.margin.top = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MarginRight as usize != 0 {
+				rect_layout_style.margin.end = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MarginBottom as usize != 0 {
+				rect_layout_style.margin.bottom = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MarginLeft as usize != 0 {
+				rect_layout_style.margin.start = Dimension::Undefined;
+			}
+			// *rect_layout_style = RectLayoutStyle::default();
+            // reset_layout_attr(layout_style, old_style2);
 		}
 		
-		if old_style1 & LAYOUT_OTHER_DIRTY != 0 {
-			*other_layout_style = OtherLayoutStyle::default();
-            // reset_layout_attr(layout_style, old_style1);
+		if old_style2 & LAYOUT_OTHER_DIRTY != 0 {
+			if old_style2 & StyleType2::PaddingTop as usize != 0 {
+				other_layout_style.padding.top = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PaddingRight as usize != 0 {
+				other_layout_style.padding.end = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PaddingBottom as usize != 0 {
+				other_layout_style.padding.bottom = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PaddingLeft as usize != 0 {
+				other_layout_style.padding.start = Dimension::Undefined;
+			}
+
+			if old_style2 & StyleType2::BorderTop as usize != 0 {
+				other_layout_style.border.top = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::BorderRight as usize != 0 {
+				other_layout_style.border.end = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::BorderBottom as usize != 0 {
+				other_layout_style.border.bottom = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::BorderLeft as usize != 0 {
+				other_layout_style.border.start = Dimension::Undefined;
+			}
+
+			if old_style2 & StyleType2::PositionTop as usize != 0 {
+				other_layout_style.position.top = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PositionRight as usize != 0 {
+				other_layout_style.position.end = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PositionBottom as usize != 0 {
+				other_layout_style.position.bottom = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::PositionLeft as usize != 0 {
+				other_layout_style.position.start = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MinWidth as usize != 0{
+				other_layout_style.min_size.width = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MinHeight as usize != 0{
+				other_layout_style.min_size.height = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MaxWidth as usize != 0{
+				other_layout_style.max_size.width = Dimension::Undefined;
+			}
+			if old_style2 & StyleType2::MaxHeight as usize != 0{
+				other_layout_style.max_size.height = Dimension::Undefined;
+			}
+
+			if old_style2 & StyleType2::FlexShrink as usize != 0 {
+				other_layout_style.flex_shrink = 0.0;
+			}
+			if old_style2 & StyleType2::FlexGrow as usize != 0 {
+				other_layout_style.flex_grow = 0.0;
+			}
+			if old_style2 & StyleType2::PositionType as usize != 0 {
+				other_layout_style.position_type = PositionType::Absolute;
+			}
+			if old_style2 & StyleType2::FlexWrap as usize != 0 {
+				other_layout_style.flex_wrap = FlexWrap::NoWrap;
+			}
+			if old_style2 & StyleType2::FlexDirection as usize != 0 {
+				other_layout_style.flex_direction = FlexDirection::Row;
+			}
+			if old_style2 & StyleType2::AlignContent as usize != 0 {
+				other_layout_style.align_content = AlignContent::FlexStart;
+			}
+			if old_style2 & StyleType2::AlignItems as usize != 0 {
+				other_layout_style.align_items = AlignItems::FlexStart;
+			}
+			if old_style2 & StyleType2::AlignSelf as usize != 0 {
+				other_layout_style.align_self = AlignSelf::FlexStart;
+			}
+			if old_style2 & StyleType2::JustifyContent as usize != 0 {
+				other_layout_style.justify_content = JustifyContent::FlexStart;
+			}
+
+
+			// *other_layout_style = OtherLayoutStyle::default();
+            // reset_layout_attr(layout_style, old_style2);
         }
-    }
+	}
 }
 
 // fn reset_layout_attr(layout_style: &LayoutStyle, old_style1: usize) {
-//     if old_style1 & StyleType1::Width as usize != 0 {
+//     if old_style1 & StyleType2::Width as usize != 0 {
 // 		layout_style.size.width = Dimension::undefined;
 //     }
-//     if old_style1 & StyleType1::Height as usize != 0 {
+//     if old_style1 & StyleType2::Height as usize != 0 {
 // 		layout_style.size.height = Dimension::undefined;
 //     }
 //     if old_style1 & StyleType1::Margin as usize != 0 {
@@ -1600,7 +1808,8 @@ fn set_attr<C: HalContext>(
         engine,
         image_wait_sheet,
         dirty_list,
-    ) = write;
+	) = write;
+	let class_sheet = &class_sheet.borrow();
     let style_mark = &mut style_marks[id];
     // 设置布局属性， 没有记录每个个属性是否在本地样式表中存在， TODO
 	let rect_layout_style = &mut rect_layout_styles[id];
@@ -1611,13 +1820,11 @@ fn set_attr<C: HalContext>(
         None => return,
     };
 
-    let mut text_style = text_style;
-    if let Some(r) = text_styles.get_mut(id) {
-        text_style = r;
-    } else if class.class_style_mark & TEXT_STYLE_DIRTY > 0 {
-		text_styles.insert(id, TextStyle::default());
-		text_style = &mut text_styles[id]
-	}
+    let text_style = &mut text_styles[id];
+
+	style_mark.class_style |= class.class_style_mark;
+	style_mark.class_style1 |= class.class_style_mark1;
+	style_mark.class_style2 |= class.class_style_mark2;
 
     set_attr1(
         id,
@@ -1668,8 +1875,6 @@ fn set_attr<C: HalContext>(
         transforms,
         rect_layout_styles,
     );
-    style_mark.class_style |= class.class_style_mark;
-    style_mark.class_style1 |= class.class_style_mark1;
 }
 
 #[inline]
@@ -1677,7 +1882,8 @@ fn set_mark(class_sheet: &ClassSheet, name: usize, mark: &mut StyleMark) {
     match class_sheet.class_map.get(&name) {
         Some(class) => {
             mark.class_style |= class.class_style_mark;
-            mark.class_style1 |= class.class_style_mark1;
+			mark.class_style1 |= class.class_style_mark1;
+			mark.class_style2 |= class.class_style_mark2;
         }
         None => (),
     };
@@ -1697,45 +1903,38 @@ pub fn set_attr1(
     for layout_attr in layout_attrs.iter() {
         match layout_attr {
             Attribute1::AlignContent(r) => {
-                if StyleType1::AlignContent as usize & style_mark.local_style1 == 0 {
+                if StyleType2::AlignContent as usize & style_mark.local_style2 == 0 {
 					other_style.align_content = *r;
-                    // layout_style.set_align_content(*r)
                 }
             }
             Attribute1::AlignItems(r) => {
-                if StyleType1::AlignItems as usize & style_mark.local_style1 == 0 {
+                if StyleType2::AlignItems as usize & style_mark.local_style2 == 0 {
 					other_style.align_items = *r;
-                    // layout_style.set_align_items(*r)
                 }
             }
             Attribute1::AlignSelf(r) => {
-                if StyleType1::AlignSelf as usize & style_mark.local_style1 == 0 {
+                if StyleType2::AlignSelf as usize & style_mark.local_style2 == 0 {
 					other_style.align_self = *r;
-                    // layout_style.set_align_self(*r)
                 }
             }
             Attribute1::JustifyContent(r) => {
-                if StyleType1::JustifyContent as usize & style_mark.local_style1 == 0 {
+                if StyleType2::JustifyContent as usize & style_mark.local_style2 == 0 {
 					other_style.justify_content = *r;
-                    // layout_style.set_justify_content(*r)
                 }
             }
             Attribute1::FlexDirection(r) => {
-                if StyleType1::FlexDirection as usize & style_mark.local_style1 == 0 {
+                if StyleType2::FlexDirection as usize & style_mark.local_style2 == 0 {
 					other_style.flex_direction = *r;
-                    // layout_style.set_flex_direction(*r)
                 }
             }
             Attribute1::FlexWrap(r) => {
-                if StyleType1::FlexWrap as usize & style_mark.local_style1 == 0 {
+                if StyleType2::FlexWrap as usize & style_mark.local_style2 == 0 {
 					other_style.flex_wrap = *r;
-                    // layout_style.set_flex_wrap(*r)
                 }
             }
             Attribute1::PositionType(r) => {
-                if StyleType1::PositionType as usize & style_mark.local_style1 == 0 {
+                if StyleType2::PositionType as usize & style_mark.local_style2 == 0 {
 					other_style.position_type = *r;
-                    // layout_style.set_position_type(*r)
                 }
             }
 
@@ -1776,7 +1975,7 @@ pub fn set_attr1(
             }
             Attribute1::Enable(r) => {
                 if style_mark.local_style1 & StyleType1::Enable as usize == 0 {
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_enable(*r);
                         true
                     });
@@ -1786,7 +1985,7 @@ pub fn set_attr1(
                 if style_mark.local_style1 & StyleType1::Display as usize == 0 {
 					other_style.display = *r;
                     // layout_style.set_display(unsafe { transmute(*r) });
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_display(*r);
                         true
                     });
@@ -1794,7 +1993,7 @@ pub fn set_attr1(
             }
             Attribute1::Visibility(r) => {
                 if style_mark.local_style1 & StyleType1::Visibility as usize == 0 {
-                    shows.get_write(id).unwrap().modify(|show: &mut Show| {
+                    unsafe{shows.get_unchecked_write(id)}.modify(|show: &mut Show| {
                         show.set_visibility(*r);
                         true
                     });
@@ -1802,7 +2001,7 @@ pub fn set_attr1(
             }
             Attribute1::Overflow(r) => {
                 if style_mark.local_style1 & StyleType1::Overflow as usize == 0 {
-                    overflows.get_write(id).unwrap().modify(
+                    unsafe{overflows.get_unchecked_write(id)}.modify(
                         |overflow: &mut Overflow| {
                             overflow.0 = *r;
                             true
@@ -1836,7 +2035,7 @@ pub fn set_attr2<C: HalContext>(
     for layout_attr in layout_attrs.iter() {
         match layout_attr {
             Attribute2::LetterSpacing(r) => {
-                if style_mark.local_style & StyleType::LetterSpacing as usize == 0 {
+                if style_mark.local_style & StyleType::LetterSpacing as usize == 0 && text_style.text.letter_spacing != *r{
                     text_style.text.letter_spacing = *r;
                     set_dirty(
                         dirty_list,
@@ -1853,7 +2052,7 @@ pub fn set_attr2<C: HalContext>(
                 }
             }
             Attribute2::TextIndent(r) => {
-                if style_mark.local_style & StyleType::Indent as usize == 0 {
+                if style_mark.local_style & StyleType::Indent as usize == 0 && text_style.text.indent != *r {
                     text_style.text.indent = *r;
                     set_dirty(dirty_list, id, StyleType::Indent as usize, style_mark);
                 }
@@ -1969,152 +2168,207 @@ pub fn set_attr2<C: HalContext>(
             }
 
             Attribute2::Width(r) => {
-                if StyleType1::Width as usize & style_mark.local_style1 == 0 {
+                if StyleType2::Width as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.size.width = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::Width as usize, style_mark);
                 }
             }
             Attribute2::Height(r) => {
-                if StyleType1::Height as usize & style_mark.local_style1 == 0 {
+                if StyleType2::Height as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.size.height = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::Height as usize, style_mark);
                 }
             }
             Attribute2::MarginLeft(r) => {
-                if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MarginLeft as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.start = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginLeft as usize, style_mark);
                 }
             }
             Attribute2::MarginTop(r) => {
-                if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MarginTop as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginTop as usize, style_mark);
                 }
             }
             Attribute2::MarginBottom(r) => {
-                if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MarginBottom as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginBottom as usize, style_mark);
                 }
             }
             Attribute2::MarginRight(r) => {
-                if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MarginRight as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginRight as usize, style_mark);
                 }
             }
             Attribute2::Margin(r) => {
-                if StyleType1::Margin as usize & style_mark.local_style1 == 0 {
+				if StyleType2::MarginLeft as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.start = r.clone();
-					rect_layout_style.margin.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginLeft as usize, style_mark);
+				}
+				if StyleType2::MarginTop as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginTop as usize, style_mark);
+				}
+				if StyleType2::MarginBottom as usize & style_mark.local_style2 == 0 {
 					rect_layout_style.margin.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginBottom as usize, style_mark);
+				}
+				if StyleType2::MarginRight as usize & style_mark.local_style2 == 0 {
+					rect_layout_style.margin.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MarginRight as usize, style_mark);
                 }
             }
             Attribute2::PaddingLeft(r) => {
-                if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+                if StyleType2::PaddingLeft as usize & style_mark.local_style2 == 0 {
 					other_layout_style.padding.start = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingLeft as usize, style_mark);
                 }
             }
             Attribute2::PaddingTop(r) => {
-                if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.padding.top = r.clone();
+                if StyleType2::PaddingTop as usize & style_mark.local_style2 == 0 {
+					other_layout_style.padding.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingTop as usize, style_mark);
                 }
             }
             Attribute2::PaddingBottom(r) => {
-                if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.padding.bottom = r.clone();
+                if StyleType2::PaddingBottom as usize & style_mark.local_style2 == 0 {
+					other_layout_style.padding.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingBottom as usize, style_mark);
                 }
             }
             Attribute2::PaddingRight(r) => {
-                if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.padding.end = r.clone();
+                if StyleType2::PaddingRight as usize & style_mark.local_style2 == 0 {
+					other_layout_style.padding.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingRight as usize, style_mark);
                 }
             }
             Attribute2::Padding(r) => {
-                if StyleType1::Padding as usize & style_mark.local_style1 == 0 {
+				if StyleType2::PaddingLeft as usize & style_mark.local_style2 == 0 {
 					other_layout_style.padding.start = r.clone();
-					other_layout_style.padding.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingLeft as usize, style_mark);
+				}
+				if StyleType2::PaddingTop as usize & style_mark.local_style2 == 0 {
 					other_layout_style.padding.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingTop as usize, style_mark);
+				}
+				if StyleType2::PaddingBottom as usize & style_mark.local_style2 == 0 {
 					other_layout_style.padding.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingBottom as usize, style_mark);
+				}
+				if StyleType2::PaddingRight as usize & style_mark.local_style2 == 0 {
+					other_layout_style.padding.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PaddingRight as usize, style_mark);
                 }
             }
             Attribute2::BorderLeft(r) => {
-                if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.border.start = r.clone();
+                if StyleType2::BorderLeft as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.start = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderLeft as usize, style_mark);
                 }
             }
             Attribute2::BorderTop(r) => {
-                if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.border.top = r.clone();
+                if StyleType2::BorderTop as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderTop as usize, style_mark);
                 }
             }
             Attribute2::BorderBottom(r) => {
-                if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.border.bottom = r.clone();
+                if StyleType2::BorderBottom as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderBottom as usize, style_mark);
                 }
             }
             Attribute2::BorderRight(r) => {
-                if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.border.end = r.clone();
+                if StyleType2::BorderRight as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderRight as usize, style_mark);
                 }
             }
             Attribute2::Border(r) => {
-                if StyleType1::Border as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.border.start = r.clone();
-					other_layout_style.border.end = r.clone();
+				if StyleType2::BorderLeft as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.start = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderLeft as usize, style_mark);
+				}
+				if StyleType2::BorderTop as usize & style_mark.local_style2 == 0 {
 					other_layout_style.border.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderTop as usize, style_mark);
+				}
+				if StyleType2::BorderBottom as usize & style_mark.local_style2 == 0 {
 					other_layout_style.border.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderBottom as usize, style_mark);
+				}
+				if StyleType2::BorderBottom as usize & style_mark.local_style2 == 0 {
+					other_layout_style.border.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::BorderBottom as usize, style_mark);
                 }
             }
             Attribute2::PositionLeft(r) => {
-                if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.position.start = r.clone();
+                if StyleType2::PositionLeft as usize & style_mark.local_style2 == 0 {
+					other_layout_style.position.start = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PositionLeft as usize, style_mark);
                 }
             }
             Attribute2::PositionTop(r) => {
-                if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.position.top = r.clone();
+                if StyleType2::PositionTop as usize & style_mark.local_style2 == 0 {
+					other_layout_style.position.top = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PositionTop as usize, style_mark);
                 }
             }
             Attribute2::PositionRight(r) => {
-                if StyleType1::Position as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.position.end = r.clone();
+                if StyleType2::PositionRight as usize & style_mark.local_style2 == 0 {
+					other_layout_style.position.end = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PositionRight as usize, style_mark);
                 }
             }
             Attribute2::PositionBottom(r) => {
-                if StyleType1::Position as usize & style_mark.local_style1 == 0 {
+                if StyleType2::PositionBottom as usize & style_mark.local_style2 == 0 {
 					other_layout_style.position.bottom = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::PositionBottom as usize, style_mark);
                 }
             }
             Attribute2::MinWidth(r) => {
-                if StyleType1::MinWidth as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MinWidth as usize & style_mark.local_style2 == 0 {
 					other_layout_style.min_size.width = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MinWidth as usize, style_mark);
                 }
             }
             Attribute2::MinHeight(r) => {
-                if StyleType1::MinHeight as usize & style_mark.local_style1 == 0 {
+                if StyleType2::MinHeight as usize & style_mark.local_style2 == 0 {
 					other_layout_style.min_size.height = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MinHeight as usize, style_mark);
                 }
             }
             Attribute2::MaxHeight(r) => {
-                if StyleType1::MaxHeight as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.max_size.height = r.clone();
+                if StyleType2::MaxHeight as usize & style_mark.local_style2 == 0 {
+					other_layout_style.max_size.height = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MaxHeight as usize, style_mark);
                 }
             }
             Attribute2::MaxWidth(r) => {
-                if StyleType1::MaxWidth as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.max_size.width = r.clone();
+                if StyleType2::MaxWidth as usize & style_mark.local_style2 == 0 {
+					other_layout_style.max_size.width = r.clone();
+					set_dirty2(dirty_list, id, StyleType2::MaxWidth as usize, style_mark);
                 }
             }
             Attribute2::FlexBasis(r) => {
                 if StyleType1::FlexBasis as usize & style_mark.local_style1 == 0 {
-                    other_layout_style.flex_basis = r.clone();
+					other_layout_style.flex_basis = r.clone();
+					set_dirty1(dirty_list, id, StyleType1::FlexBasis as usize, style_mark);
                 }
             }
             Attribute2::FlexShrink(r) => {
-                if StyleType1::FlexShrink as usize & style_mark.local_style1 == 0 {
+                if StyleType2::FlexShrink as usize & style_mark.local_style2 == 0 {
 					other_layout_style.flex_shrink = *r;
+					set_dirty2(dirty_list, id, StyleType2::FlexShrink as usize, style_mark);
                 }
             }
             Attribute2::FlexGrow(r) => {
-                if StyleType1::FlexGrow as usize & style_mark.local_style1 == 0 {
+                if StyleType2::FlexGrow as usize & style_mark.local_style2 == 0 {
 					other_layout_style.flex_grow = *r;
+					set_dirty2(dirty_list, id, StyleType2::FlexGrow as usize, style_mark);
                 }
             }
         }
@@ -2181,7 +2435,7 @@ pub fn set_attr3(
                     }
                     image_clips.insert_no_notify(id, r.clone());
                     
-                }
+				}
             }
 
             Attribute3::BorderImageClip(r) => {
@@ -2293,7 +2547,7 @@ fn set_image<C: HalContext>(
             }
             None => {
                 image_wait_sheet.add(
-                    &image.url,
+                    image.url,
                     ImageWait {
                         id: id,
                         ty: wait_ty,
@@ -2512,7 +2766,12 @@ impl_system! {
         MultiCaseListener<Node, BorderRadius, ModifyEvent>
         MultiCaseListener<Node, Filter, ModifyEvent>
         MultiCaseListener<Node, ByOverflow, ModifyEvent>
-        // MultiCaseListener<Node, Visibility, ModifyEvent>
+		// MultiCaseListener<Node, Visibility, ModifyEvent>
+		SingleCaseListener<Oct, ModifyEvent>
+		SingleCaseListener<Oct, CreateEvent>
+		// SingleCaseListener<Oct, DeleteEvent>
+
+		MultiCaseListener<Node, COpacity, ModifyEvent>
 
         MultiCaseListener<Node, ClassName, ModifyEvent>
         SingleCaseListener<ImageWaitSheet, ModifyEvent>
