@@ -15,7 +15,7 @@ deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 
-hal_core = "../hal_core"
+hal_core = { path = "../hal_core"}
 
 ordered-float = "1.0"
 wasm-bindgen = {version="*", features = ["serde-serialize"]}
