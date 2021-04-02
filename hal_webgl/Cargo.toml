@@ -8,16 +8,18 @@ authors = ["moyy <moyy@yineng.com>"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-atom={path="../../pi_lib/atom"}
-share={path="../../pi_lib/share"}
-slab={path="../../pi_lib/slab"}
-deque = {path="../../pi_lib/deque"}
-hal_core={path="../hal_core"}
-hash={path="../../pi_lib/hash"}
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+slab = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hal_core = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+
 ordered-float = "1.0"
 wasm-bindgen = {version="*", features = ["serde-serialize"]}
 js-sys = "*"
-debug_info = {path="../../pi_lib/debug_info"}
+
 
 [dependencies.web-sys]
 version = "*"

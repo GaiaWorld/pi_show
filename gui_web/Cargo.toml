@@ -8,26 +8,29 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-flex_layout = {path="../../pi_lib/flex_layout"}
-atom = {path="../../pi_lib/atom"}
-data_view = {path="../../pi_lib/data_view"}
-share = {path="../../pi_lib/share"}
-ecs = {path="../../pi_lib/ecs"}
-idtree = {path="../../pi_lib/idtree"}
-ecs_derive = { path = "../../pi_lib/ecs_derive" }
-map = { path = "../../pi_lib/map" }
-debug_info = { path = "../../pi_lib/debug_info", features = ["print"] }
-hash = { path = "../../pi_lib/hash" }
-bincode = {path="../../pi_lib/bincode"}
-res = {path="../../pi_lib/res"}
+flex_layout = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+data_view = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+idtree = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs_derive = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+map = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+bincode = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+res = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+
+cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
+color = { git = "https://github.com/GaiaWorld/pi_math.git"}
+cgmath = { git = "https://github.com/GaiaWorld/pi_math.git"}
+octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
+
 hal_webgl = {path="../hal_webgl"}
 gui_tool = {path="../gui_tool"}
 hal_core = {path="../hal_core", features = ["serde"]}
 # platform = {path="../../pi_lib/platform", features = ["web"]}
-cg2d = { path = "../../pi_math/cg2d" }
-color = { path = "../../pi_math/color" }
-cgmath = { path = "../../pi_math/cgmath" }
-octree = { path = "../../pi_math/octree" }
+
 gui = {path="../gui", features = ["web"]} #, features = ["performance"]
 # stdweb = "0.4"
 # stdweb-derive = "0.5.1"

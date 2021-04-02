@@ -5,6 +5,6 @@ authors = ["sun <530739162@qq.com>"]
 
 [dependencies]
 gui = {path="../gui"}
-bincode = {path="../../pi_lib/bincode"}
-fx_hashmap = {path="../../pi_lib/fx_hashmap"}
+bincode = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+fx_hashmap = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 stdweb = "0.4.15"

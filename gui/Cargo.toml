@@ -5,34 +5,35 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
-share = { path = "../../pi_lib/share" }
-idtree = { path = "../../pi_lib/idtree" }
-flex_layout = { path = "../../pi_lib/flex_layout" }
-ecs = { path = "../../pi_lib/ecs" }
-ecs_derive = { path = "../../pi_lib/ecs_derive" }
-enum_default_macro = {path = "../../pi_lib/enum_default_macro" }
-deque = {path="../../pi_lib/deque"}
-slab = {path="../../pi_lib/slab"}
-util = {path="../../pi_lib/util"}
-map = {path="../../pi_lib/map"}
-hash = {path="../../pi_lib/hash"}
-heap = {path="../../pi_lib/heap"}
-pointer = {path="../../pi_lib/pointer"}
-atom = {path="../../pi_lib/atom", features = ["serde"] }
-ucd = {path="../../pi_lib/ucd"}
-data_view = {path="../../pi_lib/data_view"}
-debug_info = {path="../../pi_lib/debug_info"}
-dirty = {path="../../pi_lib/dirty"}
-densevec = {path="../../pi_lib/densevec"}
+share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+idtree = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+flex_layout = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs_derive = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+enum_default_macro = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+slab = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+util = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+map = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+heap = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+pointer = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ucd = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+data_view = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+dirty = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+densevec = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+res = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+polygon = { git = "https://github.com/GaiaWorld/pi_math.git"}
+cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
+color = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"] }
+cgmath = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
+collision = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
+octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
+
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
-res = {path="../../pi_lib/res"}
-polygon = {path="../../pi_math/polygon"}
-cg2d = { path = "../../pi_math/cg2d"}
-color = { path = "../../pi_math/color", features = ["serde"] }
-cgmath = { path = "../../pi_math/cgmath", features = ["serde"]  }
-octree = { path = "../../pi_math/octree" }
-collision = { path = "../../pi_math/collision", features = ["serde"] }
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"

@@ -7,8 +7,9 @@ authors = ["sun <sun@yineng.com>"]
 crate-type = ["cdylib"]
 
 [dependencies]
-res = {path="../../pi_lib/res"}
-share = {path="../../pi_lib/share"}
+res = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+
 wasm-bindgen = "*"
 
 
