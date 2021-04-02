@@ -15,7 +15,7 @@ deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 slab = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 util = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 map = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git", features = ["serde"]}
 hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 heap = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 pointer = { git = "https://github.com/GaiaWorld/pi_lib.git"}
