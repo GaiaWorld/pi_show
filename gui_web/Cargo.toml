@@ -5,7 +5,7 @@ authors = ["suncy <suncy@yineng.com>"]
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib", "dylib"]
 
 [dependencies]
 flex_layout = { git = "https://github.com/GaiaWorld/pi_lib.git"}
