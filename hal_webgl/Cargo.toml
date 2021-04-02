@@ -12,9 +12,10 @@ atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 slab = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-hal_core = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
 debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+
+hal_core = "../hal_core"
 
 ordered-float = "1.0"
 wasm-bindgen = {version="*", features = ["serde-serialize"]}
