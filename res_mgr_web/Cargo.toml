@@ -1,5 +1,5 @@
 [package]
-name = "res_mgr"
+name = "res_mgr_web"
 version = "0.1.0"
 authors = ["sun <sun@yineng.com>"]
 
