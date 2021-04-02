@@ -4,19 +4,19 @@ version = "0.1.0"
 authors = ["moyy <moyy@yineng.com>"]
 
 [dependencies]
-atom = {path="../../pi_lib/atom"}
-ecs = {path="../../pi_lib/ecs"}
-ecs_derive = { path = "../../pi_lib/ecs_derive" }
-map = { path = "../../pi_lib/map" }
-debug_info = { path = "../../pi_lib/debug_info" }
-hal_webgl = {path="../hal_webgl"}
-hal_core = {path="../hal_core"}
-hal_null = {path="../hal_null"}
-serde = { version = "1.0", features = ["derive"] }
-cg2d = { path = "../../pi_math/cg2d" }
-color = { path = "../../pi_math/color" }
-cgmath = { path = "../../pi_math/cgmath" }
-octree = { path = "../../pi_math/octree" }
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+ecs_derive = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+map = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hal_webgl = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hal_core = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+hal_null = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+serde = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["derive"]}
+color = { git = "https://github.com/GaiaWorld/pi_math.git"}
+cgmath = { git = "https://github.com/GaiaWorld/pi_math.git"}
+octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
+
 # gui = {path="../gui"}
 stdweb = "0.4.15"
 stdweb-derive = "0.5.1"
