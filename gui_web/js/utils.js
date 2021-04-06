@@ -34,11 +34,10 @@ export function setFont(ctx, weight, fontSize, font, strokeWidth) {
 	ctx.textBaseline = "top";
 
 	if(strokeWidth > 0) {
-		ctx.lineWidth = stroke_width;
+		ctx.lineWidth = strokeWidth;
 		ctx.strokeStyle = "#f00";
 	}
 }
-
 
 export function useVao() {
 	var u = navigator.userAgent.toLowerCase(); 
@@ -57,26 +56,3 @@ export function loadImage(image_name, callback) {
 	};
 	image.src = image_name;
 }
-
-export function set_class(world, node, class_arr){
-	// console.log("_set_class", node, class_arr);
-	var old = Module._add_class_start(world, node);
-	for (var i = 0; i < class_arr.length; i++) {
-		Module._add_class(world, node, class_arr[i], i);
-	}
-	Module._add_class_end(world, node, old);
-}
-
-export function __load_image(gui, image_name, r_type){
-	var image = new Image();
-	image.onload = function() {
-		window.__jsObj = image;
-		window.__jsObj1 = image_name;
-		var opacity = 0;
-		if (image_name.endsWith("png")) {
-			opacity = 1;
-		}
-		Module._load_image_success(gui, opacity, -1, r_type);
-	};
-	image.src = image_name;
-};
