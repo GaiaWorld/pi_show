@@ -1,4 +1,4 @@
-use atom::Atom;
+
 use data_view::GetView;
 use share::Share;
 use slab::Slab;
@@ -40,13 +40,13 @@ const BLOD_FACTOR: f32 = 1.13;
 pub struct FontSheet {
     size: f32,
     color: CgColor,
-    pub src_map: XHashMap<Atom, TexFont>,
-    face_map: XHashMap<Atom, FontFace>,
+    pub src_map: XHashMap<usize, TexFont>,
+    face_map: XHashMap<usize, FontFace>,
     char_w_map: XHashMap<
-        (Atom, char, bool /*是否为加粗字体*/),
+        (usize/*font-family */, char, bool /*是否为加粗字体*/),
         (
             f32,
-            /* char width */ Atom,
+            /* char width */ usize,
             /* font */ f32,
 			/* factor_t */ f32,
 			/* factor_b */
@@ -55,7 +55,7 @@ pub struct FontSheet {
     >,
     pub char_map: XHashMap<
         (
-            Atom,
+            usize, /*font-family */
             usize,
             /* font_size */ usize,
             /* stroke_width */ usize,
@@ -67,14 +67,14 @@ pub struct FontSheet {
     pub wait_draw_list: Vec<TextInfo>,
     pub wait_draw_map: XHashMap<
         (
-            Atom,
+            usize, /*font-family */
             usize, /*font_size*/
             usize, /*stroke_width*/
             usize, /*font_weight */
         ),
         (usize /* TextInfo_Index */, f32 /* v */),
     >,
-    measure_char: Box<dyn Fn(&Atom, usize, char) -> f32>,
+    measure_char: Box<dyn Fn(usize/*font-family */ ,usize, char) -> f32>,
 	pub font_tex: FontTex,
 	pub tex_version: usize,
 }
@@ -82,7 +82,7 @@ pub struct FontSheet {
 impl FontSheet {
     pub fn new(
         texture: Share<TextureRes>,
-        measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
+        measure: Box<dyn Fn(usize, usize, char) -> f32>,
     ) -> Self {
         FontSheet {
             size: FONT_SIZE,
@@ -106,21 +106,22 @@ impl FontSheet {
 		self.wait_draw_map.clear();
 		self.char_map.clear();
 		self.char_slab.clear();
+		self.font_tex.clear();
 	}
 	
     pub fn mem_size(&self) -> usize {
-        self.src_map.capacity() * (std::mem::size_of::<Atom>() + std::mem::size_of::<TexFont>())
+        self.src_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
-                * (std::mem::size_of::<Atom>() + std::mem::size_of::<(FontFace)>())
+                * (std::mem::size_of::<usize>() + std::mem::size_of::<(FontFace)>())
             + self.char_w_map.capacity()
-                * (std::mem::size_of::<(Atom, char, bool)>()
-                    + std::mem::size_of::<(f32, Atom, f32, bool)>())
+                * (std::mem::size_of::<(usize, char, bool)>()
+                    + std::mem::size_of::<(f32, usize, f32, bool)>())
             + self.char_map.capacity()
-                * (std::mem::size_of::<(Atom, usize, usize, char)>() + std::mem::size_of::<usize>())
+                * (std::mem::size_of::<(usize, usize, usize, char)>() + std::mem::size_of::<usize>())
             + self.char_slab.mem_size()
             + self.wait_draw_list.capacity() * std::mem::size_of::<TextInfo>()
             + self.wait_draw_map.capacity()
-                * (std::mem::size_of::<(Atom, usize, usize, usize)>()
+                * (std::mem::size_of::<(usize, usize, usize, usize)>()
                     + std::mem::size_of::<(usize, f32)>())
     }
     // 设置默认字号
@@ -132,21 +133,31 @@ impl FontSheet {
         self.color = color;
     }
     // 设置Font
-    pub fn set_src(&mut self, name: Atom, is_pixel: bool, factor_t: f32, factor_b: f32) {
-        self.src_map.entry(name.clone()).or_insert(TexFont {
-            name,
-            is_pixel,
-			factor_t,
-			factor_b,
-        });
+    pub fn set_src(&mut self, name: usize, is_pixel: bool, factor_t: f32, factor_b: f32) {
+        match self.src_map.entry(name){
+			Entry::Occupied(mut e) => {
+				let r = e.get_mut();
+				r.is_pixel = is_pixel;
+				r.factor_t = factor_t;
+				r.factor_b = factor_b;
+			},
+			Entry::Vacant(r) => { 
+				r.insert(TexFont {
+					name,
+					is_pixel,
+					factor_t,
+					factor_b,
+				});
+			}
+		}
     }
 
-    pub fn get_src(&mut self, name: &Atom) -> Option<&TexFont> {
+    pub fn get_src(&mut self, name: &usize) -> Option<&TexFont> {
         self.src_map.get(name)
     }
 
     // 取字体详情
-    pub fn get_font_info(&self, font_face: &Atom) -> Option<(&TexFont, usize /* font_size */)> {
+    pub fn get_font_info(&self, font_face: &usize) -> Option<(&TexFont, usize /* font_size */)> {
         match self.face_map.get(font_face) {
             Some(face) => {
                 for name in &face.src {
@@ -164,27 +175,23 @@ impl FontSheet {
     // 设置FontFace
     pub fn set_face(
         &mut self,
-        family: Atom,
+        family: usize,
         oblique: f32,
         size: usize,
         weight: usize,
-        src: String,
+        src: Vec<usize>,
     ) {
-        let mut v = Vec::new();
-        for s in src.split(',') {
-            v.push(Atom::from(s.trim_start().trim_end()))
-        }
         let face = FontFace {
             oblique: oblique,
             size: size,
             weight: weight,
-            src: v.clone(),
+            src: src,
         };
         self.face_map.entry(family.clone()).or_insert(face);
     }
 
     // 取字体信息
-    pub fn get_font(&self, font_face: &Atom) -> Option<&TexFont> {
+    pub fn get_font(&self, font_face: &usize) -> Option<&TexFont> {
         match self.face_map.get(font_face) {
             Some(face) => {
                 for name in &face.src {
@@ -208,7 +215,7 @@ impl FontSheet {
         c: char,
     ) -> (f32 /*width,height*/, f32 /*base_width*/) {
         let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
-        match self.char_w_map.entry((font.name.clone(), c, is_blod)) {
+        match self.char_w_map.entry((font.name, c, is_blod)) {
             Entry::Occupied(e) => {
                 let r = e.get();
                 return (
@@ -217,12 +224,12 @@ impl FontSheet {
                 );
             }
             Entry::Vacant(r) => {
-                let mut w = self.measure_char.as_ref()(&font.name, FONT_SIZE as usize, c);
+                let mut w = self.measure_char.as_ref()(font.name, FONT_SIZE as usize, c);
                 if w > 0.0 {
                     if is_blod {
                         w = w * BLOD_FACTOR;
                     }
-                    r.insert((w, font.name.clone(), font.factor_t, font.factor_b, font.is_pixel));
+                    r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
                     return (w * font_size as f32 / FONT_SIZE + sw as f32, w);
                 }
             }
@@ -264,7 +271,7 @@ impl FontSheet {
             // 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
             let id = match self
                 .char_map
-                .entry((font.name.clone(), fs_scale, sw, weight, c))
+                .entry((font.name, fs_scale, sw, weight, c))
             {
                 Entry::Occupied(e) => *e.get(),
                 Entry::Vacant(r) => {
@@ -299,7 +306,7 @@ impl FontSheet {
                     // 将需要渲染的字符放入等待队列
                     match self
                         .wait_draw_map
-                        .entry((font.name.clone(), fs_scale, sw, weight))
+                        .entry((font.name, fs_scale, sw, weight))
                     {
                         Entry::Occupied(mut e) => {
                             let mut r = *e.get_mut();
@@ -316,7 +323,7 @@ impl FontSheet {
                                 r.0 = self.wait_draw_list.len();
                                 r.1 = p.y;
                                 self.wait_draw_list.push(TextInfo {
-                                    font: font.name.clone(),
+                                    font: font.name,
                                     font_size: fs_scale,
                                     stroke_width: sw,
 									weight: weight,
@@ -334,7 +341,7 @@ impl FontSheet {
                         Entry::Vacant(r) => {
                             r.insert((self.wait_draw_list.len(), p.y));
                             self.wait_draw_list.push(TextInfo {
-                                font: font.name.clone(),
+                                font: font.name,
 								font_size: fs_scale,
 								top: (fs_scale as f32 * font.factor_t) as usize,
                                 stroke_width: sw,
@@ -356,7 +363,7 @@ impl FontSheet {
             return id;
         } else {
             // SDF 字体， 根据字形Glyph计算宽度
-            match self.char_map.get(&(font.name.clone(), 0, 0, 0, c)) {
+            match self.char_map.get(&(font.name, 0, 0, 0, c)) {
                 Some(id) => return *id,
                 _ => (),
             }
@@ -385,7 +392,7 @@ pub struct FontFace {
     oblique: f32,
     size: usize,
     weight: usize,
-    src: Vec<Atom>,
+    src: Vec<usize>,
 }
 
 pub fn get_size(size: usize, s: &FontSize) -> usize {
@@ -411,7 +418,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 
 #[derive(Clone, Debug)]
 pub struct TexFont {
-    pub name: Atom,
+    pub name: usize,
     pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
 	pub factor_t: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
 	pub factor_b: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
@@ -477,7 +484,7 @@ impl Glyph {
 
 #[derive(Debug)]
 pub struct TextInfo {
-    pub font: Atom,
+    pub font: usize, /*font-famliy */
     pub font_size: usize,
     pub stroke_width: usize,
     pub weight: usize,

@@ -9,6 +9,7 @@ use std::{
 use ordered_float::NotNan;
 
 use map::vecmap::VecMap;
+use hash::XHashMap;
 use share::Share;
 use util::vecmap_default::VecMapWithDefault;
 
@@ -160,6 +161,16 @@ pub struct Image {
     pub height: Option<f32>,
 }
 
+#[derive(Clone, Component)]
+pub struct MaskImage {
+	pub src: Option<Share<TextureRes>>,
+	pub url: usize,
+}
+
+
+#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
+pub struct MaskImageClip (pub Aabb2);
+
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component, Default, Serialize, Deserialize)]
 pub struct Filter {
@@ -251,7 +262,7 @@ pub struct Font {
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
     pub size: FontSize,   //
-    pub family: Atom,     //	规定字体系列。参阅：font-family 中可能的值。
+    pub family: usize,     //	规定字体系列。参阅：font-family 中可能的值。
 }
 
 // TransformWillChange， 用于优化频繁变化的Transform
@@ -264,7 +275,7 @@ impl Default for Font {
             style: FontStyle::default(),
             weight: 500,
             size: FontSize::default(),
-            family: Atom::default(),
+            family: 0,
         }
     }
 }

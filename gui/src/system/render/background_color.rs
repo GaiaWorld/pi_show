@@ -398,6 +398,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 ],
                 color.direction,
             );
+			// unsafe { web_sys::console::log_2(&"endp:".into(), &format!("{:?}", endp).into()) };
             let (positions, indices_arr) = split_by_lg(
                 positions,
                 indices,
@@ -405,6 +406,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 endp.0.clone(),
                 endp.1.clone(),
             );
+			// unsafe { web_sys::console::log_2(&"positions:".into(), &format!("{:?}, {:?}, {:?}", positions, indices_arr, lg_pos).into()) };
             let mut colors = interp_mult_by_lg(
                 positions.as_slice(),
                 &indices_arr,
@@ -417,6 +419,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 endp.0,
                 endp.1,
             );
+			// unsafe { web_sys::console::log_2(&"colors:".into(), &format!("{:?}", colors).into()) };
             let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
             // 创建geo， 设置attribut

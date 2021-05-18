@@ -1222,7 +1222,8 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_sampler += 1;
     }
 
-    let ucolor = engine.res_mgr.fetch_map::<UColorUbo>(0).unwrap();
+	let res_mgr_ref = engine.res_mgr.borrow();
+    let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
     let ucolor = ucolor.all_res();
     for i in ucolor.0.iter() {
         size.ucolor += i.1;
@@ -1233,7 +1234,7 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_ucolor += 1;
     }
 
-    let hsv = engine.res_mgr.fetch_map::<HsvUbo>(0).unwrap();
+    let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
     let hsv = hsv.all_res();
     for i in hsv.0.iter() {
         size.hsv += i.1;
@@ -1244,7 +1245,7 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_hsv += 1;
     }
 
-    let msdf_stroke = engine.res_mgr.fetch_map::<MsdfStrokeUbo>(0).unwrap();
+    let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
     let msdf_stroke = msdf_stroke.all_res();
     for i in msdf_stroke.0.iter() {
         size.msdf_stroke += i.1;
@@ -1255,8 +1256,7 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_msdf_stroke += 1;
     }
 
-    let canvas_stroke = engine
-        .res_mgr
+    let canvas_stroke = res_mgr_ref
         .fetch_map::<CanvasTextStrokeColorUbo>(0)
         .unwrap();
     let canvas_stroke = canvas_stroke.all_res();
@@ -1269,11 +1269,46 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_canvas_stroke += 1;
     }
 
-    size.total_capacity = engine.res_mgr.total_capacity;
+    size.total_capacity = res_mgr_ref.total_capacity;
 
-    size.texture_max_capacity = engine.texture_res_map.cache.get_max_capacity();
+    size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
 
     return JsValue::from_serde(&size).unwrap();
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub struct TexureInfo {
+	list: Vec<(usize, usize, bool, usize)>,/*key, cost, isUsed, freeTime*/
+	min_capacity: usize,
+	max_capacity: usize,
+	cur_cost: usize,
+}
+/// 列出现有的纹理资源
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+pub fn list_texture(world: u32) -> JsValue {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let engine = world.engine.lend();
+	let sys_time = world.system_time.lend_mut();
+
+	let mut info = TexureInfo::default();
+    let list = &mut info.list;
+
+    let texture = engine.texture_res_map.all_res();
+    for i in texture.0.iter() {
+		list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    }
+
+	for (key, v) in texture.2.iter() {
+		if *v.get_id() > 0 { // 在lru中的资源
+			list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+		}
+	}
+	info.min_capacity = engine.texture_res_map.cache.min_capacity();
+	info.max_capacity = engine.texture_res_map.cache.max_capacity();
+	info.cur_cost = engine.texture_res_map.cache.size();
+	return JsValue::from_serde(&info).unwrap();
 }
 
 #[allow(non_snake_case)]
@@ -1282,7 +1317,7 @@ pub fn common_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui.world;
 
-    let mut all_run_time = std::time::Duration::from_millis(0);
+    let mut all_run_time = std::time::Duration::from_micros(0);
 	let mut sys_time = Vec::new();
     for t in world.runtime.iter() {
 		sys_time.push((t.sys_name.as_ref().to_string(),(t.cost_time.as_secs_f64() * 1000.0) as f32));
@@ -1477,7 +1512,7 @@ pub fn print_memory(world: u32) {
     let r = world.overflow_clip.lend().mem_size();
     total += r;
     println!("    world::overflow_clip = {:?}", r);
-    let r = world.engine.lend().res_mgr.mem_size();
+    let r = world.engine.lend().res_mgr.borrow().mem_size();
     total += r;
     println!("    world::engine.resMap = {:?}", r);
     let r = world.render_objs.lend().mem_size();

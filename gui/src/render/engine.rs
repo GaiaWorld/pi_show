@@ -3,8 +3,10 @@
 */
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::cell::RefCell;
 
 use atom::Atom;
+use ecs::StdCell;
 use hash::{DefaultHasher, XHashMap};
 use res::{Res, ResMap, ResMgr};
 use share::Share;
@@ -19,7 +21,7 @@ pub type ShareEngine<C> = UnsafeMut<Engine<C>>;
 
 pub struct Engine<C: HalContext + 'static> {
     pub gl: C,
-    pub res_mgr: ResMgr,
+    pub res_mgr: Share<RefCell<ResMgr>>,
     pub programs: XHashMap<u64, Share<HalProgram>>,
     pub texture_res_map: UnsafeMut<ResMap<TextureRes>>,
     pub geometry_res_map: UnsafeMut<ResMap<GeometryRes>>,
@@ -35,18 +37,41 @@ pub struct Engine<C: HalContext + 'static> {
 }
 
 impl<C: HalContext + 'static> Engine<C> {
-    pub fn new(gl: C, res_mgr: ResMgr) -> Self {
+    pub fn new(gl: C, res_mgr: Share<RefCell<ResMgr>>) -> Self {
+		let texture_res_map;
+		let geometry_res_map;
+		let buffer_res_map;
+		let rs_res_map;
+		let bs_res_map;
+		let ss_res_map;
+		let ds_res_map;
+		let sampler_res_map;
+		let u_color_ubo_map;
+
+		{
+			let res_mgr_ref = res_mgr.borrow();
+			texture_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<TextureRes>(0).unwrap());
+			geometry_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<GeometryRes>(0).unwrap());
+			buffer_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<BufferRes>(0).unwrap());
+			rs_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<RasterStateRes>(0).unwrap());
+			bs_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<BlendStateRes>(0).unwrap());
+			ss_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<StencilStateRes>(0).unwrap());
+			ds_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<DepthStateRes>(0).unwrap());
+			sampler_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<SamplerRes>(0).unwrap());
+			u_color_ubo_map = UnsafeMut::new(res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap());
+		}
+
         Engine {
             gl: gl,
-            texture_res_map: UnsafeMut::new(res_mgr.fetch_map::<TextureRes>(0).unwrap()),
-            geometry_res_map: UnsafeMut::new(res_mgr.fetch_map::<GeometryRes>(0).unwrap()),
-            buffer_res_map: UnsafeMut::new(res_mgr.fetch_map::<BufferRes>(0).unwrap()),
-            rs_res_map: UnsafeMut::new(res_mgr.fetch_map::<RasterStateRes>(0).unwrap()),
-            bs_res_map: UnsafeMut::new(res_mgr.fetch_map::<BlendStateRes>(0).unwrap()),
-            ss_res_map: UnsafeMut::new(res_mgr.fetch_map::<StencilStateRes>(0).unwrap()),
-            ds_res_map: UnsafeMut::new(res_mgr.fetch_map::<DepthStateRes>(0).unwrap()),
-            sampler_res_map: UnsafeMut::new(res_mgr.fetch_map::<SamplerRes>(0).unwrap()),
-            u_color_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<UColorUbo>(0).unwrap()),
+            texture_res_map,
+            geometry_res_map,
+            buffer_res_map,
+            rs_res_map,
+            bs_res_map,
+            ss_res_map,
+            ds_res_map,
+            sampler_res_map,
+            u_color_ubo_map,
             programs: XHashMap::default(),
             res_mgr,
         }
@@ -132,10 +157,13 @@ impl<C: HalContext + 'static> Engine<C> {
         texture_res: TextureRes,
         rtype: usize,
     ) -> Share<TextureRes> {
-        let size = texture_res.width
+		let cost = match texture_res.cost {
+			Some(r) => r,
+			None => texture_res.width
             * texture_res.height
-            * pixe_size(texture_res.pformat, texture_res.dformat);
-        self.texture_res_map.create(key, texture_res, size, rtype)
+            * pixe_size(texture_res.pformat, texture_res.dformat),
+		};
+        self.texture_res_map.create(key, texture_res, cost, rtype)
     }
 
     //创建一个geo, 该geo的buffer不可更新, 不共享

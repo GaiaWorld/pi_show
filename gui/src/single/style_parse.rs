@@ -269,7 +269,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::FontSize as usize;
         }
         "font-family" => {
-            class.attrs2.push(Attribute2::FontFamily(Atom::from(value)));
+            class.attrs2.push(Attribute2::FontFamily(parse_usize(value)?));
             class.class_style_mark |= StyleType::FontFamily as usize;
         }
 
@@ -1592,6 +1592,13 @@ fn parse_px(value: &str) -> Result<f32, String> {
 
 fn parse_u8(value: &str) -> Result<u8, String> {
     match u8::from_str(value) {
+        Ok(r) => Ok(r),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+fn parse_usize(value: &str) -> Result<usize, String> {
+    match usize::from_str(value) {
         Ok(r) => Ok(r),
         Err(e) => Err(e.to_string()),
     }

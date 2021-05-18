@@ -24,36 +24,40 @@ let out_wasm_js_path = `${dir}/${name}.wasm.ts`;
 
 fs.readFile(in_wasm_js_path, {encoding:"utf8"}, (err, data) => {
 	if(!err) {
-		data = data.replace(`import.meta.url`, '""');
-		data = data.replace(/from\s+'(.+?)\.js'/g,  "from '$1'");
-		data = data.replace(/getObject\(arg0\)\sinstanceof\sWindow/g, "true");
-		data = data.replace(/getObject\(arg0\)\sinstanceof\sCanvasRenderingContext2D/g, "true");
-		data = data.replace(/getObject\(arg0\)\sinstanceof\sHTMLCanvasElement/g, "true");
-		data = data.replace(
-`    const { instance, module } = await load(await input, imports);
+// 		data = data.replace(`import.meta.url`, '""');
+// 		data = data.replace(/from\s+'(.+?)\.js'/g,  "from '$1'");
+// 		data = data.replace(/getObject\(arg0\)\sinstanceof\sWindow/g, "true");
+// 		data = data.replace(/getObject\(arg0\)\sinstanceof\sCanvasRenderingContext2D/g, "true");
+// 		data = data.replace(/getObject\(arg0\)\sinstanceof\sHTMLCanvasElement/g, "true");
 
-    wasm = instance.exports;
-    init.__wbindgen_wasm_module = module;
+// 		data = data.replace(/=== 0 \? undefined/g, "=== 0 ? null");
+		
 
-    return wasm;
-}
+// 		data = data.replace(
+// `    const { instance, module } = await load(await input, imports);
 
-export default init;`,  
+//     wasm = instance.exports;
+//     init.__wbindgen_wasm_module = module;
 
-	`    const r = await load(await input, imports);
+//     return wasm;
+// }
 
-    wasm = r.instance.exports;
-    init.__wbindgen_wasm_module = r.module;
-	if(module.postRun) {
-		module.postRun();
-	}
+// export default init;`,  
 
-    return wasm;
-}
+// 	`    const r = await load(await input, imports);
 
-Promise.resolve().then(() => {
-	init(module.wasmModule);
-})`);
+//     wasm = r.instance.exports;
+//     init.__wbindgen_wasm_module = r.module;
+// 	if(module.postRun) {
+// 		module.postRun();
+// 	}
+
+//     return wasm;
+// }
+
+// Promise.resolve().then(() => {
+// 	init(module.wasmModule);
+// })`);
 		// data = data.replace(`Module["noExitRuntime"]=true;run();`, `Module["noExitRuntime"] = true;
 		// //PI_START
 		// run();

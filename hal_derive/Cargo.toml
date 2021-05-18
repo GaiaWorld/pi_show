@@ -7,7 +7,7 @@ authors = ["zmythleo <zmythleo@gmail.com>"]
 proc-macro = true
 
 [dependencies]
-share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
+share = { path = "../../pi_lib/share"}
 
 proc-macro2 = "0.4"
 syn = "0.15"

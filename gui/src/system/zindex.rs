@@ -483,26 +483,26 @@ impl Cache {
     debug_println!("negative_heap: len: {:?}, value: {:?}", self.negative_heap.len(), self.negative_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, -1.0, 0.);
+      adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     debug_println!("z_auto: len: {:?}, value: {:?}", self.z_auto.len(), self.z_auto);
     for n_id in &self.z_auto {
-      adjust(node_states, map, idtree, zdepth, *n_id, &idtree[*n_id], min_z, min_z, -1.0, 0.);
+      adjust(node_states, map, idtree, zdepth, *n_id, &idtree[*n_id], min_z, min_z, f32::NAN, 0.);
       min_z += 1.;
     }
     self.z_auto.clear();
     debug_println!("z_zero: len: {:?}, value: {:?}", self.z_zero.len(), self.z_zero);
     for &ZSort(_, _, n_id, c) in &self.z_zero {
       max_z = min_z + split + split * c as f32;
-      adjust(node_states,  map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, -1.0, 0.);
+      adjust(node_states,  map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
     }
     self.z_zero.clear();
     debug_println!("z_node_heapzero: len: {:?}, value: {:?}", self.node_heap.len(), self.node_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
-      adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, -1.0, 0.);
+      adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
 	}
 	max_z
@@ -523,7 +523,7 @@ impl Cache {
 	// debug_println!("z_auto: len: {:?}, value: {:?}", self.z_auto.len(), self.z_auto);
 	for &ZSort(_, _, n_id, c) in &arr {
 		max_z = min_z + split + split * c as f32;
-		adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, -1.0, 0.);
+		adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
 		min_z = max_z;
 	}
 
@@ -620,7 +620,7 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
   let (min, r, old_min) = {
     let zi = &mut map[id];
     debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
-    let (min, max) = if !rate.is_nan() && rate >= 0.0 {
+    let (min, max) = if !rate.is_nan(){
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
       (min_z, max_z)
@@ -652,7 +652,7 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
     if min != max {
       debug_println!("xxx---------id: {:?} min_z: {:?} max_z: {:?}, old_min: {:?} old_max:{}, rate:{}", id, min_z, max_z, old_min_z, old_max_z, (max_z - min_z - 1.)/ (old_max_z - old_min_z));
       (min, (max - min - 1.)/ (old_max_z - old_min_z), old_min_z)
-    }else if !rate.is_nan() && rate >= 0.0 {
+    }else if !rate.is_nan() {
       // 如果是auto，则重用min_z, rate, parent_min
       (min_z, rate, parent_min)
     }else{

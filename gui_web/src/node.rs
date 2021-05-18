@@ -187,6 +187,7 @@ pub fn set_canvas_size(
             ROpacity::Transparent,
             None,
             texture,
+			None,
         ),
         0,
     );

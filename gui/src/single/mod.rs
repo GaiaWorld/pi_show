@@ -156,6 +156,8 @@ pub enum ImageType {
     ImageLocal,
     BorderImageClass,
     BorderImageLocal,
+	MaskImageClass,
+    MaskImageLocal,
 }
 
 #[derive(Debug)]
@@ -443,7 +445,6 @@ pub struct Statistics {
 
 #[derive(Default)]
 pub struct SystemTime {
-	pub start_time: u64,
 	pub cur_time: usize,
 }
 

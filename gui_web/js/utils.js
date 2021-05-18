@@ -1,3 +1,23 @@
+export class AtomTable{
+	stringMap /*Map<number, string>*/ = new Map();
+	numberMap /*Map<string, number>*/ = new Map();
+
+	get_string(k) {
+		return this.stringMap.get(k)
+	}
+
+	get_number(k) {
+		return this.numberMap.get(k)
+	}
+
+	set(n, s) {
+		this.stringMap.set(n, s);
+		this.numberMap.set(s, n);
+	}
+}
+
+export const atomTable = new AtomTable();
+
 export function fillBackGround(canvas, ctx, x, y) {
 	canvas.width = x;
 	canvas.height = y;
@@ -18,7 +38,8 @@ export function drawChar(ctx, ch_code, x, y) {
     ctx.fillText(ch, x, y);
 }
 
-export function setFont(ctx, weight, fontSize, font, strokeWidth) {
+export function setFont(ctx, weight, fontSize, font/*number */, strokeWidth) {
+	font = atomTable.get_string(font);
 	var weight;
 	if (weight <= 300 ) {
 		weight = "lighter";
@@ -44,7 +65,8 @@ export function useVao() {
 	return u.indexOf("ipad") < 0 && u.indexOf("iphone") < 0;
 }
 
-export function measureText(ctx, ch, font_size, name) {
+export function measureText(ctx, ch, font_size, name/**number*/) {
+	name = atomTable.get_string(name);
 	ctx.font = font_size + "px " + name;
 	return ctx.measureText(String.fromCharCode(ch)).width;
 }

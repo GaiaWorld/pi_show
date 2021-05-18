@@ -69,7 +69,7 @@ pub enum Attribute2 {
     WordSpacing(f32),
     FontWeight(f32),
     FontSize(FontSize),
-    FontFamily(Atom),
+    FontFamily(usize),
     ZIndex(isize),
     Opacity(Opacity),
     BorderImageRepeat(BorderImageRepeat),

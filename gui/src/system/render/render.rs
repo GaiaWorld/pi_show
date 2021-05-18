@@ -202,6 +202,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		let viewport = render_begin_desc.viewport;
 		// println!("render_all1============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 		// 如果局部视口就是最大视口，则按最大视口来渲染
+		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", &**dirty_view_rect).into()) };
+		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.0).into()) };
+		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.1).into()) };
+		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.2).into()) };
+		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.3).into()) };
+		// unsafe { web_sys::console::log_2(&"render_begin_desc:".into(), &format!("{:?}", render_begin_desc).into()) };
 		if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
 			// println!("render_all============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 			dirty_view_rect.4 = false;

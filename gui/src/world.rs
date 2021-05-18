@@ -21,6 +21,7 @@ use font::font_sheet::FontSheet;
 use render::engine::ShareEngine;
 use render::res::*;
 use single::*;
+use single::DirtyViewRect;
 use system::util::constant::*;
 use system::*;
 use Z_MAX;
@@ -56,76 +57,70 @@ lazy_static! {
     pub static ref TRANSFORM_WILL_CHANGE_N: Atom = Atom::from("transform_will_change_sys");
 }
 
-pub fn create_res_mgr(total_capacity: usize) -> ResMgr {
-    let mut res_mgr = if total_capacity > 0 {
-        ResMgr::with_capacity(total_capacity)
-    } else {
-        ResMgr::default()
-    };
-
+/// 设置资源管理器
+pub fn seting_res_mgr(res_mgr: &mut ResMgr) {
     res_mgr.register::<TextureRes>(
 		10 * 1024 * 1024,
 		50 * 1024 * 1024,
-		5 * 60000,
+		5 * 60,
 		0,
         "TextureRes".to_string(),
     );
     res_mgr.register::<GeometryRes>(
-        20 * 1024, 100 * 1024, 5 * 60000, 0,
+        20 * 1024, 100 * 1024, 5 * 60, 0,
         "GeometryRes".to_string(),
     );
     res_mgr.register::<BufferRes>(
-        20 * 1024, 100 * 1024, 5 * 60000, 0,
+        20 * 1024, 100 * 1024, 5 * 60, 0,
         "BufferRes".to_string(),
     );
 
     res_mgr.register::<SamplerRes>(
-        512, 1024, 60 * 60000, 0,
+        512, 1024, 60 * 60, 0,
         "SamplerRes".to_string(),
     );
     res_mgr.register::<RasterStateRes>(
-        512, 1024, 60 * 60000, 0,
+        512, 1024, 60 * 60, 0,
         "RasterStateRes".to_string(),
     );
     res_mgr.register::<BlendStateRes>(
-        512, 1024, 60 * 60000, 0,
+        512, 1024, 60 * 60, 0,
         "BlendStateRes".to_string(),
     );
     res_mgr.register::<StencilStateRes>(
-        512, 1024, 60 * 60000, 0,
+        512, 1024, 60 * 60, 0,
         "StencilStateRes".to_string(),
     );
     res_mgr.register::<DepthStateRes>(
-        512, 1024, 60 * 60000, 0,
+        512, 1024, 60 * 60, 0,
         "DepthStateRes".to_string(),
     );
 
     res_mgr.register::<UColorUbo>(
-        4 * 1024, 8 * 1024, 60 * 60000, 0,
+        4 * 1024, 8 * 1024, 60 * 60, 0,
         "UColorUbo".to_string(),
     );
     res_mgr.register::<HsvUbo>(
-        1 * 1024, 2 * 1024, 60 * 60000, 0,
+        1 * 1024, 2 * 1024, 60 * 60, 0,
         "HsvUbo".to_string(),
     );
     res_mgr.register::<MsdfStrokeUbo>(
-        1 * 1024, 2 * 1024, 60 * 60000, 0,
+        1 * 1024, 2 * 1024, 60 * 60, 0,
         "MsdfStrokeUbo".to_string(),
     );
     res_mgr.register::<CanvasTextStrokeColorUbo>(
-        1 * 1024, 2 * 1024, 60 * 60000, 0,
+        1 * 1024, 2 * 1024, 60 * 60, 0,
         "CanvasTextStrokeColorUbo".to_string(),
     );
-    res_mgr
 }
 
 pub fn create_world<C: HalContext + 'static>(
 	mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
-    font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
+    font_measure: Box<dyn Fn(usize, usize, char) -> f32>,
 	font_texture: Share<TextureRes>,
-	cur_time: u64,
+	cur_time: usize,
 
 	share_class_sheet: Option<Share<StdCell<ClassSheet>>>,
 	share_font_sheet: Option<Share<StdCell<FontSheet>>>,
@@ -139,7 +134,7 @@ pub fn create_world<C: HalContext + 'static>(
     default_table.set::<TextStyle>(TextStyle::default());
     default_table.set::<Transform>(Transform::default());
     let mut font = Font::default();
-    font.family = Atom::from("__$common");
+    font.family = 0;
     default_table.set::<Font>(font);
 
     let positions = engine.create_buffer_res(
@@ -180,12 +175,12 @@ pub fn create_world<C: HalContext + 'static>(
 		capacity,
     ));
     let border_image_sys = BorderImageSys::<C>::with_capacity(&mut engine, capacity);
-    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr));
+    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr.borrow()));
 
     let clip_sys = ClipSys::<C>::new();
 	let image_sys = CellImageSys::new(ImageSys::with_capacity(&mut engine, capacity));
 	let mut sys_time = SystemTime::default();
-	sys_time.start_time = cur_time;
+	sys_time.cur_time = cur_time;
     //user
     world.register_entity::<Node>();
     world.register_multi::<Node, Transform>();
@@ -208,6 +203,8 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, Image>();
     world.register_multi::<Node, ImageClip>();
+	world.register_multi::<Node, MaskImage>();
+    world.register_multi::<Node, MaskImageClip>();
     world.register_multi::<Node, ObjectFit>();
     world.register_multi::<Node, Filter>();
     world.register_multi::<Node, ClassName>();

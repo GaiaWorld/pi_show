@@ -11,6 +11,7 @@ pub mod render;
 mod filter;
 mod style_mark;
 mod transform_will_change;
+mod mask_image;
 
 pub use system::transform_will_change::*;
 pub use system::style_mark::*;

@@ -42,6 +42,7 @@ pub struct TextureRes {
     pub dformat: DataFormat,
     pub opacity: Opacity,
     pub compress: Option<CompressedTexFormat>,
+	pub cost: Option<usize>,
     pub bind: HalTexture,
 }
 
@@ -61,6 +62,7 @@ impl TextureRes {
         opacity: Opacity,
         compress: Option<CompressedTexFormat>,
         bind: HalTexture,
+		cost: Option<usize>,
     ) -> Self {
         TextureRes {
             width,
@@ -70,6 +72,7 @@ impl TextureRes {
             opacity,
             compress,
             bind,
+			cost
         }
     }
 

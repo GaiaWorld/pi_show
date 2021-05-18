@@ -5,32 +5,56 @@ version = "0.1.0"
 authors = ["wzjsun <530739162@qq.com>"]
 
 [dependencies]
-share = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-idtree = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-flex_layout = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-ecs = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-ecs_derive = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-enum_default_macro = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-deque = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-slab = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-util = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-map = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-atom = { git = "https://github.com/GaiaWorld/pi_lib.git", features = ["serde"]}
-hash = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-heap = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-pointer = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-ucd = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-data_view = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-dirty = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-densevec = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-res = { git = "https://github.com/GaiaWorld/pi_lib.git"}
-polygon = { git = "https://github.com/GaiaWorld/pi_math.git"}
-cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
-color = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"] }
-cgmath = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
-collision = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
-octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
+share = { path = "../../pi_lib/share"}
+idtree = { path = "../../pi_lib/idtree"}
+flex_layout = { path =  "../../pi_lib/flex_layout"}
+ecs = { path =  "../../pi_lib/ecs"}
+ecs_derive = { path =  "../../pi_lib/ecs_derive"}
+enum_default_macro = { path =  "../../pi_lib/enum_default_macro"}
+deque = { path =  "../../pi_lib/deque"}
+slab = { path =  "../../pi_lib/slab"}
+util = { path =  "../../pi_lib/util"}
+map = { path =  "../../pi_lib/map"}
+atom = { path =  "../../pi_lib/atom", features = ["serde"]}
+hash = { path =  "../../pi_lib/hash"}
+heap = { path =  "../../pi_lib/heap"}
+pointer = { path =  "../../pi_lib/pointer"}
+ucd = { path =  "../../pi_lib/ucd"}
+data_view = { path =  "../../pi_lib/data_view"}
+debug_info = { path =  "../../pi_lib/debug_info"}
+dirty = { path =  "../../pi_lib/dirty"}
+densevec = { path =  "../../pi_lib/densevec"}
+res = { path =  "../../pi_lib/res"}
+cross_performance = { path =  "../../pi_lib/cross_performance"}
+# time: 3407.7350000152364
+# vConsole.js:3 now: 3408.0800000810996
+# vConsole.js:3 timediff: 0.6900000153109431
+# vConsole.js:3 time: 3408.795000053942
+# vConsole.js:3 now: 3409.1900000348687
+# vConsole.js:3 timediff: 0.7850000401958823
+# vConsole.js:3 time: 3409.925000043586
+# vConsole.js:3 now: 3410.2800000691786
+# vConsole.js:3 timediff: 0.6949999369680882
+# vConsole.js:3 time: 3411.2850000383332
+# vConsole.js:3 now: 3411.8550000712276
+# vConsole.js:3 timediff: 0.9299999801442027
+# vConsole.js:3 time: 3412.57000004407
+# vConsole.js:3 now: 3412.914999993518
+# vConsole.js:3 timediff: 0.6799999391660094
+polygon = { path = "../../pi_math/polygon"}
+cg2d = { path = "../../pi_math/cg2d"}
+color = { path = "../../pi_math/color", features = ["serde"]}
+cgmath = { path = "../../pi_math/cgmath", features = ["serde"] }
+collision = { path = "../../pi_math/collision", features = ["serde"]}
+octree = { path = "../../pi_math/octree"}
+
+
+# polygon = { git = "https://github.com/GaiaWorld/pi_math.git"}
+# cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
+# color = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"] }
+# cgmath = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
+# collision = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
+# octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
 
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
@@ -44,6 +68,28 @@ serde = { version = "1.0", features = ["derive"] }
 ordered-float = { version = "1.0", default-features = false }
 fxhash = "0.2.1"
 
+[dependencies.web-sys]
+version = "*"
+features = [
+	"WebGlRenderingContext",
+	"WebGlBuffer",
+	"WebGlVertexArrayObject",
+	"WebGlShader",
+	"WebGlProgram",
+	"WebGlUniformLocation",
+	"WebGlActiveInfo",
+	"WebGlTexture",
+	"WebGlRenderbuffer",
+	"WebGlFramebuffer",
+	"Window",
+	"HtmlCanvasElement",
+	"Document",
+	"CanvasRenderingContext2d",
+	"ImageData",
+	"HtmlImageElement",
+	"console",
+]
+
 [features]
 default = ["warning"]
 performance=["web"]
@@ -51,3 +97,4 @@ web = []
 print = []
 warning = []
 statistics = []
+

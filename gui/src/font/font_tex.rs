@@ -12,9 +12,14 @@ pub struct FontTex{
 }
 
 impl FontTex {
+	pub fn clear(&mut self) {
+		self.line_map.clear();
+		self.last_v = 0.0;
+	}
+
     pub fn new(texture: Share<TextureRes>) -> Self {
         // let tex = ctx.create_texture_2d(TEX_WIDTH as u32, INIT_TEX_HEIGHT, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &TextureData::None).unwrap();
-        // texture: Share::new(TextureRes::new(Atom::from("FontTex"), TEX_WIDTH as usize, INIT_TEX_HEIGHT as usize, Opacity::Translucent, Compress::None, tex)),
+        // texture: Share::new(TextureRes::new(usize::from("FontTex"), TEX_WIDTH as usize, INIT_TEX_HEIGHT as usize, Opacity::Translucent, Compress::None, tex)),
         FontTex {
             texture: texture,
             line_map: XHashMap::default(),

@@ -75,6 +75,7 @@ impl<'a> Runner<'a> for TextGlphySys {
 			flag = false;
 			count += 1;
 			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
+				unsafe { web_sys::console::log_1(&"TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字".into()) };
 				panic!("TextGlphySys 死循环");
 			}
 			for id in (read.4).0.iter() {
@@ -88,11 +89,13 @@ impl<'a> Runner<'a> for TextGlphySys {
 				}
 	
 				match set_gylph(*id, &read, &mut write) {
-					Result::Err(_) => {
+					Result::Err(message) => {
+						unsafe { web_sys::console::log_1(&"textTexture flow, reset textTexture:".into()) };
+						// panic!("err:{:?}", message);
 						write.5.borrow_mut().clear_gylph();
 						// 对界面上的文字全部重新计算字形
 						let idtree = &write.6;
-						let root = &idtree[0];
+						let root = &idtree[1];
 						let notify = read.0.get_notify_ref();
 						for (id, _node) in idtree.recursive_iter(root.children().head) {
 							if read.0.get(id).is_some() { // 文字节点，发送修改事件
@@ -236,7 +239,7 @@ fn update_layout(
 fn set_gylph<'a>(
 	id: usize, 
 	(_text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
-	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), ()> {
+	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), String> {
     let scale = world_matrixs[id].y.magnitude();
 	let text_style = &text_styles[id];
 	let font_sheet = &mut font_sheet.borrow_mut();
@@ -246,7 +249,7 @@ fn set_gylph<'a>(
         None => {
             println!(
                 "font is not exist, face_name: {:?}, id: {:?}",
-                text_style.font.family.as_ref(),
+                text_style.font.family,
                 id
             );
             return Ok(());
@@ -256,13 +259,17 @@ fn set_gylph<'a>(
 	let weight = text_style.font.weight;
 	let sw = text_style.text.stroke.width;
 
+	// if let None = node_states.get(id) {
+	// 	unsafe { web_sys::console::log_2(&"node_states not:".into(), &format!("{:?}", id).into()) };
+	// 	panic!("node_states not:{:?}", id);
+	// }
 	node_states[id].0.scale = scale;
 	let chars = &mut node_states[id].0.text;
-	let mut id;
+	let mut char_id;
 	// clear_gylph
     for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
-            id = font_sheet.calc_gylph(
+            char_id = font_sheet.calc_gylph(
                 &tex_font,
                 font_size as usize,
                 sw as usize,
@@ -272,10 +279,10 @@ fn set_gylph<'a>(
                 char_node.ch,
             );
 			// 异常，无法计算字形
-			if id == 0 {
-				return Result::Err(());
+			if char_id == 0 {
+				return Result::Err(String::from(format!("异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}", char_node.ch, text_style.font.family, id) ));
 			}
-			char_node.ch_id_or_count = id;
+			char_node.ch_id_or_count = char_id;
         }
     }
 	return Ok(())
@@ -672,7 +679,7 @@ fn calc<'a>(
 		None => {
 			println!(
 				"font is not exist, face_name: {:?}, id: {:?}",
-				text_style.font.family.as_ref(),
+				text_style.font.family,
 				id
 			);
 			return ;//true;
@@ -718,7 +725,8 @@ fn calc<'a>(
 		node_states[id].0.text.clear();
 	}
 	
-	let size = &mut calc.rect_layout_styles[id].size;
+	let size = &calc.rect_layout_styles[id].size;
+	let position_type = calc.other_layout_styles[id].position_type;
 	// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
 	if calc.idtree[parent].children().len == 1 {
 		// if size.width == Dimension::Undefined {
@@ -728,7 +736,7 @@ fn calc<'a>(
 		// 	size.height = Dimension::Percent(1.0);
 		// }
 		calc.cacl_simple(node_states);
-	} else if size.width != Dimension::Undefined || size.height != Dimension::Undefined {
+	} else if size.width != Dimension::Undefined || size.height != Dimension::Undefined || position_type == PositionType::Absolute {
 		calc.cacl_simple(node_states);
 	}else {
 		calc.calc_mixed(node_states);

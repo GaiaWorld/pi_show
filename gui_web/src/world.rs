@@ -137,13 +137,13 @@ extern "C" {
 	// #[wasm_bindgen]
 	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
 	// #[wasm_bindgen]
-    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font:&str, strokeWidth: u8);
+    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: u32, strokeWidth: u8);
 	// #[wasm_bindgen]
 	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	// #[wasm_bindgen]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	// #[wasm_bindgen]
-	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: &str) -> f32;
+	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: u32) -> f32;
 	// #[wasm_bindgen]
 	pub fn loadImage(image_name: u32, callback: &Function);
 	// #[wasm_bindgen]
@@ -164,7 +164,8 @@ pub struct GuiWorld {
 		u32,
 		u32,
 		u32,
-		Object)>,
+		Object,
+		u32)>,
 	pub load_image: Box<dyn Fn(u32, &Function)>,
 	pub draw_text: Closure<dyn FnMut(JsValue)>
 }
@@ -207,7 +208,6 @@ impl DrawTextSys {
 			let list = std::mem::replace(&mut font_sheet.wait_draw_list, Vec::default());
 			ptr = Box::into_raw(Box::new(list)) as usize as u32;
 
-			// 异步调用， TODO
 			font_sheet.wait_draw_map.clear();
 		}
 
@@ -290,7 +290,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 					ctx, 
 					text_info.weight as u32, 
 					text_info.font_size as u32, 
-					text_info.font.as_ref(), 
+					text_info.font as u32, 
 					text_info.stroke_width as u8);
 			};
             // js! {
@@ -349,11 +349,12 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_render_dirty(world: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let render_objs = world.render_objs.lend();
-
-    render_objs.get_notify().modify_event(1, "", 0);
+	let dirty_view_rect = world.dirty_view_rect.lend_mut();
+	dirty_view_rect.4 = true;
+    render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 
 

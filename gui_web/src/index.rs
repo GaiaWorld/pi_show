@@ -2,6 +2,7 @@
 // use std::cell::RefCell;
 use std::mem::{transmute, MaybeUninit,};
 use std::ptr::write;
+use std::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
 use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext, console};
@@ -18,27 +19,70 @@ use gui::font::font_sheet::FontSheet;
 use gui::component::user::*;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
-use gui::render::res::TextureRes;
+use gui::render::res::TextureRes as TextureResRaw;
 use gui::single::Class;
 use gui::single::{RenderBegin, ClassSheet};
 use gui::world::GuiWorld as GuiWorld1;
 use gui::Z_MAX;
-use gui::world::{create_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
+use gui::world::{seting_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
 use hal_webgl::*;
 use hal_core::*;
 use share::Share;
+use res_mgr_web::{ResMgr};
+use res::Res;
 
 use crate::world::{DrawTextSys, GuiWorld, measureText, set_render_dirty, loadImage, useVao};
+
+
+#[wasm_bindgen]
+/// 资源包装
+pub struct TextureRes(TextureResRaw);
+
+#[wasm_bindgen]
+impl TextureRes {
+	pub fn new(res: usize) -> TextureRes {
+		TextureRes(*unsafe{ Box::from_raw(res as *mut TextureResRaw) })
+	}
+}
+#[wasm_bindgen]
+pub struct NativeResRef{
+	inner: Share<dyn Res<Key = usize>>
+}
+
+#[wasm_bindgen]
+impl TextureRes {
+	/// 创建一个资源， 如果资源已经存在，则会修改资源的配置
+	pub fn register_to_resmgr(mgr: &mut ResMgr, ty: usize, min_capacity: usize, max_capacity: usize, time_out: usize) {
+		mgr.get_inner_mut().borrow_mut().register::<TextureResRaw>(min_capacity, max_capacity, time_out, ty, "".to_string());
+	}
+
+	/// 创建一个资源， 如果资源已经存在，旧的资源将被覆盖
+	/// 如果创建的资源类型未注册，将崩溃
+	pub fn create_res(self, mgr: &mut ResMgr, ty: usize, key: usize, cost: usize) -> NativeResRef {
+		NativeResRef{inner: mgr.get_inner_mut().borrow_mut().create::<TextureResRaw>(key, ty,self.0, cost, )}
+	}
+
+	/// 获取资源
+	pub fn get_res(mgr: &ResMgr, ty: usize, key: usize) -> Option<NativeResRef> {
+		// return None;
+		match mgr.get_inner().borrow().get::<TextureResRaw>(&key, ty) {
+			Some(r) => Some(NativeResRef{inner: r}),
+			None => None
+		}
+	}
+}
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
-pub fn create_engine(total_capacity: u32 /* 资源管理器总容量 */, gl: WebGlRenderingContext) -> u32 {
+pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
     let use_vao = unsafe { useVao() };
 	// let use_vao = false;
     // let gl = WebglHalContext::new(gl, fbo, false);
 	let gl = WebglHalContext::new(gl, use_vao);
-	let engine = Engine::new(gl, create_res_mgr(total_capacity as usize));
+	let res_mgr = res_mgr.get_inner().clone();
+	seting_res_mgr(&mut res_mgr.borrow_mut());
+	let engine = Engine::new(gl, res_mgr);
 	let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
     r
 }
@@ -114,16 +158,15 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
     let draw_text_sys = DrawTextSys::new();
 	let ctx = draw_text_sys.ctx.clone();
-    let f = Box::new(move |name: &Atom, font_size: usize, ch: char| -> f32 {
-        let ch = ch as u32;
-		let font_size = font_size as u32;
-		return unsafe { measureText(&ctx, ch, font_size, name.as_ref()) };
+    let f = Box::new(move |name: usize, font_size: usize, ch: char| -> f32 {
+		return unsafe { measureText(&ctx, ch as u32, font_size as u32, name as u32) };
 	});
 	// unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
 	let mut max_texture_size = match engine.gl.get_raw_gl().get_parameter(RawWebGlRenderingContext::MAX_TEXTURE_SIZE) {
 		Ok(r) => r.as_f64().unwrap() as u32,
 		Err(_r) => 1024,
 	};
+	// let mut max_texture_size = 1024;
 	if max_texture_size > 4096 {
 		max_texture_size = 4096;
 	}
@@ -141,10 +184,10 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 		.unwrap();
 		// unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
 		// unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
-		
+	
     let res = engine.create_texture_res(
         Atom::from("__$text".to_string()).get_hash(),
-        TextureRes::new(
+        TextureResRaw::new(
             max_texture_size as usize,
             32,
             PixelFormat::RGBA,
@@ -152,10 +195,11 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             unsafe { transmute(1 as u8) },
             None, //unsafe { transmute(0 as usize) },
             texture,
+			None
         ),
         0,
     );
-	let cur_time: u64 = Date::now() as u64;
+	let cur_time: usize = (Date::now() as u64 /1000) as usize;
 	let mut class_sheet_option = None;
 	let mut font_sheet_option = None;
 	if class_sheet > 0 {
@@ -233,8 +277,9 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 		name: u32,
 		width: u32,
 		height: u32,
-		data: Object| {
-			let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data);
+		data: Object,
+		cost: u32| {
+			let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost);
 			let world = &mut *(world_id as usize as *mut GuiWorld);
 			let world = &mut world.gui;
 		
@@ -435,10 +480,9 @@ pub fn render(world_id: u32) -> js_sys::Promise {
 	
     // #[cfg(feature = "debug")]
 	// let load_image_time = std::time::Instant::now() - time;
-	let cur_time: u64 = Date::now() as u64;
+	let cur_time: usize = (Date::now() as u64/1000) as usize;
 	let sys_time = world.system_time.lend_mut();
-	let cur_time = cur_time - sys_time.start_time;
-	sys_time.cur_time = cur_time as usize;
+	sys_time.cur_time = cur_time;
 
     // #[cfg(feature = "debug")]
     // let time = std::time::Instant::now();
@@ -556,8 +600,9 @@ pub fn load_image_success(
 	width: u32,
 	height: u32,
 	data: Object,
+	cost: u32
 ) {
-    let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data);
+    let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
@@ -573,7 +618,6 @@ pub fn load_image_success(
 
 /// 创建纹理资源
 /// image_name可以使用hash值与高层交互 TODO
-/// __jsObj: image, __jsObj1: image_name(String)
 #[wasm_bindgen]
 pub fn create_texture_res(
     world_id: u32,
@@ -584,8 +628,15 @@ pub fn create_texture_res(
 	width: u32,
 	height: u32,
 	data: Object,
+	cost: u32,
 ) -> u32 {
-    Share::into_raw(create_texture(world_id, opacity, compress, r_type, name, width, height, data).0) as u32
+    Share::into_raw(create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost).0) as u32
+}
+
+// 释放纹理资源
+#[wasm_bindgen]
+pub fn destroy_texture_res(texture: u32) {
+	unsafe { Share::from_raw(texture as usize as *const (Share<TextureResRaw>, usize))};
 }
 
 pub fn create_texture(
@@ -597,7 +648,8 @@ pub fn create_texture(
 	width: u32,
 	height: u32,
 	data: Object,
-) -> (Share<TextureRes>, usize) {
+	cost: u32,
+) -> (Share<TextureResRaw>, usize) {
     if r_type > 2 {
         r_type = 0;
     }
@@ -652,7 +704,7 @@ pub fn create_texture(
             };
             engine.create_texture_res(
                 name,
-                TextureRes::new(
+                TextureResRaw::new(
                     width as usize,
                     height as usize,
                     pformate,
@@ -660,6 +712,7 @@ pub fn create_texture(
                     opacity,
                     compress,
                     texture,
+					Some(cost as usize)
                 ),
                 r_type as usize,
             )
@@ -706,7 +759,7 @@ pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
     let engine = world.gui.engine.lend();
-    match engine.res_mgr.get::<TextureRes>(&name, group_i) {
+    match engine.res_mgr.borrow().get::<TextureResRaw>(&name, group_i) {
         Some(_) => true,
         None => false,
     }

@@ -312,14 +312,14 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32) {
 /// __jsObj: family name
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_font_family(world: u32, node_id: u32, name: String) {
+pub fn set_font_family(world: u32, node_id: u32, name: u32) {
     set_attr!(
         world,
         node_id,
         font,
         family,
         "font_family",
-        Atom::from(name),
+        name as usize,
         text_style
     );
 }
@@ -363,15 +363,31 @@ pub fn set_text_content(world_id: u32, node: u32, content: String) {
     debug_println!("set_text_content");
 }
 
-/// 添加一个canvas字体
+/// 设置文本内容
+/// 文本内容为utf8编码的Uint8Array， 
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_text_content_utf8(world_id: u32, node: u32, content: Vec<u8>) {
+	let content = unsafe{String::from_utf8_unchecked(content)};
+    let node = node as usize;
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    world
+        .text_content
+        .lend_mut()
+        .insert(node as usize, TextContent(content, Atom::from("")));
+    debug_println!("set_text_content");
+}
+
+/// 添加一个canvas字体 
 /// __jsObj1: name(String)
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32,name: String) {
+pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32, name: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let font_sheet = world.font_sheet.lend_mut();
-    font_sheet.borrow_mut().set_src(Atom::from(name), true, factor_t, factor_b);
+    font_sheet.borrow_mut().set_src(name as usize, true, factor_t, factor_b);
 }
 
 /// 添加font-face
@@ -379,12 +395,12 @@ pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32,name: String) {
 /// __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔),
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32, family: String, src: String) {
+pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32, family: u32, src: Vec<usize>) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let font_sheet = world.font_sheet.lend_mut();
     font_sheet.borrow_mut().set_face(
-        Atom::from(family),
+        family as usize,
         oblique,
         size as usize,
         weight as usize,
@@ -803,7 +819,7 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32, img: HtmlIma
 fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), String> {
     let mut offset = 12;
     let mut tex_font = TexFont {
-        name: Atom::from(""),
+        name: 0,
         is_pixel: false,
 		factor_t: 0.0,
 		factor_b: 0.0,
@@ -825,7 +841,7 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet) -> Result<(), S
         Err(s) => return Err(s.to_string()),
     };
     offset += name_len as usize;
-    tex_font.name = Atom::from(name_str);
+    tex_font.name = Atom::from(name_str).get_hash(); // TODO
 
     offset += 13; // 遵循 旧的配置表结构， 若配置表结构更新， 再来改此处 TODO
                   //字符uv表

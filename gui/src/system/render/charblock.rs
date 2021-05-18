@@ -466,11 +466,11 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
 
         let index_data = create_index_buffer(100);
 
+		let res_mgr_ref = engine.res_mgr.borrow();
         let mut msdf_stroke_ubo_map =
-            UnsafeMut::new(engine.res_mgr.fetch_map::<MsdfStrokeUbo>(0).unwrap());
+            UnsafeMut::new(res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap());
         let mut canvas_stroke_ubo_map = UnsafeMut::new(
-            engine
-                .res_mgr
+            res_mgr_ref
                 .fetch_map::<CanvasTextStrokeColorUbo>(0)
                 .unwrap(),
         );

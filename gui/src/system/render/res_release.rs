@@ -19,7 +19,7 @@ impl<C: HalContext + 'static> ResReleaseSys<C> {
     pub fn new() -> Self {
         Self {
             collect_time: 0,
-            collect_interval: 1000, // 1秒钟扫描一次预整理列表
+            collect_interval: 1, // 1秒钟扫描一次预整理列表
             marker: PhantomData,
         }
     }
@@ -32,7 +32,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ResReleaseSys<C> {
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData) {
         if read.cur_time >= self.collect_time {
             self.collect_time += self.collect_interval;
-            engine.res_mgr.collect(read.cur_time as usize);
+			let mut res_mgr_ref = engine.res_mgr.borrow_mut();
+            res_mgr_ref.collect(read.cur_time);
         }
 	}
 }

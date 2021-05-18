@@ -53,6 +53,12 @@ extern crate densevec;
 extern crate idtree;
 extern crate flex_layout;
 
+#[cfg(feature = "native")]
+extern crate cross_performance;
+#[cfg(feature = "wasm-bindgen")]
+extern crate cross_performance;
+
+
 pub mod system;
 pub mod component;
 pub mod single;

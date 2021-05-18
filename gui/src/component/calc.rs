@@ -33,6 +33,21 @@ use util::vecmap_default::VecMapWithDefault;
 //     pub padding_bottom: f32,
 // }
 
+/// 渲染上下文，一些具有特殊属性的节点，可以是一个新的渲染上下文，另外根节点也是一个渲染上下文，
+#[derive(Component)]
+pub struct RenderContext{
+	pub size: (usize, usize), // 大小、尺寸
+	pub content_box: Aabb3, // 内容的最大包围盒
+	pub view_matrix: WorldMatrix,
+	pub projection_matrix: WorldMatrix,
+	pub render_objs: Vec<usize>, // 节点本身的渲染对象
+	pub dirty_view_rect: DirtyViewRect,
+	pub render_target: Option<HalRenderTarget>,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize,Clone)]
+pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
+
 #[derive(Clone, Debug, Component, PartialEq, Deserialize, Serialize)]
 pub struct LayoutR {
     pub rect: Rect<f32>,
@@ -240,6 +255,9 @@ pub enum StyleType1 {
 	
 	Create = 0x8000000,
 	Delete = 0x10000000,
+
+	MaskImage = 0x20000000,
+	MaskImageClip = 0x40000000,
 }
 
 // 样式标记

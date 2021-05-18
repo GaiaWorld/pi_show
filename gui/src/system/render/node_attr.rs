@@ -20,6 +20,7 @@ use component::calc::Opacity;
 use entity::Node;
 use render::engine::{ShareEngine, UnsafeMut};
 use single::*;
+use single::DirtyViewRect;
 use single::oct::Oct;
 use system::util::*;
 
