@@ -261,6 +261,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 
 			for id in self.opacity_list.iter() {
 				let obj = &render_objs[*id];
+				if let None = octree.get(obj.context) {
+					unsafe {web_sys::console::log_2(&"obj.context".into(), &(obj.context as u32).into());}
+				}
 				// 如果相交才渲染
 				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
 					render(gl, obj, statistics);
@@ -268,6 +271,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			}
 			for id in self.transparent_list.iter() {
 				let obj = &render_objs[*id];
+				if let None = octree.get(obj.context) {
+					unsafe {web_sys::console::log_2(&"obj.context".into(), &(obj.context as u32).into());}
+				}
 				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
 					render(gl, obj, statistics);
 				}

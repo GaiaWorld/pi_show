@@ -1,4 +1,4 @@
-use std::default::Default;
+use std::{default::Default, marker::PhantomData};
 use std::sync::Arc;
 
 use atom::Atom;
@@ -290,7 +290,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     world.register_system(
         TEXT_GLPHY_N.clone(),
-        CellTextGlphySys::new(TextGlphySys),
+        CellTextGlphySys::<C>::new(TextGlphySys(PhantomData)),
     );
     world.register_system(
         TRANSFORM_WILL_CHANGE_N.clone(),
@@ -321,10 +321,10 @@ pub fn create_world<C: HalContext + 'static>(
     );
     world.register_system(CLIP_N.clone(), CellClipSys::new(clip_sys));
     // world.register_system(WORLD_MATRIX_RENDER_N.clone(), CellRenderMatrixSys::new(RenderMatrixSys::new()));
-    world.register_system(
-        RES_RELEASE_N.clone(),
-        CellResReleaseSys::<C>::new(ResReleaseSys::new()),
-    );
+    // world.register_system(
+    //     RES_RELEASE_N.clone(),
+    //     CellResReleaseSys::<C>::new(ResReleaseSys::new()),
+    // );
     world.register_system(
         STYLE_MARK_N.clone(),
         CellStyleMarkSys::<C>::new(StyleMarkSys::new()),
@@ -336,7 +336,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -351,7 +351,7 @@ pub fn create_world<C: HalContext + 'static>(
 	world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 	
 	let mut dispatch = SeqDispatcher::default();
-    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, res_release, style_mark_sys".to_string(), &world);
+    dispatch.build("z_index_sys, show_sys, filter_sys, opacity_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, clip_sys, node_attr_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }

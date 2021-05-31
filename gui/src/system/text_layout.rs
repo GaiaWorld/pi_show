@@ -2,7 +2,7 @@
 // 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yoga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
-use std::result::Result;
+use std::{marker::PhantomData, result::Result};
 use cgmath::InnerSpace;
 
 use ecs::StdCell;
@@ -17,12 +17,14 @@ use ecs::{
 use share::Share;
 
 use flex_layout::*;
+use hal_core::*;
 use flex_layout::{Dimension, INodeStateType};
 use component::{calc::*, user::*, calc::LayoutR};
 use entity::Node;
 use font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult, TexFont};
 use single::class::*;
 use single::*;
+use render::engine::ShareEngine;
 
 const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize
     | StyleType::WordSpacing as usize
@@ -62,10 +64,17 @@ pub struct LayoutImpl {
     write: usize,
 }
 
-pub struct TextGlphySys;
+pub struct TextGlphySys<C: HalContext + 'static>(pub PhantomData<C>);
 
-impl<'a> Runner<'a> for TextGlphySys {
-    type ReadData = Read<'a>;
+impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
+    type ReadData = (
+		&'a MultiCaseImpl<Node, TextContent>,
+		&'a MultiCaseImpl<Node, ClassName>,
+		&'a MultiCaseImpl<Node, WorldMatrix>,
+		&'a MultiCaseImpl<Node, StyleMark>,
+		&'a SingleCaseImpl<DirtyList>,
+		&'a SingleCaseImpl<ShareEngine<C>>,
+	);
     type WriteData = Write<'a>;
 
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
@@ -88,11 +97,24 @@ impl<'a> Runner<'a> for TextGlphySys {
 					continue;
 				}
 	
-				match set_gylph(*id, &read, &mut write) {
-					Result::Err(message) => {
+				match set_gylph(*id, &(read.0, read.1, read.2, read.3, read.4), &mut write) {
+					Result::Err(_message) => {
 						unsafe { web_sys::console::log_1(&"textTexture flow, reset textTexture:".into()) };
 						// panic!("err:{:?}", message);
-						write.5.borrow_mut().clear_gylph();
+						let mut font_sheet = write.5.borrow_mut();
+						font_sheet.clear_gylph();
+
+						// 纹理清空为蓝色
+						let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
+						let mut vec = Vec::with_capacity(width * height * 4);
+						for _a in 0..width * height {
+							vec.push(0);
+							vec.push(0);
+							vec.push(1);
+							vec.push(1);
+						}
+						read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
+						
 						// 对界面上的文字全部重新计算字形
 						let idtree = &write.6;
 						let root = &idtree[1];
@@ -247,12 +269,14 @@ fn set_gylph<'a>(
     let (tex_font, font_size) = match font_sheet.get_font_info(&text_style.font.family) {
         Some(r) => (r.0.clone(), get_size(r.1, &text_style.font.size) as f32),
         None => {
-            println!(
-                "font is not exist, face_name: {:?}, id: {:?}",
-                text_style.font.family,
-                id
-            );
-            return Ok(());
+			unsafe  {
+				web_sys::console::log_1(&format!(
+					"font is not exist, face_name: {:?}, id: {:?}",
+					text_style.font.family,
+					id,
+				).into());
+			};
+			return Ok(());
         }
 	};
 
@@ -373,6 +397,7 @@ impl<'a> Calc<'a> {
 			self.create_or_get_indice(chars, text_style.text.indent, char_index);
 			char_index += 1;
 		}
+
 		// 根据每个字符, 创建charNode
 		for cr in split(self.text, true, text_style.text.white_space.preserve_spaces()) {
 			// println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, word_margin_start: {}, p_x:{}", cr, char_index, word_index, word_margin_start, p_x);
@@ -672,17 +697,32 @@ fn calc<'a>(
 	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
 	layout_dirty: usize,) {
 	let font_sheet = &mut font_sheet.borrow_mut();
-
-	let text_style = &text_styles[id];
+	let defaultFamily = text_styles[0].font.family;
+	let text_style = &mut text_styles[id];
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
 		Some(r) => (r.0.clone(), r.1),
 		None => {
-			println!(
-				"font is not exist, face_name: {:?}, id: {:?}",
-				text_style.font.family,
-				id
-			);
-			return ;//true;
+			unsafe  {
+				web_sys::console::log_1(&format!(
+					"font is not exist, face_name: {:?}, id: {:?}, will use default font: {:?}",
+					text_style.font.family,
+					id,
+					defaultFamily
+				).into());
+			};
+			
+			text_style.font.family = defaultFamily;
+			match font_sheet.get_font_info(&text_style.font.family) {
+				Some(r) => (r.0.clone(), r.1),
+				None => {
+					unsafe{ web_sys::console::log_1(&format!(
+						"默认字体 is not exist, face_name: {:?}, id: {:?}",
+						text_style.font.family,
+						id
+					).into())};
+					return
+				}
+			}
 		}
 	};
 	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
@@ -771,7 +811,7 @@ impl_system! {
 }
 
 impl_system! {
-    TextGlphySys,
+    TextGlphySys<C> where [C: HalContext + 'static],
     true,
     {
     }

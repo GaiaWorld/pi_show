@@ -293,7 +293,6 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
     let idtree = world.idtree.lend_mut();
 	let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
-    // idtree.remove(child as usize, None);
     idtree.insert_brother_with_notify(
         child as usize,
         brother as usize,
@@ -422,42 +421,46 @@ pub fn set_src(world: u32, node: u32, url: usize) {
     );
 }
 
+/// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点到gui的上边界的距离
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn offset_top(world: u32, node: u32) -> f32 {
+pub fn offset_top(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
-	world.layout.lend()[node as usize].rect.top
+	world.layout.lend()[node as usize].rect.top as u32
 }
 
+/// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点到gui的左边界的距离
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn offset_left(world: u32, node: u32) -> f32 {
+pub fn offset_left(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
-	world.layout.lend()[node as usize].rect.start
+	world.layout.lend()[node as usize].rect.start as u32
 }
 
+/// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点的布局宽度
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn offset_width(world: u32, node: u32) -> f32 {
+pub fn offset_width(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	let r = &world.layout.lend()[node as usize];
-	r.rect.end - r.rect.start
+	(r.rect.end - r.rect.start) as u32
 }
 
+/// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点布局高度
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn offset_height(world: u32, node: u32) -> f32 {
+pub fn offset_height(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	let r = &world.layout.lend()[node as usize];
-    r.rect.bottom - r.rect.top
+    (r.rect.bottom - r.rect.top) as u32
 }
 
 // /// left top width height

@@ -490,6 +490,20 @@ impl IdTree {
 		self.remove(id, r);
 		Some(id)
 	}
+
+	pub fn remove_no_notify(&mut self, id: usize) -> Option<usize> {
+		let r = match self.get(id) {
+			Some(n) => {
+				if n.parent() == 0 && n.layer() == 0 {
+					return None;
+				}
+				(n.parent(), n.layer(), n.count(), n.prev(), n.next(), n.children().head)
+			}
+			_ => return None,
+		};
+		self.remove(id, r);
+		Some(id)
+	}
 	pub fn destroy(&mut self, id: usize) {
 		let r = match self.get(id) {
 			Some(n) => (n.parent(), n.layer(), n.count(), n.prev(), n.next(), n.children().head),

@@ -40,7 +40,8 @@ impl FontTex {
         });
         // 如果是新分配的行， self.last_v + line_height
         if is_new {
-            self.last_v += line_height as f32;
+            self.last_v += line_height as f32 + 1.0; // 行与行之间间隔一个像素，以免过界采样，出现细线；如果纹理不够时，先清空纹理为蓝色，重新更新纹理，则不会出现这个问题，因为文字周围本身就有空白
+			self.last_v += line_height as f32;
         }
         TexLine {
             line: line,

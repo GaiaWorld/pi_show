@@ -189,14 +189,6 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     }
 }
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for WorldMatrixSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-        self.dirty_mark_list.remove(&event.id);
-    }
-}
-
 //取lefttop相对于父节点的变换原点的位置
 #[inline]
 fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &LayoutR) -> Point2 {
@@ -291,7 +283,7 @@ impl_system! {
         MultiCaseListener<Node, Transform, DeleteEvent>
         MultiCaseListener<Node, LayoutR, ModifyEvent>
 		SingleCaseListener<IdTree, CreateEvent>
-		EntityListener<Node, DeleteEvent>
+		// EntityListener<Node, DeleteEvent>
     }
 }
 
