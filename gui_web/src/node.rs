@@ -49,6 +49,22 @@ fn create(world: &GuiWorld) -> usize {
 pub fn create_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let node = create(world);
+
+
+    node as u32
+}
+
+/// 创建虚拟节点
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn create_vnode(world: u32) -> u32 {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let node = create(world);
+
+	let gui = &world.gui;
+	let node_states = gui.node_state.lend_mut();
+	node_states[node].0.set_vnode(true);
+
     node as u32
 }
 
@@ -457,6 +473,7 @@ pub fn offset_width(world: u32, node: u32) -> u32 {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn offset_height(world: u32, node: u32) -> u32 {
+	// 10.0
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	let r = &world.layout.lend()[node as usize];

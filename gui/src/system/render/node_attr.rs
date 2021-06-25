@@ -68,7 +68,10 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
 	)) {
 		let (render_objs, node_render_map) = write;
 		let hsv = &hsvs[id];
-		let obj_ids = &node_render_map[id];
+		let obj_ids = match node_render_map.get(id) {
+			Some(r) => r,
+			None => return,
+		};
 		if !(hsv.h == 0.0 && hsv.s == 0.0 && hsv.v == 0.0) {
 			for id in obj_ids.iter() {
 				let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };

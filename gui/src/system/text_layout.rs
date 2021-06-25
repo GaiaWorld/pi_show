@@ -4,6 +4,7 @@
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 use std::{marker::PhantomData, result::Result};
 use cgmath::InnerSpace;
+use ordered_float::OrderedFloat;
 
 use ecs::StdCell;
 use ecs::{
@@ -74,6 +75,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 		&'a MultiCaseImpl<Node, StyleMark>,
 		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<ShareEngine<C>>,
+		&'a SingleCaseImpl<RenderBegin>
 	);
     type WriteData = Write<'a>;
 
@@ -104,16 +106,36 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
 
-						// 纹理清空为蓝色
+						// // 纹理清空为蓝色
 						let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
-						let mut vec = Vec::with_capacity(width * height * 4);
-						for _a in 0..width * height {
-							vec.push(0);
-							vec.push(0);
-							vec.push(1);
-							vec.push(1);
-						}
-						read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
+						// let mut vec = Vec::with_capacity(width * height * 4);
+						// for _a in 0..width * height {
+						// 	vec.push(0);
+						// 	vec.push(0);
+						// 	vec.push(1);
+						// 	vec.push(1);
+						// }
+						// read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
+
+						let target = read.5.gl.rt_create(
+							Some(&font_sheet.font_tex.texture.bind),
+							width as u32,
+							height as u32,
+							PixelFormat::RGBA,
+							DataFormat::UnsignedByte,
+							false,
+						)
+						.unwrap();
+						
+						read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
+							viewport: (0,0,width as i32,height as i32),
+							scissor: (0,0,width as i32,height as i32),
+							clear_color: Some((OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
+							clear_depth: read.6.0.clear_depth.clone(),
+							clear_stencil: read.6.0.clear_stencil.clone(),
+						});
+
+						read.5.gl.render_end();
 						
 						// 对界面上的文字全部重新计算字形
 						let idtree = &write.6;

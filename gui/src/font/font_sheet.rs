@@ -282,6 +282,7 @@ impl FontSheet {
 					
 					let ww = w.ceil();
 					let hh = height.ceil();
+					// unsafe {web_sys::console::log_5(&"height:".to_string().into(), &height.into(), &font.factor_b.into(), &(font_size as f32).into(), &font.factor_t.into())}
 						
                     let mut line = self.font_tex.alloc_line(hh as usize);
                     let p = line.alloc(ww);
