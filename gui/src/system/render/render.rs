@@ -210,8 +210,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		// unsafe { web_sys::console::log_2(&"render_begin_desc:".into(), &format!("{:?}", render_begin_desc).into()) };
 		if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
 			// println!("render_all============={}, {}",self.opacity_list.len(), self.transparent_list.len());
-			dirty_view_rect.4 = false;
+			
+
+			// unsafe{web_sys::console::log_5(&"render render_begin_desc".into(), &render_begin_desc.viewport.0.into(),&render_begin_desc.viewport.1.into(),&render_begin_desc.viewport.2.into(),&render_begin_desc.viewport.3.into())}
+			// unsafe{web_sys::console::log_6(&"render render_begin_desc1".into(), &render_begin_desc.scissor.0.into(),&render_begin_desc.scissor.1.into(),&render_begin_desc.scissor.2.into(),&render_begin_desc.scissor.3.into(), &dirty_view_rect.4.into())}
 			gl.render_begin(target, &render_begin_desc);
+			dirty_view_rect.4 = false;
 			for id in self.opacity_list.iter() {
 				let obj = &render_objs[*id];
 				render(gl, obj, statistics);
@@ -244,7 +248,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			);
 
 			// println!("render_part============={:?}", scissor);
-
+			// unsafe{web_sys::console::log_5(&"render render_part".into(), &viewport.0.into(),&viewport.1.into(),&viewport.2.into(),&viewport.3.into())}
+			// unsafe{web_sys::console::log_6(&"render render_part1".into(), &scissor.0.into(),&scissor.1.into(),&scissor.2.into(),&scissor.3.into(), &dirty_view_rect.4.into())}
 			// let old_scissor = std::mem::replace(&mut render_begin.0.scissor, scissor);
 			gl.render_begin(target, &RenderBeginDesc{
 				viewport: viewport.clone(),

@@ -146,9 +146,14 @@ impl<C: HalContext + 'static> Engine<C> {
         data: Option<BufferData>,
         is_updatable: bool,
     ) -> Share<BufferRes> {
-        let size = buffer_size(count, btype);
-        let buffer = BufferRes(self.create_buffer(btype, count, data, is_updatable));
-        self.buffer_res_map.create(key, buffer, size, 0)
+		match self.buffer_res_map.get(&key) {
+			Some(r) => r,
+			None => {
+				let size = buffer_size(count, btype);
+				let buffer = BufferRes(self.create_buffer(btype, count, data, is_updatable));
+				self.buffer_res_map.create(key, buffer, size, 0)
+			}
+		}
     }
 
     pub fn create_texture_res(

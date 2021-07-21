@@ -327,6 +327,21 @@ pub fn set_enable(world: u32, node: u32, value: u32) {
     set_show!(world, node, set_enable, unsafe { transmute(value as u8) });
 }
 
+/// 取enable
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_enable(world: u32, node: u32) -> bool {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+    let enables = world.gui.enable.lend_mut();
+	match enables.get(node as usize) {
+		Some(r) => r.0,
+		None => false
+	}
+}
+
+// let enable = arg.enables[*bind].0;
+
 /// 这只z_index
 #[allow(unused_attributes)]
 #[wasm_bindgen]

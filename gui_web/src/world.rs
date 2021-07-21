@@ -167,7 +167,8 @@ pub struct GuiWorld {
 		Object,
 		u32)>,
 	pub load_image: Box<dyn Fn(u32, &Function)>,
-	pub draw_text: Closure<dyn FnMut(JsValue)>
+	pub draw_text: Closure<dyn FnMut(JsValue)>,
+	pub old_texture_tex_version: usize, // 上次run时的文字纹理版本
 }
 
 pub struct DrawTextSys {
@@ -342,6 +343,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
             .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
     }
 
+	world1.old_texture_tex_version = font_sheet.tex_version;
     set_render_dirty(world_id);
 }
 
@@ -354,7 +356,8 @@ pub fn set_render_dirty(world: u32) {
     let render_objs = world.render_objs.lend();
 	let dirty_view_rect = world.dirty_view_rect.lend_mut();
 	dirty_view_rect.4 = true;
-    render_objs.get_notify_ref().modify_event(1, "", 0);
+	// unsafe{web_sys::console::log_2(&"set_render_dirty".into(), &dirty_view_rect.4.into())}
+    // render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 
 

@@ -248,6 +248,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	// ygnode.align_items = AlignItems::FlexStart;
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
+	let font_sheet_version = world.font_sheet.lend().borrow().tex_version;
 
 	idtree.insert_child(node, 0, 0);
     let world = GuiWorld {
@@ -264,6 +265,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 			let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 			gui_world.draw_text_sys.run(world_id);
 		})),
+		old_texture_tex_version: font_sheet_version,
 	};
 	// unsafe{ console::log_1(&JsValue::from("create_gui6================================="))};
 
@@ -467,6 +469,16 @@ pub fn render(world_id: u32) -> js_sys::Promise {
 	// let time = std::time::Instant::now();
 
 	let r = js_sys::Promise::resolve(&world_id.into()).then(&gui_world.draw_text);
+
+	{
+		// 纹理更新了, 设置脏
+		let font_sheet = gui_world.gui.font_sheet.lend_mut();
+		let font_sheet = &mut font_sheet.borrow_mut();
+		if gui_world.old_texture_tex_version != font_sheet.tex_version {
+			gui_world.old_texture_tex_version = font_sheet.tex_version;
+			set_render_dirty(world_id);
+		}
+	}
     // gui_world.draw_text_sys.run(world_id);
     // #[cfg(feature = "debug")]
     // let draw_text_sys_time = std::time::Instant::now() - time;

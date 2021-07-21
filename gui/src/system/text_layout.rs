@@ -790,7 +790,7 @@ fn calc<'a>(
 	let size = &calc.rect_layout_styles[id].size;
 	let position_type = calc.other_layout_styles[id].position_type;
 	// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
-	if calc.idtree[parent].children().len == 1 {
+	if parent > 0 && calc.idtree[parent].children().len == 1 {
 		// if size.width == Dimension::Undefined {
 		// 	size.width = Dimension::Percent(1.0);
 		// }
