@@ -702,7 +702,7 @@ fn to_css_str(attr: Attr) -> String {
                         + r.a.to_string().as_str()
                         + ")"
                 }
-                Color::LinearGradient(_r) => "background-color:linear-gradient".to_string(),
+                Color::LinearGradient(_r) => "color:linear-gradient".to_string(),
             },
             Attribute3::TextShadow(r) => {
                 "text-shadow:".to_string()
