@@ -50,3 +50,9 @@ pub fn deserialize_class_map(bin: &[u8]) {
     };
     // println!("r: {:?}", r);
 }
+
+#[wasm_bindgen]
+pub fn init_log() {
+    pi_web_logger::init_with_level(pi_web_logger::Level::Info);
+	log::info!("init_logger ok!");
+}

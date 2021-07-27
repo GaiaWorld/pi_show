@@ -2,6 +2,7 @@
 name = "css_serialize"
 version = "0.1.0"
 authors = ["sun <530739162@qq.com>"]
+edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "rlib", "dylib"]
@@ -12,6 +13,11 @@ bincode = { path = "../../pi_lib/bincode"}
 fx_hashmap = { path = "../../pi_lib/fx_hashmap"}
 wasm-bindgen= {version="*", features=["serde-serialize"]}
 serde = { version = "1.0", features = ["derive"] }
+
+# log
+log = "0.4.14"
+# pi_web_logger = { git = "http://ser.yinengyun.com:10082/tech/pi_web_logger.git", branch="master" }
+pi_web_logger = { path = "../../pi_web_logger"}
 
 
 [profile.release]
