@@ -2553,6 +2553,7 @@ pub fn set_attr3(
 
             Attribute3::Color(r) => {
                 if style_mark.local_style & StyleType::Color as usize == 0 {
+					log::info!("local_style color{:?}", r);
                     text_style.text.color = r.clone();
                     set_dirty(dirty_list, id, StyleType::Color as usize, style_mark);
                 }

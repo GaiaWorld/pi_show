@@ -36,7 +36,7 @@ pub fn parse_class_from_string(value: &str) -> Result<Class, String> {
                 let key = p.0.trim();
                 let value = p.1[1..p.1.len()].trim();
                 match match_key(key, value, &mut class) {
-                    Err(r) => println!("err: {}, key: {}, value: {}", r, key, value),
+                    Err(r) => log::warn!("err: {}, key: {}, value: {}", r, key, value),
                     _ => (),
                 };
             }
@@ -121,7 +121,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
                 )));
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             } else {
-                println!("background err: {}", value);
+                log::warn!("background err: {}", value);
                 return Ok(());
             }
         }
@@ -666,12 +666,14 @@ fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
         Some(first) => {
             let first = first.trim();
             if first.ends_with("deg") {
-                color.direction = parse_f32(&first[0..first.len() - 3])?;
+                color.direction = parse_f32(&first[0..first.len() - 3])? - 90.0;
             } else {
                 parser_color_stop(first, &mut list, &mut color.list, &mut pre_percent)?;
             }
         }
-        None => return Ok(Color::LinearGradient(color)),
+        None =>  {
+			return Ok(Color::LinearGradient(color))
+		},
     };
 
     for value in iter {
