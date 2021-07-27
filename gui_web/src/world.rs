@@ -22,12 +22,8 @@
 // pub fn create_world<C: Context + Sync + Send + 'static>(mut engine: Engine<C>, width: f32, height: f32) -> World{
 //     let mut world = World::default();
 
-//     let mut default_table = DefaultTable::new();
-//     default_table.set::<TextStyle>(TextStyle::default());
-//     default_table.set::<Transform>(Transform::default());
 //     let mut font = Font::default();
 //     font.family = Atom::from("common");
-//     default_table.set::<Font>(font);
 
 //     let clip_sys = ClipSys::<C>::new(&mut engine, width as u32, height as u32);
 
@@ -80,7 +76,6 @@
 //     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0));
 //     world.register_single::<RenderBegin>(RenderBegin(Arc::new(RenderBeginDesc::new(0, 0, width as i32, height as i32))));
 //     world.register_single::<NodeRenderMap>(NodeRenderMap::new());
-//     world.register_single::<DefaultTable>(default_table);
 
 //     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::new()));
 //     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -153,7 +148,6 @@ extern "C" {
 pub struct GuiWorld {
     pub gui: GuiWorld1<WebglHalContext>,
     pub draw_text_sys: DrawTextSys,
-    pub default_text_style: TextStyle,
     pub default_attr: Class,
 	pub max_texture_size: u32,
 	pub performance_inspector: usize,

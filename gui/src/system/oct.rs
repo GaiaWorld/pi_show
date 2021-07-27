@@ -61,22 +61,19 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys {
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<DirtyList>,
 	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, oct: Self::WriteData) {
-		let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
+		let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
             read;
-		let default_transform = default_table.get_unchecked::<Transform>();
         OctSys::modify_oct(
 			event.id,
 			id_tree,
 			world_matrixs,
 			layouts,
 			transforms,
-			default_transform,
 			oct,
 		);
     }
@@ -88,22 +85,19 @@ impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<DirtyList>,
 	);
     type WriteData = &'a mut SingleCaseImpl<Oct>;
     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, oct: Self::WriteData) {
-        let (world_matrixs, layouts, transforms, _style_marks, default_table, id_tree, _dirty_list) =
+        let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
             read;
-		let default_transform = default_table.get_unchecked::<Transform>();
         OctSys::modify_oct(
 			event.id,
 			id_tree,
 			world_matrixs,
 			layouts,
 			transforms,
-			default_transform,
 			oct,
 		);
     }
@@ -166,7 +160,6 @@ impl OctSys {
         world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
         layouts: &MultiCaseImpl<Node, LayoutR>,
         transforms: &MultiCaseImpl<Node, Transform>,
-        default_transform: &Transform,
         octree: &mut SingleCaseImpl<Oct>,
     ) {
         match idtree.get(id) {
@@ -178,10 +171,7 @@ impl OctSys {
             None => return,
         };
 
-        let transform = match transforms.get(id) {
-            Some(r) => r,
-            None => default_transform,
-        };
+        let transform = &transforms[id];
 
         let world_matrix = &world_matrixs[id];
         let layout = &layouts[id];

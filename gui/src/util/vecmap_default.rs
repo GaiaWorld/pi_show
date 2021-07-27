@@ -71,7 +71,7 @@ impl<T: Clone+ Default> Map for VecMapWithDefault<T> {
 
     #[inline]
     unsafe fn get_unchecked_mut(&mut self, key: &usize) -> &mut T {
-		// 编译器傻逼，所以这个get了两次，优化TODO
+		// 这个get了两次，优化TODO
 		if self.map.get(*key).is_some() {
 			return &mut self.map[*key];
 		}

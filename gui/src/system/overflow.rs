@@ -17,7 +17,7 @@ use share::Share;
 use component::{calc::*, user::*, user::Overflow, calc::LayoutR};
 use dirty::LayerDirty;
 use entity::Node;
-use single::{Clip, DefaultTable, Oct, OverflowClip, ViewMatrix};
+use single::{Clip, Oct, OverflowClip, ViewMatrix};
 
 type Read<'a> = (
     &'a SingleCaseImpl<IdTree>,
@@ -25,7 +25,6 @@ type Read<'a> = (
     &'a MultiCaseImpl<Node, WorldMatrix>,
     &'a MultiCaseImpl<Node, Transform>,
     &'a MultiCaseImpl<Node, LayoutR>,
-    &'a SingleCaseImpl<DefaultTable>,
     &'a SingleCaseImpl<Oct>,
 	&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
 	&'a MultiCaseImpl<Node, NodeState>,
@@ -77,9 +76,9 @@ impl OverflowImpl {
 			i
 		};
 		if by & index != 0 {
-			adjust(&read.0, write.1, &read.8,node.children().head, index, add_index);
+			adjust(&read.0, write.1, &read.7,node.children().head, index, add_index);
 		} else {
-			adjust(&read.0, write.1, &read.8,node.children().head, index, del_index);
+			adjust(&read.0, write.1, &read.7,node.children().head, index, del_index);
 		}
 	}
 }
@@ -103,7 +102,7 @@ impl<'a> Runner<'a> for OverflowImpl {
                 let aabb = unsafe { &*(overflow_clip as *const SingleCaseImpl<OverflowClip>) }
                     .clip_map
                     .get(&by);
-                let parent_will_change_matrix = get_will_change_matrix(*id, &read.0, read.7);
+                let parent_will_change_matrix = get_will_change_matrix(*id, &read.0, read.6);
 				calc_clip(
                     *id,
                     by,
@@ -458,7 +457,7 @@ impl OverflowImpl {
 
     // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
     fn set_overflow(&mut self, id: usize, mut by: usize, read: &Read, write: &mut Write) {
-		if !read.8[id].0.is_rnode() {
+		if !read.7[id].0.is_rnode() {
 			return;
 		}
 		let overflow = *read.1[id];
@@ -532,13 +531,13 @@ fn calc_clip<'a>(
 					if !(m.0).1 {
                         unsafe { cullings.get_unchecked_write(id).set_0(!is_intersect(
                             &item.0,
-                            &matrix_mul_aabb(&m.0, &unsafe { read.6.get_unchecked(id) }.0),
+                            &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0),
                         ))};
                     }
                 }
                 None => unsafe{cullings.get_unchecked_write(id)}.set_0(!is_intersect(
                     &item.0,
-                    &unsafe { read.6.get_unchecked(id) }.0,
+                    &unsafe { read.5.get_unchecked(id) }.0,
                 )),
             }
         }
@@ -546,7 +545,7 @@ fn calc_clip<'a>(
         by_overflows.get_notify_ref().modify_event(id, "", 0);
     }
 
-    if let Some(r) = read.7.get(id) {
+    if let Some(r) = read.6.get(id) {
         transform_will_change_matrix = Some(r);
     }
 
@@ -562,7 +561,7 @@ fn calc_clip<'a>(
                 by1,
                 i,
                 unsafe { &mut *(overflow_clip as *mut SingleCaseImpl<OverflowClip>) },
-                &(read.9).0,
+                &(read.8).0,
             );
             by = by1;
             // by_clip_aabb
@@ -574,7 +573,7 @@ fn calc_clip<'a>(
 
     let first = read.0[id].children().head;
     for (child_id, _child) in read.0.iter(first) {
-		if !read.8[child_id].0.is_rnode() {
+		if !read.7[child_id].0.is_rnode() {
 			continue;
 		}
         calc_clip(

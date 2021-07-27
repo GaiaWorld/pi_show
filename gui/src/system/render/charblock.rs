@@ -118,7 +118,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a MultiCaseImpl<Node, TextStyle>,
         &'a SingleCaseImpl<Share<StdCell<FontSheet>>>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DefaultState>,
 		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<IdTree>,
@@ -137,7 +136,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             style_marks,
             text_styles,
             font_sheet,
-            default_table,
             default_state,
 			dirty_list,
 			idtree
@@ -154,7 +152,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         }
         let (render_objs, engine, node_states) = write;
         let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
-        let default_transform = default_table.get::<Transform>().unwrap();
 
         if texture_change == true {
             self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(
@@ -222,10 +219,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             };
 			let world_matrix = &world_matrixs[*id];
 			let layout = &layouts[*id];
-            let transform = match transforms.get(*id) {
-                Some(r) => r,
-                None => default_transform,
-            };
+            let transform = &transforms[*id];
 
             let render_obj = unsafe {
                 &mut *(&render_objs[index.text] as *const RenderObj as usize

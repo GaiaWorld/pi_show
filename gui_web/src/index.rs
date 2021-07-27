@@ -255,7 +255,6 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         gui: world,
         draw_text_sys: draw_text_sys,
 		max_texture_size: 4096,
-        default_text_style: TextStyle::default(),
         default_attr: Class::default(),
 		performance_inspector: 0,
 		load_image_success: unsafe {MaybeUninit::uninit().assume_init()},

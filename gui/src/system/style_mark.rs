@@ -91,7 +91,6 @@ const LAYOUT_OTHER_DIRTY: usize = StyleType2::Width as usize
 
 pub struct StyleMarkSys<C> {
     text_style: TextStyle,
-    default_text: TextStyle,
     show: Show,
     mark: PhantomData<(C)>,
 }
@@ -100,7 +99,6 @@ impl<'a, C: HalContext + 'static> StyleMarkSys<C> {
     pub fn new() -> Self {
         Self {
             text_style: TextStyle::default(),
-            default_text: TextStyle::default(),
             show: Show::default(),
             mark: PhantomData,
         }
@@ -1229,22 +1227,11 @@ impl<'a, C: HalContext + 'static>
                 old_style,
 				old_style1,
 				old_style2,
-                &self.default_text,
             );
 		}
     }
 }
 
-// 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
-impl<'a, C: HalContext + 'static>
-    SingleCaseListener<'a, DefaultTable, ModifyEvent> for StyleMarkSys<C>
-{
-    type ReadData = &'a SingleCaseImpl<DefaultTable>;
-    type WriteData = ();
-    fn listen(&mut self, _: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData) {
-        self.default_text = read.get::<TextStyle>().unwrap().clone();
-    }
-}
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
 impl<'a, C: HalContext + 'static>
@@ -1447,7 +1434,6 @@ fn reset_attr<C: HalContext>(
     old_style: usize,
 	old_style1: usize,
 	old_style2: usize,
-    defualt_text: &TextStyle,
 ) {
     let (_class_names, _class_sheet) = read;
     let (
@@ -1490,6 +1476,7 @@ fn reset_attr<C: HalContext>(
 		!(!old_style2 | (old_style2 & (style_mark.class_style2 | style_mark.local_style2)));
     if old_style != 0 {
         if old_style & TEXT_STYLE_DIRTY != 0 {
+			let defualt_text = unsafe { &*(&text_styles[0] as *const TextStyle as usize as *const TextStyle) };
             if let Some(text_style) = text_styles.get_mut(id) {
                 if old_style & TEXT_DIRTY != 0 {
                     if old_style & StyleType::LetterSpacing as usize != 0 {
@@ -2917,7 +2904,6 @@ impl_system! {
         MultiCaseListener<Node, ClassName, ModifyEvent>
         SingleCaseListener<ImageWaitSheet, ModifyEvent>
         SingleCaseListener<RenderObjs, CreateEvent>
-        SingleCaseListener<DefaultTable, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }

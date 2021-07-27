@@ -22,11 +22,10 @@ macro_rules! set_attr {
         let attr = world.gui.$key.lend_mut();
         let value = $value;
         $crate::paste::item! {
-            let r = unsafe { attr.get_unchecked_mut(node_id) };
+            let r = &mut attr[node_id];
             r.$name.$name1 = value;
             attr.get_notify_ref().modify_event(node_id, $name2, 0);
         }
-        debug_println!("set_{}", $name2);
     };
 }
 
@@ -219,13 +218,7 @@ pub fn set_text_shadow(
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let text_styles = world.text_style.lend_mut();
-    let r = match text_styles.get_mut(node_id) {
-        Some(r) => r,
-        None => {
-            text_styles.insert_no_notify(node_id, TextStyle::default());
-            unsafe { text_styles.get_unchecked_mut(node_id) }
-        }
-    };
+    let r = &mut text_styles[node_id];
     r.shadow = value;
     text_styles
         .get_notify_ref()

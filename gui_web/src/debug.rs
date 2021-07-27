@@ -1521,9 +1521,6 @@ pub fn print_memory(world: u32) {
     let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::font_sheet = {:?}", r);
-    let r = world.default_table.lend().mem_size();
-    total += r;
-    println!("    world::default_table = {:?}", r);
     let r = world.class_sheet.lend().borrow().mem_size();
     total += r;
     println!("    world::class_sheet = {:?}", r);

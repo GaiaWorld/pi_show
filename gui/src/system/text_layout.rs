@@ -719,7 +719,7 @@ fn calc<'a>(
 	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
 	layout_dirty: usize,) {
 	let font_sheet = &mut font_sheet.borrow_mut();
-	let defaultFamily = text_styles[0].font.family;
+	let defaultFamily = text_styles[0].font.family; // 0不存在text_style， 必然取到默认值
 	let text_style = &mut text_styles[id];
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
 		Some(r) => (r.0.clone(), r.1),

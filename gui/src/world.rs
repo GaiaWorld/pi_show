@@ -130,13 +130,6 @@ pub fn create_world<C: HalContext + 'static>(
 	let mut world = World::default();
 	world.capacity = capacity;
 
-    let mut default_table = DefaultTable::new();
-    default_table.set::<TextStyle>(TextStyle::default());
-    default_table.set::<Transform>(Transform::default());
-    let mut font = Font::default();
-    font.family = 0;
-    default_table.set::<Font>(font);
-
     let positions = engine.create_buffer_res(
         POSITIONUNIT.get_hash() as u64,
         BufferType::Attribute,
@@ -256,7 +249,6 @@ pub fn create_world<C: HalContext + 'static>(
 	world.register_single::<DirtyViewRect>(DirtyViewRect(0.0, 0.0, width as f32, height as f32, true));
 
     world.register_single::<NodeRenderMap>(NodeRenderMap::with_capacity(capacity));
-	world.register_single::<DefaultTable>(default_table);
 	match share_class_sheet {
 		Some(r) => world.register_single::<Share<StdCell<ClassSheet>>>(r),
 		None => world.register_single::<Share<StdCell<ClassSheet>>>(Share::new(StdCell::new(ClassSheet::default()))),
@@ -403,7 +395,6 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
     pub font_sheet: Arc<CellSingleCase<Share<StdCell<FontSheet>>>>,
-    pub default_table: Arc<CellSingleCase<DefaultTable>>,
     pub class_sheet: Arc<CellSingleCase<Share<StdCell<ClassSheet>>>>,
     pub image_wait_sheet: Arc<CellSingleCase<ImageWaitSheet>>,
 	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
@@ -464,7 +455,6 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
             render_objs: world.fetch_single::<RenderObjs>().unwrap(),
             font_sheet: world.fetch_single::<Share<StdCell<FontSheet>>>().unwrap(),
-            default_table: world.fetch_single::<DefaultTable>().unwrap(),
             class_sheet: world.fetch_single::<Share<StdCell<ClassSheet>>>().unwrap(),
             image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
 			dirty_list: world.fetch_single::<DirtyList>().unwrap(),

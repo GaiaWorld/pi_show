@@ -52,7 +52,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, BorderColor>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
@@ -70,7 +69,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             border_radiuses,
             border_colors,
             style_marks,
-            default_table,
             dirty_list,
             default_state,
         ) = read;
@@ -81,7 +79,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
         let (render_objs, engine) = write;
 
-        let default_transform = default_table.get::<Transform>().unwrap();
 		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
 
         for id in dirty_list.0.iter() {
@@ -151,10 +148,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             if dirty & StyleType::Matrix as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
 
-                let transform = match transforms.get(*id) {
-                    Some(r) => r,
-                    None => default_transform,
-                };
+                let transform = &transforms[*id];
                 modify_matrix(
                     render_index,
                     create_let_top_offset_matrix(

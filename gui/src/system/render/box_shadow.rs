@@ -64,7 +64,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
@@ -84,7 +83,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             z_depths,
             transforms,
             style_marks,
-            default_table,
             dirty_list,
             default_state,
         ) = read;
@@ -95,7 +93,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
 		let (render_objs, engine) = write;
 		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
-        let default_transform = default_table.get::<Transform>().unwrap();
 
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
@@ -174,10 +171,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             // 矩阵脏，或者布局脏
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
-                let transform = match transforms.get(*id) {
-                    Some(r) => r,
-                    None => default_transform,
-                };
+                let transform = &transforms[*id];
                 let depth = z_depths[*id].0;
                 modify_matrix(render_obj, depth, world_matrix, transform, layout);
             }

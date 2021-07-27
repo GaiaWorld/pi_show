@@ -436,8 +436,6 @@ pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>>);
 #[derive(Debug)]
 pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
 
-pub struct DefaultTable(XHashMap<TypeId, Box<dyn Any>>);
-
 #[derive(Default)]
 pub struct Statistics {
     pub drawcall_times: usize,
@@ -519,49 +517,4 @@ impl IdTree {
 			notify.modify_event(id, "remove", layer)
 		}
 	}
-}
-impl DefaultTable {
-    pub fn new() -> Self {
-        Self(XHashMap::default())
-    }
-    pub fn mem_size(&self) -> usize {
-        self.0.capacity() * (std::mem::size_of::<TypeId>() + std::mem::size_of::<Box<dyn Any>>())
-    }
-    pub fn set<T: 'static + Any>(&mut self, value: T) {
-        self.0.insert(TypeId::of::<T>(), Box::new(value));
-    }
-
-    pub fn get<T: 'static + Any>(&self) -> Option<&T> {
-        match self.0.get(&TypeId::of::<T>()) {
-            Some(r) => r.downcast_ref::<T>(),
-            None => None,
-        }
-    }
-
-    pub fn get_mut<T: 'static + Any>(&mut self) -> Option<&mut T> {
-        match self.0.get_mut(&TypeId::of::<T>()) {
-            Some(r) => r.downcast_mut::<T>(),
-            None => None,
-        }
-    }
-
-    pub fn get_unchecked<T: 'static + Any>(&self) -> &T {
-        self.0
-            .get(&TypeId::of::<T>())
-            .unwrap()
-            .downcast_ref::<T>()
-            .unwrap()
-    }
-
-    pub fn get_unchecked_mut<T: 'static + Any>(&mut self) -> &mut T {
-        self.0
-            .get_mut(&TypeId::of::<T>())
-            .unwrap()
-            .downcast_mut::<T>()
-            .unwrap()
-    }
-
-    pub fn delete<T: 'static + Any>(&mut self) {
-        self.0.remove(&TypeId::of::<T>());
-    }
 }

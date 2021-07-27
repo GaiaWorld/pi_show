@@ -51,7 +51,7 @@ lazy_static = "1"
 serde = { version = "1.0", features = ["derive"]}
 paste = "0.1"
 ordered-float = "1.0"
-
+log = "*"
 
 [dependencies.web-sys]
 version = "*"

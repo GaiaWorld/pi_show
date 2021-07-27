@@ -8,7 +8,6 @@ use dirty::LayerDirty;
 
 use component::user::{ Transform };
 use component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix, LayoutR };
-use single::DefaultTable;
 
 use component::user::*;
 use entity::{Node};
@@ -34,7 +33,6 @@ impl TransformWillChangeSys{
 
 impl<'a> Runner<'a> for TransformWillChangeSys{
 	type ReadData = (
-		&'a SingleCaseImpl<DefaultTable>,
 		&'a SingleCaseImpl<IdTree>,
 		&'a MultiCaseImpl<Node, LayoutR>,
 		&'a MultiCaseImpl<Node, TransformWillChange>,
@@ -51,10 +49,9 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 		}
 		// let time = std::time::Instant::now();
 		self.dirty = false;
-		let (default_table, idtree, layouts, transform_will_changes, world_matrixs, transforms) = read;
+		let (idtree, layouts, transform_will_changes, world_matrixs, transforms) = read;
 		let (style_marks, transform_will_change_matrixs) = write;
 		let mut count = self.will_change_mark.count();
-		let default_transform = default_table.get::<Transform>().unwrap();
 		let mut deletes = Vec::default();
 		for (id, layer) in self.will_change_mark.iter() {
 			if count == 0 {
@@ -93,7 +90,6 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 				node.parent(), 
 				count + 1, 
 				None, 
-				default_transform, 
 				idtree,
 				transform_will_changes, 
 				layouts, 
@@ -193,7 +189,6 @@ fn recursive_cal_matrix(
 	parent: usize,
 	mut count: usize,
 	parent_will_change_matrix: Option<&WorldMatrix>,
-	default_transform: &Transform,
 	idtree: &IdTree,
 	willchange:  &MultiCaseImpl<Node, TransformWillChange>,
 	layouts: &MultiCaseImpl<Node, LayoutR>,
@@ -214,13 +209,10 @@ fn recursive_cal_matrix(
 			} else {
 				let parent_layout = &layouts[parent];
 				let parent_world_matrix = &world_matrixs[parent];
-				let parent_transform = match transforms.get(parent) {
-					Some(r) => r,
-					None => default_transform,
-				};
+				let parent_transform = &transforms[parent];
 				let parent_transform_origin = parent_transform.origin.to_value(parent_layout.rect.end - parent_layout.rect.start, parent_layout.rect.bottom - parent_layout.rect.top);
 				let offset = get_lefttop_offset(&layout, &parent_transform_origin, &parent_layout);
-				parent_world_matrix * default_transform.matrix(width, height, &offset)
+				parent_world_matrix * transforms[std::usize::MAX].matrix(width, height, &offset)
 			};
 
 			let transform_will_change_matrix = transform_value.0.matrix(width, height, &Point2::new(-width/2.0, -height/2.0));
@@ -246,8 +238,7 @@ fn recursive_cal_matrix(
 			child_id, 
 			id, 
 			count,
-			parent_will_change_matrix, 
-			default_transform,
+			parent_will_change_matrix,
 			idtree, 
 			willchange, 
 			layouts, 

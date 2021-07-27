@@ -12,7 +12,6 @@ use map::Map;
 use component::calc::{NodeState, LayoutR, WorldMatrix, WorldMatrixWrite};
 use component::user::Transform;
 use map::vecmap::VecMap;
-use single::DefaultTable;
 
 use component::user::*;
 use entity::Node;
@@ -55,12 +54,11 @@ impl WorldMatrixSys {
         transform: &MultiCaseImpl<Node, Transform>,
         layout: &MultiCaseImpl<Node, LayoutR>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
-		default_table: &SingleCaseImpl<DefaultTable>,
 		node_states: &MultiCaseImpl<Node, NodeState>,
     ) {
         let mut count = 0;
 		// let time = std::time::Instant::now();
-		let default_transform = default_table.get_unchecked::<Transform>();
+		let default_transform = &transform[std::usize::MAX];
         for (id, layer) in self.dirty.iter() {
             {
 				match node_states.get(*id) {
@@ -119,12 +117,11 @@ impl<'a> Runner<'a> for WorldMatrixSys {
         &'a SingleCaseImpl<IdTree>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, LayoutR>,
-		&'a SingleCaseImpl<DefaultTable>,
 		&'a MultiCaseImpl<Node, NodeState>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, WorldMatrix>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        self.cal_matrix(read.0, read.1, read.2, write, read.3, read.4);
+        self.cal_matrix(read.0, read.1, read.2, write, read.3);
     }
 }
 

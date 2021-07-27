@@ -554,15 +554,10 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
         }
     }
 
-    world.default_text_style = text_style;
-	let default_table = world.gui.default_table.lend_mut();
 	let text_styles = unsafe {&mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)};
 	let flex_rect_styles = unsafe {&mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<RectLayoutStyle>)};
 	let flex_other_styles = unsafe {&mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<OtherLayoutStyle>)};
 	flex_rect_styles.set_default(rect_layout_style);
 	flex_other_styles.set_default(other_layout_style);
-	text_styles.set_default(world.default_text_style.clone());
-
-    default_table.set(world.default_text_style.clone());
-    default_table.get_notify_ref().modify_event(0, "", 0);
+	text_styles.set_default(text_style);
 }

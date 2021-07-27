@@ -70,7 +70,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<DefaultTable>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
     );
@@ -90,7 +89,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             transforms,
             opacitys,
             style_marks,
-            default_table,
             dirty_list,
             default_state,
         ) = read;
@@ -99,7 +97,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         }
 
         let (render_objs, engine) = write;
-        let default_transform = default_table.get::<Transform>().unwrap();
         let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
 
         for id in dirty_list.0.iter() {
@@ -150,10 +147,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
             let image_clip = image_clips.get(*id);
             let object_fit = object_fits.get(*id);
-            let transform = match transforms.get(*id) {
-                Some(r) => r,
-                None => default_transform,
-            };
+            let transform = &transforms[*id];
             let world_matrix = &world_matrixs[*id];
 
             if dirty & GEO_DIRTY != 0 {

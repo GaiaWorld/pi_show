@@ -48,7 +48,6 @@ gui中的单例
 
 	ClassSheet  // 全局的class样式缓冲
 	FontSheet // 字体资源管理
-	DefaultTable // 默认的样式
 
 	Oct // 八叉树，存储每个节点的包围盒， 并可以根据坐标快速命中一个aabb
 	ViewMatrix // 渲染视口矩阵
