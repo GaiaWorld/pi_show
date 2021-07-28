@@ -11,15 +11,15 @@ use map::vecmap::VecMap;
 use map::Map;
 use polygon::*;
 
-use component::calc::{Opacity, LayoutR};
-use component::calc::*;
-use component::user::*;
-use entity::Node;
-use render::engine::{AttributeDecs, Engine, ShareEngine};
-use render::res::GeometryRes;
-use single::*;
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
-use system::util::*;
+use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::*;
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::res::GeometryRes;
+use crate::single::*;
+use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use crate::system::util::*;
 
 const DIRTY_TY: usize = StyleType::Matrix as usize
     | StyleType::Opacity as usize

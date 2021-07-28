@@ -2,7 +2,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(core_intrinsics)]
 #![feature(type_ascription)]
-#![feature(link_args)]
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
@@ -31,9 +30,9 @@ extern crate share;
 extern crate res;
 extern crate deque;
 extern crate cg2d;
-extern crate cgmath;
-extern crate octree;
-extern crate collision;
+extern crate nalgebra;
+extern crate ncollide2d;
+extern crate spatialtree;
 extern crate slab;
 extern crate map;
 extern crate num_traits;

@@ -3,7 +3,6 @@
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 use std::{marker::PhantomData, result::Result};
-use cgmath::InnerSpace;
 use ordered_float::OrderedFloat;
 
 use ecs::StdCell;
@@ -20,12 +19,11 @@ use share::Share;
 use flex_layout::*;
 use hal_core::*;
 use flex_layout::{Dimension, INodeStateType};
-use component::{calc::*, user::*, calc::LayoutR};
-use entity::Node;
-use font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult, TexFont};
-use single::class::*;
-use single::*;
-use render::engine::ShareEngine;
+use crate::component::{calc::*, user::*, calc::LayoutR};
+use crate::entity::Node;
+use crate::font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult, TexFont};
+use crate::single::*;
+use crate::render::engine::ShareEngine;
 
 const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize
     | StyleType::WordSpacing as usize
@@ -86,7 +84,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 			flag = false;
 			count += 1;
 			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
-				unsafe { web_sys::console::log_1(&"TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字".into()) };
+				log::info!("TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字");
 				panic!("TextGlphySys 死循环");
 			}
 			for id in (read.4).0.iter() {
@@ -100,8 +98,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 				}
 	
 				match set_gylph(*id, &(read.0, read.1, read.2, read.3, read.4), &mut write) {
-					Result::Err(_message) => {
-						unsafe { web_sys::console::log_1(&"textTexture flow, reset textTexture:".into()) };
+					Result::Err(_message) => {	
+						log::info!("textTexture flow, reset textTexture");
 						// panic!("err:{:?}", message);
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
@@ -284,20 +282,17 @@ fn set_gylph<'a>(
 	id: usize, 
 	(_text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
 	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), String> {
-    let scale = world_matrixs[id].y.magnitude();
+	let scale = Vector4::from(world_matrixs[id].fixed_columns(1));
+	let scale = scale.dot(&scale).sqrt();
 	let text_style = &text_styles[id];
 	let font_sheet = &mut font_sheet.borrow_mut();
 	
     let (tex_font, font_size) = match font_sheet.get_font_info(&text_style.font.family) {
         Some(r) => (r.0.clone(), get_size(r.1, &text_style.font.size) as f32),
         None => {
-			unsafe  {
-				web_sys::console::log_1(&format!(
-					"font is not exist, face_name: {:?}, id: {:?}",
-					text_style.font.family,
-					id,
-				).into());
-			};
+			log::info!("font is not exist, face_name: {:?}, id: {:?}",
+			text_style.font.family,
+			id);
 			return Ok(());
         }
 	};
@@ -305,10 +300,6 @@ fn set_gylph<'a>(
 	let weight = text_style.font.weight;
 	let sw = text_style.text.stroke.width;
 
-	// if let None = node_states.get(id) {
-	// 	unsafe { web_sys::console::log_2(&"node_states not:".into(), &format!("{:?}", id).into()) };
-	// 	panic!("node_states not:{:?}", id);
-	// }
 	node_states[id].0.scale = scale;
 	let chars = &mut node_states[id].0.text;
 	let mut char_id;
@@ -724,24 +715,18 @@ fn calc<'a>(
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
 		Some(r) => (r.0.clone(), r.1),
 		None => {
-			unsafe  {
-				web_sys::console::log_1(&format!(
-					"font is not exist, face_name: {:?}, id: {:?}, will use default font: {:?}",
-					text_style.font.family,
-					id,
-					defaultFamily
-				).into());
-			};
-			
+			log::info!("font is not exist, face_name: {:?}, id: {:?}, will use default font: {:?}",
+			text_style.font.family,
+			id,
+			defaultFamily);
+
 			text_style.font.family = defaultFamily;
 			match font_sheet.get_font_info(&text_style.font.family) {
 				Some(r) => (r.0.clone(), r.1),
 				None => {
-					unsafe{ web_sys::console::log_1(&format!(
-						"默认字体 is not exist, face_name: {:?}, id: {:?}",
-						text_style.font.family,
-						id
-					).into())};
+					log::info!("默认字体 is not exist, face_name: {:?}, id: {:?}",
+					text_style.font.family,
+					id);
 					return
 				}
 			}

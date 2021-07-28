@@ -1,9 +1,8 @@
 use share::{Share};
-
-use render::res::{TextureRes};
 use hash::XHashMap;
 
-use component::user::{Point2};
+use crate::render::res::{TextureRes};
+use crate::component::user::{Point2};
 
 pub struct FontTex{
     pub texture: Share<TextureRes>,

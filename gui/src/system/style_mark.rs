@@ -14,20 +14,20 @@ use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent,
     MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener, StdCell
 };
-use single::IdTree;
 use hal_core::*;
 use flex_layout::*;
 use share::Share;
 
-use component::calc::{Opacity as COpacity, LayoutR};
-use component::calc::*;
-use component::user::{Opacity, Overflow};
-use component::user::*;
-use entity::Node;
-use render::engine::{Engine, ShareEngine};
-use render::res::TextureRes;
-use single::class::*;
-use single::*;
+use crate::component::calc::{Opacity as COpacity, LayoutR};
+use crate::component::calc::*;
+use crate::component::user::{Opacity, Overflow};
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::{Engine, ShareEngine};
+use crate::render::res::TextureRes;
+use crate::single::class::*;
+use crate::single::*;
+use crate::single::IdTree;
 
 //文字样式脏
 const TEXT_DIRTY: usize = StyleType::LetterSpacing as usize
@@ -1411,7 +1411,7 @@ fn set_image_size(
 		&& style_mark.class_style2 & (StyleType2::Width as usize) == 0
 	{
 		
-		layout_style.size.width = Dimension::Points(src.width as f32 * (image_clip.max.x - image_clip.min.x));
+		layout_style.size.width = Dimension::Points(src.width as f32 * (image_clip.maxs.x - image_clip.mins.x));
 		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
 		style_mark.dirty2 |= StyleType2::Width as usize;
 	}
@@ -1419,7 +1419,7 @@ fn set_image_size(
 	if style_mark.local_style2 & (StyleType2::Height as usize) == 0
 		&& style_mark.class_style2 & (StyleType2::Height as usize) == 0
 	{
-		layout_style.size.height = Dimension::Points(src.height as f32 * (image_clip.max.y - image_clip.min.y));
+		layout_style.size.height = Dimension::Points(src.height as f32 * (image_clip.maxs.y - image_clip.mins.y));
 		// set_image_size必然是在样式脏的情况下调用，只需要标记脏类型，无需再次添加到脏列表
 		style_mark.dirty2 |= StyleType2::Height as usize;
 	}
@@ -2553,7 +2553,6 @@ pub fn set_attr3(
 
             Attribute3::Color(r) => {
                 if style_mark.local_style & StyleType::Color as usize == 0 {
-					log::info!("local_style color{:?}", r);
                     text_style.text.color = r.clone();
                     set_dirty(dirty_list, id, StyleType::Color as usize, style_mark);
                 }

@@ -142,7 +142,7 @@ pub struct BlendStateDesc {
 pub struct OverflowClip {
     pub id_map: XHashMap<usize, usize>,
     pub clip: Vec<(usize, Clip)>,
-    pub clip_map: XHashMap<usize, Aabb3>,
+    pub clip_map: XHashMap<usize, Aabb2>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -652,25 +652,25 @@ fn to_css_str(attr: Attr) -> String {
 
             Attribute3::ImageClip(r) => {
                 "image-clip:".to_string()
-                    + (r.min.y * 100.0).to_string().as_str()
+                    + (r.mins.y * 100.0).to_string().as_str()
                     + "% "
-                    + (r.max.x * 100.0).to_string().as_str()
+                    + (r.maxs.x * 100.0).to_string().as_str()
                     + "% "
-                    + (r.max.y * 100.0).to_string().as_str()
+                    + (r.maxs.y * 100.0).to_string().as_str()
                     + "% "
-                    + (r.min.x * 100.0).to_string().as_str()
+                    + (r.mins.x * 100.0).to_string().as_str()
                     + "%"
             }
 
             Attribute3::BorderImageClip(r) => {
                 "border-image-clip:".to_string()
-                    + (r.min.y * 100.0).to_string().as_str()
+                    + (r.mins.y * 100.0).to_string().as_str()
                     + "% "
-                    + (r.max.x * 100.0).to_string().as_str()
+                    + (r.maxs.x * 100.0).to_string().as_str()
                     + "% "
-                    + (r.max.y * 100.0).to_string().as_str()
+                    + (r.maxs.y * 100.0).to_string().as_str()
                     + "% "
-                    + (r.min.x * 100.0).to_string().as_str()
+                    + (r.mins.x * 100.0).to_string().as_str()
                     + "%"
             }
             Attribute3::BorderImageSlice(r) => {
@@ -1387,7 +1387,7 @@ pub fn mem_statistics(world: u32) -> JsValue {
 pub fn get_font_sheet_debug(world: u32){
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let font_sheet = world.gui.font_sheet.lend();
-	println!("char_slab: {:?}", font_sheet.borrow().char_slab);
+	log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
 	
 }
 
@@ -1397,166 +1397,166 @@ pub fn get_font_sheet_debug(world: u32){
 pub fn print_memory(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    println!("print_memory begin");
+    log::info!("print_memory begin");
 
     let mut total = 0;
 
     let r = world.node.lend().mem_size();
     total += r;
-    println!("    world::node = {:?}", r);
+    log::info!("    world::node = {:?}", r);
     let r = world.transform.lend().mem_size();
     total += r;
-    println!("    world::transform = {:?}", r);
+    log::info!("    world::transform = {:?}", r);
     let r = world.z_index.lend().mem_size();
     total += r;
-    println!("    world::z_index = {:?}", r);
+    log::info!("    world::z_index = {:?}", r);
     let r = world.overflow.lend().mem_size();
     total += r;
-    println!("    world::overflow = {:?}", r);
+    log::info!("    world::overflow = {:?}", r);
     let r = world.show.lend().mem_size();
     total += r;
-    println!("    world::show = {:?}", r);
+    log::info!("    world::show = {:?}", r);
     let r = world.opacity.lend().mem_size();
     total += r;
-    println!("    world::opacity = {:?}", r);
+    log::info!("    world::opacity = {:?}", r);
     let r = world.background_color.lend().mem_size();
     total += r;
-    println!("    world::background_color = {:?}", r);
+    log::info!("    world::background_color = {:?}", r);
     let r = world.box_shadow.lend().mem_size();
     total += r;
-    println!("    world::box_shadow = {:?}", r);
+    log::info!("    world::box_shadow = {:?}", r);
     let r = world.border_color.lend().mem_size();
     total += r;
-    println!("    world::border_color = {:?}", r);
+    log::info!("    world::border_color = {:?}", r);
     let r = world.border_image.lend().mem_size();
     total += r;
-    println!("    world::border_image = {:?}", r);
+    log::info!("    world::border_image = {:?}", r);
     let r = world.border_image_clip.lend().mem_size();
     total += r;
-    println!("    world::border_image_clip = {:?}", r);
+    log::info!("    world::border_image_clip = {:?}", r);
     let r = world.border_image_slice.lend().mem_size();
     total += r;
-    println!("    world::border_image_slice = {:?}", r);
+    log::info!("    world::border_image_slice = {:?}", r);
     let r = world.border_image_repeat.lend().mem_size();
     total += r;
-    println!("    world::border_image_repeat = {:?}", r);
+    log::info!("    world::border_image_repeat = {:?}", r);
     let r = world.text_style.lend().mem_size();
     total += r;
-    println!("    world::text_style = {:?}", r);
+    log::info!("    world::text_style = {:?}", r);
     let r = world.text_content.lend().mem_size();
     total += r;
-    println!("    world::text_content = {:?}", r);
+    log::info!("    world::text_content = {:?}", r);
     let r = world.font.lend().mem_size();
     total += r;
-    println!("    world::font = {:?}", r);
+    log::info!("    world::font = {:?}", r);
     let r = world.border_radius.lend().mem_size();
     total += r;
-    println!("    world::border_radius = {:?}", r);
+    log::info!("    world::border_radius = {:?}", r);
     let r = world.image.lend().mem_size();
     total += r;
-    println!("    world::image = {:?}", r);
+    log::info!("    world::image = {:?}", r);
     let r = world.image_clip.lend().mem_size();
     total += r;
-    println!("    world::image_clip = {:?}", r);
+    log::info!("    world::image_clip = {:?}", r);
     let r = world.object_fit.lend().mem_size();
     total += r;
-    println!("    world::object_fit = {:?}", r);
+    log::info!("    world::object_fit = {:?}", r);
     let r = world.filter.lend().mem_size();
     total += r;
-    println!("    world::filter = {:?}", r);
+    log::info!("    world::filter = {:?}", r);
     let r = world.rect_layout_style.lend().mem_size();
     total += r;
-	println!("    world::rect_layout_style = {:?}", r);
+	log::info!("    world::rect_layout_style = {:?}", r);
 	let r = world.other_layout_style.lend().mem_size();
     total += r;
-    println!("    world::other_layout_style = {:?}", r);
+    log::info!("    world::other_layout_style = {:?}", r);
     let r = world.class_name.lend().mem_size();
     total += r;
-    println!("    world::class_name = {:?}", r);
+    log::info!("    world::class_name = {:?}", r);
     let r = world.style_mark.lend().mem_size();
     total += r;
-    println!("    world::style_mark = {:?}", r);
+    log::info!("    world::style_mark = {:?}", r);
     let r = world.z_depth.lend().mem_size();
     total += r;
-    println!("world::z_depth = {:?}", r);
+    log::info!("world::z_depth = {:?}", r);
     let r = world.enable.lend().mem_size();
     total += r;
-    println!("    world::enable = {:?}", r);
+    log::info!("    world::enable = {:?}", r);
     let r = world.visibility.lend().mem_size();
     total += r;
-    println!("    world::visibility = {:?}", r);
+    log::info!("    world::visibility = {:?}", r);
     let r = world.world_matrix.lend().mem_size();
     total += r;
-    println!("    world::world_matrix = {:?}", r);
+    log::info!("    world::world_matrix = {:?}", r);
     let r = world.by_overflow.lend().mem_size();
     total += r;
-    println!("    world::by_overflow = {:?}", r);
+    log::info!("    world::by_overflow = {:?}", r);
     let r = world.copacity.lend().mem_size();
     total += r;
-    println!("    world::copacity = {:?}", r);
+    log::info!("    world::copacity = {:?}", r);
     let r = world.layout.lend().mem_size();
     total += r;
-    println!("    world::layout = {:?}", r);
+    log::info!("    world::layout = {:?}", r);
     let r = world.hsv.lend().mem_size();
     total += r;
-    println!("    world::hsv = {:?}", r);
+    log::info!("    world::hsv = {:?}", r);
     let r = world.culling.lend().mem_size();
     total += r;
-    println!("    world::culling = {:?}", r);
+    log::info!("    world::culling = {:?}", r);
     // let r = world.idtree.lend().mem_size();
     // total += r;
-    // println!("    world::idtree = {:?}", r);
+    // log::info!("    world::idtree = {:?}", r);
     let r = world.oct.lend().mem_size();
     total += r;
-    println!("    world::oct = {:?}", r);
+    log::info!("    world::oct = {:?}", r);
     let r = world.overflow_clip.lend().mem_size();
     total += r;
-    println!("    world::overflow_clip = {:?}", r);
+    log::info!("    world::overflow_clip = {:?}", r);
     let r = world.engine.lend().res_mgr.borrow().mem_size();
     total += r;
-    println!("    world::engine.resMap = {:?}", r);
+    log::info!("    world::engine.resMap = {:?}", r);
     let r = world.render_objs.lend().mem_size();
     total += r;
-    println!("    world::render_objs = {:?}", r);
+    log::info!("    world::render_objs = {:?}", r);
     let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
-    println!("    world::font_sheet = {:?}", r);
+    log::info!("    world::font_sheet = {:?}", r);
     let r = world.class_sheet.lend().borrow().mem_size();
     total += r;
-    println!("    world::class_sheet = {:?}", r);
+    log::info!("    world::class_sheet = {:?}", r);
     let r = world.image_wait_sheet.lend().mem_size();
     total += r;
-    println!("    world::image_wait_sheet = {:?}", r);
+    log::info!("    world::image_wait_sheet = {:?}", r);
 
     let engine = world.engine.lend_mut();
     let stat = engine.gl.render_get_stat();
 
     total += stat.slab_mem_size;
-    println!(
+    log::info!(
         "    world::engine::slab_mem_size = {:?}",
         stat.slab_mem_size
     );
 
     let total: f32 = total as f32;
-    println!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
-    println!("");
+    log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
+    log::info!("");
 
-    println!("    world::engine::rt_count = {:?}", stat.rt_count);
-    println!(
+    log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
+    log::info!(
         "    world::engine::texture_count = {:?}",
         stat.texture_count
     );
-    println!("    world::engine::buffer_count = {:?}", stat.buffer_count);
-    println!(
+    log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+    log::info!(
         "    world::engine::geometry_count = {:?}",
         stat.geometry_count
     );
-    println!(
+    log::info!(
         "    world::engine::program_count = {:?}",
         stat.program_count
     );
 
-    println!("print_memory end");
+    log::info!("print_memory end");
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -1695,52 +1695,52 @@ pub struct Layout{
 // 	for i in 0..count {
 // 		create_render_obj(default_state);
 // 	}
-// 	println!("create_render_obj: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj1(default_state);
 // 	}
-// 	println!("create_render_obj1: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj1: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj3(default_state);
 // 	}
-// 	println!("create_render_obj3: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj3: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj4(default_state);
 // 	}
-// 	println!("create_render_obj4: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj4: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj5(default_state);
 // 	}
-// 	println!("create_render_obj5: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj5: {:?}", std::time::Instant::now() - time);
 
 // 	let mut m = map::vecmap::VecMap::default();
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj6(&mut m, 2, render_objs, default_state);
 // 	}
-// 	println!("create_render_obj6: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj6: {:?}", std::time::Instant::now() - time);
 
 // 	let mut m = map::vecmap::VecMap::default();
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj7(&mut m, 2, render_objs, default_state);
 // 	}
-// 	println!("create_render_obj7: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj7: {:?}", std::time::Instant::now() - time);
 
 // 	let p: share::Share<dyn hal_core::ProgramParamter> = share::Share::new(ImageParamter::default());
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj13(&mut m, 2, render_objs, default_state, &p);
 // 	}
-// 	println!("create_render_obj13: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj13: {:?}", std::time::Instant::now() - time);
 
 // 	let read = (world.copacity.lend(), world.visibility.lend(), world.hsv.lend(), world.z_depth.lend(), world.culling.lend());
 // 	let render_objs = world.world.fetch_single::<gui::single::RenderObjs>().unwrap();
@@ -1754,31 +1754,31 @@ pub struct Layout{
 // 	for i in 0..count {
 // 		render_objs_create8((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
 // 	}
-// 	println!("create_render_obj8: {:?}", std::time::Instant::now() - time);
+// 	log::info!("create_render_obj8: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		render_objs_create9((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
 // 	}
-// 	println!("render_objs_create9: {:?}", std::time::Instant::now() - time);
+// 	log::info!("render_objs_create9: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		render_objs_create10((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
 // 	}
-// 	println!("render_objs_create10: {:?}", std::time::Instant::now() - time);
+// 	log::info!("render_objs_create10: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		render_objs_create11((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
 // 	}
-// 	println!("render_objs_create11: {:?}", std::time::Instant::now() - time);
+// 	log::info!("render_objs_create11: {:?}", std::time::Instant::now() - time);
 
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		render_objs_create12((read.0, read.1, read.2, read.3, read.4), (write.0, write.1), &v, &p);
 // 	}
-// 	println!("render_objs_create12: {:?}", std::time::Instant::now() - time);
+// 	log::info!("render_objs_create12: {:?}", std::time::Instant::now() - time);
 
 // }
 
@@ -1982,7 +1982,7 @@ pub struct Layout{
 // 	let z_depth = unsafe { z_depths.get_unchecked(render_obj.context) }.0;
 // 	let opacity = unsafe { opacitys.get_unchecked(render_obj.context) }.0;
 // 	paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
-// 	println!("id: {}, alpha: {:?}", render_obj.context, opacity);
+// 	log::info!("id: {}, alpha: {:?}", render_obj.context, opacity);
 
 // 	let visibility = unsafe { visibilitys.get_unchecked(render_obj.context) }.0;
 // 	let culling = unsafe { cullings.get_unchecked(render_obj.context) }.0;

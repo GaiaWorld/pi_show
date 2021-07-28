@@ -11,7 +11,8 @@ use std::default::Default;
 use std::ops::{Index, IndexMut};
 
 use atom::Atom;
-use cgmath::Ortho;
+// use cgmath::Ortho;
+use nalgebra::Orthographic3;
 use ecs::monitor::NotifyImpl;
 use ecs::Write;
 use hal_core::*;
@@ -19,18 +20,16 @@ use hash::XHashMap;
 use map::vecmap::VecMap;
 use slab::Slab;
 
-use component::calc::{ClipBox, WorldMatrix};
-use component::user::*;
-
-use render::res::*;
-
-pub use single::class::*;
-pub use single::oct::Oct;
+use crate::component::calc::{ClipBox, WorldMatrix};
+use crate::component::user::*;
+use crate::render::res::*;
+pub use crate::single::class::*;
+pub use crate::single::oct::Oct;
 
 pub struct OverflowClip {
     pub id_map: XHashMap<usize, usize>,
     pub clip: Slab<Clip>, //[[Point2;4];16], //Vec<(clip_view, has_rotate, old_has_rotate)> 最多32个
-    pub clip_map: XHashMap<usize, (Aabb3, Share<dyn UniformBuffer>)>,
+    pub clip_map: XHashMap<usize, (Aabb2, Share<dyn UniformBuffer>)>,
     // pub id_vec: [usize;16],
     // pub clip: [[Point2;4];16],
 }
@@ -49,16 +48,16 @@ impl OverflowClip {
             + self.clip.mem_size()
             + self.clip_map.capacity()
                 * (std::mem::size_of::<usize>()
-                    + std::mem::size_of::<(Aabb3, Share<dyn UniformBuffer>)>())
+                    + std::mem::size_of::<(Aabb2, Share<dyn UniformBuffer>)>())
     }
     pub fn insert_aabb(
         &mut self,
         key: usize,
-        value: Aabb3,
+        value: Aabb2,
         view_matrix: &WorldMatrix,
-    ) -> &(Aabb3, Share<dyn UniformBuffer>) {
-        let min = view_matrix * Vector4::new(value.min.x, value.min.y, 0.0, 0.0);
-        let max = view_matrix * Vector4::new(value.max.x, value.max.y, 0.0, 0.0);
+    ) -> &(Aabb2, Share<dyn UniformBuffer>) {
+        let min = view_matrix * Vector4::new(value.mins.x, value.mins.y, 0.0, 0.0);
+        let max = view_matrix * Vector4::new(value.maxs.x, value.maxs.y, 0.0, 0.0);
         let (w, h) = ((max.x - min.x) / 2.0, (max.y - min.y) / 2.0);
         let ubo = ClipBox::new(UniformValue::Float4(min.x + w, min.y + h, w, h));
 
@@ -86,9 +85,9 @@ impl Default for OverflowClip {
         };
         r.insert_aabb(
             0,
-            Aabb3::new(
-                Point3::new(std::f32::MIN, std::f32::MIN, 0.0),
-                Point3::new(std::f32::MAX, std::f32::MAX, 0.0),
+            Aabb2::new(
+                Point2::new(std::f32::MIN, std::f32::MIN),
+                Point2::new(std::f32::MAX, std::f32::MAX),
             ),
             &WorldMatrix::default(),
         );
@@ -104,15 +103,8 @@ pub struct ProjectionMatrix(pub WorldMatrix);
 
 impl ProjectionMatrix {
     pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix {
-        let ortho = Ortho {
-            left: 0.0,
-            right: width,
-            bottom: height,
-            top: 0.0,
-            near: near,
-            far: far,
-        };
-        ProjectionMatrix(WorldMatrix(Matrix4::from(ortho), false))
+        let ortho = Orthographic3::new(0.0, width, height, 0.0, near, far);
+		ProjectionMatrix(WorldMatrix(Matrix4::from(ortho), false))
     }
 }
 

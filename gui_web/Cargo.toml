@@ -27,8 +27,9 @@ cross_performance = { path = "../../pi_lib/cross_performance", features=["wasm-b
 
 cg2d = { path = "../../pi_math/cg2d"}
 color = { path = "../../pi_math/color"}
-cgmath = { path = "../../pi_math/cgmath"}
-octree = { path = "../../pi_math/octree"}
+# cgmath = { path = "../../pi_math/cgmath"}
+# octree = { path = "../../pi_math/octree"}
+spatialtree = { path = "../../pi_math/spatialtree"}
 # cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
 # color = { git = "https://github.com/GaiaWorld/pi_math.git"}
 # cgmath = { git = "https://github.com/GaiaWorld/pi_math.git"}
@@ -52,6 +53,7 @@ serde = { version = "1.0", features = ["derive"]}
 paste = "0.1"
 ordered-float = "1.0"
 log = "*"
+nalgebra = "0.24.0"
 
 [dependencies.web-sys]
 version = "*"

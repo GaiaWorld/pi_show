@@ -1,25 +1,25 @@
-use cg2d::{BooleanOperation, Point2, Polygon as Polygon2d};
-use component::calc::{Opacity, LayoutR};
-use component::calc::*;
-use component::user::*;
+use std::marker::PhantomData;
+use std::slice;
+
+use cg2d::{BooleanOperation, Polygon as Polygon2d};
+use nalgebra::Point2;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
-use entity::Node;
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
 use polygon::*;
-use render::engine::{AttributeDecs, Engine, ShareEngine};
-use render::res::GeometryRes;
-/**
- * 阴影渲染对象的构建及其属性设置
-	*/
 use share::Share;
-use single::*;
-use std::marker::PhantomData;
-use std::slice;
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
-use system::util::*;
+
+use crate::single::*;
+use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use crate::system::util::*;
+use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::res::GeometryRes;
+use crate::entity::Node;
+use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::*;
+use crate::component::user::*;
 
 const DITY_TYPE: usize = StyleType::BoxShadow as usize
             | StyleType::Matrix as usize
@@ -255,23 +255,23 @@ fn create_shadow_geo<C: HalContext + 'static>(
 ) -> Option<Share<GeometryRes>> {
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
-    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
         return None;
     }
 
-    let x = g_b.min.x;
-    let y = g_b.min.y;
-    let w = g_b.max.x - g_b.min.x;
-    let h = g_b.max.y - g_b.min.y;
+    let x = g_b.mins.x;
+    let y = g_b.mins.y;
+    let w = g_b.maxs.x - g_b.mins.x;
+    let h = g_b.maxs.y - g_b.mins.y;
     let bg = split_by_radius(x, y, w, h, radius.x, Some(16));
     if bg.0.len() == 0 {
         return None;
     }
 
-    let x = g_b.min.x + shadow.h - shadow.spread - shadow.blur;
-    let y = g_b.min.y + shadow.v - shadow.spread - shadow.blur;
-    let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread + 2.0 * shadow.blur;
-    let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread + 2.0 * shadow.blur;
+    let x = g_b.mins.x + shadow.h - shadow.spread - shadow.blur;
+    let y = g_b.mins.y + shadow.v - shadow.spread - shadow.blur;
+    let w = g_b.maxs.x - g_b.mins.x + 2.0 * shadow.spread + 2.0 * shadow.blur;
+    let h = g_b.maxs.y - g_b.mins.y + 2.0 * shadow.spread + 2.0 * shadow.blur;
     let shadow_pts = split_by_radius(x, y, w, h, radius.x, Some(16));
     if shadow_pts.0.len() == 0 {
         return None;
@@ -311,10 +311,10 @@ fn create_shadow_geo<C: HalContext + 'static>(
         render_obj.vs_defines.add("BOX_SHADOW_BLUR");
         render_obj.fs_defines.add("BOX_SHADOW_BLUR");
 
-        let x = g_b.min.x + shadow.h - shadow.spread;
-        let y = g_b.min.y + shadow.v - shadow.spread;
-        let w = g_b.max.x - g_b.min.x + 2.0 * shadow.spread;
-        let h = g_b.max.y - g_b.min.y + 2.0 * shadow.spread;
+        let x = g_b.mins.x + shadow.h - shadow.spread;
+        let y = g_b.mins.y + shadow.v - shadow.spread;
+        let w = g_b.maxs.x - g_b.mins.x + 2.0 * shadow.spread;
+        let h = g_b.maxs.y - g_b.mins.y + 2.0 * shadow.spread;
         render_obj
             .paramter
             .as_ref()

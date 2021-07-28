@@ -10,7 +10,7 @@ use gui::single::{IdTree};
 use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
-use octree::intersects;
+use spatialtree::quad_helper::intersects;
 
 // use share::Share;
 use gui::component::calc::*;
@@ -549,7 +549,7 @@ pub fn offset_document(world: u32, node_id: u32) -> JsValue {
     let octs = world.oct.lend();
     // debug_println!("oct====================={:?}, {:?}", node_id, oct);
     match octs.get(node_id) {
-        Some((oct, _)) => JsValue::from_serde(&Rect{left: oct.min.x, top: oct.min.y, width: oct.max.x - oct.min.x, height: oct.max.y - oct.min.y}).unwrap() ,
+        Some((oct, _)) => JsValue::from_serde(&Rect{left: oct.mins.x, top: oct.mins.y, width: oct.maxs.x - oct.mins.x, height: oct.maxs.y - oct.mins.y}).unwrap() ,
         None => JsValue::from_serde(&Rect{left: 0.0, top: 0.0, width: 0.0, height: 0.0}).unwrap(),
     }
 
@@ -629,7 +629,7 @@ pub fn query(world: u32, x: f32, y: f32) -> u32 {
     let z_depths = world.z_depth.lend();
     let idtree = world.idtree.lend();
 
-    let aabb = Aabb3::new(Point3::new(x, y, -Z_MAX), Point3::new(x, y, Z_MAX));
+    let aabb = Aabb2::new(Point2::new(x, y), Point2::new(x, y));
     let mut args = AbQueryArgs::new(
         enables,
         by_overflows,
@@ -652,7 +652,7 @@ pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
 
     let octree = world.oct.lend();
     match octree.get(node as usize) {
-        Some((oct, _bind)) => !(x < oct.min.x || x > oct.max.x || y < oct.min.y || y > oct.max.y),
+        Some((oct, _bind)) => !(x < oct.mins.x || x > oct.maxs.x || y < oct.mins.y || y > oct.maxs.y),
         None => false,
     }
     // let octree = world.oct.lend();
@@ -662,7 +662,7 @@ pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
     // let z_depths = world.z_depth.lend();
     // let idtree = world.idtree.lend();
 
-    // let aabb = Aabb3::new(Point3::new(x, y, -Z_MAX), Point3::new(x, y, Z_MAX));
+    // let aabb = Aabb3::new(Point2::new(x, y, -Z_MAX), Point2::new(x, y, Z_MAX));
     // let mut args = AbQueryArgs::new(
     //     enables,
     //     by_overflows,
@@ -690,7 +690,7 @@ pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
     let z_depths = world.z_depth.lend();
     let idtree = world.idtree.lend();
 
-    let aabb = Aabb3::new(Point3::new(x, y, -Z_MAX), Point3::new(x, y, Z_MAX));
+    let aabb = Aabb2::new(Point2::new(x, y), Point2::new(x, y));
     let mut args = AbQueryArgs::new(
         enables,
         by_overflows,
@@ -790,7 +790,7 @@ struct AbQueryArgs<'a> {
     z_depths: &'a MultiCaseImpl<Node, ZDepth>,
     overflow_clip: &'a SingleCaseImpl<OverflowClip>,
     id_tree: &'a SingleCaseImpl<IdTree>,
-    aabb: Aabb3,
+    aabb: Aabb2,
     ev_type: u32,
     max_z: f32,
     result: usize,
@@ -802,7 +802,7 @@ impl<'a> AbQueryArgs<'a> {
         z_depths: &'a MultiCaseImpl<Node, ZDepth>,
         overflow_clip: &'a SingleCaseImpl<OverflowClip>,
         id_tree: &'a SingleCaseImpl<IdTree>,
-        aabb: Aabb3,
+        aabb: Aabb2,
         ev_type: u32,
     ) -> AbQueryArgs<'a> {
         AbQueryArgs {
@@ -819,7 +819,7 @@ impl<'a> AbQueryArgs<'a> {
     }
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
-fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) {
+fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb2, bind: &usize) {
     match arg.id_tree.get(*bind) {
         Some(node) => {
             if node.layer() == 0 {
@@ -828,13 +828,11 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
         }
         None => return,
     };
-    // println!("ab_query_func----------------------------bind: {}, aabb: {:?}, arg: {:?}", *bind, aabb, arg.aabb);
+    // log::info!("ab_query_func----------------------------bind: {}, aabb: {:?}, arg: {:?}", *bind, aabb, arg.aabb);
     if intersects(&arg.aabb, aabb) {
-        // debug_println!("bind----------------------------{}", *bind);
 		let enable = arg.enables[*bind].0;
 		let z_depth = arg.z_depths[*bind].0;
-        // println!("enable----------------------------{}, bind:{}", enable, bind);
-        // println!("enable----------id: {}, enable: {}, z_depth: {}, max_z: {}", bind, enable, z_depth,  arg.max_z);
+        // log::info!("enable----------id: {}, enable: {}, z_depth: {}, max_z: {}", bind, enable, z_depth,  arg.max_z);
         //如果enable true 表示不接收事件
         match enable {
             true => (),
@@ -842,24 +840,21 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb3, bind: &usize) 
         };
 
         
-        // println!("z_depth----------id: {}, z_depth: {}, arg.max_z:{}", bind, z_depth, arg.max_z);
-        // debug_println!("----------------------------z_depth: {}, arg.max_z: {}", z_depth, arg.max_z);
+        // log::info!("z_depth----------id: {}, z_depth: {}, arg.max_z:{}", bind, z_depth, arg.max_z);
         // 取最大z的node
         if z_depth > arg.max_z {
             let by_overflow = arg.by_overflows[*bind].0;
-			//   println!("by_overflow1---------------------------bind: {},  by: {}, clip: {:?}, id_vec: {:?}, x: {}, y: {}", bind, by_overflow, &arg.overflow_clip.clip, &arg.overflow_clip.id_vec, arg.aabb.min.x, arg.aabb.min.y);
-			// println!("in_overflow1------------------by: {}, bind: {}, ", by_overflow, bind);
+			//   log::info!("by_overflow1---------------------------bind: {},  by: {}, clip: {:?}, x: {}, y: {}", bind, by_overflow, &arg.overflow_clip.clip, arg.aabb.mins.x, arg.aabb.mins.y);
             // 检查是否有裁剪，及是否在裁剪范围内
             if by_overflow == 0
                 || in_overflow(
                     &arg.overflow_clip,
                     by_overflow,
-                    arg.aabb.min.x,
-                    arg.aabb.min.y,
+                    arg.aabb.mins.x,
+                    arg.aabb.mins.y,
                 )
             {
-                // println!("in_overflow------------------by: {}, bind: {}, ", by_overflow, bind);
-                // println!("result----------id: {}", bind);
+                // log::info!("in_overflow------------------by: {}, bind: {}, ", by_overflow, bind);
                 arg.result = *bind;
                 arg.max_z = z_depth;
             }
@@ -887,14 +882,13 @@ fn in_overflow(
 ) -> bool {
     let xy = Point2::new(x, y);
     for (i, c) in overflow_clip.clip.iter() {
-        // debug_println!("i + 1---------------------------{}",i + 1);
-        // debug_println!("overflow_clip.id_vec[i]---------------------------{}",overflow_clip.id_vec[i]);
+        // log::info!("i + 1---------------------------{}",i + 1);
         if (by_overflow & (1 << (i - 1))) != 0 {
             let p = &c.view;
             match include_quad2(&xy, &p[0], &p[1], &p[2], &p[3]) {
                 InnOuter::Inner => (),
                 _ => {
-                    // println!("overflow----------clip: {:?},x: {}, y: {}", p[0], x, y);
+                    // log::info!("overflow----------clip: {:?}, {:?}, {:?}, {:?},x: {}, y: {}", p[0],  p[1],  p[2], p[3], x, y);
                     return false;
                 }
             }

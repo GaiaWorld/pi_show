@@ -1,16 +1,17 @@
+/// 字体表， 管理字体的几何信息和图像信息
+use std::{collections::hash_map::Entry, default::Default, str::Chars};
 
 use data_view::GetView;
 use share::Share;
 use slab::Slab;
-/// 字体表， 管理字体的几何信息和图像信息
-use std::{collections::hash_map::Entry, default::Default, str::Chars};
 use ucd::Codepoint;
-
-use render::res::TextureRes;
-
-use component::user::*;
-use font::font_tex::*;
 use hash::XHashMap;
+
+use crate::render::res::TextureRes;
+
+use crate::component::user::*;
+use crate::font::font_tex::*;
+
 
 // 默认字体尺寸
 pub const FONT_SIZE: f32 = 32.0;
@@ -282,7 +283,6 @@ impl FontSheet {
 					
 					let ww = w.ceil();
 					let hh = height.ceil();
-					// unsafe {web_sys::console::log_5(&"height:".to_string().into(), &height.into(), &font.factor_b.into(), &(font_size as f32).into(), &font.factor_t.into())}
 						
                     let mut line = self.font_tex.alloc_line(hh as usize);
                     let p = line.alloc(ww);

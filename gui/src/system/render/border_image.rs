@@ -14,15 +14,15 @@ use map::vecmap::VecMap;
 use map::Map;
 use share::Share;
 
-use component::calc::{Opacity, LayoutR};
-use component::calc::*;
-use component::user::*;
-use entity::Node;
-use render::engine::{AttributeDecs, Engine, ShareEngine};
-use render::res::{GeometryRes, Opacity as ROpacity, SamplerRes};
-use single::*;
-use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
-use system::util::*;
+use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::*;
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::res::{GeometryRes, Opacity as ROpacity, SamplerRes};
+use crate::single::*;
+use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use crate::system::util::*;
 
 // 本系统关心的脏
 const DIRTY_TY: usize = StyleType::Matrix as usize
@@ -324,7 +324,7 @@ fn geo_hash(
     BORDER_IMAGE.hash(&mut hasher);
     img.0.url.hash(&mut hasher);
     match clip {
-        Some(r) => f32_4_hash_(r.min.x, r.min.y, r.max.x, r.max.y, &mut hasher),
+        Some(r) => f32_4_hash_(r.mins.x, r.mins.y, r.maxs.x, r.maxs.y, &mut hasher),
         None => 0.hash(&mut hasher),
     };
     match slice {
@@ -360,7 +360,7 @@ fn get_border_image_stream(
 ) -> (Polygon, Polygon, Vec<u16>) {
     let src = &img.0.src.as_ref().unwrap();
     let (uv1, uv2) = match clip {
-        Some(c) => (c.min, c.max),
+        Some(c) => (c.mins, c.maxs),
         _ => (Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
 	};
 	let width = layout.rect.end - layout.rect.start;

@@ -1,4 +1,3 @@
-#![feature(link_args)]
 
 extern crate wasm_bindgen;
 extern crate bincode;

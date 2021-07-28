@@ -1,11 +1,11 @@
 /// 中间计算的组件
 use std::ops::{Deref, DerefMut, Mul};
 
-use cgmath::prelude::SquareMatrix;
 use densevec::DenseVecMap;
 use ecs::component::Component;
 use map::vecmap::VecMap;
 use share::Share;
+use nalgebra::Matrix4;
 
 use hal_core::*;
 
@@ -14,7 +14,7 @@ use super::user::*;
 use res::Res;
 use flex_layout::*;
 
-use util::vecmap_default::VecMapWithDefault;
+use crate::util::vecmap_default::VecMapWithDefault;
 
 // // 布局计算结果
 // #[derive(Clone, Debug, Default, Component, PartialEq)]
@@ -37,7 +37,7 @@ use util::vecmap_default::VecMapWithDefault;
 #[derive(Component)]
 pub struct RenderContext{
 	pub size: (usize, usize), // 大小、尺寸
-	pub content_box: Aabb3, // 内容的最大包围盒
+	pub content_box: Aabb2, // 内容的最大包围盒
 	pub view_matrix: WorldMatrix,
 	pub projection_matrix: WorldMatrix,
 	pub render_objs: Vec<usize>, // 节点本身的渲染对象
@@ -78,7 +78,7 @@ pub struct ByOverflow(pub usize);
 // 世界矩阵，  WorldMatrix(矩阵, 矩阵描述的变换是存在旋转变换)， 如果不存在旋转变换， 可以简化矩阵的乘法
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 #[storage(VecMapWithDefault)]
-pub struct WorldMatrix(pub Matrix4, pub bool);
+pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 
 //是否可见,
 #[derive(Deref, DerefMut, Component, Clone, Debug, Default)]
@@ -333,7 +333,7 @@ impl Default for Enable {
 }
 
 impl Deref for WorldMatrix {
-    type Target = Matrix4;
+    type Target = Matrix4<f32>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
@@ -348,31 +348,31 @@ impl DerefMut for WorldMatrix {
 impl<'a, 'b> Mul<&'a WorldMatrix> for &'b WorldMatrix {
     type Output = WorldMatrix;
     fn mul(self, other: &'a WorldMatrix) -> Self::Output {
-        if self.1 == false && other.1 == false {
-            WorldMatrix(
-                Matrix4::new(
-                    self.x.x * other.x.x,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    self.y.y * other.y.y,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    self.w.x + (other.w.x * self.x.x),
-                    self.w.y + (other.w.y * self.y.y),
-                    0.0,
-                    1.0,
-                ),
-                false,
-            )
-        } else {
+        // if self.1 == false && other.1 == false {
+        //     WorldMatrix(
+        //         Matrix4::new(
+        //             self.x.x * other.x.x,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             self.y.y * other.y.y,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             1.0,
+        //             0.0,
+        //             self.w.x + (other.w.x * self.x.x),
+        //             self.w.y + (other.w.y * self.y.y),
+        //             0.0,
+        //             1.0,
+        //         ),
+        //         false,
+        //     )
+        // } else {
             WorldMatrix(self.0 * other.0, true)
-        }
+        // }
     }
 }
 
@@ -380,15 +380,15 @@ impl<'a> Mul<&'a WorldMatrix> for WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(mut self, other: &'a WorldMatrix) -> Self::Output {
-        if self.1 == false && other.1 == false {
-            self.x.x = self.x.x * other.x.x;
-            self.y.y = self.y.y * other.y.y;
-            self.w.x = self.w.x + (other.w.x * self.x.x);
-            self.w.y = self.w.y + (other.w.y * self.y.y);
-            self
-        } else {
+        // if self.1 == false && other.1 == false {
+        //     self.x.x = self.x.x * other.x.x;
+        //     self.y.y = self.y.y * other.y.y;
+        //     self.w.x = self.w.x + (other.w.x * self.x.x);
+        //     self.w.y = self.w.y + (other.w.y * self.y.y);
+        //     self
+        // } else {
             WorldMatrix(self.0 * other.0, true)
-        }
+        // }
     }
 }
 
@@ -396,15 +396,15 @@ impl<'a> Mul<WorldMatrix> for &'a WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(self, mut other: WorldMatrix) -> Self::Output {
-        if self.1 == false && other.1 == false {
-            other.x.x = self.x.x * other.x.x;
-            other.y.y = self.y.y * other.y.y;
-            other.w.x = self.w.x + (other.w.x * self.x.x);
-            other.w.y = self.w.y + (other.w.y * self.y.y);
-            other
-        } else {
+        // if self.1 == false && other.1 == false {
+        //     other.x.x = self.x.x * other.x.x;
+        //     other.y.y = self.y.y * other.y.y;
+        //     other.w.x = self.w.x + (other.w.x * self.x.x);
+        //     other.w.y = self.w.y + (other.w.y * self.y.y);
+        //     other
+        // } else {
             WorldMatrix(self.0 * other.0, true)
-        }
+        // }
     }
 }
 
@@ -412,78 +412,89 @@ impl Mul<WorldMatrix> for WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(self, mut other: WorldMatrix) -> Self::Output {
-        if self.1 == false && other.1 == false {
-            other.x.x = self.x.x * other.x.x;
-            other.y.y = self.y.y * other.y.y;
-            other.w.x = self.w.x + (other.w.x * self.x.x);
-            other.w.y = self.w.y + (other.w.y * self.y.y);
-            other
-        } else {
+        // if self.1 == false && other.1 == false {
+        //     other.x.x = self.x.x * other.x.x;
+        //     other.y.y = self.y.y * other.y.y;
+        //     other.w.x = self.w.x + (other.w.x * self.x.x);
+        //     other.w.y = self.w.y + (other.w.y * self.y.y);
+        //     other
+        // } else {
             WorldMatrix(self.0 * other.0, true)
-        }
+        // }
     }
 }
 
 impl<'a> Mul<&'a Vector4> for WorldMatrix {
     type Output = Vector4;
     fn mul(self, other: &'a Vector4) -> Vector4 {
-        if self.1 == false {
-            Vector4::new(
-                other.x * self.x.x + self.w.x,
-                other.y * self.y.y + self.w.y,
-                other.z * self.z.z + self.w.z,
-                other.w,
-            )
-        } else {
+        // if self.1 == false {
+        //     Vector4::new(
+        //         other.x * self.x.x + self.w.x,
+        //         other.y * self.y.y + self.w.y,
+        //         other.z * self.z.z + self.w.z,
+        //         other.w,
+        //     )
+        // } else {
             self.0 * other
-        }
+        // }
     }
 }
 
 impl<'a> Mul<Vector4> for &'a WorldMatrix {
     type Output = Vector4;
     fn mul(self, mut other: Vector4) -> Vector4 {
-        if self.1 == false {
-            other.x = other.x * self.x.x + self.w.x;
-            other.y = other.y * self.y.y + self.w.y;
-            other.z = other.z * self.z.z + self.w.z;
-            other
-        } else {
+        // if self.1 == false {
+        //     other.x = other.x * self.x.x + self.w.x;
+        //     other.y = other.y * self.y.y + self.w.y;
+        //     other.z = other.z * self.z.z + self.w.z;
+        //     other
+        // } else {
             self.0 * other
-        }
+        // }
     }
 }
 
 impl WorldMatrix {
     pub fn invert(&self) -> Option<Self> {
-        if !self.1 {
-            Some(Self(
-                Matrix4::new(
-                    1.0 / self.x.x,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0 / self.y.y,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0 / self.z.z,
-                    0.0,
-                    -self.w.x / self.x.x,
-                    -self.w.y / self.y.y,
-                    -self.w.z / self.z.z,
-                    1.0,
-                ),
-                false,
-            ))
-        } else {
-            match self.0.invert() {
-                Some(r) => Some(Self(r, true)),
-                None => None,
-            }
-        }
+		// None   // TODO!!!!!!!!!!!!
+        // if !self.1 {
+        //     Some(Self(
+        //         Matrix4::new(
+        //             1.0 / self.x.x,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             1.0 / self.y.y,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             0.0,
+        //             1.0 / self.z.z,
+        //             0.0,
+        //             -self.w.x / self.x.x,
+        //             -self.w.y / self.y.y,
+        //             -self.w.z / self.z.z,
+        //             1.0,
+        //         ),
+        //         false,
+        //     ))
+        // } else {
+			// Matrix4::new(
+			// 	1.0, 0.0, 0.0,0.0,
+			// 	0.0, 1.0, 0.0,0.0,
+			// 	0.0, 0.0, 1.0,0.0,
+			// 	0.0, 0.0, 0.0,1.0,
+			// )/self.0
+            // match self.0.invert() {
+            //     Some(r) => Some(Self(r, true)),
+            //     None => None,
+            // }
+        // }
+		match self.0.try_inverse() {
+			Some(r) => Some(Self(r, self.1)),
+			None => None,
+		}
     }
 }
 

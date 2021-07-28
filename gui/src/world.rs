@@ -2,29 +2,28 @@ use std::{default::Default, marker::PhantomData};
 use std::sync::Arc;
 
 use atom::Atom;
-use cgmath::One;
 use hal_core::*;
 
-use single::IdTree;
+use crate::single::IdTree;
 use ecs::*;
 use ecs::StdCell;
 use res::ResMgr;
 use share::Share;
 
-use component::calc;
-use component::{calc::*, calc::LayoutR};
-use component::user;
-use component::user::*;
-use component::user::Overflow;
-use entity::Node;
-use font::font_sheet::FontSheet;
-use render::engine::ShareEngine;
-use render::res::*;
-use single::*;
-use single::DirtyViewRect;
-use system::util::constant::*;
-use system::*;
-use Z_MAX;
+use crate::component::calc;
+use crate::component::{calc::*, calc::LayoutR};
+use crate::component::user;
+use crate::component::user::*;
+use crate::component::user::Overflow;
+use crate::entity::Node;
+use crate::font::font_sheet::FontSheet;
+use crate::render::engine::ShareEngine;
+use crate::render::res::*;
+use crate::single::*;
+use crate::single::DirtyViewRect;
+use crate::system::util::constant::*;
+use crate::system::*;
+use crate::Z_MAX;
 
 lazy_static! {
     pub static ref RENDER_DISPATCH: Atom = Atom::from("render_dispatch");
@@ -234,7 +233,7 @@ pub fn create_world<C: HalContext + 'static>(
 		None => world.register_single::<Share<StdCell<FontSheet>>>(Share::new(StdCell::new(FontSheet::new(font_texture, font_measure)))),
 	}
     
-    world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::one(), false)));
+    world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0,1.0,1.0)), false)));
     world.register_single::<ProjectionMatrix>(ProjectionMatrix::new(
         width,
         height,

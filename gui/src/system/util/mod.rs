@@ -12,13 +12,13 @@ use ecs::{MultiCaseImpl, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 
-use component::{calc::*, calc::LayoutR};
-use component::user::*;
-use entity::Node;
-use render::engine::Engine;
-use single::*;
-use system::util::constant::*;
-use Z_MAX;
+use crate::component::{calc::*, calc::LayoutR};
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::Engine;
+use crate::single::*;
+use crate::system::util::constant::*;
+use crate::Z_MAX;
 
 lazy_static! {
     // 四边形几何体的hash值
@@ -42,7 +42,7 @@ pub fn cal_matrix(
 	let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
 
     if origin.x != 0.0 || origin.y != 0.0 {
-        return world_matrix.0 * Matrix4::from_translation(Vector3::new(-origin.x, -origin.y, 0.0));
+        return world_matrix.0 * Matrix4::new_translation(&Vector3::new(-origin.x, -origin.y, 0.0));
     }
 
     world_matrix.0.clone()
@@ -59,16 +59,16 @@ pub trait DefinesClip {
 
 pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> Point2 {
     match border_radius {
-        Some(border_radius) => Point2 {
-            x: match border_radius.x {
-                LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
-            },
-            y: match border_radius.y {
-                LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
-            },
-        },
+        Some(border_radius) => Point2::new(
+			match border_radius.x {
+				LengthUnit::Pixel(r) => r,
+				LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
+			},
+			match border_radius.y {
+				LengthUnit::Pixel(r) => r,
+				LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
+			}
+		),
         None => Point2::new(0.0, 0.0),
     }
 }
@@ -148,28 +148,16 @@ pub fn create_unit_offset_matrix(
 
     let matrix = matrix
         * WorldMatrix(
-            Matrix4::new(
-                width,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                height,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                1.0,
-                0.0,
-                -origin.x + h,
-                -origin.y + v,
-                0.0,
-                1.0,
+			Matrix4::new(
+				width,0.0,0.0,-origin.x + h,
+                0.0,height,0.0,-origin.y + v,
+                0.0,0.0,1.0,0.0,
+                0.0,0.0,0.0,1.0,
             ),
             false,
         );
-    let slice: &[f32; 16] = matrix.as_ref();
-    let mut arr = Vec::from(&slice[..]);
+    let slice: &[f32] = matrix.as_slice();
+    let mut arr = Vec::from(slice);
     arr[14] = depth;
     return arr;
 }
@@ -189,34 +177,19 @@ pub fn create_let_top_offset_matrix(
 
     let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
-        let slice: &[f32; 16] = matrix.as_ref();
-        let mut arr = Vec::from(&slice[..]);
+        let slice: &[f32] = matrix.as_slice();
+        let mut arr = Vec::from(slice);
         arr[14] = depth;
         return arr;
     } else {
         let matrix = matrix
             * WorldMatrix(
-                Matrix4::new(
-                    1.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    0.0,
-                    -origin.x + h,
+				Matrix4::new_translation(&Vector3::new(-origin.x + h,
                     -origin.y + v,
-                    0.0,
-                    1.0,
-                ),
+                    0.0)),
                 false,
             );
-        let slice: &[f32; 16] = matrix.as_ref();
+        let slice: &[f32] = matrix.as_slice();
         let mut arr = Vec::from(&slice[..]);
         arr[14] = depth;
         return arr;

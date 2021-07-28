@@ -17,17 +17,17 @@ use map::vecmap::VecMap;
 use map::Map;
 use polygon::*;
 
-use component::calc::{Opacity, LayoutR};
-use component::calc::*;
-use component::user::*;
-use entity::Node;
-use render::engine::{AttributeDecs, Engine, ShareEngine};
-use render::res::Opacity as ROpacity;
-use render::res::*;
-use single::*;
-use system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
-use system::util::constant::*;
-use system::util::*;
+use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::*;
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::res::Opacity as ROpacity;
+use crate::render::res::*;
+use crate::single::*;
+use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use crate::system::util::constant::*;
+use crate::system::util::*;
 
 lazy_static! {
     static ref UV: Atom = Atom::from("UV");
@@ -192,7 +192,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 let mut has_radius = false;
                 let g_b = geo_box(layout);
 
-                if radius.x > g_b.min.x && pos.min.x < radius.x && pos.min.y < radius.x {
+                if radius.x > g_b.mins.x && pos.mins.x < radius.x && pos.mins.y < radius.x {
                     has_radius = true;
 				}
                 modify_matrix(
@@ -333,7 +333,7 @@ fn update_geo<C: HalContext + 'static>(
         None => false,
     };
     //flip_y为true时，暂时不支持圆角
-    if !flip_y && radius.x > g_b.min.x && pos.min.x < radius.x && pos.min.y < radius.x {
+    if !flip_y && radius.x > g_b.mins.x && pos.mins.x < radius.x && pos.mins.y < radius.x {
         use_layout_pos(render_obj, uv, layout, &radius, engine); // 有圆角
         (true, pos)
     } else {
@@ -365,11 +365,11 @@ fn update_geo_quad<C: HalContext + 'static>(
                     //     Point2::new(uv.max.x, uv.min.y)
                     // );
                     (
-                        Point2::new(uv.min.x, uv.max.y),
-                        Point2::new(uv.max.x, uv.min.y),
+                        Point2::new(uv.mins.x, uv.maxs.y),
+                        Point2::new(uv.maxs.x, uv.mins.y),
                     )
                 }
-                false => (uv.min, uv.max),
+                false => (uv.mins, uv.maxs),
 			};
             let uv_hash = cal_uv_hash(&uv1, &uv2);
             let geo_hash = unit_geo_hash(&uv_hash);
@@ -470,8 +470,8 @@ fn modify_matrix(
         );
     } else {
         let arr = create_unit_offset_matrix(
-            pos.max.x - pos.min.x,
-            pos.max.y - pos.min.y,
+            pos.maxs.x - pos.mins.x,
+            pos.maxs.y - pos.mins.y,
             layout.border.start,
             layout.border.top,
             layout,
@@ -541,7 +541,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         vec![Vec::new()],
         vec![LgCfg {
             unit: 1,
-            data: vec![uv.min.x, uv.max.x],
+            data: vec![uv.mins.x, uv.maxs.x],
         }],
         &[0.0, 1.0],
         (0.0, 0.0),
@@ -553,7 +553,7 @@ fn use_layout_pos<C: HalContext + 'static>(
         vec![Vec::new()],
         vec![LgCfg {
             unit: 1,
-            data: vec![uv.min.y, uv.max.y],
+            data: vec![uv.mins.y, uv.maxs.y],
         }],
         &[0.0, 1.0],
         (0.0, 0.0),
@@ -588,10 +588,10 @@ fn get_pos_uv(
     let (size, mut uv1, mut uv2) = match clip {
         Some(c) => {
             let size = Vector2::new(
-                src.width as f32 * (c.max.x - c.min.x).abs(),
-                src.height as f32 * (c.max.y - c.min.y).abs(),
+                src.width as f32 * (c.maxs.x - c.mins.x).abs(),
+                src.height as f32 * (c.maxs.y - c.mins.y).abs(),
             );
-            (size, c.min, c.max)
+            (size, c.mins, c.maxs)
         }
         _ => (
             Vector2::new(src.width as f32, src.height as f32),
@@ -677,7 +677,7 @@ fn get_pos_uv(
         // 默认情况是填充
         _ => (),
     };
-    (Aabb2 { min: p1, max: p2 }, Aabb2 { min: uv1, max: uv2 })
+    (Aabb2::new(p1, p2), Aabb2::new(uv1, uv2))
 }
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {

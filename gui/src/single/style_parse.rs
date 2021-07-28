@@ -4,13 +4,13 @@ use std::str::FromStr;
 use std::result::Result;
 
 use atom::Atom;
-
-use component::calc::*;
-use component::user::Opacity;
-use component::user::*;
 use hash::XHashMap;
 use flex_layout::*;
-use single::class::*;
+
+use crate::component::calc::*;
+use crate::component::user::Opacity;
+use crate::component::user::*;
+use crate::single::class::*;
 
 pub fn parse_class_map_from_string(value: &str) -> Result<XHashMap<usize, Class>, String> {
     let mut parser = ClassMapParser(value);

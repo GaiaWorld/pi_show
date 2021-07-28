@@ -213,10 +213,7 @@ pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32)
         world,
         node,
         ImageClip,
-        Aabb2 {
-            min: Point2::new(u1, v1),
-            max: Point2::new(u2, v2)
-        },
+        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
         image_clip
     );
 }
@@ -229,10 +226,7 @@ pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v
         world,
         node,
         BorderImageClip,
-        Aabb2 {
-            min: Point2::new(u1, v1),
-            max: Point2::new(u2, v2)
-        },
+        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
         border_image_clip
     );
 }

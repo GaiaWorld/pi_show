@@ -1,19 +1,19 @@
 /// 布局系统
 /// 1.负责处理布局属性的脏，根据不同的脏，设置flex_layout节点的脏类型
 /// 负责推动flex_layout节点进行布局
-use single::{IdTree, DirtyList};
 use ecs::{
     CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl,
     SingleCaseImpl, SingleCaseListener,Runner
 };
-use component::user::{OtherLayoutStyle, RectLayoutStyle};
-use component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK};
 use flex_layout::*;
 use dirty::*;
 use map::vecmap::VecMap;
-use util::vecmap_default::VecMapWithDefault;
 
-use entity::Node;
+use crate::util::vecmap_default::VecMapWithDefault;
+use crate::entity::Node;
+use crate::single::{IdTree, DirtyList};
+use crate::component::user::{OtherLayoutStyle, RectLayoutStyle};
+use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK};
 
 // 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
 pub const RECT_DIRTY: usize = StyleType2::Width as usize 

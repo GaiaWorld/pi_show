@@ -3,11 +3,11 @@
  *  该系统默认为所有已经创建的Entity创建Opacity组件， 并监听Opacity的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Opacity
  */
 use ecs::{CreateEvent, ModifyEvent, MultiCaseListener, EntityListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl};
-use single::IdTree;
 
-use component::user::{ Opacity};
-use component::calc::{Opacity as COpacity, NodeState, OpacityWrite as COpacityWrite};
-use entity::{Node};
+use crate::single::IdTree;
+use crate::component::user::{ Opacity};
+use crate::component::calc::{Opacity as COpacity, NodeState, OpacityWrite as COpacityWrite};
+use crate::entity::{Node};
 
 #[derive(Default)]
 pub struct OpacitySys;
@@ -99,7 +99,7 @@ use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 #[cfg(test)]
 use atom::Atom;
 #[cfg(test)]
-use component::user::OpacityWrite;
+use crate::component::user::OpacityWrite;
 
 #[test]
 fn test(){

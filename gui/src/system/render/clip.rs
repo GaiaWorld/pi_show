@@ -13,13 +13,13 @@ use hal_core::*;
 use map::vecmap::VecMap;
 use share::Share;
 
-use component::calc::*;
-use component::user::Aabb3;
-use entity::Node;
-use render::engine::{Engine, ShareEngine};
-use render::res::*;
-use single::*;
-use system::render::shaders::clip::*;
+use crate::component::calc::*;
+use crate::component::user::Aabb2;
+use crate::entity::Node;
+use crate::render::engine::{Engine, ShareEngine};
+use crate::render::res::*;
+use crate::single::*;
+use crate::system::render::shaders::clip::*;
 
 pub struct ClipSys<C> {
     dirty: bool,
@@ -94,10 +94,10 @@ impl<C: HalContext + 'static> ClipSys<C> {
         let mut clip_size_ubo = ClipTextureSize::default();
         clip_size_ubo.set_value("clipTextureSize", UniformValue::Float2((viewport.0 + viewport.2) as f32, (viewport.1 + viewport.3) as f32));
 
-        let slice: &[f32; 16] = view_matrix.0.as_ref();
+        let slice: &[f32] = view_matrix.0.as_slice();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
 
-        let slice: &[f32; 16] = projection_matrix.0.as_ref();
+        let slice: &[f32] = projection_matrix.0.as_slice();
         let project_matrix_ubo =
             ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
 
@@ -154,7 +154,7 @@ impl<C: HalContext + 'static> ClipSys<C> {
         &self,
         id: usize,
         by_overflow: usize,
-        aabb: Option<&(Aabb3, Share<dyn UniformBuffer>)>,
+        aabb: Option<&(Aabb2, Share<dyn UniformBuffer>)>,
         notify: &NotifyImpl,
         render_obj: &mut RenderObj,
         engine: &mut Engine<C>,
@@ -396,9 +396,9 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
         _: Self::WriteData,
     ) {
         if let Some(render_obj) = &self.render_obj {
-            let slice: &[f32; 16] = projection_matrix.0.as_ref();
+            let slice: &[f32] = projection_matrix.0.as_slice();
             let project_matrix_ubo =
-                ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+                ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
             render_obj
                 .paramter
 				.set_value("projectMatrix", Share::new(project_matrix_ubo)); // PROJECT_MATRIX
@@ -440,8 +440,8 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEve
 
 // 是否相交
 #[inline]
-fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x >= b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
+fn is_intersect(a: &Aabb2, b: &Aabb2) -> bool {
+    if a.mins.x >= b.maxs.x || a.mins.y > b.maxs.y || b.mins.x > a.maxs.x || b.mins.y > a.maxs.y {
         return false;
     } else {
         true
@@ -450,8 +450,8 @@ fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
 
 // a是否包含b
 #[inline]
-fn is_include(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x <= b.min.x && a.max.x >= b.max.x && a.min.y <= b.min.y && a.max.y >= b.max.y {
+fn is_include(a: &Aabb2, b: &Aabb2) -> bool {
+    if a.mins.x <= b.mins.x && a.maxs.x >= b.maxs.x && a.mins.y <= b.mins.y && a.maxs.y >= b.maxs.y {
         return true;
     } else {
         false

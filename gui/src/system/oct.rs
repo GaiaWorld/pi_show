@@ -1,18 +1,18 @@
 //八叉树系统
-use single::IdTree;
 use ecs::{CreateEvent, DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl, MultiCaseListener, ModifyEvent};
 use dirty::LayerDirty;
 use idtree::Node as TreeNode;
-
-
-use component::calc::{LayoutR, StyleMark, WorldMatrix};
-use component::user::*;
-use component::calc::{NodeState, TransformWillChangeMatrix};
-use entity::Node;
-use single::oct::Oct;
-use single::*;
 use ecs::monitor::NotifyImpl;
-use Z_MAX;
+
+
+use crate::component::calc::{LayoutR, StyleMark, WorldMatrix};
+use crate::component::user::*;
+use crate::component::calc::{NodeState, TransformWillChangeMatrix};
+use crate::entity::Node;
+use crate::single::oct::Oct;
+use crate::single::*;
+use crate::single::IdTree;
+use crate::Z_MAX;
 
 #[derive(Default)]
 pub struct OctSys{
@@ -42,7 +42,7 @@ impl<'a> Runner<'a> for OctSys {
 		// 			continue;
 		// 		}
 
-		// 		// println!("recursive_calc_aabb3 start: {}", id);
+		// 		// println!("recursive_calc_Aabb2 start: {}", id);
 
 		// 		// 递归重新计算包围盒
 		// 		recursive_calc_aabb(*id, node_states, will_change_matrixs, idtree, oct, will_change_matrixs.get(*id));
@@ -230,12 +230,12 @@ fn recursive_calc_aabb<'a>(
 }
 
 // 计算aabb
-fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb3) -> Aabb3 {
-    let min = m * Vector4::new(aabb.min.x, aabb.min.y, 0.0, 1.0);
-    let max = m * Vector4::new(aabb.max.x, aabb.max.y, 0.0, 1.0);
-    Aabb3::new(
-        Point3::new(min.x, min.y, 1.0),
-        Point3::new(max.x, max.y, 1.0),
+fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb2) -> Aabb2 {
+    let min = m * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
+    let max = m * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
+    Aabb2::new(
+        Point2::new(min.x, min.y),
+        Point2::new(max.x, max.y),
     )
 }
 
@@ -246,9 +246,9 @@ fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb3) -> Aabb3 {
 //         let notify = write.get_notify();
 //         write.add(
 //             event.id,
-//             Aabb3::new(
-//                 Point3::new(-1024f32, -1024f32, -Z_MAX),
-//                 Point3::new(3072f32, 3072f32, Z_MAX),
+//             Aabb2::new(
+//                 Point2::new(-1024f32, -1024f32, -Z_MAX),
+//                 Point2::new(3072f32, 3072f32, Z_MAX),
 //             ),
 //             event.id,
 //             Some(notify),
@@ -265,14 +265,14 @@ impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys {
     }
 }
 
-fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb3 {
+fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb2 {
     let start = (-origin.x, -origin.y);
     let left_top = matrix * Vector4::new(start.0, start.1, 0.0, 1.0);
     let right_top = matrix * Vector4::new(start.0 + size.0, start.1, 0.0, 1.0);
     let left_bottom = matrix * Vector4::new(start.0, start.1 + size.1, 0.0, 1.0);
     let right_bottom = matrix * Vector4::new(start.0 + size.0, start.1 + size.1, 0.0, 1.0);
 
-    let min = Point3::new(
+    let min = Point2::new(
         left_top
             .x
             .min(right_top.x)
@@ -283,10 +283,9 @@ fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aab
             .min(right_top.y)
             .min(left_bottom.y)
             .min(right_bottom.y),
-        0.0,
     );
 
-    let max = Point3::new(
+    let max = Point2::new(
         left_top
             .x
             .max(right_top.x)
@@ -297,10 +296,9 @@ fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aab
             .max(right_top.y)
             .max(left_bottom.y)
             .max(right_bottom.y),
-        1.0,
     );
 
-    Aabb3::new(min, max)
+    Aabb2::new(min, max)
 }
 
 impl_system! {

@@ -4,7 +4,6 @@ use std::hash::{Hash, Hasher};
  */
 use std::marker::PhantomData;
 
-use cgmath::InnerSpace;
 use hash::DefaultHasher;
 use ordered_float::NotNan;
 
@@ -22,18 +21,18 @@ use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, Lg
 use res::ResMap;
 use share::Share;
 
-use component::{calc::*, calc::LayoutR, calc::CharNode};
-use component::user::*;
-use entity::Node;
-use font::font_sheet::*;
-use render::engine::{buffer_size, create_hash_res, Engine, ShareEngine, UnsafeMut};
-use render::res::*;
-use single::*;
-use system::render::shaders::canvas_text::{
+use crate::component::{calc::*, calc::LayoutR, calc::CharNode};
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::font::font_sheet::*;
+use crate::render::engine::{buffer_size, create_hash_res, Engine, ShareEngine, UnsafeMut};
+use crate::render::res::*;
+use crate::single::*;
+use crate::system::render::shaders::canvas_text::{
     CANVAS_TEXT_FS_SHADER_NAME, CANVAS_TEXT_VS_SHADER_NAME,
 };
-use system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
-use system::util::*;
+use crate::system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
+use crate::system::util::*;
 
 const TEXT_STYLE_DIRTY: usize = StyleType::LetterSpacing as usize
     | StyleType::WordSpacing as usize

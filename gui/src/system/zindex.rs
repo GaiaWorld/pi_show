@@ -2,7 +2,6 @@
 // zindex的min max, 设计分配如下： 如果父容器为 0 100.
 //  子节点为1个的话：1 100. 为2个的话： 1 51, 51 100. 为3个的话： 1 34, 34 67, 67 100.
 
-
 use std::{
   f32,
   cmp::{Ordering},
@@ -20,16 +19,16 @@ use ecs::{
 };
 
 use idtree::Node as IdNode;
-use single::{DirtyList, IdTree};
-use entity::{Node};
-use component::{
+use map::Map;
+use crate::Z_MAX;
+use crate::ROOT;
+use crate::single::{DirtyList, IdTree};
+use crate::entity::{Node};
+use crate::component::{
   user::{ZIndex as ZI},
   calc::{ZDepth, ZDepthWrite, NodeState},
 };
-use util::vecmap_default::VecMapWithDefault;
-use map::Map;
-use Z_MAX;
-use ROOT;
+use crate::util::vecmap_default::VecMapWithDefault;
 
 impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type ReadData = ();

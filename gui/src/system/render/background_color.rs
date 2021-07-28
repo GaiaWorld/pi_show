@@ -15,17 +15,17 @@ use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl}
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::*;
-use component::calc::LayoutR;
 
-use component::calc::Opacity;
-use component::calc::*;
-use component::user::*;
-use entity::*;
-use render::engine::*;
-use render::res::*;
-use single::*;
-use system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
-use system::util::*;
+use crate::component::calc::LayoutR;
+use crate::component::calc::Opacity;
+use crate::component::calc::*;
+use crate::component::user::*;
+use crate::entity::*;
+use crate::render::engine::*;
+use crate::render::res::*;
+use crate::single::*;
+use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use crate::system::util::*;
 
 lazy_static! {
     static ref GRADUAL: Atom = Atom::from("GRADUAL");
@@ -183,7 +183,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                     Color::RGBA(_) => {
                         let radius = cal_border_radius(border_radius, layout);
                         let g_b = geo_box(layout);
-                        if radius.x <= g_b.min.x {
+                        if radius.x <= g_b.mins.x {
                             true
                         } else {
                             false
@@ -277,11 +277,11 @@ fn create_rgba_geo<C: HalContext + 'static>(
 ) -> Option<Share<GeometryRes>> {
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
-    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
         return None;
     }
 
-    if radius.x <= g_b.min.x {
+    if radius.x <= g_b.mins.x {
         return Some(unit_quad.clone());
     } else {
         let mut hasher = DefaultHasher::default();
@@ -291,11 +291,11 @@ fn create_rgba_geo<C: HalContext + 'static>(
             Some(r) => Some(r.clone()),
             None => {
                 let r = split_by_radius(
-                    g_b.min.x,
-                    g_b.min.y,
-                    g_b.max.x - g_b.min.x,
-                    g_b.max.y - g_b.min.y,
-                    radius.x - g_b.min.x,
+                    g_b.mins.x,
+                    g_b.mins.y,
+                    g_b.maxs.x - g_b.mins.x,
+                    g_b.maxs.y - g_b.mins.y,
+                    radius.x - g_b.mins.x,
                     None,
                 );
                 if r.0.len() == 0 {
@@ -327,7 +327,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
 ) -> Option<Share<GeometryRes>> {
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
-    if g_b.min.x - g_b.max.x == 0.0 || g_b.min.y - g_b.max.y == 0.0 {
+    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
         return None;
     }
 
@@ -345,32 +345,32 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
     NotNan::new(color.direction).unwrap().hash(&mut hasher);
     radius_quad_hash(
         &mut hasher,
-        radius.x - g_b.min.x,
-        g_b.max.x - g_b.min.x,
-        g_b.max.y - g_b.min.y,
+        radius.x - g_b.mins.x,
+        g_b.maxs.x - g_b.mins.x,
+        g_b.maxs.y - g_b.mins.y,
     );
     let hash = hasher.finish();
 
     match engine.geometry_res_map.get(&hash) {
         Some(r) => Some(r.clone()),
         None => {
-            let (positions, indices) = if radius.x <= g_b.min.x {
+            let (positions, indices) = if radius.x <= g_b.mins.x {
                 (
                     vec![
-                        g_b.min.x, g_b.min.y, // left_top
-                        g_b.min.x, g_b.max.y, // left_bootom
-                        g_b.max.x, g_b.max.y, // right_bootom
-                        g_b.max.x, g_b.min.y, // right_top
+                        g_b.mins.x, g_b.mins.y, // left_top
+                        g_b.mins.x, g_b.maxs.y, // left_bootom
+                        g_b.maxs.x, g_b.maxs.y, // right_bootom
+                        g_b.maxs.x, g_b.mins.y, // right_top
                     ],
                     vec![0, 1, 2, 3],
                 )
             } else {
                 split_by_radius(
-                    g_b.min.x,
-                    g_b.min.y,
-                    g_b.max.x - g_b.min.x,
-                    g_b.max.y - g_b.min.y,
-                    radius.x - g_b.min.x,
+                    g_b.mins.x,
+                    g_b.mins.y,
+                    g_b.maxs.x - g_b.mins.x,
+                    g_b.maxs.y - g_b.mins.y,
+                    radius.x - g_b.mins.x,
                     None,
                 )
             };
@@ -398,7 +398,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 ],
                 color.direction,
             );
-			// unsafe { web_sys::console::log_2(&"endp:".into(), &format!("{:?}", endp).into()) };
+
             let (positions, indices_arr) = split_by_lg(
                 positions,
                 indices,
@@ -406,7 +406,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 endp.0.clone(),
                 endp.1.clone(),
             );
-			// unsafe { web_sys::console::log_2(&"positions:".into(), &format!("{:?}, {:?}, {:?}", positions, indices_arr, lg_pos).into()) };
+
             let mut colors = interp_mult_by_lg(
                 positions.as_slice(),
                 &indices_arr,
@@ -419,7 +419,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
                 endp.0,
                 endp.1,
             );
-			// unsafe { web_sys::console::log_2(&"colors:".into(), &format!("{:?}", colors).into()) };
+
             let indices = mult_to_triangle(&indices_arr, Vec::new());
             let colors = colors.pop().unwrap();
             // 创建geo， 设置attribut

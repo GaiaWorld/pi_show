@@ -2,7 +2,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(core_intrinsics)]
 #![feature(type_ascription)]
-#![feature(link_args)]
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
@@ -31,7 +30,6 @@ extern crate gui_tool;
 extern crate hal_core;
 extern crate hal_webgl;
 extern crate hash;
-extern crate octree;
 extern crate ordered_float;
 extern crate res;
 extern crate share;

@@ -6,7 +6,7 @@ use flex_layout::*;
 
 use hash::XHashMap;
 
-use component::user::*;
+use crate::component::user::*;
 
 // 显示样式， 不包含布局
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]

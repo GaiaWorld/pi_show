@@ -11,23 +11,24 @@ use ordered_float::NotNan;
 use map::vecmap::VecMap;
 use hash::XHashMap;
 use share::Share;
-use util::vecmap_default::VecMapWithDefault;
-
 use atom::Atom;
-use component::calc::WorldMatrix;
 use ecs::component::Component;
-use render::res::TextureRes;
 use flex_layout::*;
 
-pub type Matrix4 = cgmath::Matrix4<f32>;
-pub type Point2 = cgmath::Point2<f32>;
-pub type Point3 = cgmath::Point3<f32>;
-pub type Vector2 = cgmath::Vector2<f32>;
-pub type Vector3 = cgmath::Vector3<f32>;
-pub type Vector4 = cgmath::Vector4<f32>;
+use crate::util::vecmap_default::VecMapWithDefault;
+use crate::component::calc::WorldMatrix;
+use crate::render::res::TextureRes;
+
+pub type Matrix4 = nalgebra::Matrix4<f32>;
+pub type Point2 = nalgebra::Point2<f32>;
+pub type Point3 = nalgebra::Point3<f32>;
+pub type Vector2 = nalgebra::Vector2<f32>;
+pub type Vector3 = nalgebra::Vector3<f32>;
+pub type Vector4 = nalgebra::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
-pub type Aabb3 = collision::Aabb3<f32>;
-pub type Aabb2 = collision::Aabb2<f32>;
+// pub type Aabb3 = ncollide2d::bounding_volume::AABB <f32>;
+pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
+use nalgebra::Rotation3;
 
 #[derive(Clone, Component, Serialize, Deserialize, Debug)]
 #[storage(VecMapWithDefault)]
@@ -529,6 +530,38 @@ pub enum EnableType {
     Visible = 2,
 }
 
+// pub fn tanslate_to_matrix(x: f32, y: f32, z: f32) -> Matrix4{
+// 	Matrix4::new(
+// 		1.0, 0.0, 0.0, 0.0,
+// 		0.0, 1.0, 0.0, 0.0,
+// 		0.0, 0.0, 1.0, 0.0,
+// 		x, y, z, 1.0,
+// 	)
+// }
+
+// pub fn sacle_to_matrix(x: f32, y: f32, z: f32) -> Matrix4{
+// 	Matrix4::new(
+// 		x, 0.0, 0.0, 0.0,
+// 		0.0, y, 0.0, 0.0,
+// 		0.0, 0.0, z, 0.0,
+// 		0.0, 0.0, 0.0, 1.0,
+// 	)
+// }
+
+// pub fn angle_z_to_matrix(theta: f32) -> Matrix4 {
+// 	let r = theta/180.0*(std::f32::consts::PI);
+// 	let (s, c) = r.sin_cos();
+// 	// http://en.wikipedia.org/wiki/Rotation_matrix#Basic_rotations
+// 	// let (s, c) = Rad::sin_cos(theta.into());
+
+// 	Matrix4::new(
+// 		c, s, 0.0, 0.0,
+// 		-s, c, 0.0, 0.0,
+// 		0.0, 0.0, 1.0, 0.0,
+// 		0.0, 0.0, 0.0, 1.0,
+// 	)
+// }
+
 impl Transform {
     pub fn matrix(&self, width: f32, height: f32, origin: &Point2) -> WorldMatrix {
         // M = T * R * S
@@ -540,7 +573,7 @@ impl Transform {
         // );
         let value = self.origin.to_value(width, height);
         let mut m = WorldMatrix(
-            Matrix4::from_translation(Vector3::new(origin.x + value.x, origin.y + value.y, 0.0)),
+            Matrix4::new_translation(&Vector3::new(origin.x + value.x, origin.y + value.y, 0.0)),
             false,
         );
 
@@ -548,51 +581,66 @@ impl Transform {
             match func {
                 TransformFunc::TranslateX(x) => {
                     m = m * WorldMatrix(
-                        Matrix4::from_translation(Vector3::new(*x, 0.0, 0.0)),
+						Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)),
                         false,
                     )
                 }
                 TransformFunc::TranslateY(y) => {
                     m = m * WorldMatrix(
-                        Matrix4::from_translation(Vector3::new(0.0, *y, 0.0)),
+						Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)),
                         false,
                     )
                 }
                 TransformFunc::Translate(x, y) => {
-                    m = m * WorldMatrix(Matrix4::from_translation(Vector3::new(*x, *y, 0.0)), false)
+                    m = m * WorldMatrix(
+						Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)),
+						false
+					)
                 }
 
                 TransformFunc::TranslateXPercent(x) => {
                     m = m * WorldMatrix(
-                        Matrix4::from_translation(Vector3::new(*x * width, 0.0, 0.0)),
+						Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)),
                         false,
                     )
                 }
                 TransformFunc::TranslateYPercent(y) => {
                     m = m * WorldMatrix(
-                        Matrix4::from_translation(Vector3::new(0.0, *y * height, 0.0)),
+						Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)),
                         false,
                     )
                 }
                 TransformFunc::TranslatePercent(x, y) => {
                     m = m * WorldMatrix(
-                        Matrix4::from_translation(Vector3::new(*x * width, *y * height, 0.0)),
+						Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)),
                         false,
                     )
                 }
 
                 TransformFunc::ScaleX(x) => {
-                    m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, 1.0, 1.0), false)
+                    m = m * WorldMatrix(
+						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)),
+						false
+					)
                 }
                 TransformFunc::ScaleY(y) => {
-                    m = m * WorldMatrix(Matrix4::from_nonuniform_scale(1.0, *y, 1.0), false)
+                    m = m * WorldMatrix(
+						Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)),
+						false
+					)
                 }
                 TransformFunc::Scale(x, y) => {
-                    m = m * WorldMatrix(Matrix4::from_nonuniform_scale(*x, *y, 1.0), false)
+                    m = m * WorldMatrix(
+						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)),
+						false
+					)
                 }
 
                 TransformFunc::RotateZ(z) => {
-                    m = m * WorldMatrix(Matrix4::from_angle_z(cgmath::Deg(*z)), true)
+                    m = m * WorldMatrix(
+						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0)),
+						true
+					)
                 }
             }
         }
@@ -712,10 +760,7 @@ impl Default for Show {
 }
 impl Default for ImageClip {
     fn default() -> ImageClip {
-        ImageClip(Aabb2 {
-            min: Point2::new(0.0, 0.0),
-            max: Point2::new(1.0, 1.0),
-        })
+        ImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
     }
 }
 

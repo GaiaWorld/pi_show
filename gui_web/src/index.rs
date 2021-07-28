@@ -383,18 +383,18 @@ pub fn set_project_transfrom(
 	height: u32,
 ) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let mut m = Matrix4::default();
+    let mut m = Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, 1.0)) ;
 
     if scale_x != 1.0 || scale_y != 1.0 {
-        m = m * Matrix4::from_nonuniform_scale(scale_x, scale_y, 1.0);
+        m = m * Matrix4::new_nonuniform_scaling(&Vector3::new(scale_x, scale_y, 1.0));
     }
 
     if translate_x != 0.0 || translate_y != 0.0 {
-        m = m * Matrix4::from_translation(Vector3::new(translate_x, translate_y, 0.0));
+        m = m * Matrix4::new_translation(&Vector3::new(translate_x, translate_y, 0.0));
     }
 
     if rotate != 0.0 {
-        m = m * Matrix4::from_angle_z(cgmath::Deg(rotate))
+        m = m * Matrix4::new_rotation(Vector3::new(0.0, 0.0, rotate/180.0));
     }
 
     let project_matrix = world

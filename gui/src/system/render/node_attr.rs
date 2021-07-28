@@ -6,7 +6,6 @@ use std::marker::PhantomData;
 use share::Share;
 
 use atom::Atom;
-use single::IdTree;
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent, MultiCaseImpl,
 	MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
@@ -15,14 +14,15 @@ use ecs::{
 use hal_core::*;
 use res::{ResMap, ResMgr};
 
-use component::calc::*;
-use component::calc::Opacity;
-use entity::Node;
-use render::engine::{ShareEngine, UnsafeMut};
-use single::*;
-use single::DirtyViewRect;
-use single::oct::Oct;
-use system::util::*;
+use crate::component::calc::*;
+use crate::component::calc::Opacity;
+use crate::entity::Node;
+use crate::render::engine::{ShareEngine, UnsafeMut};
+use crate::single::*;
+use crate::single::DirtyViewRect;
+use crate::single::oct::Oct;
+use crate::system::util::*;
+use crate::single::IdTree;
 
 lazy_static! {
     static ref Z_DEPTH: Atom = Atom::from("zDepth");
@@ -158,9 +158,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
             match transform_will_change_matrixs.get(*id) {
                 Some(transform_will_change_matrix) => {
                     let m = &view_matrix.0 * &transform_will_change_matrix.0;
-                    let slice: &[f32; 16] = m.0.as_ref();
+                    let slice: &[f32] = m.0.as_slice();
                     let view_matrix_ubo: Share<dyn UniformBuffer> = Share::new(ViewMatrixUbo::new(
-                        UniformValue::MatrixV4(Vec::from(&slice[..])),
+                        UniformValue::MatrixV4(Vec::from(slice)),
                     ));
                     recursive_set_view_matrix(
                         *id,
@@ -192,12 +192,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData) {
         let (_, _, _, view_matrix, projection_matrix, _, _, _, _, _) = read;
 
-        let slice: &[f32; 16] = view_matrix.0.as_ref();
-        let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+        let slice: &[f32] = view_matrix.0.as_slice();
+        let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
 
-        let slice: &[f32; 16] = projection_matrix.0.as_ref();
+        let slice: &[f32] = projection_matrix.0.as_slice();;
         let project_matrix_ubo =
-            ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+            ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
 
         self.view_matrix_ubo = Some(Share::new(view_matrix_ubo));
         self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
@@ -218,10 +218,10 @@ fn handler_modify_oct(
 	let viewport = render_begin.0.viewport;
 	// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
 	// 与包围盒求并
-	dirty_view_rect.0 = dirty_view_rect.0.min(oct.min.x.max(0.0));
-	dirty_view_rect.1 = dirty_view_rect.1.min(oct.min.y.max(0.0));
-	dirty_view_rect.2 = dirty_view_rect.2.max(oct.max.x.min(viewport.2 as f32));
-	dirty_view_rect.3 = dirty_view_rect.3.max(oct.max.y.min(viewport.3 as f32));
+	dirty_view_rect.0 = dirty_view_rect.0.min(oct.mins.x.max(0.0));
+	dirty_view_rect.1 = dirty_view_rect.1.min(oct.mins.y.max(0.0));
+	dirty_view_rect.2 = dirty_view_rect.2.max(oct.maxs.x.min(viewport.2 as f32));
+	dirty_view_rect.3 = dirty_view_rect.3.max(oct.maxs.y.min(viewport.3 as f32));
 	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
 
 	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
@@ -277,9 +277,9 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
         projection_matrix: Self::ReadData,
         render_objs: Self::WriteData,
     ) {
-        let slice: &[f32; 16] = projection_matrix.0.as_ref();
+        let slice: &[f32] = projection_matrix.0.as_slice();
         let project_matrix_ubo =
-            ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(&slice[..])));
+            ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
         self.project_matrix_ubo = Some(Share::new(project_matrix_ubo));
         for r in render_objs.iter_mut() {
             r.1.paramter

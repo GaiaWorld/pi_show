@@ -9,12 +9,12 @@ use ecs::{
     CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener, MultiCaseImpl,
 };
 use hal_core::*;
-use component::user::{Vector4, Aabb3, Point3};
-use component::calc::WorldMatrix;
-use entity::Node;
+use crate::component::user::{Vector4, Aabb2, Point2};
+use crate::component::calc::WorldMatrix;
+use crate::entity::Node;
 
-use render::engine::ShareEngine;
-use single::{RenderBegin, RenderObj, RenderObjs, Statistics, ProjectionMatrix, DirtyViewRect, Oct};
+use crate::render::engine::ShareEngine;
+use crate::single::{RenderBegin, RenderObj, RenderObjs, Statistics, ProjectionMatrix, DirtyViewRect, Oct};
 
 pub struct RenderSys<C: HalContext + 'static> {
     program_dirtys: Vec<usize>,
@@ -42,8 +42,8 @@ impl<C: HalContext + 'static> Default for RenderSys<C> {
 }
 
 #[inline]
-fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x > b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
+fn is_intersect(a: &Aabb2, b: &Aabb2) -> bool {
+    if a.mins.x > b.maxs.x || a.mins.y > b.maxs.y || b.mins.x > a.maxs.x || b.mins.y > a.maxs.y {
         return false;
     } else {
         true
@@ -200,20 +200,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
         // #[cfg(feature = "performance")]
 		statistics.drawcall_times = 0;
 		let viewport = render_begin_desc.viewport;
-		// println!("render_all1============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 		// 如果局部视口就是最大视口，则按最大视口来渲染
-		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", &**dirty_view_rect).into()) };
-		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.0).into()) };
-		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.1).into()) };
-		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.2).into()) };
-		// unsafe { web_sys::console::log_2(&"dirty_view_rect:".into(), &format!("{:?}", dirty_view_rect.3).into()) };
-		// unsafe { web_sys::console::log_2(&"render_begin_desc:".into(), &format!("{:?}", render_begin_desc).into()) };
 		if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
-			// println!("render_all============={}, {}",self.opacity_list.len(), self.transparent_list.len());
 			
-
-			// unsafe{web_sys::console::log_5(&"render render_begin_desc".into(), &render_begin_desc.viewport.0.into(),&render_begin_desc.viewport.1.into(),&render_begin_desc.viewport.2.into(),&render_begin_desc.viewport.3.into())}
-			// unsafe{web_sys::console::log_6(&"render render_begin_desc1".into(), &render_begin_desc.scissor.0.into(),&render_begin_desc.scissor.1.into(),&render_begin_desc.scissor.2.into(),&render_begin_desc.scissor.3.into(), &dirty_view_rect.4.into())}
 			gl.render_begin(target, &render_begin_desc);
 			dirty_view_rect.4 = false;
 			for id in self.opacity_list.iter() {
@@ -247,10 +236,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 				(dirty_view_rect.3.ceil() - dirty_view_rect.1.floor()) as i32,
 			);
 
-			// println!("render_part============={:?}", scissor);
-			// unsafe{web_sys::console::log_5(&"render render_part".into(), &viewport.0.into(),&viewport.1.into(),&viewport.2.into(),&viewport.3.into())}
-			// unsafe{web_sys::console::log_6(&"render render_part1".into(), &scissor.0.into(),&scissor.1.into(),&scissor.2.into(),&scissor.3.into(), &dirty_view_rect.4.into())}
-			// let old_scissor = std::mem::replace(&mut render_begin.0.scissor, scissor);
 			gl.render_begin(target, &RenderBeginDesc{
 				viewport: viewport.clone(),
 				scissor: scissor,
@@ -260,14 +245,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			});
 
 			// 视口的Aabb，用于剔除视口之外的渲染对象
-			let viewPortAabb = Aabb3::new(
-				Point3::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32, 0.0), Point3::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32, 0.0)
+			let viewPortAabb = Aabb2::new(
+				Point2::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32), Point2::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32)
 			);
 
 			for id in self.opacity_list.iter() {
 				let obj = &render_objs[*id];
 				if let None = octree.get(obj.context) {
-					unsafe {web_sys::console::log_2(&"obj.context".into(), &(obj.context as u32).into());}
+					log::info!("obj.context: {:?}",obj.context);
 				}
 				// 如果相交才渲染
 				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
@@ -277,7 +262,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			for id in self.transparent_list.iter() {
 				let obj = &render_objs[*id];
 				if let None = octree.get(obj.context) {
-					unsafe {web_sys::console::log_2(&"obj.context".into(), &(obj.context as u32).into());}
+					log::info!("obj.context: {:?}",obj.context);
 				}
 				if is_intersect(&viewPortAabb, &unsafe { octree.get_unchecked(obj.context) }.0) {
 					render(gl, obj, statistics);

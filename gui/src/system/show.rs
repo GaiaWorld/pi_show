@@ -1,4 +1,3 @@
-use single::IdTree;
 /**
  *  计算show
  *  该系统默认为所有已经创建的Entity创建Show组件， 并监听Show和Display的创建修改， 以及监听idtree上的创建事件， 计算已经在idtree上存在的实体的Enable和Visibility
@@ -9,12 +8,13 @@ use ecs::{
 };
 use flex_layout::Display;
 
-use component::calc::{NodeState,
+use crate::component::calc::{NodeState,
     Enable as CEnable, EnableWrite as CEnableWrite, Visibility as CVisibility,
     VisibilityWrite as CVisibilityWrite,
 };
-use component::user::*;
-use entity::Node;
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::single::IdTree;
 
 #[derive(Default)]
 pub struct ShowSys;
@@ -227,7 +227,7 @@ impl_system! {
 #[cfg(test)]
 use atom::Atom;
 #[cfg(test)]
-use component::user::ShowWrite;
+use crate::component::user::ShowWrite;
 #[cfg(test)]
 use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 

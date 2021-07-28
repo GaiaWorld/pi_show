@@ -10,14 +10,14 @@ use ecs::{
     system::{EntityListener, MultiCaseListener, Runner},
     SingleCaseListener,
 };
-use single::IdTree;
 use hal_core::*;
 use share::Share;
-
-use component::{calc::*, user::*, user::Overflow, calc::LayoutR};
 use dirty::LayerDirty;
-use entity::Node;
-use single::{Clip, Oct, OverflowClip, ViewMatrix};
+
+use crate::single::IdTree;
+use crate::component::{calc::*, user::*, user::Overflow, calc::LayoutR};
+use crate::entity::Node;
+use crate::single::{Clip, Oct, OverflowClip, ViewMatrix};
 
 type Read<'a> = (
     &'a SingleCaseImpl<IdTree>,
@@ -509,7 +509,7 @@ fn calc_clip<'a>(
     id: usize,
     mut by: usize,
     mut transform_will_change_matrix: Option<&'a TransformWillChangeMatrix>,
-    mut by_clip_aabb: Option<&'a (Aabb3, Share<dyn UniformBuffer>)>,
+    mut by_clip_aabb: Option<&'a (Aabb2, Share<dyn UniformBuffer>)>,
     read: Read<'a>,
     overflow_clip: &'a mut SingleCaseImpl<OverflowClip>,
     by_overflows:&'a mut MultiCaseImpl<Node, ByOverflow>,
@@ -716,32 +716,20 @@ fn calc_point(layout: &LayoutR, m: &Matrix4, origin: &Point2) -> [Point2; 4] {
     let left_bottom = m * Vector4::new(start.0, start.1 + height, 0.0, 1.0);
     let right_bottom = m * Vector4::new(start.0 + width, start.1 + height, 0.0, 1.0);
 
-    let lt = Point2 {
-        x: left_top.x,
-        y: left_top.y,
-    };
-    let rt = Point2 {
-        x: right_top.x,
-        y: right_top.y,
-    };
-    let lb = Point2 {
-        x: left_bottom.x,
-        y: left_bottom.y,
-    };
-    let rb = Point2 {
-        x: right_bottom.x,
-        y: right_bottom.y,
-    };
+    let lt = Point2::new(left_top.x, left_top.y);
+    let rt = Point2::new(right_top.x, right_top.y);
+    let lb = Point2::new(left_bottom.x, left_bottom.y);
+    let rb = Point2::new(right_bottom.x,right_bottom.y);
     [lt, lb, rb, rt]
 }
 
 // 计算aabb
-fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb3) -> Aabb3 {
-    let min = m * Vector4::new(aabb.min.x, aabb.min.y, 0.0, 1.0);
-    let max = m * Vector4::new(aabb.max.x, aabb.max.y, 0.0, 1.0);
-    Aabb3::new(
-        Point3::new(min.x, min.y, 1.0),
-        Point3::new(max.x, max.y, 1.0),
+fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb2) -> Aabb2 {
+    let min = m * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
+    let max = m * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
+    Aabb2::new(
+        Point2::new(min.x, min.y),
+        Point2::new(max.x, max.y),
     )
 }
 
@@ -759,14 +747,14 @@ fn add_intersect_clip(
     }
     if let Some(p) = overflow.clip_map.get(&parent_by) {
         let aabb = intersect(
-            &Aabb3::new(
-                Point3::new(r.view[0].x, r.view[0].y, 0.0),
-                Point3::new(r.view[2].x, r.view[2].y, 0.0),
+            &Aabb2::new(
+                Point2::new(r.view[0].x, r.view[0].y),
+                Point2::new(r.view[2].x, r.view[2].y),
             ),
             &p.0,
         );
         overflow.insert_aabb(by, aabb, view_matrix);
-        // overflow.clip_map.insert(by, intersect(&Aabb3::new(Point3::new(r.view[0].x, r.view[0].y, 0.0),  Point3::new(r.view[2].x, r.view[2].y, 0.0)), p));
+        // overflow.clip_map.insert(by, intersect(&Aabb2::new(Point2::new(r.view[0].x, r.view[0].y, 0.0),  Point2::new(r.view[2].x, r.view[2].y, 0.0)), p));
     }
 }
 
@@ -777,7 +765,7 @@ fn modify_intersect_clip<'a, 'b>(
     i: usize,
     overflow: &'a mut OverflowClip,
     view_matrix: &'b WorldMatrix,
-) -> Option<&'a (Aabb3, Share<dyn UniformBuffer>)> {
+) -> Option<&'a (Aabb2, Share<dyn UniformBuffer>)> {
     let r = &overflow.clip[i];
     if r.has_rotate {
         overflow.clip_map.remove(&by);
@@ -785,9 +773,9 @@ fn modify_intersect_clip<'a, 'b>(
     }
     if let Some(p) = overflow.clip_map.get(&parent_by) {
         let aabb = intersect(
-            &Aabb3::new(
-                Point3::new(r.view[0].x, r.view[0].y, 0.0),
-                Point3::new(r.view[2].x, r.view[2].y, 0.0),
+            &Aabb2::new(
+                Point2::new(r.view[0].x, r.view[0].y),
+                Point2::new(r.view[2].x, r.view[2].y),
             ),
             &p.0,
         );
@@ -803,8 +791,8 @@ fn remove_intersect_clip(by: usize, overflow: &mut OverflowClip) {
 }
 
 #[inline]
-fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
-    if a.min.x > b.max.x || a.min.y > b.max.y || b.min.x > a.max.x || b.min.y > a.max.y {
+fn is_intersect(a: &Aabb2, b: &Aabb2) -> bool {
+    if a.mins.x > b.maxs.x || a.mins.y > b.maxs.y || b.mins.x > a.maxs.x || b.mins.y > a.maxs.y {
         return false;
     } else {
         true
@@ -812,33 +800,33 @@ fn is_intersect(a: &Aabb3, b: &Aabb3) -> bool {
 }
 
 // aabb相交
-fn intersect(a: &Aabb3, b: &Aabb3) -> Aabb3 {
+fn intersect(a: &Aabb2, b: &Aabb2) -> Aabb2 {
     if !is_intersect(a, b) {
-        return Aabb3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(0.0, 0.0, 0.0));
+        return Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
     }
-    let mut aabb = Aabb3::new(Point3::new(0.0, 0.0, 0.0), Point3::new(0.0, 0.0, 0.0));
-    if a.min.x >= b.min.x {
-        aabb.min.x = a.min.x;
+    let mut aabb = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0));
+    if a.mins.x >= b.mins.x {
+        aabb.mins.x = a.mins.x;
     } else {
-        aabb.min.x = b.min.x;
-    }
-
-    if a.max.x >= b.max.x {
-        aabb.max.x = b.max.x;
-    } else {
-        aabb.max.x = a.max.x;
+        aabb.mins.x = b.mins.x;
     }
 
-    if a.min.y >= b.min.y {
-        aabb.min.y = a.min.y;
+    if a.maxs.x >= b.maxs.x {
+        aabb.maxs.x = b.maxs.x;
     } else {
-        aabb.min.y = b.min.y;
+        aabb.maxs.x = a.maxs.x;
     }
 
-    if a.max.y >= b.max.y {
-        aabb.max.y = b.max.y;
+    if a.mins.y >= b.mins.y {
+        aabb.mins.y = a.mins.y;
     } else {
-        aabb.max.y = a.max.y;
+        aabb.mins.y = b.mins.y;
+    }
+
+    if a.maxs.y >= b.maxs.y {
+        aabb.maxs.y = b.maxs.y;
+    } else {
+        aabb.maxs.y = a.maxs.y;
     }
     return aabb;
 }
