@@ -1,4 +1,3 @@
-use atom::Atom;
 /**
  * 定义全局Class
 */

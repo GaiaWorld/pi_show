@@ -80,6 +80,9 @@ pub struct FontSheet {
 	pub tex_version: usize,
 }
 
+unsafe impl Sync for FontSheet {}
+unsafe impl Send for FontSheet {}
+
 impl FontSheet {
     pub fn new(
         texture: Share<TextureRes>,
@@ -113,7 +116,7 @@ impl FontSheet {
     pub fn mem_size(&self) -> usize {
         self.src_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
-                * (std::mem::size_of::<usize>() + std::mem::size_of::<(FontFace)>())
+                * (std::mem::size_of::<usize>() + std::mem::size_of::<FontFace>())
             + self.char_w_map.capacity()
                 * (std::mem::size_of::<(usize, char, bool)>()
                     + std::mem::size_of::<(f32, usize, f32, bool)>())

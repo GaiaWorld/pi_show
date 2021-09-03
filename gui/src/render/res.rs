@@ -3,7 +3,6 @@
 */
 use std::ops::{Deref, DerefMut};
 
-use atom::Atom;
 use hal_core::*;
 
 use res::Res;
@@ -45,6 +44,14 @@ pub struct TextureRes {
 	pub cost: Option<usize>,
     pub bind: HalTexture,
 }
+
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for TextureRes {}
+unsafe impl Sync for TextureRes {}
+
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for SamplerRes {}
+unsafe impl Sync for SamplerRes {}
 
 // impl<> fmt::Debug for Point {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -130,26 +137,45 @@ impl Res for SamplerRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for GeometryRes {}
+unsafe impl Sync for GeometryRes {}
+
 impl Res for GeometryRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for RasterStateRes {}
+unsafe impl Sync for RasterStateRes {}
 impl Res for RasterStateRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for BlendStateRes {}
+unsafe impl Sync for BlendStateRes {}
 impl Res for BlendStateRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for StencilStateRes {}
+unsafe impl Sync for StencilStateRes {}
 impl Res for StencilStateRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for DepthStateRes {}
+unsafe impl Sync for DepthStateRes {}
 impl Res for DepthStateRes {
     type Key = u64;
 }
 
+// 强行实现Send、Sync 修改?TODO
+unsafe impl Send for BufferRes {}
+unsafe impl Sync for BufferRes {}
 impl Res for BufferRes {
     type Key = u64;
 }

@@ -72,7 +72,7 @@
 // 	if node.count() > 1 {
 // 		try_create_render_context(id, mask_images, render_contexts);
 // 	}
-// 	if node.parent() > 0 {
+// 	if node.parent() < usize::max_value() {
 // 		try_create_render_context(node.parent(), mask_images, render_contexts);
 // 	}
 // }

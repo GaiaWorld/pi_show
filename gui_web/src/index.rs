@@ -4,6 +4,9 @@ use std::mem::{transmute, MaybeUninit,};
 use std::ptr::write;
 use std::cell::RefCell;
 
+use bevy_ecs::prelude::{Entity as Entity1, World};
+use gui::single::{SingleChangeType, SingleChangeLabel};
+use gui::util::event::{EntityEvent, EventType, ResModifyEvent, EntityEventData, send_im_event};
 use wasm_bindgen::prelude::*;
 use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext, console};
 use js_sys::{Date, Object, Function};
@@ -13,16 +16,19 @@ use ordered_float::OrderedFloat;
 use flex_layout::{Size, Dimension, PositionType, Rect};
 
 use atom::Atom;
-use ecs::{Lend, LendMut, StdCell};
-use gui::component::calc::Visibility;
+// use ecs::{Lend, LendMut, StdCell};
+use gui::util::cell::StdCell;
+use gui::component::calc::{ByOverflow, Culling, Enable, HSV, LayoutR, NodeState, StyleMark, Visibility, WorldMatrix, ZDepth};
 use gui::font::font_sheet::FontSheet;
+use gui::component::calc::{StyleIndex};
 use gui::component::user::*;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::render::res::TextureRes as TextureResRaw;
-use gui::single::Class;
+use gui::single::{Class, DirtyList, IdTree, ImageWaitSheet};
 use gui::single::{RenderBegin, ClassSheet};
-use gui::world::GuiWorld as GuiWorld1;
+use gui::world::{App, RunLabel, RunType};
+use gui::single::to_entity;
 use gui::Z_MAX;
 use gui::world::{seting_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
 use hal_webgl::*;
@@ -48,6 +54,26 @@ impl TextureRes {
 pub struct NativeResRef{
 	inner: Share<dyn Res<Key = usize>>
 }
+
+
+#[wasm_bindgen]
+pub struct Entity(Entity1);
+
+impl std::ops::Deref for Entity {
+	type Target = Entity1;
+
+    fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl std::ops::DerefMut for Entity {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+
 
 #[wasm_bindgen]
 impl TextureRes {
@@ -90,15 +116,17 @@ pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
 #[wasm_bindgen]
 pub fn get_font_sheet(world: u32) -> u32{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let font_sheet = (*world.gui.font_sheet.lend()).clone();
+	let font_sheet = world.gui.get_resource::<Share<StdCell<FontSheet>>>().unwrap().clone();
 	Box::into_raw(Box::new(font_sheet)) as u32
 }
 
 #[wasm_bindgen]
 pub fn get_class_sheet(world: u32) -> u32{
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let class_sheet = (*world.gui.class_sheet.lend()).clone();
-	Box::into_raw(Box::new(class_sheet)) as u32
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	// let class_sheet = (*world.gui.class_sheet.lend()).clone();
+	// Box::into_raw(Box::new(class_sheet)) as u32
+
+	111
 }
 
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
@@ -107,7 +135,7 @@ pub fn get_class_sheet(world: u32) -> u32{
 pub fn create_render_target(world: u32, fbo: WebGlFramebuffer) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let engine = world.engine.lend_mut();
+	let engine = world.get_resource::<ShareEngine<WebglHalContext>>().unwrap();
     let rt = Share::new(engine.gl.rt_create_webgl(fbo)); // 创建渲染目标
     Box::into_raw(Box::new(rt)) as u32
 }
@@ -127,8 +155,7 @@ pub fn bind_render_target(world_id: u32, render_target: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     // let engine = world.engine.lend_mut();
-    let begin = world.world.fetch_single::<RenderBegin>().unwrap();
-    let begin = begin.lend_mut();
+	let mut begin = world.get_resource_mut::<RenderBegin>().unwrap();
     if render_target == 0 {
         begin.1 = None;
     } else {
@@ -211,46 +238,52 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         Some(*unsafe { Box::from_raw(font_sheet as usize as *mut Share<StdCell<FontSheet>>) });
 	}
 	// unsafe{ console::log_1(&JsValue::from("create_gui3================================="))};
-    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option);
-    // unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
-	let world = GuiWorld1::<WebglHalContext>::new(world);
-    let idtree = world.idtree.lend_mut();
-    let node = world.node.lend_mut().create();
-    idtree.create(node);
+	let mut world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option);
+	// unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
+	// let world = GuiWorld1::<WebglHalContext>::new(world);
+	let mut rect_layout_style = RectLayoutStyle::default();
+	let mut other_layout_style = OtherLayoutStyle::default();
+	let mut transform = Transform::default();
+	transform.origin = TransformOrigin::XY(LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0));
 
-    let border_radius = world.border_radius.lend_mut();
-    border_radius.insert(
-        node,
-        BorderRadius {
-            x: LengthUnit::Pixel(0.0),
-            y: LengthUnit::Pixel(0.0),
-        },
-    );
-	// unsafe{ console::log_1(&JsValue::from("create_gui5================================="))};
-
-    let visibilitys = world.visibility.lend_mut();
-    visibilitys.insert(node, Visibility(true));
-
-	let rect_layout_styles = world.rect_layout_style.lend_mut();
-	let other_layout_styles = world.other_layout_style.lend_mut();
-	let rect_layout_style = &mut rect_layout_styles[node];
-	let other_layout_style = &mut other_layout_styles[node];
-
-    // let config = YgConfig::new();
-    // config.set_point_scale_factor(0.0);
-    // let ygnode1 = YgNode::new_with_config(config);
-	// let ygnode1 = YgNode::default();
 	rect_layout_style.size = Size{width: Dimension::Points(width), height: Dimension::Points(height)};
 	other_layout_style.position_type = PositionType::Absolute;
 	other_layout_style.position = Rect::default();
-	rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
-	other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
+
+	let node = world.spawn().insert_bundle((
+		BorderRadius {
+			x: LengthUnit::Pixel(0.0),
+			y: LengthUnit::Pixel(0.0),
+		}, 
+		Visibility(true),
+		rect_layout_style,
+		other_layout_style,
+		StyleMark ::default(),
+		ZDepth::default(),
+		gui::component::calc::Opacity::default(),
+		HSV::default(),
+		LayoutR::default(),
+		WorldMatrix::default(),
+		Enable::default(),
+		NodeState::default(),
+		ByOverflow::default(),
+		Culling::default(),
+		transform,
+	)).id();
+
+	send_create_event::<Entity1>(node, StyleIndex::Create, &mut *world); // 实体创建事件
+
+	let idtree = world.idtree_mut();
+    idtree.create(node.id() as usize, node.generation());
+	idtree.insert_child(node.id() as usize, usize::max_value(), 0);
+
 	// ygnode.align_items = AlignItems::FlexStart;
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
-	let font_sheet_version = world.font_sheet.lend().borrow().tex_version;
+	let font_sheet_version = world.get_resource::<Share<StdCell<FontSheet>>>().unwrap().borrow().tex_version;
 
-	idtree.insert_child(node, 0, 0);
+	world.com_context.send_modify_event::<RectLayoutStyle>(node, StyleIndex::Width, &*world);
+	world.com_context.send_modify_event::<RectLayoutStyle>(node, StyleIndex::Height, &*world);
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
@@ -283,12 +316,13 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 			let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost);
 			let world = &mut *(world_id as usize as *mut GuiWorld);
 			let world = &mut world.gui;
-		
-			let image_wait_sheet = world.image_wait_sheet.lend_mut();
+			
+			let mut image_wait_sheet = world.get_resource_mut::<ImageWaitSheet>().unwrap();
 			match image_wait_sheet.wait.remove(&name) {
 				Some(r) => {
 					image_wait_sheet.finish.push((name, res, r));
-					image_wait_sheet.get_notify().modify_event(0, "", 0);
+					// 标记脏
+					world.get_resource_mut::<SingleChangeType>().unwrap().0 |= SingleChangeLabel::ImageWaitSheet as usize;
 				}
 				None => (),
 			};
@@ -318,8 +352,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
-    let render_begin = render_begin.lend_mut();
+    let mut render_begin = world.get_resource_mut::<RenderBegin>().unwrap();
 	render_begin.0.clear_color = Some((
 		OrderedFloat(r),
 		OrderedFloat(g),
@@ -334,8 +367,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
 pub fn nullify_clear_color(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let render_begin = world.world.fetch_single::<RenderBegin>().unwrap();
-    let render_begin = render_begin.lend_mut();
+    let mut render_begin = world.get_resource_mut::<RenderBegin>().unwrap();
 	render_begin.0.clear_color = None;
 }
 
@@ -345,14 +377,12 @@ pub fn nullify_clear_color(world: u32) {
 pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let rb_decs = world
+    let mut rb_decs = world
         .gui
-        .world
-        .fetch_single::<gui::single::RenderBegin>()
+        .get_resource_mut::<RenderBegin>()
         .unwrap();
-    let rb_decs = rb_decs.lend_mut();
 	rb_decs.0.viewport = (x, y, width, height);
-	rb_decs.get_notify_ref().modify_event(0, "", 0);
+	world.gui.get_resource_mut::<SingleChangeType>().unwrap().0 |= SingleChangeLabel::RenderBegin as usize;
 }
 
 /// 设置视口
@@ -360,13 +390,12 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
 pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let rb_decs = world
+    let mut rb_decs = world
         .gui
-        .world
-        .fetch_single::<gui::single::RenderBegin>()
+        .get_resource_mut::<RenderBegin>()
         .unwrap();
-    let rb_decs = rb_decs.lend_mut();
 	rb_decs.0.scissor = (x, y, width, height);
+	world.gui.get_resource_mut::<SingleChangeType>().unwrap().0 |= SingleChangeLabel::RenderBegin as usize;
 }
 
 /// 设置投影变换
@@ -397,38 +426,28 @@ pub fn set_project_transfrom(
         m = m * Matrix4::new_rotation(Vector3::new(0.0, 0.0, rotate/180.0));
     }
 
-    let project_matrix = world
+    let mut project_matrix = world
         .gui
-        .world
-        .fetch_single::<gui::single::ProjectionMatrix>()
+        .get_resource_mut::<gui::single::ProjectionMatrix>()
         .unwrap();
-    let project_matrix = project_matrix.lend_mut();
     project_matrix.0 = gui::component::calc::WorldMatrix(m, true) * gui::single::ProjectionMatrix::new(
         width as f32,
         height as f32,
         -Z_MAX - 1.0,
         Z_MAX + 1.0,
     ).0;
-	project_matrix.get_notify_ref().modify_event(0, "", 0);
-	
-	let rect_layout_style1 = world.gui.rect_layout_style.lend_mut();
-    let rect_layout_style = &mut rect_layout_style1[1];
+	world.gui.get_resource_mut::<SingleChangeType>().unwrap().0 |= SingleChangeLabel::ProjectionMatrix as usize;
 
-    // let config = YgConfig::new();
-    // config.set_point_scale_factor(0.0);
-    // let ygnode1 = YgNode::new_with_config(config);
-    // let ygnode1 = YgNode::default();
+	send_im_event(&mut world.gui, ResModifyEvent::<gui::single::ProjectionMatrix>::new());
+	
+	let root_entity = to_entity(1, 0);
+	let mut rect_layout_style = world.gui.get_mut::<RectLayoutStyle>(root_entity).unwrap();
+
 	rect_layout_style.size.width = Dimension::Points(width as f32);
 	rect_layout_style.size.height = Dimension::Points(height as f32);
-
-	// println!("project_matrix============={:?}, {}, {}, {}, {}", &project_matrix.0, scale_x, scale_y, width, height);
 	
-	// let layouts = world.gui.layout.lend_mut();
-	// let layout = &mut layouts[1];
-	// layout.rect.end = width as f32;
-	// layout.rect.bottom = height as f32;
-	rect_layout_style1.get_notify_ref().modify_event(1, "width", 0);
-	// debug_println!("layout change, width: {}, height:{}", width, height);
+	world.gui.com_context.send_modify_event::<RectLayoutStyle>(root_entity, StyleIndex::Width, &world.gui);
+	world.gui.com_context.send_modify_event::<RectLayoutStyle>(root_entity, StyleIndex::Height, &world.gui);
 }
 
 /**
@@ -438,24 +457,24 @@ pub fn set_project_transfrom(
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn force_update_text(world_id: u32, node_id: u32) {
-    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let idtree = world.gui.idtree.lend();
-    let text_contents = world.gui.text_content.lend();
-    let node = match idtree.get(node_id as usize) {
-        Some(r) => r,
-        None => return,
-    };
+    // let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    // let idtree = world.gui.idtree.lend();
+    // let text_contents = world.gui.text_content.lend();
+    // let node = match idtree.get(node_id as usize) {
+    //     Some(r) => r,
+    //     None => return,
+    // };
 
-    let notify = text_contents.get_notify_ref();
-    if let Some(_r) = text_contents.get(node_id as usize) {
-        notify.modify_event(node_id as usize, "", 0);
-    }
+    // let notify = text_contents.get_notify_ref();
+    // if let Some(_r) = text_contents.get(node_id as usize) {
+    //     notify.modify_event(node_id as usize, "", 0);
+    // }
 
-    for (id, _n) in idtree.recursive_iter(node.children().head) {
-        if let Some(_r) = text_contents.get(id) {
-            notify.modify_event(id, "", 0);
-        }
-    }
+    // for (id, _n) in idtree.recursive_iter(node.children().head) {
+    //     if let Some(_r) = text_contents.get(id) {
+    //         notify.modify_event(id, "", 0);
+    //     }
+    // }
 }
 
 
@@ -464,79 +483,71 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
 #[wasm_bindgen]
 pub fn render(world_id: u32) -> js_sys::Promise {
     let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    // #[cfg(feature = "debug")]
-	// let time = std::time::Instant::now();
 
 	let r = js_sys::Promise::resolve(&world_id.into()).then(&gui_world.draw_text);
 
 	{
-		// 纹理更新了, 设置脏
-		let font_sheet = gui_world.gui.font_sheet.lend_mut();
-		let font_sheet = &mut font_sheet.borrow_mut();
-		if gui_world.old_texture_tex_version != font_sheet.tex_version {
-			gui_world.old_texture_tex_version = font_sheet.tex_version;
-			set_render_dirty(world_id);
-		}
+		// // 纹理更新了, 设置脏
+		// let font_sheet = gui_world.gui.font_sheet.lend_mut();
+		// let font_sheet = &mut font_sheet.borrow_mut();
+		// if gui_world.old_texture_tex_version != font_sheet.tex_version {
+		// 	gui_world.old_texture_tex_version = font_sheet.tex_version;
+		// 	set_render_dirty(world_id);
+		// }
 	}
-    // gui_world.draw_text_sys.run(world_id);
-    // #[cfg(feature = "debug")]
-    // let draw_text_sys_time = std::time::Instant::now() - time;
 
-    // #[cfg(feature = "debug")]
-    // let time = std::time::Instant::now();
     let world = &mut gui_world.gui;
-	load_image(world_id);
+	// load_image(world_id);
 
-	let dirty_list_len = world.dirty_list.lend().0.len();
+	// let dirty_list_len = world.dirty_list.lend().0.len();
 	
-    // #[cfg(feature = "debug")]
-	// let load_image_time = std::time::Instant::now() - time;
-	let cur_time: usize = (Date::now() as u64/1000) as usize;
-	let sys_time = world.system_time.lend_mut();
-	sys_time.cur_time = cur_time;
+	// let cur_time: usize = (Date::now() as u64/1000) as usize;
+	// let sys_time = world.system_time.lend_mut();
+	// sys_time.cur_time = cur_time;
+	world.get_resource_mut::<RunType>().unwrap().0 = RunLabel::Layout as u8 | RunLabel::Calc as u8 | RunLabel::Render as u8;
 
-    // #[cfg(feature = "debug")]
-    // let time = std::time::Instant::now();
-	world.world.run(&RENDER_DISPATCH);
-	
-	// #[cfg(feature = "debug")]
-	if dirty_list_len > 0 {
-		// console::log_1(&JsValue::from(format!("runtime======={:?}", world.world.runtime)));
-	}
-    // #[cfg(feature = "debug")]
-    // let run_all_time = std::time::Instant::now() - time;
+	world.run();
 
-    // // 如果打开了性能检视面板， 应该渲染检视面板
-    // if gui_world.performance_inspector > 0 {
-    //     let performance_world = unsafe { &mut *(gui_world.performance_inspector as *mut GuiWorld) };
-    //     performance_world.gui.world.run(&RENDER_DISPATCH);
-    // }
-
-    // #[cfg(feature = "debug")]
-    // {
-    //     let mut t = RunTime {
-    //         draw_text_sys_time: draw_text_sys_time.as_secs_f64() * 1000.0,
-    //         load_image_time: load_image_time.as_secs_f64() * 1000.0,
-    //         run_all_time: run_all_time.as_secs_f64() * 1000.0,
-    //         run_sum_time: 0.0,
-    //         sys_time: Vec::with_capacity(world.world.runtime.len()),
-    //     };
-
-    //     if unsafe { gui::DIRTY } {
-    //         for t1 in world.world.runtime.iter() {
-    //             let time = t1.cost_time.as_secs_f64() * 1000.0;
-    //             t.sys_time.push((t1.sys_name.as_ref().to_string(), time));
-    //             t.run_sum_time += time;
-    //         }
-
-    //         #[cfg(feature = "debug")]
-    //         js! {
-    //             console.log("render", @{t});
-    //         }
-    //     }
-    // }
-    // unsafe { gui::DIRTY = false };
 	return r;
+}
+
+#[wasm_bindgen]
+pub fn test_insert() {
+	let mut world = World::default();
+	let t = cross_performance::now();
+	for i in 0..200 {
+		world.spawn().insert_bundle((BorderRadius {
+			x: LengthUnit::Pixel(0.0),
+			y: LengthUnit::Pixel(0.0),
+		}, 
+		Visibility(true),
+		RectLayoutStyle::default(),
+		OtherLayoutStyle::default(),
+		StyleMark::default(),
+		ZDepth::default(),
+		gui::component::calc::Opacity::default(),
+		HSV::default(),
+		LayoutR::default(),
+		WorldMatrix::default(),
+		Enable::default(),
+		NodeState::default(),
+		ByOverflow::default(),
+		Culling::default()));
+		// BackgroundColor::default();
+	}
+
+	for i in 0..70 {
+		world.entity_mut(to_entity(i, 0)).insert(BackgroundColor::default());
+	}
+
+	for i in 0..200 {
+		world.get_mut::<RectLayoutStyle>(to_entity(i, 0)).unwrap().size.width = flex_layout::Dimension::Points(32.0);
+		world.get_mut::<RectLayoutStyle>(to_entity(i, 0)).unwrap().size.height = flex_layout::Dimension::Points(32.0);
+		world.get_mut::<OtherLayoutStyle>(to_entity(i, 0)).unwrap().align_content = flex_layout::AlignContent::Center;
+		world.get_mut::<OtherLayoutStyle>(to_entity(i, 0)).unwrap().align_items = flex_layout::AlignItems::Center;
+		world.get_mut::<OtherLayoutStyle>(to_entity(i, 0)).unwrap().align_self = flex_layout::AlignSelf::Center;
+	}
+	log::info!("time: {:?}", cross_performance::now() - t);
 }
 
 #[cfg(feature = "debug")]
@@ -557,7 +568,8 @@ pub struct RunTime {
 pub fn calc(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    world.world.run(&CALC_DISPATCH);
+	world.get_resource_mut::<RunType>().unwrap().0 |= RunLabel::Layout as u8 | RunLabel::Calc as u8;
+    world.run();
 }
 
 /// 强制计算一次布局
@@ -566,7 +578,8 @@ pub fn calc(world_id: u32) {
 pub fn cal_layout(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    world.world.run(&LAYOUT_DISPATCH);
+	world.get_resource_mut::<RunType>().unwrap().0 |= RunLabel::Layout as u8;
+    world.run();
 
     // #[cfg(feature = "debug")]
     // {
@@ -617,11 +630,11 @@ pub fn load_image_success(
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-    let image_wait_sheet = world.image_wait_sheet.lend_mut();
+    let mut image_wait_sheet = world.get_resource_mut::<ImageWaitSheet>().unwrap();
     match image_wait_sheet.wait.remove(&name) {
         Some(r) => {
             image_wait_sheet.finish.push((name, res, r));
-            image_wait_sheet.get_notify_ref().modify_event(0, "", 0);
+			world.get_resource_mut::<SingleChangeType>().unwrap().0 |= SingleChangeLabel::ImageWaitSheet as usize;
         }
         None => (),
     };
@@ -668,7 +681,7 @@ pub fn create_texture(
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-    let engine = world.engine.lend_mut();
+    let mut engine = world.get_resource_mut::<ShareEngine<WebglHalContext>>().unwrap();
 
     let res = match engine.texture_res_map.get(&name) {
         Some(r) => return (r, name),
@@ -737,7 +750,7 @@ fn load_image(world_id: u32) {
 	// let mut clicks = 0;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 
-    let image_wait_sheet = &mut world.gui.image_wait_sheet.lend_mut();
+    let mut image_wait_sheet = world.gui.get_resource_mut::<ImageWaitSheet>().unwrap();
     for img_name in image_wait_sheet.loads.iter() {
 		(world.load_image)(*img_name as u32, world.load_image_success.as_ref().unchecked_ref());
 		//  load_image(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
@@ -769,10 +782,26 @@ fn load_image(world_id: u32) {
 pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
-    let engine = world.gui.engine.lend();
+    let engine = world.gui.get_resource::<ShareEngine<WebglHalContext>>().unwrap();
     match engine.res_mgr.borrow().get::<TextureResRaw>(&name, group_i) {
         Some(_) => true,
         None => false,
     }
+}
+
+pub fn send_modify_event<T: 'static>(entity: bevy_ecs::prelude::Entity, ty: StyleIndex, world: &mut World) {
+	// send_im_event(world, EntityEventData{ty: EventType::Modify, style_index: ty, id: entity});
+	send_im_event(world, EntityEvent::<T>::new_modify(entity, ty));
+	// send_im_event()
+}
+
+pub fn send_create_event<T: 'static>(entity: bevy_ecs::prelude::Entity, ty: StyleIndex, world: &mut World) {
+	// send_im_event(world, EntityEventData{ty: EventType::Create, style_index: ty, id: entity});
+	send_im_event(world, EntityEvent::<T>::new_create(entity));
+}
+
+pub fn send_delete_event<T: 'static>(entity: bevy_ecs::prelude::Entity, ty: StyleIndex, world: &mut World) {
+	// send_im_event(world, EntityEventData{ty: EventType::Delete, style_index: ty, id: entity});
+	send_im_event(world, EntityEvent::<T>::new_delete(entity));
 }
 

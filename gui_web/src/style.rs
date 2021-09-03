@@ -4,10 +4,10 @@ use wasm_bindgen::prelude::*;
 // use stdweb::unstable::TryInto;
 // use stdweb::web::TypedArray;
 
-use ecs::LendMut;
+// use ecs::LendMut;
 use hash::XHashMap;
 
-use gui::component::user::*;
+use gui::component::{calc::*, user::*, user::Opacity};
 use gui::single::*;
 use gui::util::vecmap_default::VecMapWithDefault;
 #[cfg(feature = "create_class_by_str")]
@@ -17,43 +17,45 @@ use crate::world::GuiWorld;
 
 #[macro_use()]
 macro_rules! insert_value {
-    ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
+    ($world:ident, $node_id:ident, $version:ident, $tt:ident, $value:expr, $key:ident) => {
+        let node_id = to_entity($node_id, $version);
         let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-        world.$key.lend_mut().insert(node_id, $tt($value));
+		world.entity_mut(node_id).insert::<$tt>($tt($value));
+		world.com_context.send_modify_event::<$tt>(node_id, StyleIndex::$tt, world);
     };
 }
 #[macro_use()]
 macro_rules! insert_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
+    ($world:ident, $node_id:ident, $version:ident, $tt:ident, $value:expr, $key:ident) => {
+        let node_id = to_entity($node_id, $version);
         let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-        world.$key.lend_mut().insert(node_id, $value);
+		world.entity_mut(node_id).insert::<$tt>($value);
+		world.com_context.send_modify_event::<$tt>(node_id, StyleIndex::$tt, world);
     };
 }
 #[macro_use()]
 macro_rules! set_show {
-    ($world:ident, $node_id:ident, $name:ident, $value:expr) => {
-        let node_id = $node_id as usize;
+    ($world:ident, $node_id:ident, $version:ident, $name:ident, $value:expr) => {
+        let node_id = to_entity($node_id, $version);
         let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-        unsafe { world.show.lend_mut().get_unchecked_write(node_id) }.modify(|s| {
-            let old = s.clone();
-            s.$name($value);
-            old != *s
-        });
+		if let Some(mut r) = world.get_mut::<Show>(node_id) {
+			r.$name($value);
+		}
+		world.com_context.send_modify_event::<Show>(node_id, StyleIndex::Show, world);
     };
 }
 
 /// 设置背景色的rgba
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
+pub fn set_background_rgba_color(world: u32, node: usize, version: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(
         world,
         node,
+        version,
         BackgroundColor,
         Color::RGBA(CgColor::new(r, g, b, a)),
         background_color
@@ -63,29 +65,30 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 // // 设置一个径向渐变的背景颜色
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8,color_and_positions: &[f32] ){
+// pub fn set_background_radial_gradient_color(world: u32, node: usize, version: u32, center_x: f32, center_y: f32, shape: u8, size: u8,color_and_positions: &[f32] ){
 //     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
-//     insert_value!(world, node, BackgroundColor, value);
+//     insert_value!(world, node, version, BackgroundColor, value);
 // }
 
 /// 设置一个线性渐变的背景颜色
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
+pub fn set_background_linear_gradient_color(world: u32, node: usize, version: u32, direction: f32, color_and_positions: &[f32]) {
     let value = Color::LinearGradient(to_linear_gradient_color(
         color_and_positions,
         direction,
     ));
-    insert_value!(world, node, BackgroundColor, value, background_color);
+    insert_value!(world, node, version, BackgroundColor, value, background_color);
 }
 
 /// 设置边框颜色， 类型为rgba
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
+pub fn set_border_color(world: u32, node: usize, version: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(
         world,
         node,
+        version,
         BorderColor,
         CgColor::new(r, g, b, a),
         border_color
@@ -95,10 +98,11 @@ pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
 /// 设置边框圆角
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32) {
+pub fn set_border_radius(world: u32, node: usize, version: u32, x: f32, y: f32) {
     insert_attr!(
         world,
         node,
+        version,
         BorderRadius,
         BorderRadius {
             x: LengthUnit::Pixel(x),
@@ -111,10 +115,11 @@ pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32) {
 /// 设置边框圆角
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
+pub fn set_border_radius_percent(world: u32, node: usize, version: u32, x: f32, y: f32) {
     insert_attr!(
         world,
         node,
+        version,
         BorderRadius,
         BorderRadius {
             x: LengthUnit::Percent(x),
@@ -127,21 +132,21 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影颜色
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
+// pub fn set_box_shadow_color(world: u32, node: usize, version: u32, r: f32, g: f32, b: f32, a: f32){
 //     let color = 0;
 //     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
 // }
 
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
+// pub fn set_box_shadow_spread(world: u32, node: usize, version: u32, value: f32){
 //     let spread = 0;
 //     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
 // }
 
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
+// pub fn set_box_shadow_blur(world: u32, node: usize, version: u32, value: f32){
 //     let blur = 0;
 //     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
 // }
@@ -149,7 +154,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影h
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
+// pub fn set_box_shadow_h(world: u32, node: usize, version: u32, value: f32){
 //     let h = 0;
 //     set_attr!(world, node, BoxShadow, h, value, box_shadow);
 // }
@@ -157,7 +162,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 // // 设置阴影v
 // #[allow(unused_attributes)]
 // #[wasm_bindgen]
-// pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
+// pub fn set_box_shadow_v(world: u32, node: usize, version: u32, value: f32){
 //     let v = 0;
 //     set_attr!(world, node, BoxShadow, v, value, box_shadow);
 // }
@@ -167,7 +172,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 #[wasm_bindgen]
 pub fn set_box_shadow(
     world: u32,
-    node: u32,
+    node: usize, version: u32,
     h: f32,
     v: f32,
     blur: f32,
@@ -181,6 +186,7 @@ pub fn set_box_shadow(
     insert_attr!(
         world,
         node,
+        version,
         BoxShadow,
         BoxShadow {
             h: h,
@@ -196,10 +202,11 @@ pub fn set_box_shadow(
 /// 设置object_fit
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_object_fit(world: u32, node: u32, value: u8) {
+pub fn set_object_fit(world: u32, node: usize, version: u32, value: u8) {
     insert_value!(
         world,
         node,
+        version,
         ObjectFit,
         unsafe { transmute(value) },
         object_fit
@@ -208,10 +215,11 @@ pub fn set_object_fit(world: u32, node: u32, value: u8) {
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
+pub fn set_image_clip(world: u32, node: usize, version: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     insert_value!(
         world,
         node,
+        version,
         ImageClip,
         Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
         image_clip
@@ -220,11 +228,12 @@ pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32)
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
+pub fn set_border_image_clip(world: u32, node: usize, version: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     // println!("set_border_image_clip: {:?}, {}, {}, {}", u1, v1, u2, v2);
     insert_value!(
         world,
         node,
+        version,
         BorderImageClip,
         Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
         border_image_clip
@@ -235,7 +244,7 @@ pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v
 #[wasm_bindgen]
 pub fn set_border_image_slice(
     world: u32,
-    node: u32,
+    node: usize, version: u32,
     top: f32,
     right: f32,
     bottom: f32,
@@ -245,6 +254,7 @@ pub fn set_border_image_slice(
     insert_attr!(
         world,
         node,
+        version,
         BorderImageSlice,
         BorderImageSlice {
             top,
@@ -259,10 +269,11 @@ pub fn set_border_image_slice(
 /// 设置border_image_slice
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8) {
+pub fn set_border_image_repeat(world: u32, node: usize, version: u32, vertical: u8, horizontal: u8) {
     insert_attr!(
         world,
         node,
+        version,
         BorderImageRepeat,
         BorderImageRepeat(unsafe { transmute(vertical) }, unsafe {
             transmute(horizontal)
@@ -274,61 +285,58 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
 /// 设置overflow
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_overflow(world: u32, node: u32, value: bool) {
-    insert_value!(world, node, Overflow, value, overflow);
+pub fn set_overflow(world: u32, node: usize, version: u32, value: bool) {
+    insert_value!(world, node, version, Overflow, value, overflow);
 }
 
 /// 设置不透明度
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_opacity(world: u32, node: u32, mut value: f32) {
+pub fn set_opacity(world: u32, node: usize, version: u32, mut value: f32) {
     if value > 1.0 {
         value = 1.0;
     } else if value < 0.0 {
         value = 0.0;
 	}
-    insert_value!(world, node, Opacity, value, opacity);
+    insert_value!(world, node, version, Opacity, value, opacity);
 }
 
 /// 设置display
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_display(world: u32, node: u32, value: u8) {
+pub fn set_display(world: u32, node: usize, version: u32, value: u8) {
 	unsafe {
-		let layouts = (&mut *(world as usize as *mut GuiWorld))
-				.gui
-				.other_layout_style
-				.lend_mut();
-		layouts[node as usize].display = transmute(value);
-		layouts.get_notify_ref().modify_event(node as usize, "display", 0);
+		let world = &mut *(world as usize as *mut GuiWorld);
+		world.gui.com_context.get_mut::<OtherLayoutStyle>(&world.gui, to_entity(node, version)).unwrap().display = transmute(value)
+		// layouts.get_notify_ref().modify_event(node as usize, "display", 0);
 	}
 
     let value = unsafe { transmute(value) };
-    set_show!(world, node, set_display, value);
+    set_show!(world, node, version, set_display, value);
 }
 
 /// 设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_visibility(world: u32, node: u32, value: bool) {
-    set_show!(world, node, set_visibility, value);
+pub fn set_visibility(world: u32, node: usize, version: u32, value: bool) {
+    set_show!(world, node, version, set_visibility, value);
 }
 
 /// 设置enable
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_enable(world: u32, node: u32, value: u32) {
-    set_show!(world, node, set_enable, unsafe { transmute(value as u8) });
+pub fn set_enable(world: u32, node: usize, version: u32, value: u32) {
+    set_show!(world, node, version, set_enable, unsafe { transmute(value as u8) });
 }
 
 /// 取enable
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn get_enable(world: u32, node: u32) -> bool {
+pub fn get_enable(world: u32, node: usize, version: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
-    let enables = world.gui.enable.lend_mut();
-	match enables.get(node as usize) {
+    let enables = world.gui.get::<Enable>(to_entity(node, version));
+	match enables {
 		Some(r) => r.0,
 		None => false
 	}
@@ -339,15 +347,15 @@ pub fn get_enable(world: u32, node: u32) -> bool {
 /// 这只z_index
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_zindex(world: u32, node: u32, value: i32) {
+pub fn set_zindex(world: u32, node: usize, version: u32, value: i32) {
     let value = value as isize;
-    insert_value!(world, node, ZIndex, value, z_index);
+    insert_value!(world, node, version, ZIndex, value, z_index);
 }
 
 /// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32) {
+pub fn set_filter_hsi(world: u32, node: usize, version: u32, mut h: f32, mut s: f32, mut i: f32) {
     if h > 180.0 {
         h = 180.0;
     } else if h < -180.0 {
@@ -368,24 +376,20 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
         saturate: s / 100.0,
         bright_ness: i / 100.0,
     };
-    insert_attr!(world, node, Filter, value, filter);
+    insert_attr!(world, node, version, Filter, value, filter);
 }
 
 /// __jsObj: image_name(String)
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_image(world: u32, node: u32, url: usize) {
+pub fn set_border_image(world: u32, node: usize, version: u32, url: usize) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let border_images = world.gui.border_image.lend_mut();
-    border_images.insert(
-        node as usize,
-        BorderImage(Image {
-            src: None,
-            url: url,
-            width: None,
-            height: None,
-        }),
-    );
+    world.gui.entity_mut(to_entity(node, version)).insert( BorderImage(Image {
+		// src: None,
+		url: url,
+		width: None,
+		height: None,
+	}));
 }
 
 /// 设置默认样式, 暂支持布局属性、 文本属性的设置
@@ -428,24 +432,24 @@ pub fn set_default_style(world: u32, css: &str) {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let node_id = node_id as usize;
-    let transforms = world.gui.transform.lend_mut();
-    let transform_will_changes = world.gui.transform_will_change.lend_mut();
-    if value == 0 {
-        if transform_will_changes.get(node_id).is_some() {
-            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
-        }
-    } else {
-        if transforms.get(node_id).is_some() {
-            transform_will_changes.insert(
-                node_id,
-                TransformWillChange(transforms.delete(node_id).unwrap()),
-            );
-        } else if transform_will_changes.get(node_id).is_none() {
-            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
-        }
-    }
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let node_id = node_id as usize;
+    // let transforms = world.gui.transform.lend_mut();
+    // let transform_will_changes = world.gui.transform_will_change.lend_mut();
+    // if value == 0 {
+    //     if transform_will_changes.get(node_id).is_some() {
+    //         transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
+    //     }
+    // } else {
+    //     if transforms.get(node_id).is_some() {
+    //         transform_will_changes.insert(
+    //             node_id,
+    //             TransformWillChange(transforms.delete(node_id).unwrap()),
+    //         );
+    //     } else if transform_will_changes.get(node_id).is_none() {
+    //         transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
+    //     }
+    // }
 }
 
 fn set_default_style1(world: &mut GuiWorld, r: Class) {
@@ -548,10 +552,10 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
         }
     }
 
-	let text_styles = unsafe {&mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)};
-	let flex_rect_styles = unsafe {&mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<RectLayoutStyle>)};
-	let flex_other_styles = unsafe {&mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<OtherLayoutStyle>)};
-	flex_rect_styles.set_default(rect_layout_style);
-	flex_other_styles.set_default(other_layout_style);
-	text_styles.set_default(text_style);
+	// let text_styles = unsafe {&mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)};
+	// let flex_rect_styles = unsafe {&mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<RectLayoutStyle>)};
+	// let flex_other_styles = unsafe {&mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<OtherLayoutStyle>)};
+	// flex_rect_styles.set_default(rect_layout_style);
+	// flex_other_styles.set_default(other_layout_style);
+	// text_styles.set_default(text_style);
 }

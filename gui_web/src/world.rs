@@ -111,12 +111,15 @@
 use std::collections::hash_map::Entry;
 use std::mem::transmute;
 
+use gui::single::DirtyViewRect;
+use gui::util::event::RenderObjEvent;
+use gui::util::event::send_im_event;
 use js_sys::{Object, Function};
 use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use ecs::{Lend, LendMut};
+// use ecs::{Lend, LendMut};
 use hash::XHashMap;
 
 use hal_core::HalContext;
@@ -124,8 +127,10 @@ use hal_webgl::WebglHalContext;
 
 use gui::component::user::{TextStyle, Vector2};
 use gui::single::Class;
-use gui::world::GuiWorld as GuiWorld1;
-use gui::font::font_sheet::{TextInfo as TextInfo1};
+use gui::world::App;
+use gui::font::font_sheet::{TextInfo as TextInfo1, FontSheet};
+use share::Share;
+use gui::util::cell::StdCell;
 
 #[wasm_bindgen(module = "/js/utils.js")]
 extern "C" {
@@ -146,7 +151,7 @@ extern "C" {
 }
 
 pub struct GuiWorld {
-    pub gui: GuiWorld1<WebglHalContext>,
+    pub gui: App,
     pub draw_text_sys: DrawTextSys,
     pub default_attr: Class,
 	pub max_texture_size: u32,
@@ -194,8 +199,8 @@ impl DrawTextSys {
 		{
 			let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 			let world = &mut world.gui;
-			let font_sheet = world.font_sheet.lend_mut();
-			let font_sheet = &mut font_sheet.borrow_mut();
+			let font_sheet = world.get_resource::<Share<StdCell<FontSheet>>>().unwrap();
+			let mut font_sheet = font_sheet.borrow_mut();
 			if font_sheet.wait_draw_list.len() == 0 {
 				return ;
 			}
@@ -217,128 +222,128 @@ impl DrawTextSys {
 /// 绘制文字
 #[allow(unused_unsafe)]
 pub fn draw_canvas_text(world_id: u32, data: u32){
-    // let t = std::time::Instant::now();
-    let text_info_list = unsafe { Box::from_raw(data as usize as *mut Vec<TextInfo1>) };
-    let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let canvas = &world1.draw_text_sys.canvas;
-	let ctx = &world1.draw_text_sys.ctx;
-    let world = &mut world1.gui;
-	let single_font_sheet = &mut world.font_sheet.lend_mut();
-	let font_sheet = &mut single_font_sheet.borrow_mut();
-	font_sheet.tex_version += 1;
-    let engine = world.engine.lend_mut();
-    let texture = font_sheet.get_font_tex();
+    // // let t = std::time::Instant::now();
+    // let text_info_list = unsafe { Box::from_raw(data as usize as *mut Vec<TextInfo1>) };
+    // let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    // let canvas = &world1.draw_text_sys.canvas;
+	// let ctx = &world1.draw_text_sys.ctx;
+    // let world = &mut world1.gui;
+	// let font_sheet = world.get_resource::<FontSheet>().unwrap();
+	// let font_sheet = &mut font_sheet.borrow_mut();
+	// font_sheet.tex_version += 1;
+    // let engine = world.engine.lend_mut();
+    // let texture = font_sheet.get_font_tex();
 
-    // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
-    let mut end_v = 0;
-    let mut map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
-    for i in 0..text_info_list.len() {
-        let text_info = &text_info_list[i];
-        let first = &text_info.chars[0];
-        let h = first.y + text_info.size.y as u32;
-        if h > end_v {
-            end_v = h;
-        }
-        match map.entry(first.y) {
-            Entry::Occupied(mut e) => {
-                let r = e.get_mut();
-                r.0.push(i);
-                r.1.x += text_info.size.x;
-                if text_info.size.y > r.1.y {
-                    r.1.y = text_info.size.y;
-                }
-            }
-            Entry::Vacant(r) => {
-                r.insert((vec![i], text_info.size.clone()));
-            }
-        };
-    }
+    // // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
+    // let mut end_v = 0;
+    // let mut map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
+    // for i in 0..text_info_list.len() {
+    //     let text_info = &text_info_list[i];
+    //     let first = &text_info.chars[0];
+    //     let h = first.y + text_info.size.y as u32;
+    //     if h > end_v {
+    //         end_v = h;
+    //     }
+    //     match map.entry(first.y) {
+    //         Entry::Occupied(mut e) => {
+    //             let r = e.get_mut();
+    //             r.0.push(i);
+    //             r.1.x += text_info.size.x;
+    //             if text_info.size.y > r.1.y {
+    //                 r.1.y = text_info.size.y;
+    //             }
+    //         }
+    //         Entry::Vacant(r) => {
+    //             r.insert((vec![i], text_info.size.clone()));
+    //         }
+    //     };
+    // }
 
-    // 扩展纹理
-    if end_v > texture.height as u32 {
-        end_v = next_power_of_two(end_v);
-        if end_v > world1.max_texture_size {
-            debug_println!("update_canvas_text fail, height overflow");
-        }
-        engine
-            .gl
-            .texture_extend(&texture.bind, texture.width as u32, end_v);
-        texture.update_size(texture.width, end_v as usize);
-        single_font_sheet.get_notify_ref().modify_event(0, "", 0);
-    }
+    // // 扩展纹理
+    // if end_v > texture.height as u32 {
+    //     end_v = next_power_of_two(end_v);
+    //     if end_v > world1.max_texture_size {
+    //         debug_println!("update_canvas_text fail, height overflow");
+    //     }
+    //     engine
+    //         .gl
+    //         .texture_extend(&texture.bind, texture.width as u32, end_v);
+    //     texture.update_size(texture.width, end_v as usize);
+    //     single_font_sheet.get_notify_ref().modify_event(0, "", 0);
+    // }
 
-    for indexs in map.iter() {
-		unsafe{fillBackGround(canvas, ctx, (indexs.1).1.x as u32, (indexs.1).1.y as u32)}
-        let mut start: (i32, i32) = (-1, -1);
+    // for indexs in map.iter() {
+	// 	unsafe{fillBackGround(canvas, ctx, (indexs.1).1.x as u32, (indexs.1).1.y as u32)}
+    //     let mut start: (i32, i32) = (-1, -1);
 
-        for i in (indexs.1).0.iter() {
-            let text_info = &text_info_list[*i];
-            let first = &text_info.chars[0];
-            if start.0 == -1 {
-                start.0 = first.x as i32;
-                start.1 = first.y as i32;
-            }
-            let hal_stroke_width = text_info.stroke_width / 2;
-            // let bottom = text_info.size.y as u32 - hal_stroke_width as u32;
-			unsafe{
-				setFont(
-					ctx, 
-					text_info.weight as u32, 
-					text_info.font_size as u32, 
-					text_info.font as u32, 
-					text_info.stroke_width as u8);
-			};
-            // js! {
+    //     for i in (indexs.1).0.iter() {
+    //         let text_info = &text_info_list[*i];
+    //         let first = &text_info.chars[0];
+    //         if start.0 == -1 {
+    //             start.0 = first.x as i32;
+    //             start.1 = first.y as i32;
+    //         }
+    //         let hal_stroke_width = text_info.stroke_width / 2;
+    //         // let bottom = text_info.size.y as u32 - hal_stroke_width as u32;
+	// 		unsafe{
+	// 			setFont(
+	// 				ctx, 
+	// 				text_info.weight as u32, 
+	// 				text_info.font_size as u32, 
+	// 				text_info.font as u32, 
+	// 				text_info.stroke_width as u8);
+	// 		};
+    //         // js! {
 
-            //     var c = @{canvas};
-            //     var ctx = c.ctx;
-            //     var weight;
-            //     if (@{text_info.weight as u32} <= 300 ) {
-            //         weight = "lighter";
-            //     } else if (@{text_info.weight as u32} < 700 ) {
-            //         weight = "normal";
-            //     } else if (@{text_info.weight as u32} < 900 ) {
-            //         weight = "bold";
-            //     } else {
-            //         weight = "bolder";
-            //     }
-            //     ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
-            //     ctx.fillStyle = "#0f0";
-            //     ctx.textBaseline = "top";
-            // }
-            if text_info.stroke_width > 0 {
-                for char_info in text_info.chars.iter() {
-                    let ch_code: u32 = unsafe { transmute(char_info.ch) };
-                    let x = char_info.x + hal_stroke_width as u32 - start.0 as u32;
-					unsafe {
-						//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-						drawCharWithStroke(ctx, ch_code, x, text_info.top as u32);
-					}
-					// unsafe {useVao111(1);}
-                }
-            } else {
-                for char_info in text_info.chars.iter() {
-                    let ch_code: u32 = unsafe { transmute(char_info.ch) };
-                    let x = char_info.x - start.0 as u32;
-					unsafe {
-						drawChar(ctx, ch_code, x, text_info.top as u32);
-					}
-                }
-            }
-		}
+    //         //     var c = @{canvas};
+    //         //     var ctx = c.ctx;
+    //         //     var weight;
+    //         //     if (@{text_info.weight as u32} <= 300 ) {
+    //         //         weight = "lighter";
+    //         //     } else if (@{text_info.weight as u32} < 700 ) {
+    //         //         weight = "normal";
+    //         //     } else if (@{text_info.weight as u32} < 900 ) {
+    //         //         weight = "bold";
+    //         //     } else {
+    //         //         weight = "bolder";
+    //         //     }
+    //         //     ctx.font = weight + " " + @{text_info.font_size as u32} + "px " + @{text_info.font.as_ref()};
+    //         //     ctx.fillStyle = "#0f0";
+    //         //     ctx.textBaseline = "top";
+    //         // }
+    //         if text_info.stroke_width > 0 {
+    //             for char_info in text_info.chars.iter() {
+    //                 let ch_code: u32 = unsafe { transmute(char_info.ch) };
+    //                 let x = char_info.x + hal_stroke_width as u32 - start.0 as u32;
+	// 				unsafe {
+	// 					//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
+	// 					drawCharWithStroke(ctx, ch_code, x, text_info.top as u32);
+	// 				}
+	// 				// unsafe {useVao111(1);}
+    //             }
+    //         } else {
+    //             for char_info in text_info.chars.iter() {
+    //                 let ch_code: u32 = unsafe { transmute(char_info.ch) };
+    //                 let x = char_info.x - start.0 as u32;
+	// 				unsafe {
+	// 					drawChar(ctx, ch_code, x, text_info.top as u32);
+	// 				}
+    //             }
+    //         }
+	// 	}
 
-		// // 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
-		// // 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
-		// js!{
-		// 	@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
-		// }
-        engine
-            .gl
-            .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
-    }
+	// 	// // 在华为Mate 20上，将canvas更新到纹理存在bug，因此这里将canvas的数据取到，然后跟新到纹理
+	// 	// // 如果在后续迭代的过程中，所有手机都不存在该bug，应该删除该句，以节省性能（getImageData会拷贝数据）
+	// 	// js!{
+	// 	// 	@{canvas}.wrap = @{canvas}.ctx.getImageData(0, 0, @{canvas}.canvas.width, @{canvas}.canvas.height);
+	// 	// }
+    //     engine
+    //         .gl
+    //         .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &canvas);
+    // }
 
-	world1.old_texture_tex_version = font_sheet.tex_version;
-    set_render_dirty(world_id);
+	// world1.old_texture_tex_version = font_sheet.tex_version;
+    // set_render_dirty(world_id);
 }
 
 /// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
@@ -347,11 +352,10 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 pub fn set_render_dirty(world: u32) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let render_objs = world.render_objs.lend();
-	let dirty_view_rect = world.dirty_view_rect.lend_mut();
+	let mut dirty_view_rect = world.get_resource_mut::<DirtyViewRect>().unwrap();
 	dirty_view_rect.4 = true;
-	// unsafe{web_sys::console::log_2(&"set_render_dirty".into(), &dirty_view_rect.4.into())}
-    // render_objs.get_notify_ref().modify_event(1, "", 0);
+
+	send_im_event(world, RenderObjEvent::new_modify(usize::max_value(), "", 0));
 }
 
 

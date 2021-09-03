@@ -1,4 +1,5 @@
 #![feature(nll)] 
+#![feature(unboxed_closures)]
 #![feature(proc_macro_hygiene)]
 #![feature(core_intrinsics)]
 #![feature(type_ascription)]
@@ -7,10 +8,6 @@
 #![feature(rustc_private)]
 #![allow(non_snake_case)]
 
-#[macro_use]
-extern crate ecs;
-#[macro_use]
-extern crate ecs_derive;
 extern crate pointer;
 #[macro_use]
 extern crate lazy_static;
@@ -32,9 +29,10 @@ extern crate deque;
 extern crate cg2d;
 extern crate nalgebra;
 extern crate ncollide2d;
-extern crate spatialtree;
-extern crate slab;
-extern crate map;
+extern crate spatialtree_new as spatialtree;
+extern crate cross_performance;
+extern crate slab_new as slab;
+extern crate map_new as map;
 extern crate num_traits;
 extern crate heap;
 extern crate fnv;
@@ -49,19 +47,15 @@ extern crate polygon;
 extern crate ordered_float;
 extern crate hash;
 extern crate densevec;
-extern crate idtree;
-extern crate flex_layout;
-
-#[cfg(feature = "native")]
-extern crate cross_performance;
-#[cfg(feature = "wasm-bindgen")]
-extern crate cross_performance;
-
+extern crate idtree_new as idtree;
+extern crate flex_layout_new as flex_layout;
+extern crate listener;
+extern crate bitmaps;
 
 pub mod system;
 pub mod component;
 pub mod single;
-pub mod layout;
+// pub mod layout;
 pub mod font;
 pub mod render;
 pub mod world;
@@ -77,7 +71,7 @@ pub mod entity{
 pub type IdBind = usize;
 pub const Z_MAX: f32 = 419429.0; // IEEE 754 单精度浮点数，尾数23，所以能表达范围是800万，现在GUI需要精确到0.1，所以这个地方是 正负40万；
 // pub const Z_MAX: f32 = 10000.0;
-pub const ROOT: usize = 1;
+pub const ROOT: usize = 0;
 pub static mut DIRTY: bool = false; // 全局脏， 临时使用
 
 

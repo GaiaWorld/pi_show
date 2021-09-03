@@ -1,19 +1,16 @@
+use std::ops::{Index, IndexMut};
+
+use bevy_ecs::prelude::{Query, Res, ResMut, In};
 /// 布局系统
 /// 1.负责处理布局属性的脏，根据不同的脏，设置flex_layout节点的脏类型
 /// 负责推动flex_layout节点进行布局
-use ecs::{
-    CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl,
-    SingleCaseImpl, SingleCaseListener,Runner
-};
 use flex_layout::*;
 use dirty::*;
-use map::vecmap::VecMap;
 
-use crate::util::vecmap_default::VecMapWithDefault;
-use crate::entity::Node;
-use crate::single::{IdTree, DirtyList};
+use crate::util::event::{EntityEvent, ImMessenger};
+use crate::single::{IdTree, DirtyList, to_entity};
 use crate::component::user::{OtherLayoutStyle, RectLayoutStyle};
-use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK};
+use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, StyleIndex, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK};
 
 // 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
 pub const RECT_DIRTY: usize = StyleType2::Width as usize 
@@ -43,148 +40,169 @@ pub const CHILD_DIRTY: usize = StyleType2::FlexDirection as usize
 
 pub const DIRTY2: usize = RECT_DIRTY | NORMAL_DIRTY | SELF_DIRTY | CHILD_DIRTY;
 
+pub fn idtree_listen(
+	e: In<EntityEvent<IdTree>>,
+	other_layout_styles: Query<&OtherLayoutStyle>,
+	idtree: Res<IdTree>,
+	mut node_states: Query<&mut NodeState>,
+	mut local: ResMut<LayoutSys>,
+) {
+	let e = &e.0;
+	let flex_other_styles = IndexMap {idtree: unsafe {std::mem::transmute(&idtree)}, value: unsafe {std::mem::transmute(&other_layout_styles)}};
+	let mut node_states = IndexMapMut {idtree: unsafe {std::mem::transmute(&idtree)}, value: unsafe {std::mem::transmute(&mut node_states)}};
+
+	// log::info!("idtree_listen============{:?}", **e);
+	match e.style_index {
+		StyleIndex::Add | StyleIndex::Create => {
+			set_normal_style(&**idtree, &mut node_states, &mut local.dirty, e.id.id() as usize, &flex_other_styles[e.id.id() as usize]);
+		},
+		StyleIndex::Delete => {
+			let parent = idtree[e.id.id() as usize].parent();
+			if parent < usize::max_value() {
+				mark_children_dirty(&**idtree, &mut node_states, &mut local.dirty, parent);
+			}
+		},
+		_ => (),
+	}
+}
+
+pub fn calc_layout(
+	rect_layout_styles: Query<&RectLayoutStyle>,
+	other_layout_styles: Query<&OtherLayoutStyle>,
+	mut layout_r: Query<&mut LayoutR>,
+	mut node_states: Query<&mut NodeState>,
+	mut style_marks: Query<&mut StyleMark>,
+	idtree: Res<IdTree>,
+	dirty_list: Res<DirtyList>,
+	mut local: ResMut<LayoutSys>,
+
+	mut layout_event_writer: ImMessenger<EntityEvent<LayoutR>>,
+) {
+	let time = cross_performance::now();
+	let flex_rect_styles = IndexMap {idtree: unsafe {std::mem::transmute(&idtree)} , value: unsafe {std::mem::transmute(&rect_layout_styles)}};
+	let flex_other_styles = IndexMap {idtree: unsafe {std::mem::transmute(&idtree)}, value: unsafe {std::mem::transmute(&other_layout_styles)}};
+	let mut node_states = IndexMapMut {idtree: unsafe {std::mem::transmute(&idtree)}, value: unsafe {std::mem::transmute(&mut node_states)}};
+	// 迭代idtree的事件，设置脏
+
+	// log::info!("calc_layout============{:?}", dirty_list.0.len());
+	// 遍历脏节点，设置脏
+	if dirty_list.0.len() == 0 {
+		return;
+	}
+	
+	for id in dirty_list.0.iter() {
+		let mut style_mark = match style_marks.get_mut(*id) {
+			Ok(r) => r,
+			Err(_r) => continue,
+		};
+		let dirty = style_mark.dirty[2];
+		let dirty1 = style_mark.dirty[1];
+
+		// 不存在LayoutTree关心的脏, 跳过
+		if dirty & DIRTY2 == 0 && dirty1 & StyleType1::Display as usize == 0 && dirty1 & StyleType1::FlexBasis as usize == 0 && dirty1 & StyleType1::Create as usize == 0 {
+			continue;
+		}
+
+		// println!("dirty======{:?}, {:?}", id, &flex_styles[*id]);
+		let id = id.id() as usize;
+		let rect_style = &flex_rect_styles[id];
+		let other_style = &flex_other_styles[id];
+
+		if dirty & RECT_DIRTY != 0 || dirty1 & StyleType1::Create as usize != 0 {
+			set_rect(&**idtree, &mut node_states, &mut local.dirty, id, rect_style, other_style, true, true);
+		}
+
+		if dirty & NORMAL_DIRTY != 0 || dirty1 & StyleType1::FlexBasis as usize != 0 {
+			// println!("dirty NORMAL_DIRTY======{:?}", id);
+			set_normal_style(&**idtree, &mut node_states, &mut local.dirty, id, other_style);
+		}
+
+		if dirty & SELF_DIRTY != 0 {
+			// println!("dirty SELF_DIRTY======{:?}", id);
+			set_self_style(&**idtree, &mut node_states, &mut local.dirty, id, other_style);
+		}
+
+		if dirty & CHILD_DIRTY as usize != 0 {
+			set_children_style(&**idtree, &mut node_states, &mut local.dirty, id, other_style);
+		}
+
+		if dirty1 & StyleType1::Display as usize != 0 {
+			set_display(id, other_style.display, &mut local.dirty, &**idtree, &mut node_states, rect_style, other_style);
+		}
+		style_mark.dirty[2] &= !DIRTY2;
+		style_mark.dirty[1] &= !(StyleType1::Display as usize | StyleType1::FlexBasis as usize | StyleType1::Create as usize);
+	}
+
+	let flex_layouts = IndexMapMut {idtree: unsafe {std::mem::transmute(&idtree)}, value: unsafe {std::mem::transmute(&mut layout_r)}};
+	let flex_layouts = unsafe {&mut *(&flex_layouts  as *const IndexMapMut<LayoutR> as usize as *mut IndexMapMut<flex_layout::LayoutR>)};
+	
+	let mut event_sender = EventSender {
+		idtree: &idtree,
+		sender: &mut layout_event_writer,
+	};
+	compute(&mut local.dirty, &**idtree, &mut node_states, &flex_rect_styles, &flex_other_styles, flex_layouts, notify, &mut event_sender);
+	// if local.dirty.count() > 0 {
+	// 	log::info!("layout======={:?}", cross_performance::now() - time);
+	// }
+}
+
+fn notify(event_sender: &mut EventSender, id: usize, _layout:&flex_layout::LayoutR) {
+	let version = event_sender.idtree[id].data;
+	event_sender.sender.send(EntityEvent::new_modify(to_entity(id, version), StyleIndex::Layout));
+}
+
+struct EventSender<'a,'b> {
+	idtree: &'a IdTree,
+	sender: &'a mut ImMessenger<'b, EntityEvent<LayoutR>>
+}
 
 #[derive(Default)]
 pub struct LayoutSys{
-	dirty: LayerDirty,
+	pub dirty: LayerDirty<usize>,
 }
 
-impl<'a> Runner<'a> for LayoutSys {
-	type ReadData = ( 
-		&'a MultiCaseImpl<Node, RectLayoutStyle>,
-		&'a MultiCaseImpl<Node, OtherLayoutStyle>,
-		&'a SingleCaseImpl<IdTree>, 
-		&'a SingleCaseImpl<DirtyList>);
-	type WriteData = (
-		&'a mut MultiCaseImpl<Node, LayoutR>,
-		&'a mut MultiCaseImpl<Node, NodeState>,
-		&'a mut MultiCaseImpl<Node, StyleMark>, );
-    fn run(&mut self, (rect_layout_styles, other_layout_styles, tree, dirty_list, ): Self::ReadData, (layouts, node_states, style_marks): Self::WriteData) {
-		if dirty_list.0.len() == 0 {
-            return;
-		}
-		
-		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::RectStyle>)};
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
-		let flex_layouts = unsafe {&mut *(layouts.get_storage() as *const VecMap<LayoutR> as usize as *mut VecMap<flex_layout::LayoutR>)};
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		
-		for id in dirty_list.0.iter() {
-			let style_mark = match style_marks.get_mut(*id) {
-                Some(r) => r,
-                None => continue,
-            };
-			let dirty = style_mark.dirty2;
-			let dirty1 = style_mark.dirty1;
+pub struct IndexMap<'a, 'b, 'c, T: Send + Sync + 'static> {
+	idtree: &'a Res<'b, IdTree>,
+	value: &'a Query<'b, &'c T>,
+}
 
-            // 不存在LayoutTree关心的脏, 跳过
-            if dirty & DIRTY2 == 0 && dirty1 & StyleType1::Display as usize == 0 && dirty1 & StyleType1::FlexBasis as usize == 0 && dirty1 & StyleType1::Create as usize == 0 {
-                continue;
-			}
+pub struct IndexMapMut<'a, 'b, 'c, T: Send + Sync + 'static> {
+	idtree: &'a Res<'b, IdTree>,
+	value: &'a mut Query<'b, &'c mut T>,
+}
 
-			// println!("dirty======{:?}, {:?}", id, &flex_styles[*id]);
-			let rect_style = &flex_rect_styles[*id];
-			let other_style = &flex_other_styles[*id];
-;
-			if dirty & RECT_DIRTY != 0 || dirty1 & StyleType1::Create as usize != 0 {
-				set_rect(tree, node_states, &mut self.dirty, *id, rect_style, other_style, true, true);
-			}
+impl<'a, 'b, 'c, T: Send + Sync + 'static> Index<usize> for IndexMap<'a, 'b, 'c, T> {
+    type Output = T;
 
-			if dirty & NORMAL_DIRTY != 0 || dirty1 & StyleType1::FlexBasis as usize != 0 {
-				// println!("dirty NORMAL_DIRTY======{:?}", id);
-				set_normal_style(tree, node_states, &mut self.dirty, *id, other_style);
-			}
+    fn index(&self, index: usize) -> &T {
+		let n = &self.idtree[index];
+		unsafe { self.value.get_unchecked(to_entity(index, n.data)).unwrap() }
+	}
+}
 
-			if dirty & SELF_DIRTY != 0 {
-				// println!("dirty SELF_DIRTY======{:?}", id);
-				set_self_style(tree, node_states, &mut self.dirty, *id, other_style);
-			}
+impl<'a, 'b, 'c, T: Send + Sync + 'static> Index<usize> for IndexMapMut<'a, 'b, 'c, T> {
+	type Output = T;
+    fn index(&self, index: usize) -> &T {
+		let n = &self.idtree[index];
+		unsafe { &*(&*self.value.get_unchecked(to_entity(index, n.data)).unwrap() as *const T) }
+	}
+}
 
-			if dirty & CHILD_DIRTY as usize != 0 {
-				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
-			}
-
-			if dirty1 & StyleType1::Display as usize != 0 {
-				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles);
-			}
-			style_mark.dirty2 &= !DIRTY2;
-			style_mark.dirty1 &= !(StyleType1::Display as usize | StyleType1::FlexBasis as usize | StyleType1::Create as usize);
-		}
-		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
+impl<'a, 'b, 'c, T: Send + Sync + 'static> IndexMut<usize> for IndexMapMut<'a, 'b, 'c, T> {
+    fn index_mut(&mut self, index: usize) -> &mut T {
+		let n = &self.idtree[index];
+		unsafe { &mut *(&mut *self.value.get_unchecked(to_entity(index, n.data)).unwrap() as *mut T) }
 	}
 }
 
 
-//节点创建时， 默认为节点创建LayoutStyle组件
-impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
-	type ReadData = &'a SingleCaseImpl<IdTree>;
-	type WriteData = (
-		&'a mut MultiCaseImpl<Node, RectLayoutStyle>, 
-		&'a mut MultiCaseImpl<Node, OtherLayoutStyle>, 
-		&'a mut MultiCaseImpl<Node, LayoutR>, 
-		&'a mut MultiCaseImpl<Node, NodeState>);
-	fn listen(&mut self, event: &CreateEvent, _tree: Self::ReadData, (rect_layout_styles, other_layout_styles, layouts, node_states): Self::WriteData) {
-		// rect_layout_styles.insert(event.id, RectLayoutStyle::default());
-		// other_layout_styles.insert(event.id, OtherLayoutStyle::default());
-		layouts.insert(event.id, LayoutR::default());
-		node_states.insert(event.id, NodeState::default());
-	}
-}
-
-impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
-    fn listen(&mut self, event: &ModifyEvent, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
-		// let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		if event.field == "add" {
-			set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
-		} if event.field == "remove"{
-			let parent = tree[event.id].parent();
-			if parent > 0 {
-				mark_children_dirty(tree, node_states, &mut self.dirty, parent);
-			}
-		}
-    }
-}
-
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
-    fn listen(&mut self, event: &CreateEvent, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
-		// let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
-    }
-}
-
-impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = &'a mut MultiCaseImpl<Node, NodeState>;
-    fn listen(&mut self, event: &DeleteEvent, tree: Self::ReadData, node_states: Self::WriteData) {
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		let parent = tree[event.id].parent();
-		if parent > 0 {
-			mark_children_dirty(tree, node_states, &mut self.dirty, parent);
-		}
-    }
-}
-
-fn notify(context: &mut MultiCaseImpl<Node, LayoutR>, id: usize, _layout:&flex_layout::LayoutR) {
-	// println!("notify======================={}, layout:{:?}", id, layout);
-	context.get_notify_ref().modify_event(id, "", 0);
-}
-
-
-impl_system! {
-    LayoutSys,
-    true,
-    {
-        EntityListener<Node, CreateEvent>
-        SingleCaseListener<IdTree, DeleteEvent>
-		SingleCaseListener<IdTree, ModifyEvent>
-		SingleCaseListener<IdTree, CreateEvent>
-    }
-}
+// impl_system! {
+//     LayoutSys,
+//     true,
+//     {
+//         EntityListener<Node, CreateEvent>
+//         SingleCaseListener<IdTree, DeleteEvent>
+// 		SingleCaseListener<IdTree, ModifyEvent>
+// 		SingleCaseListener<IdTree, CreateEvent>
+//     }
+// }

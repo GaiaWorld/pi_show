@@ -8,14 +8,14 @@ use std::{
 
 use ordered_float::NotNan;
 
-use map::vecmap::VecMap;
-use hash::XHashMap;
+// use map::vecmap::VecMap;
+// use hash::XHashMap;
 use share::Share;
 use atom::Atom;
-use ecs::component::Component;
+// use ecs::component::Component;
 use flex_layout::*;
 
-use crate::util::vecmap_default::VecMapWithDefault;
+// use crate::util::vecmap_default::VecMapWithDefault;
 use crate::component::calc::WorldMatrix;
 use crate::render::res::TextureRes;
 
@@ -28,120 +28,118 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 // pub type Aabb3 = ncollide2d::bounding_volume::AABB <f32>;
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
-use nalgebra::Rotation3;
 
-#[derive(Clone, Component, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct RectLayoutStyle {
-    pub margin: Rect<Dimension>,
-    pub size: Size<Dimension>,
-}
+// #[derive(Clone/*, Component*/, Serialize, Deserialize, Debug)]
+//#[storage(VecMapWithDefault)]
+pub type RectLayoutStyle = RectStyle;
 
-impl Default for RectLayoutStyle {
-    fn default() -> RectLayoutStyle {
-        RectLayoutStyle {
-            margin: Default::default(),
-			size: Default::default(),
-        }
-    }
-}
+// impl Default for RectLayoutStyle {
+//     fn default() -> RectLayoutStyle {
+//         RectLayoutStyle {
+//             margin: Default::default(),
+// 			size: Default::default(),
+//         }
+//     }
+// }
 
-#[derive(Clone, Component, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct OtherLayoutStyle{
-	pub display: Display,
-    pub position_type: PositionType,
-    pub direction: Direction,
+pub type OtherLayoutStyle = OtherStyle;
 
-    pub flex_direction: FlexDirection,
-    pub flex_wrap: FlexWrap,
-    pub justify_content: JustifyContent,
-    pub align_items: AlignItems,
-    pub align_content: AlignContent,
+// #[derive(Clone/*, Component*/, Serialize, Deserialize, Debug)]
+// //#[storage(VecMapWithDefault)]
+// pub struct OtherLayoutStyle{
+// 	pub display: Display,
+//     pub position_type: PositionType,
+//     pub direction: Direction,
 
-    pub order: isize,
-    pub flex_basis: Dimension,
-    pub flex_grow: f32,
-    pub flex_shrink: f32,
-    pub align_self: AlignSelf,
+//     pub flex_direction: FlexDirection,
+//     pub flex_wrap: FlexWrap,
+//     pub justify_content: JustifyContent,
+//     pub align_items: AlignItems,
+//     pub align_content: AlignContent,
 
-    pub overflow: Overflow,
-    pub position: Rect<Dimension>,
-    pub padding: Rect<Dimension>,
-    pub border: Rect<Dimension>,
-    pub min_size: Size<Dimension>,
-    pub max_size: Size<Dimension>,
-	pub aspect_ratio: Number,
-}
+//     pub order: isize,
+//     pub flex_basis: Dimension,
+//     pub flex_grow: f32,
+//     pub flex_shrink: f32,
+//     pub align_self: AlignSelf,
 
-impl Default for OtherLayoutStyle {
-    fn default() -> OtherLayoutStyle {
-        OtherLayoutStyle {
-            display: Default::default(),
-            position_type: Default::default(),
-            direction: Default::default(),
-            flex_direction: Default::default(),
-            flex_wrap: Default::default(),
-            overflow: Default::default(),
-            align_items: Default::default(),
-            align_self: Default::default(),
-			// align_content: Default::default(),
-			align_content: AlignContent::FlexStart,
-            justify_content: Default::default(),
-            position: Rect{
-				start: Dimension::Undefined,
-				end: Dimension::Undefined,
-				top: Dimension::Undefined,
-				bottom: Dimension::Undefined,
-			},
-			// position:Default::default(),
-            padding: Default::default(),
-            border: Default::default(),
-            flex_grow: 0.0,
-            flex_shrink: 0.0,
-            order: 0,
-            flex_basis: Dimension::Auto,
-            min_size: Default::default(),
-            max_size: Default::default(),
-			aspect_ratio: Default::default(),
-        }
-    }
-}
+//     pub overflow: Overflow,
+//     pub position: Rect<Dimension>,
+//     pub padding: Rect<Dimension>,
+//     pub border: Rect<Dimension>,
+//     pub min_size: Size<Dimension>,
+//     pub max_size: Size<Dimension>,
+// 	pub aspect_ratio: Number,
+// }
+
+// impl Default for OtherLayoutStyle {
+//     fn default() -> OtherLayoutStyle {
+//         OtherLayoutStyle {
+//             display: Default::default(),
+//             position_type: Default::default(),
+//             direction: Default::default(),
+//             flex_direction: Default::default(),
+//             flex_wrap: Default::default(),
+//             overflow: Default::default(),
+//             align_items: Default::default(),
+//             align_self: Default::default(),
+// 			// align_content: Default::default(),
+// 			align_content: AlignContent::FlexStart,
+//             justify_content: Default::default(),
+//             position: Rect{
+// 				start: Dimension::Undefined,
+// 				end: Dimension::Undefined,
+// 				top: Dimension::Undefined,
+// 				bottom: Dimension::Undefined,
+// 			},
+// 			// position:Default::default(),
+//             padding: Default::default(),
+//             border: Default::default(),
+//             flex_grow: 0.0,
+//             flex_shrink: 0.0,
+//             order: 0,
+//             flex_basis: Dimension::Auto,
+//             min_size: Default::default(),
+//             max_size: Default::default(),
+// 			aspect_ratio: Default::default(),
+//         }
+//     }
+// }
 
 
 //================================== 组件
-#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
+#[derive(Deref, DerefMut, Clone/*, Component*/, Default, Serialize, Deserialize, Debug)]
+//#[storage(VecMapWithDefault)]
 pub struct ZIndex(pub isize);
 
 //超出部分的裁剪方式
-#[derive(Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
+#[derive(Deref, DerefMut, Clone/*, Component*/, Default, Serialize, Deserialize, Debug)]
+//#[storage(VecMapWithDefault)]
 pub struct Overflow(pub bool);
 //不透明度
-#[derive(Deref, DerefMut, Clone, Component, Debug, Serialize, Deserialize)]
-#[storage(VecMapWithDefault)]
+#[derive(Deref, DerefMut, Clone/*, Component*/, Debug, Serialize, Deserialize)]
+//#[storage(VecMapWithDefault)]
 pub struct Opacity(pub f32);
 
 // 将display、visibility、enable合并为show组件
-#[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[storage(VecMapWithDefault)]
+#[derive(Deref, DerefMut/*, Component*/, Clone, Debug, PartialEq, Serialize, Deserialize)]
+//#[storage(VecMapWithDefault)]
 pub struct Show(pub usize);
 
 // 变换
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
-#[storage(VecMapWithDefault)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
+//#[storage(VecMapWithDefault)]
 pub struct Transform {
     pub funcs: Vec<TransformFunc>,
     pub origin: TransformOrigin,
 }
 
 // 背景色和class
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct BackgroundColor(pub Color);
 
 // class名称， 支持多个class， 当只有一个或两个class时， 有优化
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct ClassName {
     pub one: usize,
     pub two: usize,
@@ -149,31 +147,31 @@ pub struct ClassName {
 }
 
 // 边框颜色
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
-#[derive(Clone, Component)]
+#[derive(Clone/*, Component*/)]
 pub struct Image {
-    pub src: Option<Share<TextureRes>>,
+    // pub src: Option<Share<TextureRes>>,
     pub url: usize,
     // canvas使用
     pub width: Option<f32>,
     pub height: Option<f32>,
 }
 
-#[derive(Clone, Component)]
+#[derive(Clone/*, Component*/)]
 pub struct MaskImage {
 	pub src: Option<Share<TextureRes>>,
 	pub url: usize,
 }
 
 
-#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
+#[derive(Debug, Deref, DerefMut, Clone/*, Component*/, Serialize, Deserialize)]
 pub struct MaskImageClip (pub Aabb2);
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
-#[derive(Clone, Debug, Component, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug/*, Component*/, Default, Serialize, Deserialize)]
 pub struct Filter {
     pub hue_rotate: f32,  //色相转换  -0.5 ~ 0.5 , 对应ps的-180 ~180
     pub saturate: f32,    // 饱和度  -1。0 ~1.0 ， 对应ps的 -100 ~ 100
@@ -181,22 +179,22 @@ pub struct Filter {
 }
 
 //ObjectFit
-#[derive(Debug, Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Deref, DerefMut, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct ObjectFit(pub FitType);
 
 // image图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
+#[derive(Debug, Deref, DerefMut, Clone/*, Component*/, Serialize, Deserialize)]
 pub struct ImageClip(pub Aabb2);
 
 // 边框图片
-#[derive(Clone, Component)]
+#[derive(Clone/*, Component*/)]
 pub struct BorderImage(pub Image);
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
-#[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
+#[derive(Debug, Deref, DerefMut, Clone/*, Component*/, Serialize, Deserialize)]
 pub struct BorderImageClip(pub Aabb2);
 
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct BorderImageSlice {
     pub top: f32,
     pub right: f32,
@@ -204,18 +202,18 @@ pub struct BorderImageSlice {
     pub left: f32,
     pub fill: bool,
 }
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 // 圆角， 目前仅支持x分量
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct BorderRadius {
     pub x: LengthUnit,
     pub y: LengthUnit,
 }
 
 // 参考CSS的box-shadow的语法
-#[derive(Debug, Clone, Default, Component, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default/*, Component*/, Serialize, Deserialize)]
 pub struct BoxShadow {
     pub h: f32,         // 水平偏移，正右负左
     pub v: f32,         // 垂直偏移，正下负上
@@ -225,7 +223,7 @@ pub struct BoxShadow {
 }
 
 // 文字样式
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct Text {
     pub letter_spacing: f32,     //字符间距， 单位：像素
     pub word_spacing: f32,       //字符间距， 单位：像素
@@ -239,18 +237,18 @@ pub struct Text {
 }
 
 // 文本内容
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct TextContent(pub String, pub Atom);
 
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
-#[storage(VecMapWithDefault)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
+//#[storage(VecMapWithDefault)]
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,
     pub shadow: TextShadow,
 }
 
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone/*, Component*/, Default, Serialize, Deserialize)]
 pub struct TextShadow {
     pub h: f32,         //	必需。水平阴影的位置。允许负值。	测试
     pub v: f32,         //	必需。垂直阴影的位置。允许负值。	测试
@@ -258,7 +256,7 @@ pub struct TextShadow {
     pub color: CgColor, //	可选。阴影的颜色。参阅 CSS 颜色值。
 }
 
-#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+#[derive(/*Component,*/ Debug, Clone, Serialize, Deserialize)]
 pub struct Font {
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
@@ -267,7 +265,7 @@ pub struct Font {
 }
 
 // TransformWillChange， 用于优化频繁变化的Transform
-#[derive(Component, Debug, Clone, Serialize, Deserialize)]
+#[derive(/*Component,*/ Debug, Clone, Serialize, Deserialize)]
 pub struct TransformWillChange(pub Transform);
 
 impl Default for Font {

@@ -1,269 +1,308 @@
-//八叉树系统
-use ecs::{CreateEvent, DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl, MultiCaseListener, ModifyEvent};
-use dirty::LayerDirty;
-use idtree::Node as TreeNode;
-use ecs::monitor::NotifyImpl;
+use bevy_ecs::prelude::{EventReader, EventWriter, Query, Res, ResMut, In};
 
-
-use crate::component::calc::{LayoutR, StyleMark, WorldMatrix};
+use crate::component::calc::{LayoutR, WorldMatrix};
 use crate::component::user::*;
-use crate::component::calc::{NodeState, TransformWillChangeMatrix};
-use crate::entity::Node;
 use crate::single::oct::Oct;
-use crate::single::*;
 use crate::single::IdTree;
-use crate::Z_MAX;
+use crate::util::event::{EntityEvent, ImMessenger};
 
-#[derive(Default)]
-pub struct OctSys{
-	dirty: LayerDirty,
-}
+pub fn matrix_listen(
+	e: In<EntityEvent<WorldMatrix>>,
+	query: Query<(Option<&Transform>, &WorldMatrix, &LayoutR)>,
+	idtree: Res<IdTree>,
+	default_transform: Res<Transform>,
+	mut octree: ResMut<Oct>,
+	mut oct_event_writer: ImMessenger<EntityEvent<Oct>>,
+) {
+	let e = &e.0;
+	let id = e.id.id() as usize;
+	match idtree.get(id) {
+		Some(r) => {
+			if r.layer() == 0 {
+				return;
+			}
+		}
+		None => return,
+	};
 
-impl<'a> Runner<'a> for OctSys {
-    type ReadData = (
-		&'a MultiCaseImpl<Node, NodeState>,
-		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
-        &'a SingleCaseImpl<IdTree>,
-	);
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, read: Self::ReadData, oct: Self::WriteData) {
-		// if self.dirty.count() > 0 {
-		// 	// println!("count: {}", self.dirty.count());
-		// 	let (node_states, will_change_matrixs, idtree) = read;
-			
-		// 	for (id, layer) in self.dirty.iter() {
-		// 		// println!("recursive_calc_aabb1 start: {}", id);
-		// 		let node = match idtree.get(*id) {
-		// 			Some(r) => r,
-		// 			None => continue,
-		// 		};
-		// 		// println!("recursive_calc_aabb2 start: {}", id);
-		// 		if node.layer() == 0 {
-		// 			continue;
-		// 		}
+	let (transform, world_matrix, layout) = query.get(e.id).unwrap();
+	let transform = match transform {
+		Some(r) => r,
+		None => &*default_transform
+	};
+	// let transform = get_or_default(id, transforms, default_table);
 
-		// 		// println!("recursive_calc_Aabb2 start: {}", id);
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
+	let origin = transform.origin.to_value(width, height);
+	let aabb = cal_bound_box((width, height), world_matrix, &origin);
 
-		// 		// 递归重新计算包围盒
-		// 		recursive_calc_aabb(*id, node_states, will_change_matrixs, idtree, oct, will_change_matrixs.get(*id));
-		// 	}
-		// 	self.dirty.clear();
-		// }
+	// let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
+	if let Some(_r) = octree.get(id) {
+		octree.update(e.id, aabb, Some(&mut oct_event_writer));
+	} else {
+		octree.add(e.id, aabb, id, Some(&mut oct_event_writer));
 		
-		// 整理
-		oct.collect();
-    }
+	}
 }
 
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys {
-    type ReadData = (
-		&'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<IdTree>,
-        &'a SingleCaseImpl<DirtyList>,
-	);
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, oct: Self::WriteData) {
-		let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
-            read;
-        OctSys::modify_oct(
-			event.id,
-			id_tree,
-			world_matrixs,
-			layouts,
-			transforms,
-			oct,
-		);
-    }
+// 计算包围盒
+pub fn calc_oct(
+	mut octree: ResMut<Oct>,
+) {
+	octree.collect();
 }
 
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
-    type ReadData = (
-		&'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<IdTree>,
-        &'a SingleCaseImpl<DirtyList>,
-	);
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, oct: Self::WriteData) {
-        let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
-            read;
-        OctSys::modify_oct(
-			event.id,
-			id_tree,
-			world_matrixs,
-			layouts,
-			transforms,
-			oct,
-		);
-    }
-}
+// #[derive(Default)]
+// pub struct OctSys{
+// 	dirty: LayerDirty<usize>,
+// }
 
-//监听TransformWillChangeMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OctSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
+// impl<'a> Runner<'a> for OctSys {
+//     type ReadData = (
+// 		&'a MultiCaseImpl<Node, NodeState>,
+// 		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+//         &'a SingleCaseImpl<IdTree>,
+// 	);
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn run(&mut self, read: Self::ReadData, oct: Self::WriteData) {
+// 		// if self.dirty.count() > 0 {
+// 		// 	// println!("count: {}", self.dirty.count());
+// 		// 	let (node_states, will_change_matrixs, idtree) = read;
+			
+// 		// 	for (id, layer) in self.dirty.iter() {
+// 		// 		// println!("recursive_calc_aabb1 start: {}", id);
+// 		// 		let node = match idtree.get(*id) {
+// 		// 			Some(r) => r,
+// 		// 			None => continue,
+// 		// 		};
+// 		// 		// println!("recursive_calc_aabb2 start: {}", id);
+// 		// 		if node.layer() == 0 {
+// 		// 			continue;
+// 		// 		}
 
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-		println!(" matrix_will_change modify============");
-        self.matrix_will_change_dirty(event.id, read);
-    }
-}
+// 		// 		// println!("recursive_calc_Aabb2 start: {}", id);
 
-//监听TransformWillChangeMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for OctSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
+// 		// 		// 递归重新计算包围盒
+// 		// 		recursive_calc_aabb(*id, node_states, will_change_matrixs, idtree, oct, will_change_matrixs.get(*id));
+// 		// 	}
+// 		// 	self.dirty.clear();
+// 		// }
+		
+// 		// 整理
+// 		oct.collect();
+//     }
+// }
 
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
-		println!(" matrix_will_change create============");
-        self.matrix_will_change_dirty(event.id, read);
-    }
-}
+// impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OctSys {
+//     type ReadData = (
+// 		&'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, LayoutR>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, StyleMark>,
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a SingleCaseImpl<DirtyList>,
+// 	);
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, oct: Self::WriteData) {
+// 		let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
+//             read;
+//         OctSys::modify_oct(
+// 			event.id,
+// 			id_tree,
+// 			world_matrixs,
+// 			layouts,
+// 			transforms,
+// 			oct,
+// 		);
+//     }
+// }
+
+// impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OctSys {
+//     type ReadData = (
+// 		&'a MultiCaseImpl<Node, WorldMatrix>,
+//         &'a MultiCaseImpl<Node, LayoutR>,
+//         &'a MultiCaseImpl<Node, Transform>,
+//         &'a MultiCaseImpl<Node, StyleMark>,
+//         &'a SingleCaseImpl<IdTree>,
+//         &'a SingleCaseImpl<DirtyList>,
+// 	);
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, oct: Self::WriteData) {
+//         let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
+//             read;
+//         OctSys::modify_oct(
+// 			event.id,
+// 			id_tree,
+// 			world_matrixs,
+// 			layouts,
+// 			transforms,
+// 			oct,
+// 		);
+//     }
+// }
 
 // //监听TransformWillChangeMatrix组件的修改
-// impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for OctSys {
+// impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OctSys {
 //     type ReadData = &'a SingleCaseImpl<IdTree>;
-// 	type WriteData = ();
-	
-//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
-// 		println!(" matrix_will_change delete============");
+//     type WriteData = ();
+
+//     fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+// 		println!(" matrix_will_change modify============");
 //         self.matrix_will_change_dirty(event.id, read);
 //     }
 // }
 
-impl OctSys {
+// //监听TransformWillChangeMatrix组件的修改
+// impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for OctSys {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = ();
 
-	// 标记脏
-	fn matrix_will_change_dirty(
-        &mut self,
-        id: usize,
-        idtree: &SingleCaseImpl<IdTree>
-    ) {
-        let node = match idtree.get(id) {
-            Some(r) => r,
-            None => return,
-        };
-        if node.layer() == 0 {
-            return;
-        }
-        self.dirty.mark(id, node.layer());
-    }
-
-    fn modify_oct(
-        id: usize,
-        idtree: &SingleCaseImpl<IdTree>,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
-        layouts: &MultiCaseImpl<Node, LayoutR>,
-        transforms: &MultiCaseImpl<Node, Transform>,
-        octree: &mut SingleCaseImpl<Oct>,
-    ) {
-        match idtree.get(id) {
-            Some(r) => {
-                if r.layer() == 0 {
-                    return;
-                }
-            }
-            None => return,
-        };
-
-        let transform = &transforms[id];
-
-        let world_matrix = &world_matrixs[id];
-        let layout = &layouts[id];
-        // let transform = get_or_default(id, transforms, default_table);
-
-		let width = layout.rect.end - layout.rect.start;
-		let height = layout.rect.bottom - layout.rect.top;
-        let origin = transform.origin.to_value(width, height);
-        let aabb = cal_bound_box((width, height), world_matrix, &origin);
-
-		let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
-		if let Some(_r) = octree.get(id) {
-			octree.update(id, aabb, Some(notify));
-		} else {
-			octree.add(id, aabb, id, Some(notify));
-		}
-    }
-}
-
-fn recursive_calc_aabb<'a>(
-	id: usize,
-	node_states: &'a MultiCaseImpl<Node, NodeState>,
-	will_change_matrix: &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
-	idtree: &'a SingleCaseImpl<IdTree>,
-	octree: &'a mut SingleCaseImpl<Oct>,
-	mut parent_will_change_matrix: Option<&'a TransformWillChangeMatrix>) {
-	
-	// 如果不存在will_change_matrix， 或者不是真实节点则不再继续处理
-	if parent_will_change_matrix.is_none() || !node_states[id].0.is_rnode() {
-		return;
-	}
-
-	// will_change
-	if let Some(r) = will_change_matrix.get(id) {
-		parent_will_change_matrix = Some(r);
-	}
-	if id == 804 {
-		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
-	}
-	
-
-	// 此时，一定存在一个原来的包围盒
-	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
-	if id == 804 {
-		println!("id: {:?}, aabb: {:?}", id, aabb);
-	}
-	// 更新包围盒
-	let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
-	octree.update(id, aabb, Some(notify));
-
-	// 递归计算子节点的包围盒
-	let first = idtree[id].children().head;
-	for (child_id, _child) in idtree.iter(first) {
-		recursive_calc_aabb(child_id, node_states, will_change_matrix, idtree, octree, parent_will_change_matrix);
-	}
-}
-
-// 计算aabb
-fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb2) -> Aabb2 {
-    let min = m * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
-    let max = m * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
-    Aabb2::new(
-        Point2::new(min.x, min.y),
-        Point2::new(max.x, max.y),
-    )
-}
-
-// impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
-//     type ReadData = ();
-//     type WriteData = &'a mut SingleCaseImpl<Oct>;
-//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-//         let notify = write.get_notify();
-//         write.add(
-//             event.id,
-//             Aabb2::new(
-//                 Point2::new(-1024f32, -1024f32, -Z_MAX),
-//                 Point2::new(3072f32, 3072f32, Z_MAX),
-//             ),
-//             event.id,
-//             Some(notify),
-//         );
+//     fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+// 		println!(" matrix_will_change create============");
+//         self.matrix_will_change_dirty(event.id, read);
 //     }
 // }
 
-impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys {
-    type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
-        let notify = unsafe { &* (write.get_notify_ref() as *const NotifyImpl)} ;
-        write.remove(event.id, Some(notify));
-    }
-}
+// // //监听TransformWillChangeMatrix组件的修改
+// // impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for OctSys {
+// //     type ReadData = &'a SingleCaseImpl<IdTree>;
+// // 	type WriteData = ();
+	
+// //     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+// // 		println!(" matrix_will_change delete============");
+// //         self.matrix_will_change_dirty(event.id, read);
+// //     }
+// // }
+
+// impl OctSys {
+
+// 	// 标记脏
+// 	fn matrix_will_change_dirty(
+//         &mut self,
+//         id: usize,
+//         idtree: &SingleCaseImpl<IdTree>
+//     ) {
+//         let node = match idtree.get(id) {
+//             Some(r) => r,
+//             None => return,
+//         };
+//         if node.layer() == 0 {
+//             return;
+//         }
+//         self.dirty.mark(id, node.layer());
+//     }
+
+//     fn modify_oct(
+//         id: usize,
+//         idtree: &SingleCaseImpl<IdTree>,
+//         world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
+//         layouts: &MultiCaseImpl<Node, LayoutR>,
+//         transforms: &MultiCaseImpl<Node, Transform>,
+//         octree: &mut SingleCaseImpl<Oct>,
+//     ) {
+//         match idtree.get(id) {
+//             Some(r) => {
+//                 if r.layer() == 0 {
+//                     return;
+//                 }
+//             }
+//             None => return,
+//         };
+
+//         let transform = &transforms[id];
+
+//         let world_matrix = &world_matrixs[id];
+//         let layout = &layouts[id];
+//         // let transform = get_or_default(id, transforms, default_table);
+
+// 		let width = layout.rect.end - layout.rect.start;
+// 		let height = layout.rect.bottom - layout.rect.top;
+//         let origin = transform.origin.to_value(width, height);
+//         let aabb = cal_bound_box((width, height), world_matrix, &origin);
+
+// 		let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
+// 		if let Some(_r) = octree.get(id) {
+// 			octree.update(id, aabb, Some(notify));
+// 		} else {
+// 			octree.add(id, aabb, id, Some(notify));
+// 		}
+//     }
+// }
+
+// fn recursive_calc_aabb<'a>(
+// 	id: usize,
+// 	node_states: &'a MultiCaseImpl<Node, NodeState>,
+// 	will_change_matrix: &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
+// 	idtree: &'a SingleCaseImpl<IdTree>,
+// 	octree: &'a mut SingleCaseImpl<Oct>,
+// 	mut parent_will_change_matrix: Option<&'a TransformWillChangeMatrix>) {
+	
+// 	// 如果不存在will_change_matrix， 或者不是真实节点则不再继续处理
+// 	if parent_will_change_matrix.is_none() || !node_states[id].0.is_rnode() {
+// 		return;
+// 	}
+
+// 	// will_change
+// 	if let Some(r) = will_change_matrix.get(id) {
+// 		parent_will_change_matrix = Some(r);
+// 	}
+// 	if id == 804 {
+// 		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
+// 	}
+	
+
+// 	// 此时，一定存在一个原来的包围盒
+// 	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
+// 	if id == 804 {
+// 		println!("id: {:?}, aabb: {:?}", id, aabb);
+// 	}
+// 	// 更新包围盒
+// 	let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
+// 	octree.update(id, aabb, Some(notify));
+
+// 	// 递归计算子节点的包围盒
+// 	let first = idtree[id].children().head;
+// 	for (child_id, _child) in idtree.iter(first) {
+// 		recursive_calc_aabb(child_id, node_states, will_change_matrix, idtree, octree, parent_will_change_matrix);
+// 	}
+// }
+
+// // 计算aabb
+// fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb2) -> Aabb2 {
+//     let min = m * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
+//     let max = m * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
+//     Aabb2::new(
+//         Point2::new(min.x, min.y),
+//         Point2::new(max.x, max.y),
+//     )
+// }
+
+// // impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
+// //     type ReadData = ();
+// //     type WriteData = &'a mut SingleCaseImpl<Oct>;
+// //     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+// //         let notify = write.get_notify();
+// //         write.add(
+// //             event.id,
+// //             Aabb2::new(
+// //                 Point2::new(-1024f32, -1024f32, -Z_MAX),
+// //                 Point2::new(3072f32, 3072f32, Z_MAX),
+// //             ),
+// //             event.id,
+// //             Some(notify),
+// //         );
+// //     }
+// // }
+
+// impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys {
+//     type ReadData = ();
+//     type WriteData = &'a mut SingleCaseImpl<Oct>;
+//     fn listen(&mut self, event: &DeleteEvent, _read: Self::ReadData, write: Self::WriteData) {
+//         let notify = unsafe { &* (write.get_notify_ref() as *const NotifyImpl)} ;
+//         write.remove(event.id, Some(notify));
+//     }
+// }
 
 fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb2 {
     let start = (-origin.x, -origin.y);
@@ -301,20 +340,20 @@ fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aab
     Aabb2::new(min, max)
 }
 
-impl_system! {
-    OctSys,
-    true,
-    {
-        // EntityListener<Node, CreateEvent>
-		EntityListener<Node, DeleteEvent>
-		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-		MultiCaseListener<Node, WorldMatrix, CreateEvent>
+// impl_system! {
+//     OctSys,
+//     true,
+//     {
+//         // EntityListener<Node, CreateEvent>
+// 		EntityListener<Node, DeleteEvent>
+// 		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
+// 		MultiCaseListener<Node, WorldMatrix, CreateEvent>
 
-		// MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
-		// MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
-		// MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
-    }
-}
+// 		// MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
+// 		// MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
+// 		// MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
+//     }
+// }
 
 // #[cfg(test)]
 // use atom::Atom;

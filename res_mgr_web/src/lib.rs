@@ -138,6 +138,9 @@ pub trait ResPack {
 /// 资源包装
 pub struct JsRes (Res);
 
+unsafe impl Sync for JsRes {}
+unsafe impl Send for JsRes {}
+
 #[wasm_bindgen]
 impl JsRes {
 	pub fn new(res: Res) -> Self {

@@ -1,5 +1,6 @@
 pub mod constant;
 
+use bevy_ecs::prelude::{Entity, ResMut};
 use share::Share;
 use std::hash::{Hash, Hasher};
 
@@ -7,18 +8,17 @@ use hash::DefaultHasher;
 use ordered_float::NotNan;
 
 use atom::Atom;
-use ecs::monitor::NotifyImpl;
-use ecs::{MultiCaseImpl, SingleCaseImpl};
+// use ecs::monitor::NotifyImpl;
+// use ecs::{MultiCaseImpl, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 
 use crate::component::{calc::*, calc::LayoutR};
 use crate::component::user::*;
-use crate::entity::Node;
-use crate::render::engine::Engine;
 use crate::single::*;
 use crate::system::util::constant::*;
 use crate::Z_MAX;
+use crate::util::event::{ImMessenger, RenderObjEvent};
 
 lazy_static! {
     // 四边形几何体的hash值
@@ -26,19 +26,10 @@ lazy_static! {
 }
 
 pub fn cal_matrix(
-    id: usize,
-    world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
-    transforms: &MultiCaseImpl<Node, Transform>,
-    layouts: &MultiCaseImpl<Node, LayoutR>,
+    world_matrix: &WorldMatrix,
     transform: &Transform,
+    layout: &LayoutR,
 ) -> Matrix4 {
-    let world_matrix = &world_matrixs[id];
-    let layout = &layouts[id];
-    let transform = match transforms.get(id) {
-        Some(r) => r,
-        None => transform,
-    };
-
 	let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
 
     if origin.x != 0.0 || origin.y != 0.0 {
@@ -198,16 +189,17 @@ pub fn create_let_top_offset_matrix(
 
 #[inline]
 pub fn modify_matrix(
-    index: usize,
+	render_index: usize,
     matrix: Vec<f32>,
     render_obj: &mut RenderObj,
-    notify: &NotifyImpl,
+    renderobjs_event_writer: &mut ImMessenger<RenderObjEvent>,
 ) {
     render_obj.paramter.set_value(
         "worldMatrix",
         Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix))),
     );
-    notify.modify_event(index, "ubos", 0);
+	renderobjs_event_writer.send(RenderObjEvent::new_modify(render_index, "ubos", 0))
+    // notify.modify_event(index, "ubos", 0);
 }
 
 #[inline]
@@ -245,8 +237,7 @@ pub fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn D
     }
 }
 
-pub fn modify_opacity<C: HalContext + 'static>(
-    _engine: &mut Engine<C>,
+pub fn modify_opacity(
     render_obj: &mut RenderObj,
     default_state: &DefaultState,
 ) {
@@ -277,7 +268,7 @@ pub fn modify_opacity<C: HalContext + 'static>(
 
 #[inline]
 pub fn new_render_obj(
-    context: usize,
+    context: Entity,
     depth_diff: f32,
     is_opacity: bool,
     vs_name: Atom,
@@ -287,7 +278,7 @@ pub fn new_render_obj(
 ) -> RenderObj {
     RenderObj {
         depth: 0.0,
-        program_dirty: true,
+        program_dirty: false,
         visibility: false,
         vs_defines: Box::new(VsDefines::default()),
         fs_defines: Box::new(FsDefines::default()),
@@ -332,15 +323,16 @@ pub fn new_render_obj(
 
 #[inline]
 pub fn create_render_obj(
-    context: usize,
+    context: Entity,
     depth_diff: f32,
     is_opacity: bool,
     vs_name: Atom,
     fs_name: Atom,
     paramter: Share<dyn ProgramParamter>,
     default_state: &DefaultState,
-    render_objs: &mut SingleCaseImpl<RenderObjs>,
+    render_objs: &mut ResMut<RenderObjs>,
     render_map: &mut VecMap<usize>,
+	renderobjs_event_writer: &mut ImMessenger<RenderObjEvent>,/*render_objs*/
 ) -> usize {
     let state = State {
         bs: default_state.df_bs.clone(),
@@ -348,13 +340,12 @@ pub fn create_render_obj(
         ss: default_state.df_ss.clone(),
         ds: default_state.df_ds.clone(),
     };
-    let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
     let render_index = render_objs.insert(
         new_render_obj(
             context, depth_diff, is_opacity, vs_name, fs_name, paramter, state,
         ),
-        Some(notify),
 	);
-    render_map.insert(context, render_index);
+	renderobjs_event_writer.send(RenderObjEvent::new_create(render_index));
+    render_map.insert(context.id() as usize, render_index);
     render_index
 }

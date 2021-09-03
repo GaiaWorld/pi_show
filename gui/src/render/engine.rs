@@ -5,8 +5,6 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::cell::RefCell;
 
-use atom::Atom;
-use ecs::StdCell;
 use hash::{DefaultHasher, XHashMap};
 use res::{Res, ResMap, ResMgr};
 use share::Share;
@@ -366,6 +364,10 @@ impl<'a> AttributeDecs<'a> {
 }
 
 pub struct UnsafeMut<T>(Share<T>);
+
+/// 强制实现Send和Sync，TODO
+unsafe impl<C> Send for UnsafeMut<C> {}
+unsafe impl<C> Sync for UnsafeMut<C> {}
 
 impl<T> UnsafeMut<T> {
     pub fn new(v: Share<T>) -> Self {

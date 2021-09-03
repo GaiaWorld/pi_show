@@ -11,7 +11,6 @@ use hal_webgl::*;
 use hash::XHashMap;
 use flex_layout::style::*;
 
-use ecs::{Lend, LendMut};
 use gui::component::calc::*;
 use gui::component::calc::LayoutR as Layout2;
 use gui::component::user::*;
@@ -46,7 +45,7 @@ pub struct Rect<T> {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Info {
-    pub overflow: bool,
+    // pub overflow: bool,
     pub by_overflow: usize,
     pub visibility: bool,
     pub enable: bool,
@@ -178,44 +177,49 @@ pub struct Clazz(pub Class);
 
 #[wasm_bindgen]
 pub fn list_class(world: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
 
-	let class_map = &world
-        .class_sheet
-        .lend()
-		.borrow_mut().class_map;
-	let mut r = Vec::new();
-	for ci in class_map.iter() {
-		r.push(ci.0);
-	}
-	JsValue::from_serde(&r).unwrap()
+	// let class_map = &world
+    //     .class_sheet
+    //     .lend()
+	// 	.borrow_mut().class_map;
+	// let mut r = Vec::new();
+	// for ci in class_map.iter() {
+	// 	r.push(ci.0);
+	// }
+	// JsValue::from_serde(&r).unwrap()
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn get_layout(world: u32, node: u32) -> JsValue {
-    let node = node as usize;
+pub fn get_layout(world: u32, node_id: usize) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-	let rect_layout_style = world.rect_layout_style.lend();
-	let other_layout_style = world.other_layout_style.lend();
-	let layouts = world.layout.lend();
+	let idtree = world.idtree();
+	let node = &idtree[node_id];
+	let entity = to_entity(node_id, node.data);
+	let rect_layout_style = world.get::<RectLayoutStyle>(entity);
+	let other_layout_style = world.get::<OtherLayoutStyle>(entity);
+	let layouts = world.get::<LayoutR>(entity);
 
 	JsValue::from_serde(&Layout{
-		rect: match rect_layout_style.get(node) {
+		rect: match rect_layout_style {
 			Some(r) => Some(r.clone()),
 			None => None
 		},
-		other: match other_layout_style.get(node) {
+		other: match other_layout_style {
 			Some(r) => Some(r.clone()),
 			None => None
 		},
-		layoutRet:match layouts.get(node) {
+		layoutRet:match layouts {
 			Some(r) => Some(r.clone()),
 			None => None
 		},
-		node_state: match world.node_state.lend().get(node){
+		node_state: match world.get::<NodeState>(entity){
 			Some(r) => Some(r.clone()),
 			None => None,
 		},
@@ -241,52 +245,59 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 
 #[wasm_bindgen]
 pub fn get_class_name(world: u32, node: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	// let world = &mut world.gui;
 	
-	let class_name = world.class_name.lend();
+	// let class_name = world.class_name.lend();
 
-	JsValue::from_serde(&class_name.get(node as usize)).unwrap()
+	// JsValue::from_serde(&class_name.get(node as usize)).unwrap()
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn get_class(world: u32, class_name: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
 
-    let class = match world
-        .class_sheet
-        .lend()
-        .borrow_mut().class_map
-        .get(&(class_name as usize))
-    {
-        Some(r) => {
-            let mut ret = "".to_string();
-            for attr in r.attrs1.iter() {
-                let s = to_css_str(Attr::Attr1(attr));
-                if s.as_str() != "" {
-                    ret += (s + ";").as_str();
-                }
-            }
-            for attr in r.attrs2.iter() {
-                let s = to_css_str(Attr::Attr2(attr));
-                if s.as_str() != "" {
-                    ret += (s + ";").as_str();
-                }
-            }
-            for attr in r.attrs3.iter() {
-                let s = to_css_str(Attr::Attr3(attr));
-                if s.as_str() != "" {
-                    ret += (s + ";").as_str();
-                }
-            }
-            Some(ret)
-        }
-        None => None,
-    };
+    // let class = match world
+    //     .class_sheet
+    //     .lend()
+    //     .borrow_mut().class_map
+    //     .get(&(class_name as usize))
+    // {
+    //     Some(r) => {
+    //         let mut ret = "".to_string();
+    //         for attr in r.attrs1.iter() {
+    //             let s = to_css_str(Attr::Attr1(attr));
+    //             if s.as_str() != "" {
+    //                 ret += (s + ";").as_str();
+    //             }
+    //         }
+    //         for attr in r.attrs2.iter() {
+    //             let s = to_css_str(Attr::Attr2(attr));
+    //             if s.as_str() != "" {
+    //                 ret += (s + ";").as_str();
+    //             }
+    //         }
+    //         for attr in r.attrs3.iter() {
+    //             let s = to_css_str(Attr::Attr3(attr));
+    //             if s.as_str() != "" {
+    //                 ret += (s + ";").as_str();
+    //             }
+    //         }
+    //         Some(ret)
+    //     }
+    //     None => None,
+    // };
 
-	JsValue::from_serde(&class).unwrap()
+	// JsValue::from_serde(&class).unwrap()
+
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 enum Attr<'a> {
@@ -745,31 +756,52 @@ fn to_css_str(attr: Attr) -> String {
 // 打印节点信息
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn node_info(world: u32, node: u32) -> JsValue {
-    let node = node as usize;
+pub fn node_info(world: u32, node_id: usize) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
-	let idtree = world.idtree.lend();
+	let idtree = world.idtree();
 
     // let z_depth = unsafe { world.z_depth.lend()[node]}.0;
+	let node = idtree.get(node_id).unwrap();
+	let entity = to_entity(node_id, node.data);
+    let parent = idtree.get(node_id).unwrap().parent();
 
-    let parent = idtree[node].parent();
+    let enable = match world.get::<Enable>(entity) {
+		Some(r) => r.0,
+		None => false,
+	};
+    let visibility = match world.get::<Visibility>(entity) {
+		Some(r) => r.0,
+		None => false,
+	};
 
-    let enable = world.enable.lend()[node].0;
-    let visibility = world.visibility.lend()[node].0;
+    let by_overflow = match world.get::<ByOverflow>(entity) {
+		Some(r) => r.0,
+		None => 0,
+	};
+	// let overflow = world.get::<Overflow>(entity);
 
-    let by_overflow = world.by_overflow.lend()[node].0;
+    let opacity = match world.get::<gui::component::calc::Opacity>(entity) {
+		Some(r) => r.0,
+		None => 0.0,
+	};
 
-    let opacity = world.opacity.lend()[node].0;
+    let layout = match world.get::<LayoutR>(entity) {
+		Some(r) => r,
+		None => world.get_resource::<LayoutR>().unwrap(),
+	};
 
-    let layout = world.layout.lend();
+    let world_matrix = match world.get::<WorldMatrix>(entity) {
+		Some(r) => r,
+		None => world.get_resource::<WorldMatrix>().unwrap(),
+	};
 
-    let world_matrix = world.world_matrix.lend();
+    let transform = match world.get::<Transform>(entity) {
+		Some(r) => r,
+		None => world.get_resource::<Transform>().unwrap(),
+	};
 
-    let transform = world.transform.lend();
-
-    let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
-    let layout = &layout[node];
+    let world_matrix1 = cal_matrix(world_matrix, transform, layout);
 
 	let width = layout.rect.end - layout.rect.start;
 	let height = layout.rect.bottom - layout.rect.top;
@@ -862,16 +894,11 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     // let oct = octs[node];
 
     let mut render_map = Vec::new();
-    let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
-    let map = map.lend();
-    let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
-    let render_objs = render_objs.lend();
-    let engine = world
-        .world
-        .fetch_single::<ShareEngine<WebglHalContext>>()
+    let map = world.get_resource::<NodeRenderMap>().unwrap();
+    let render_objs = world.get_resource::<RenderObjs>().unwrap();
+    let engine = world.get_resource::<ShareEngine<WebglHalContext>>()
         .unwrap();
-    let engine = engine.lend();
-    if let Some(arr) = map.get(node) {
+    if let Some(arr) = map.get(node_id) {
         for id in arr.iter() {
             let v = match render_objs.get(*id) {
                 Some(r) => r,
@@ -944,7 +971,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
                     ds: engine.gl.ds_get_desc(&v.state.ds).clone(),
                 },
 
-                context: v.context,
+                context: v.context.id() as usize,
             };
             render_map.push(obj);
         }
@@ -987,94 +1014,106 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     //     None => None,
 	// };
 	let mut children = Vec::new();
-	for id in idtree.iter(idtree[node].children().head) {
+	for id in idtree.iter(idtree[node_id].children().head) {
 		children.push(id.0);
 	}
 
     let info = Info {
         // char_block: char_block,
-        overflow: world.overflow.lend()[node].0,
+        // overflow: overflow[node].0,
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
         opacity: opacity,
-        zindex: world.z_index.lend()[node].0 as u32,
-        zdepth: world.z_depth.lend()[node].0,
+        zindex: match world.get::<ZIndex>(entity) {
+			Some(r) => r.0 as u32,
+			None => 0,
+		},
+        zdepth:  match world.get::<ZDepth>(entity) {
+			Some(r) => r.0,
+			None => 0.0,
+		},
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
-        culling: world.culling.lend()[node].0,
-        text: match world.text_style.lend().get(node) {
+        culling: match world.get::<Culling>(entity) {
+			Some(r) => r.0,
+			None => false,
+		},
+        text: match world.get::<TextStyle>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        text_content: match world.text_content.lend().get(node) {
+        text_content: match world.get::<TextContent>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
         render_obj: render_map,
-        class_name: match world.class_name.lend().get(node) {
+        class_name: match world.get::<ClassName>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        image: match world.image.lend().get(node) {
+        image: match world.get::<Image>(entity) {
             Some(r) => Some(r.url.to_string()),
             None => None,
         },
-        border_image: match world.border_image.lend().get(node) {
+        border_image: match world.get::<BorderImage>(entity) {
             Some(r) => Some(r.0.url.to_string()),
             None => None,
         },
-        background_color: match world.background_color.lend().get(node) {
+        background_color: match world.get::<BackgroundColor>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        border_color: match world.border_color.lend().get(node) {
+        border_color: match world.get::<BorderColor>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        transform: match world.transform.lend().get(node) {
+        transform: match world.get::<Transform>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        box_shadow: match world.box_shadow.lend().get(node) {
+        box_shadow: match world.get::<BoxShadow>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        border_image_clip: match world.border_image_clip.lend().get(node) {
+        border_image_clip: match world.get::<BorderImageClip>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        border_image_slice: match world.border_image_slice.lend().get(node) {
+        border_image_slice: match world.get::<BorderImageSlice>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        border_image_repeat: match world.border_image_repeat.lend().get(node) {
+        border_image_repeat: match world.get::<BorderImageRepeat>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        image_clip: match world.image_clip.lend().get(node) {
+        image_clip: match world.get::<ImageClip>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        border_radius: match world.border_radius.lend().get(node) {
+        border_radius: match world.get::<BorderRadius>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        object_fit: match world.object_fit.lend().get(node) {
+        object_fit: match world.get::<ObjectFit>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-        filter: match world.filter.lend().get(node) {
+        filter: match world.get::<Filter>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
 		},
-		style_mark: world.style_mark.lend()[node],
-        transform_will_change: match world.transform_will_change.lend().get(node) {
+		style_mark: match world.get::<StyleMark>(entity) {
+			Some(r) => r.clone(),
+			None => StyleMark::default(),
+		},
+        transform_will_change: match world.get::<TransformWillChange>(entity) {
             Some(r) => Some(r.clone()),
             None => None,
-        },
+		},
 		parent_id: Some(parent as u32),
 		children: children,
     };
@@ -1085,25 +1124,28 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn overflow_clip(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let overflow_clip = world.overflow_clip.lend();
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
+    // let overflow_clip = world.overflow_clip.lend();
 
-    let mut clips: Vec<(usize, Clip)> = Vec::new();
-    for (index, v) in overflow_clip.clip.iter() {
-        clips.push((index, v.clone()));
-    }
+    // let mut clips: Vec<(usize, Clip)> = Vec::new();
+    // for (index, v) in overflow_clip.clip.iter() {
+    //     clips.push((index, v.clone()));
+    // }
 
-    let mut clip_map = XHashMap::default();
-    for (k, v) in overflow_clip.clip_map.iter() {
-        clip_map.insert(*k, v.0.clone());
-    }
-    let c = OverflowClip {
-        id_map: overflow_clip.id_map.clone(),
-        clip: clips,
-        clip_map: clip_map,
-	};
-	return JsValue::from_serde(&c).unwrap();
+    // let mut clip_map = XHashMap::default();
+    // for (k, v) in overflow_clip.clip_map.iter() {
+    //     clip_map.insert(*k, v.0.clone());
+    // }
+    // let c = OverflowClip {
+    //     id_map: overflow_clip.id_map.clone(),
+    //     clip: clips,
+    //     clip_map: clip_map,
+	// };
+	// return JsValue::from_serde(&c).unwrap();
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 // pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
@@ -1137,143 +1179,146 @@ pub fn overflow_clip(world: u32) -> JsValue {
 
 #[wasm_bindgen]
 pub fn res_size(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let engine = world.engine.lend();
-    let mut size = ResMgrSize::default();
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
+    // let engine = world.engine.lend();
+    // let mut size = ResMgrSize::default();
 
-    let texture = engine.texture_res_map.all_res();
-    for i in texture.0.iter() {
-        size.texture += i.1;
-        size.count_texture += 1;
-    }
-    for i in texture.1.iter() {
-        size.catch_texture += i.1.elem.cost;
-        size.count_catch_texture += 1;
-    }
+    // let texture = engine.texture_res_map.all_res();
+    // for i in texture.0.iter() {
+    //     size.texture += i.1;
+    //     size.count_texture += 1;
+    // }
+    // for i in texture.1.iter() {
+    //     size.catch_texture += i.1.elem.cost;
+    //     size.count_catch_texture += 1;
+    // }
 
-    let geometry = engine.geometry_res_map.all_res();
-    for i in geometry.0.iter() {
-        size.geometry += i.1;
-        size.count_geometry += 1;
-    }
-    for i in geometry.1.iter() {
-        size.catch_geometry += i.1.elem.cost;
-        size.count_catch_geometry += 1;
-    }
+    // let geometry = engine.geometry_res_map.all_res();
+    // for i in geometry.0.iter() {
+    //     size.geometry += i.1;
+    //     size.count_geometry += 1;
+    // }
+    // for i in geometry.1.iter() {
+    //     size.catch_geometry += i.1.elem.cost;
+    //     size.count_catch_geometry += 1;
+    // }
 
-    let buffer = engine.buffer_res_map.all_res();
-    for i in buffer.0.iter() {
-        size.buffer += i.1;
-        size.count_buffer += 1;
-    }
-    for i in buffer.1.iter() {
-        size.catch_buffer += i.1.elem.cost;
-        size.count_catch_buffer += 1;
-    }
+    // let buffer = engine.buffer_res_map.all_res();
+    // for i in buffer.0.iter() {
+    //     size.buffer += i.1;
+    //     size.count_buffer += 1;
+    // }
+    // for i in buffer.1.iter() {
+    //     size.catch_buffer += i.1.elem.cost;
+    //     size.count_catch_buffer += 1;
+    // }
 
-    let rs = engine.rs_res_map.all_res();
-    for i in rs.0.iter() {
-        size.rs += i.1;
-        size.count_rs += 1;
-    }
-    for i in rs.1.iter() {
-        size.catch_rs += i.1.elem.cost;
-        size.count_catch_rs += 1;
-    }
+    // let rs = engine.rs_res_map.all_res();
+    // for i in rs.0.iter() {
+    //     size.rs += i.1;
+    //     size.count_rs += 1;
+    // }
+    // for i in rs.1.iter() {
+    //     size.catch_rs += i.1.elem.cost;
+    //     size.count_catch_rs += 1;
+    // }
 
-    let bs = engine.bs_res_map.all_res();
-    for i in bs.0.iter() {
-        size.bs += i.1;
-        size.count_bs += 1;
-    }
-    for i in bs.1.iter() {
-        size.catch_bs += i.1.elem.cost;
-        size.count_catch_bs += 1;
-    }
+    // let bs = engine.bs_res_map.all_res();
+    // for i in bs.0.iter() {
+    //     size.bs += i.1;
+    //     size.count_bs += 1;
+    // }
+    // for i in bs.1.iter() {
+    //     size.catch_bs += i.1.elem.cost;
+    //     size.count_catch_bs += 1;
+    // }
 
-    let ss = engine.ss_res_map.all_res();
-    for i in ss.0.iter() {
-        size.ss += i.1;
-        size.count_ss += 1;
-    }
-    for i in ss.1.iter() {
-        size.catch_ss += i.1.elem.cost;
-        size.count_catch_ss += 1;
-    }
+    // let ss = engine.ss_res_map.all_res();
+    // for i in ss.0.iter() {
+    //     size.ss += i.1;
+    //     size.count_ss += 1;
+    // }
+    // for i in ss.1.iter() {
+    //     size.catch_ss += i.1.elem.cost;
+    //     size.count_catch_ss += 1;
+    // }
 
-    let ds = engine.ds_res_map.all_res();
-    for i in ds.0.iter() {
-        size.ds += i.1;
-        size.count_ds += 1;
-    }
-    for i in ds.1.iter() {
-        size.catch_ds += i.1.elem.cost;
-        size.count_catch_ds += 1;
-    }
+    // let ds = engine.ds_res_map.all_res();
+    // for i in ds.0.iter() {
+    //     size.ds += i.1;
+    //     size.count_ds += 1;
+    // }
+    // for i in ds.1.iter() {
+    //     size.catch_ds += i.1.elem.cost;
+    //     size.count_catch_ds += 1;
+    // }
 
-    let sampler = engine.sampler_res_map.all_res();
-    for i in sampler.0.iter() {
-        size.sampler += i.1;
-        size.count_sampler += 1;
-    }
-    for i in sampler.1.iter() {
-        size.catch_sampler += i.1.elem.cost;
-        size.count_catch_sampler += 1;
-    }
+    // let sampler = engine.sampler_res_map.all_res();
+    // for i in sampler.0.iter() {
+    //     size.sampler += i.1;
+    //     size.count_sampler += 1;
+    // }
+    // for i in sampler.1.iter() {
+    //     size.catch_sampler += i.1.elem.cost;
+    //     size.count_catch_sampler += 1;
+    // }
 
-	let res_mgr_ref = engine.res_mgr.borrow();
-    let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
-    let ucolor = ucolor.all_res();
-    for i in ucolor.0.iter() {
-        size.ucolor += i.1;
-        size.count_ucolor += 1;
-    }
-    for i in ucolor.1.iter() {
-        size.catch_ucolor += i.1.elem.cost;
-        size.count_catch_ucolor += 1;
-    }
+	// let res_mgr_ref = engine.res_mgr.borrow();
+    // let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
+    // let ucolor = ucolor.all_res();
+    // for i in ucolor.0.iter() {
+    //     size.ucolor += i.1;
+    //     size.count_ucolor += 1;
+    // }
+    // for i in ucolor.1.iter() {
+    //     size.catch_ucolor += i.1.elem.cost;
+    //     size.count_catch_ucolor += 1;
+    // }
 
-    let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
-    let hsv = hsv.all_res();
-    for i in hsv.0.iter() {
-        size.hsv += i.1;
-        size.count_hsv += 1;
-    }
-    for i in hsv.1.iter() {
-        size.catch_hsv += i.1.elem.cost;
-        size.count_catch_hsv += 1;
-    }
+    // let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
+    // let hsv = hsv.all_res();
+    // for i in hsv.0.iter() {
+    //     size.hsv += i.1;
+    //     size.count_hsv += 1;
+    // }
+    // for i in hsv.1.iter() {
+    //     size.catch_hsv += i.1.elem.cost;
+    //     size.count_catch_hsv += 1;
+    // }
 
-    let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
-    let msdf_stroke = msdf_stroke.all_res();
-    for i in msdf_stroke.0.iter() {
-        size.msdf_stroke += i.1;
-        size.count_msdf_stroke += 1;
-    }
-    for i in msdf_stroke.1.iter() {
-        size.catch_msdf_stroke += i.1.elem.cost;
-        size.count_catch_msdf_stroke += 1;
-    }
+    // let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
+    // let msdf_stroke = msdf_stroke.all_res();
+    // for i in msdf_stroke.0.iter() {
+    //     size.msdf_stroke += i.1;
+    //     size.count_msdf_stroke += 1;
+    // }
+    // for i in msdf_stroke.1.iter() {
+    //     size.catch_msdf_stroke += i.1.elem.cost;
+    //     size.count_catch_msdf_stroke += 1;
+    // }
 
-    let canvas_stroke = res_mgr_ref
-        .fetch_map::<CanvasTextStrokeColorUbo>(0)
-        .unwrap();
-    let canvas_stroke = canvas_stroke.all_res();
-    for i in canvas_stroke.0.iter() {
-        size.canvas_stroke += i.1;
-        size.count_canvas_stroke += 1;
-    }
-    for i in canvas_stroke.1.iter() {
-        size.catch_canvas_stroke += i.1.elem.cost;
-        size.count_catch_canvas_stroke += 1;
-    }
+    // let canvas_stroke = res_mgr_ref
+    //     .fetch_map::<CanvasTextStrokeColorUbo>(0)
+    //     .unwrap();
+    // let canvas_stroke = canvas_stroke.all_res();
+    // for i in canvas_stroke.0.iter() {
+    //     size.canvas_stroke += i.1;
+    //     size.count_canvas_stroke += 1;
+    // }
+    // for i in canvas_stroke.1.iter() {
+    //     size.catch_canvas_stroke += i.1.elem.cost;
+    //     size.count_catch_canvas_stroke += 1;
+    // }
 
-    size.total_capacity = res_mgr_ref.total_capacity;
+    // size.total_capacity = res_mgr_ref.total_capacity;
 
-    size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
+    // size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
 
-    return JsValue::from_serde(&size).unwrap();
+    // return JsValue::from_serde(&size).unwrap();
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[derive(Default, Serialize, Deserialize)]
@@ -1287,59 +1332,66 @@ pub struct TexureInfo {
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 pub fn list_texture(world: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let engine = world.engine.lend();
-	let sys_time = world.system_time.lend_mut();
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
+    // let engine = world.engine.lend();
+	// let sys_time = world.system_time.lend_mut();
 
-	let mut info = TexureInfo::default();
-    let list = &mut info.list;
+	// let mut info = TexureInfo::default();
+    // let list = &mut info.list;
 
-    let texture = engine.texture_res_map.all_res();
-    for i in texture.0.iter() {
-		list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
-    }
+    // let texture = engine.texture_res_map.all_res();
+    // for i in texture.0.iter() {
+	// 	list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    // }
 
-	for (key, v) in texture.2.iter() {
-		if *v.get_id() > 0 { // 在lru中的资源
-			list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
-		}
-	}
-	info.min_capacity = engine.texture_res_map.cache.min_capacity();
-	info.max_capacity = engine.texture_res_map.cache.max_capacity();
-	info.cur_cost = engine.texture_res_map.cache.size();
-	return JsValue::from_serde(&info).unwrap();
+	// for (key, v) in texture.2.iter() {
+	// 	if *v.get_id() > 0 { // 在lru中的资源
+	// 		list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+	// 	}
+	// }
+	// info.min_capacity = engine.texture_res_map.cache.min_capacity();
+	// info.max_capacity = engine.texture_res_map.cache.max_capacity();
+	// info.cur_cost = engine.texture_res_map.cache.size();
+	// return JsValue::from_serde(&info).unwrap();
+
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 pub fn common_statistics(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui.world;
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui.world;
 
-    let mut all_run_time = std::time::Duration::from_micros(0);
-	let mut sys_time = Vec::new();
-    for t in world.runtime.iter() {
-		sys_time.push((t.sys_name.as_ref().to_string(),(t.cost_time.as_secs_f64() * 1000.0) as f32));
-        all_run_time += t.cost_time;
-    }
+    // let mut all_run_time = std::time::Duration::from_micros(0);
+	// let mut sys_time = Vec::new();
+    // for t in world.runtime.iter() {
+	// 	sys_time.push((t.sys_name.as_ref().to_string(),(t.cost_time.as_secs_f64() * 1000.0) as f32));
+    //     all_run_time += t.cost_time;
+    // }
 
-    let statistics = world.fetch_single::<Statistics>().unwrap();
-    let statistics = statistics.lend_mut();
-    sys_time.push(("runTotalTimes".to_string(), (all_run_time.as_secs_f64() * 1000.0)  as f32));
-	sys_time.push(("drawCallTimes".to_string(), statistics.drawcall_times as f32));
+    // let statistics = world.fetch_single::<Statistics>().unwrap();
+    // let statistics = statistics.lend_mut();
+    // sys_time.push(("runTotalTimes".to_string(), (all_run_time.as_secs_f64() * 1000.0)  as f32));
+	// sys_time.push(("drawCallTimes".to_string(), statistics.drawcall_times as f32));
 
-	return JsValue::from_serde(&sys_time).unwrap();
+	// return JsValue::from_serde(&sys_time).unwrap();
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[wasm_bindgen]
 pub fn is_dirty(world: u32) -> bool {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	if world.gui.dirty_list.lend().0.len() > 0 {
-		true
-	} else{
-		world.gui.renderSys.owner.deref().borrow().dirty
-	}
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	// if world.gui.dirty_list.lend().0.len() > 0 {
+	// 	true
+	// } else{
+	// 	world.gui.renderSys.owner.deref().borrow().dirty
+	// }
+
+	false
 }
 
 #[allow(non_snake_case)]
@@ -1360,34 +1412,36 @@ pub struct MemStatistics {
 
 #[wasm_bindgen]
 pub fn mem_statistics(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let engine = world.gui.engine.lend();
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let engine = world.gui.engine.lend();
 
-    let texture = engine.texture_res_map.all_res();
+    // let texture = engine.texture_res_map.all_res();
 
-    let mut texture_size = 0;
-    let mut texture_count = 0;
-    let mut catch_texture_count = 0;
-    let mut catch_texture_size = 0;
-    for i in texture.0.iter() {
-        texture_size += i.1;
-        texture_count += 1;
-    }
-    for i in texture.1.iter() {
-        catch_texture_size += i.1.elem.cost;
-        catch_texture_count += 1;
-	}
-	return JsValue::from_serde(&MemStatistics{
-		textureTotalCount: (catch_texture_count + texture_count) as u32, 
-		textureTotalMemory: (catch_texture_size + texture_size) as u32,
-	}).unwrap();
+    // let mut texture_size = 0;
+    // let mut texture_count = 0;
+    // let mut catch_texture_count = 0;
+    // let mut catch_texture_size = 0;
+    // for i in texture.0.iter() {
+    //     texture_size += i.1;
+    //     texture_count += 1;
+    // }
+    // for i in texture.1.iter() {
+    //     catch_texture_size += i.1.elem.cost;
+    //     catch_texture_count += 1;
+	// }
+	// return JsValue::from_serde(&MemStatistics{
+	// 	textureTotalCount: (catch_texture_count + texture_count) as u32, 
+	// 	textureTotalMemory: (catch_texture_size + texture_size) as u32,
+	// }).unwrap();
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 #[wasm_bindgen]
 pub fn get_font_sheet_debug(world: u32){
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let font_sheet = world.gui.font_sheet.lend();
-	log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
+	// let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	// let font_sheet = world.gui.font_sheet.lend();
+	// log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
 	
 }
 
@@ -1395,168 +1449,169 @@ pub fn get_font_sheet_debug(world: u32){
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn print_memory(world: u32) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    log::info!("print_memory begin");
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
+    // log::info!("print_memory begin");
 
-    let mut total = 0;
+    // let mut total = 0;
 
-    let r = world.node.lend().mem_size();
-    total += r;
-    log::info!("    world::node = {:?}", r);
-    let r = world.transform.lend().mem_size();
-    total += r;
-    log::info!("    world::transform = {:?}", r);
-    let r = world.z_index.lend().mem_size();
-    total += r;
-    log::info!("    world::z_index = {:?}", r);
-    let r = world.overflow.lend().mem_size();
-    total += r;
-    log::info!("    world::overflow = {:?}", r);
-    let r = world.show.lend().mem_size();
-    total += r;
-    log::info!("    world::show = {:?}", r);
-    let r = world.opacity.lend().mem_size();
-    total += r;
-    log::info!("    world::opacity = {:?}", r);
-    let r = world.background_color.lend().mem_size();
-    total += r;
-    log::info!("    world::background_color = {:?}", r);
-    let r = world.box_shadow.lend().mem_size();
-    total += r;
-    log::info!("    world::box_shadow = {:?}", r);
-    let r = world.border_color.lend().mem_size();
-    total += r;
-    log::info!("    world::border_color = {:?}", r);
-    let r = world.border_image.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image = {:?}", r);
-    let r = world.border_image_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_clip = {:?}", r);
-    let r = world.border_image_slice.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_slice = {:?}", r);
-    let r = world.border_image_repeat.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_repeat = {:?}", r);
-    let r = world.text_style.lend().mem_size();
-    total += r;
-    log::info!("    world::text_style = {:?}", r);
-    let r = world.text_content.lend().mem_size();
-    total += r;
-    log::info!("    world::text_content = {:?}", r);
-    let r = world.font.lend().mem_size();
-    total += r;
-    log::info!("    world::font = {:?}", r);
-    let r = world.border_radius.lend().mem_size();
-    total += r;
-    log::info!("    world::border_radius = {:?}", r);
-    let r = world.image.lend().mem_size();
-    total += r;
-    log::info!("    world::image = {:?}", r);
-    let r = world.image_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::image_clip = {:?}", r);
-    let r = world.object_fit.lend().mem_size();
-    total += r;
-    log::info!("    world::object_fit = {:?}", r);
-    let r = world.filter.lend().mem_size();
-    total += r;
-    log::info!("    world::filter = {:?}", r);
-    let r = world.rect_layout_style.lend().mem_size();
-    total += r;
-	log::info!("    world::rect_layout_style = {:?}", r);
-	let r = world.other_layout_style.lend().mem_size();
-    total += r;
-    log::info!("    world::other_layout_style = {:?}", r);
-    let r = world.class_name.lend().mem_size();
-    total += r;
-    log::info!("    world::class_name = {:?}", r);
-    let r = world.style_mark.lend().mem_size();
-    total += r;
-    log::info!("    world::style_mark = {:?}", r);
-    let r = world.z_depth.lend().mem_size();
-    total += r;
-    log::info!("world::z_depth = {:?}", r);
-    let r = world.enable.lend().mem_size();
-    total += r;
-    log::info!("    world::enable = {:?}", r);
-    let r = world.visibility.lend().mem_size();
-    total += r;
-    log::info!("    world::visibility = {:?}", r);
-    let r = world.world_matrix.lend().mem_size();
-    total += r;
-    log::info!("    world::world_matrix = {:?}", r);
-    let r = world.by_overflow.lend().mem_size();
-    total += r;
-    log::info!("    world::by_overflow = {:?}", r);
-    let r = world.copacity.lend().mem_size();
-    total += r;
-    log::info!("    world::copacity = {:?}", r);
-    let r = world.layout.lend().mem_size();
-    total += r;
-    log::info!("    world::layout = {:?}", r);
-    let r = world.hsv.lend().mem_size();
-    total += r;
-    log::info!("    world::hsv = {:?}", r);
-    let r = world.culling.lend().mem_size();
-    total += r;
-    log::info!("    world::culling = {:?}", r);
-    // let r = world.idtree.lend().mem_size();
+    // let r = world.node.lend().mem_size();
     // total += r;
-    // log::info!("    world::idtree = {:?}", r);
-    let r = world.oct.lend().mem_size();
-    total += r;
-    log::info!("    world::oct = {:?}", r);
-    let r = world.overflow_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::overflow_clip = {:?}", r);
-    let r = world.engine.lend().res_mgr.borrow().mem_size();
-    total += r;
-    log::info!("    world::engine.resMap = {:?}", r);
-    let r = world.render_objs.lend().mem_size();
-    total += r;
-    log::info!("    world::render_objs = {:?}", r);
-    let r = world.font_sheet.lend().borrow().mem_size();
-    total += r;
-    log::info!("    world::font_sheet = {:?}", r);
-    let r = world.class_sheet.lend().borrow().mem_size();
-    total += r;
-    log::info!("    world::class_sheet = {:?}", r);
-    let r = world.image_wait_sheet.lend().mem_size();
-    total += r;
-    log::info!("    world::image_wait_sheet = {:?}", r);
+    // log::info!("    world::node = {:?}", r);
+    // let r = world.transform.lend().mem_size();
+    // total += r;
+    // log::info!("    world::transform = {:?}", r);
+    // let r = world.z_index.lend().mem_size();
+    // total += r;
+    // log::info!("    world::z_index = {:?}", r);
+    // let r = world.overflow.lend().mem_size();
+    // total += r;
+    // log::info!("    world::overflow = {:?}", r);
+    // let r = world.show.lend().mem_size();
+    // total += r;
+    // log::info!("    world::show = {:?}", r);
+    // let r = world.opacity.lend().mem_size();
+    // total += r;
+    // log::info!("    world::opacity = {:?}", r);
+    // let r = world.background_color.lend().mem_size();
+    // total += r;
+    // log::info!("    world::background_color = {:?}", r);
+    // let r = world.box_shadow.lend().mem_size();
+    // total += r;
+    // log::info!("    world::box_shadow = {:?}", r);
+    // let r = world.border_color.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_color = {:?}", r);
+    // let r = world.border_image.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_image = {:?}", r);
+    // let r = world.border_image_clip.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_image_clip = {:?}", r);
+    // let r = world.border_image_slice.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_image_slice = {:?}", r);
+    // let r = world.border_image_repeat.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_image_repeat = {:?}", r);
+    // let r = world.text_style.lend().mem_size();
+    // total += r;
+    // log::info!("    world::text_style = {:?}", r);
+    // let r = world.text_content.lend().mem_size();
+    // total += r;
+    // log::info!("    world::text_content = {:?}", r);
+    // let r = world.font.lend().mem_size();
+    // total += r;
+    // log::info!("    world::font = {:?}", r);
+    // let r = world.border_radius.lend().mem_size();
+    // total += r;
+    // log::info!("    world::border_radius = {:?}", r);
+    // let r = world.image.lend().mem_size();
+    // total += r;
+    // log::info!("    world::image = {:?}", r);
+    // let r = world.image_clip.lend().mem_size();
+    // total += r;
+    // log::info!("    world::image_clip = {:?}", r);
+    // let r = world.object_fit.lend().mem_size();
+    // total += r;
+    // log::info!("    world::object_fit = {:?}", r);
+    // let r = world.filter.lend().mem_size();
+    // total += r;
+    // log::info!("    world::filter = {:?}", r);
+    // let r = world.rect_layout_style.lend().mem_size();
+    // total += r;
+	// log::info!("    world::rect_layout_style = {:?}", r);
+	// let r = world.other_layout_style.lend().mem_size();
+    // total += r;
+    // log::info!("    world::other_layout_style = {:?}", r);
+    // let r = world.class_name.lend().mem_size();
+    // total += r;
+    // log::info!("    world::class_name = {:?}", r);
+    // let r = world.style_mark.lend().mem_size();
+    // total += r;
+    // log::info!("    world::style_mark = {:?}", r);
+    // let r = world.z_depth.lend().mem_size();
+    // total += r;
+    // log::info!("world::z_depth = {:?}", r);
+    // let r = world.enable.lend().mem_size();
+    // total += r;
+    // log::info!("    world::enable = {:?}", r);
+    // let r = world.visibility.lend().mem_size();
+    // total += r;
+    // log::info!("    world::visibility = {:?}", r);
+    // let r = world.world_matrix.lend().mem_size();
+    // total += r;
+    // log::info!("    world::world_matrix = {:?}", r);
+    // let r = world.by_overflow.lend().mem_size();
+    // total += r;
+    // log::info!("    world::by_overflow = {:?}", r);
+    // let r = world.copacity.lend().mem_size();
+    // total += r;
+    // log::info!("    world::copacity = {:?}", r);
+    // let r = world.layout.lend().mem_size();
+    // total += r;
+    // log::info!("    world::layout = {:?}", r);
+    // let r = world.hsv.lend().mem_size();
+    // total += r;
+    // log::info!("    world::hsv = {:?}", r);
+    // let r = world.culling.lend().mem_size();
+    // total += r;
+    // log::info!("    world::culling = {:?}", r);
+    // // let r = world.idtree.lend().mem_size();
+    // // total += r;
+    // // log::info!("    world::idtree = {:?}", r);
+    // let r = world.oct.lend().mem_size();
+    // total += r;
+    // log::info!("    world::oct = {:?}", r);
+    // let r = world.overflow_clip.lend().mem_size();
+    // total += r;
+    // log::info!("    world::overflow_clip = {:?}", r);
+    // let r = world.engine.lend().res_mgr.borrow().mem_size();
+    // total += r;
+    // log::info!("    world::engine.resMap = {:?}", r);
+    // let r = world.render_objs.lend().mem_size();
+    // total += r;
+    // log::info!("    world::render_objs = {:?}", r);
+    // let r = world.font_sheet.lend().borrow().mem_size();
+    // total += r;
+    // log::info!("    world::font_sheet = {:?}", r);
+    // let r = world.class_sheet.lend().borrow().mem_size();
+    // total += r;
+    // log::info!("    world::class_sheet = {:?}", r);
+    // let r = world.image_wait_sheet.lend().mem_size();
+    // total += r;
+    // log::info!("    world::image_wait_sheet = {:?}", r);
 
-    let engine = world.engine.lend_mut();
-    let stat = engine.gl.render_get_stat();
+    // let engine = world.engine.lend_mut();
+    // let stat = engine.gl.render_get_stat();
 
-    total += stat.slab_mem_size;
-    log::info!(
-        "    world::engine::slab_mem_size = {:?}",
-        stat.slab_mem_size
-    );
+    // total += stat.slab_mem_size;
+    // log::info!(
+    //     "    world::engine::slab_mem_size = {:?}",
+    //     stat.slab_mem_size
+    // );
 
-    let total: f32 = total as f32;
-    log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
-    log::info!("");
+    // let total: f32 = total as f32;
+    // log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
+    // log::info!("");
 
-    log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
-    log::info!(
-        "    world::engine::texture_count = {:?}",
-        stat.texture_count
-    );
-    log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
-    log::info!(
-        "    world::engine::geometry_count = {:?}",
-        stat.geometry_count
-    );
-    log::info!(
-        "    world::engine::program_count = {:?}",
-        stat.program_count
-    );
+    // log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
+    // log::info!(
+    //     "    world::engine::texture_count = {:?}",
+    //     stat.texture_count
+    // );
+    // log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+    // log::info!(
+    //     "    world::engine::geometry_count = {:?}",
+    //     stat.geometry_count
+    // );
+    // log::info!(
+    //     "    world::engine::program_count = {:?}",
+    //     stat.program_count
+    // );
 
-    log::info!("print_memory end");
+    // log::info!("print_memory end");
+
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -1630,12 +1685,12 @@ struct ResMgrSize {
 // }
 
 #[wasm_bindgen]
-pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
-    let node = node as usize;
+pub fn get_world_matrix(world: u32, node: usize) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-    let world_matrixs = world.world_matrix.lend();
-    let world_matrix = match world_matrixs.get(node) {
+	let idtree = world.idtree();
+	let entity = to_entity(node, idtree[node].data);
+    let world_matrix = match world.get::<WorldMatrix>(entity) {
         Some(r) => r,
         None => return JsValue::null(),
 	};
@@ -1646,15 +1701,17 @@ pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn get_transform(world: u32, node: u32) -> JsValue {
-    let node = node as usize;
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let transforms = world.transform.lend();
-    let transform = match transforms.get(node) {
-        Some(r) => r,
-        None => return JsValue::null(),
-	};
-	JsValue::from_serde(transform).unwrap()
+    // let node = node as usize;
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui;
+    // let transforms = world.transform.lend();
+    // let transform = match transforms.get(node) {
+    //     Some(r) => r,
+    //     None => return JsValue::null(),
+	// };
+	// JsValue::from_serde(transform).unwrap()
+
+	JsValue::from_serde(&[11]).unwrap()
 }
 
 

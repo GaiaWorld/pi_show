@@ -40,7 +40,7 @@ impl ShowSys {
 		if !node_states[id].0.is_rnode() {
 			return;
 		}
-        if parent_id > 0 {
+        if parent_id < usize::max_value() {
             let parent_c_visibility = *visibility[parent_id];
             let parent_c_enable = *enable[parent_id];
             modify_show(

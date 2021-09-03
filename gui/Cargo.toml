@@ -6,16 +6,18 @@ authors = ["wzjsun <530739162@qq.com>"]
 edition = "2018"
 
 [dependencies]
-share = { path = "../../pi_lib/share"}
-idtree = { path = "../../pi_lib/idtree"}
-flex_layout = { path =  "../../pi_lib/flex_layout"}
-ecs = { path =  "../../pi_lib/ecs"}
-ecs_derive = { path =  "../../pi_lib/ecs_derive"}
+share = { path = "../../pi_lib/share", features=[]}
+idtree_new = { path = "../../pi_lib/idtree_new"}
+flex_layout_new = { path =  "../../pi_lib/flex_layout_new"}
+# ecs = { path =  "../../pi_lib/ecs"}
+# ecs_derive = { path =  "../../pi_lib/ecs_derive"}
 enum_default_macro = { path =  "../../pi_lib/enum_default_macro"}
 deque = { path =  "../../pi_lib/deque"}
-slab = { path =  "../../pi_lib/slab"}
+slab_new = { path =  "../../pi_lib/slab_new"}
+listener = { path =  "../../pi_lib/listener"}
+
 util = { path =  "../../pi_lib/util"}
-map = { path =  "../../pi_lib/map"}
+map_new = { path =  "../../pi_lib/map_new"}
 atom = { path =  "../../pi_lib/atom", features = ["serde"]}
 hash = { path =  "../../pi_lib/hash"}
 heap = { path =  "../../pi_lib/heap"}
@@ -44,7 +46,7 @@ cross_performance = { path =  "../../pi_lib/cross_performance"}
 # vConsole.js:3 timediff: 0.6799999391660094
 polygon = { path = "../../pi_math/polygon"}
 cg2d = { path = "../../pi_math/cg2d"}
-spatialtree = { path = "../../pi_math/spatialtree"}
+spatialtree_new = { path = "../../pi_math/spatialtree_new"}
 color = { path = "../../pi_math/color", features = ["serde"]}
 # cgmath = { path = "../../pi_math/cgmath", features = ["serde"] }
 # collision = { path = "../../pi_math/collision", features = ["serde"]}
@@ -57,6 +59,7 @@ color = { path = "../../pi_math/color", features = ["serde"]}
 # cgmath = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
 # collision = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
 # octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
+bevy_ecs = {git="https://github.com/bevyengine/bevy.git"}
 
 hal_core = {path="../hal_core"}
 hal_derive = {path="../hal_derive"}
@@ -72,7 +75,9 @@ fxhash = "0.2.1"
 wasm-bindgen = "*"
 nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
 ncollide2d = {version = "0.27.0", features = ["serde"]}
+smallvec = "*"
 log="*"
+bitmaps="*"
 
 [dependencies.web-sys]
 version = "*"
