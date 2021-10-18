@@ -129,10 +129,14 @@ impl<C: HalContext + 'static> Engine<C> {
                     &uniform_layout,
                 ) {
                     Ok(r) => Share::new(r),
-                    Err(e) => panic!(
-                        "create_program error: {:?}, vs_name: {:?}, fs_name: {:?}",
-                        e, vs_name, fs_name
-                    ),
+                    Err(e) => {
+						log::warn!("create_program error: {:?}, vs_name: {:?}, fs_name: {:?}",
+						e, vs_name, fs_name);
+						panic!(
+							"create_program error: {:?}, vs_name: {:?}, fs_name: {:?}",
+							e, vs_name, fs_name
+						);
+					},
                 }
             })
             .clone()

@@ -4,7 +4,9 @@ pub mod class;
 */
 pub mod oct;
 pub mod style_parse;
+pub mod dyn_texture;
 
+use dirty::LayerDirty;
 use share::Share;
 use std::any::{Any, TypeId};
 use std::default::Default;
@@ -102,10 +104,16 @@ pub struct ViewMatrix(pub WorldMatrix);
 pub struct ProjectionMatrix(pub WorldMatrix);
 
 impl ProjectionMatrix {
-    pub fn new(width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix {
+    pub fn new( width: f32, height: f32, near: f32, far: f32) -> ProjectionMatrix {
         let ortho = Orthographic3::new(0.0, width, height, 0.0, near, far);
 		ProjectionMatrix(WorldMatrix(Matrix4::from(ortho), false))
     }
+}
+
+pub struct RenderRect {
+	pub width: usize,
+	pub height: usize,
+	pub view_port: Aabb2,
 }
 
 // 图片等待表
@@ -152,6 +160,15 @@ pub enum ImageType {
     MaskImageLocal,
 }
 
+// 渲染根节点
+pub struct RenderRoot {
+	target: Option<usize>, // None表示使用默认渲染目标，否则，数字使用dyn_texture中的的索引
+}
+
+pub struct RenderRootSet {
+	roots: XHashMap<usize/*实体id */, RenderRoot>,
+}
+
 #[derive(Debug)]
 pub struct ImageWait {
     pub ty: ImageType,
@@ -169,17 +186,71 @@ impl DirtyList {
     }
 }
 
-pub struct DefaultState {
+/// 预乘模式
+#[derive(Deref, DerefMut)]
+pub struct PremultiState(pub CommonState);
+
+impl PremultiState {
+	pub fn from_common<C: HalContext + 'static>(common: &CommonState, gl: &C) -> Self {
+        let mut df_bs = BlendStateDesc::default();
+        let mut df_ds = DepthStateDesc::default();
+
+		df_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		df_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+        df_ds.set_write_enable(true);
+
+		let tarns_ds = DepthStateDesc::default();
+
+		Self(CommonState{
+			df_rs: common.df_rs.clone(),
+			df_ss: common.df_ss.clone(),
+			df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
+            df_ds: Share::new(DepthStateRes(gl.ds_create(df_ds).unwrap())),
+            alpha_add_bs: common.alpha_add_bs.clone(),
+			multiply_bs: common.multiply_bs.clone(),
+			subtract_bs: common.subtract_bs.clone(),
+			one_one_bs: common.one_one_bs.clone(),
+            tarns_ds: Share::new(DepthStateRes(gl.ds_create(tarns_ds).unwrap())),
+		})
+	}
+}
+
+// 根索引
+#[derive(Debug, Default)]
+pub struct RootIndexs(pub LayerDirty<usize>, pub bool);
+
+impl std::ops::Deref for RootIndexs {
+    type Target = LayerDirty<usize>;
+
+    fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl std::ops::DerefMut for RootIndexs {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+
+#[derive(Deref, DerefMut)]
+pub struct DefaultState(pub CommonState);
+pub struct CommonState {
     pub df_rs: Share<RasterStateRes>,
     pub df_bs: Share<BlendStateRes>,
     pub df_ss: Share<StencilStateRes>,
     pub df_ds: Share<DepthStateRes>,
 
-    pub tarns_bs: Share<BlendStateRes>,
     pub tarns_ds: Share<DepthStateRes>,
+
+	pub alpha_add_bs: Share<BlendStateRes>,
+	pub multiply_bs: Share<BlendStateRes>,
+	pub subtract_bs: Share<BlendStateRes>,
+	pub one_one_bs: Share<BlendStateRes>,
 }
 
-impl DefaultState {
+impl CommonState {
     pub fn new<C: HalContext + 'static>(gl: &C) -> Self {
         let df_rs = RasterStateDesc::default();
         let mut df_bs = BlendStateDesc::default();
@@ -190,9 +261,21 @@ impl DefaultState {
 		df_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         df_ds.set_write_enable(true);
 
-        let mut tarns_bs = BlendStateDesc::default();
-		tarns_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
-		tarns_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		let mut alpha_add_bs = BlendStateDesc::default();
+		alpha_add_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::One);
+		alpha_add_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+
+		let mut subtract_bs = BlendStateDesc::default();
+		subtract_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::One);
+		subtract_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+
+		let mut one_one_bs = BlendStateDesc::default();
+		one_one_bs.set_rgb_factor(BlendFactor::One, BlendFactor::One);
+		one_one_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+
+		let mut multiply_bs = BlendStateDesc::default();
+		multiply_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::One);
+		multiply_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
         // let mut tarns_ds = DepthStateDesc::default();
         let tarns_ds = DepthStateDesc::default();
@@ -200,11 +283,14 @@ impl DefaultState {
 
         Self {
             df_rs: Share::new(RasterStateRes(gl.rs_create(df_rs).unwrap())),
-            df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
             df_ss: Share::new(StencilStateRes(gl.ss_create(df_ss).unwrap())),
+			df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
             df_ds: Share::new(DepthStateRes(gl.ds_create(df_ds).unwrap())),
-            tarns_bs: Share::new(BlendStateRes(gl.bs_create(tarns_bs).unwrap())),
             tarns_ds: Share::new(DepthStateRes(gl.ds_create(tarns_ds).unwrap())),
+			alpha_add_bs: Share::new(BlendStateRes(gl.bs_create(alpha_add_bs).unwrap())),
+			subtract_bs: Share::new(BlendStateRes(gl.bs_create(subtract_bs).unwrap())),
+			one_one_bs: Share::new(BlendStateRes(gl.bs_create(one_one_bs).unwrap())),
+			multiply_bs: Share::new(BlendStateRes(gl.bs_create(multiply_bs).unwrap())),
         }
     }
 }
@@ -300,6 +386,9 @@ pub struct RenderObj {
 
     pub context: usize,
 }
+
+/// 像素比
+pub struct PixelRatio(pub f32);
 
 #[derive(Deref, DerefMut)]
 pub struct RenderObjs(pub Slab<RenderObj>);
@@ -421,7 +510,7 @@ impl NodeRenderMap {
     }
 }
 
-pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>>);
+pub struct RenderBegin(pub RenderBeginDesc, pub Option<Share<HalRenderTarget>> );
 
 /// 脏区域，描述了界面发生修改的区域，用于优化界面局部修改时，进渲染该区域
 /// 该区域以根节点的原点最为原点
@@ -439,7 +528,7 @@ pub struct SystemTime {
 }
 
 #[derive(Deref, DerefMut, Default)]
-pub struct IdTree(idtree::IdTree<usize>);
+pub struct IdTree(idtree::IdTree<u32>);
 
 impl IdTree {
 	pub fn with_capacity(capacity: usize) -> Self {

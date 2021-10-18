@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use ecs::LendMut;
 use hash::XHashMap;
 
-use gui::component::user::*;
+use gui::component::user::{*, BlendMode as BlendMode1};
 use gui::single::*;
 use gui::util::vecmap_default::VecMapWithDefault;
 #[cfg(feature = "create_class_by_str")]
@@ -24,6 +24,7 @@ macro_rules! insert_value {
         world.$key.lend_mut().insert(node_id, $tt($value));
     };
 }
+
 #[macro_use()]
 macro_rules! insert_attr {
     ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
@@ -35,15 +36,17 @@ macro_rules! insert_attr {
 }
 #[macro_use()]
 macro_rules! set_show {
-    ($world:ident, $node_id:ident, $name:ident, $value:expr) => {
+    ($world:ident, $node_id:ident, $name:ident, $value:expr, $field:expr) => {
         let node_id = $node_id as usize;
         let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-        unsafe { world.show.lend_mut().get_unchecked_write(node_id) }.modify(|s| {
-            let old = s.clone();
-            s.$name($value);
-            old != *s
-        });
+		let show = world.show.lend_mut();
+		let s = unsafe { show.get_unchecked_mut(node_id) };
+		let old = s.clone();
+		s.$name($value);
+		if old != *s {
+			show.get_notify_ref().modify_event(node_id, $field, 0);
+		}
     };
 }
 
@@ -217,6 +220,20 @@ pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32)
         image_clip
     );
 }
+
+// 设置图像裁剪
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_mask_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
+    insert_value!(
+        world,
+        node,
+        MaskImageClip,
+        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
+        mask_image_clip
+    );
+}
+
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[wasm_bindgen]
@@ -304,21 +321,21 @@ pub fn set_display(world: u32, node: u32, value: u8) {
 	}
 
     let value = unsafe { transmute(value) };
-    set_show!(world, node, set_display, value);
+    set_show!(world, node, set_display, value, "display");
 }
 
 /// 设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_visibility(world: u32, node: u32, value: bool) {
-    set_show!(world, node, set_visibility, value);
+    set_show!(world, node, set_visibility, value, "visibility");
 }
 
 /// 设置enable
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_enable(world: u32, node: u32, value: u32) {
-    set_show!(world, node, set_enable, unsafe { transmute(value as u8) });
+    set_show!(world, node, set_enable, unsafe { transmute(value as u8) }, "enable");
 }
 
 /// 取enable
@@ -385,6 +402,39 @@ pub fn set_border_image(world: u32, node: u32, url: usize) {
             width: None,
             height: None,
         }),
+    );
+}
+
+/// __jsObj: image_name(String)
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_mask_image(world: u32, node: u32, url: usize) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let mask_images = world.gui.mask_image.lend_mut();
+    mask_images.insert(
+        node as usize,
+        MaskImage {
+            url: url,
+        },
+    );
+}
+
+#[wasm_bindgen]
+pub enum BlendMode {
+	Normal,
+	AlphaAdd,
+	Subtract,
+	Multiply,
+	OneOne,
+}
+
+#[wasm_bindgen]
+pub fn set_blend_mode(world: u32, node: u32, blend_mode: u8) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let blend_modes = world.gui.blend_mode.lend_mut();
+    blend_modes.insert(
+        node as usize,
+        unsafe{transmute(blend_mode)},
     );
 }
 

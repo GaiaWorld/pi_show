@@ -246,8 +246,36 @@ pub fn transform_scale_y(world: u32, node_id: u32, value: f32) {
 /// 旋转变化
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn transform_rotate(world: u32, node_id: u32, value: f32) {
+pub fn transform_rotate_z(world: u32, node_id: u32, value: f32) {
     push_func!(world, node_id, TransformFunc::RotateZ(value));
+}
+
+/// 旋转变化
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn transform_rotate_x(world: u32, node_id: u32, value: f32) {
+    push_func!(world, node_id, TransformFunc::RotateX(value));
+}
+
+/// 旋转变化
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn transform_rotate_y(world: u32, node_id: u32, value: f32) {
+    push_func!(world, node_id, TransformFunc::RotateY(value));
+}
+
+
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn transform_skew_x(world: u32, node_id: u32, value: f32) {
+    push_func!(world, node_id, TransformFunc::SkewX(value));
+}
+
+/// 旋转变化
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn transform_skew_y(world: u32, node_id: u32, value: f32) {
+    push_func!(world, node_id, TransformFunc::SkewY(value));
 }
 
 /// 设置transfrom为none

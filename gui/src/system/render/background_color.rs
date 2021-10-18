@@ -12,6 +12,7 @@ use ordered_float::NotNan;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::monitor::Event;
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
 use polygon::*;
@@ -68,7 +69,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Opacity>,
+        // &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, BackgroundColor>,
         &'a MultiCaseImpl<Node, StyleMark>,
@@ -82,7 +83,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         // 没有脏， 跳过
-        if (read.9).0.len() == 0 {
+        if (read.8).0.len() == 0 {
             return;
         }
 
@@ -91,7 +92,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             z_depths,
             world_matrixs,
             transforms,
-            opacitys,
+            // opacitys,
             border_radiuses,
             background_colors,
             style_marks,
@@ -103,6 +104,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
 
 		let default_transform = Transform::default();
 		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
+		let time = cross_performance::now();
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,
@@ -147,9 +149,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             if dirty & StyleType::BackgroundColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-				let opacity = opacitys[*id].0;
+				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-				render_obj.is_opacity = background_is_opacity(opacity, color);
+				render_obj.is_opacity = background_is_opacity(1.0, color);
 				if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				}
@@ -207,7 +209,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                             transform,
                             0.0,
                             0.0,
-                            depth,
+                            // depth,
                         ),
                         render_obj,
                         &notify,
@@ -216,6 +218,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             }
             notify.modify_event(render_index, "", 0);
         }
+		// if dirty_list.0.len() > 0 {
+		// 	log::info!("bg_color======={:?}", cross_performance::now() - time);
+		// }
     }
 }
 
@@ -224,7 +229,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, D
 {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
         self.remove_render_obj(event.id, render_objs)
     }
 }
@@ -421,6 +426,7 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(
             );
 
             let indices = mult_to_triangle(&indices_arr, Vec::new());
+
             let colors = colors.pop().unwrap();
             // 创建geo， 设置attribut
             Some(engine.create_geo_res(

@@ -4,7 +4,7 @@ use js_sys::Object;
 use web_sys::{WebGlRenderingContext as WebGlRenderingContext1, WebGlTexture};
 use webgl_bind::WebGlRenderingContext;
 
-
+#[derive(Debug)]
 pub struct WebGLTextureImpl {
     pub width: u32,
     pub height: u32,

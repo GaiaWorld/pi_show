@@ -16,6 +16,7 @@ extern crate hash;
 extern crate ordered_float;
 extern crate share;
 extern crate slab;
+extern  crate log;
 // #[macro_use]
 // extern crate stdweb;
 // extern crate web_sys;

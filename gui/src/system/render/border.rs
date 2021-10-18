@@ -5,7 +5,7 @@ use share::Share;
 use std::marker::PhantomData;
 
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
-use ecs::monitor::NotifyImpl;
+use ecs::monitor::{NotifyImpl, Event};
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
@@ -46,7 +46,7 @@ pub struct BorderColorSys<C: HalContext + 'static> {
 impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, Opacity>,
+        // &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, BorderRadius>,
@@ -63,7 +63,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
         let (
             layouts,
-            opacitys,
+            // opacitys,
             world_matrixs,
             transforms,
             border_radiuses,
@@ -121,9 +121,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             if dirty & StyleType::BorderColor as usize != 0
                 || dirty & StyleType::Opacity as usize != 0
             {
-				let opacity = opacitys[*id].0;
+				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-				render_obj.is_opacity = color.a >= 1.0 && opacity >= 1.0;
+				render_obj.is_opacity = color.a >= 1.0;
 				if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				};
@@ -157,7 +157,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                         transform,
                         0.0,
                         0.0,
-                        render_obj.depth,
+                        // render_obj.depth,
                     ),
                     render_obj,
                     &notify,
@@ -174,7 +174,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderColor, Delet
 {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
         self.remove_render_obj(event.id, render_objs)
     }
 }

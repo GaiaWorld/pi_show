@@ -51,6 +51,8 @@ extern crate hash;
 extern crate densevec;
 extern crate idtree;
 extern crate flex_layout;
+extern crate rectangle_pack;
+extern  crate guillotiere;
 
 #[cfg(feature = "native")]
 extern crate cross_performance;
@@ -75,8 +77,9 @@ pub mod entity{
 }
 
 pub type IdBind = usize;
-pub const Z_MAX: f32 = 419429.0; // IEEE 754 单精度浮点数，尾数23，所以能表达范围是800万，现在GUI需要精确到0.1，所以这个地方是 正负40万；
+// pub const Z_MAX: f32 = 419429.0; // IEEE 754 单精度浮点数，尾数23，所以能表达范围是800万，现在GUI需要精确到0.1，所以这个地方是 正负40万；
 // pub const Z_MAX: f32 = 10000.0;
+pub const Z_MAX: f32 = 60000.0;
 pub const ROOT: usize = 1;
 pub static mut DIRTY: bool = false; // 全局脏， 临时使用
 

@@ -9,9 +9,9 @@ pub mod util;
 mod text_layout;
 pub mod render;
 mod filter;
-mod style_mark;
+pub mod style_mark;
 mod transform_will_change;
-mod mask_image;
+mod content_box;
 
 pub use crate::system::transform_will_change::*;
 pub use crate::system::style_mark::*;
@@ -25,4 +25,5 @@ pub use crate::system::oct::*;
 pub use crate::system::text_layout::*;
 pub use crate::system::filter::*;
 pub use crate::system::render::*;
+pub use crate::system::content_box::*;
 

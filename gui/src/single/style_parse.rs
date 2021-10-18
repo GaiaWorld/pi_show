@@ -6,6 +6,7 @@ use std::result::Result;
 use atom::Atom;
 use hash::XHashMap;
 use flex_layout::*;
+use nalgebra::Field;
 
 use crate::component::calc::*;
 use crate::component::user::Opacity;
@@ -198,6 +199,20 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
                 .push(Attribute2::BorderImageRepeat(BorderImageRepeat(ty, ty)));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
 		}
+		"mask-image" => {
+			class.attrs2.push(Attribute2::MaskImageUrl(parse_url(value)?.get_hash()));
+				class.class_style_mark1 |= StyleType1::MaskImage as usize;
+		}
+		"mask-image-clip" => {
+            class.attrs3.push(Attribute3::MaskImageClip(unsafe {
+                transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
+            }));
+            class.class_style_mark1 |= StyleType1::MaskImageClip as usize;
+        }
+		"blend-mode" => {
+            class.attrs2.push(Attribute2::BlendMode(parse_blend_mode(value)?));
+            class.class_style_mark1 |= StyleType1::MaskImageClip as usize;
+        }
 		"text-gradient" => {
 			class.attrs3.push(Attribute3::Color(parse_linear_gradient_color_string(value)?));
 			class.class_style_mark |= StyleType::Color as usize;
@@ -581,9 +596,27 @@ fn parse_filter(value: &str) -> Result<Filter, String>{
 			None => return err,
 		};
 		return Ok(trans_filter(h, s, i));
-
 	} else {
-		return err;
+		let mut hsi = Filter::default();
+		let mut i = 0;
+		loop {
+			match iter_fun(value, &mut i) {
+				Ok((n, v)) => {
+					match n {
+						"hue-rotate" => {
+							let r = parse_deg(v)?;
+							hsi.hue_rotate = if r > 180.0 {r - 360.0}else{r};
+						},
+						"saturate" => hsi.saturate = parse_percent_to_f32(v)?*100.0 - 100.0,
+						"brightness" => hsi.bright_ness = parse_percent_to_f32(v)?*100.0 - 100.0,
+						"grayscale" => hsi.saturate = -parse_percent_to_f32(v)?*100.0,
+						_ => (),
+					};
+				},
+				Err(_) => break,
+			}
+		}
+		Ok(hsi)
 	}
 }
 
@@ -837,6 +870,17 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
         _ => (),
     };
     Ok(slice)
+}
+
+fn parse_blend_mode(value: &str) -> Result<BlendMode, String> {
+	match value {
+		"normal" => Ok(BlendMode::Normal),
+		"alpha-add" => Ok(BlendMode::AlphaAdd),
+		"subtract" => Ok(BlendMode::Subtract),
+		"multiply" => Ok(BlendMode::Multiply),
+		"one-one" => Ok(BlendMode::OneOne),
+        _ => Err(format!("parse_blend_mode error, value: {}, please modify to: normal | screen", value)),
+	}
 }
 
 fn parse_font_weight(value: &str) -> Result<f32, String> {
@@ -1234,8 +1278,8 @@ fn parser_color_stop_last(
     last_color: Option<CgColor>,
 ) -> Result<(), String> {
     if list.len() > 0 {
-        let pos = (v - *pre_percent) / list.len() as f32;
         if color_stop.len() != 0 {
+			let pos = (v - *pre_percent) / list.len() as f32;
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * (i + 1) as f32,
@@ -1243,6 +1287,11 @@ fn parser_color_stop_last(
                 });
             }
         } else {
+			let pos = if list.len() == 1 {
+				0.0
+			} else {
+				(v - *pre_percent) / (list.len() as f32 - 1.0)
+			};
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * i as f32,
@@ -1782,4 +1831,12 @@ pub enum Attribute {
     TransformFunc(Vec<TransformFunc>),
     TransformOrigin(TransformOrigin),
     Filter(Filter),
+}
+
+#[test]
+pub fn test() {
+	let s = ".1{
+		background: linear-gradient(180deg, #fff, #000);
+	}";
+	parse_class_map_from_string(s);
 }

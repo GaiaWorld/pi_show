@@ -19,6 +19,8 @@ log = "0.4.14"
 # pi_web_logger = { git = "http://ser.yinengyun.com:10082/tech/pi_web_logger.git", branch="master" }
 pi_web_logger = { path = "../../pi_web_logger"}
 
+getrandom = { version = "0.2", features = ["js"] }
+
 
 [profile.release]
 lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅使.wasm尺寸更小，而且在运行时也更快！缺点是编译将花费更长的时间

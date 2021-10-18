@@ -5,7 +5,7 @@
 use std::{marker::PhantomData, result::Result};
 use ordered_float::OrderedFloat;
 
-use ecs::StdCell;
+use ecs::{Event, StdCell};
 use ecs::{
 	component::MultiCaseImpl,
 	entity::EntityImpl,
@@ -84,7 +84,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 			flag = false;
 			count += 1;
 			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
-				log::info!("TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字");
+				log::debug!("TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字");
 				panic!("TextGlphySys 死循环");
 			}
 			for id in (read.4).0.iter() {
@@ -99,7 +99,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 	
 				match set_gylph(*id, &(read.0, read.1, read.2, read.3, read.4), &mut write) {
 					Result::Err(_message) => {	
-						log::info!("textTexture flow, reset textTexture");
+						// log::info!("textTexture flow, reset textTexture");
 						// panic!("err:{:?}", message);
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
@@ -131,7 +131,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 							clear_color: Some((OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
 							clear_depth: read.6.0.clear_depth.clone(),
 							clear_stencil: read.6.0.clear_stencil.clone(),
-						});
+						}, true);
 
 						read.5.gl.render_end();
 						
@@ -226,7 +226,7 @@ impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for TextLayoutUpdateS
 		&'a mut MultiCaseImpl<Node, NodeState>,
 		&'a mut MultiCaseImpl<Node, LayoutR>,
 		&'a mut SingleCaseImpl<IdTree>);
-    fn listen(&mut self, event: &ModifyEvent, text_contents: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, text_contents: Self::ReadData, write: Self::WriteData) {
 		let id = event.id;
 		// 如果是虚拟节点，并且是文字节点，需要将字符的布局结果拷贝到INode中
 		if write.0[id].0.is_vnode() && text_contents.get(id).is_some() {
@@ -290,7 +290,7 @@ fn set_gylph<'a>(
     let (tex_font, font_size) = match font_sheet.get_font_info(&text_style.font.family) {
         Some(r) => (r.0.clone(), get_size(r.1, &text_style.font.size) as f32),
         None => {
-			log::info!("font is not exist, face_name: {:?}, id: {:?}",
+			log::debug!("font is not exist, face_name: {:?}, id: {:?}",
 			text_style.font.family,
 			id);
 			return Ok(());
@@ -715,7 +715,7 @@ fn calc<'a>(
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
 		Some(r) => (r.0.clone(), r.1),
 		None => {
-			log::info!("font is not exist, face_name: {:?}, id: {:?}, will use default font: {:?}",
+			log::debug!("font is not exist, face_name: {:?}, id: {:?}, will use default font: {:?}",
 			text_style.font.family,
 			id,
 			defaultFamily);
@@ -724,7 +724,7 @@ fn calc<'a>(
 			match font_sheet.get_font_info(&text_style.font.family) {
 				Some(r) => (r.0.clone(), r.1),
 				None => {
-					log::info!("默认字体 is not exist, face_name: {:?}, id: {:?}",
+					log::debug!("默认字体 is not exist, face_name: {:?}, id: {:?}",
 					text_style.font.family,
 					id);
 					return

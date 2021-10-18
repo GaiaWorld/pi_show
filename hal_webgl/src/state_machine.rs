@@ -494,8 +494,9 @@ impl StateMachine {
         need_set_geometry
 	}
 
-	pub fn restore_state(&mut self, gl: &WebGlRenderingContext) {
+	pub fn restore_state(&mut self, texture_slab: &mut Slab<(WebGLTextureImpl, u32)>, gl: &WebGlRenderingContext) {
 		self.tex_caches.restore(gl);
+		self.tex_caches.reset(texture_slab);
 	}
 
     /**

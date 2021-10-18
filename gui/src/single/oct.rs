@@ -64,13 +64,13 @@ impl Oct {
     pub fn update(&mut self, id: usize, aabb: Aabb2, notify: Option<&NotifyImpl>) -> bool {
 		// 更新前发出修改事件（特殊处理，因为需要修改前的包围盒用于计算最终显示界面的最大修改包围盒）
 		match notify {
-			Some(n) => n.modify_event(id, "", 0),
+			Some(n) => n.modify_event(id, "", 0), // 0代表更新前
 			_ => (),
 		};
         let r = self.0.update(id, aabb);
         if r {
             match notify {
-                Some(n) => n.modify_event(id, "", 0),
+                Some(n) => n.modify_event(id, "", 1), // 1代表更新后
                 _ => (),
             }
         }

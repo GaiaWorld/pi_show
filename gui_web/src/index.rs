@@ -2,10 +2,9 @@
 // use std::cell::RefCell;
 use std::mem::{transmute, MaybeUninit,};
 use std::ptr::write;
-use std::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext, console};
+use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext};
 use js_sys::{Date, Object, Function};
 use wasm_bindgen::JsCast;
 
@@ -20,13 +19,14 @@ use gui::component::user::*;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::render::res::TextureRes as TextureResRaw;
-use gui::single::Class;
-use gui::single::{RenderBegin, ClassSheet};
+use gui::single::{Class, ImageType, RootIndexs};
+use gui::single::{RenderBegin, ClassSheet, PixelRatio};
 use gui::world::GuiWorld as GuiWorld1;
+
 use gui::Z_MAX;
-use gui::world::{seting_res_mgr, create_world, LAYOUT_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
+use gui::world::{seting_res_mgr, create_world, LAYOUT_DISPATCH, CALC_GEO_DISPATCH, RENDER_DISPATCH, CALC_DISPATCH};
 use hal_webgl::*;
-use hal_core::*;
+use hal_core::{*, PixelFormat as PixelFormat1};
 use share::Share;
 use res_mgr_web::{ResMgr};
 use res::Res;
@@ -176,7 +176,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             0,
             max_texture_size,
             32,
-            PixelFormat::RGBA,
+            PixelFormat1::RGBA,
             DataFormat::UnsignedByte,
             false,
             None,
@@ -190,7 +190,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         TextureResRaw::new(
             max_texture_size as usize,
             32,
-            PixelFormat::RGBA,
+            PixelFormat1::RGBA,
             DataFormat::UnsignedByte,
             unsafe { transmute(1 as u8) },
             None, //unsafe { transmute(0 as usize) },
@@ -217,6 +217,9 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let idtree = world.idtree.lend_mut();
     let node = world.node.lend_mut().create();
     idtree.create(node);
+	let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
+	let root_indexs = root_indexs.lend_mut();
+	root_indexs.mark(1, idtree[1].layer());
 
     let border_radius = world.border_radius.lend_mut();
     border_radius.insert(
@@ -251,6 +254,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	let font_sheet_version = world.font_sheet.lend().borrow().tex_version;
 
 	idtree.insert_child(node, 0, 0);
+	idtree.get_notify_ref().create_event(node);
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
@@ -272,7 +276,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 	
 	unsafe{write(&mut world.load_image_success, Closure::wrap(Box::new(move |
-		opacity: u8,
+		pformate: PixelFormat,
 		compress: i32,
 		r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
 		name: u32,
@@ -280,7 +284,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 		height: u32,
 		data: Object,
 		cost: u32| {
-			let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost);
+			let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
 			let world = &mut *(world_id as usize as *mut GuiWorld);
 			let world = &mut world.gui;
 		
@@ -311,6 +315,16 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 // 	runtime_ref.push(ecs::RunTime{sys_name: name, cost_time: std::time::Duration::from_millis(0)});
 // 	runtime_index
 // }
+/// 创建gui实例
+#[allow(unused_attributes)]
+#[allow(unused_unsafe)]
+#[wasm_bindgen]
+pub fn set_pixel_ratio(world: u32, pixel_ratio: f32) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let pixel_ratio_single = world.world.fetch_single::<PixelRatio>().unwrap();
+	pixel_ratio_single.lend_mut().0 = pixel_ratio;
+}
 
 /// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
@@ -560,6 +574,13 @@ pub fn calc(world_id: u32) {
     world.world.run(&CALC_DISPATCH);
 }
 
+#[wasm_bindgen]
+pub fn calc_geo(world_id: u32) {
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    world.world.run(&CALC_GEO_DISPATCH);
+}
+
 /// 强制计算一次布局
 #[allow(unused_attributes)]
 #[wasm_bindgen]
@@ -598,13 +619,23 @@ pub fn set_shader(engine: u32, shader_name: String, shader_code: String) {
     engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 
+#[wasm_bindgen]
+#[derive(Debug)]
+pub enum PixelFormat {
+    RGB,
+    RGBA,
+    ALPHA,
+    DEPTH16,
+	LUMINANCE,
+}
+
 /// 加载图片成功后调用
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
 #[wasm_bindgen]
 pub fn load_image_success(
     world_id: u32,
-    opacity: u8,
+    pformate: PixelFormat,
     compress: i32,
 	r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
 	name: u32,
@@ -613,16 +644,17 @@ pub fn load_image_success(
 	data: Object,
 	cost: u32
 ) {
-    let (res, name) = create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost);
+	log::info!("pformate0: {:?}", pformate);
+	let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
     let image_wait_sheet = world.image_wait_sheet.lend_mut();
     match image_wait_sheet.wait.remove(&name) {
-        Some(r) => {
-            image_wait_sheet.finish.push((name, res, r));
-            image_wait_sheet.get_notify_ref().modify_event(0, "", 0);
-        }
+        Some(r) => if let Some(wait) = r.get(0) {
+			image_wait_sheet.finish.push((name, res, r));
+			image_wait_sheet.get_notify_ref().modify_event(0, "", 0);
+		}
         None => (),
     };
 }
@@ -632,7 +664,7 @@ pub fn load_image_success(
 #[wasm_bindgen]
 pub fn create_texture_res(
     world_id: u32,
-    opacity: u8,
+    pformate: PixelFormat,
     compress: i32,
 	r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
 	name: u32,
@@ -641,7 +673,7 @@ pub fn create_texture_res(
 	data: Object,
 	cost: u32,
 ) -> u32 {
-    Share::into_raw(create_texture(world_id, opacity, compress, r_type, name, width, height, data, cost).0) as u32
+    Share::into_raw(create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost).0) as u32
 }
 
 // 释放纹理资源
@@ -652,7 +684,7 @@ pub fn destroy_texture_res(texture: u32) {
 
 pub fn create_texture(
     world_id: u32,
-    opacity: u8,
+    pformate: PixelFormat,
     compress: i32,
 	mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
 	name: u32,
@@ -673,12 +705,15 @@ pub fn create_texture(
     let res = match engine.texture_res_map.get(&name) {
         Some(r) => return (r, name),
         None => {
-            let opacity = unsafe { transmute(opacity) };
-
-            let pformate = match opacity {
-                ROpacity::Opaque => PixelFormat::RGB,
-                ROpacity::Translucent | ROpacity::Transparent => PixelFormat::RGBA,
-            };
+            let opacity = match pformate {
+				PixelFormat::ALPHA => ROpacity:: Translucent,
+				PixelFormat::RGB => ROpacity:: Opaque,
+				PixelFormat::RGBA => ROpacity:: Translucent,
+				_ => ROpacity:: Translucent,
+			};
+			let pformate = unsafe {
+				transmute(pformate)
+			};
 
             let texture = if compress < 0 {
 				engine

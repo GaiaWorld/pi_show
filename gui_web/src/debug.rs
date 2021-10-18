@@ -76,6 +76,7 @@ struct Info {
     pub filter: Option<Filter>,
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<u32>,
+	pub content_bound_box: Option<ContentBox>,
 
     text: Option<TextStyle>,
 	text_content: Option<TextContent>,
@@ -222,6 +223,7 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 	}).unwrap()
 }
 
+
 // #[wasm_bindgen]
 // pub fn get_layout(world: u32, node: u32) {
 //     let node = node as usize;
@@ -238,6 +240,84 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 // 		console::log_2(&"node_state:".into(), &format!("{:?}", world.node_state.lend().get(node)).into());
 // 	}
 // }
+
+use gui::entity::{Node};
+use ecs::World as World1;
+use gui::component::calc::*;
+use gui::component::user::*;
+use gui::component::user;
+use gui::component::calc;
+#[wasm_bindgen]
+pub fn test_insert() {
+	let mut world = World1::default();
+	world.register_entity::<Node>();
+    world.register_multi::<Node, BorderRadius>();
+    world.register_multi::<Node, user::ZIndex>();
+    world.register_multi::<Node, Visibility>();
+    world.register_multi::<Node, RectLayoutStyle>();
+    world.register_multi::<Node, OtherLayoutStyle>();
+    world.register_multi::<Node, StyleMark>();
+    world.register_multi::<Node, ZDepth>();
+    world.register_multi::<Node, gui::component::calc::Opacity>();
+    world.register_multi::<Node, HSV>();
+    world.register_multi::<Node, LayoutR>();
+    world.register_multi::<Node, WorldMatrix>();
+    world.register_multi::<Node, Enable>();
+	world.register_multi::<Node, NodeState>();
+	world.register_multi::<Node, ByOverflow>();
+    world.register_multi::<Node, Culling>();
+	world.register_multi::<Node, BackgroundColor>();
+
+	let nodes = world.fetch_entity::<Node>().unwrap();
+
+	let opacity=world.fetch_multi::<Node, gui::component::calc::Opacity>().unwrap();
+	let border_radius=world.fetch_multi::<Node, BorderRadius>().unwrap();
+	let rect_layout_style=world.fetch_multi::<Node, RectLayoutStyle>().unwrap();
+	let other_layout_style=world.fetch_multi::<Node, OtherLayoutStyle>().unwrap();
+	let node_state=world.fetch_multi::<Node, NodeState>().unwrap();
+	let style_mark=world.fetch_multi::<Node, StyleMark>().unwrap();
+	let culling=world.fetch_multi::<Node, Culling>().unwrap();
+	let z_depth=world.fetch_multi::<Node, ZDepth>().unwrap();
+	let enable=world.fetch_multi::<Node, Enable>().unwrap();
+	let visibility=world.fetch_multi::<Node, Visibility>().unwrap();
+	let world_matrix=world.fetch_multi::<Node, WorldMatrix>().unwrap();
+	let by_overflow=world.fetch_multi::<Node, ByOverflow>().unwrap();
+	let layout=world.fetch_multi::<Node, LayoutR>().unwrap();
+	let hsv=world.fetch_multi::<Node, HSV>().unwrap();
+	let bg_color= world.fetch_multi::<Node, BackgroundColor>().unwrap();
+
+	let t = cross_performance::now();
+	for i in 0..200 {
+		let entity = nodes.lend_mut().create();
+		opacity.lend_mut().insert(entity, gui::component::calc::Opacity::default());
+		border_radius.lend_mut().insert(entity, BorderRadius::default());
+		rect_layout_style.lend_mut().insert(entity, RectLayoutStyle::default());
+		other_layout_style.lend_mut().insert(entity, OtherLayoutStyle::default());
+		node_state.lend_mut().insert(entity, NodeState::default());
+		style_mark.lend_mut().insert(entity, StyleMark::default());
+		culling.lend_mut().insert(entity, Culling::default());
+		z_depth.lend_mut().insert(entity, ZDepth::default());
+		enable.lend_mut().insert(entity, Enable::default());
+		visibility.lend_mut().insert(entity, Visibility::default());
+		world_matrix.lend_mut().insert(entity, WorldMatrix::default());
+		by_overflow.lend_mut().insert(entity, ByOverflow::default());
+		layout.lend_mut().insert(entity, LayoutR::default());
+		hsv.lend_mut().insert(entity, HSV::default());
+	}
+	for i in 1..71 {
+		bg_color.lend_mut().insert(i, BackgroundColor::default());
+	}
+
+	for i in 1..201 {
+		rect_layout_style.lend_mut().get_mut(i).unwrap().size.width = flex_layout::Dimension::Points(32.0);
+		rect_layout_style.lend_mut().get_mut(i).unwrap().size.height = flex_layout::Dimension::Points(32.0);
+		other_layout_style.lend_mut().get_mut(i).unwrap().align_content = flex_layout::AlignContent::Center;
+		other_layout_style.lend_mut().get_mut(i).unwrap().align_items = flex_layout::AlignItems::Center;
+		other_layout_style.lend_mut().get_mut(i).unwrap().align_self = flex_layout::AlignSelf::Center;
+	}
+	log::info!("time: {:?}", cross_performance::now() - t);
+}
+
 
 #[wasm_bindgen]
 pub fn get_class_name(world: u32, node: u32) -> JsValue {
@@ -613,6 +693,7 @@ fn to_css_str(attr: Attr) -> String {
                 }
                 Color::LinearGradient(_r) => "background-color:linear-gradient".to_string(),
             },
+			
             Attribute3::BorderColor(r) => {
                 let r = r.0;
                 "border-color:rgba(".to_string()
@@ -652,6 +733,17 @@ fn to_css_str(attr: Attr) -> String {
 
             Attribute3::ImageClip(r) => {
                 "image-clip:".to_string()
+                    + (r.mins.y * 100.0).to_string().as_str()
+                    + "% "
+                    + (r.maxs.x * 100.0).to_string().as_str()
+                    + "% "
+                    + (r.maxs.y * 100.0).to_string().as_str()
+                    + "% "
+                    + (r.mins.x * 100.0).to_string().as_str()
+                    + "%"
+            }
+			Attribute3::MaskImageClip(r) => {
+                "mask-image-clip:".to_string()
                     + (r.mins.y * 100.0).to_string().as_str()
                     + "% "
                     + (r.maxs.x * 100.0).to_string().as_str()
@@ -865,6 +957,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
     let map = map.lend();
     let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
+	let content_boxs = world.world.fetch_multi::<Node, ContentBox>().unwrap();
     let render_objs = render_objs.lend();
     let engine = world
         .world
@@ -1004,6 +1097,10 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
+		content_bound_box: match content_boxs.lend().get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
         culling: world.culling.lend()[node].0,
         text: match world.text_style.lend().get(node) {
             Some(r) => Some(r.clone()),

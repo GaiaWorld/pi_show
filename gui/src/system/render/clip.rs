@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 
 use ordered_float::OrderedFloat;
 
-use ecs::monitor::NotifyImpl;
+use ecs::monitor::{Event, NotifyImpl};
 use ecs::{ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, SingleCaseListener};
 use hal_core::*;
 use map::vecmap::VecMap;
@@ -180,7 +180,10 @@ impl<C: HalContext + 'static> ClipSys<C> {
                     .set_single_uniform("clipIndices2", UniformValue::Float1((by_overflow >> 24) as f32));
                 let clip_render = match self.render_obj.as_ref(){
 					Some(r) => r,
-					None => panic!("xxxxxxxxxxxxxxxxxxx, by_overflow: {}", by_overflow)
+					None => {
+						log::warn!("clip render obj is not exist");
+						panic!("xxxxxxxxxxxxxxxxxxx, by_overflow: {}", by_overflow);
+					}
 				};
                 // 插入裁剪ubo 插入裁剪宏
                 if let None = render_obj.fs_defines.add("CLIP") {
@@ -193,7 +196,10 @@ impl<C: HalContext + 'static> ClipSys<C> {
                                 .gl
                                 .rt_get_color_texture(&clip_render.render_target, 0){
 									Some(r) => r,
-									None => panic!("yyyyyyyyyyyyyyyyyyy")
+									None => {
+										log::warn!("clip render target rt_get_color_texture fail");
+										panic!("clip render target rt_get_color_texture fail");
+									}
 								},
                             &clip_render.sampler,
                         ),
@@ -328,7 +334,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
             // 渲染裁剪平面
             engine
                 .gl
-                .render_begin(Some(&clip_render.render_target), &clip_render.begin_desc);
+                .render_begin(Some(&clip_render.render_target), &clip_render.begin_desc, true);
             engine.gl.render_set_program(&clip_render.program);
             engine.gl.render_set_state(
                 &clip_render.bs,
@@ -391,7 +397,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ProjectionMatrix, Modif
     type WriteData = ();
     fn listen(
         &mut self,
-        _event: &ModifyEvent,
+        _event: &Event,
         projection_matrix: Self::ReadData,
         _: Self::WriteData,
     ) {
@@ -414,7 +420,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEven
     type WriteData = ();
     fn listen(
         &mut self,
-        _event: &ModifyEvent,
+        _event: &Event,
         render_begin: Self::ReadData,
         _: Self::WriteData,
     ) {
@@ -430,7 +436,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEven
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, OverflowClip, ModifyEvent> for ClipSys<C> {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<OverflowClip>;
-    fn listen(&mut self, event: &ModifyEvent, _read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
 		let c = &write.clip[event.id];
         if c.has_rotate || c.old_has_rotate {
             self.dirty = true;

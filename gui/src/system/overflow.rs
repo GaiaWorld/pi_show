@@ -2,14 +2,7 @@
 // 容器设置了overflow的，就会产生一个裁剪矩形及对应的编号（编号都是2的次方），其下的所有的物件的by_overflow将会被设置为受到该id的影响
 // 因为很少来回变动，所以直接根据变化进行设置，不采用dirty
 
-use ecs::{
-    component::MultiCaseImpl,
-    monitor::NotifyImpl,
-    monitor::{CreateEvent, DeleteEvent, ModifyEvent},
-    single::SingleCaseImpl,
-    system::{EntityListener, MultiCaseListener, Runner},
-    SingleCaseListener,
-};
+use ecs::{Event, SingleCaseListener, component::MultiCaseImpl, monitor::NotifyImpl, monitor::{CreateEvent, DeleteEvent, ModifyEvent}, single::SingleCaseImpl, system::{EntityListener, MultiCaseListener, Runner}};
 use hal_core::*;
 use share::Share;
 use dirty::LayerDirty;
@@ -39,7 +32,7 @@ type Write<'a> = (
 
 #[derive(Default)]
 pub struct OverflowImpl {
-    overflow_dirty: LayerDirty,
+    overflow_dirty: LayerDirty<usize>,
 }
 
 impl OverflowImpl {
@@ -141,7 +134,7 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, DeleteEvent> for OverflowImpl {
 
     fn listen(
         &mut self,
-        event: &DeleteEvent,
+        event: &Event,
         overflows: Self::ReadData,
         overflow_clip: Self::WriteData,
     ) {
@@ -154,51 +147,29 @@ impl<'a> MultiCaseListener<'a, Node, Overflow, DeleteEvent> for OverflowImpl {
 }
 
 //监听overflow属性的改变
-impl<'a> MultiCaseListener<'a, Node, Overflow, CreateEvent> for OverflowImpl {
+impl<'a> MultiCaseListener<'a, Node, Overflow, (CreateEvent, ModifyEvent)> for OverflowImpl {
     type ReadData = Read<'a>;
     type WriteData = Write<'a>;
 
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, mut write: Self::WriteData) {
 		self.modify(event.id, read, write);
 	}
 }
 
-//监听overflow属性的改变
-impl<'a> MultiCaseListener<'a, Node, Overflow, ModifyEvent> for OverflowImpl {
-    type ReadData = Read<'a>;
-    type WriteData = Write<'a>;
-
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, mut write: Self::WriteData) {
-        self.modify(event.id, read, write);
-    }
-}
-
-impl<'a> SingleCaseListener<'a, Oct, ModifyEvent> for OverflowImpl {
+impl<'a> SingleCaseListener<'a, Oct, (CreateEvent, ModifyEvent)> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
         &'a SingleCaseImpl<IdTree>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_dirty(event.id, read, write);
-    }
-}
-
-impl<'a> SingleCaseListener<'a, Oct, CreateEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         self.matrix_dirty(event.id, read, write);
     }
 }
 
 //监听WorldMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OverflowImpl {
+impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, (CreateEvent, ModifyEvent, DeleteEvent)> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
@@ -206,95 +177,31 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
 
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         self.matrix_will_change_dirty(event.id, read, write);
     }
 }
 
-//监听WorldMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for OverflowImpl {
+impl<'a> MultiCaseListener<'a, Node, Transform, (CreateEvent, ModifyEvent, DeleteEvent)> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
         &'a SingleCaseImpl<IdTree>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_will_change_dirty(event.id, read, write);
-    }
-}
-
-//监听WorldMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_will_change_dirty(event.id, read, write);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Transform, ModifyEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         self.matrix_dirty(event.id, read, write);
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, ModifyEvent> for OverflowImpl {
+impl<'a> MultiCaseListener<'a, Node, WorldMatrix, (CreateEvent, ModifyEvent)> for OverflowImpl {
     type ReadData = (
         &'a MultiCaseImpl<Node, ByOverflow>,
         &'a MultiCaseImpl<Node, Overflow>,
         &'a SingleCaseImpl<IdTree>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_dirty(event.id, read, write);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, CreateEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_dirty(event.id, read, write);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Transform, CreateEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
-        self.matrix_dirty(event.id, read, write);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Transform, DeleteEvent> for OverflowImpl {
-    type ReadData = (
-        &'a MultiCaseImpl<Node, ByOverflow>,
-        &'a MultiCaseImpl<Node, Overflow>,
-        &'a SingleCaseImpl<IdTree>,
-    );
-    type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         self.matrix_dirty(event.id, read, write);
     }
 }
@@ -307,7 +214,7 @@ impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for OverflowImpl {
 		&'a MultiCaseImpl<Node, NodeState>,
     );
     type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
 		// // 虚拟节点不需要计算overflowis_rnode
 		// if let None = read.1.get(event.id) {
 		// 	return;
@@ -323,7 +230,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for OverflowImpl {
     type ReadData = Read<'a>;
     type WriteData = Write<'a>;
 
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, mut write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, mut write: Self::WriteData) {
         let node = &read.0[event.id];
         // 获得父节点的ByOverflow
         let mut by = *write.1[node.parent()];
@@ -348,7 +255,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for OverflowImpl {
         &'a mut MultiCaseImpl<Node, ByOverflow>,
     );
 
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
 		let node = &read.0[event.id];
 		let notify = unsafe { &* (write.0.get_notify_ref() as *const NotifyImpl)} ;
         if match read.1.get(event.id) {
@@ -381,7 +288,7 @@ impl<'a> EntityListener<'a, Node, ModifyEvent> for OverflowImpl {
         &'a mut MultiCaseImpl<Node, ByOverflow>,
     );
 
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         let overflow = *read.1[event.id];
         if overflow {
 			let notify = unsafe { &* (write.0.get_notify_ref() as *const NotifyImpl)} ;
@@ -837,21 +744,14 @@ impl_system! {
     {
         // EntityListener<Node, CreateEvent>
 		EntityListener<Node, ModifyEvent>
-		MultiCaseListener<Node, Overflow, CreateEvent>
-        MultiCaseListener<Node, Overflow, ModifyEvent>
+		MultiCaseListener<Node, Overflow, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, Overflow, DeleteEvent>
-		SingleCaseListener<Oct, CreateEvent>
-		SingleCaseListener<Oct, ModifyEvent>
-		MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-		MultiCaseListener<Node, WorldMatrix, CreateEvent>
-        MultiCaseListener<Node, Transform, ModifyEvent>
-        MultiCaseListener<Node, Transform, CreateEvent>
-        MultiCaseListener<Node, Transform, DeleteEvent>
+		SingleCaseListener<Oct, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, WorldMatrix, (CreateEvent, ModifyEvent)>
+        MultiCaseListener<Node, Transform, (CreateEvent, ModifyEvent, DeleteEvent)>
         MultiCaseListener<Node, LayoutR, ModifyEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
-        MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
-        MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
-        MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
+        MultiCaseListener<Node, TransformWillChangeMatrix, (CreateEvent, ModifyEvent, DeleteEvent)>
     }
 }

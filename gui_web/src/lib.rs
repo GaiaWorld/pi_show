@@ -35,7 +35,7 @@ extern crate res;
 extern crate share;
 extern crate idtree;
 extern crate flex_layout;
-// extern crate cross_performance;
+extern crate cross_performance;
 
 mod class;
 mod layout;
@@ -47,6 +47,7 @@ mod transform;
 mod world;
 mod index;
 // mod res;
+mod reset_style;
 
 pub use class::*;
 pub use layout::*;

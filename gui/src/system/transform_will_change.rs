@@ -2,7 +2,7 @@
  * 监听TransformWillChange的改变， 修改TransformWillChangeMatrix
 	*/
 
-use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner};
+use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner, Event};
 use dirty::LayerDirty;
 
 use crate::component::user::{ Transform };
@@ -14,7 +14,7 @@ use crate::single::IdTree;
 
 #[derive(Default)]
 pub struct TransformWillChangeSys{
-	will_change_mark: LayerDirty, // 存放存在TransformWillChang的组件id， 并不是为了记脏
+	will_change_mark: LayerDirty<usize>, // 存放存在TransformWillChang的组件id， 并不是为了记脏
 	dirty: bool,
 	// TransformWillChang创建时， 如果该节点不在根树上， 该值会+1， 当节点树被添加到根上时， 遍历子孙节点，如果节点上存在TransformWillChang， 该值-1， 直到减为0， 会停止遍历
 	// 因为存在TransformWillChang的节点数量应该是少量的， 记录该值， 可以减少每次节点被添加到根时的遍历
@@ -109,7 +109,7 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 impl<'a> MultiCaseListener<'a, Node, TransformWillChange, CreateEvent> for TransformWillChangeSys{
 	type ReadData = &'a SingleCaseImpl<IdTree>;
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-	fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
+	fn listen(&mut self, event: &Event, idtree: Self::ReadData, style_marks: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
 			if r.layer() > 0 {
 				self.mark_dirty(event.id, style_marks);
@@ -124,7 +124,7 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, CreateEvent> for Trans
 impl<'a> MultiCaseListener<'a, Node, TransformWillChange, ModifyEvent> for TransformWillChangeSys{
 	type ReadData = &'a SingleCaseImpl<IdTree>;
 	type WriteData = &'a mut MultiCaseImpl<Node, StyleMark>;
-	fn listen(&mut self, event: &ModifyEvent, idtree: Self::ReadData, style_marks: Self::WriteData){
+	fn listen(&mut self, event: &Event, idtree: Self::ReadData, style_marks: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
 			if r.layer() > 0 {
 				self.mark_dirty(event.id, style_marks);
@@ -137,7 +137,7 @@ impl<'a> MultiCaseListener<'a, Node, TransformWillChange, ModifyEvent> for Trans
 impl<'a> MultiCaseListener<'a, Node, TransformWillChange, DeleteEvent> for TransformWillChangeSys{
 	type ReadData = &'a SingleCaseImpl<IdTree>;
 	type WriteData = &'a mut MultiCaseImpl<Node, TransformWillChangeMatrix>;
-	fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, transform_will_change_matrix: Self::WriteData){
+	fn listen(&mut self, event: &Event, idtree: Self::ReadData, transform_will_change_matrix: Self::WriteData){
 		if let Some(r) = idtree.get(event.id) {
 			self.will_change_mark.delete(event.id, r.layer());
 			if transform_will_change_matrix.get(event.id).is_some() {
@@ -155,7 +155,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for TransformWillChangeSys{
 		&'a mut MultiCaseImpl<Node, TransformWillChange>,
 		&'a mut MultiCaseImpl<Node, StyleMark>,
 	);
-	fn listen(&mut self, event: &CreateEvent, idtree: Self::ReadData, write: Self::WriteData){
+	fn listen(&mut self, event: &Event, idtree: Self::ReadData, write: Self::WriteData){
 		if self.create_will_change_count == 0 {
 			return;
 		}

@@ -126,6 +126,7 @@ use gui::component::user::{TextStyle, Vector2};
 use gui::single::Class;
 use gui::world::GuiWorld as GuiWorld1;
 use gui::font::font_sheet::{TextInfo as TextInfo1};
+use crate::index::PixelFormat;
 
 #[wasm_bindgen(module = "/js/utils.js")]
 extern "C" {
@@ -152,14 +153,14 @@ pub struct GuiWorld {
 	pub max_texture_size: u32,
 	pub performance_inspector: usize,
 	pub load_image_success: Closure<dyn FnMut(
-		u8,
+		PixelFormat,
 		i32,
 		u8, /* 缓存类型，支持0， 1， 2三种类型 */
 		u32,
 		u32,
 		u32,
 		Object,
-		u32)>,
+		u32,)>,
 	pub load_image: Box<dyn Fn(u32, &Function)>,
 	pub draw_text: Closure<dyn FnMut(JsValue)>,
 	pub old_texture_tex_version: usize, // 上次run时的文字纹理版本
@@ -350,8 +351,7 @@ pub fn set_render_dirty(world: u32) {
     let render_objs = world.render_objs.lend();
 	let dirty_view_rect = world.dirty_view_rect.lend_mut();
 	dirty_view_rect.4 = true;
-	// unsafe{web_sys::console::log_2(&"set_render_dirty".into(), &dirty_view_rect.4.into())}
-    // render_objs.get_notify_ref().modify_event(1, "", 0);
+    render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 
 

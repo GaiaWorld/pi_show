@@ -4,7 +4,7 @@ use std::slice;
 use cg2d::{BooleanOperation, Polygon as Polygon2d};
 use nalgebra::Point2;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
-use ecs::monitor::NotifyImpl;
+use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
@@ -59,7 +59,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, BoxShadow>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, BorderRadius>,
-        &'a MultiCaseImpl<Node, Opacity>,
+        // &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Transform>,
@@ -78,7 +78,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             box_shadows,
             world_matrixs,
             border_radiuses,
-            opacitys,
+            // opacitys,
             layouts,
             z_depths,
             transforms,
@@ -142,9 +142,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BoxShadow as usize != 0
             {
-				let opacity = opacitys[*id].0;
+				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-                render_obj.is_opacity = color_is_opacity(opacity, &shadow.color, shadow.blur);
+                render_obj.is_opacity = color_is_opacity(1.0, &shadow.color, shadow.blur);
                 if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				}
@@ -172,8 +172,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
                 let transform = &transforms[*id];
-                let depth = z_depths[*id].0;
-                modify_matrix(render_obj, depth, world_matrix, transform, layout);
+                // let depth = z_depths[*id].0;
+                modify_matrix(render_obj, world_matrix, transform, layout);
             }
             notify.modify_event(render_index, "", 0);
         }
@@ -185,7 +185,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, DeleteE
 {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
         self.remove_render_obj(event.id, render_objs)
     }
 }
@@ -229,12 +229,12 @@ impl<C: HalContext + 'static> BoxShadowSys<C> {
 #[inline]
 fn modify_matrix(
     render_obj: &mut RenderObj,
-    depth: f32,
+    // depth: f32,
     world_matrix: &WorldMatrix,
     transform: &Transform,
     layout: &LayoutR,
 ) {
-    let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0, depth);
+    let arr = create_let_top_offset_matrix(layout, world_matrix, transform, 0.0, 0.0);
     render_obj.paramter.set_value(
         "worldMatrix",
         Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(arr))),

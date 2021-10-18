@@ -8,7 +8,9 @@ mod render;
 mod image;
 mod charblock;
 mod clip;
+mod render_context;
 pub mod res_release;
+
 
 
 pub use crate::system::render::clip::*;
@@ -21,3 +23,4 @@ pub use crate::system::render::node_attr::*;
 pub use crate::system::render::render::*;
 pub use crate::system::render::box_shadow::*;
 pub use crate::system::render::res_release::*;
+pub use crate::system::render::render_context::*;

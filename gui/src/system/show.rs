@@ -4,7 +4,7 @@
  */
 use ecs::{
     CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener,
-    SingleCaseImpl, SingleCaseListener,
+    SingleCaseImpl, SingleCaseListener, Event,
 };
 use flex_layout::Display;
 
@@ -73,24 +73,13 @@ impl ShowSys {
 //     }
 // }
 
-impl<'a> MultiCaseListener<'a, Node, Show, ModifyEvent> for ShowSys {
+impl<'a> MultiCaseListener<'a, Node, Show, (CreateEvent, ModifyEvent)> for ShowSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = (
         &'a mut MultiCaseImpl<Node, CVisibility>,
         &'a mut MultiCaseImpl<Node, CEnable>,
     );
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, write: Self::WriteData) {
-        ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1, read.2);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Show, CreateEvent> for ShowSys {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Show>, &'a MultiCaseImpl<Node, NodeState>);
-    type WriteData = (
-        &'a mut MultiCaseImpl<Node, CVisibility>,
-        &'a mut MultiCaseImpl<Node, CEnable>,
-    );
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1, read.2);
     }
 }
@@ -101,7 +90,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ShowSys {
         &'a mut MultiCaseImpl<Node, CVisibility>,
         &'a mut MultiCaseImpl<Node, CEnable>,
     );
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         ShowSys::modify_show(event.id, read.0, read.1, write.0, write.1, read.2);
     }
 }
@@ -112,7 +101,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ShowSys {
         &'a mut MultiCaseImpl<Node, CVisibility>,
         &'a mut MultiCaseImpl<Node, CEnable>,
     );
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         cancel_visibility(event.id, read.0, write.0, read.1);
         cancel_enable(event.id, read.0, write.1, read.1);
     }
@@ -217,8 +206,7 @@ impl_system! {
     false,
     {
         // EntityListener<Node, CreateEvent>
-		MultiCaseListener<Node, Show, ModifyEvent>
-		MultiCaseListener<Node, Show, CreateEvent>
+		MultiCaseListener<Node, Show, (CreateEvent, ModifyEvent)>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
     }

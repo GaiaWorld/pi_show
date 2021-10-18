@@ -713,8 +713,10 @@ impl HalContext for WebglHalContext {
         p.restore_active_uniform(index);
     }
 
-    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc) {
-        self.restore_state();
+    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc, is_reset: bool) {
+		if is_reset {
+			self.restore_state();
+		}
 
         let context = convert_to_mut(self.0.as_ref());
 
@@ -763,7 +765,7 @@ impl HalContext for WebglHalContext {
 			// 	@{&extension}.wrap.bindVertexArrayOES(null);
 			// }
 		}
-		context.state_machine.restore_state(&context.gl);
+		context.state_machine.restore_state(&mut context.texture_slab, &context.gl);
     }
 
     fn render_get_stat(&self) -> &RenderStat {

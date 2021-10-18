@@ -23,9 +23,6 @@ pub const INIT_TEX_HEIGHT: u32 = 256;
 // 小字体的大小， 小于该字体，默认勾1个px的边
 const SMALL_FONT: usize = 20;
 
-// 默认sdf字体的大小， 用于作为基准
-const SDF_FONT_SIZE: f32 = 32.0;
-
 // 粗体字的font-weight
 const BLOD_WEIGHT: usize = 700;
 
@@ -78,6 +75,8 @@ pub struct FontSheet {
     measure_char: Box<dyn Fn(usize/*font-family */ ,usize, char) -> f32>,
 	pub font_tex: FontTex,
 	pub tex_version: usize,
+
+	pub msdf_font_texs: Vec<Share<TextureRes>>,
 }
 
 impl FontSheet {
@@ -97,6 +96,7 @@ impl FontSheet {
             wait_draw_map: XHashMap::default(),
             measure_char: measure,
 			font_tex: FontTex::new(texture),
+			msdf_font_texs: Vec::default(),
 			tex_version: 0,
         }
     }
@@ -134,26 +134,36 @@ impl FontSheet {
         self.color = color;
     }
     // 设置Font
-    pub fn set_src(&mut self, name: usize, is_pixel: bool, factor_t: f32, factor_b: f32) {
+    pub fn set_src(&mut self, name: usize, is_pixel: bool, factor_t: f32, factor_b: f32, ascender: f32, descender: f32) {
         match self.src_map.entry(name){
 			Entry::Occupied(mut e) => {
 				let r = e.get_mut();
-				r.is_pixel = is_pixel;
 				r.factor_t = factor_t;
 				r.factor_b = factor_b;
+				r.is_pixel = is_pixel;
+				r.ascender = ascender;
+				r.descender = descender;
 			},
 			Entry::Vacant(r) => { 
 				r.insert(TexFont {
 					name,
-					is_pixel,
 					factor_t,
 					factor_b,
+					is_pixel,
+					ascender,
+					descender,
+					textures: if is_pixel {
+						None
+					} else {
+						Some(Vec::new())
+					},
+					font_size: FONT_SIZE,
 				});
 			}
 		}
     }
 
-    pub fn get_src(&mut self, name: &usize) -> Option<&TexFont> {
+    pub fn get_src(&self, name: &usize) -> Option<&TexFont> {
         self.src_map.get(name)
     }
 
@@ -215,27 +225,40 @@ impl FontSheet {
         weight: usize,
         c: char,
     ) -> (f32 /*width,height*/, f32 /*base_width*/) {
-        let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
-        match self.char_w_map.entry((font.name, c, is_blod)) {
-            Entry::Occupied(e) => {
-                let r = e.get();
-                return (
-                    r.0 * font_size as f32 / FONT_SIZE + sw as f32,
-                    r.0,
-                );
+		if font.is_pixel {
+			let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
+			match self.char_w_map.entry((font.name, c, is_blod)) {
+				Entry::Occupied(e) => {
+					let r = e.get();
+					return (
+						r.0 * font_size as f32 / FONT_SIZE + sw as f32,
+						r.0,
+					);
+				}
+				Entry::Vacant(r) => {
+					let mut w = self.measure_char.as_ref()(font.name, FONT_SIZE as usize, c);
+					if w > 0.0 {
+						if is_blod {
+							w = w * BLOD_FACTOR;
+						}
+						r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
+						return (w * font_size as f32 / FONT_SIZE + sw as f32, w);
+					}
+				}
+			}
+			
+		} else {
+			match self.char_map.get(&(font.name, 0, 0, 0, c)) {
+                Some(id) => {
+					match self.char_slab.get(*id) {
+						Some(r) => return (r.1.advance * (font_size as f32/font.font_size), r.1.advance),
+						None => (),
+					}
+				},
+                _ => (),
             }
-            Entry::Vacant(r) => {
-                let mut w = self.measure_char.as_ref()(font.name, FONT_SIZE as usize, c);
-                if w > 0.0 {
-                    if is_blod {
-                        w = w * BLOD_FACTOR;
-                    }
-                    r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
-                    return (w * font_size as f32 / FONT_SIZE + sw as f32, w);
-                }
-            }
-        }
-        (0.0, 0.0)
+		}
+		(0.0, 0.0)
     }
 
     // 添加一个字形信息,
@@ -417,19 +440,29 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 //     oblique * font_size * char_width // TODO FIX!!!
 // }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TexFont {
     pub name: usize,
-    pub is_pixel: bool, // 是否为像素纹理， 否则为sdf纹理
+	pub is_pixel: bool,
 	pub factor_t: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
 	pub factor_b: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
+	pub textures: Option<Vec<Share<TextureRes>>>, // sdf字体才存在
+
+	// ascender - descender = lineheight
+	pub ascender: f32,  // 为正数
+	pub descender: f32, // 通常为一个负数
+	pub font_size: f32, // 字体大小（sdf才会有，表示sdf中的纹理是该尺寸的文字）
 }
 
 impl TexFont {
     #[inline]
     //  获得字体大小, 0表示没找到该font_face
     pub fn get_font_height(&self, size: usize, stroke_width: f32) -> f32 {
-        size as f32 + (size as f32 * self.factor_t + size as f32 * self.factor_b).round() + stroke_width
+		if self.is_pixel {
+			size as f32 + (size as f32 * self.factor_t + size as f32 * self.factor_b).round() + stroke_width
+		} else {
+			size as f32 * (self.ascender - self.descender)
+		}
     }
 }
 
@@ -469,7 +502,9 @@ impl Glyph {
         let height = value.get_u8(*offset);
         *offset += 1;
         let advance = value.get_u8(*offset);
-        *offset += 2; // 加2， 对齐
+        *offset += 1;
+
+		*offset += 1; // 加1， 对齐
 
         Glyph {
             x: x as f32,

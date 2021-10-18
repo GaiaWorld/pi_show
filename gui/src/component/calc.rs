@@ -14,7 +14,8 @@ use super::user::*;
 use res::Res;
 use flex_layout::*;
 
-use crate::util::vecmap_default::VecMapWithDefault;
+use crate::{render::res::BufferRes, single::{DirtyViewRect, ProjectionMatrix, RenderObj}, util::vecmap_default::VecMapWithDefault};
+use crate::render::res::TextureRes;
 
 // // 布局计算结果
 // #[derive(Clone, Debug, Default, Component, PartialEq)]
@@ -36,17 +37,77 @@ use crate::util::vecmap_default::VecMapWithDefault;
 /// 渲染上下文，一些具有特殊属性的节点，可以是一个新的渲染上下文，另外根节点也是一个渲染上下文，
 #[derive(Component)]
 pub struct RenderContext{
-	pub size: (usize, usize), // 大小、尺寸
+	pub index_count: usize, // 索引数量，表示由几种属性创建的context， 如节点上值存在MaskImage，则count=1， 如果同时存在MaskImage和opcaity， 则count = 2， 当indexCount数量为0时，应该删除RenderContext
+	pub render_rect: Aabb2, // 大小、尺寸
 	pub content_box: Aabb2, // 内容的最大包围盒
-	pub view_matrix: WorldMatrix,
-	pub projection_matrix: WorldMatrix,
-	pub render_objs: Vec<usize>, // 节点本身的渲染对象
+	pub view_matrix: Option<WorldMatrix>,
+	pub projection_matrix: Option<ProjectionMatrix>,
+	pub view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
+	pub projection_matrix_ubo: Option<Share<dyn UniformBuffer>>,
 	pub dirty_view_rect: DirtyViewRect,
-	pub render_target: Option<HalRenderTarget>,
+	pub render_target: Option<usize>, // 一个在dyn_texture中的索引
+	pub geo_change: bool, // 与上一帧相比，在dyn_texture中分配的位置是否改变
+	pub render_obj_index: usize,
+	pub opacity_list: Vec<usize>,
+	pub transparent_list: Vec<usize>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize,Clone)]
-pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
+/// 内容最大包围盒范围(不包含自身)
+#[derive(Component, Clone, Debug, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
+pub struct ContentBox(pub Aabb2);
+
+impl Default for ContentBox {
+	fn default() -> Self {
+		Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
+	}
+}
+
+/// 所属的根
+#[derive(Component, Clone, Debug)]
+#[storage(VecMapWithDefault)]
+pub struct Root(pub usize);
+
+
+impl Default for Root {
+	fn default() -> Self {
+		Root(1)
+	}
+}
+
+impl RenderContext {
+	pub fn new(
+		index_count: usize,
+		render_rect: Aabb2, 
+		content_box: Aabb2, 
+		view_matrix: Option<WorldMatrix>,
+		projection_matrix: Option<ProjectionMatrix>,
+		view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
+		projection_matrix_ubo: Option<Share<dyn UniformBuffer>>,
+		dirty_view_rect: DirtyViewRect,
+		render_target: Option<usize>,
+		render_obj_index: usize
+	) -> Self {
+		Self {
+			index_count,
+			render_rect,
+			content_box,
+			view_matrix,
+			projection_matrix,
+			view_matrix_ubo,
+			projection_matrix_ubo,
+			dirty_view_rect,
+			render_target,
+			render_obj_index,
+			geo_change: false,
+			opacity_list: Vec::new(),
+			transparent_list: Vec::new(),
+		}
+	}
+}
+
+// #[derive(Debug, Default, Deserialize, Serialize,Clone)]
+// pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
 
 #[derive(Clone, Debug, Component, PartialEq, Deserialize, Serialize)]
 pub struct LayoutR {
@@ -190,6 +251,7 @@ pub enum StyleType2 {
     AlignContent = 0x10000000,
     AlignItems = 0x20000000,
     AlignSelf = 0x40000000,
+	BlendMode = std::isize::MIN,
 }
 
 // margin标记
@@ -239,7 +301,7 @@ pub enum StyleType1 {
     // AlignContent = 0x10000,
     // AlignItems = 0x20000,
     // AlignSelf = 0x40000,
-	// JustifyContent = 0x80000,
+	ContentBox = 0x8000,
 	Direction = 0x10000,
 	AspectRatio = 0x20000,
 	Order = 0x40000,
@@ -258,6 +320,12 @@ pub enum StyleType1 {
 
 	MaskImage = 0x20000000,
 	MaskImageClip = 0x40000000,
+	MaskTexture = std::isize::MIN,
+}
+
+#[derive(Component, Clone)]
+pub struct MaskTexture {
+	pub src: Option<Share<TextureRes>>,
 }
 
 // 样式标记
@@ -348,7 +416,8 @@ impl DerefMut for WorldMatrix {
 impl<'a, 'b> Mul<&'a WorldMatrix> for &'b WorldMatrix {
     type Output = WorldMatrix;
     fn mul(self, other: &'a WorldMatrix) -> Self::Output {
-        // if self.1 == false && other.1 == false {
+        if self.1 == false && other.1 == false {
+			WorldMatrix(self.0 * other.0, false)
         //     WorldMatrix(
         //         Matrix4::new(
         //             self.x.x * other.x.x,
@@ -370,9 +439,9 @@ impl<'a, 'b> Mul<&'a WorldMatrix> for &'b WorldMatrix {
         //         ),
         //         false,
         //     )
-        // } else {
+        } else {
             WorldMatrix(self.0 * other.0, true)
-        // }
+        }
     }
 }
 
@@ -380,15 +449,16 @@ impl<'a> Mul<&'a WorldMatrix> for WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(mut self, other: &'a WorldMatrix) -> Self::Output {
-        // if self.1 == false && other.1 == false {
+        if self.1 == false && other.1 == false {
+			WorldMatrix(self.0 * other.0, false)
         //     self.x.x = self.x.x * other.x.x;
         //     self.y.y = self.y.y * other.y.y;
         //     self.w.x = self.w.x + (other.w.x * self.x.x);
         //     self.w.y = self.w.y + (other.w.y * self.y.y);
         //     self
-        // } else {
+        } else {
             WorldMatrix(self.0 * other.0, true)
-        // }
+        }
     }
 }
 
@@ -396,15 +466,16 @@ impl<'a> Mul<WorldMatrix> for &'a WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(self, mut other: WorldMatrix) -> Self::Output {
-        // if self.1 == false && other.1 == false {
+        if self.1 == false && other.1 == false {
+			WorldMatrix(self.0 * other.0, false)
         //     other.x.x = self.x.x * other.x.x;
         //     other.y.y = self.y.y * other.y.y;
         //     other.w.x = self.w.x + (other.w.x * self.x.x);
         //     other.w.y = self.w.y + (other.w.y * self.y.y);
         //     other
-        // } else {
+        } else {
             WorldMatrix(self.0 * other.0, true)
-        // }
+        }
     }
 }
 
@@ -412,15 +483,16 @@ impl Mul<WorldMatrix> for WorldMatrix {
     type Output = WorldMatrix;
     #[inline]
     fn mul(self, mut other: WorldMatrix) -> Self::Output {
-        // if self.1 == false && other.1 == false {
+        if self.1 == false && other.1 == false {
+			WorldMatrix(self.0 * other.0, false)
         //     other.x.x = self.x.x * other.x.x;
         //     other.y.y = self.y.y * other.y.y;
         //     other.w.x = self.w.x + (other.w.x * self.x.x);
         //     other.w.y = self.w.y + (other.w.y * self.y.y);
         //     other
-        // } else {
+        } else {
             WorldMatrix(self.0 * other.0, true)
-        // }
+        }
     }
 }
 
@@ -573,6 +645,7 @@ defines! {
         VERTEX_COLOR: String,
         CLIP_BOX: String,
         BOX_SHADOW_BLUR: String,
+		MASK_IMAGE: String,
     }
 }
 
@@ -587,6 +660,7 @@ defines! {
         HSV: String,
         GRAY: String,
         STROKE: String,
+		MASK_IMAGE: String,
     }
 }
 
@@ -608,8 +682,8 @@ program_paramter! {
         stroke: MsdfStrokeUbo,
         textureSize: TextTextureSize,
         worldMatrix: WorldMatrixUbo,
-        viewMatrix: ViewMatrixUbo,
-        projectMatrix: ProjectMatrixUbo,
+        // viewMatrix: ViewMatrixUbo,
+        // projectMatrix: ProjectMatrixUbo,
         hsvValue: HsvUbo,
         clipIndices1: UniformValue,
 		clipIndices2: UniformValue,
@@ -618,6 +692,10 @@ program_paramter! {
         clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
+		pixelRatio: UniformValue,
+		weight: UniformValue,
+		fontSize: UniformValue,
+		depth: UniformValue,
     }
 }
 
@@ -648,6 +726,7 @@ program_paramter! {
         clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
+		depth: UniformValue,
     }
 }
 
@@ -667,6 +746,8 @@ program_paramter! {
         alpha: UniformValue,
         uRect: UniformValue,
         blur: UniformValue,
+		depth: UniformValue,
+		texture: (HalTexture, HalSampler),
     }
 }
 
@@ -684,6 +765,25 @@ program_paramter! {
         clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
+		depth: UniformValue,
+    }
+}
+
+program_paramter! {
+    #[derive(Clone)]
+    struct FboParamter {
+        worldMatrix: WorldMatrixUbo,
+        viewMatrix: ViewMatrixUbo,
+        projectMatrix: ProjectMatrixUbo,
+        clipIndices1: UniformValue,
+		clipIndices2: UniformValue,
+        clipTexture: (HalTexture, HalSampler),
+        clipTextureSize: ClipTextureSize,
+        clipBox: ClipBox,
+        texture: (HalTexture, HalSampler),
+        alpha: UniformValue,
+		maskTexture: (HalTexture, HalSampler),
+		depth: UniformValue,
     }
 }
 

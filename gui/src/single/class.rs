@@ -105,6 +105,9 @@ pub enum Attribute2 {
     PositionTop(Dimension),
     PositionRight(Dimension),
     PositionBottom(Dimension),
+
+	MaskImageUrl(usize),
+	BlendMode(BlendMode),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -126,6 +129,8 @@ pub enum Attribute3 {
     TransformFunc(Vec<TransformFunc>),
     TransformOrigin(TransformOrigin),
     Filter(Filter),
+
+	MaskImageClip(MaskImageClip),
 }
 
 // #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]

@@ -19,10 +19,12 @@ use crate::render::engine::Engine;
 use crate::single::*;
 use crate::system::util::constant::*;
 use crate::Z_MAX;
+use crate::render::res::{BufferRes};
 
 lazy_static! {
     // 四边形几何体的hash值
     pub static ref QUAD_GEO_HASH: u64 = 0;
+	static ref UV: Atom = Atom::from("UV");
 }
 
 pub fn cal_matrix(
@@ -110,6 +112,35 @@ pub fn f32_3_hash(x: f32, y: f32, z: f32) -> u64 {
     hasher.finish()
 }
 
+#[inline]
+pub fn cal_uv_hash(uv1: &Point2, uv2: &Point2) -> u64 {
+	let mut hasher = DefaultHasher::default();
+	UV.hash(&mut hasher);
+	f32_4_hash_(uv1.x, uv1.y, uv2.x, uv2.y, &mut hasher);
+	hasher.finish()
+}
+
+pub fn create_uv_buffer<C: HalContext + 'static>(
+	uv_hash: u64,
+	uv1: &Point2,
+	uv2: &Point2,
+	engine: &mut Engine<C>,
+) -> Share<BufferRes> {
+	match engine.buffer_res_map.get(&uv_hash) {
+		Some(r) => r,
+		None => {
+			let uvs = [uv1.x, uv1.y, uv1.x, uv2.y, uv2.x, uv2.y, uv2.x, uv1.y];
+			engine.create_buffer_res(
+				uv_hash,
+				BufferType::Attribute,
+				8,
+				Some(BufferData::Float(&uvs[..])),
+				false,
+			)
+		}
+	}
+}
+
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
 pub fn create_unit_matrix_by_layout(
     layout: &LayoutR,
@@ -170,16 +201,16 @@ pub fn create_let_top_offset_matrix(
     transform: &Transform,
     h: f32,
     v: f32,
-    depth: f32,
+    // depth: f32,
 ) -> Vec<f32> {
-    let depth = -depth / (Z_MAX + 1.0);
+    // let depth = -depth / (Z_MAX + 1.0);
     // let depth = depth1;
 
     let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         let slice: &[f32] = matrix.as_slice();
         let mut arr = Vec::from(slice);
-        arr[14] = depth;
+        // arr[14] = depth;
         return arr;
     } else {
         let matrix = matrix
@@ -191,8 +222,34 @@ pub fn create_let_top_offset_matrix(
             );
         let slice: &[f32] = matrix.as_slice();
         let mut arr = Vec::from(&slice[..]);
-        arr[14] = depth;
+        // arr[14] = depth;
         return arr;
+    }
+}
+
+#[inline]
+pub fn let_top_offset_matrix(
+    layout: &LayoutR,
+    matrix: &WorldMatrix,
+    transform: &Transform,
+    h: f32,
+    v: f32,
+    depth: f32,
+) -> WorldMatrix {
+    let depth = -depth / (Z_MAX + 1.0);
+    // let depth = depth1;
+
+    let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+    if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
+        matrix.clone()
+    } else {
+        matrix
+            * WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(-origin.x + h,
+                    -origin.y + v,
+                    0.0)),
+                false,
+            )
     }
 }
 
@@ -248,7 +305,7 @@ pub fn to_vex_color_defines(vs_defines: &mut dyn Defines, fs_defines: &mut dyn D
 pub fn modify_opacity<C: HalContext + 'static>(
     _engine: &mut Engine<C>,
     render_obj: &mut RenderObj,
-    default_state: &DefaultState,
+    default_state: &CommonState,
 ) {
     if render_obj.is_opacity == false {
         // render_obj.state.bs = default_state.df_bs.clone();
@@ -338,7 +395,7 @@ pub fn create_render_obj(
     vs_name: Atom,
     fs_name: Atom,
     paramter: Share<dyn ProgramParamter>,
-    default_state: &DefaultState,
+    default_state: &CommonState,
     render_objs: &mut SingleCaseImpl<RenderObjs>,
     render_map: &mut VecMap<usize>,
 ) -> usize {

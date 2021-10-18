@@ -28,7 +28,6 @@ pub type Vector4 = nalgebra::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 // pub type Aabb3 = ncollide2d::bounding_volume::AABB <f32>;
 pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
-use nalgebra::Rotation3;
 
 #[derive(Clone, Component, Serialize, Deserialize, Debug)]
 #[storage(VecMapWithDefault)]
@@ -123,6 +122,17 @@ pub struct Overflow(pub bool);
 #[storage(VecMapWithDefault)]
 pub struct Opacity(pub f32);
 
+/// 渲染模式
+#[derive(Clone, Component, Debug, Serialize, Deserialize, EnumDefault)]
+#[storage(VecMapWithDefault)]
+pub enum BlendMode {
+	Normal,
+	AlphaAdd,
+	Subtract,
+	Multiply,
+	OneOne,
+}
+
 // 将display、visibility、enable合并为show组件
 #[derive(Deref, DerefMut, Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[storage(VecMapWithDefault)]
@@ -164,7 +174,6 @@ pub struct Image {
 
 #[derive(Clone, Component)]
 pub struct MaskImage {
-	pub src: Option<Share<TextureRes>>,
 	pub url: usize,
 }
 
@@ -209,6 +218,7 @@ pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatTyp
 
 // 圆角， 目前仅支持x分量
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
 pub struct BorderRadius {
     pub x: LengthUnit,
     pub y: LengthUnit,
@@ -489,7 +499,12 @@ pub enum TransformFunc {
     ScaleY(f32),
     Scale(f32, f32),
 
+	RotateX(f32),
+	RotateY(f32),
     RotateZ(f32),
+
+	SkewX(f32),
+	SkewY(f32),
 }
 
 #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
@@ -638,7 +653,65 @@ impl Transform {
 
                 TransformFunc::RotateZ(z) => {
                     m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0)),
+						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0 * std::f32::consts::PI)),
+						true
+					)
+                }
+				TransformFunc::RotateX(x) => {
+                    m = m * WorldMatrix(
+						Matrix4::new_rotation(Vector3::new(*x/180.0 * std::f32::consts::PI, 0.0, 0.0)),
+						true
+					)
+                }
+				TransformFunc::RotateY(y) => {
+                    m = m * WorldMatrix(
+						Matrix4::new_rotation(Vector3::new(0.0, *y/180.0 * std::f32::consts::PI, 0.0)),
+						true
+					)
+                }
+				TransformFunc::SkewX(x) => {
+                    m = m * WorldMatrix(
+						Matrix4::new(
+							1.0,
+							(*x/180.0 * std::f32::consts::PI).tan(),
+							0.0,
+							0.0,
+							0.0,
+							1.0,
+							0.0,
+							0.0,
+							0.0,
+							0.0,
+							1.0,
+							0.0,
+							0.0,
+							0.0,
+							0.0,
+							1.0,
+						),
+						true
+					)
+                }
+				TransformFunc::SkewY(y) => {
+                    m = m * WorldMatrix(
+						Matrix4::new(
+							1.0,
+							0.0,
+							0.0,
+							0.0,
+							(*y/180.0 * std::f32::consts::PI).tan(),
+							1.0,
+							0.0,
+							0.0,
+							0.0,
+							0.0,
+							1.0,
+							0.0,
+							0.0,
+							0.0,
+							0.0,
+							1.0,
+						),
 						true
 					)
                 }

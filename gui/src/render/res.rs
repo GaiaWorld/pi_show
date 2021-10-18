@@ -87,6 +87,9 @@ impl Res for TextureRes {
     type Key = usize;
 }
 
+unsafe impl Send for TextureRes {}
+unsafe impl Sync for TextureRes {}
+
 #[derive(Deref, DerefMut)]
 pub struct SamplerRes(pub HalSampler);
 
@@ -129,27 +132,41 @@ impl DerefMut for GeometryRes {
 impl Res for SamplerRes {
     type Key = u64;
 }
+unsafe impl Send for SamplerRes {}
+unsafe impl Sync for SamplerRes {}
 
 impl Res for GeometryRes {
     type Key = u64;
 }
+unsafe impl Send for GeometryRes {}
+unsafe impl Sync for GeometryRes {}
 
 impl Res for RasterStateRes {
     type Key = u64;
 }
+unsafe impl Send for RasterStateRes {}
+unsafe impl Sync for RasterStateRes {}
 
 impl Res for BlendStateRes {
     type Key = u64;
 }
+unsafe impl Send for BlendStateRes {}
+unsafe impl Sync for BlendStateRes {}
 
 impl Res for StencilStateRes {
     type Key = u64;
 }
+unsafe impl Send for StencilStateRes {}
+unsafe impl Sync for StencilStateRes {}
 
 impl Res for DepthStateRes {
     type Key = u64;
 }
+unsafe impl Send for DepthStateRes {}
+unsafe impl Sync for DepthStateRes {}
 
 impl Res for BufferRes {
     type Key = u64;
 }
+unsafe impl Send for BufferRes {}
+unsafe impl Sync for BufferRes {}

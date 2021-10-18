@@ -415,7 +415,7 @@ pub trait HalContext {
      * 注：begin-end之间，只能调用下面的几个方法，不能再调用任何创建和更新方法。
      * 注：所有的set_**和draw方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc);
+    fn render_begin(&self, render_target: Option<&HalRenderTarget>, data: &RenderBeginDesc, is_reset: bool);
 
     /**
      * 结束渲染

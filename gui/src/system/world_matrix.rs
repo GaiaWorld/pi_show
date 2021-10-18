@@ -2,10 +2,7 @@ use dirty::LayerDirty;
 /**
  * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
 	*/
-use ecs::{
-    CreateEvent, DeleteEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener,
-    Runner, SingleCaseImpl, SingleCaseListener,
-};
+use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use map::Map;
 use map::vecmap::VecMap;
 
@@ -19,7 +16,7 @@ use crate::util::vecmap_default::VecMapWithDefault;
 #[derive(Default)]
 pub struct WorldMatrixSys {
     dirty_mark_list: VecMapWithDefault<usize>, // VecMap<layer>
-    dirty: LayerDirty,
+    dirty: LayerDirty<usize>,
 }
 
 impl WorldMatrixSys {
@@ -54,7 +51,8 @@ impl WorldMatrixSys {
         layout: &MultiCaseImpl<Node, LayoutR>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
 		node_states: &MultiCaseImpl<Node, NodeState>,
-    ) {
+    ) {;
+		let time = cross_performance::now();
         let mut count = 0;
 		// let time = std::time::Instant::now();
 		let default_transform = &transform[std::usize::MAX];
@@ -107,6 +105,9 @@ impl WorldMatrixSys {
 				node_states
             );
         }
+		// if self.dirty.count() > 0 {
+		// 	log::info!("worldmatrix======={:?}", cross_performance::now() - time);
+		// }
         self.dirty.clear();
     }
 }
@@ -141,34 +142,19 @@ impl<'a> Runner<'a> for WorldMatrixSys {
 //     }
 // }
 
-impl<'a> MultiCaseListener<'a, Node, Transform, ModifyEvent> for WorldMatrixSys {
+impl<'a> MultiCaseListener<'a, Node, Transform, (CreateEvent, ModifyEvent, DeleteEvent)> for WorldMatrixSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, _write: Self::WriteData) {
         self.marked_dirty(event.id, read);
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, Transform, CreateEvent> for WorldMatrixSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData) {
-        self.marked_dirty(event.id, read);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Transform, DeleteEvent> for WorldMatrixSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-    fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, _write: Self::WriteData) {
-        self.marked_dirty(event.id, read);
-    }
-}
 
 impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for WorldMatrixSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ();
-    fn listen(&mut self, event: &ModifyEvent, (id_tree, node_states): Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, (id_tree, node_states): Self::ReadData, _write: Self::WriteData) {
 		// 虚拟节点的子节点会发出该事件，但虚拟节点不存在WorldMatrix组件
 		if !node_states[event.id].0.is_rnode() {
 			return;
@@ -180,7 +166,7 @@ impl<'a> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for WorldMatrixSys {
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, _write: Self::WriteData) {
         self.marked_dirty(event.id, read);
     }
 }
@@ -213,11 +199,11 @@ fn recursive_cal_matrix(
     //     Some(r) => *r = false,
     //     None => panic!("dirty_mark_list is no exist, id: {}", id),
     // }
-
 	// 虚拟节点不存在WorlMatrix组件， 不需要计算
 	if !node_states[id].is_rnode() {
 		return;
 	}
+	
 	dirty_mark_list[id] = 0;
 
     let layout = &layouts[id];
@@ -244,6 +230,7 @@ fn recursive_cal_matrix(
         parent_world_matrix
             * transform_value.matrix(width, height, &offset)
 	};
+
 	// world_matrix.insert(id, matrix);
     unsafe{world_matrix
 		.get_unchecked_write(id)}
@@ -274,9 +261,7 @@ impl_system! {
     true,
     {
         // EntityListener<Node, CreateEvent>
-        MultiCaseListener<Node, Transform, ModifyEvent>
-        MultiCaseListener<Node, Transform, CreateEvent>
-        MultiCaseListener<Node, Transform, DeleteEvent>
+        MultiCaseListener<Node, Transform, (CreateEvent, ModifyEvent, DeleteEvent)>
         MultiCaseListener<Node, LayoutR, ModifyEvent>
 		SingleCaseListener<IdTree, CreateEvent>
 		// EntityListener<Node, DeleteEvent>

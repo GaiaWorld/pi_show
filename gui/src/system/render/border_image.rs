@@ -8,7 +8,8 @@ use hash::DefaultHasher;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
-use ecs::monitor::NotifyImpl;
+use ecs::monitor::{NotifyImpl, Event};
+
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
@@ -61,7 +62,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Opacity>,
+        // &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
@@ -71,7 +72,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a mut SingleCaseImpl<ShareEngine<C>>,
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        if (read.9).0.len() == 0 {
+        if (read.8).0.len() == 0 {
             return;
         }
 
@@ -83,7 +84,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             layouts,
             world_matrixs,
             transforms,
-            opacitys,
+            // opacitys,
             style_marks,
             dirty_list,
             default_state,
@@ -154,7 +155,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                         transform,
                         0.0,
                         0.0,
-                        render_obj.depth,
+                        // render_obj.depth,
                     ),
                     render_obj,
                     &notify,
@@ -191,11 +192,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             if dirty & StyleType::Opacity as usize != 0
                 || dirty & StyleType::BorderImage as usize != 0
             {
-				let opacity = opacitys[*id].0;
+				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-                let is_opacity = if opacity < 1.0 {
-                    false
-                } else if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {
+                let is_opacity = if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {
                     true
                 } else {
                     false
@@ -216,7 +215,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, Delet
 {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
         self.remove_render_obj(event.id, render_objs)
     }
 }

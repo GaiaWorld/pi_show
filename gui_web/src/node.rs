@@ -334,7 +334,12 @@ pub fn first_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let idtree = world.idtree.lend_mut();
-	idtree[parent as usize].children().head
+	let node_state = world.node_state.lend_mut();
+	let r = idtree[parent as usize].children().head;
+	if r > 0 && !node_state[r].is_rnode() {
+		return 0;
+	}
+	r
 }
 
 #[allow(unused_attributes)]
@@ -343,7 +348,12 @@ pub fn last_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let idtree = world.idtree.lend_mut();
-	idtree[parent as usize].children().tail
+	let node_state = world.node_state.lend_mut();
+	let r = idtree[parent as usize].children().tail;
+	if r > 0 && !node_state[r].is_rnode() {
+		return 0;
+	}
+	r
 }
 
 #[allow(unused_attributes)]
@@ -352,7 +362,12 @@ pub fn next_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let idtree = world.idtree.lend_mut();
-	idtree[node as usize].next()
+	let node_state = world.node_state.lend_mut();
+	let r = idtree[node as usize].next();
+	if r > 0 && !node_state[r].is_rnode() {
+		return 0;
+	}
+	r
 }
 
 #[allow(unused_attributes)]
@@ -361,7 +376,12 @@ pub fn previous_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let idtree = world.idtree.lend_mut();
-	idtree[node as usize].prev()
+	let node_state = world.node_state.lend_mut();
+	let r = idtree[node as usize].prev();
+	if r > 0 && !node_state[r].is_rnode() {
+		return 0;
+	}
+	r
 }
 
 // /// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
@@ -765,13 +785,19 @@ pub fn add_class_end(world: u32, node_id: u32, old: u32) {
 #[wasm_bindgen]
 pub fn add_class_start(world: u32, node_id: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    Box::into_raw(Box::new(
-        world
+    // Box::into_raw(Box::new(
+    //     world
+    //         .gui
+    //         .class_name
+    //         .lend_mut()
+    //         .insert_no_notify(node_id as usize, ClassName::default()),
+    // )) as u32
+	world
             .gui
             .class_name
             .lend_mut()
-            .insert_no_notify(node_id as usize, ClassName::default()),
-    )) as u32
+            .insert_no_notify(node_id as usize, ClassName::default());
+	0
 }
 
 #[wasm_bindgen]

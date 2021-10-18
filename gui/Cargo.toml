@@ -27,6 +27,8 @@ dirty = { path =  "../../pi_lib/dirty"}
 densevec = { path =  "../../pi_lib/densevec"}
 res = { path =  "../../pi_lib/res"}
 cross_performance = { path =  "../../pi_lib/cross_performance"}
+rectangle-pack = "0.4.2"
+guillotiere = "*"
 # time: 3407.7350000152364
 # vConsole.js:3 now: 3408.0800000810996
 # vConsole.js:3 timediff: 0.6900000153109431
@@ -63,7 +65,6 @@ hal_derive = {path="../hal_derive"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
 lazy_static = "*"
-stdweb = "0.4.15"
 derive_deref = "1.0.2"
 paste = "0.1"
 serde = { version = "1.0", features = ["derive"] }

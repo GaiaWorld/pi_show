@@ -20,6 +20,7 @@ hal_core = { path = "../hal_core"}
 ordered-float = "1.0"
 wasm-bindgen = {version="*", features = ["serde-serialize"]}
 js-sys = "*"
+log ="*"
 
 
 [dependencies.web-sys]

@@ -81,6 +81,7 @@ pub fn get_pixel_format(format: PixelFormat) -> u32 {
         PixelFormat::RGBA => WebGlRenderingContext::RGBA,
         PixelFormat::ALPHA => WebGlRenderingContext::ALPHA,
         PixelFormat::DEPTH16 => WebGlRenderingContext::DEPTH_COMPONENT16,
+		PixelFormat::LUMINANCE => WebGlRenderingContext::LUMINANCE,
     }
 }
 

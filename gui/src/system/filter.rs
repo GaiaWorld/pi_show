@@ -1,10 +1,7 @@
 /**
  * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
  */
-use ecs::{
-    CreateEvent, EntityListener, ModifyEvent, MultiCaseImpl, MultiCaseListener, SingleCaseImpl,
-    SingleCaseListener,
-};
+use ecs::{CreateEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, SingleCaseImpl, SingleCaseListener};
 
 use crate::component::calc::HSV;
 use crate::component::user::Filter;
@@ -22,19 +19,10 @@ pub struct FilterSys;
 //     }
 // }
 
-impl<'a> MultiCaseListener<'a, Node, Filter, CreateEvent> for FilterSys {
+impl<'a> MultiCaseListener<'a, Node, Filter, (CreateEvent, ModifyEvent)> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData) {
-        let (idtree, filters) = read;
-        cal_hsv(event.id, idtree, filters, hsvs);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, Filter, ModifyEvent> for FilterSys {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
-    type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, hsvs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
         cal_hsv(event.id, idtree, filters, hsvs);
     }
@@ -43,7 +31,7 @@ impl<'a> MultiCaseListener<'a, Node, Filter, ModifyEvent> for FilterSys {
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for FilterSys {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, hsvs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
         cal_hsv(event.id, idtree, filters, hsvs);
     }
@@ -139,8 +127,7 @@ impl_system! {
     false,
     {
         // EntityListener<Node, CreateEvent>
-        MultiCaseListener<Node, Filter, CreateEvent>
-        MultiCaseListener<Node, Filter, ModifyEvent>
+        MultiCaseListener<Node, Filter, (CreateEvent, ModifyEvent)>
         SingleCaseListener<IdTree, CreateEvent>
     }
 }

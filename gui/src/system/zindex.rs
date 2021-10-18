@@ -11,12 +11,7 @@ use map::{vecmap::VecMap};
 use heap::simple_heap::SimpleHeap;
 use dirty::LayerDirty;
 
-use ecs::{
-  system::{Runner, MultiCaseListener, SingleCaseListener, EntityListener},
-  monitor::{CreateEvent, DeleteEvent, ModifyEvent, NotifyImpl},
-  component::MultiCaseImpl,
-  single::SingleCaseImpl,
-};
+use ecs::{Event, component::MultiCaseImpl, monitor::{CreateEvent, DeleteEvent, ModifyEvent, NotifyImpl}, single::SingleCaseImpl, system::{Runner, MultiCaseListener, SingleCaseListener, EntityListener}};
 
 use idtree::Node as IdNode;
 use map::Map;
@@ -34,7 +29,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, ZI>, &'a mut MultiCaseImpl<Node, ZDepth>);
 
-    fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
 		// 为root节点设置最大范围值
 		if event.id == ROOT {
 			let zi = &mut self.map[event.id];
@@ -56,7 +51,7 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ZIndexImpl {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
 
-    fn listen(&mut self, event: &DeleteEvent, idtree: Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, idtree: Self::ReadData, _write: Self::WriteData) {
 		let id = event.id;
 		let node = &idtree[id];
 		let parent = node.parent();
@@ -75,21 +70,12 @@ impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for ZIndexImpl {
     }
 }
 
-impl<'a> MultiCaseListener<'a, Node, ZI, ModifyEvent> for ZIndexImpl {
+impl<'a> MultiCaseListener<'a, Node, ZI, (CreateEvent, ModifyEvent)> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
     type WriteData = ();
 
-    fn listen(&mut self, event: &ModifyEvent, read: Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, read: Self::ReadData, _write: Self::WriteData) {
 		self.modifyz(event.id, read);
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, ZI, CreateEvent> for ZIndexImpl {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, ZI>);
-    type WriteData = ();
-
-    fn listen(&mut self, event: &CreateEvent, read: Self::ReadData, _write: Self::WriteData) {
-      self.modifyz(event.id, read);
     }
 }
 
@@ -97,7 +83,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
     type ReadData = (&'a SingleCaseImpl<IdTree>,&'a MultiCaseImpl<Node, ZI>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ();
 
-    fn listen(&mut self, event: &CreateEvent, (idtree, zindexs, node_states): Self::ReadData, _write: Self::WriteData) {
+    fn listen(&mut self, event: &Event, (idtree, zindexs, node_states): Self::ReadData, _write: Self::WriteData) {
 		let id = event.id;
 		let node = &idtree[id];
 
@@ -182,7 +168,7 @@ impl Default for ZIndex {
 }
 
 pub struct ZIndexImpl {
-  dirty: LayerDirty,
+  dirty: LayerDirty<usize>,
   map: VecMapWithDefault<ZIndex>,
   cache: Cache,
 }
@@ -250,7 +236,7 @@ impl ZIndexImpl {
   }
 
 //   // 设置节点对应堆叠上下文的节点脏
-//   fn set_parent_dirty_width_empty<'a>(&mut self, mut node: &'a IdNode<usize>, idtree: &'a IdTree) {
+//   fn set_parent_dirty_width_empty<'a>(&mut self, mut node: &'a IdNode<u32>, idtree: &'a IdTree) {
 // 	let parent = node.parent();
 //     if parent > 0 {
 // 		let prev = node.prev();
@@ -286,7 +272,7 @@ impl ZIndexImpl {
 //   }
 
   // 设置节点对应堆叠上下文的节点脏
-  fn set_parent_dirty_width_empty<'a>(&mut self, mut node: &'a IdNode<usize>, idtree: &'a IdTree) {
+  fn set_parent_dirty_width_empty<'a>(&mut self, mut node: &'a IdNode<u32>, idtree: &'a IdTree) {
 	let parent = node.parent();
     if parent > 0 {
 		let zi = &mut self.map[parent];
@@ -314,6 +300,7 @@ impl ZIndexImpl {
 
   // 整理方法
   fn calc(&mut self, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, node_states: &MultiCaseImpl<Node, NodeState>) {
+	let time = cross_performance::now();
     for (id, layer) in self.dirty.iter() {
       let (min_z, max_z, old_empty_min_z, dirty) = {
         let zi = &mut self.map[*id];
@@ -372,15 +359,16 @@ impl ZIndexImpl {
 	  };
 	  self.map[*id].empty_min_z = max_z_z;
     }
-    if self.dirty.count() > 0 {
-      // 详细打印
-      for (_id, n) in idtree.recursive_iter(1) {
-        let mut v = String::new();
-        for _ in 1..n.layer() {
-          v.push('-')
-        }
-      }
-    }
+    // if self.dirty.count() > 0 {
+	// 	// 详细打印
+	// 	//   for (_id, n) in idtree.recursive_iter(1) {
+	// 	//     let mut v = String::new();
+	// 	//     for _ in 1..n.layer() {
+	// 	//       v.push('-')
+	// 	//     }
+	// 	//   }
+	// 	log::info!("zindex======={:?}", cross_performance::now() - time);
+    // }
     self.dirty.clear();
   }
 
@@ -594,7 +582,7 @@ impl Cache {
 }
 //================================ 内部静态方法
 // 设置自己所有非AUTO的子节点为强制脏
-fn recursive_dirty(map: &mut VecMapWithDefault<ZIndex>, node_states: &MultiCaseImpl<Node, NodeState>, dirty: &mut LayerDirty, idtree: &IdTree, child: usize) {
+fn recursive_dirty(map: &mut VecMapWithDefault<ZIndex>, node_states: &MultiCaseImpl<Node, NodeState>, dirty: &mut LayerDirty<usize>, idtree: &IdTree, child: usize) {
   for (id, n) in idtree.iter(child) {
 	if !node_states[id].0.is_rnode() {
 		continue;
@@ -612,7 +600,7 @@ fn recursive_dirty(map: &mut VecMapWithDefault<ZIndex>, node_states: &MultiCaseI
 // 整理方法。z范围变小或相交，则重新扫描修改一次。两种情况。
 // 1. 有min_z max_z，修改该节点，计算rate，递归调用。
 // 2. 有min_z rate parent_min， 根据rate和新旧min, 计算新的min_z max_z。 要分辨是否为auto节点
-fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode<usize>, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
+fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, id: usize, node: &IdNode<u32>, min_z: f32, max_z: f32, rate: f32, parent_min: f32) {
 	if !node_states[id].0.is_rnode() {
 		return;
 	}
@@ -671,8 +659,7 @@ impl_system!{
     {
         EntityListener<Node, CreateEvent>
         // EntityListener<Node, DeleteEvent>
-		MultiCaseListener<Node, ZI, ModifyEvent>
-		MultiCaseListener<Node, ZI, CreateEvent>
+		MultiCaseListener<Node, ZI, (CreateEvent, ModifyEvent)>
 		SingleCaseListener<IdTree, CreateEvent>
 		SingleCaseListener<IdTree, DeleteEvent>
         // SingleCaseListener<IdTree, DeleteEvent>

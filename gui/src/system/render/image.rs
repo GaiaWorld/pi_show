@@ -11,7 +11,7 @@ use hash::DefaultHasher;
 
 use atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
-use ecs::monitor::NotifyImpl;
+use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
@@ -25,7 +25,7 @@ use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
 use crate::render::res::Opacity as ROpacity;
 use crate::render::res::*;
 use crate::single::*;
-use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
+use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME, CANVAS_FS_SHADER_NAME, CANVAS_VS_SHADER_NAME};
 use crate::system::util::constant::*;
 use crate::system::util::*;
 
@@ -68,10 +68,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, ObjectFit>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
+		&'a SingleCaseImpl<PremultiState>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
@@ -87,10 +87,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             object_fits,
             world_matrixs,
             transforms,
-            opacitys,
             style_marks,
             dirty_list,
             default_state,
+			premulti_state
         ) = read;
         if dirty_list.0.len() == 0 {
             return;
@@ -115,6 +115,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 continue;
 			}
 
+			
             let render_index = if dirty & StyleType::Image as usize != 0 {
 				// 如果不存在Image的本地样式和class样式， 删除渲染对象
 				if style_mark.local_style & StyleType::Image as usize == 0 && style_mark.class_style & StyleType::Image as usize == 0 {
@@ -122,9 +123,18 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 					continue;
 				}
 				dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
+				let image = &images[*id];
 				match self.render_map.get_mut(*id) {
 					Some(r) => *r,
-					None => self.create_render_obj(*id, render_objs, default_state),
+					None => {
+						let (state, vs, fs) = {
+							match image.width {
+								Some(_) => (&***premulti_state, CANVAS_VS_SHADER_NAME.clone(), CANVAS_FS_SHADER_NAME.clone()),
+								None => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
+							}
+						};
+						self.create_render_obj(*id, render_objs, state, vs, fs)
+					},
 				}
             } else {
 				match self.render_map.get_mut(*id) {
@@ -133,7 +143,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 				}
 			};
 
-            let image = &images[*id];
+			let image = &images[*id];
 			let render_obj = &mut render_objs[render_index];
             // 纹理不存在, 跳过
             if image.src.is_none() {
@@ -209,10 +219,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
             // 不透明度脏或图片脏， 设置is_opacity
             if dirty & StyleType::Opacity as usize != 0 || dirty & StyleType::Image as usize != 0 {
-                let opacity = opacitys[*id].0;
-                let is_opacity = if opacity < 1.0 {
-                    false
-                } else if let ROpacity::Opaque = image.src.as_ref().unwrap().opacity {
+                // let opacity = opacitys[*id].0;
+                let is_opacity = if let ROpacity::Opaque = image.src.as_ref().unwrap().opacity {
                     true
                 } else {
                     false
@@ -221,7 +229,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 if render_obj.is_opacity != is_opacity {
                     render_obj.is_opacity = is_opacity;
                     notify.modify_event(render_index, "is_opacity", 0);
-                    modify_opacity(engine, render_obj, default_state);
+                    modify_opacity(engine, render_obj, match image.width {
+						Some(_) => premulti_state,
+						None => default_state,
+					});
                 }
             }
             notify.modify_event(render_index, "", 0);
@@ -232,7 +243,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent> for ImageSys<C> {
     type ReadData = ();
     type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &DeleteEvent, _: Self::ReadData, render_objs: Self::WriteData) {
+    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
         self.remove_render_obj(event.id, render_objs)
     }
 }
@@ -298,14 +309,16 @@ impl<C: HalContext + 'static> ImageSys<C> {
         &mut self,
         id: usize,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
-        default_state: &DefaultState,
+        default_state: &CommonState,
+		vs: Atom,
+		fs: Atom,
     ) -> usize {
         create_render_obj(
             id,
             -0.1,
             true,
-            IMAGE_VS_SHADER_NAME.clone(),
-            IMAGE_FS_SHADER_NAME.clone(),
+            vs,
+            fs,
             Share::new(self.default_paramter.clone()),
             default_state,
             render_objs,
@@ -463,7 +476,7 @@ fn modify_matrix(
     hash_radius: bool,
 ) {
     if hash_radius {
-        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border.start, layout.border.top, depth);
+        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border.start, layout.border.top);
         render_obj.paramter.set_value(
             "worldMatrix",
             Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(arr))),

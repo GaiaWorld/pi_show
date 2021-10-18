@@ -96,6 +96,7 @@ pub enum PixelFormat {
     RGBA,
     ALPHA,
     DEPTH16,
+	LUMINANCE,
 }
 
 /**
@@ -237,6 +238,12 @@ pub fn pixe_size(pformat: PixelFormat, dformat: DataFormat) -> usize {
         (PixelFormat::DEPTH16, DataFormat::Int)
         | (PixelFormat::DEPTH16, DataFormat::UnsignedInt)
         | (PixelFormat::DEPTH16, DataFormat::Float) => 8,
+
+		(PixelFormat::LUMINANCE, DataFormat::Byte) | (PixelFormat::LUMINANCE, DataFormat::UnsignedByte) => 1,
+        (PixelFormat::LUMINANCE, DataFormat::Short) | (PixelFormat::LUMINANCE, DataFormat::UnsignedShort) => 2,
+        (PixelFormat::LUMINANCE, DataFormat::Int)
+        | (PixelFormat::LUMINANCE, DataFormat::UnsignedInt)
+        | (PixelFormat::LUMINANCE, DataFormat::Float) => 3,
     }
 }
 
