@@ -144,10 +144,8 @@ impl TextureCache {
             return (unit as u32, true);
         }
 
-        panic!(
-            "not found texture or sampler, texture: {:?}, sampler: {:?}",
-            texture, sampler
-        );
+		log::error!("not found texture or sampler, texture: {:?}, sampler: {:?}", texture, sampler);
+        panic!();
     }
 }
 
@@ -407,6 +405,13 @@ impl StateMachine {
 
         tex_change_count
     }
+
+	/**
+	 * 重置 geometry 無效
+	 */
+	pub fn reset_geometry(&mut self) {
+		self.geometry = (0, 0);
+	}
 
     /**
      * 返回是否切换geometry

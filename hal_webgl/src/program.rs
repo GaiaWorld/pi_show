@@ -143,11 +143,10 @@ impl CommonUniform {
             (UniformValue::MatrixV4(v), _) => {
                 gl.uniform_matrix4fv_with_f32_array(Some(&self.location), false, v.as_slice());
             }
-            _ => panic!(format!(
-                "Invalid Uniform, name: {:?}, value: {:?}",
-                self.name.as_ref(),
-                value
-            )),
+            _ => {
+				log::error!("Invalid Uniform, name: {:?}, value: {:?}", self.name.as_ref(), value);
+				panic!()
+			},
         }
     }
 }
@@ -421,7 +420,8 @@ impl WebGLProgramImpl {
                     continue;
                 }
                 _ => {
-                    panic!(format!("Invalid Uniform: {:?}", name));
+					log::error!("Invalid Uniform: {:?}", name);
+                    panic!();
                 }
             }
 

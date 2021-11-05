@@ -337,10 +337,13 @@ impl HalContext for WebglHalContext {
             let (index, use_count) = create_new_slot(&mut context.rt_slab, rt);
             context.stat.rt_count += 1;
 
+			log::info!("create rt, index: {}, use_count: {}, w: {}, h: {}", index, use_count, w, h);
+
             let context_impl = self.0.clone();
             HalRenderTarget {
                 item: HalItem { index, use_count },
                 destroy_func: Share::new(move |index: u32, use_count: u32| {
+					log::info!("destroy rt, index: {}, use_count: {}", index, use_count);
                     context_impl.rt_destroy(index, use_count);
                 }),
             }
@@ -704,12 +707,17 @@ impl HalContext for WebglHalContext {
 
     fn restore_active_uniform(&self, program: &HalProgram, index: usize) {
         let context = convert_to_mut(self.0.as_ref());
-        let p = get_mut_ref(
+        let p = match get_mut_ref(
             &mut context.program_slab,
             program.item.index,
             program.item.use_count,
-        )
-        .expect("param not found");
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("restore_active_uniform, param not found");
+				panic!();
+			}
+		};
         p.restore_active_uniform(index);
     }
 
@@ -729,12 +737,17 @@ impl HalContext for WebglHalContext {
             render_target.unwrap()
         };
 
-        let rt = get_ref(
+        let rt = match get_ref(
             &context.rt_slab,
             render_target.item.index,
             render_target.item.use_count,
-        )
-        .expect("rt param not found");
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("rt param not found, index: {:?}, use_count:{:?}", render_target.item.index, render_target.item.use_count);
+				panic!();
+			},
+		};
         if context
             .state_machine
             .set_render_target(&context.gl, render_target, rt)
@@ -791,12 +804,17 @@ impl HalContext for WebglHalContext {
     fn render_set_program(&self, program: &HalProgram) {
         let context = convert_to_mut(self.0.as_ref());
 
-        let p = get_ref(
+        let p = match get_ref(
             &context.program_slab,
             program.item.index,
             program.item.use_count,
-        )
-        .expect("param not found");
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("render_set_program, param not found");
+				panic!();
+			}
+		};
         if context.state_machine.set_program(&context.gl, program, p) {
             #[cfg(feature = "frame_stat")]
             context.stat.add_program_change();
@@ -811,14 +829,34 @@ impl HalContext for WebglHalContext {
         ss: &HalStencilState,
     ) {
         let context = convert_to_mut(self.0.as_ref());
-        let bsdesc = get_ref(&context.bs_slab, bs.item.index, bs.item.use_count)
-            .expect("bs param not found");
-        let dsdesc = get_ref(&context.ds_slab, ds.item.index, ds.item.use_count)
-            .expect("ds param not found");
-        let ssdesc = get_ref(&context.ss_slab, ss.item.index, ss.item.use_count)
-            .expect("ss param not found");
-        let rsdesc = get_ref(&context.rs_slab, rs.item.index, rs.item.use_count)
-            .expect("rs param not found");
+        let bsdesc = match get_ref(&context.bs_slab, bs.item.index, bs.item.use_count) {
+			Some(r) => r,
+			None => {
+				log::error!("render_set_state, bs param not foun");
+				panic!();
+			}
+		};
+        let dsdesc = match get_ref(&context.ds_slab, ds.item.index, ds.item.use_count){
+			Some(r) => r,
+			None => {
+				log::error!("render_set_state, ds param not foun");
+				panic!();
+			}
+		};
+        let ssdesc = match get_ref(&context.ss_slab, ss.item.index, ss.item.use_count){
+			Some(r) => r,
+			None => {
+				log::error!("render_set_state, ss param not foun");
+				panic!();
+			}
+		};
+        let rsdesc = match get_ref(&context.rs_slab, rs.item.index, rs.item.use_count){
+			Some(r) => r,
+			None => {
+				log::error!("render_set_state, rs param not foun");
+				panic!();
+			}
+		};
         context.state_machine.set_state(
             &context.gl,
             rs,
@@ -832,13 +870,22 @@ impl HalContext for WebglHalContext {
         );
     }
 
-    fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) {
+    fn render_reset_geometry(&self) {
+		let context = convert_to_mut(self.0.as_ref());
+		context.state_machine.reset_geometry();
+	}
+    
+	fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) {
         let context = convert_to_mut(self.0.as_ref());
 
         let program = context.state_machine.get_curr_program();
-        let pimpl = get_mut_ref(&mut context.program_slab, program.0, program.1)
-            .expect("curr program not found");
-
+        let pimpl = match get_mut_ref(&mut context.program_slab, program.0, program.1) {
+			Some(r) => r,
+			None => {
+				log::error!("curr program not found");
+				panic!();
+			}
+		}; 
         let _count = context.state_machine.set_uniforms(
             &context.gl,
             pimpl,
@@ -850,12 +897,17 @@ impl HalContext for WebglHalContext {
         #[cfg(feature = "frame_stat")]
         context.stat.add_texture_change(_count);
 
-        let gimpl = get_ref(
+        let gimpl = match get_ref(
             &mut context.geometry_slab,
             geometry.item.index,
             geometry.item.use_count,
-        )
-        .expect("geometry not found");
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("geometry not found");
+				panic!();
+			}
+		};
         if context.state_machine.draw(
             &context.gl,
             &context.vao_extension,
@@ -1051,12 +1103,17 @@ impl WebglHalContext {
                 context_clone.rt_destroy(index, use_count)
             }),
         };
-        let rt = get_ref(
+        let rt = match get_ref(
             &context_impl.rt_slab,
             default_rt.item.index,
             default_rt.item.use_count,
-        )
-        .expect("rt param not found");
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("new, rt param not found");
+				panic!();
+			}
+		};
         let cc = convert_to_mut(context_impl.as_ref());
         cc.state_machine
             .set_render_target(&context_impl.gl, &default_rt, &rt);
