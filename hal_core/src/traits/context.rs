@@ -449,6 +449,11 @@ pub trait HalContext {
         ss: &HalStencilState,
     );
 
+	/**
+	 * 設置 vao 無效，因爲 某些時候，會 調用 別的 geometry 的 設置方法，導致 vao 無效
+     */
+    fn render_reset_geometry(&self);
+
     /**
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
