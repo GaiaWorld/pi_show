@@ -277,28 +277,41 @@ pub trait HalContext {
 
     // ==================== HalRenderTarget
 
-    fn rt_create(
-        &self,
-        tex: Option<&HalTexture>,
-        w: u32,
-        h: u32,
-        pformat: PixelFormat,
-        dformat: DataFormat,
-        has_depth: bool,
-    ) -> Result<HalRenderTarget, String>;
+    /**
+     * 创建个 空的 rt 壳
+     * 可以换 颜色 和 深度
+     */
+    fn rt_create(&self, w: u32, h: u32) -> Result<HalRenderTarget, String>;
 
     /**
-     * 取大小
+     * 设置 颜色 纹理
+     * @note 颜色 宽高 必须和 fbo 宽高 相同，否则会报错
+     */
+    fn rt_set_color(&self, rt: &HalRenderTarget, texture: Option<&HalTexture>) -> Result<(), String>;
+
+    /**
+     * 设置 深度 RenderBuffer
+     * @note 深度 宽高  必须和 fbo宽高 相同，否则会报错
+     */
+    fn rt_set_depth(&self, rt: &HalRenderTarget, depth: Option<&HalRenderBuffer>) -> Result<(), String>;
+
+    /**
+     * 取 宽高
      */
     fn rt_get_size(&self, rt: &HalRenderTarget) -> (u32, u32);
 
     /**
      * 取渲染目标中特定通道的纹理
-     * 注：高层不需要管理该texture的释放
      */
-    fn rt_get_color_texture(&self, rt: &HalRenderTarget, index: u32) -> Option<&HalTexture>;
+    fn rt_get_color(&self, rt: &HalRenderTarget, index: u32) -> Option<&HalTexture>;
+
+    /**
+     * 取渲染目标中特定通道的纹理
+     */
+    fn rt_get_depth(&self, rt: &HalRenderTarget) -> Option<&HalRenderBuffer>;
 
     // ==================== HalRenderBuffer
+
     fn rb_create(&self, w: u32, h: u32, pformat: PixelFormat) -> Result<HalRenderBuffer, String>;
 
     fn rb_get_size(&self, rb: &HalRenderBuffer) -> (u32, u32);

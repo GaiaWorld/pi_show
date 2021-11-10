@@ -280,74 +280,84 @@ impl HalContext for WebglHalContext {
 
     fn rt_create(
         &self,
-        tex: Option<&HalTexture>,
         w: u32,
         h: u32,
-        pformat: PixelFormat,
-        dformat: DataFormat,
-        has_depth: bool,
     ) -> Result<HalRenderTarget, String> {
-        let texture_wrap = match tex {
-            None => self.texture_create_2d(0, w, h, pformat, dformat, false, None)?,
-            Some(r) => HalTexture {
-                item: HalItem {
-                    index: r.item.index,
-                    use_count: r.item.use_count,
-                },
-                destroy_func: Share::new(move |_index: u32, _use_count: u32| {}),
-            },
-        };
-
-        let rb_wrap = if has_depth {
-            let rbimpl = self.rb_create(w, h, PixelFormat::DEPTH16);
-            if let Err(e) = &rbimpl {
-                return Err(e.clone());
-            }
-            Some(rbimpl.unwrap())
-        } else {
-            None
-        };
-
-        let texture = get_ref(
-            &self.0.texture_slab,
-            texture_wrap.item.index,
-            texture_wrap.item.use_count,
-        )
-        .unwrap();
-
-        let rb = if has_depth {
-            let r = rb_wrap.as_ref().unwrap();
-            Some(get_ref(&self.0.rb_slab, r.item.index, r.item.use_count).unwrap())
-        } else {
-            None
-        };
-
+        
         WebGLRenderTargetImpl::new(
             &self.0.gl,
             w,
-            h,
-            texture,
-            rb,
-            texture_wrap,
-            rb_wrap,
-            tex.is_none(),
+            h
         )
         .map(|rt| {
             let context = convert_to_mut(self.0.as_ref());
             let (index, use_count) = create_new_slot(&mut context.rt_slab, rt);
             context.stat.rt_count += 1;
 
-			log::info!("create rt, index: {}, use_count: {}, w: {}, h: {}", index, use_count, w, h);
+			log::info!("rt_create, index: {}, use_count: {}, w: {}, h: {}", index, use_count, w, h);
 
             let context_impl = self.0.clone();
             HalRenderTarget {
                 item: HalItem { index, use_count },
                 destroy_func: Share::new(move |index: u32, use_count: u32| {
-					log::info!("destroy rt, index: {}, use_count: {}", index, use_count);
+					log::info!("rt_create, index: {}, use_count: {}", index, use_count);
                     context_impl.rt_destroy(index, use_count);
                 }),
             }
         })
+    }
+
+    fn rt_set_color(&self, rt: &HalRenderTarget, texture_wrap: Option<&HalTexture>) -> Result<(), String> {
+        
+        let texture_impl = match texture_wrap {
+            None => None,
+            Some(texture_wrap) => {
+                get_ref(
+                    &self.0.texture_slab,
+                    texture_wrap.item.index,
+                    texture_wrap.item.use_count,
+                )
+            },
+        };
+
+        let context = convert_to_mut(self.0.as_ref());
+        
+        match get_mut_ref(&mut context.rt_slab, rt.item.index, rt.item.use_count) {
+            None => {
+                // 已经被释放，什么都不管
+                log::warn!("rt_set_color: texture wrap ins't valid");
+                Ok(())
+            },
+            Some(rt) => {
+                rt.set_color(&context.gl, texture_wrap, texture_impl)
+            }
+        }
+    }
+
+    fn rt_set_depth(&self, rt: &HalRenderTarget, depth_wrap: Option<&HalRenderBuffer>) -> Result<(), String> {
+        let depth_impl = match depth_wrap {
+            None => None,
+            Some(depth_wrap) => {
+                get_ref(
+                    &self.0.rb_slab,
+                    depth_wrap.item.index,
+                    depth_wrap.item.use_count,
+                )
+            },
+        };
+
+        let context = convert_to_mut(self.0.as_ref());
+        
+        match get_mut_ref(&mut context.rt_slab, rt.item.index, rt.item.use_count) {
+            None => {
+                // 已经被释放，什么都不管
+                log::warn!("rt_set_depth: depth wrap ins't valid");
+                Ok(())
+            },
+            Some(rt) => {
+                rt.set_depth(&context.gl, depth_wrap, depth_impl)
+            }
+        }
     }
 
     fn rt_get_size(&self, rt: &HalRenderTarget) -> (u32, u32) {
@@ -356,9 +366,14 @@ impl HalContext for WebglHalContext {
             .unwrap()
     }
 
-    fn rt_get_color_texture(&self, rt: &HalRenderTarget, _index: u32) -> Option<&HalTexture> {
+    fn rt_get_color(&self, rt: &HalRenderTarget, index: u32) -> Option<&HalTexture> {
         get_ref(&self.0.rt_slab, rt.item.index, rt.item.use_count)
-            .and_then(|rt| rt.get_color_texture())
+            .and_then(|rt| rt.get_color(index))
+    }
+
+    fn rt_get_depth(&self, rt: &HalRenderTarget) -> Option<&HalRenderBuffer> {
+        get_ref(&self.0.rt_slab, rt.item.index, rt.item.use_count)
+            .and_then(|rt| rt.get_depth())
     }
 
     // ==================== HalRenderBuffer
@@ -435,7 +450,7 @@ impl HalContext for WebglHalContext {
         // let webgl_internalformat = get_compressed_tex_const(internalformat, &context_impl);
         let webgl_internalformat = internalformat.0;
         if webgl_internalformat == -1 {
-            return Err(format!("不支持压缩纹理格式：{:?}", internalformat));
+            return Err(format!("compressed_texture_create_2d failed: no support compress format format = {:?}", internalformat));
         }
         WebGLTextureImpl::new_compressed_2d(
             &self.0.gl,
@@ -958,17 +973,7 @@ impl WebglHalContextImpl {
             context.stat.rt_count -= 1;
             let rimpl = context.rt_slab.remove(index as usize);
             let rimpl = rimpl.0;
-            let is_tex_destroy = rimpl.is_tex_destroy;
             rimpl.delete(&self.gl);
-
-            if let Some(t) = &rimpl.color {
-                if is_tex_destroy {
-                    self.texture_destroy(t.item.index, t.item.use_count);
-                }
-            }
-            if let Some(rb) = &rimpl.depth {
-                self.rb_destroy(rb.item.index, rb.item.use_count);
-            }
         }
     }
 

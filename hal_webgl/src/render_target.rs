@@ -1,5 +1,6 @@
 use convert::*;
-use hal_core::{HalRenderBuffer, HalTexture, PixelFormat};
+use hal_core::{HalItem, HalRenderBuffer, HalTexture, PixelFormat};
+use share::Share;
 use texture::WebGLTextureImpl;
 use web_sys::{WebGlRenderbuffer, WebGlRenderingContext, WebGlFramebuffer};
 
@@ -52,86 +53,21 @@ impl WebGLRenderBufferImpl {
 
 pub struct WebGLRenderTargetImpl {
     pub is_default: bool, // 注：不能从默认的渲染目标上取color depth
+    
     pub handle: Option<WebGlFramebuffer>,
+    
     width: u32,
     height: u32,
-    pub is_tex_destroy: bool,
+    
+    // 不需要释放，全部由外界维护
     pub color: Option<HalTexture>,
     pub depth: Option<HalRenderBuffer>,
 }
 
 impl WebGLRenderTargetImpl {
-    pub fn new(
-        gl: &WebGlRenderingContext,
-        w: u32,
-        h: u32,
-        texture: &WebGLTextureImpl,
-        rb: Option<&WebGLRenderBufferImpl>,
-        texture_wrap: HalTexture,
-        rb_wrap: Option<HalRenderBuffer>,
-        is_tex_destroy: bool,
-    ) -> Result<Self, String> {
-		let fbo = gl.create_framebuffer();
-        // let fbo = TryInto::<Object>::try_into(js! {
-        //     var fbo = @{gl}.createFramebuffer();
-        //     var fboWrap = {
-        //         wrap: fbo
-        //     };
-        //     return fboWrap;
-        // });
-		
-		if let None = fbo {
-			return Err("create fbo fail".to_string())
-		}
-
-		gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, fbo.as_ref());
-        // js! {
-        //     @{gl}.bindFramebuffer(@{WebGlRenderingContext::FRAMEBUFFER}, @{&fbo}.wrap);
-        // }
-
-        let fb_type = WebGlRenderingContext::FRAMEBUFFER;
-        let tex_target = WebGlRenderingContext::TEXTURE_2D;
-        let color_attachment = WebGlRenderingContext::COLOR_ATTACHMENT0;
-
-        gl.framebuffer_texture_2d(
-            fb_type,
-            color_attachment,
-            tex_target,
-            Some(&texture.handle),
-            0,
-        );
-
-        if rb.is_some() {
-            let rb_type = WebGlRenderingContext::RENDERBUFFER;
-            let depth_attachment = WebGlRenderingContext::DEPTH_ATTACHMENT;
-
-            gl.framebuffer_renderbuffer(
-                fb_type,
-                depth_attachment,
-                rb_type,
-                Some(&rb.unwrap().handle),
-            );
-        };
-
-		gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, None);
-        // js! {
-        //     @{gl}.bindFramebuffer(@{WebGlRenderingContext::FRAMEBUFFER}, null);
-        // }
-
-        Ok(Self {
-            is_default: false,
-            is_tex_destroy: is_tex_destroy,
-            handle: fbo,
-            width: w,
-            height: h,
-            color: Some(texture_wrap),
-            depth: rb_wrap,
-        })
-    }
 
     pub fn new_default(fbo: Option<WebGlFramebuffer>, w: u32, h: u32) -> Self {
         Self {
-            is_tex_destroy: false,
             is_default: true,
             handle: fbo,
             color: None,
@@ -141,20 +77,137 @@ impl WebGLRenderTargetImpl {
         }
     }
 
+    pub fn new(
+        gl: &WebGlRenderingContext,
+        w: u32,
+        h: u32,
+    ) -> Result<Self, String> {
+		let fbo = gl.create_framebuffer();
+        
+        if let None = fbo {
+			return Err("WebGLRenderTargetImpl::new fail".to_string());
+		}
+
+        Ok(Self {
+            is_default: false,
+            handle: fbo,
+            width: w,
+            height: h,
+            color: None,
+            depth: None,
+        })
+    }
+
     pub fn delete(&self, gl: &WebGlRenderingContext) {
         if let Some(fbo) = &self.handle {
 			gl.delete_framebuffer(Some(fbo));
-            // js! {
-            //     @{gl}.deleteFramebuffer(@{fbo}.wrap);
-            // }
         }
+    }
+
+    pub fn set_color(&mut self, 
+        gl: &WebGlRenderingContext, 
+        tex_wrap: Option<&HalTexture>, 
+        tex: Option<&WebGLTextureImpl>) -> Result<(), String> {
+        
+        if let Some(t) = tex {
+            if t.width != self.width || t.height != self.height {
+                return Err(format!("WebGLRenderTargetImpl::set_color fail, w and h not match, rt: w = {}, h = {} tex: w = {}, h = {}", self.width, self.height, t.width, t.height));
+            }
+        }
+            
+        self.color = tex_wrap.map(|tex| {
+            HalTexture {
+                item: HalItem {index: tex.item.index, use_count: tex.item.use_count },
+                destroy_func: Share::new(move |_index: u32, _use_count: u32| {
+                }),
+            }
+        });
+        
+        gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, self.handle.as_ref());
+        
+        match &self.color {
+            None => {
+                gl.framebuffer_texture_2d(
+                    WebGlRenderingContext::FRAMEBUFFER,
+                    WebGlRenderingContext::COLOR_ATTACHMENT0,
+                    WebGlRenderingContext::TEXTURE_2D,
+                    None,
+                    0,
+                );
+            }
+            Some(_) => {
+                let tex = tex.map(|tex| &tex.handle);
+                gl.framebuffer_texture_2d(
+                    WebGlRenderingContext::FRAMEBUFFER,
+                    WebGlRenderingContext::COLOR_ATTACHMENT0,
+                    WebGlRenderingContext::TEXTURE_2D,
+                    tex,
+                    0,
+                );
+            }
+        }
+
+        gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, None);
+
+        Ok(())
+    }
+
+    pub fn set_depth(&mut self, 
+        gl: &WebGlRenderingContext, 
+        depth_wrap: Option<&HalRenderBuffer>,
+        depth: Option<&WebGLRenderBufferImpl>) -> Result<(), String> {
+ 
+        if let Some(d) = depth {
+            if d.width != self.width || d.height != self.height {
+                return Err(format!("WebGLRenderTargetImpl::set_depth fail, w and h not match, rt: w = {}, h = {} rb: w = {}, h = {}", self.width, self.height, d.width, d.height));
+            }
+        }
+
+        self.depth = depth_wrap.map(|rb| {
+            HalRenderBuffer {
+                item: HalItem {index: rb.item.index, use_count: rb.item.use_count },
+                destroy_func: Share::new(move |_index: u32, _use_count: u32| {
+                }),
+            }
+        });
+        
+        gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, self.handle.as_ref());
+
+        match &self.depth {
+            None => {
+                gl.framebuffer_renderbuffer(
+                    WebGlRenderingContext::FRAMEBUFFER,
+                    WebGlRenderingContext::DEPTH_ATTACHMENT,
+                    WebGlRenderingContext::RENDERBUFFER,
+                    None,
+                );
+            }
+            Some(_) => {
+                let depth = depth.map(|d| &d.handle);
+                gl.framebuffer_renderbuffer(
+                    WebGlRenderingContext::FRAMEBUFFER,
+                    WebGlRenderingContext::DEPTH_ATTACHMENT,
+                    WebGlRenderingContext::RENDERBUFFER,
+                    depth,
+                );
+            }
+        }
+
+        gl.bind_framebuffer(WebGlRenderingContext::FRAMEBUFFER, None);
+        
+        Ok(())
     }
 
     pub fn get_size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
-    pub fn get_color_texture(&self) -> Option<&HalTexture> {
+    pub fn get_color(&self, _index: u32) -> Option<&HalTexture> {
         self.color.as_ref()
     }
+
+    pub fn get_depth(&self) -> Option<&HalRenderBuffer> {
+        self.depth.as_ref()
+    }
+
 }
