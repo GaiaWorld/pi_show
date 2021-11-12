@@ -47,14 +47,16 @@ impl<'a> Runner<'a> for ContentBoxSys {
 			if node.layer() != layer {
 				continue;
 			}
-			
 			let mut chilren_change = false;
 			
-			let mut content_box = oct.get(*id).unwrap().0.clone(); // neiro
-			if dirty_type.ty & DirtyType::Children as usize != 0 && node.children().len > 0 {
+			let mut content_box = match oct.get(*id) {
+				Some(r) => r.0.clone(),
+				None => continue,
+			}; // 
+			if node.children().len > 0 {
 				if node_states[node.children().head].is_rnode() {
-					for (id, _child) in idtree.iter(node.children().head) {
-						box_and(&mut content_box, &content_boxs.get(id).unwrap().0)
+					for (child, _child) in idtree.iter(node.children().head) {
+						box_and(&mut content_box, &content_boxs[child].0);
 					}
 				}
 			}
@@ -68,6 +70,8 @@ impl<'a> Runner<'a> for ContentBoxSys {
 			content_box.mins.y = content_box.mins.y.floor();
 			content_box.maxs.x = content_box.maxs.x.ceil();
 			content_box.maxs.y = content_box.maxs.y.ceil();
+
+			// log::info!("id: {}, content_box: {:?}", id, content_box);
 			
 			if let Some(old) = content_boxs.get(*id) {
 				if old.0 != content_box {
@@ -78,11 +82,12 @@ impl<'a> Runner<'a> for ContentBoxSys {
 			}
 			
 			// 如果内容包围盒发生改变，则重新插入内容包围盒，并标记父脏
-			if chilren_change { 
+			if chilren_change {
 				content_boxs.insert(*id, ContentBox(content_box));
 				if node.parent() > 0 {
 					dirty1.marked_dirty(node.parent(), idtree, DirtyType::Children as usize)
 				}
+				
 			}
 		}
 		self.dirty.clear();
@@ -104,7 +109,7 @@ fn box_and(aabb1: &mut Aabb2, aabb2: &Aabb2) {
 	aabb1.mins.x = aabb1.mins.x.min(aabb2.mins.x);
 	aabb1.mins.y = aabb1.mins.y.min(aabb2.mins.y);
 	aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);
-	aabb1.maxs.x = aabb1.maxs.x.max(aabb2.maxs.x);
+	aabb1.maxs.y = aabb1.maxs.y.max(aabb2.maxs.y);
 }
 
 impl_system! {

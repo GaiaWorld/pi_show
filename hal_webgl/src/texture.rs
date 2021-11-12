@@ -164,7 +164,7 @@ impl WebGLTextureImpl {
                     //     0,
                     //     Option::<&[u8]>::None,
                     // );
-					log::error!("调用compressed_tex_image2_d方法， 数据不能为none");
+					log::error!("call compressed_ tex_ image2_ D method, data cannot be none");
                     panic!();
                 }
                 Some(TextureData::U8(_, _, _, _, v)) => {

@@ -1,14 +1,17 @@
+use std::cell::RefCell;
 /**
  * 定义gl资源
 */
 use std::ops::{Deref, DerefMut};
 
-use atom::Atom;
 use hal_core::*;
 
 use res::Res;
 use share::Share;
-// use webgl_rendering_context::{WebGLRenderingContext, WebGLTexture};
+
+use crate::{single::dyn_texture::DynAtlasSet};
+use crate::component::user::Aabb2;
+use crate::render::engine::UnsafeMut;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Opacity {
@@ -45,6 +48,63 @@ pub struct TextureRes {
 	pub cost: Option<usize>,
     pub bind: HalTexture,
 }
+
+// 纹理的部分资源
+pub struct TexturePartRes {
+	index: usize,
+	dyn_texture_set: Share<RefCell<DynAtlasSet>>,
+}
+
+impl TexturePartRes {
+	pub fn new(index: usize, dyn_texture_set: Share<RefCell<DynAtlasSet>>) -> Self {
+		TexturePartRes {
+			index, dyn_texture_set
+		}
+	}
+
+	pub fn cost(&self) -> usize {
+		let rect = self.dyn_texture_set.borrow_mut().get_rect(self.index).unwrap();
+		(rect.maxs.y - rect.mins.y) as usize * (rect.maxs.x - rect.mins.x) as usize * 4
+	}
+
+	pub fn get_uv(&self) -> Aabb2 {
+		return self.dyn_texture_set.borrow_mut().get_uv(self.index).unwrap()
+	}
+
+	pub fn get_rect(&self) -> Aabb2 {
+		return self.dyn_texture_set.borrow_mut().get_rect(self.index).unwrap()
+	}
+
+	pub fn size(&self) -> (usize, usize) {
+		let set = self.dyn_texture_set.borrow_mut();
+		let texture = set.get_texture(self.index).unwrap();
+		return (texture.width, texture.height)
+	}
+
+	pub fn index(&self) -> usize {
+		self.index
+	}
+}
+
+impl Drop for TexturePartRes {
+	fn drop(&mut self) {
+		self.dyn_texture_set.borrow_mut().delete_rect(self.index);
+	}
+}
+
+// impl Deref for TexturePartRes {
+// 	type Target = HalTexture;
+// 	fn deref(&self) -> &Self::Target {
+// 		self.dyn_texture_set.borrow_mut().get_texture(self.index).unwrap()
+// 	}
+// }
+
+impl Res for TexturePartRes {
+    type Key = u64;
+}
+
+unsafe impl Send for TexturePartRes {}
+unsafe impl Sync for TexturePartRes {}
 
 // impl<> fmt::Debug for Point {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

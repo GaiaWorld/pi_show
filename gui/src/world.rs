@@ -1,5 +1,6 @@
 use std::{default::Default, marker::PhantomData};
 use std::sync::Arc;
+use std::cell::RefCell;
 
 use atom::Atom;
 use hal_core::*;
@@ -47,7 +48,6 @@ lazy_static! {
     pub static ref BR_COLOR_N: Atom = Atom::from("border_color_sys");
     pub static ref BR_IMAGE_N: Atom = Atom::from("border_image_sys");
     pub static ref IMAGE_N: Atom = Atom::from("image_sys");
-	pub static ref MASK_IMAGE_N: Atom = Atom::from("mask_image_sys");
     pub static ref CHAR_BLOCK_N: Atom = Atom::from("charblock_sys");
     pub static ref TEXT_GLPHY_N: Atom = Atom::from("text_glphy_sys");
     pub static ref CHAR_BLOCK_SHADOW_N: Atom = Atom::from("charblock_shadow_sys");
@@ -59,6 +59,8 @@ lazy_static! {
 	pub static ref CLASS_SETTING_N: Atom = Atom::from("class_setting_sys");
     pub static ref TRANSFORM_WILL_CHANGE_N: Atom = Atom::from("transform_will_change_sys");
 	pub static ref CONTENT_BOX_N: Atom = Atom::from("content_box_sys");
+	pub static ref MASK_IMAGE_N: Atom = Atom::from("mask_image_sys");
+	pub static ref RENDER_CONTEXT_N: Atom = Atom::from("render_context_sys");
 }
 
 /// 设置资源管理器
@@ -66,6 +68,13 @@ pub fn seting_res_mgr(res_mgr: &mut ResMgr) {
     res_mgr.register::<TextureRes>(
 		10 * 1024 * 1024,
 		50 * 1024 * 1024,
+		5 * 60,
+		0,
+        "TextureRes".to_string(),
+    );
+	res_mgr.register::<TexturePartRes>(
+		3 * 1024 * 1024,
+		8 * 1024 * 1024,
 		5 * 60,
 		0,
         "TextureRes".to_string(),
@@ -183,7 +192,7 @@ pub fn create_world<C: HalContext + 'static>(
 
     let clip_sys = ClipSys::<C>::new();
 	let image_sys = CellImageSys::new(ImageSys::with_capacity(&mut engine, capacity));
-	let mask_image_sys = CellRenderContextSys::new(RenderContextSys::with_capacity(&mut engine, capacity));
+	let render_context_sys = CellRenderContextSys::new(RenderContextSys::with_capacity(&mut engine, capacity));
 	let render_sys = CellRenderSys::<C>::new(RenderSys::new(&mut engine, &project_matrix));
 	
 	let mut sys_time = SystemTime::default();
@@ -240,15 +249,16 @@ pub fn create_world<C: HalContext + 'static>(
 	let mut idtree = IdTree::with_capacity(capacity);
 	idtree.set_statistics_count(true);
     //single
+	world.register_single::<PreRenderList>(PreRenderList(Vec::new()));
     world.register_single::<Statistics>(Statistics::default());
     world.register_single::<IdTree>(idtree);
     world.register_single::<Oct>(Oct::with_capacity(capacity));
     world.register_single::<OverflowClip>(OverflowClip::default());
     world.register_single::<RenderObjs>(RenderObjs::with_capacity(capacity));
-	world.register_single::<ShareEngine<C>>(engine);
 	world.register_single::<PixelRatio>(PixelRatio(1.0));
 	world.register_single::<RootIndexs>(RootIndexs::default());
-	world.register_single::<DynAtlasSet>(DynAtlasSet::new());
+	world.register_single::<Share<RefCell<DynAtlasSet>>>(Share::new(RefCell::new(DynAtlasSet::new(engine.res_mgr.clone()))));
+	world.register_single::<ShareEngine<C>>(engine);
 	
 
 	match share_font_sheet {
@@ -306,7 +316,7 @@ pub fn create_world<C: HalContext + 'static>(
         CellOverflowImpl::new(OverflowImpl::default()),
     );
     world.register_system(IMAGE_N.clone(), image_sys);
-	world.register_system(MASK_IMAGE_N.clone(), mask_image_sys);
+	world.register_system(RENDER_CONTEXT_N.clone(), render_context_sys);
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
     world.register_system(
         TEXT_GLPHY_N.clone(),
@@ -354,6 +364,11 @@ pub fn create_world<C: HalContext + 'static>(
         CLASS_SETTING_N.clone(),
         CellClassSetting::<C>::new(ClassSetting::new()),
 	);
+
+	world.register_system(
+        MASK_IMAGE_N.clone(),
+        CellMaskImageSys::<C>::new(MaskImageSys::new()),
+	);
 	
 	world.register_system(
         TEXT_LAYOUT_UPDATE_N.clone(),
@@ -361,7 +376,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -370,20 +385,20 @@ pub fn create_world<C: HalContext + 'static>(
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build(
-        "class_setting_sys, layout_sys, world_matrix_sys, oct_sys".to_string(),
+        "class_setting_sys, text_layout_sys, layout_sys, world_matrix_sys, oct_sys".to_string(),
         &world,
     );
 	world.add_dispatcher(CALC_GEO_DISPATCH.clone(), dispatch);
 
 	let mut dispatch = SeqDispatcher::default();
     dispatch.build(
-        "class_setting_sys, layout_sys".to_string(),
+        "class_setting_sys, text_layout_sys, layout_sys".to_string(),
         &world,
     );
 	world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 	
 	let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, clip_sys, node_attr_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, clip_sys, mask_image_sys, node_attr_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }

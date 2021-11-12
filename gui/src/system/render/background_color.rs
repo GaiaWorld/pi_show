@@ -324,7 +324,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
 
 // 创建一个线性渐变背景色的geo
 #[inline]
-fn create_linear_gradient_geo<C: HalContext + 'static>(
+pub fn create_linear_gradient_geo<C: HalContext + 'static>(
     color: &LinearGradientColor,
     border_radius: Option<&BorderRadius>,
     layout: &LayoutR,

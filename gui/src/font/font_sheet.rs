@@ -1,4 +1,13 @@
 /// 字体表， 管理字体的几何信息和图像信息
+/// 依赖环境中的文字测量：
+/// ctx.measureText("h")
+/// actualBoundingBoxAscent: 22
+/// actualBoundingBoxDescent: 0
+/// actualBoundingBoxLeft: -1
+/// actualBoundingBoxRight: 15
+/// fontBoundingBoxAscent: 27
+/// fontBoundingBoxDescent: 6
+/// width: 16.6845703125
 use std::{collections::hash_map::Entry, default::Default, str::Chars};
 
 use data_view::GetView;

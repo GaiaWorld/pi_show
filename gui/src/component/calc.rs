@@ -14,7 +14,7 @@ use super::user::*;
 use res::Res;
 use flex_layout::*;
 
-use crate::{render::res::BufferRes, single::{DirtyViewRect, ProjectionMatrix, RenderObj}, util::vecmap_default::VecMapWithDefault};
+use crate::{render::res::{BufferRes, TexturePartRes}, single::{DirtyViewRect, ProjectionMatrix, RenderObj}, util::vecmap_default::VecMapWithDefault};
 use crate::render::res::TextureRes;
 
 // // 布局计算结果
@@ -59,7 +59,7 @@ pub struct ContentBox(pub Aabb2);
 
 impl Default for ContentBox {
 	fn default() -> Self {
-		Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)))
+		Self(Aabb2::new(Point2::new(f32::MAX, f32::MAX), Point2::new(f32::MIN, f32::MIN)))
 	}
 }
 
@@ -213,6 +213,51 @@ pub enum StyleType {
 	Oct = std::isize::MIN,
 }
 
+// 枚举样式的类型
+#[derive(Debug)]
+pub enum StyleType1 {
+    // Width = 1,
+    // Height = 2,
+    // Margin = 4,
+    // Padding = 8,
+    // Border = 0x10,
+    // Position = 0x20,
+    // MinWidth = 0x40,
+    // MinHeight = 0x80,
+    // MaxHeight = 0x100,
+    // MaxWidth = 0x200,
+    // FlexBasis = 0x400,
+    // FlexShrink = 0x800,
+    // FlexGrow = 0x1000,
+    // PositionType = 0x2000,
+    // FlexWrap = 0x4000,
+    // FlexDirection = 0x8000,
+    // AlignContent = 0x10000,
+    // AlignItems = 0x20000,
+    // AlignSelf = 0x40000,
+	TransformOrigin = 0x4000,
+	ContentBox = 0x8000,
+	Direction = 0x10000,
+	AspectRatio = 0x20000,
+	Order = 0x40000,
+	FlexBasis = 0x80000,
+
+    Display = 0x100000,
+    Visibility = 0x200000,
+    Enable = 0x400000,
+    ZIndex = 0x800000,
+    Transform = 0x1000000,
+    TransformWillChange = 0x2000000,
+	Overflow = 0x4000000,
+	
+	Create = 0x8000000,
+	Delete = 0x10000000,
+
+	MaskImage = 0x20000000,
+	MaskImageClip = 0x40000000,
+	MaskTexture = std::isize::MIN,
+}
+
 // 布局属性标记
 pub enum StyleType2 {
 	Width = 1,
@@ -279,54 +324,22 @@ pub const LAYOUT_RECT_MARK: usize = StyleType2::Width as usize
 	| StyleType2::Height as usize
 	| LAYOUT_MARGIN_MARK;
 
-// 枚举样式的类型
-#[derive(Debug)]
-pub enum StyleType1 {
-    // Width = 1,
-    // Height = 2,
-    // Margin = 4,
-    // Padding = 8,
-    // Border = 0x10,
-    // Position = 0x20,
-    // MinWidth = 0x40,
-    // MinHeight = 0x80,
-    // MaxHeight = 0x100,
-    // MaxWidth = 0x200,
-    // FlexBasis = 0x400,
-    // FlexShrink = 0x800,
-    // FlexGrow = 0x1000,
-    // PositionType = 0x2000,
-    // FlexWrap = 0x4000,
-    // FlexDirection = 0x8000,
-    // AlignContent = 0x10000,
-    // AlignItems = 0x20000,
-    // AlignSelf = 0x40000,
-	ContentBox = 0x8000,
-	Direction = 0x10000,
-	AspectRatio = 0x20000,
-	Order = 0x40000,
-	FlexBasis = 0x80000,
-
-    Display = 0x100000,
-    Visibility = 0x200000,
-    Enable = 0x400000,
-    ZIndex = 0x800000,
-    Transform = 0x1000000,
-    TransformWillChange = 0x2000000,
-	Overflow = 0x4000000,
-	
-	Create = 0x8000000,
-	Delete = 0x10000000,
-
-	MaskImage = 0x20000000,
-	MaskImageClip = 0x40000000,
-	MaskTexture = std::isize::MIN,
-}
 
 #[derive(Component, Clone)]
-pub struct MaskTexture {
-	pub src: Option<Share<TextureRes>>,
+pub enum MaskTexture {
+	All(Share<TextureRes>),
+	Part(Share<TexturePartRes>),
 }
+
+// impl Deref for MaskTexture {
+// 	type Target = Share<TextureRes>;
+// 	fn deref(&self) -> &Self::Target {
+// 		match self {
+// 			MaskTexture::All(r) => &r.bind,
+// 			MaskTexture::Part(r) => *&r,
+// 		}
+// 	}
+// }
 
 // 样式标记
 #[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
@@ -783,6 +796,8 @@ program_paramter! {
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
 		maskTexture: (HalTexture, HalSampler),
+		maskRect: UniformValue,
+		maskUv: UniformValue,
 		depth: UniformValue,
     }
 }

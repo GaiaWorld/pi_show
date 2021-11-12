@@ -200,8 +200,14 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::BackgroundColor as usize;
 		}
 		"mask-image" => {
-			class.attrs2.push(Attribute2::MaskImageUrl(parse_url(value)?.get_hash()));
-				class.class_style_mark1 |= StyleType1::MaskImage as usize;
+			if value.starts_with("linear-gradient") {
+				class.attrs2.push(Attribute2::MaskImage(MaskImage::LinearGradient(
+                    parse_linear_gradient_color(value)?
+                )));
+			} else {
+				class.attrs2.push(Attribute2::MaskImage(MaskImage::Path(parse_url(value)?.get_hash())));
+			}
+			class.class_style_mark1 |= StyleType1::MaskImage as usize;
 		}
 		"mask-image-clip" => {
             class.attrs3.push(Attribute3::MaskImageClip(unsafe {
@@ -312,7 +318,7 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class
                 .attrs3
                 .push(Attribute3::TransformOrigin(parse_transform_origin(value)?));
-            class.class_style_mark1 |= StyleType1::Transform as usize;
+            class.class_style_mark1 |= StyleType1::TransformOrigin as usize;
         }
         "z-index" => {
             class
@@ -688,6 +694,11 @@ fn pasre_white_space(value: &str) -> Result<WhiteSpace, String> {
 }
 
 fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
+    let color = parse_linear_gradient_color(value)?;
+    Ok(Color::LinearGradient(color))
+}
+
+fn parse_linear_gradient_color(value: &str) -> Result<LinearGradientColor, String> {
     let value = &value[15..].trim();
     let value = value[1..value.len() - 1].trim();
     let mut iter = value.split(",");
@@ -705,7 +716,7 @@ fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
             }
         }
         None =>  {
-			return Ok(Color::LinearGradient(color))
+			return Ok(color)
 		},
     };
 
@@ -716,7 +727,7 @@ fn parse_linear_gradient_color_string(value: &str) -> Result<Color, String> {
 
     parser_color_stop_last(1.0, &mut list, &mut color.list, &mut pre_percent, None)?;
 
-    Ok(Color::LinearGradient(color))
+    Ok(color)
 }
 
 fn parser_color_stop(

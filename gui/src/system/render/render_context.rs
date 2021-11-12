@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 /// 处理渲染上下文（遮罩、半透明、裁剪、willchange都可以创建渲染上下文）
 /// 目前只支持了遮罩，
 ///
@@ -78,13 +79,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 		&'a MultiCaseImpl<Node, ContentBox>,
 		&'a SingleCaseImpl<PremultiState>,
 		&'a SingleCaseImpl<IdTree>,
-		
+		&'a SingleCaseImpl<Oct>,
+		&'a SingleCaseImpl<RenderBegin>,
 	);
 	type WriteData = (
 		&'a mut MultiCaseImpl<Node, RenderContext>,
 		&'a mut SingleCaseImpl<RenderObjs>,
 		&'a mut SingleCaseImpl<ShareEngine<C>>,
-		&'a mut SingleCaseImpl<DynAtlasSet>,
+		&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>,
 	);
 	fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
 		let (
@@ -102,6 +104,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			// default_state,
 			premulti_state,
 			idtree,
+			octree,
+			render_begin,
 		) = read;
 		if self.dirty.len() == 0 {
 			return;
@@ -128,6 +132,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 
 			let dirty = style_mark.dirty;
 			let dirty1 = style_mark.dirty1;
+
+			// if *id == 344 {
+			// 	log::info!("dirty1, {}, {}", dirty1 & DIRTY_TY1 != 0, dirty1 & StyleType1::MaskTexture as usize);
+			// }
 			
 			// log::info!("is dirty: {:?}",dirty & DIRTY_TY == 0 && dirty1 & DIRTY_TY1 == 0);
 			if dirty & DIRTY_TY == 0 && dirty1 & DIRTY_TY1 == 0 {
@@ -138,9 +146,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			
 			// 取消渲染上下文
 			if mask_texture.is_none() && opacity.0 == 1.0 {
-				self.unbind_context(*id, render_contexts, render_objs, dyn_atlas_set, &mut render_target_change);
+				self.unbind_context(*id, render_contexts, &mut render_target_change);
 				continue;
 			}
+
 			render_target_change = true;
 
 			let (render_context, is_create) = match render_contexts.get_mut(*id) {
@@ -174,12 +183,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			// 设置mask_image
 			if dirty1 & StyleType1::MaskTexture as usize != 0 {
 				if let Some(mask_texture) = mask_texture {
+					let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 					render_obj.fs_defines.add("MASK_IMAGE");
 					render_obj.vs_defines.add("MASK_IMAGE");
+					let texture = match mask_texture {
+						MaskTexture::All(r) => &r.bind,
+						MaskTexture::Part(r) => &dyn_atlas_set.get_texture(r.index()).unwrap().bind,
+					};
 					render_obj.paramter.set_texture(
-						"maskTexture",
-						(&mask_texture.src.as_ref().unwrap().bind, &self.uv1_sampler),
-					);
+					"maskTexture",
+					(texture, &self.uv1_sampler),
+					);	
 				}
 			}
 
@@ -194,46 +208,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 
 			if dirty & DIRTY_TY != 0 || dirty1 & DIRTY_TY1 != 0 {
 
-				// // 矩阵或布局发生改变， 需要更新fbo纹理，和uv
-				let aabb = content_boxs.get(*id).unwrap().0;
-				// render_context.render_target_change = true; // 设置渲染目标改变，触发后续渲染区域
-				// let target_index = dyn_atlas_set.update_or_add_rect(render_context.render_target,aabb.maxs.x-aabb.mins.x,aabb.maxs.y-aabb.mins.y, &mut engine.gl);
+				// 矩阵或布局发生改变， 需要更新fbo纹理，和uv
+				let mut aabb = content_boxs.get(*id).unwrap().0;
+				let viewport = render_begin.0.viewport;
+				aabb = match intersect(&aabb, &Aabb2::new(Point2::new(0.0, 0.0), Point2::new(viewport.2 as f32, viewport.3 as f32))) {
+					Some(r) => r,
+					None => Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0)),
+				};
 
-				// if target_index != 0 {
-				// 	render_context.render_target = target_index;
-				// 	// render_context.render_target_change = true;
-				
-				// 	// 绑定纹理
-				// 	render_obj.paramter.set_texture(
-				// 		"texture",
-				// 		(&engine
-				// 			.gl
-				// 			.rt_get_color_texture(dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap(), &self.default_sampler),
-				// 	);
-				// }
-
-				// let uv = dyn_atlas_set.get_uv(render_context.render_target).unwrap();
-				// let rect = dyn_atlas_set.get_rect(target_index).unwrap();
-				// render_context.render_rect = rect;
-
-				// // 更新geo（世界矩阵，MaksImage发生改变时，geo都会改变）
-				// // 世界矩阵改变时，fbo的大小可能已经改变，则uv不同
-				// // MaksImage改变时，uv1不同
-				// // opacity改变时，不需要更新geo
-				// if is_create || dirty1 & DIRTY_TY1 != 0 {
-				// 	if mask_texture.is_some() {
-				// 		let image_clip = mask_image_clips.get(*id);
-				// 		update_geo_quad_with_mask(render_obj, image_clip, engine, &self.unit_geo);
-				// 	} else {
-				// 		render_obj.geometry = Some(self.unit_geo.clone());
-				// 		// update_geo_quad(render_obj, engine, &self.unit_geo);
-				// 	}
-				// 	notify.modify_event(render_context.render_obj_index, "geometry", 0);
-				// }
 				if is_create || dirty1 & DIRTY_TY1 != 0 {
-					if mask_texture.is_some() {
+					
+					if let Some(texture) = mask_texture {
 						let image_clip = mask_image_clips.get(*id);
-						update_geo_quad_with_mask(render_obj, image_clip, engine, &self.unit_geo);
+						update_geo_quad_with_mask(render_obj, texture, image_clip, engine, &self.unit_geo);
 					} else {
 						// render_obj.geometry = Some(self.unit_geo.clone());
 						update_geo_quad(render_obj, engine, &self.unit_geo);
@@ -270,6 +257,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 						render_obj,
 						z_depth,
 						&aabb
+					);
+				}
+
+				// 
+				if let Some(_) = mask_texture {
+					let oct = octree.get(*id).unwrap().0;
+					render_obj.paramter.set_single_uniform(
+					"maskRect",
+					UniformValue::Float4(oct.mins.x, oct.mins.y, oct.maxs.x - oct.mins.x, oct.maxs.y - oct.mins.y),
 					);
 				}
 	
@@ -310,6 +306,10 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ContentBox, (Creat
 		if event.id == 1 {
 			if let Some(r) = render_contexts.get_mut(1) {
 				r.content_box = octs.get(1).unwrap().0.clone();
+				r.content_box.mins.x = r.content_box.mins.x.floor();
+				r.content_box.mins.y = r.content_box.mins.y.floor();
+				r.content_box.maxs.x = r.content_box.maxs.x.ceil();
+				r.content_box.maxs.y = r.content_box.maxs.y.ceil();
 			}
 			return;
 		}
@@ -332,13 +332,13 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEven
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RenderContext, DeleteEvent> for RenderContextSys<C> {
 	type ReadData = &'a MultiCaseImpl<Node, RenderContext>;
-	type WriteData = (&'a mut SingleCaseImpl<DynAtlasSet>, &'a mut SingleCaseImpl<RenderObjs>);
+	type WriteData = (&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>, &'a mut SingleCaseImpl<RenderObjs>);
 	fn listen(&mut self, event: &Event, render_contexts: Self::ReadData, (dyn_atlas_set, render_objs): Self::WriteData) {
 		match render_contexts.get(event.id) {
 			Some(ctx) => {
 				if let Some(render_target) = ctx.render_target {
 					self.remove_render_obj(ctx.render_obj_index, render_objs);
-					dyn_atlas_set.delete_rect(render_target);
+					dyn_atlas_set.borrow_mut().delete_rect(render_target);
 				}
 			}, 
 			None => ()
@@ -433,9 +433,9 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 	}
 
 	#[inline]
-	fn unbind_context(&mut self, id: usize, render_ctxs: &mut MultiCaseImpl<Node, RenderContext>, render_objs: &mut SingleCaseImpl<RenderObjs>, dyn_atlas_set: &mut SingleCaseImpl<DynAtlasSet>, render_target_change: &mut bool) {
+	fn unbind_context(&mut self, id: usize, render_ctxs: &mut MultiCaseImpl<Node, RenderContext>, render_target_change: &mut bool) {
 		match render_ctxs.get_mut(id) {
-			Some(ctx) => {
+			Some(_ctx) => {
 				render_ctxs.delete(id);
 				*render_target_change = true;
 			}
@@ -511,18 +511,35 @@ fn update_geo_quad<C: HalContext + 'static>(
 
 fn update_geo_quad_with_mask<C: HalContext + 'static>(
 	render_obj: &mut RenderObj,
+	texture: &MaskTexture,
 	image_clip: Option<&MaskImageClip>,
 	engine: &mut Engine<C>,
 	unit_geo: &Share<GeometryRes>,
 ) {
-	let i = MaskImageClip (Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)));
-	let clip = match image_clip {
-		Some(r) => r,
-		None => &i,
+	let clip = match texture {
+		MaskTexture::All(_r) => match image_clip {
+			Some(r) => r.0.clone(),
+			None => Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
+		},
+		MaskTexture::Part(r) => {
+			let mut uv = r.get_uv();
+			let size = r.size();
+			uv.maxs.x = uv.maxs.x - 0.5/size.0 as f32;
+			uv.mins.y = uv.mins.y - 0.5/size.1 as f32;
+
+			uv.mins.x = uv.mins.x + 0.5/size.0 as f32;
+			uv.maxs.y = uv.maxs.y + 0.5/size.1 as f32;
+			uv
+		},
 	};
 	let (uv1, uv2) =  (clip.mins, clip.maxs);
 	let uv1_hash = cal_uv_hash(&uv1, &uv2);
 	let uv1_buffer = create_uv_buffer(uv1_hash, &uv1, &uv2, engine);
+
+	render_obj.paramter.set_single_uniform(
+	"maskUv",
+	UniformValue::Float4(uv1.x, uv2.y, uv2.x - uv1.x, uv1.y - uv2.y),
+	);
 
 	let geo = engine.create_geometry();
 	engine

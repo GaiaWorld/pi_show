@@ -644,7 +644,7 @@ pub fn load_image_success(
 	data: Object,
 	cost: u32
 ) {
-	log::info!("pformate0: {:?}", pformate);
+	// log::info!("pformate0: {:?}", pformate);
 	let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;

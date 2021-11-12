@@ -1,295 +1,260 @@
+
+use std::marker::PhantomData;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::cell::RefCell;
+
+use ecs::SingleCaseListener;
 //八叉树系统
-use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
-use dirty::LayerDirty;
-use idtree::Node as TreeNode;
-use ecs::monitor::NotifyImpl;
+use ecs::{CreateEvent, Event, ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, MultiCaseListener}; 
 
+use flex_layout::Rect;
+use hal_core::*;
+use hash::{ DefaultHasher};
+use atom::Atom;
+use share::Share;
 
-use crate::component::calc::{LayoutR, StyleMark, WorldMatrix};
-use crate::component::user::*;
-use crate::component::calc::{NodeState, TransformWillChangeMatrix};
-use crate::entity::Node;
-use crate::single::oct::Oct;
-use crate::single::*;
-use crate::single::IdTree;
 use crate::Z_MAX;
+use crate::component::calc::{MaskTexture, LayoutR};
+use crate::component::user::*;
+use crate::entity::Node;
+use crate::render::engine::ShareEngine;
+use crate::single::Oct;
+use crate::single::dyn_texture::DynAtlasSet;
+use crate::single::{IdTree, RenderObjs, CommonState, State, RenderObj, PreRenderList};
+use crate::single::PreRenderItem;
+use crate::render::res::TexturePartRes;
+use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
+use crate::component::calc::ColorParamter;
+use crate::single::DefaultState;
+use crate::system::create_linear_gradient_geo;
+use crate::component::calc::WorldMatrixUbo;
+use crate::single::ProjectionMatrix;
+use crate::component::calc::ProjectMatrixUbo;
 
-#[derive(Default)]
-pub struct OctSys{
-	dirty: LayerDirty<usize>,
+use super::util::new_render_obj;
+use super::util::to_vex_color_defines;
+lazy_static! {
+    // 四边形几何体的hash值
+    pub static ref QUAD_GEO_HASH: u64 = 0;
+	static ref MASK_IMAGE_TEXTURE: Atom = Atom::from("MASK_IMAGE_TEXTURE");
 }
 
-impl<'a> Runner<'a> for OctSys {
-    type ReadData = (
-		&'a MultiCaseImpl<Node, NodeState>,
-		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
-        &'a SingleCaseImpl<IdTree>,
+#[derive(Deref, DerefMut)]
+pub struct MaskImageSys<C: HalContext + 'static>(Vec<usize>, PhantomData<C>);
+
+impl<C: HalContext + 'static> MaskImageSys<C> {
+	pub fn new() -> Self {
+		MaskImageSys(Vec::new(), PhantomData)
+	}
+}
+
+
+impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
+	type ReadData = (
+		&'a SingleCaseImpl<IdTree>, 
+		&'a MultiCaseImpl<Node, MaskImage>,
+		&'a SingleCaseImpl<DefaultState>,
+		&'a SingleCaseImpl<Oct>,
 	);
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn run(&mut self, read: Self::ReadData, oct: Self::WriteData) {
-		// if self.dirty.count() > 0 {
-		// 	// println!("count: {}", self.dirty.count());
-		// 	let (node_states, will_change_matrixs, idtree) = read;
-			
-		// 	for (id, layer) in self.dirty.iter() {
-		// 		// println!("recursive_calc_aabb1 start: {}", id);
-		// 		let node = match idtree.get(*id) {
-		// 			Some(r) => r,
-		// 			None => continue,
-		// 		};
-		// 		// println!("recursive_calc_aabb2 start: {}", id);
-		// 		if node.layer() == 0 {
-		// 			continue;
-		// 		}
-
-		// 		// println!("recursive_calc_Aabb2 start: {}", id);
-
-		// 		// 递归重新计算包围盒
-		// 		recursive_calc_aabb(*id, node_states, will_change_matrixs, idtree, oct, will_change_matrixs.get(*id));
-		// 	}
-		// 	self.dirty.clear();
-		// }
-		
-		// 整理
-		oct.collect();
-    }
-}
-
-impl<'a> MultiCaseListener<'a, Node, WorldMatrix, (CreateEvent, ModifyEvent)> for OctSys {
-    type ReadData = (
-		&'a MultiCaseImpl<Node, WorldMatrix>,
-        &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, Transform>,
-        &'a MultiCaseImpl<Node, StyleMark>,
-        &'a SingleCaseImpl<IdTree>,
-        &'a SingleCaseImpl<DirtyList>,
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, MaskTexture>, 
+		&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>,
+		&'a mut SingleCaseImpl<ShareEngine<C>>,
+		&'a mut SingleCaseImpl<RenderObjs>,
+		&'a mut SingleCaseImpl<PreRenderList>,
 	);
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &Event, read: Self::ReadData, oct: Self::WriteData) {
-		let (world_matrixs, layouts, transforms, _style_marks, id_tree, _dirty_list) =
-            read;
-        OctSys::modify_oct(
-			event.id,
-			id_tree,
-			world_matrixs,
-			layouts,
-			transforms,
-			oct,
-		);
-    }
-}
-
-//监听TransformWillChangeMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, ModifyEvent> for OctSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-
-    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
-		println!(" matrix_will_change modify============");
-        self.matrix_will_change_dirty(event.id, read);
-    }
-}
-
-//监听TransformWillChangeMatrix组件的修改
-impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, CreateEvent> for OctSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ();
-
-    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
-		println!(" matrix_will_change create============");
-        self.matrix_will_change_dirty(event.id, read);
-    }
-}
-
-// //监听TransformWillChangeMatrix组件的修改
-// impl<'a> MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for OctSys {
-//     type ReadData = &'a SingleCaseImpl<IdTree>;
-// 	type WriteData = ();
-	
-//     fn listen(&mut self, event: &DeleteEvent, read: Self::ReadData, write: Self::WriteData) {
-// 		println!(" matrix_will_change delete============");
-//         self.matrix_will_change_dirty(event.id, read);
-//     }
-// }
-
-impl OctSys {
-
-	// 标记脏
-	fn matrix_will_change_dirty(
-        &mut self,
-        id: usize,
-        idtree: &SingleCaseImpl<IdTree>
-    ) {
-        let node = match idtree.get(id) {
-            Some(r) => r,
-            None => return,
-        };
-        if node.layer() == 0 {
-            return;
-        }
-        self.dirty.mark(id, node.layer());
-    }
-
-    fn modify_oct(
-        id: usize,
-        idtree: &SingleCaseImpl<IdTree>,
-        world_matrixs: &MultiCaseImpl<Node, WorldMatrix>,
-        layouts: &MultiCaseImpl<Node, LayoutR>,
-        transforms: &MultiCaseImpl<Node, Transform>,
-        octree: &mut SingleCaseImpl<Oct>,
-    ) {
-        match idtree.get(id) {
-            Some(r) => {
-                if r.layer() == 0 {
-                    return;
-                }
-            }
-            None => return,
-        };
-
-        let transform = &transforms[id];
-
-        let world_matrix = &world_matrixs[id];
-        let layout = &layouts[id];
-        // let transform = get_or_default(id, transforms, default_table);
-
-		let width = layout.rect.end - layout.rect.start;
-		let height = layout.rect.bottom - layout.rect.top;
-        let origin = transform.origin.to_value(width, height);
-        let aabb = cal_bound_box((width, height), world_matrix, &origin);
-
-		let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
-
-		if let Some(_r) = octree.get(id) {
-			octree.update(id, aabb, Some(notify));
-		} else {
-			octree.add(id, aabb, id, Some(notify));
+	fn run(&mut self, (idtree, mask_images, default_state, octree): Self::ReadData, (mask_texture, dyn_atlas_set, mut engine, render_objs, pre_render_list): Self::WriteData) {
+		if self.0.len() == 0 {
+			return;
 		}
-    }
-}
 
-fn recursive_calc_aabb<'a>(
-	id: usize,
-	node_states: &'a MultiCaseImpl<Node, NodeState>,
-	will_change_matrix: &'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
-	idtree: &'a SingleCaseImpl<IdTree>,
-	octree: &'a mut SingleCaseImpl<Oct>,
-	mut parent_will_change_matrix: Option<&'a TransformWillChangeMatrix>) {
+		for id in self.0.iter() {
+			let id = *id;
+			if let Some(node) = idtree.get(id) {
+				if node.layer() == 0 {
+					return;
+				}
 	
-	// 如果不存在will_change_matrix， 或者不是真实节点则不再继续处理
-	if parent_will_change_matrix.is_none() || !node_states[id].0.is_rnode() {
-		return;
-	}
-
-	// will_change
-	if let Some(r) = will_change_matrix.get(id) {
-		parent_will_change_matrix = Some(r);
-	}
-	if id == 804 {
-		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
-	}
+				let mask_image = match mask_images.get(id) {
+					Some(r) => r,
+					None => return,
+				};
 	
+				if let MaskImage::LinearGradient(color) = mask_image {
+					let oct = octree.get(id).unwrap();
+					let size = calc_size(oct.0, color) as u32;
+					let mut hasher = DefaultHasher::default();
+					MASK_IMAGE_TEXTURE.hash(&mut hasher);
+					color.hash(&mut hasher);
+					size.hash(&mut hasher);
+					let hash = hasher.finish();
+					
+					let texture = match engine.texture_part_res_map.get(&hash) {
+						Some(r) => r,
+						None => {
+							let size = size as f32;
+							let index = dyn_atlas_set.borrow_mut().update_or_add_rect(0, 0, size, size, PixelFormat::RGB, DataFormat::UnsignedByte, &mut engine.gl);
 
-	// 此时，一定存在一个原来的包围盒
-	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
-	if id == 804 {
-		println!("id: {:?}, aabb: {:?}", id, aabb);
-	}
-	// 更新包围盒
-	let notify = unsafe { &*(octree.get_notify_ref() as * const NotifyImpl) };
-	octree.update(id, aabb, Some(notify));
+							let texture = TexturePartRes::new(index, dyn_atlas_set.clone());
+							let cost = texture.cost();
+							
+							// 创建render_obj
+							let obj = create_render_obj(
+										color,
+										&texture,
+								COLOR_VS_SHADER_NAME.clone(),
+								COLOR_FS_SHADER_NAME.clone(),
+								Share::new(ColorParamter::default()),
+								default_state,
+								render_objs,
+								&mut engine
+							);
 
-	// 递归计算子节点的包围盒
-	let first = idtree[id].children().head;
-	for (child_id, _child) in idtree.iter(first) {
-		recursive_calc_aabb(child_id, node_states, will_change_matrix, idtree, octree, parent_will_change_matrix);
+							pre_render_list.push(PreRenderItem{index, obj});
+	
+							engine.texture_part_res_map.create(hash, texture, cost, 0)
+						}
+					};
+					mask_texture.insert(id, MaskTexture::Part(texture));;
+				}
+			}
+		}
+
+		self.0.clear();
 	}
 }
 
-// 计算aabb
-fn matrix_mul_aabb(m: &WorldMatrix, aabb: &Aabb2) -> Aabb2 {
-    let min = m * Vector4::new(aabb.mins.x, aabb.mins.y, 0.0, 1.0);
-    let max = m * Vector4::new(aabb.maxs.x, aabb.maxs.y, 0.0, 1.0);
-    Aabb2::new(
-        Point2::new(min.x, min.y),
-        Point2::new(max.x, max.y),
-    )
-}
-
-// impl<'a> EntityListener<'a, Node, CreateEvent> for OctSys {
-//     type ReadData = ();
-//     type WriteData = &'a mut SingleCaseImpl<Oct>;
-//     fn listen(&mut self, event: &CreateEvent, _read: Self::ReadData, write: Self::WriteData) {
-//         let notify = write.get_notify();
-//         write.add(
-//             event.id,
-//             Aabb2::new(
-//                 Point2::new(-1024f32, -1024f32, -Z_MAX),
-//                 Point2::new(3072f32, 3072f32, Z_MAX),
-//             ),
-//             event.id,
-//             Some(notify),
-//         );
-//     }
-// }
-
-impl<'a> EntityListener<'a, Node, DeleteEvent> for OctSys {
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, MaskImage, (CreateEvent, ModifyEvent)>
+    for MaskImageSys<C>
+{
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<Oct>;
-    fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
-        let notify = unsafe { &* (write.get_notify_ref() as *const NotifyImpl)} ;
-        write.remove(event.id, Some(notify));
-    }
+    type WriteData = ();
+    fn listen(&mut self, event: &Event, _: Self::ReadData, _: Self::WriteData) {
+		self.0.push(event.id);
+	}
 }
 
-fn cal_bound_box(size: (f32, f32), matrix: &WorldMatrix, origin: &Point2) -> Aabb2 {
-    let start = (-origin.x, -origin.y);
-    let left_top = matrix * Vector4::new(start.0, start.1, 0.0, 1.0);
-    let right_top = matrix * Vector4::new(start.0 + size.0, start.1, 0.0, 1.0);
-    let left_bottom = matrix * Vector4::new(start.0, start.1 + size.1, 0.0, 1.0);
-    let right_bottom = matrix * Vector4::new(start.0 + size.0, start.1 + size.1, 0.0, 1.0);
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, ModifyEvent>
+    for MaskImageSys<C>
+{
+    type ReadData = &'a MultiCaseImpl<Node, MaskImage>;
+    type WriteData = ();
+    fn listen(&mut self, event: &Event, mask_images: Self::ReadData, _: Self::WriteData) {
+		if event.field == "totree" {
+			if let Some(r) = mask_images.get(event.id) {
+				if let MaskImage::LinearGradient(_r) = r {
+					self.0.push(event.id);
+				}
+			}
+		}
+	}
+}
 
-    let min = Point2::new(
-        left_top
-            .x
-            .min(right_top.x)
-            .min(left_bottom.x)
-            .min(right_bottom.x),
-        left_top
-            .y
-            .min(right_top.y)
-            .min(left_bottom.y)
-            .min(right_bottom.y),
-    );
+#[inline]
+pub fn create_render_obj<C: HalContext + 'static>(
+    color: &LinearGradientColor,
+	texture: &TexturePartRes,
+    vs_name: Atom,
+    fs_name: Atom,
+    paramter: Share<dyn ProgramParamter>,
+    default_state: &CommonState,
+    render_objs: &mut SingleCaseImpl<RenderObjs>,
+	engine: &mut ShareEngine<C>
+) -> RenderObj {
+    let state = State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+	let rect = texture.get_rect();
+	let mut render_obj = new_render_obj(
+		0, 0.0, true, vs_name, fs_name, paramter, state,
+	);
 
-    let max = Point2::new(
-        left_top
-            .x
-            .max(right_top.x)
-            .max(left_bottom.x)
-            .max(right_bottom.x),
-        left_top
-            .y
-            .max(right_top.y)
-            .max(left_bottom.y)
-            .max(right_bottom.y),
-    );
+	to_vex_color_defines(
+		render_obj.vs_defines.as_mut(),
+		render_obj.fs_defines.as_mut(),
+	);
+	let matrix = vec![
+		1.0, 0.0, 0.0, 0.0, 
+		0.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	];
+	render_obj.paramter.set_value(
+        "worldMatrix",
+        Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix.clone()))),
+	);
+	render_obj.paramter.set_value(
+        "viewMatrix",
+        Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix))),
+	);
+	
+	let project_martix = ProjectionMatrix::new(
+		rect.maxs.x - rect.mins.x,
+		rect.maxs.y - rect.mins.y,
+		-Z_MAX - 1.0,
+		Z_MAX + 1.0,
+	);
+	let buffer = Vec::from(project_martix.0.as_slice());
+	render_obj.paramter.set_value(
+        "projectMatrix",
+        Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(buffer))),
+	);
+	render_obj.paramter.set_single_uniform(
+        "depth",
+        UniformValue::Float1(0.0),
+	);
+	render_obj.paramter.set_single_uniform(
+        "blur",
+        UniformValue::Float1(1.0),
+	);
+	// alpha, depth
 
-    Aabb2::new(min, max)
+	render_obj.geometry = create_linear_gradient_geo(color, None, &LayoutR{
+		rect: Rect{top: rect.mins.y, bottom: rect.maxs.y, start: rect.mins.x, end: rect.maxs.x},
+		border: Rect{top: 0.0, bottom: 0.0, start: 0.0, end: 0.0},
+		padding:  Rect{top: 0.0, bottom: 0.0, start: 0.0, end: 0.0}
+	}, engine);
+
+	render_obj
+}
+
+fn calc_size(oct: &Aabb2, linear: &LinearGradientColor) -> u32 {
+	let width = oct.maxs.x - oct.mins.x;
+	let height = oct.maxs.y - oct.mins.y;
+
+	let l =  (width * width + height * height).sqrt();
+	let mut min: f32 = 1.0;
+	let mut pre_pos: f32 = 0.0;
+	for item in linear.list.iter() {
+		let diff = item.position - pre_pos;
+		if diff != 0.0 {
+			min = min.min(diff);
+			pre_pos = item.position;
+		}
+	}
+
+	if min == 1.0 {
+		return 10;
+	}
+
+	// 保证渐变百分比中，渐变端点之间的距离至少两个像素
+	let at_least =  2.0_f32.min((min * l).ceil() + 1.0)/min;
+
+	// 渐变颜色渲染尺寸为20的整数倍，使得不同大小的渐变色，可以共用同一张纹理
+	// 加2，使得分配的纹理四周可以扩充一个像素，避免采样问题导致边界模糊 TODO
+	return ((at_least/10.0).ceil() * 10.0) as u32;
 }
 
 impl_system! {
-    OctSys,
+    MaskImageSys<C> where [C: HalContext + 'static],
     true,
     {
-        // EntityListener<Node, CreateEvent>
-		EntityListener<Node, DeleteEvent>
-		MultiCaseListener<Node, WorldMatrix, (CreateEvent, ModifyEvent)>
-		// MultiCaseListener<Node, WorldMatrix, CreateEvent>
-
-		// MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
-		// MultiCaseListener<Node, TransformWillChangeMatrix, ModifyEvent>
-		// MultiCaseListener<Node, TransformWillChangeMatrix, CreateEvent>
+		MultiCaseListener<Node, MaskImage, (CreateEvent, ModifyEvent)>
+		SingleCaseListener<IdTree, ModifyEvent>
     }
 }
 
@@ -568,7 +533,7 @@ impl_system! {
 //     world.register_single::<IdTree>(IdTree::default());
 //     world.register_single::<Oct>(Oct::new());
 
-//     let system = CellOctSys::new(OctSys::default());
+//     let system = CellContentBoxSys::new(ContentBoxSys::default());
 //     world.register_system(Atom::from("oct_system"), system);
 //     let system = CellWorldMatrixSys::new(WorldMatrixSys::default());
 //     world.register_system(Atom::from("world_matrix_system"), system);

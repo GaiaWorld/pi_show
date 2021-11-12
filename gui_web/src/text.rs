@@ -407,7 +407,7 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32, family: u
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let font_sheet = world.font_sheet.lend_mut();
-	log::info!("add_font_face====================={:?}, {:?}", family, src);
+	// log::info!("add_font_face====================={:?}, {:?}", family, src);
     font_sheet.borrow_mut().set_face(
         family as usize,
         oblique,
@@ -844,7 +844,7 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet, name: u32, mut 
 
 	tex_font.font_size = value.get_lf32(offset);
 	offset += 4;
-	log::info!("font_size=================={:?}", tex_font.font_size);
+	// log::info!("font_size=================={:?}", tex_font.font_size);
 	
 
     let name_len = value.get_u8(offset);
@@ -872,7 +872,7 @@ fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet, name: u32, mut 
 	// atlas_height: 2字节,
 	// padding: 2字节,
     offset += 8;
-	log::info!("offset=================={:?}",offset);
+	// log::info!("offset=================={:?}",offset);
 
     loop {
         if offset >= value.len() {

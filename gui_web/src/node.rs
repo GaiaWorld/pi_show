@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 /// 将设置节点属性的接口导出到js
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
+use js_sys::Math;
 use wasm_bindgen::prelude::*;
 use web_sys::WebGlTexture;
 
@@ -11,6 +13,7 @@ use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
 use spatialtree::quad_helper::intersects;
+use share::Share;
 
 // use share::Share;
 use gui::component::calc::*;
@@ -84,6 +87,17 @@ pub fn node_is_exist(world: u32, node: u32) -> bool {
 	};
 }
 
+// 节点是否可见
+#[wasm_bindgen]
+pub fn node_is_visibility(world: u32, node: u32) -> bool {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let visibility = &world.gui.visibility.lend_mut();
+	return match visibility.get(node as usize) {
+		Some(r) => r.0,
+		None => false,
+	};
+}
+
 /// 创建文本节点
 #[allow(unused_attributes)]
 #[wasm_bindgen]
@@ -116,6 +130,16 @@ pub fn create_canvas_node(world: u32) -> u32 {
     node as u32
 }
 
+
+#[wasm_bindgen]
+pub fn get_webgl_texture(world: u32, texture: u32) -> WebGlTexture {
+	let texture = unsafe{&*( texture as usize as *mut TextureRes)};
+	
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let engine = world.gui.engine.lend_mut();
+	return engine.gl.texture_get_object_webgl(&texture.bind).unwrap().clone();
+}
+
 /**
  * canvas宽高改变时调用
  * @return __jsObj 纹理
@@ -131,7 +155,7 @@ pub fn set_canvas_size(
     height: u32,
     avail_width: u32,
 	avail_height: u32,
-) -> Option<WebGlTexture> {
+) -> Option<u32> {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend_mut();
     let images = world.gui.image.lend_mut();
@@ -190,9 +214,10 @@ pub fn set_canvas_size(
         .unwrap();
     // engine.gl.texture_pixel_storei(&texture, PixelStore::UnpackFlipYWebgl(true));
 
-    let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap().clone();
+    // let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap().clone();
+
     // let fbo = engine.gl.rt_create(Some(&texture), width, height, PixelFormat::RGBA, DataFormat::UnsignedByte, false);
-    let name = Atom::from(format!("canvas{}", node)).get_hash();
+    let name = Atom::from(format!("canvas{}", Math::random())).get_hash();
     let texture = engine.create_texture_res(
         name.clone(),
         TextureRes::new(
@@ -210,7 +235,7 @@ pub fn set_canvas_size(
     images.insert(
         node as usize,
         Image {
-            src: Some(texture),
+            src: Some(texture.clone()),
             url: name,
             width: Some(w as f32),
             height: Some(h as f32),
@@ -248,7 +273,7 @@ pub fn set_canvas_size(
     //         height: Some(h as f32),
     //     },
 	// );
-	Some(js_texture)
+	Some(Share::into_raw(texture) as u32)
 }
 
 /**
@@ -486,7 +511,7 @@ pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	let r = &world.layout.lend()[node as usize];
-	(r.rect.end - r.rect.start)
+	r.rect.end - r.rect.start
 }
 
 /// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
@@ -498,7 +523,7 @@ pub fn offset_height(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world.gui;
 	let r = &world.layout.lend()[node as usize];
-    (r.rect.bottom - r.rect.top)
+    r.rect.bottom - r.rect.top
 }
 
 // /// left top width height

@@ -367,6 +367,15 @@ pub struct State {
     pub ds: Share<DepthStateRes>,
 }
 
+// 预渲染内容
+#[derive(Deref, DerefMut)]
+pub struct PreRenderList(pub Vec<PreRenderItem>);
+
+pub struct PreRenderItem {
+	pub index: usize, // 渲染目标 在DynAtlasSet中的索引
+	pub obj: RenderObj,
+}
+
 #[derive(Write)]
 pub struct RenderObj {
     pub depth: f32,
@@ -550,6 +559,13 @@ impl IdTree {
 		let node = &self[child];
 		if node.layer() > 0 {
 			notify.create_event(child);
+			notify.modify_event(child, "totree", 0);
+			let head = node.children().head;
+			if head > 0 {
+				for (child, _) in self.recursive_iter(head) {
+					notify.modify_event(child, "totree", 0);
+				}
+			}
 		} else {
 			notify.modify_event(child, "add", 0);
 		}

@@ -413,9 +413,25 @@ pub fn set_mask_image(world: u32, node: u32, url: usize) {
     let mask_images = world.gui.mask_image.lend_mut();
     mask_images.insert(
         node as usize,
-        MaskImage {
-            url: url,
-        },
+        MaskImage::Path(url),
+    );
+}
+
+// 设置mask_image为渐变色
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_mask_image_linenear(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
+	let value = to_linear_gradient_color(
+        color_and_positions,
+        direction,
+    );
+
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let mask_images = world.gui.mask_image.lend_mut();
+	// log::info!("set_mask_image_linenear========={}, {:?}", node, value);
+    mask_images.insert(
+        node as usize,
+        MaskImage::LinearGradient(value),
     );
 }
 

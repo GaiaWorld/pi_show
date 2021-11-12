@@ -73,6 +73,10 @@ impl<'a> Runner<'a> for LayoutSys {
                 Some(r) => r,
                 None => continue,
             };
+			match tree.get(*id) {
+                Some(r) => if r.layer() == 0 {continue},
+                None => continue,
+            };
 			let dirty2 = style_mark.dirty2;
 			let dirty1 = style_mark.dirty1;
 			// log::info!("layout dirty============={}, {}, {}", dirty2, dirty1, dirty2 & RECT_DIRTY);
@@ -137,34 +141,37 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
 	}
 }
 
-impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
-    fn listen(&mut self, event: &Event, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
-		// let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		if event.field == "add" {
-			set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
-		} if event.field == "remove"{
-			let parent = tree[event.id].parent();
-			if parent > 0 {
-				mark_children_dirty(tree, node_states, &mut self.dirty, parent);
-			}
-		}
-    }
-}
+// impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
+//     fn listen(&mut self, event: &Event, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
+// 		// let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMap<RectLayoutStyle> as usize as *mut VecMap<flex_layout::RectStyle>)};
+		
+// 		// if event.field == "add" {
+// 		// let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
+// 		// 	set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
+// 		// }
+// 		 if event.field == "remove"{
 
-impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
-    fn listen(&mut self, event: &Event, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
-		// log::info!("idtree create============={}", event.id);
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
-		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
-		set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
-    }
-}
+// 			let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
+// 			let parent = tree[event.id].parent();
+// 			if parent > 0 {
+// 				mark_children_dirty(tree, node_states, &mut self.dirty, parent);
+// 			}
+// 		}
+//     }
+// }
+
+// impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for LayoutSys {
+//     type ReadData = &'a SingleCaseImpl<IdTree>;
+//     type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
+//     fn listen(&mut self, event: &Event, tree: Self::ReadData, (node_states, _rect_layout_styles, other_layout_styles): Self::WriteData) {
+// 		// log::info!("idtree create============={}", event.id);
+// 		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
+// 		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
+// 		set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
+//     }
+// }
 
 impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
@@ -190,7 +197,7 @@ impl_system! {
     {
         EntityListener<Node, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
-		SingleCaseListener<IdTree, ModifyEvent>
-		SingleCaseListener<IdTree, CreateEvent>
+		// SingleCaseListener<IdTree, ModifyEvent>
+		// SingleCaseListener<IdTree, CreateEvent>
     }
 }

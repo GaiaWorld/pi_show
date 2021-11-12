@@ -12,6 +12,7 @@ mod filter;
 pub mod style_mark;
 mod transform_will_change;
 mod content_box;
+mod mask_img;
 
 pub use crate::system::transform_will_change::*;
 pub use crate::system::style_mark::*;
@@ -26,4 +27,5 @@ pub use crate::system::text_layout::*;
 pub use crate::system::filter::*;
 pub use crate::system::render::*;
 pub use crate::system::content_box::*;
+pub use crate::system::mask_img::*;
 

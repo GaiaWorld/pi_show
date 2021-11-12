@@ -84,8 +84,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 			flag = false;
 			count += 1;
 			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
-				log::debug!("TextGlphySys 死循环, 当前纹理尺寸无法缓存现有的文字");
-				panic!("TextGlphySys 死循环");
+				log::debug!("TextGlphySys dead loop, the current texture size cannot cache existing text");
+				panic!("TextGlphySys dead loop");
 			}
 			for id in (read.4).0.iter() {
 				let r = match read.3.get(*id) {
@@ -212,7 +212,7 @@ impl<'a> Runner<'a> for TextLayoutUpdateSys {
 		&'a mut MultiCaseImpl<Node, LayoutR>,
 		&'a mut SingleCaseImpl<IdTree>);
 
-    fn run(&mut self, _resd: Self::ReadData, write: Self::WriteData) {
+    fn run(&mut self, _read: Self::ReadData, write: Self::WriteData) {
         for id in self.0.iter() {
 			update_layout(*id, write.0, write.1,write.2);
 		}
@@ -242,7 +242,10 @@ fn update_layout(
 	layout_rs: &mut MultiCaseImpl<Node, LayoutR>,
 	idtree: &SingleCaseImpl<IdTree>,
 ) {
-	let n = &idtree[id];
+	let n = match idtree.get(id) {
+		Some(r) => r,
+		None => return,
+	};
 	let node_state = unsafe{&mut *((&node_states[id]) as *const NodeState as *mut NodeState)};
 	let chars = &mut node_state.0.text;
 	let mut rect = Rect{
@@ -724,7 +727,7 @@ fn calc<'a>(
 			match font_sheet.get_font_info(&text_style.font.family) {
 				Some(r) => (r.0.clone(), r.1),
 				None => {
-					log::debug!("默认字体 is not exist, face_name: {:?}, id: {:?}",
+					log::debug!("default font is not exist, face_name: {:?}, id: {:?}",
 					text_style.font.family,
 					id);
 					return

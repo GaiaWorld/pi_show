@@ -172,9 +172,11 @@ pub struct Image {
     pub height: Option<f32>,
 }
 
-#[derive(Clone, Component)]
-pub struct MaskImage {
-	pub url: usize,
+// 遮罩图片是图片路径或线性渐变色
+#[derive(Clone, Component, Debug, Serialize, Deserialize)]
+pub enum MaskImage {
+	Path(usize),
+	LinearGradient(LinearGradientColor),
 }
 
 

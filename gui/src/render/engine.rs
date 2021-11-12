@@ -24,6 +24,7 @@ pub struct Engine<C: HalContext + 'static> {
     pub res_mgr: Share<RefCell<ResMgr>>,
     pub programs: XHashMap<u64, Share<HalProgram>>,
     pub texture_res_map: UnsafeMut<ResMap<TextureRes>>,
+	pub texture_part_res_map: UnsafeMut<ResMap<TexturePartRes>>,
     pub geometry_res_map: UnsafeMut<ResMap<GeometryRes>>,
     pub buffer_res_map: UnsafeMut<ResMap<BufferRes>>,
 
@@ -39,6 +40,7 @@ pub struct Engine<C: HalContext + 'static> {
 impl<C: HalContext + 'static> Engine<C> {
     pub fn new(gl: C, res_mgr: Share<RefCell<ResMgr>>) -> Self {
 		let texture_res_map;
+		let texture_part_res_map;
 		let geometry_res_map;
 		let buffer_res_map;
 		let rs_res_map;
@@ -51,6 +53,7 @@ impl<C: HalContext + 'static> Engine<C> {
 		{
 			let res_mgr_ref = res_mgr.borrow();
 			texture_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<TextureRes>(0).unwrap());
+			texture_part_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<TexturePartRes>(0).unwrap());
 			geometry_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<GeometryRes>(0).unwrap());
 			buffer_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<BufferRes>(0).unwrap());
 			rs_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<RasterStateRes>(0).unwrap());
@@ -64,6 +67,7 @@ impl<C: HalContext + 'static> Engine<C> {
         Engine {
             gl: gl,
             texture_res_map,
+			texture_part_res_map,
             geometry_res_map,
             buffer_res_map,
             rs_res_map,

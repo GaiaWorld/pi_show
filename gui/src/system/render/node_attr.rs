@@ -15,8 +15,8 @@ use ecs::{
 use hal_core::*;
 use res::{ResMap, ResMgr};
 
-use crate::component::calc::*;
-use crate::component::calc::Opacity;
+use crate::component::{calc::*, user::Aabb2, calc::Visibility as CVisibility};
+use crate::component::user::Opacity;
 use crate::component::user::BlendMode;
 use crate::entity::Node;
 use crate::render::engine::{ShareEngine, UnsafeMut};
@@ -104,6 +104,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
     type ReadData = (
 		&'a MultiCaseImpl<Node, TransformWillChangeMatrix>,
 		&'a MultiCaseImpl<Node, StyleMark>,
+		&'a MultiCaseImpl<Node, ContentBox>,
         &'a SingleCaseImpl<IdTree>,
         &'a SingleCaseImpl<ViewMatrix>,
         &'a SingleCaseImpl<ProjectionMatrix>,
@@ -112,6 +113,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 		&'a SingleCaseImpl<Oct>,
 		&'a SingleCaseImpl<RenderBegin>,
 		&'a EntityImpl<Node>,
+		&'a MultiCaseImpl<Node, crate::component::user::Image>,
 		
     );
     type WriteData = (
@@ -123,7 +125,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 	// type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
 	// type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        let (transform_will_change_matrixs, style_marks, idtree, view_matrix, _, node_render_map, dirty_list, octree, render_begin, nodes) = read;
+        let (transform_will_change_matrixs, style_marks, content_boxs, idtree, view_matrix, _, node_render_map, dirty_list, octree, render_begin, nodes, images) = read;
 		let (render_objs, _, dirty_view_rect) = write;
 		
 		for id in dirty_list.0.iter() {
@@ -139,18 +141,20 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 				continue;
 			}
 			
-			
-			match style_marks.get(*id) {
-				Some(r) => {
-					if r.dirty & StyleType::Oct as usize != 0 {
-						continue;
-					}
-				},
+			let style_mark = match style_marks.get(*id) {
+				Some(r) => r,
 				None => continue,
 			};
 
-			
-			handler_modify_oct(*id, octree, render_begin, dirty_view_rect);
+			if content_show_change(style_mark) {
+				if let Some(content_box) = content_boxs.get(*id) {
+					handler_modify_oct(*id, &content_box.0, render_begin, dirty_view_rect);
+				}
+			} else if style_mark.dirty & StyleType::Oct as usize == 0 { // oct不脏才更新，因为监听器已经处理了oct
+				if let Some(oct) = octree.get(*id) {
+					handler_modify_oct(*id, &oct.0, render_begin, dirty_view_rect);
+				}
+			}
 		}
 
         let mut modify = false;
@@ -193,7 +197,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         }
     }
     fn setup(&mut self, read: Self::ReadData, _: Self::WriteData) {
-        let (_, _, _, view_matrix, projection_matrix, _, _, _, _, _) = read;
+        let (_, _, _, _, view_matrix, projection_matrix, _, _, _, _, _, _) = read;
 
         let slice: &[f32] = view_matrix.0.as_slice();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
@@ -209,22 +213,24 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 
 fn handler_modify_oct(
 	id: usize,
-	octree: &SingleCaseImpl<Oct>,
+	aabb: &Aabb2,
+	// octree: &SingleCaseImpl<Oct>,
 	render_begin: &SingleCaseImpl<RenderBegin>,
 	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
 ) {
-	let oct = match octree.get(id){
-		Some(r) => r,
-		None => return,
-	};
-	let oct = &oct.0;
+	
+	// let oct = match octree.get(id){
+	// 	Some(r) => r,
+	// 	None => return,
+	// };
+	// let oct = &oct.0;
 	let viewport = render_begin.0.viewport;
 	// println!("true2======================dirty_view_rect: {:?}", **dirty_view_rect);
 	// 与包围盒求并
-	dirty_view_rect.0 = dirty_view_rect.0.min(oct.mins.x.max(0.0));
-	dirty_view_rect.1 = dirty_view_rect.1.min(oct.mins.y.max(0.0));
-	dirty_view_rect.2 = dirty_view_rect.2.max(oct.maxs.x.min(viewport.2 as f32));
-	dirty_view_rect.3 = dirty_view_rect.3.max(oct.maxs.y.min(viewport.3 as f32));
+	dirty_view_rect.0 = dirty_view_rect.0.min(aabb.mins.x.max(0.0));
+	dirty_view_rect.1 = dirty_view_rect.1.min(aabb.mins.y.max(0.0));
+	dirty_view_rect.2 = dirty_view_rect.2.max(aabb.maxs.x.min(viewport.2 as f32));
+	dirty_view_rect.3 = dirty_view_rect.3.max(aabb.maxs.y.min(viewport.3 as f32));
 	// println!("true3======================dirty_view_rect: {:?}, oct: {:?}", **dirty_view_rect, oct);
 
 	// 如果与视口一样大，则设置dirty_view_rect.4为true, 后面的包围盒改变，将不再重新计算dirty_view_rect
@@ -405,6 +411,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         &'a MultiCaseImpl<Node, HSV>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, Culling>,
+		&'a MultiCaseImpl<Node, Opacity>,
 		&'a MultiCaseImpl<Node, BlendMode>,
 		&'a SingleCaseImpl<DefaultState>,
     );
@@ -413,7 +420,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         &'a mut SingleCaseImpl<NodeRenderMap>,
     );
     fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
-        let (visibilitys, hsvs, z_depths, cullings, blend_modes, default_state) = read;
+        let (visibilitys, hsvs, z_depths, cullings, opcaitys, blend_modes, default_state) = read;
         let (render_objs, node_render_map) = write;
         let render_obj = &mut render_objs[event.id];
         let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
@@ -431,7 +438,8 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
 
         let visibility = visibilitys[render_obj.context].0;
         let culling = cullings[render_obj.context].0;
-        render_obj.visibility = visibility & !culling;
+		let opcaity = opcaitys[render_obj.context].0;
+        render_obj.visibility = visibility && !culling && opcaity > 0.0;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
 		let depth = -render_obj.depth / (Z_MAX + 1.0);
@@ -498,13 +506,41 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
     }
 }
 
-// 设置visibility
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, (CreateEvent, ModifyEvent)>
+// // 设置visibility
+// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, (CreateEvent, ModifyEvent)>
+//     for NodeAttrSys<C>
+// {
+//     type ReadData = (
+//         &'a MultiCaseImpl<Node, Visibility>, 
+//         &'a MultiCaseImpl<Node, Culling>,
+// 		&'a MultiCaseImpl<Node, Opacity>,
+// 		&'a SingleCaseImpl<Oct>,
+// 		&'a SingleCaseImpl<RenderBegin>,
+//     );
+//     type WriteData = (
+//         &'a mut SingleCaseImpl<RenderObjs>,
+//         &'a mut SingleCaseImpl<NodeRenderMap>,
+// 		&'a mut SingleCaseImpl<DirtyViewRect>
+//     );
+//     fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
+// 		// dirty_view_rect已经是最大范围了，不需要再修改
+// 		if (write.2).4 == true {
+// 			return;
+// 		}
+
+// 		if let Some(context_box) = read.3.get(event.id) {
+// 			handler_modify_oct(event.id, &context_box.0, read.4, write.2);
+// 		}
+//     }
+// }
+
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, CVisibility, (CreateEvent, ModifyEvent)>
     for NodeAttrSys<C>
 {
     type ReadData = (
         &'a MultiCaseImpl<Node, Visibility>, 
         &'a MultiCaseImpl<Node, Culling>,
+		&'a MultiCaseImpl<Node, Opacity>,
 		&'a SingleCaseImpl<Oct>,
 		&'a SingleCaseImpl<RenderBegin>,
     );
@@ -514,13 +550,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, (Creat
 		&'a mut SingleCaseImpl<DirtyViewRect>
     );
     fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
-        modify_visible(event.id, (read.0, read.1), (write.0, write.1));;
-		// dirty_view_rect已经是最大范围了，不需要再修改
-		if (write.2).4 == true {
-			return;
-		}
-
-		handler_modify_oct(event.id, read.2, read.3, write.2);
+        modify_visible(event.id, (read.0, read.1, read.2), (write.0, write.1));
     }
 }
 
@@ -531,6 +561,24 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Culling, ModifyEve
     type ReadData = (
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, Culling>,
+		&'a MultiCaseImpl<Node, Opacity>,
+    );
+    type WriteData = (
+        &'a mut SingleCaseImpl<RenderObjs>,
+        &'a mut SingleCaseImpl<NodeRenderMap>,
+    );
+    fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
+        modify_visible(event.id, read, write);
+    }
+}
+
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, (CreateEvent, ModifyEvent)>
+    for NodeAttrSys<C>
+{
+    type ReadData = (
+        &'a MultiCaseImpl<Node, Visibility>,
+        &'a MultiCaseImpl<Node, Culling>,
+		&'a MultiCaseImpl<Node, Opacity>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
@@ -562,21 +610,23 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, (CreateEvent, Modi
 	fn listen(
         &mut self,
         event: &Event,
-        read: Self::ReadData,
+        (octree, render_begin): Self::ReadData,
         dirty_view_rect: Self::WriteData,
     ) {
 		// dirty_view_rect已经是最大范围了，不需要再修改
 		if dirty_view_rect.4 == true {
 			return;
 		}
-
-		handler_modify_oct(event.id, read.0, read.1, dirty_view_rect);
+		if let Some(oct) = octree.get(event.id) {
+			handler_modify_oct(event.id, &oct.0, render_begin, dirty_view_rect);
+		}
     }
 }
 
 type ReadData<'a> = (
     &'a MultiCaseImpl<Node, Visibility>,
     &'a MultiCaseImpl<Node, Culling>,
+	&'a MultiCaseImpl<Node, Opacity>,
 );
 type WriteData<'a> = (
     &'a mut SingleCaseImpl<RenderObjs>,
@@ -584,17 +634,164 @@ type WriteData<'a> = (
 );
 
 fn modify_visible(id: usize, read: ReadData, write: WriteData) {
-    let (visibilitys, cullings) = read;
+    let (visibilitys, cullings, opacitys) = read;
     let (render_objs, node_render_map) = write;
     let visibility = visibilitys[id].0;
     let culling = cullings[id].0;
+	let opcaity = opacitys[id].0;
     let obj_ids = &node_render_map[id];
+
+	// log::info!("opcaity============={:?}, {:?}", opcaity, id);
 
     for id in obj_ids.iter() {
 		let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
         let mut render_obj = RenderObjs::get_write(&mut *render_objs, *id, &notify);
-        render_obj.set_visibility(visibility & !culling);
+        render_obj.set_visibility(visibility && !culling && opcaity > 0.0);
     }
+}
+
+const CONTENT_DIRTY: usize = StyleType::Filter as usize | StyleType::Opacity as usize;
+const CONTENT_DIRTY1:usize = StyleType1::Display as usize
+	| StyleType1::Visibility as usize
+	| StyleType1::Overflow as usize
+	| StyleType1::MaskImage as usize
+	| StyleType1::MaskImageClip as usize
+	| StyleType1::MaskTexture as usize;
+
+fn content_show_change(style_mark: &StyleMark) -> bool{
+	if style_mark.dirty & CONTENT_DIRTY != 0 || style_mark.dirty1 & CONTENT_DIRTY1 != 0 {
+		true
+	} else {
+		false
+	}
+}
+// 枚举样式的类型
+#[derive(Debug)]
+pub enum StyleType {
+    Text = 1,
+    FontStyle = 2,
+    FontWeight = 4,
+    FontSize = 0x8,
+    FontFamily = 0x10,
+    LetterSpacing = 0x20,
+    WordSpacing = 0x40,
+    LineHeight = 0x80,
+    Indent = 0x100,
+    WhiteSpace = 0x200,
+    TextAlign = 0x400,
+    VerticalAlign = 0x800,
+    Color = 0x1000,
+    Stroke = 0x2000,
+    TextShadow = 0x4000,
+
+    Image = 0x8000,
+    ImageClip = 0x10000,
+    ObjectFit = 0x20000,
+
+    BorderImage = 0x40000,
+    BorderImageClip = 0x80000,
+    BorderImageSlice = 0x100000,
+    BorderImageRepeat = 0x200000,
+
+    BorderColor = 0x400000,
+
+    BackgroundColor = 0x800000,
+
+    BoxShadow = 0x1000000,
+
+    Matrix = 0x2000000,
+    Opacity = 0x4000000,
+    Layout = 0x8000000,
+    BorderRadius = 0x10000000,
+    ByOverflow = 0x20000000,
+	Filter = 0x40000000,
+	Oct = std::isize::MIN,
+}
+
+// 枚举样式的类型
+#[derive(Debug)]
+pub enum StyleType1 {
+    // Width = 1,
+    // Height = 2,
+    // Margin = 4,
+    // Padding = 8,
+    // Border = 0x10,
+    // Position = 0x20,
+    // MinWidth = 0x40,
+    // MinHeight = 0x80,
+    // MaxHeight = 0x100,
+    // MaxWidth = 0x200,
+    // FlexBasis = 0x400,
+    // FlexShrink = 0x800,
+    // FlexGrow = 0x1000,
+    // PositionType = 0x2000,
+    // FlexWrap = 0x4000,
+    // FlexDirection = 0x8000,
+    // AlignContent = 0x10000,
+    // AlignItems = 0x20000,
+    // AlignSelf = 0x40000,
+	TransformOrigin = 0x4000,
+	ContentBox = 0x8000,
+	Direction = 0x10000,
+	AspectRatio = 0x20000,
+	Order = 0x40000,
+	FlexBasis = 0x80000,
+
+    Display = 0x100000,
+    Visibility = 0x200000,
+    Enable = 0x400000,
+    ZIndex = 0x800000,
+    Transform = 0x1000000,
+    TransformWillChange = 0x2000000,
+	Overflow = 0x4000000,
+	
+	Create = 0x8000000,
+	Delete = 0x10000000,
+
+	MaskImage = 0x20000000,
+	MaskImageClip = 0x40000000,
+	MaskTexture = std::isize::MIN,
+}
+
+// 布局属性标记
+pub enum StyleType2 {
+	Width = 1,
+    Height = 2,
+	
+	MarginTop = 4,
+	MarginRight = 8,
+	MarginBottom = 0x10,
+	MarginLeft = 0x20,
+
+	PaddingTop = 0x40,
+	PaddingRight = 0x80,
+	PaddingBottom = 0x100,
+	PaddingLeft = 0x200,
+
+	BorderTop = 0x400,
+	BorderRight = 0x800,
+	BorderBottom = 0x1000,
+	BorderLeft = 0x2000,
+
+	PositionTop = 0x4000,
+	PositionRight = 0x8000,
+	PositionBottom = 0x10000,
+	PositionLeft = 0x20000,
+	
+    MinWidth = 0x40000,
+    MinHeight = 0x80000,
+    MaxHeight = 0x100000,
+	MaxWidth = 0x200000,
+	JustifyContent = 0x400000,
+    FlexShrink = 0x800000,
+	FlexGrow = 0x1000000,
+	PositionType = 0x2000000,
+    FlexWrap = 0x4000000,
+    FlexDirection = 0x8000000,
+    AlignContent = 0x10000000,
+    AlignItems = 0x20000000,
+    AlignSelf = 0x40000000,
+	BlendMode = std::isize::MIN,
 }
 
 impl_system! {
@@ -607,7 +804,9 @@ impl_system! {
 		// SingleCaseListener<ProjectionMatrix, ModifyEvent>
 		SingleCaseListener<Oct, (CreateEvent, ModifyEvent, DeleteEvent)>
 		MultiCaseListener<Node, Visibility, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, CVisibility, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, Culling, ModifyEvent>
+		MultiCaseListener<Node, Opacity, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, HSV, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent)>

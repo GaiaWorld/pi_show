@@ -1460,6 +1460,20 @@ pub fn mem_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend();
 
+	let r = engine.res_mgr.borrow();
+
+	let mut use_all = 0;
+	let mut lru_all = 0;
+	for (k, i) in r.tables.iter() {
+		let use_c = i.res_map.use_cost();
+		use_all += use_c;
+		lru_all += i.res_map.lru_cost();
+
+		// log::info!("k: {:?}, use:{}, lru:{}", &k.1, use_c,  i.res_map.lru_cost());
+	}
+
+	// log::info!("total, use:{}, lru:{}", use_all,  lru_all);
+
     let texture = engine.texture_res_map.all_res();
 
     let mut texture_size = 0;
@@ -1488,6 +1502,24 @@ pub fn get_font_sheet_debug(world: u32){
 	
 }
 
+
+#[wasm_bindgen]
+pub fn get_opcaity(world: u32){
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+	let itree = world.gui.idtree.lend();
+	let opacity = world.gui.opacity.lend();
+
+	for (id, _node) in itree.recursive_iter(1){
+		if let Some(r) = opacity.get(id) {
+			if r.0 < 1.0 {
+				log::info!("opcaity==============={},{}", id, r.0);
+			}
+			
+		}
+	}
+	
+}
 /// 打印内存情况
 #[allow(unused_attributes)]
 #[wasm_bindgen]

@@ -161,6 +161,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             let world_matrix = &world_matrixs[*id];
 
             if dirty & GEO_DIRTY != 0 {
+				// log::info!("uv1============{:?}", id);
                 let (has_radius, pos) = update_geo(
                     render_obj,
                     border_radius,
@@ -384,6 +385,7 @@ fn update_geo_quad<C: HalContext + 'static>(
                 }
                 false => (uv.mins, uv.maxs),
 			};
+			// log::info!("clip===={:?}, {:?}, {:?}, {:?}", _clip, &uv1, &uv2, flip_y);
             let uv_hash = cal_uv_hash(&uv1, &uv2);
             let geo_hash = unit_geo_hash(&uv_hash);
             match engine.geometry_res_map.get(&geo_hash) {
@@ -604,6 +606,7 @@ fn get_pos_uv(
                 src.width as f32 * (c.maxs.x - c.mins.x).abs(),
                 src.height as f32 * (c.maxs.y - c.mins.y).abs(),
             );
+			// log::info!("size================={:?}");
             (size, c.mins, c.maxs)
         }
         _ => (
@@ -657,17 +660,21 @@ fn get_pos_uv(
             }
             FitType::Cover => {
                 // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
-                let rw = size.x / w;
-                let rh = size.y / h;
-                if rw > rh {
-                    let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
-                    uv1.x += x;
-                    uv2.x -= x;
-                } else {
-                    let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
-                    uv1.y += y;
-                    uv2.y -= y;
-                }
+				if w != 0.0 && h != 0.0 {
+					let rw = size.x / w;
+					let rh = size.y / h;
+					
+					if rw > rh {
+						let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
+						uv1.x += x;
+						uv2.x -= x;
+					} else {
+						let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
+						uv1.y += y;
+						uv2.y -= y;
+					}
+				}
+                
             }
             FitType::ScaleDown => {
                 // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
@@ -694,17 +701,19 @@ fn get_pos_uv(
 }
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {
-    let rw = size.x / w;
-    let rh = size.y / h;
-    if rw > rh {
-        let y = (h - size.y / rw) / 2.0;
-        p1.y += y;
-        p2.y -= y;
-    } else {
-        let x = (w - size.x / rh) / 2.0;
-        p1.x += x;
-        p2.x -= x;
-    }
+	if w != 0.0 && h != 0.0 {
+		let rw = size.x / w;
+		let rh = size.y / h;
+		if rw > rh {
+			let y = (h - size.y / rw) / 2.0;
+			p1.y += y;
+			p2.y -= y;
+		} else {
+			let x = (w - size.x / rh) / 2.0;
+			p1.x += x;
+			p2.x -= x;
+		}
+	}
 }
 
 impl_system! {

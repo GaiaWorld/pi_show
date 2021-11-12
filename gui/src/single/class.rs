@@ -106,7 +106,7 @@ pub enum Attribute2 {
     PositionRight(Dimension),
     PositionBottom(Dimension),
 
-	MaskImageUrl(usize),
+	MaskImage(MaskImage),
 	BlendMode(BlendMode),
 }
 

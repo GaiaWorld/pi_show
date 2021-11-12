@@ -4,6 +4,7 @@
 use std::cmp::Ordering;
 use std::default::{Default};
 use std::marker::PhantomData;
+use std::cell::RefCell;
 
 use ecs::{
     CreateEvent, DeleteEvent, ModifyEvent, Runner, SingleCaseImpl, SingleCaseListener, MultiCaseImpl,
@@ -19,8 +20,9 @@ use crate::entity::Node;
 
 use crate::render::engine::{Engine, ShareEngine};
 use crate::render::res::{SamplerRes};
+use crate::single::PreRenderList;
 use crate::single::{DirtyViewRect, IdTree, NodeRenderMap, Oct, ProjectionMatrix, RenderBegin, RenderObj, RenderObjs, Statistics, dyn_texture::DynAtlasSet};
-use crate::system::util::{cal_uv_hash, create_uv_buffer};
+use crate::system::util::{cal_uv_hash, create_uv_buffer, intersect};
 
 pub struct RenderSys<C: HalContext + 'static> {
     program_dirtys: Vec<usize>,
@@ -74,19 +76,6 @@ fn is_intersect(a: &Aabb2, b: &Aabb2) -> bool {
     }
 }
 
-// 计算两个aabb的交集
-#[inline]
-fn intersect(a: &Aabb2, b: &Aabb2) -> Option<Aabb2> {
-	let r = Aabb2::new(
-		Point2::new(a.mins.x.max(b.mins.x), a.mins.y.max(b.mins.y)),
-		Point2::new(a.maxs.x.min(b.maxs.x), a.maxs.y.min(b.maxs.y))
-	);
-	if r.maxs.x <= r.mins.x || r.maxs.y <= r.mins.y {
-		return None
-	}
-	Some(r)
-}
-
 
 fn list_render_obj(render_context: &mut RenderContext, item: &RenderObj, index: usize) {
 	if item.visibility == true {
@@ -103,6 +92,8 @@ fn update_geo<C: HalContext + 'static>(
 	engine: &mut Engine<C>,
 	uv: &Aabb2,
 ) {
+	// let geo = engine.create_geometry();
+	
 	if let Some(r) = &render_obj.geometry {
 		let uv_hash = cal_uv_hash(&uv.mins, &uv.maxs);
 		let uv_buffer = create_uv_buffer(uv_hash, &uv.mins, &uv.maxs, engine);
@@ -140,17 +131,16 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			};
 			
 			if let Some(r) = render_contexts1.get_mut(id) {
-				if is_intersect(dirty_rect, oct) {
+				self.render_context(id, render_map, render_objs, idtree, r, render_contexts, dirty_rect, octree, dyn_atlas_set, engine, is_reset, render_begin, statistics, parent_target);
+
+				let is_render = match r.render_target {
+					Some(r) => r > 0,
+					None => false
+				};
+
+				if is_render && is_intersect(dirty_rect, oct) {
 					list_render_obj(render_context, &render_objs[r.render_obj_index], r.render_obj_index);
 				}
-
-				// if let Some(r) = r.render_target {
-				// 	if dyn_atlas_set.get_target(target_index).unwrap() == render_context.ren{
-
-				// 	}
-				// }
-				
-				self.render_context(id, render_map, render_objs, idtree, r, render_contexts, dirty_rect, octree, dyn_atlas_set, engine, is_reset, render_begin, statistics, parent_target);
 				continue;
 			}
 
@@ -173,8 +163,14 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let render_contexts1 = unsafe{ &mut *(render_contexts as *const MultiCaseImpl<Node, RenderContext> as usize as *mut MultiCaseImpl<Node, RenderContext>) };
 		for (id, node) in idtree.iter(head) {
 			if let Some(r) = render_contexts1.get_mut(id) {
-				list_render_obj(render_context, &render_objs[r.render_obj_index], r.render_obj_index);
 				self.render_context(id, render_map, render_objs, idtree, r, render_contexts, dirty_rect, octree, dyn_atlas_set, engine, true, render_begin, statistics, parent_target);
+				let is_render = match r.render_target {
+					Some(r) => r > 0,
+					None => false
+				};
+				if is_render {
+					list_render_obj(render_context, &render_objs[r.render_obj_index], r.render_obj_index);
+				}
 				continue;
 			}
 
@@ -189,15 +185,19 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 	// 根据脏区域，列出渲染对象
 	fn render_context(&mut self, id: usize, render_map: &NodeRenderMap, render_objs: &mut RenderObjs, idtree: &IdTree, render_context: &mut RenderContext, render_contexts: &mut MultiCaseImpl<Node, RenderContext>, dirty_rect: &Aabb2, octree: &SingleCaseImpl<Oct>, dyn_atlas_set:&mut DynAtlasSet, engine: &mut Engine<C>, is_reset: bool, render_begin: &RenderBegin, statistics: &mut Statistics, parent_target: usize) {
+		let oldCount = render_context.opacity_list.len() + render_context.transparent_list.len();
 		render_context.opacity_list.clear();
 		render_context.transparent_list.clear();
-		let id1 = id;
 		
 		let mut render_target_change = false;
 		let render_index_context = render_context.render_obj_index;
 		
 		if let Some(mut render_target) = render_context.render_target {
 			let render_obj = &mut render_objs[render_index_context];
+			if !render_obj.visibility { // 如果不可见，可以不用渲染
+				return;
+			}
+			// log::info!("======================={:?}", render_obj.context);
 			
 			if self.is_update_context_texture {
 				let content_box = render_context.content_box.clone();
@@ -205,20 +205,21 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				if content_box.maxs.x-content_box.mins.x <= 0.0 || content_box.maxs.y-content_box.mins.y <= 0.0 {
 					return;
 				}
-				let target_index = dyn_atlas_set.update_or_add_rect(render_target,parent_target, content_box.maxs.x-content_box.mins.x,content_box.maxs.y-content_box.mins.y, &mut engine.gl);
+				
+				let target_index = dyn_atlas_set.update_or_add_rect(render_target,parent_target, content_box.maxs.x-content_box.mins.x,content_box.maxs.y-content_box.mins.y, PixelFormat::RGBA, DataFormat::UnsignedByte, &mut engine.gl);
+				
 				// 如果纹理区域修改了，则重新设置纹理，以及重新更新uv
 				if target_index != 0 {
 					render_context.render_target = Some(target_index);
 					render_target = target_index;
 					render_target_change = true;
 					
-
+					let t = engine.gl
+					.rt_get_color_texture(dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap();
 					// 绑定纹理
 					render_obj.paramter.set_texture(
 						"texture",
-						(&engine
-							.gl
-							.rt_get_color_texture(dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap(), &self.default_sampler),
+						(t, &self.default_sampler),
 					);
 				}
 			}
@@ -235,23 +236,20 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				// 设置uv
 				update_geo(render_obj, engine, &uv);
 				
-				if render_context.geo_change {
-					// 渲染目标矩形改变，投影矩阵也需要重新设置
-					// 重新计算投影矩阵
-					let project_martix = ProjectionMatrix(ProjectionMatrix::new(
-						rect.maxs.x - rect.mins.x,
-						rect.maxs.y - rect.mins.y,
-						-Z_MAX - 1.0,
-						Z_MAX + 1.0,
-					).0 * get_render_project_matrix(&render_context.content_box));
-					let buffer = Vec::from(project_martix.0.as_slice());
-					render_context.projection_matrix_ubo = Some(Share::new(ProjectMatrixUbo::new(
-						UniformValue::MatrixV4(buffer),
-					)));
-					render_context.projection_matrix = Some(project_martix);
-					render_context.geo_change = false;
-					
-				}
+				// 渲染目标矩形改变，投影矩阵也需要重新设置
+				// 重新计算投影矩阵
+				let project_martix = ProjectionMatrix(ProjectionMatrix::new(
+					rect.maxs.x - rect.mins.x,
+					rect.maxs.y - rect.mins.y,
+					-Z_MAX - 1.0,
+					Z_MAX + 1.0,
+				).0 * get_render_project_matrix(&render_context.content_box));
+				let buffer = Vec::from(project_martix.0.as_slice());
+				render_context.projection_matrix_ubo = Some(Share::new(ProjectMatrixUbo::new(
+					UniformValue::MatrixV4(buffer),
+				)));
+				render_context.projection_matrix = Some(project_martix);
+				render_context.geo_change = false;
 			}
 		}
 
@@ -267,14 +265,29 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				Some(r) => r,
 				None => return,
 			};
+			// if id != 1 {
+			// 	log::info!("oct: {:?}, {:?}", id, octree.get(id));
+			// } else {
+			// 	log::info!("scissor: {:?}, {:?}, {:?}, {:?}, {:?}", id, (
+			// 		viewport.0 + (intersect_rect.mins.x - content_box.mins.x) as i32,
+			// 		viewport.1 - (intersect_rect.maxs.y - content_box.maxs.y)as i32,
+			// 		(intersect_rect.maxs.x - intersect_rect.mins.x) as i32,
+			// 		(intersect_rect.maxs.y - intersect_rect.mins.y) as i32,
+			// 	), viewport, dirty_rect, content_box);
+			// }
 			// log::info!("content_box====={:?}, {}, {:?}", content_box, id, rect);
 			(
-				viewport.0 + (intersect_rect.mins.x - content_box.mins.x).floor() as i32,
-				viewport.1 - (intersect_rect.maxs.y - content_box.maxs.y).ceil() as i32,
-				(intersect_rect.maxs.x.ceil() - intersect_rect.mins.x.floor()) as i32,
-				(intersect_rect.maxs.y.ceil() - intersect_rect.mins.y.floor()) as i32,
+				viewport.0 + (intersect_rect.mins.x - content_box.mins.x) as i32,
+				viewport.1 - (intersect_rect.maxs.y - content_box.maxs.y)as i32,
+				(intersect_rect.maxs.x - intersect_rect.mins.x) as i32,
+				(intersect_rect.maxs.y - intersect_rect.mins.y) as i32,
 			)
 		} else {
+			// if id != 1 {
+			// 	log::info!("oct1: {:?}, {:?}", id, octree.get(id));
+			// } else {
+			// 	log::info!("scissor1: {:?}, {:?}, {:?}, {:?}, {:?}", id, (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32), viewport, dirty_rect, content_box);
+			// }
 			(rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32)
 		};
 		// log::info!("scissor====={:?}, {}, {:?}, {:?}", scissor, id, viewport, dirty_rect);
@@ -307,6 +320,11 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				Some(r) => r,
 				None => 0
 			});
+		}
+
+		// 没有可渲染的物体，返回
+		if render_context.opacity_list.len()==0 && render_context.transparent_list.len()==0 && oldCount == 0 { 
+			return;
 		}
 
 		// 排序
@@ -346,7 +364,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				None => &self.view_matrix_ubo,
 			},
 			match render_context.render_target {
-				Some(r) => Some((OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0))),
+				Some(_r) => Some((OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0))),
 				None => render_begin.0.clear_color.clone()
 			}
 		);
@@ -359,20 +377,21 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			clear_stencil: render_begin.0.clear_stencil.clone(),
 		};
 
+
 		if scissor.2 == 0 {
 			return;
 		}
-
+	
 		// log::info!("begine====={:?}, {:?}, id:{}, dirty_rect: {:?}", begine.viewport, begine.scissor, id, dirty_rect);
-		engine.gl.render_begin(target, &begine, match self.render_count {0 => true, _=> false});
+		engine.gl.render_begin(target, &begine, match self.render_count {0 => true, _=> {engine.gl.render_reset_geometry();false}});
 		// log::info!("direct: {:?}, {:?}, {:?}", dirty_rect, self.opacity_list, self.transparent_list);
 		for id in render_context.opacity_list.iter() {
 			let obj = &render_objs[*id];
-			render(&engine.gl, obj, statistics, project_ubo, view_ubo);
+			render(&engine.gl, obj, statistics, Some(project_ubo), Some(view_ubo));
 		}
 		for id in render_context.transparent_list.iter() {
 			let obj = &render_objs[*id];
-			render(&engine.gl, obj, statistics, project_ubo, view_ubo);
+			render(&engine.gl, obj, statistics, Some(project_ubo), Some(view_ubo));
 		};
 		self.render_count += 1;
 	}
@@ -387,7 +406,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		&'a SingleCaseImpl<NodeRenderMap>,
 	);
     type WriteData = (
-		&'a mut SingleCaseImpl<DynAtlasSet>,
+		&'a mut SingleCaseImpl<PreRenderList>,
+		&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>,
 		&'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<ShareEngine<C>>,
 		&'a mut SingleCaseImpl<Statistics>,
@@ -401,7 +421,69 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			octree, 
 			idtree,
 			render_map,) = read;
-        let (dyn_atlas_set, render_objs, engine, statistics, dirty_view_rect, render_begin, render_contexts,) = write;
+        let (pre_render_list, dyn_atlas_set, render_objs, engine, statistics, dirty_view_rect, render_begin, render_contexts,) = write;
+		
+		let mut dyn_atlas_set = dyn_atlas_set.borrow_mut();
+		if pre_render_list.len() > 0 {
+			for item in pre_render_list.iter_mut() {
+				// 更新Program
+				let render_obj = &mut item.obj;
+				if render_obj.program.is_none() {
+					let program = engine.create_program(
+						render_obj.vs_name.get_hash() as u64,
+						render_obj.fs_name.get_hash() as u64,
+						&render_obj.vs_name,
+						&*render_obj.vs_defines,
+						&render_obj.fs_name,
+						&*render_obj.fs_defines,
+						render_obj.paramter.as_ref(),
+					);
+					render_obj.program = Some(program);
+				}
+				
+
+	// 			let matrix = vec![
+	// 	1.0, 0.0, 0.0, 0.0, 
+	// 	0.0, 1.0, 0.0, 0.0,
+	// 	0.0, 0.0, 1.0, 0.0,
+	// 	0.0, 0.0, 0.0, 1.0
+	// ];
+	// render_obj.paramter.set_value(
+    //     "worldMatrix",
+    //     Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix.clone()))),
+	// );
+	// render_obj.paramter.set_value(
+    //     "viewMatrix",
+    //     Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix))),
+	// );
+	// // projectMatrix, alpha, depth
+				
+				// 渲染（每次渲染只有一个obj， 多个obj， TODO）
+				let index = item.index;
+				let rect = dyn_atlas_set.get_rect(index).unwrap();
+				let v = (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x - rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32);
+				// 不需要深度
+				let begine = RenderBeginDesc {
+					viewport: v.clone(),
+					scissor: v,
+					clear_color: Some((OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0))),
+					clear_depth: render_begin.0.clear_depth.clone(),
+					clear_stencil: render_begin.0.clear_stencil.clone(),
+				};
+				engine.gl.render_begin(
+					Some(dyn_atlas_set.get_target(index).unwrap()), 
+					&begine, 
+					match self.render_count {
+						0 => true,
+						_=> {engine.gl.render_reset_geometry();false}
+					}
+				);
+				render(&engine.gl, render_obj, statistics, None, None);
+				self.render_count += 1;
+			}
+			pre_render_list.clear();
+			self.dirty = true;
+		}
 
         for id in self.program_dirtys.iter() {
             let render_obj = match render_objs.get_mut(*id) {
@@ -438,6 +520,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			Point2::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32), Point2::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32)
 		);
 		let is_reset = dirty_view_rect.4; // 是否全部重新渲染
+		if !is_reset {
+			dirty_rect.mins.x = dirty_rect.mins.x.floor();
+			dirty_rect.mins.y = dirty_rect.mins.y.floor();
+			dirty_rect.maxs.x = dirty_rect.maxs.x.ceil();
+			dirty_rect.maxs.y = dirty_rect.maxs.y.ceil();
+		}
 		// if dirty_view_rect.4 == true {
 		// 	dirty_rect = Aabb2::new(
 		// 		Point2::new(0.0, 0.0), Point2::new(578.8295, 937.0)
@@ -449,8 +537,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 
 		let root = 1;
 		let render_context_root = &mut render_contexts[root];
-
-		self.render_context(1, render_map, render_objs, idtree, render_context_root, render_contexts1, &dirty_rect, octree, dyn_atlas_set, engine, is_reset, render_begin, statistics, 0);
+		
+		// let mut dyn_atlas_set = dyn_atlas_set.borrow_mut();
+		self.render_context(1, render_map, render_objs, idtree, render_context_root, render_contexts1, &dirty_rect, octree, &mut dyn_atlas_set, engine, is_reset, render_begin, statistics, 0);
 		
 		if self.render_count > 0 { // 如果进行了一些渲染，则需要重置状态
 			engine.gl.render_end();
@@ -569,25 +658,24 @@ fn render<C: HalContext + 'static>(
 	gl: &C,
 	obj: &RenderObj,
 	statistics: &mut Statistics,
-	project_matrix: &Share<dyn UniformBuffer>,
-	view_matrix: &Share<dyn UniformBuffer>,
+	project_matrix: Option<&Share<dyn UniformBuffer>>,
+	view_matrix: Option<&Share<dyn UniformBuffer>>,
 ) {
     let geometry = match &obj.geometry {
         None => return,
         Some(g) => g,
     };
-	// if let Some(project_matrix) = project_matrix {
+	if let Some(project_matrix) = project_matrix {
 		obj.paramter.set_value("projectMatrix", project_matrix.clone());
-	// }
-	// if let Some(view_matrix) = view_matrix  {
+	}
+	if let Some(view_matrix) = view_matrix  {
 		obj.paramter.set_value("viewMatrix", view_matrix.clone());
-	// }
+	}
 	
     // #[cfg(feature = "performance")]
     statistics.drawcall_times += 1;
     gl.render_set_program(obj.program.as_ref().unwrap());
     gl.render_set_state(&obj.state.bs, &obj.state.ds, &obj.state.rs, &obj.state.ss);
-	// log::info!("render=============");
     gl.render_draw(&geometry.geo, &obj.paramter);
 }
 
@@ -670,4 +758,47 @@ impl_system! {
         SingleCaseListener<RenderObjs, DeleteEvent>
 		SingleCaseListener<ProjectionMatrix, ModifyEvent>
     }
+}
+
+#[cfg(test)]
+use crate::component::user::Vector4;
+#[test]
+fn test() {
+	let rect = Aabb2::new(Point2::new(0.0, 457.0), Point2::new(113.0, 614.0));
+	let content_box = Aabb2::new(Point2::new(337.0, 305.0), Point2::new(450.0, 462.0));
+	
+	let project_martix = ProjectionMatrix(ProjectionMatrix::new(
+		rect.maxs.x - rect.mins.x,
+		rect.maxs.y - rect.mins.y,
+		-Z_MAX - 1.0,
+		Z_MAX + 1.0,
+	).0 * get_render_project_matrix(&content_box));
+	println!("{:?}", project_martix.0.as_slice());
+
+
+	let wm = WorldMatrix(Matrix4::new(
+		112.2750, 0.0, 0.0, 337.0,
+		 0.0, 156.7172, 0.0, 305.0,
+		0.0, 0.0, 1.0, -0.3275,
+		0.0,0.0,0.0,1.0,
+	), false);
+
+	let pm1 = WorldMatrix(Matrix4::new(
+		0.5000, 0.0, 0.0, -1.0,
+  	    0.0, -0.5000, 0.0, 1.0, 
+		0.0, 0.0, -0.0000, 0.0, 
+		0.0, 0.0, 0.0, 1.0), false);
+	
+	let v1 = Vector4::new(0.0, 0.0,0.0,1.0);
+	let v2 = Vector4::new(4.0, 4.0,0.0,1.0);
+	let v3 = Vector4::new(1.0, 1.0,0.0,1.0);
+	let v4 = Vector4::new(0.0, 1.0,0.0,1.0);
+
+	let m = wm.clone();
+	// println!("{:?}, {:?}, {:?}, {:?}", m.0 * v1, m.0 * v2,m.0 * v3,m.0 * v4);
+	println!("{:?}", pm1.0 * v1);
+	
+	let m = project_martix.0 * wm;
+	println!("{:?}", pm1.0 * v2);
+
 }

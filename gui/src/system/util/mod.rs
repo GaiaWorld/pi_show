@@ -84,6 +84,18 @@ pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, hei
 
 pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
     let mut hasher = DefaultHasher::default();
+	if let Err(_r) = NotNan::new(r) {
+		log::info!("r=============={}", r);
+	}
+	if let Err(g) = NotNan::new(g) {
+		log::info!("g=============={}",g);
+	}
+	if let Err(r) = NotNan::new(b) {
+		log::info!("b=============={}", b);
+	}
+	if let Err(r) = NotNan::new(a) {
+		log::info!("a=============={}", a);
+	}
     NotNan::new(r).unwrap().hash(&mut hasher);
     NotNan::new(g).unwrap().hash(&mut hasher);
     NotNan::new(b).unwrap().hash(&mut hasher);
@@ -92,6 +104,18 @@ pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
 }
 
 pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut DefaultHasher) {
+	if let Err(_r) = NotNan::new(r) {
+		log::info!("r=============={}", r);
+	}
+	if let Err(g) = NotNan::new(g) {
+		log::info!("g=============={}",g);
+	}
+	if let Err(r) = NotNan::new(b) {
+		log::info!("b=============={}", b);
+	}
+	if let Err(r) = NotNan::new(a) {
+		log::info!("a=============={}", a);
+	}
     NotNan::new(r).unwrap().hash(hasher);
     NotNan::new(g).unwrap().hash(hasher);
     NotNan::new(b).unwrap().hash(hasher);
@@ -330,6 +354,19 @@ pub fn modify_opacity<C: HalContext + 'static>(
     //     render_obj.state.bs = engine.create_bs_res(bs);
     //     render_obj.state.ds = engine.create_ds_res(ds);
     // }
+}
+
+// 计算两个aabb的交集
+#[inline]
+pub fn intersect(a: &Aabb2, b: &Aabb2) -> Option<Aabb2> {
+	let r = Aabb2::new(
+		Point2::new(a.mins.x.max(b.mins.x), a.mins.y.max(b.mins.y)),
+		Point2::new(a.maxs.x.min(b.maxs.x), a.maxs.y.min(b.maxs.y))
+	);
+	if r.maxs.x <= r.mins.x || r.maxs.y <= r.mins.y {
+		return None
+	}
+	Some(r)
 }
 
 #[inline]
