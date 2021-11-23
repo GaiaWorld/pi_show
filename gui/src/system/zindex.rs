@@ -606,8 +606,9 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
 	}
   let (min, r, old_min) = {
     let zi = &mut map[id];
-    debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
-    let (min, max) = if !rate.is_nan(){
+    // debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z)
+
+    let (min, max) = if !rate.is_nan() && !rate.is_infinite(){
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
       (min_z, max_z)
@@ -637,9 +638,10 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
     
     // 判断是否为auto
     if min != max {
+		
       debug_println!("xxx---------id: {:?} min_z: {:?} max_z: {:?}, old_min: {:?} old_max:{}, rate:{}", id, min_z, max_z, old_min_z, old_max_z, (max_z - min_z - 1.)/ (old_max_z - old_min_z));
       (min, (max - min - 1.)/ (old_max_z - old_min_z), old_min_z)
-    }else if !rate.is_nan() {
+    }else if !rate.is_nan() && !rate.is_infinite(){
       // 如果是auto，则重用min_z, rate, parent_min
       (min_z, rate, parent_min)
     }else{

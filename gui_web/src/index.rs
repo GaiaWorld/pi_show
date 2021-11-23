@@ -134,6 +134,7 @@ pub fn bind_render_target(world_id: u32, render_target: u32) {
     } else {
         begin.1 =
 			Some(unsafe { &*(render_target as usize as *const Share<HalRenderTarget>) }.clone());
+			begin.get_notify_ref().modify_event(0, "", 0);
 		set_render_dirty(world_id);
     }
 }
@@ -644,7 +645,6 @@ pub fn load_image_success(
 	data: Object,
 	cost: u32
 ) {
-	// log::info!("pformate0: {:?}", pformate);
 	let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;

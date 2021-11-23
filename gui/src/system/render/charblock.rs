@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 
 use ecs::monitor::{Event, NotifyImpl};
 use ecs::{
-    DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl,
+    DeleteEvent, ModifyEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl,
 	SingleCaseListener,
 	StdCell,
 };
@@ -447,13 +447,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TextStyle, DeleteEvent> for CharBlockSys<C>
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
+    for CharBlockSys<C>
 {
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -1352,6 +1354,6 @@ impl_system! {
     CharBlockSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, TextStyle, DeleteEvent>
+        EntityListener<Node, DeleteEvent>
     }
 }

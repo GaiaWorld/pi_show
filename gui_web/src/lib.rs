@@ -17,6 +17,7 @@ extern crate web_sys;
 extern crate wasm_bindgen;
 extern crate ecs;
 extern crate gui;
+#[macro_use]
 extern crate lazy_static;
 pub extern crate paste;
 extern crate map;

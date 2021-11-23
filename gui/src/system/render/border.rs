@@ -4,7 +4,7 @@ use share::Share;
  */
 use std::marker::PhantomData;
 
-use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{NotifyImpl, Event};
 use hal_core::*;
 use map::vecmap::VecMap;
@@ -169,13 +169,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderColor, DeleteEvent>
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
     for BorderColorSys<C>
 {
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -316,6 +318,6 @@ impl_system! {
     BorderColorSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BorderColor, DeleteEvent>
+        EntityListener<Node, DeleteEvent>
     }
 }

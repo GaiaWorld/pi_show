@@ -1258,6 +1258,18 @@ impl WebglHalContext {
         }
     }
 
+	pub fn rt_get_object_webgl(&self, tex: &HalRenderTarget) -> Option<&WebGlFramebuffer> {
+        let slab = convert_to_mut(&self.0.rt_slab);
+        if let Some(t) = get_mut_ref(slab, tex.item.index, tex.item.use_count) {
+            match &t.handle {
+				Some(r) => Some(r),
+				None => None,
+			}
+        } else {
+            None
+        }
+    }
+
     fn texture_copy_impl(
         &self,
         dst: &WebGLTextureImpl,

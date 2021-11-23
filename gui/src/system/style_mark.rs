@@ -482,13 +482,77 @@ impl<'a, C: HalContext + 'static>
 
 
 impl<'a, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, MaskTexture, (CreateEvent, ModifyEvent)> for StyleMarkSys<C>
+    MultiCaseListener<'a, Node, MaskTexture, (CreateEvent, ModifyEvent, DeleteEvent)> for StyleMarkSys<C>
 {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &Event, _: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
         if let Some(r) = style_marks.get_mut(event.id) {
 			set_dirty1(dirty_list, event.id, StyleType1::MaskTexture as usize, r);
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ImageTexture, (CreateEvent, ModifyEvent)> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, StyleMark>,
+		&'a mut SingleCaseImpl<DirtyList>,
+		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+		&'a mut MultiCaseImpl<Node, ImageClip>,
+		&'a mut MultiCaseImpl<Node, ImageTexture>,
+	);
+    fn listen(&mut self, event: &Event, _: Self::ReadData, write: Self::WriteData) {
+		
+		let (style_marks, dirty_list, layout_styles, image_clips, image_textures) = write;
+		let id = event.id;
+		set_dirty1(dirty_list, id, StyleType1::ImageTexture as usize, &mut style_marks[id]);
+
+		if let Some(texture) = image_textures.get(id) {
+			if let ImageTexture::All(texture) = texture{
+				set_image_size(
+					texture,
+					&mut layout_styles[id],
+					image_clips.get(id),
+					&mut style_marks[id],
+				);
+			}
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, ImageTexture, DeleteEvent> for StyleMarkSys<C>
+{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, StyleMark>,
+		&'a mut SingleCaseImpl<DirtyList>
+	);
+    fn listen(&mut self, event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
+		let (style_marks, dirty_list) = write;
+		let id = event.id;
+		// 当节点不再树上时，设置脏没有意义
+		if let Some(r) =  idtree.get(id) {
+			if r.layer() > 0 {
+				if let Some(style_mark) = style_marks.get_mut(id){
+					set_dirty1(dirty_list, id, StyleType1::ImageTexture as usize, style_mark);
+				}
+			}
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImageTexture, (CreateEvent, ModifyEvent, DeleteEvent)> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &Event, _: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
+        if let Some(r) = style_marks.get_mut(event.id) {
+			set_dirty1(dirty_list, event.id, StyleType1::BorderImageTexture as usize, r);
 		}
     }
 }
@@ -516,12 +580,53 @@ impl<'a, C: HalContext + 'static>
 }
 
 impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, MaskImage, DeleteEvent> for StyleMarkSys<C>
+{
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = (&'a mut SingleCaseImpl<DirtyList>,&'a mut MultiCaseImpl<Node, StyleMark>);
+    fn listen(&mut self, event: &Event, idtree: Self::ReadData, (dirty_list, style_marks): Self::WriteData) {
+		if let Some(r) = style_marks.get_mut(event.id) {
+			set_dirty1(dirty_list, event.id, StyleType1::ContentBox as usize, r);
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, Image, (CreateEvent, ModifyEvent)> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = ImageWrite<'a, C>;
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, StyleMark>,
+		&'a mut SingleCaseImpl<DirtyList>,
+		&'a mut SingleCaseImpl<ShareEngine<C>>,
+		&'a mut SingleCaseImpl<ImageWaitSheet>,
+		&'a mut MultiCaseImpl<Node, Image>,
+		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+		&'a mut MultiCaseImpl<Node, ImageClip>,
+		&'a mut MultiCaseImpl<Node, ImageTexture>,
+	);
     fn listen(&mut self, event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
-        set_image_local(event.id, idtree, write);
+        // set_image_local(event.id, idtree, write);
+		let id = event.id;
+		set_local_dirty(write.1, id, StyleType::Image as usize, write.0);
+
+		if let Some(n) = idtree.get(id) {
+			if n.layer() > 0 {
+				let image = &mut write.4[id];
+				set_image(id, write.2, write.3, image, write.7, ImageType::ImageLocal);
+			}
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, Image, DeleteEvent> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = &'a mut MultiCaseImpl<Node, ImageTexture>;
+    fn listen(&mut self, event: &Event, _: Self::ReadData, image_textutes: Self::WriteData){
+		let id = event.id;
+		image_textutes.delete(id); // border_image删除时，删除对应的纹理
     }
 }
 
@@ -534,16 +639,17 @@ impl<'a, C: HalContext + 'static>
         &'a mut SingleCaseImpl<DirtyList>,
 		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
         &'a mut MultiCaseImpl<Node, ImageClip>,
-        &'a mut MultiCaseImpl<Node, Image>,
+        &'a mut MultiCaseImpl<Node, ImageTexture>,
     );
     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list, layout_styles, image_clips, images) = write;
+        let (style_marks, dirty_list, layout_styles, image_clips, image_textures) = write;
 		let id = event.id;
 		set_local_dirty(dirty_list, id, StyleType::ImageClip as usize, style_marks);
-        if let Some(image) = images.get(id) {
-            if let Some(src) = &image.src {
+
+        if let Some(texture) = image_textures.get(id) {
+            if let ImageTexture::All(texture) = texture{
                 set_image_size(
-                    src,
+                    texture,
                     &mut layout_styles[id],
                     image_clips.get(id),
                     &mut style_marks[id],
@@ -616,9 +722,35 @@ impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, BorderImage, (CreateEvent, ModifyEvent)> for StyleMarkSys<C>
 {
     type ReadData = &'a SingleCaseImpl<IdTree>;
-    type WriteData = BorderImageWrite<'a, C>;
+    type WriteData = (
+		&'a mut MultiCaseImpl<Node, StyleMark>,
+		&'a mut SingleCaseImpl<DirtyList>,
+		&'a mut SingleCaseImpl<ShareEngine<C>>,
+		&'a mut SingleCaseImpl<ImageWaitSheet>,
+		&'a mut MultiCaseImpl<Node, BorderImage>,
+		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+		&'a mut MultiCaseImpl<Node, BorderImageClip>,
+		&'a mut MultiCaseImpl<Node, BorderImageTexture>,
+	);
     fn listen(&mut self, event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
-        set_border_image_local(event.id, idtree, write);
+		let id = event.id;
+		set_local_dirty(write.1, id, StyleType::BorderImage as usize, write.0);
+
+		if let Some(_) = idtree.get(id) {
+			let image = &mut write.4[id];
+			set_border_image(id, write.2,  write.3, image, write.7, ImageType::BorderImageLocal);
+		}
+    }
+}
+
+impl<'a, C: HalContext + 'static>
+    MultiCaseListener<'a, Node, BorderImage, DeleteEvent> for StyleMarkSys<C>
+{
+    type ReadData = ();
+    type WriteData = &'a mut MultiCaseImpl<Node, BorderImageTexture>;
+    fn listen(&mut self, event: &Event, _: Self::ReadData, border_image_textutes: Self::WriteData){
+		let id = event.id;
+		border_image_textutes.delete(id); // border_image删除时，删除对应的纹理
     }
 }
 
@@ -680,25 +812,26 @@ impl<'a, C: HalContext + 'static>
     }
 }
 
-type BorderImageWrite<'a, C> = (
-    &'a mut MultiCaseImpl<Node, StyleMark>,
-    &'a mut SingleCaseImpl<DirtyList>,
-    &'a mut SingleCaseImpl<ShareEngine<C>>,
-    &'a mut SingleCaseImpl<ImageWaitSheet>,
-    &'a mut MultiCaseImpl<Node, BorderImage>,
-    &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
-    &'a mut MultiCaseImpl<Node, BorderImageClip>,
-);
+// type BorderImageWrite<'a, C> = (
+//     &'a mut MultiCaseImpl<Node, StyleMark>,
+//     &'a mut SingleCaseImpl<DirtyList>,
+//     &'a mut SingleCaseImpl<ShareEngine<C>>,
+//     &'a mut SingleCaseImpl<ImageWaitSheet>,
+//     &'a mut MultiCaseImpl<Node, BorderImage>,
+//     &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+//     &'a mut MultiCaseImpl<Node, BorderImageClip>,
+// );
 
-type ImageWrite<'a, C> = (
-    &'a mut MultiCaseImpl<Node, StyleMark>,
-    &'a mut SingleCaseImpl<DirtyList>,
-    &'a mut SingleCaseImpl<ShareEngine<C>>,
-    &'a mut SingleCaseImpl<ImageWaitSheet>,
-    &'a mut MultiCaseImpl<Node, Image>,
-    &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
-    &'a mut MultiCaseImpl<Node, ImageClip>,
-);
+// type ImageWrite<'a, C> = (
+//     &'a mut MultiCaseImpl<Node, StyleMark>,
+//     &'a mut SingleCaseImpl<DirtyList>,
+//     &'a mut SingleCaseImpl<ShareEngine<C>>,
+//     &'a mut SingleCaseImpl<ImageWaitSheet>,
+//     &'a mut MultiCaseImpl<Node, Image>,
+//     &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+//     &'a mut MultiCaseImpl<Node, ImageClip>,
+// 	&'a mut MultiCaseImpl<Node, ImageTexture>,
+// );
 
 type MaskImageWrite<'a, C> = (
     &'a mut MultiCaseImpl<Node, StyleMark>,
@@ -1152,6 +1285,8 @@ type WriteData<'a, C> = (
 	&'a mut MultiCaseImpl<Node, MaskTexture>,
 
 	&'a mut MultiCaseImpl<Node, BlendMode>,
+	&'a mut MultiCaseImpl<Node, ImageTexture>,
+	&'a mut MultiCaseImpl<Node, BorderImageTexture>,
 );
 
 impl<'a, C: HalContext + 'static>
@@ -1172,30 +1307,34 @@ impl<'a, C: HalContext + 'static>
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = (
         &'a mut EntityImpl<Node>,
-        &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+        // &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
         &'a mut MultiCaseImpl<Node, Image>,
-        &'a mut MultiCaseImpl<Node, ImageClip>,
+		&'a mut MultiCaseImpl<Node, ImageTexture>,
+        // &'a mut MultiCaseImpl<Node, ImageClip>,
         &'a mut MultiCaseImpl<Node, BorderImage>,
+		&'a mut MultiCaseImpl<Node, BorderImageTexture>,
 		&'a mut MultiCaseImpl<Node, MaskImage>,
 		&'a mut MultiCaseImpl<Node, MaskTexture>,
         // &'a mut MultiCaseImpl<Node, BorderImageClip>,
-        &'a mut MultiCaseImpl<Node, StyleMark>,
+        // &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut SingleCaseImpl<ImageWaitSheet>,
-        &'a mut SingleCaseImpl<DirtyList>,
+        // &'a mut SingleCaseImpl<DirtyList>,
     );
     fn listen(&mut self, _event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
         let (
             entitys,
-            layout_nodes,
+            // layout_nodes,
             images,
-            image_clips,
+			image_textures,
+            // image_clips,
             border_images,
+			border_image_textures,
             // border_image_clips,
 			mask_images,
 			mask_textures,
-            style_marks,
+            // style_marks,
             image_wait_sheet,
-            dirty_list,
+            // dirty_list,
         ) = write;
 
         for wait in image_wait_sheet.finish.iter() {
@@ -1210,84 +1349,60 @@ impl<'a, C: HalContext + 'static>
                 }
                 // 判断等待类型， 设置对应的组件
                 match image_wait.ty {
-                    ImageType::ImageLocal => {
+                    ImageType::ImageLocal | ImageType::ImageClass => {
                         if let Some(image) = images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
-								image.src = Some(wait.1.clone());
+								image_textures.insert(image_wait.id, ImageTexture::All(wait.1.clone()));
 
-                                // if Some image_clips.get(image_wait.id)
-                                set_local_dirty(
-                                    dirty_list,
-                                    image_wait.id,
-                                    StyleType::Image as usize,
-                                    style_marks,
-								);
-								
-								set_image_size(
-                                    &wait.1,
-                                    &mut layout_nodes[image_wait.id],
-                                    image_clips.get(image_wait.id),
-                                    &mut style_marks[image_wait.id],
-                                );
+								// set_image_size(
+                                //     &wait.1,
+                                //     &mut layout_nodes[image_wait.id],
+                                //     image_clips.get(image_wait.id),
+                                //     &mut style_marks[image_wait.id],
+                                // );
+
+								// // if Some image_clips.get(image_wait.id)
+                                // set_local_dirty(
+                                //     dirty_list,
+                                //     image_wait.id,
+                                //     StyleType::Image as usize,
+                                //     style_marks,
+								// );
                             }
                         }
                     }
-                    ImageType::ImageClass => {
-                        let style_mark = &mut style_marks[image_wait.id];
-                        if style_mark.local_style & StyleType::Image as usize != 0 {
-                            // 本地样式存在Image， 跳过
-                            continue;
-                        }
-                        if let Some(image) = images.get_mut(image_wait.id) {
+                    // ImageType::ImageClass => {
+                    //     let style_mark = &mut style_marks[image_wait.id];
+                    //     if style_mark.local_style & StyleType::Image as usize != 0 {
+                    //         // 本地样式存在Image， 跳过
+                    //         continue;
+                    //     }
+                    //     if let Some(image) = images.get_mut(image_wait.id) {
+                    //         if image.url == wait.0 {
+					// 			image_textures.insert(image_wait.id, ImageTexture::All(wait.1.clone()));
+					// 			// set_dirty(
+                    //             //     dirty_list,
+                    //             //     image_wait.id,
+                    //             //     StyleType::Image as usize,
+                    //             //     style_mark,
+                    //             // );
+                    //             // set_image_size(
+                    //             //     &wait.1,
+                    //             //     &mut layout_nodes[image_wait.id],
+                    //             //     image_clips.get(image_wait.id),
+                    //             //     style_mark,
+                    //             // );
+                    //         }
+                    //     }
+                    // }
+                    ImageType::BorderImageLocal | ImageType::BorderImageClass => {
+                        if let Some(image) = border_images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
-								image.src = Some(wait.1.clone());
-								set_dirty(
-                                    dirty_list,
-                                    image_wait.id,
-                                    StyleType::Image as usize,
-                                    style_mark,
-                                );
-                                set_image_size(
-                                    &wait.1,
-                                    &mut layout_nodes[image_wait.id],
-                                    image_clips.get(image_wait.id),
-                                    style_mark,
-                                );
+								border_image_textures.insert(image_wait.id, BorderImageTexture(wait.1.clone()));
                             }
                         }
                     }
-                    ImageType::BorderImageLocal => {
-                        if let Some(image) = border_images.get_mut(image_wait.id) {
-                            if image.0.url == wait.0 {
-                                image.0.src = Some(wait.1.clone());
-                                set_local_dirty(
-                                    dirty_list,
-                                    image_wait.id,
-                                    StyleType::BorderImage as usize,
-                                    style_marks,
-                                );
-                            }
-                        }
-                    }
-                    ImageType::BorderImageClass => {
-                        let style_mark = &mut style_marks[image_wait.id];
-                        if style_mark.local_style & StyleType::BorderImage as usize != 0 {
-                            // 本地样式存在BorderImage， 跳过
-                            continue;
-                        }
-                        if let Some(image) = border_images.get_mut(image_wait.id) {
-                            if image.0.url == wait.0 {
-                                image.0.src = Some(wait.1.clone());
-                                set_dirty(
-                                    dirty_list,
-                                    image_wait.id,
-                                    StyleType::BorderImage as usize,
-                                    style_mark,
-                                );
-                            }
-                        }
-                    }
-					ImageType::MaskImageLocal => {
+					ImageType::MaskImageLocal | ImageType::MaskImageClass => {
                         if let Some(image) = mask_images.get_mut(image_wait.id) {
 							if let MaskImage::Path(url) = image {
 								if *url == wait.0 {
@@ -1296,21 +1411,21 @@ impl<'a, C: HalContext + 'static>
 							}
                         }
                     }
-                    ImageType::MaskImageClass => {
-                        let style_mark = &mut style_marks[image_wait.id];
-                        if style_mark.local_style1 & StyleType1::MaskImage as usize != 0 {
-                            // 本地样式存在MaskImage， 跳过
-                            continue;
-                        }
-                        if let Some(image) = mask_images.get_mut(image_wait.id) {
-							if let MaskImage::Path(url) = image {
-								if *url == wait.0 {
-									mask_textures.insert(image_wait.id, MaskTexture::All(wait.1.clone()));
-								}
-							}
+                    // ImageType::MaskImageClass => {
+                    //     let style_mark = &mut style_marks[image_wait.id];
+                    //     if style_mark.local_style1 & StyleType1::MaskImage as usize != 0 {
+                    //         // 本地样式存在MaskImage， 跳过
+                    //         continue;
+                    //     }
+                    //     if let Some(image) = mask_images.get_mut(image_wait.id) {
+					// 		if let MaskImage::Path(url) = image {
+					// 			if *url == wait.0 {
+					// 				mask_textures.insert(image_wait.id, MaskTexture::All(wait.1.clone()));
+					// 			}
+					// 		}
                             
-                        }
-                    }
+                    //     }
+                    // }
                 }
             }
         }
@@ -1393,6 +1508,8 @@ fn reset_attr<C: HalContext>(
 		mask_clips,
 		_mask_textures,
 		blend_modes,
+		_image_textures,
+		_border_image_textures,
     ) = write;
 
 	let rect_layout_style =  &mut rect_layout_styles[id];
@@ -1490,7 +1607,6 @@ fn reset_attr<C: HalContext>(
         if old_style & IMAGE_DIRTY != 0 {
             if old_style & StyleType::Image as usize != 0 {
                 images.delete(id);
-                set_dirty(dirty_list, id, StyleType::Image as usize, style_mark);
             }
             if old_style & StyleType::ImageClip as usize != 0 {
                 image_clips.delete(id);
@@ -1505,7 +1621,6 @@ fn reset_attr<C: HalContext>(
         if old_style & BORDER_IMAGE_DIRTY != 0 {
             if old_style & StyleType::BorderImage as usize != 0 {
                 border_images.delete(id);
-                set_dirty(dirty_list, id, StyleType::BorderImage as usize, style_mark);
             }
             if old_style & StyleType::BorderImageClip as usize != 0 {
                 border_image_clips.delete(id);
@@ -1847,6 +1962,8 @@ fn set_attr<C: HalContext>(
 		mask_image_clips,
 		mask_textures,
 		blend_modes,
+		image_textures,
+		border_image_textures,
 	) = write;
 	let class_sheet = &class_sheet.borrow();
     let style_mark = &mut style_marks[id];
@@ -1888,14 +2005,16 @@ fn set_attr<C: HalContext>(
         opacitys,
         border_image_repeats,
         images,
+		image_textures,
         border_images,
         image_wait_sheet,
         engine,
         idtree,
-		image_clips.get(id),
+		// image_clips.get(id),
 		mask_textures,
 		mask_images,
 		blend_modes,
+		border_image_textures,
         // border_image_clips.get(id),
     );
     set_attr3(
@@ -1908,7 +2027,8 @@ fn set_attr<C: HalContext>(
         border_image_clips,
         // border_images,
         image_clips,
-        images,
+        // images,
+		image_textures,
         box_shadows,
         background_colors,
         border_colors,
@@ -2068,15 +2188,17 @@ pub fn set_attr2<C: HalContext>(
     opacitys: &mut MultiCaseImpl<Node, Opacity>,
     border_image_repeats: &mut MultiCaseImpl<Node, BorderImageRepeat>,
     images: &mut MultiCaseImpl<Node, Image>,
+	image_textures: &mut MultiCaseImpl<Node, ImageTexture>,
     border_images: &mut MultiCaseImpl<Node, BorderImage>,
     image_wait_sheet: &mut SingleCaseImpl<ImageWaitSheet>,
     engine: &mut Engine<C>,
     idtree: &SingleCaseImpl<IdTree>,
-    image_clip: Option<&ImageClip>,
+    // image_clip: Option<&ImageClip>,
 	mask_textures: &mut MultiCaseImpl<Node, MaskTexture>,
 	mask_images: &mut MultiCaseImpl<Node, MaskImage>,
 	blend_modes: &mut MultiCaseImpl<Node, BlendMode>,
     // border_image_clip: Option<&BorderImageClip>,
+	border_image_textures: &mut MultiCaseImpl<Node, BorderImageTexture>,
 ) {
     for layout_attr in layout_attrs.iter() {
         match layout_attr {
@@ -2159,30 +2281,18 @@ pub fn set_attr2<C: HalContext>(
 
             Attribute2::ImageUrl(r) => {
                 if style_mark.local_style & StyleType::Image as usize == 0 {
-                    let mut image = Image {
-                        src: None,
-                        url: r.clone(),
-                        width: None,
-                        height: None,
-                    };
-                    if let Some(_) = idtree.get(id) {
-                        if set_image(
-                            id,
-                            StyleType::Image,
-                            engine,
-                            image_wait_sheet,
-                            dirty_list,
-                            &mut image,
-                            style_mark,
-                            ImageType::ImageClass,
-                        ) {
-                            set_image_size(
-                                image.src.as_ref().unwrap(),
-                                rect_layout_style,
-                                image_clip,
-                                style_mark,
-                            );
-                        }
+                    let mut image = Image {url: r.clone()};
+                    if let Some(n) = idtree.get(id) {
+						if n.layer() > 0 {
+							set_image(
+								id,
+								engine,
+								image_wait_sheet,
+								&mut image,
+								image_textures,
+								ImageType::ImageClass,
+							);
+						}
                     }
                     images.insert_no_notify(id, image);
                 }
@@ -2191,32 +2301,40 @@ pub fn set_attr2<C: HalContext>(
 				if style_mark.local_style1 & StyleType1::MaskImage as usize == 0 {
                     let mut mask_image = r.clone();
 					
-                    if let Some(_) = idtree.get(id) {
-						set_mask_image(id, engine, image_wait_sheet, &mut mask_image, mask_textures, ImageType::MaskImageClass);
+                    if let Some(n) = idtree.get(id) {
+						if n.layer() > 0 {
+							set_mask_image(id, engine, image_wait_sheet, &mut mask_image, mask_textures, ImageType::MaskImageClass);
+						}
                     }
                     mask_images.insert_no_notify(id, mask_image);
                 }
 			},
             Attribute2::BorderImageUrl(r) => {
                 if style_mark.local_style & StyleType::BorderImage as usize == 0 {
-                    let mut image = BorderImage(Image {
-                        src: None,
-                        url: r.clone(),
-                        width: None,
-                        height: None,
-                    });
-                    if let Some(_) = idtree.get(id) {
+                    let mut image = BorderImage{url: r.clone()};
+                    if let Some(n) = idtree.get(id) {
+						if n.layer() > 0 {
+							set_border_image(
+								id,
+								engine,
+								image_wait_sheet,
+								&mut image,
+								border_image_textures,
+								ImageType::BorderImageClass,
+							);
+						}
+						
                         // if
-                        set_image(
-                            id,
-                            StyleType::BorderImage,
-                            engine,
-                            image_wait_sheet,
-                            dirty_list,
-                            &mut image.0,
-                            style_mark,
-                            ImageType::BorderImageClass,
-                        );
+                        // set_image(
+                        //     id,
+                        //     StyleType::BorderImage,
+                        //     engine,
+                        //     image_wait_sheet,
+                        //     dirty_list,
+                        //     &mut image.0,
+                        //     style_mark,
+                        //     ImageType::BorderImageClass,
+                        // );
                         //  {
                         //     set_border_image_size(
                         //         image.0.src.as_ref().unwrap(),
@@ -2448,7 +2566,8 @@ pub fn set_attr3(
     border_image_clips: &mut MultiCaseImpl<Node, BorderImageClip>,
     // border_images: &mut MultiCaseImpl<Node, BorderImage>,
     image_clips: &mut MultiCaseImpl<Node, ImageClip>,
-    images: &mut MultiCaseImpl<Node, Image>,
+    // images: &mut MultiCaseImpl<Node, Image>,
+	image_textures: &mut MultiCaseImpl<Node, ImageTexture>,
     box_shadows: &mut MultiCaseImpl<Node, BoxShadow>,
     background_colors: &mut MultiCaseImpl<Node, BackgroundColor>,
     border_colors: &mut MultiCaseImpl<Node, BorderColor>,
@@ -2487,8 +2606,8 @@ pub fn set_attr3(
             Attribute3::ImageClip(r) => {
                 if style_mark.local_style & StyleType::ImageClip as usize == 0 {
 					set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
-                    if let Some(image) = images.get(id) {
-                        if let Some(src) = &image.src {
+                    if let Some(teture) = image_textures.get(id) {
+                        if let ImageTexture::All(src) = teture {
                             set_image_size(
                                 src,
                                 &mut rect_layout_styles[id],
@@ -2601,39 +2720,40 @@ pub fn set_attr3(
     }
 }
 
-fn set_image<C: HalContext>(
-    id: usize,
-    ty: StyleType,
-    engine: &mut Engine<C>,
-    image_wait_sheet: &mut ImageWaitSheet,
-    dirty_list: &mut DirtyList,
-    image: &mut Image,
-    style_mark: &mut StyleMark,
-    wait_ty: ImageType,
-) -> bool {
-    if image.src.is_none() {
-        match engine.texture_res_map.get(&image.url) {
-            Some(r) => {
-                image.src = Some(r);
-                set_dirty(dirty_list, id, ty as usize, style_mark);
-                return true;
-            }
-            None => {
-                image_wait_sheet.add(
-                    image.url,
-                    ImageWait {
-                        id: id,
-                        ty: wait_ty,
-                    },
-                );
-                return false;
-            }
-        }
-    } else {
-        set_dirty(dirty_list, id, ty as usize, style_mark);
-        return true;
-    }
-}
+// fn set_image<C: HalContext>(
+//     id: usize,
+//     ty: StyleType,
+//     engine: &mut Engine<C>,
+//     image_wait_sheet: &mut ImageWaitSheet,
+//     dirty_list: &mut DirtyList,
+//     image: &mut Image,
+// 	image_textures: &mut MultiCaseImpl<Node, ImageTexture>,
+//     style_mark: &mut StyleMark,
+//     wait_ty: ImageType,
+// ) -> bool {
+//     if image.src.is_none() {
+//         match engine.texture_res_map.get(&image.url) {
+//             Some(r) => {
+//                 image.src = Some(r);
+//                 set_dirty(dirty_list, id, ty as usize, style_mark);
+//                 return true;
+//             }
+//             None => {
+//                 image_wait_sheet.add(
+//                     image.url,
+//                     ImageWait {
+//                         id: id,
+//                         ty: wait_ty,
+//                     },
+//                 );
+//                 return false;
+//             }
+//         }
+//     } else {
+//         set_dirty(dirty_list, id, ty as usize, style_mark);
+//         return true;
+//     }
+// }
 
 type ImageTextureWrite<'a, C> = (
     &'a mut MultiCaseImpl<Node, Image>,
@@ -2648,76 +2768,105 @@ type ImageTextureWrite<'a, C> = (
 	&'a mut MultiCaseImpl<Node, MaskImage>,
 	&'a mut MultiCaseImpl<Node, MaskImageClip>,
 	&'a mut MultiCaseImpl<Node, MaskTexture>,
+	&'a mut MultiCaseImpl<Node, ImageTexture>,
+	&'a mut MultiCaseImpl<Node, BorderImageTexture>,
 );
 // 节点被添加到树上， 加载图片
 fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>) {
     if let Some(image) = write.0.get_mut(id) {
         let style_mark = &mut write.2[id];
-        if style_mark.local_style & StyleType::Image as usize != 0 {
-            if set_image(
-                id,
-                StyleType::Image,
-                &mut *write.4,
-                &mut *write.5,
-                &mut *write.3,
-                image,
-                style_mark,
-                ImageType::ImageLocal,
-            ) {
-                set_image_size(
-                    image.src.as_ref().unwrap(),
-                    &mut write.6[id],
-                    write.7.get(id),
-                    style_mark,
-                );
-            }
-        } else {
-            if set_image(
-                id,
-                StyleType::Image,
-                &mut *write.4,
-                &mut *write.5,
-                &mut *write.3,
-                image,
-                style_mark,
-                ImageType::ImageClass,
-            ) {
-                set_image_size(
-                    image.src.as_ref().unwrap(),
-                    &mut write.6[id],
-                    write.7.get(id),
-                    style_mark,
-                );
-            }
-        }
+		let ty = if style_mark.local_style & StyleType::Image as usize != 0 {
+			ImageType::ImageLocal
+		} else {
+			ImageType::ImageClass
+		};
+		set_image(
+			id,
+			&mut *write.4,
+			&mut *write.5,
+			image,
+			&mut write.12,
+			ty,
+		);
+        // if style_mark.local_style & StyleType::Image as usize != 0 {
+		// 	set_image(
+        //         id,
+        //         &mut *write.4,
+        //         &mut *write.5,
+        //         &mut *write.3,
+        //         image,
+		// 		&mut write.12,
+        //         style_mark,
+        //         ImageType::ImageLocal,
+        //     );
+        //     // if  {
+        //     //     set_image_size(
+        //     //         image.src.as_ref().unwrap(),
+        //     //         &mut write.6[id],
+        //     //         write.7.get(id),
+        //     //         style_mark,
+        //     //     );
+        //     // }
+        // } else {
+        //     if set_image(
+        //         id,
+        //         StyleType::Image,
+        //         &mut *write.4,
+        //         &mut *write.5,
+        //         &mut *write.3,
+        //         image,
+        //         style_mark,
+        //         ImageType::ImageClass,
+        //     ) {
+        //         set_image_size(
+        //             image.src.as_ref().unwrap(),
+        //             &mut write.6[id],
+        //             write.7.get(id),
+        //             style_mark,
+        //         );
+        //     }
+        // }
     }
     if let Some(image) = write.1.get_mut(id) {
         let style_mark = &mut write.2[id];
-        if style_mark.local_style & StyleType::BorderImage as usize != 0 {
-            // if
-            set_image(
-                id,
-                StyleType::BorderImage,
-                &mut *write.4,
-                &mut *write.5,
-                &mut *write.3,
-                &mut image.0,
-                style_mark,
-                ImageType::BorderImageLocal,
-            );
-        } else {
-            // if
-            set_image(
-                id,
-                StyleType::BorderImage,
-                &mut *write.4,
-                &mut *write.5,
-                &mut *write.3,
-                &mut image.0,
-                style_mark,
-                ImageType::BorderImageClass,
-            );
-        }
+		let ty = if style_mark.local_style & StyleType::BorderImage as usize != 0 {
+			ImageType::BorderImageLocal
+		} else {
+			ImageType::BorderImageClass
+		};
+		set_border_image(
+			id,
+			&mut *write.4,
+			&mut *write.5,
+			image,
+			&mut *write.13,
+			ty,
+		);
+        // if style_mark.local_style & StyleType::BorderImage as usize != 0 {
+        //     // if
+        //     set_border_image(
+        //         id,
+        //         &mut *write.4,
+        //         &mut *write.5,
+        //         &mut *write.3,
+        //         &mut image.0,
+		// 		&mut *write.3,
+        //         style_mark,
+        //         ImageType::BorderImageLocal,
+        //     );
+        // } else {
+        //     // if
+        //     set_image(
+        //         id,
+        //         StyleType::BorderImage,
+        //         &mut *write.4,
+        //         &mut *write.5,
+        //         &mut *write.3,
+        //         &mut image.0,
+        //         style_mark,
+        //         ImageType::BorderImageClass,
+        //     );
+        // }
     }
 
 	if let Some(image) = write.9.get_mut(id) {
@@ -2725,7 +2874,7 @@ fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>
         let wait_type = if style_mark.local_style & StyleType1::MaskImage as usize != 0 {
             ImageType::MaskImageLocal
         } else {
-            ImageType::BorderImageClass
+            ImageType::MaskImageClass
         };
 		set_mask_image(
 			id,
@@ -2743,80 +2892,142 @@ fn release_image<'a, C: HalContext>(
     id: usize,
     write: &mut ImageTextureWrite<'a, C>,
 ) {
-    if let Some(image) = write.0.get_mut(id) {
-        let style_mark = &mut write.2[id];
-        if image.src.is_some() {
-            image.src = None;
-            set_dirty(&mut *write.3, id, StyleType::Image as usize, style_mark);
-        }
-    }
-    if let Some(image) = write.1.get_mut(id) {
-        let style_mark = &mut write.2[id];
-        if image.0.src.is_some() {
-            image.0.src = None;
-            set_dirty(
-                &mut *write.3,
-                id,
-                StyleType::BorderImage as usize,
-                style_mark,
-            );
-        }
-    }
+	if let Some(_r) = write.11.get(id){
+		write.11.delete(id);
+	}
+	if let Some(_r) = write.12.get(id){
+		write.12.delete(id);
+	}
+	if let Some(_r) = write.13.get(id){
+		write.13.delete(id);
+	}
+	
+    // if let Some(image) = write.12.get_mut(id) {
+    //     let style_mark = &mut write.2[id];
+    //     if image.src.is_some() {
+    //         image.src = None;
+    //         set_dirty(&mut *write.3, id, StyleType::Image as usize, style_mark);
+    //     }
+    // }
+    // if let Some(image) = write.1.get_mut(id) {
+    //     let style_mark = &mut write.2[id];
+    //     if image.0.src.is_some() {
+    //         image.0.src = None;
+    //         set_dirty(
+    //             &mut *write.3,
+    //             id,
+    //             StyleType::BorderImage as usize,
+    //             style_mark,
+    //         );
+    //     }
+    // }
 }
 
-fn set_image_local<'a, C: HalContext>(
-    id: usize,
-    idtree: &SingleCaseImpl<IdTree>,
-    write: ImageWrite<'a, C>,
-) {
-    let style_mark = &mut write.0[id];
-    style_mark.local_style |= StyleType::Image as usize;
 
-    if let Some(_) = idtree.get(id) {
-        let image = &mut write.4[id];
-        if set_image(
-            id,
-            StyleType::Image,
-            &mut *write.2,
-            &mut *write.3,
-            &mut *write.1,
-            image,
-            style_mark,
-            ImageType::ImageLocal,
-        ) {
-            set_image_size(
-                image.src.as_ref().unwrap(),
-                &mut write.5[id],
-                write.6.get(id),
-                style_mark,
-            );
-        }
-    }
+fn set_image<C: HalContext + 'static>(
+	id: usize,
+    engine: &mut Engine<C>,
+    image_wait_sheet: &mut ImageWaitSheet,
+    image: &mut Image,
+	image_textures: &mut MultiCaseImpl<Node, ImageTexture>,
+    wait_ty: ImageType){
+	
+	match engine.texture_res_map.get(&image.url) {
+		Some(texture) => {
+			image_textures.insert(id, ImageTexture::All(texture));
+		}
+		None => {
+			image_wait_sheet.add(
+				image.url,
+				ImageWait {
+					id,
+					ty: wait_ty,
+				},
+			);
+		}
+	}
 }
 
-fn set_border_image_local<'a, C: HalContext>(
-    id: usize,
-    idtree: &SingleCaseImpl<IdTree>,
-    write: BorderImageWrite<'a, C>,
-) {
-    let style_mark = &mut write.0[id];
-    style_mark.local_style |= StyleType::BorderImage as usize;
-
-    if let Some(_) = idtree.get(id) {
-        let image = &mut write.4[id].0;
-        // if
-        set_image(
-            id,
-            StyleType::BorderImage,
-            &mut *write.2,
-            &mut *write.3,
-            &mut *write.1,
-            image,
-            style_mark,
-            ImageType::BorderImageLocal,
-        );
-    }
+fn set_border_image<C: HalContext + 'static>(
+	id: usize,
+    engine: &mut Engine<C>,
+    image_wait_sheet: &mut ImageWaitSheet,
+    image: &mut BorderImage,
+	image_textures: &mut MultiCaseImpl<Node, BorderImageTexture>,
+    wait_ty: ImageType){
+	
+	match engine.texture_res_map.get(&image.url) {
+		Some(texture) => {
+			image_textures.insert(id, BorderImageTexture(texture));
+		}
+		None => {
+			image_wait_sheet.add(
+				image.url,
+				ImageWait {
+					id,
+					ty: wait_ty,
+				},
+			);
+		}
+	}
 }
+
+// fn set_image_local<'a, C: HalContext>(
+//     id: usize,
+//     idtree: &SingleCaseImpl<IdTree>,
+//     write: ImageWrite<'a, C>,
+// ) {
+//     let style_mark = &mut write.0[id];
+//     style_mark.local_style |= StyleType::Image as usize;
+// 	set_dirty(&mut *write.1, id, StyleType::Image as usize, style_mark);
+
+//     if let Some(_) = idtree.get(id) {
+//         let image = &mut write.4[id];
+//         if set_image(
+//             id,
+//             StyleType::Image,
+//             &mut *write.2,
+//             &mut *write.3,
+//             &mut *write.1,
+//             image,
+//             style_mark,
+//             ImageType::ImageLocal,
+//         ) {
+//             set_image_size(
+//                 image.src.as_ref().unwrap(),
+//                 &mut write.5[id],
+//                 write.6.get(id),
+//                 style_mark,
+//             );
+//         }
+//     }
+// }
+
+
+
+// fn set_border_image_local<'a, C: HalContext>(
+//     id: usize,
+//     idtree: &SingleCaseImpl<IdTree>,
+//     write: BorderImageWrite<'a, C>,
+// ) {
+//     let style_mark = &mut write.0[id];
+//     style_mark.local_style |= StyleType::BorderImage as usize;
+
+//     if let Some(_) = idtree.get(id) {
+//         let image = &mut write.4[id].0;
+//         // if
+//         set_image(
+//             id,
+//             StyleType::BorderImage,
+//             &mut *write.2,
+//             &mut *write.3,
+//             &mut *write.1,
+//             image,
+//             style_mark,
+//             ImageType::BorderImageLocal,
+//         );
+//     }
+// }
 
 fn set_mask_image_local<'a, C: HalContext>(
     id: usize,
@@ -2844,6 +3055,7 @@ fn set_mask_image<C: HalContext>(
 		if texure.get(id).is_none() {
 			match engine.texture_res_map.get(url) {
 				Some(r) => {
+					
 					texure.insert(id, MaskTexture::All(r.clone()));
 				}
 				None => {
@@ -2876,14 +3088,20 @@ impl_system! {
 		MultiCaseListener<Node, BlendMode, (CreateEvent, ModifyEvent)>
 
 		MultiCaseListener<Node, MaskImage, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, MaskImage, DeleteEvent>
         MultiCaseListener<Node, MaskImageClip, (CreateEvent, ModifyEvent)>
 
-		MultiCaseListener<Node, MaskTexture, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, MaskTexture, (CreateEvent, ModifyEvent, DeleteEvent)>
+		MultiCaseListener<Node, ImageTexture, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, ImageTexture, DeleteEvent>
+		MultiCaseListener<Node, BorderImageTexture, (CreateEvent, ModifyEvent, DeleteEvent)>
 
         MultiCaseListener<Node, Image, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, Image, DeleteEvent>
         MultiCaseListener<Node, ImageClip, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, ObjectFit, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, BorderImage, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, BorderImage, DeleteEvent>
         MultiCaseListener<Node, BorderImageClip, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, BorderImageSlice, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, BorderImageRepeat, (CreateEvent, ModifyEvent)>

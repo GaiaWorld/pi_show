@@ -63,17 +63,9 @@ impl Default for ContentBox {
 	}
 }
 
-/// 所属的根
+/// 所属上下文索引
 #[derive(Component, Clone, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct Root(pub usize);
-
-
-impl Default for Root {
-	fn default() -> Self {
-		Root(1)
-	}
-}
+pub struct ContextIndex(pub usize);
 
 impl RenderContext {
 	pub fn new(
@@ -235,6 +227,8 @@ pub enum StyleType1 {
     // AlignContent = 0x10000,
     // AlignItems = 0x20000,
     // AlignSelf = 0x40000,
+	BorderImageTexture = 0x1000,
+	ImageTexture = 0x2000,
 	TransformOrigin = 0x4000,
 	ContentBox = 0x8000,
 	Direction = 0x10000,
@@ -330,6 +324,17 @@ pub enum MaskTexture {
 	All(Share<TextureRes>),
 	Part(Share<TexturePartRes>),
 }
+
+// 图片使用纹理（可以是canvas，如果是canvas，不要再同时渲染一张图片，否则会冲突，他们的纹理是共用该组件）
+#[derive(Component, Clone)]
+pub enum ImageTexture {
+	All(Share<TextureRes>),
+	Part(Share<TexturePartRes>),
+}
+
+// 边框图片使用纹理
+#[derive(Component, Clone)]
+pub struct BorderImageTexture(pub Share<TextureRes>);
 
 // impl Deref for MaskTexture {
 // 	type Target = Share<TextureRes>;

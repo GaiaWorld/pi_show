@@ -229,26 +229,29 @@ pub fn create_let_top_offset_matrix(
 ) -> Vec<f32> {
     // let depth = -depth / (Z_MAX + 1.0);
     // let depth = depth1;
-
-    let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
-    if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
-        let slice: &[f32] = matrix.as_slice();
-        let mut arr = Vec::from(slice);
-        // arr[14] = depth;
-        return arr;
-    } else {
-        let matrix = matrix
-            * WorldMatrix(
-				Matrix4::new_translation(&Vector3::new(-origin.x + h,
-                    -origin.y + v,
-                    0.0)),
-                false,
-            );
-        let slice: &[f32] = matrix.as_slice();
-        let mut arr = Vec::from(&slice[..]);
-        // arr[14] = depth;
-        return arr;
-    }
+	let m = let_top_offset_matrix(layout, matrix, transform,  h, v);
+	let slice: &[f32] = m.as_slice();
+	let mut arr = Vec::from(&slice[..]);
+	return arr;
+    // let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+    // if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
+    //     let slice: &[f32] = matrix.as_slice();
+    //     let mut arr = Vec::from(slice);
+    //     // arr[14] = depth;
+    //     return arr;
+    // } else {
+    //     let matrix = matrix
+    //         * WorldMatrix(
+	// 			Matrix4::new_translation(&Vector3::new(-origin.x + h,
+    //                 -origin.y + v,
+    //                 0.0)),
+    //             false,
+    //         );
+    //     let slice: &[f32] = matrix.as_slice();
+    //     let mut arr = Vec::from(&slice[..]);
+    //     // arr[14] = depth;
+    //     return arr;
+    // }
 }
 
 #[inline]
@@ -258,9 +261,8 @@ pub fn let_top_offset_matrix(
     transform: &Transform,
     h: f32,
     v: f32,
-    depth: f32,
 ) -> WorldMatrix {
-    let depth = -depth / (Z_MAX + 1.0);
+    // let depth = -depth / (Z_MAX + 1.0);
     // let depth = depth1;
 
     let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);

@@ -52,7 +52,7 @@ extern crate densevec;
 extern crate idtree;
 extern crate flex_layout;
 extern crate rectangle_pack;
-extern  crate guillotiere;
+extern crate guillotiere;
 
 #[cfg(feature = "native")]
 extern crate cross_performance;

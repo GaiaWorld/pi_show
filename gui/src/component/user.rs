@@ -165,11 +165,11 @@ pub struct BorderColor(pub CgColor);
 // 图片路劲及纹理
 #[derive(Clone, Component)]
 pub struct Image {
-    pub src: Option<Share<TextureRes>>,
+    // pub src: Option<Share<TextureRes>>,
     pub url: usize,
     // canvas使用
-    pub width: Option<f32>,
-    pub height: Option<f32>,
+    // pub width: Option<f32>,
+    // pub height: Option<f32>,
 }
 
 // 遮罩图片是图片路径或线性渐变色
@@ -201,7 +201,7 @@ pub struct ImageClip(pub Aabb2);
 
 // 边框图片
 #[derive(Clone, Component)]
-pub struct BorderImage(pub Image);
+pub struct BorderImage{pub url: usize}
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]

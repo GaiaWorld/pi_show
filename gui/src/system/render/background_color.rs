@@ -11,7 +11,7 @@ use map::Map;
 use ordered_float::NotNan;
 
 use atom::Atom;
-use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::Event;
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
@@ -224,13 +224,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundColor, DeleteEvent>
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
     for BackgroundColorSys<C>
 {
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -506,6 +508,6 @@ impl_system! {
     BackgroundColorSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BackgroundColor, DeleteEvent>
+        EntityListener<Node, DeleteEvent>
     }
 }

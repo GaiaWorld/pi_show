@@ -1,5 +1,6 @@
 use std::mem::transmute;
 use std::ops::{Deref};
+use std::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -10,12 +11,14 @@ use hal_core::*;
 use hal_webgl::*;
 use hash::XHashMap;
 use flex_layout::style::*;
+use share::Share;
 
 use ecs::{Lend, LendMut};
 use gui::component::calc::*;
 use gui::component::calc::LayoutR as Layout2;
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
+// use gui::single::dyn_texture::{exedebug, DynAtlasSet};
 
 use gui::render::engine::ShareEngine;
 use gui::single::*;
@@ -1120,7 +1123,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
             None => None,
         },
         border_image: match world.border_image.lend().get(node) {
-            Some(r) => Some(r.0.url.to_string()),
+            Some(r) => Some(r.url.to_string()),
             None => None,
         },
         background_color: match world.background_color.lend().get(node) {
@@ -1454,6 +1457,41 @@ pub struct MemStatistics {
 	pub textureTotalCount: u32,
 	pub textureTotalMemory: u32,
 }
+
+// #[test]
+// fn test11() {
+// 	let r = vec![46,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,243,1,0,0,169,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,243,1,0,0,169,3,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,5,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,10,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,11,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,13,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,14,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,16,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,18,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,19,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,2,0,0,20,0,0,0,0,0,0,0,0,0,0,0,0,63,0,0,0,63,0,0,0];
+// 	exec_dyn_texture(r);
+// }
+
+// #[wasm_bindgen]
+// pub fn exec_dyn_texture(bin: Vec<u8>) {
+// 	match bincode::deserialize(bin.as_slice()) {
+// 		Ok(r) => exedebug(&r),
+// 		Err(e) => {
+// 			println!("deserialize_class_map error: {:?}", e);
+// 			return;
+// 		}
+// 	}
+// }
+
+// #[wasm_bindgen]
+// pub fn get_debug_dyn_texture(world: u32) -> Option<Vec<u8>> {
+// 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+// 	let mut dyn_texture = world.gui.world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap();
+// 	let dyn_texture = dyn_texture.lend_mut();
+// 	let dyn_texture = &***dyn_texture;
+// 	let dyn_texture = unsafe { &mut *(dyn_texture.as_ptr() ) };
+
+// 	match bincode::serialize(&dyn_texture.debugList) {
+// 		Ok(bin) => {
+// 			return Some(bin);
+// 		},
+// 		Err(r) => {
+// 			return None;
+// 		},
+// 	};
+// }
 
 #[wasm_bindgen]
 pub fn mem_statistics(world: u32) -> JsValue {

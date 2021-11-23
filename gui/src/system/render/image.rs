@@ -10,14 +10,13 @@ use std::hash::{Hash, Hasher};
 use hash::DefaultHasher;
 
 use atom::Atom;
-use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::{DeleteEvent, MultiCaseImpl,EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
-use map::Map;
 use polygon::*;
 
-use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::{LayoutR};
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
@@ -39,13 +38,12 @@ const DIRTY_TY: usize = StyleType::BorderRadius as usize
     | StyleType::Matrix as usize
     | StyleType::Opacity as usize
     | StyleType::Layout as usize
-    | StyleType::Image as usize
     | StyleType::ImageClip as usize
     | StyleType::ObjectFit as usize;
+const DIRTY_TY1: usize = StyleType1::ImageTexture as usize;
 
 const GEO_DIRTY: usize = StyleType::BorderRadius as usize
     | StyleType::Layout as usize
-    | StyleType::Image as usize
     | StyleType::ImageClip as usize
     | StyleType::ObjectFit as usize;
 
@@ -63,7 +61,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
-        &'a MultiCaseImpl<Node, Image>,
+		&'a MultiCaseImpl<Node, ImageTexture>,
         &'a MultiCaseImpl<Node, ImageClip>,
         &'a MultiCaseImpl<Node, ObjectFit>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -82,7 +80,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             layouts,
             border_radiuss,
             z_depths,
-            images,
+			image_textures,
             image_clips,
             object_fits,
             world_matrixs,
@@ -109,28 +107,30 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 			};
 
             let mut dirty = style_mark.dirty;
+			let dirty1 = style_mark.dirty1;
 
             // 不存在Image关心的脏, 跳过
-            if dirty & DIRTY_TY == 0 {
+            if (dirty & DIRTY_TY == 0) && (dirty1 & DIRTY_TY1 == 0) {
                 continue;
 			}
 
-			
-            let render_index = if dirty & StyleType::Image as usize != 0 {
-				// 如果不存在Image的本地样式和class样式， 删除渲染对象
-				if style_mark.local_style & StyleType::Image as usize == 0 && style_mark.class_style & StyleType::Image as usize == 0 {
+			let texture = match image_textures.get(*id) {
+				Some(r) => r,
+				None => {
 					self.remove_render_obj(*id, render_objs);
 					continue;
 				}
+			};
+            let render_index = if dirty1 & DIRTY_TY1 != 0 {
+				// 如果不存在Texture， 删除渲染对象
 				dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
-				let image = &images[*id];
 				match self.render_map.get_mut(*id) {
 					Some(r) => *r,
 					None => {
 						let (state, vs, fs) = {
-							match image.width {
-								Some(_) => (&***premulti_state, CANVAS_VS_SHADER_NAME.clone(), CANVAS_FS_SHADER_NAME.clone()),
-								None => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
+							match texture {
+								ImageTexture::Part(_r) => (&***premulti_state, CANVAS_VS_SHADER_NAME.clone(), CANVAS_FS_SHADER_NAME.clone()),
+								ImageTexture::All(_r) => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
 							}
 						};
 						self.create_render_obj(*id, render_objs, state, vs, fs)
@@ -143,13 +143,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 				}
 			};
 
-			let image = &images[*id];
 			let render_obj = &mut render_objs[render_index];
-            // 纹理不存在, 跳过
-            if image.src.is_none() {
-                render_obj.geometry = None;
-                continue;
-			}
 
             let border_radius = border_radiuss.get(*id);
             let z_depth = z_depths[*id].0;
@@ -166,7 +160,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     render_obj,
                     border_radius,
                     layout,
-                    image,
+                    texture,
                     image_clip,
                     object_fit,
                     engine,
@@ -182,15 +176,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     has_radius,
                 );
 
-                // src修改， 修改texture
-                if dirty & StyleType::Image as usize != 0 {
-                    // 如果四边形与图片宽高一样， 使用点采样?， TODO
-                    render_obj.paramter.set_texture(
-                        "texture",
-                        (&image.src.as_ref().unwrap().bind, &self.default_sampler),
-                    );
-                }
-
                 notify.modify_event(render_index, "geometry", 0);
                 notify.modify_event(render_index, "ubo", 0);
                 dirty &= !(StyleType::Matrix as usize); // 已经计算了世界矩阵， 设置世界矩阵不脏
@@ -198,7 +183,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
             // 世界矩阵脏， 设置世界矩阵ubo
             if dirty & StyleType::Matrix as usize != 0 {
-                let (pos, _uv) = get_pos_uv(image, image_clip, object_fit, layout);
+                let (pos, _uv, _) = get_pos_uv(texture, image_clip, object_fit, layout);
                 let radius = cal_border_radius(border_radius, layout);
                 let mut has_radius = false;
                 let g_b = geo_box(layout);
@@ -219,9 +204,27 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             }
 
             // 不透明度脏或图片脏， 设置is_opacity
-            if dirty & StyleType::Opacity as usize != 0 || dirty & StyleType::Image as usize != 0 {
+            if dirty & StyleType::Opacity as usize != 0 || dirty1 & DIRTY_TY1 != 0 {
                 // let opacity = opacitys[*id].0;
-                let is_opacity = if let ROpacity::Opaque = image.src.as_ref().unwrap().opacity {
+				let dyn_texture_set;
+				let tex = match texture {
+					ImageTexture::All(r) => &r,
+					ImageTexture::Part(r) => {
+						let index = r.index();
+						dyn_texture_set = r.get_dyn_texture_set().borrow();
+						dyn_texture_set.get_texture(index).unwrap()
+					},
+				};
+				// 如果四边形与图片宽高一样， 使用点采样?， TODO
+				if dirty1 & DIRTY_TY1 != 0 {
+					render_obj.paramter.set_texture(
+						"texture",
+						(&tex.bind, &self.default_sampler),
+					);
+					notify.modify_event(render_index, "ubo", 0);
+				}
+
+                let is_opacity = if let ROpacity::Opaque = tex.opacity {
                     true
                 } else {
                     false
@@ -230,9 +233,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 if render_obj.is_opacity != is_opacity {
                     render_obj.is_opacity = is_opacity;
                     notify.modify_event(render_index, "is_opacity", 0);
-                    modify_opacity(engine, render_obj, match image.width {
-						Some(_) => premulti_state,
-						None => default_state,
+                    modify_opacity(engine, render_obj, match texture {
+						ImageTexture::All(_r) => premulti_state,
+						ImageTexture::Part(_r) => default_state,
 					});
                 }
             }
@@ -241,11 +244,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Image, DeleteEvent> for ImageSys<C> {
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
+    for ImageSys<C>
+{
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -333,25 +340,26 @@ fn update_geo<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     border_radius: Option<&BorderRadius>,
     layout: &LayoutR,
-    image: &Image,
+    texture: &ImageTexture,
     image_clip: Option<&ImageClip>,
     object_fit: Option<&ObjectFit>,
     engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
 ) -> (bool, Aabb2) {
-    let (pos, uv) = get_pos_uv(image, image_clip, object_fit, layout);
+    let (pos, uv, is_part) = get_pos_uv(texture, image_clip, object_fit, layout);
     let radius = cal_border_radius(border_radius, layout);
     let g_b = geo_box(layout);
-    let flip_y = match image.width {
-        Some(_) => true,
-        None => false,
-    };
+    // let flip_y = match image.width {
+    //     Some(_) => true,
+    //     None => false,
+    // };
+	// let flip_y = false;
     //flip_y为true时，暂时不支持圆角
-    if !flip_y && radius.x > g_b.mins.x && pos.mins.x < radius.x && pos.mins.y < radius.x {
+    if radius.x > g_b.mins.x && pos.mins.x < radius.x && pos.mins.y < radius.x {
         use_layout_pos(render_obj, uv, layout, &radius, engine); // 有圆角
         (true, pos)
     } else {
-        update_geo_quad(render_obj, &uv, image_clip, engine, unit_geo, flip_y); // 没有圆角
+        update_geo_quad(render_obj, &uv, image_clip, engine, unit_geo, is_part); // 没有圆角
         (false, pos)
     }
 }
@@ -362,29 +370,12 @@ fn update_geo_quad<C: HalContext + 'static>(
     image_clip: Option<&ImageClip>,
     engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
-    flip_y: bool,
+    is_part: bool,
 ) {
-    match image_clip {
-        Some(_clip) => {
-            let (uv1, uv2) = match flip_y {
-                true => {
-                    // let r = Aabb2::new(
-                    //     Point2::new(uv.min.x, uv.max.y),
-                    //     Point2::new(uv.max.x, uv.min.y),
-                    // );
-                    // println!(
-                    //     "box:{:?}, {:?}, {:?}",
-                    //     r,
-                    //     Point2::new(uv.min.x, uv.max.y),
-                    //     Point2::new(uv.max.x, uv.min.y)
-                    // );
-                    (
-                        Point2::new(uv.mins.x, uv.maxs.y),
-                        Point2::new(uv.maxs.x, uv.mins.y),
-                    )
-                }
-                false => (uv.mins, uv.maxs),
-			};
+    match (image_clip, is_part) {
+		(None, false) => render_obj.geometry = Some(unit_geo.clone()),
+        _ => {
+            let (uv1, uv2) = (uv.mins, uv.maxs);
 			// log::info!("clip===={:?}, {:?}, {:?}, {:?}", _clip, &uv1, &uv2, flip_y);
             let uv_hash = cal_uv_hash(&uv1, &uv2);
             let geo_hash = unit_geo_hash(&uv_hash);
@@ -423,7 +414,7 @@ fn update_geo_quad<C: HalContext + 'static>(
                 }
             };
         }
-        None => render_obj.geometry = Some(unit_geo.clone()),
+        
     }
 
     // 修改世界矩阵 TODO
@@ -593,111 +584,113 @@ fn use_layout_pos<C: HalContext + 'static>(
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
 fn get_pos_uv(
-    img: &Image,
+    texture: &ImageTexture,
     clip: Option<&ImageClip>,
     fit: Option<&ObjectFit>,
     layout: &LayoutR,
-) -> (Aabb2, Aabb2) {
-	
-	let src = img.src.as_ref().unwrap();
-    let (size, mut uv1, mut uv2) = match clip {
-        Some(c) => {
-            let size = Vector2::new(
-                src.width as f32 * (c.maxs.x - c.mins.x).abs(),
-                src.height as f32 * (c.maxs.y - c.mins.y).abs(),
-            );
-			// log::info!("size================={:?}");
-            (size, c.mins, c.maxs)
-        }
-        _ => (
-            Vector2::new(src.width as f32, src.height as f32),
-            Point2::new(0.0, 0.0),
-            Point2::new(1.0, 1.0),
-        ),
-	};
-    let width = match img.width {
-        Some(r) => r,
-        None => layout.rect.end - layout.rect.start - layout.border.end - layout.border.start,
-    };
-    let height = match img.height {
-        Some(r) => r,
-        None => layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top,
-    };
-    let mut p1 = Point2::new(
-        layout.border.start + layout.padding.start,
-        layout.border.top + layout.padding.top,
-    );
-    let mut p2 = Point2::new(width, height);
-    let w = p2.x - p1.x;
-    let h = p2.y - p1.y;
-    // 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
-    match fit {
-        Some(f) => match f.0 {
-            FitType::None => {
-                // 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
-                if size.x <= w {
-                    let x = (w - size.x) / 2.0;
-                    p1.x += x;
-                    p2.x -= x;
-                } else {
-                    let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
-                    uv1.x += x;
-                    uv2.x -= x;
-                }
-                if size.y <= h {
-                    let y = (h - size.y) / 2.0;
-                    p1.y += y;
-                    p2.y -= y;
-                } else {
-                    let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
-                    uv1.y += y;
-                    uv2.y -= y;
-                }
-            }
-            FitType::Contain => {
-                // 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
-                fill(&size, &mut p1, &mut p2, w, h);
-            }
-            FitType::Cover => {
-                // 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
-				if w != 0.0 && h != 0.0 {
-					let rw = size.x / w;
-					let rh = size.y / h;
-					
-					if rw > rh {
-						let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
-						uv1.x += x;
-						uv2.x -= x;
-					} else {
-						let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
-						uv1.y += y;
-						uv2.y -= y;
-					}
+) -> (Aabb2, Aabb2, bool) {
+	let mut p1 = Point2::new(
+		layout.border.start + layout.padding.start,
+		layout.border.top + layout.padding.top,
+	);
+	let width = layout.rect.end - layout.rect.start - layout.border.end - layout.border.start;
+	let height = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
+	let mut p2 = Point2::new(width, height);
+	match texture {
+		ImageTexture::All(src) => {
+			let (size, mut uv1, mut uv2) = match clip {
+				Some(c) => {
+					let size = Vector2::new(
+						src.width as f32 * (c.maxs.x - c.mins.x).abs(),
+						src.height as f32 * (c.maxs.y - c.mins.y).abs(),
+					);
+					// log::info!("size================={:?}");
+					(size, c.mins, c.maxs)
 				}
-                
-            }
-            FitType::ScaleDown => {
-                // 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
-                if size.x <= w && size.y <= h {
-                    let x = (w - size.x) / 2.0;
-                    let y = (h - size.y) / 2.0;
-                    p1.x += x;
-                    p1.y += y;
-                    p2.x -= x;
-                    p2.y -= y;
-                } else {
-                    fill(&size, &mut p1, &mut p2, w, h);
-                }
-            }
-            FitType::Repeat => panic!("TODO"),  // TODO
-            FitType::RepeatX => panic!("TODO"), // TODO
-            FitType::RepeatY => panic!("TODO"), // TODO
-            FitType::Fill => (),                // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
-        },
-        // 默认情况是填充
-        _ => (),
-    };
-    (Aabb2::new(p1, p2), Aabb2::new(uv1, uv2))
+				_ => (
+					Vector2::new(src.width as f32, src.height as f32),
+					Point2::new(0.0, 0.0),
+					Point2::new(1.0, 1.0),
+				),
+			};
+
+			let w = p2.x - p1.x;
+			let h = p2.y - p1.y;
+			// 如果不是填充，总是居中显示。 如果在范围内，则修改点坐标。如果超出的部分，会进行剪切，剪切会修改uv坐标。
+			match fit {
+				Some(f) => match f.0 {
+					FitType::None => {
+						// 保持原有尺寸比例。同时保持内容原始尺寸大小。 超出部分会被剪切
+						if size.x <= w {
+							let x = (w - size.x) / 2.0;
+							p1.x += x;
+							p2.x -= x;
+						} else {
+							let x = (size.x - w) * (uv2.x - uv1.x) * 0.5 / size.x;
+							uv1.x += x;
+							uv2.x -= x;
+						}
+						if size.y <= h {
+							let y = (h - size.y) / 2.0;
+							p1.y += y;
+							p2.y -= y;
+						} else {
+							let y = (size.y - h) * (uv2.y - uv1.y) * 0.5 / size.y;
+							uv1.y += y;
+							uv2.y -= y;
+						}
+					}
+					FitType::Contain => {
+						// 保持原有尺寸比例。保证内容尺寸一定可以在容器里面放得下。因此，此参数可能会在容器内留下空白。
+						fill(&size, &mut p1, &mut p2, w, h);
+					}
+					FitType::Cover => {
+						// 保持原有尺寸比例。保证内容尺寸一定大于容器尺寸，宽度和高度至少有一个和容器一致。超出部分会被剪切
+						if w != 0.0 && h != 0.0 {
+							let rw = size.x / w;
+							let rh = size.y / h;
+							
+							if rw > rh {
+								let x = (size.x - w * rh) * (uv2.x - uv1.x) * 0.5 / size.x;
+								uv1.x += x;
+								uv2.x -= x;
+							} else {
+								let y = (size.y - h * rw) * (uv2.y - uv1.y) * 0.5 / size.y;
+								uv1.y += y;
+								uv2.y -= y;
+							}
+						}
+						
+					}
+					FitType::ScaleDown => {
+						// 如果内容尺寸小于容器尺寸，则直接显示None。否则就是Contain
+						if size.x <= w && size.y <= h {
+							let x = (w - size.x) / 2.0;
+							let y = (h - size.y) / 2.0;
+							p1.x += x;
+							p1.y += y;
+							p2.x -= x;
+							p2.y -= y;
+						} else {
+							fill(&size, &mut p1, &mut p2, w, h);
+						}
+					}
+					FitType::Repeat => panic!("TODO"),  // TODO
+					FitType::RepeatX => panic!("TODO"), // TODO
+					FitType::RepeatY => panic!("TODO"), // TODO
+					FitType::Fill => (),                // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
+				},
+				// 默认情况是填充
+				_ => (),
+			};
+			(Aabb2::new(p1, p2), Aabb2::new(uv1, uv2), false)
+		},
+		ImageTexture::Part(r) => {
+			(Aabb2::new(p1, p2), r.get_uv(), true)
+		},
+	}
+    
+    
 }
 // 按比例缩放到容器大小，居中显示
 fn fill(size: &Vector2, p1: &mut Point2, p2: &mut Point2, w: f32, h: f32) {
@@ -720,6 +713,6 @@ impl_system! {
     ImageSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, Image, DeleteEvent>
-    }
+		EntityListener<Node, DeleteEvent>
+	}
 }

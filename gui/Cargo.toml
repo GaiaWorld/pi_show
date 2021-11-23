@@ -28,7 +28,7 @@ densevec = { path =  "../../pi_lib/densevec"}
 res = { path =  "../../pi_lib/res"}
 cross_performance = { path =  "../../pi_lib/cross_performance"}
 rectangle-pack = "0.4.2"
-guillotiere = "*"
+guillotiere = {version="*"}
 # time: 3407.7350000152364
 # vConsole.js:3 now: 3408.0800000810996
 # vConsole.js:3 timediff: 0.6900000153109431
@@ -48,6 +48,7 @@ polygon = { path = "../../pi_math/polygon"}
 cg2d = { path = "../../pi_math/cg2d"}
 spatialtree = { path = "../../pi_math/spatialtree"}
 color = { path = "../../pi_math/color", features = ["serde"]}
+bincode = { path = "../../pi_lib/bincode"}
 # cgmath = { path = "../../pi_math/cgmath", features = ["serde"] }
 # collision = { path = "../../pi_math/collision", features = ["serde"]}
 # octree = { path = "../../pi_math/octree"}

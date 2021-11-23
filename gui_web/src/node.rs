@@ -2,9 +2,10 @@ use std::cell::RefCell;
 /// 将设置节点属性的接口导出到js
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
-use js_sys::Math;
+use flex_layout::CharNode;
+use js_sys::{Math, Object};
 use wasm_bindgen::prelude::*;
-use web_sys::WebGlTexture;
+use web_sys::{WebGlFramebuffer, WebGlTexture};
 
 use atom::Atom;
 use cg2d::{include_quad2, InnOuter};
@@ -19,13 +20,16 @@ use share::Share;
 use gui::component::calc::*;
 use gui::component::user::*;
 use gui::entity::Node;
+use gui::render::res::TexturePartRes;
 use gui::render::res::Opacity as ROpacity;
 use gui::single::*;
 use hal_core::*;
 // use gui::
 // use gui::system::set_layout_style;
 use gui::render::res::TextureRes;
+use gui::system::util::let_top_offset_matrix;
 use gui::Z_MAX;
+use crate::index::cal_layout;
 
 use crate::world::GuiWorld;
 
@@ -140,8 +144,29 @@ pub fn get_webgl_texture(world: u32, texture: u32) -> WebGlTexture {
 	return engine.gl.texture_get_object_webgl(&texture.bind).unwrap().clone();
 }
 
+#[derive(Serialize)]
+pub struct CanvasRect (u32, u32, u32, u32);
+
+
 /**
- * canvas宽高改变时调用
+ * 获取canvas资源
+ */
+pub fn get_canvas_source(
+	world: u32,
+	soruce: u32, // 是否缓存
+) -> i32{
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let engine = world.gui.engine.lend_mut();
+	
+	match engine.texture_part_res_map.get(&(soruce as u64)) {
+		Some(r) => {
+			r.index() as i32
+		},
+		None => -1,
+	}
+}
+/**
+ * canvas宽高改变时调用(分配纹理成功，返回对应索引，否则返回-1)
  * @return __jsObj 纹理
 */
 #[allow(unused_attributes)]
@@ -149,131 +174,77 @@ pub fn get_webgl_texture(world: u32, texture: u32) -> WebGlTexture {
 pub fn set_canvas_size(
     world: u32,
     node: u32,
-    w: u32,
-    h: u32,
+    // w: u32,
+    // h: u32,
     width: u32,
     height: u32,
-    avail_width: u32,
-	avail_height: u32,
-) -> Option<u32> {
+	soruce: u32, // 是否缓存
+	need_depth: bool, // 是否需要深度缓冲区
+    // avail_width: u32,
+	// avail_height: u32,
+) -> i32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend_mut();
     let images = world.gui.image.lend_mut();
     let image_clips = world.gui.image_clip.lend_mut();
-    // let image_notify = images.get_notify_ref();
+	let mut dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+	let dyn_atlas_set_new = dyn_atlas_set.clone();
+	
+	if width == 0 || height == 0 {
+		-1
+	} else {
+		let texture = if soruce > 0 {
+			engine.texture_part_res_map.get(&(soruce as u64))
+		}else {
+			None
+		};
+		let texture = match texture {
+			Some(r) => r,
+			None => {
+				let index = dyn_atlas_set.borrow_mut().update_or_add_rect(0, 0, width as f32, height as f32, PixelFormat::RGBA, DataFormat::UnsignedByte, need_depth, 3, 3, &mut engine.gl);
+				let texture = TexturePartRes::new(index, dyn_atlas_set_new);
+				let cost = texture.cost();
+				if soruce>0 {
+					Share::new(texture) // 不放入资源管理器， canvas不共享
+				} else {
+					engine.texture_part_res_map.create(soruce as u64, texture, cost, 0)
+				}
+			},
+		};
+		// // let name = Atom::from(format!("canvas{}", Math::random())).get_hash();
+		let index = texture.index();
+		// // let cost = texture.cost();
+		
+		// // let res = 
+		// // let res = engine.texture_part_res_map.create(name as u64, texture, cost, 0);
+		world.gui.image_texture.lend_mut().insert(node as usize, ImageTexture::Part(texture));
+		index as i32
+	}
+}
 
-    if width != 0 && height != 0 {
-        image_clips.insert(
-            node as usize,
-            ImageClip(Aabb2::new(
-                Point2::new(0.0, 0.0),
-                Point2::new(
-                    avail_width as f32 / width as f32,
-                    avail_height as f32 / height as f32,
-                ),
-            )),
-        );
-    } else {
-        image_clips.insert(
-            node as usize,
-            ImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(0.0, 0.0))),
-        );
-    }
-    // 如果已经存在纹理， 则更新纹理大小
-    match images.get_mut(node as usize) {
-        Some(r) => {
-            if let Some(texture) = &r.src {
-                // 宽高相等，不需要重设纹理尺寸
-                if texture.width != width as usize || texture.height != height as usize {
-                    engine.gl.texture_resize(&texture.bind, 0, width, height);
-                    texture.update_size(width as usize, height as usize);
-                }
-                r.width = Some(w as f32);
-                r.height = Some(h as f32);
-                images.get_notify_ref().modify_event(node as usize, "", 0);
-                // // 设置渲染脏r
-                // let render_objs = world.gui.render_objs.lend();
-                // render_objs.get_notify().modify_event(1, "", 0);
-                return None;
-            }
-        }
-        None => (),
-    };
-    //否则创建新的纹理
-    let texture = engine
-        .gl
-        .texture_create_2d_webgl(
-            0,
-            width,
-            height,
-            PixelFormat::RGBA,
-            DataFormat::UnsignedByte,
-            false,
-            None,
-        )
-        .unwrap();
-    // engine.gl.texture_pixel_storei(&texture, PixelStore::UnpackFlipYWebgl(true));
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_canvas_rect(world: u32, index: usize) -> JsValue {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let mut dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+	let dyn_atlas_set = dyn_atlas_set.borrow_mut();
+	let rect = dyn_atlas_set.get_rect(index).unwrap();
 
-    // let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap().clone();
+	JsValue::from_serde(&CanvasRect(rect.mins.x as u32, rect.mins.y as u32, (rect.maxs.x - rect.mins.x) as u32, (rect.maxs.y - rect.mins.y) as u32)).unwrap()
+}
 
-    // let fbo = engine.gl.rt_create(Some(&texture), width, height, PixelFormat::RGBA, DataFormat::UnsignedByte, false);
-    let name = Atom::from(format!("canvas{}", Math::random())).get_hash();
-    let texture = engine.create_texture_res(
-        name.clone(),
-        TextureRes::new(
-            width as usize,
-            height as usize,
-            PixelFormat::RGBA,
-            DataFormat::UnsignedByte,
-            ROpacity::Transparent,
-            None,
-            texture,
-			None,
-        ),
-        0,
-    );
-    images.insert(
-        node as usize,
-        Image {
-            src: Some(texture.clone()),
-            url: name,
-            width: Some(w as f32),
-            height: Some(h as f32),
-        },
-    );
-    // let width: u32 = js!{return __jsObj.width}.try_into().unwrap();
-    // let height: u32 = js!{return __jsObj.height}.try_into().unwrap();
-    // let texture = engine.gl.texture_create_2d(width, height, 0, PixelFormat::RGBA, DataFormat::UnsignedByte, false, None).unwrap();
-
-    // let js_texture = engine.gl.texture_get_object_webgl(&texture).unwrap();
-    // js! {
-    //     window.__jsObj = @{js_texture};
-    // }
-    // // let fbo = engine.gl.rt_create(Some(&texture), width, height, PixelFormat::RGBA, DataFormat::UnsignedByte, false);
-    // let name = Atom::from(format!("canvas{}", node));
-    // let texture = engine.create_texture_res(
-    //     name.clone(),
-    //     TextureRes::new(
-    //         width as usize,
-    //         height as usize,
-    //         PixelFormat::RGBA,
-    //         DataFormat::UnsignedByte,
-    //         ROpacity::Transparent,
-    //         Compress::None,
-    //         texture,
-    //     ),
-    //     0,
-    // );
-    // images.insert(
-    //     node as usize,
-    //     Image {
-    //         src: Some(texture),
-    //         url: name,
-    //         width: Some(w as f32),
-    //         height: Some(h as f32),
-    //     },
-	// );
-	Some(Share::into_raw(texture) as u32)
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_canvas_target(world: u32, index: usize) -> Option<WebGlFramebuffer> {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let engine = world.gui.engine.lend_mut();
+	let dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+	let dyn_atlas_set = dyn_atlas_set.borrow_mut();
+	let target = dyn_atlas_set.get_target(index).unwrap();
+	match engine.gl.rt_get_object_webgl(target) {
+		Some(r) => Some(r.clone()),
+		None => None
+	}
 }
 
 /**
@@ -474,12 +445,7 @@ pub fn set_src(world: u32, node: u32, url: usize) {
     let images = world.gui.image.lend_mut();
     images.insert(
         node as usize,
-        Image {
-            src: None,
-            url: url,
-            width: None,
-            height: None,
-        },
+        Image {url},
     );
 }
 
@@ -687,6 +653,251 @@ pub fn query(world: u32, x: f32, y: f32) -> u32 {
     octree.query(&aabb, intersects, &mut args, ab_query_func);
     args.result as u32
 }
+#[derive(Serialize)]
+pub struct CharPos {
+	index: i32,
+	x: f32,
+	y: f32,
+}
+
+// 命中文字，返回文字索引
+#[wasm_bindgen]
+pub fn query_text(world: u32, node: u32, x: f32, y: f32) -> JsValue {
+	let r = query_text1(world, node, x, y);
+	match JsValue::from_serde(&r) {
+		Ok(r) => r,
+		Err(_e) => {
+			log::info!("serde char_pos fail");
+			panic!();
+		}
+	}
+}
+
+#[wasm_bindgen]
+pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
+	cal_layout(world);
+	log::info!("get_text_pos====={}", index);
+
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+	let node_states = world.node_state.lend();
+	let mut char_pos = CharPos {
+		index: 0,
+		x: 0.0,
+		y:0.0,
+	};
+
+	let node_state = match node_states.get(node as usize) {
+		Some(r) => r,
+		None => return JsValue::from_serde(&char_pos).unwrap(),
+	};
+
+	let mut len = node_state.text.len();
+	if len == 0 {
+		return JsValue::from_serde(&char_pos).unwrap()
+	}
+
+	let text = &node_state.text;
+	let mut i = index;
+	if index >= len {
+		i = len - 1;
+	}
+	let mut char = &text[i];
+
+	log::info!("get_text_pos start=====i: {}, char_i:{}, len:{}", i, char.char_i, len);
+
+	// 跳过char_i为-1的节点
+	while char.char_i == -1 && i < len-1 {
+		i += 1;
+		char =  &text[i]
+	}
+	while char.char_i == -1 && i > 0 {
+		i -= 1;
+		char =  &text[i]
+	}
+	if char.char_i == -1 {
+		return JsValue::from_serde(&char_pos).unwrap()
+	}
+
+	log::info!("get_text_pos start i====={}, {}, {:?}", i, char.char_i, text);
+
+	if char.char_i != index as isize {
+		let diff;
+		if index as isize > char.char_i {
+			diff = 1;
+		} else {
+			diff = -1;
+		}
+		while char.char_i != index as isize {
+			log::info!("get_text_pos loop i====={}, {}, {}", i, index, char.char_i);
+			let r = i as isize + diff;
+			if r < 0 {
+				i = 0;
+				break;
+			}
+			i = r as usize;
+			if i < len {
+				char = &text[i];
+			} else {
+				break;
+			}
+		}
+	}
+
+	log::info!("get_text_pos end i====={}, {}, {}", i, index, char.char_i);
+	if char.char_i == -1 {
+		return JsValue::from_serde(&char_pos).unwrap()
+	}
+
+	let pos = calc_text_pos(char, text);
+	set_text_pos(i, &mut char_pos, text, pos);
+	
+	
+	match JsValue::from_serde(&char_pos) {
+		Ok(r) => r,
+		Err(_e) => {
+			log::info!("serde char_pos fail");
+			panic!();
+		}
+	}
+}
+
+fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+	let node_states = world.node_state.lend();
+	let world_matrixs = world.world_matrix.lend();
+	let layouts = world.layout.lend();
+	let transforms = world.transform.lend();
+	let mut char_pos = CharPos {
+		index: 0,
+		x: 0.0,
+		y:0.0,
+	};
+
+	let node_state = match node_states.get(node as usize) {
+		Some(r) => r,
+		None => return char_pos,
+	};
+	let world_matrix = match world_matrixs.get(node as usize) {
+		Some(r) => r,
+		None => return char_pos,
+	};
+	let layout = match layouts.get(node as usize) {
+		Some(r) => r,
+		None => return char_pos,
+	};
+	let transform = &transforms[node as usize];
+
+	let matrix = let_top_offset_matrix(
+		layout,
+		world_matrix,
+		transform,
+		0.0,//text_style.shadow.h + h,
+		0.0,//text_style.shadow.v + v,
+		// shadow_render_obj.depth,
+	);
+
+	let mut start = 0;
+	let mut end = node_state.text.len();
+
+	let text = &node_state.text;
+	// log::info!("world_matrix======{:?}", world_matrix);
+	let invert = matrix.invert().unwrap();
+	// log::info!("invert======{:?}", invert);
+	let p = invert.0 * Vector4::new(x, y, 1.0, 1.0);
+	let mut pos = (0.0, 0.0,0.0,0.0);
+	while start < end {
+		let diff = (end - start)/2 + 1;
+		let mut cur = end - diff;
+		// log::info!("text======{:?}, {}, {}", cur, start, end);
+		let mut char = &text[cur];
+		// 跳过没有意义的字符
+		while char.char_i == -1 && cur > start {
+			cur = cur - 1;
+			char = &text[cur];
+		}
+		if char.char_i == -1 && cur == start {
+			start = (end - diff) + 1;
+			continue;
+		}
+
+		pos = calc_text_pos(char, text);
+		let center_x = (pos.0 + pos.2)/2.0;
+		let center_y = (pos.1 + pos.3)/2.0;
+
+		// log::info!("p: {}, {}, char_pos:{:?}, char_size: {:?}, index:{:?}, char_i:{}, context_id:{}, pos:{:?}, cur:{:?}", p.x, p.y, char.pos, char.size, cur, char.char_i, char.context_id, pos, cur);
+		if pos.0 > p.x {
+			if pos.3 >= p.y {
+				end = cur;
+			} else {
+				start = cur + 1;
+			}
+		} else if pos.2 < p.x{
+			if pos.1 <= p.y {
+				start = cur + 1;
+			} else {
+				end = cur;
+			}
+			
+		} else {
+			if pos.1 > p.y {
+				end = cur;
+			} else if pos.3 < p.y {
+				start = cur + 1;
+			} else if center_x > p.x {
+				start = cur;
+				break;
+			} else {
+				start = cur + 1;
+			}
+		}
+	}
+
+	// log::info!("start: {}, pos:{:?}", start, pos);
+	set_text_pos(start, &mut char_pos, text, pos);
+
+	char_pos
+}
+
+fn set_text_pos(index: usize, char_pos: &mut CharPos, text: &Vec<CharNode>, r: (f32,f32,f32,f32)) {
+	let len = text.len();
+	// log::info!("set_text_pos: {:?}, index: {:?}, text:{:?}", len, index, text);
+	if len > 0 {
+		let char;
+		if index < len {
+			// log::info!("set_text_pos1: {:?}, index: {:?}", len, index);
+			char = &text[index];
+			// log::info!("set_text_pos1 end: {:?}, index: {:?}", len, index);
+			char_pos.x = r.0;
+			char_pos.y = r.1;
+			char_pos.index = char.char_i as i32;
+		} else {
+			// log::info!("set_text_pos2: {:?}, index: {:?}", len, len - 1);
+			char = &text[len - 1];
+			// log::info!("set_text_pos2 end: {:?}, index: {:?}", len, len - 1);
+			char_pos.x = r.2;
+			char_pos.y = r.1;
+			char_pos.index = (char.char_i + 1) as i32;
+		}
+	}
+}
+
+fn calc_text_pos(char: &CharNode, text: &Vec<CharNode>) -> (f32, f32, f32, f32) {
+	let mut r = (char.pos.0, char.pos.1, char.pos.0 + char.size.0, char.pos.1 + char.size.1);
+	if char.context_id > -1 {
+		let context_s = &text[char.context_id as usize];
+		// log::info!("calc_text_pos====context_id: {}, {:?}", char.context_id, context_s);
+		r.0 += context_s.pos.0;
+		r.1 += context_s.pos.1;
+		r.2 += context_s.pos.0;
+		r.3 += context_s.pos.1;
+	}
+	r
+}
+
 
 /// 判断点是否能命中点
 #[allow(unused_attributes)]

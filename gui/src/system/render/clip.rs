@@ -82,14 +82,21 @@ impl<C: HalContext + 'static> ClipSys<C> {
         let target = engine
             .gl
             .rt_create(
-                None,
                 (viewport.0 + viewport.2) as u32,
+                (viewport.1 + viewport.3) as u32,
+            )
+			.unwrap();
+		let texture = engine.gl.texture_create_2d(
+			0, 
+			(viewport.0 + viewport.2) as u32,
                 (viewport.1 + viewport.3) as u32,
                 PixelFormat::RGBA,
                 DataFormat::UnsignedByte,
-                false,
-            )
-			.unwrap();
+			false, 
+			None
+		).unwrap();
+		engine
+            .gl.rt_set_color(&target, Some(&texture));
 			
         let mut clip_size_ubo = ClipTextureSize::default();
         clip_size_ubo.set_value("clipTextureSize", UniformValue::Float2((viewport.0 + viewport.2) as f32, (viewport.1 + viewport.3) as f32));
@@ -194,7 +201,7 @@ impl<C: HalContext + 'static> ClipSys<C> {
                         (
                             match engine
                                 .gl
-                                .rt_get_color_texture(&clip_render.render_target, 0){
+                                .rt_get_color(&clip_render.render_target, 0){
 									Some(r) => r,
 									None => {
 										log::warn!("clip render target rt_get_color_texture fail");

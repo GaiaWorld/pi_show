@@ -206,7 +206,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					return;
 				}
 				
-				let target_index = dyn_atlas_set.update_or_add_rect(render_target,parent_target, content_box.maxs.x-content_box.mins.x,content_box.maxs.y-content_box.mins.y, PixelFormat::RGBA, DataFormat::UnsignedByte, &mut engine.gl);
+				let target_index = dyn_atlas_set.update_or_add_rect(render_target,parent_target, content_box.maxs.x-content_box.mins.x,content_box.maxs.y-content_box.mins.y, PixelFormat::RGBA, DataFormat::UnsignedByte, true, 1, 1, &mut engine.gl);
 				
 				// 如果纹理区域修改了，则重新设置纹理，以及重新更新uv
 				if target_index != 0 {
@@ -215,7 +215,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					render_target_change = true;
 					
 					let t = engine.gl
-					.rt_get_color_texture(dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap();
+					.rt_get_color(dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap();
 					// 绑定纹理
 					render_obj.paramter.set_texture(
 						"texture",
@@ -331,14 +331,44 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		render_context.transparent_list.sort_by(|id1, id2| {
 			let obj1 = &render_objs[*id1];
 			let obj2 = &render_objs[*id2];
-			obj1.depth.partial_cmp(&obj2.depth).unwrap()
+			if obj1.depth.is_nan() {
+				log::info!("id1 id nan: {:?}, {:?}", obj1.context, obj2.vs_name);
+			}
+			if obj2.depth.is_nan() {
+				log::info!("id2 id nan: {:?}, {:?}", obj2.context, obj2.vs_name);
+			}	
+			match obj1.depth.partial_cmp(&obj2.depth) {
+				Some(r) => r,
+				None => {
+					log::info!("depth fail nan: {:?}, {:?}", obj1.depth, obj2.depth);
+					panic!();
+				}
+			}
 		});
 		render_context.opacity_list.sort_by(|id1, id2| {
 			let obj1 = &render_objs[*id1];
 			let obj2 = &render_objs[*id2];
-			(obj1.program.as_ref().unwrap().item.index)
-				.partial_cmp(&(obj2.program.as_ref().unwrap().item.index))
-				.unwrap()
+			if obj1.depth.is_nan() {
+				log::info!("id1 id nan: {:?}, {:?}", obj1.context, obj2.vs_name);
+			}
+			if obj2.depth.is_nan() {
+				log::info!("id2 id nan: {:?}, {:?}", obj2.context, obj2.vs_name);
+			}
+			if obj1.program.is_none() {
+				log::info!("obj1 program is_none: {:?}", obj1.vs_name);
+			}
+			if obj2.program.is_none() {
+				log::info!("obj2 program is_none: {:?}", obj2.vs_name);
+			}
+
+			match (obj1.program.as_ref().unwrap().item.index)
+			.partial_cmp(&(obj2.program.as_ref().unwrap().item.index)) {
+				Some(r) => r,
+				None => {
+					log::info!("program fail: {:?}, {:?}, {:?}, {:?}", obj1.program.as_ref().unwrap().item, obj2.program.as_ref().unwrap().item, obj1.vs_name, obj2.vs_name);
+					panic!();
+				}
+			}
 		});
 
 		let render_context = render_contexts.get(id).unwrap();

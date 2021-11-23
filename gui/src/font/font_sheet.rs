@@ -549,16 +549,17 @@ pub struct WaitChar {
 #[derive(Debug)]
 // 劈分结果
 pub enum SplitResult {
-    Newline,
-    Whitespace,
-    Word(char),      // 单字词
-    WordStart(char), // 单词开始, 连续的字母或数字(必须字符的type_id相同)组成的单词
-    WordNext(char),  // 单词字符继续
-    WordEnd,         // 单词字符结束
+    Newline(isize),
+    Whitespace(isize),
+    Word(isize,char),      // 单字词
+    WordStart(isize,char), // 单词开始, 连续的字母或数字(必须字符的type_id相同)组成的单词
+    WordNext(isize,char),  // 单词字符继续
+    WordEnd(isize),         // 单词字符结束
 }
 
 // 劈分字符迭代器
 pub struct SplitChar<'a> {
+	cur_index: usize,
     iter: Chars<'a>,
     word_split: bool,
     merge_whitespace: bool,
@@ -573,10 +574,12 @@ impl<'a> Iterator for SplitChar<'a> {
             Some(c) if self.type_id == 0 => {
                 if c == '\n' {
                     self.last = self.iter.next();
-                    Some(SplitResult::Newline)
+					self.cur_index += 1;
+                    Some(SplitResult::Newline((self.cur_index - 1) as isize))
                 } else if c.is_whitespace() {
                     if self.merge_whitespace {
                         loop {
+							self.cur_index += 1;
                             match self.iter.next() {
                                 Some(cc) if cc.is_whitespace() => continue,
                                 r => {
@@ -587,35 +590,40 @@ impl<'a> Iterator for SplitChar<'a> {
                         }
                     } else {
                         self.last = self.iter.next();
+						self.cur_index += 1;
                     }
-                    Some(SplitResult::Whitespace)
+                    Some(SplitResult::Whitespace((self.cur_index - 1) as isize))
                 } else if !self.word_split {
                     self.last = self.iter.next();
-                    Some(SplitResult::Word(c))
+					self.cur_index += 1;
+                    Some(SplitResult::Word((self.cur_index - 1) as isize,c))
                 } else {
                     self.type_id = get_type_id(c, char::from(0));
                     if self.type_id == 0 {
                         self.last = self.iter.next();
-                        Some(SplitResult::Word(c))
+						self.cur_index += 1;
+                        Some(SplitResult::Word((self.cur_index - 1) as isize,c))
                     } else {
                         // 如果是单词开始，不读取下个字符，因为需要保留当前字符做是否为单词的判断
-                        Some(SplitResult::WordStart(c))
+                        Some(SplitResult::WordStart(self.cur_index as isize,c))
                     }
                 }
             }
             Some(old_c) => {
                 self.last = self.iter.next();
+				self.cur_index += 1;
                 match self.last {
                     Some(c) => {
                         let id = get_type_id(c, old_c);
                         if id == self.type_id {
-                            Some(SplitResult::WordNext(c))
+                            Some(SplitResult::WordNext(self.cur_index as isize,c))
                         } else {
                             self.type_id = 0;
-                            Some(SplitResult::WordEnd)
+							self.cur_index += 1;
+                            Some(SplitResult::WordEnd(-1))
                         }
                     }
-                    _ => Some(SplitResult::WordEnd),
+                    _ => Some(SplitResult::WordEnd(-1)),
                 }
             }
             _ => None,
@@ -649,6 +657,7 @@ pub fn split<'a>(s: &'a str, word_split: bool, merge_whitespace: bool) -> SplitC
     let mut i = s.chars();
     let last = i.next();
     SplitChar {
+		cur_index: 0,
         iter: i,
         word_split: word_split,
         merge_whitespace: merge_whitespace,
@@ -668,7 +677,7 @@ fn test() {
 		for cr in split(s.as_str(), true, true) {
 			match cr {
 				// 存在WordStart， 表示开始一个多字符单词
-				SplitResult::Word(_c) => {
+				SplitResult::Word(index,_c) => {
 					ret.push(_c);
 				},
 				_ => (),

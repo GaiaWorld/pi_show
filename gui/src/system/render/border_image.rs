@@ -7,15 +7,14 @@ use std::marker::PhantomData;
 use hash::DefaultHasher;
 
 use atom::Atom;
-use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{NotifyImpl, Event};
 
 use hal_core::*;
 use map::vecmap::VecMap;
-use map::Map;
 use share::Share;
 
-use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::{LayoutR};
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
@@ -29,14 +28,14 @@ use crate::system::util::*;
 const DIRTY_TY: usize = StyleType::Matrix as usize
     | StyleType::Opacity as usize
     | StyleType::Layout as usize
-    | StyleType::BorderImage as usize
     | StyleType::BorderImageClip as usize
     | StyleType::BorderImageSlice as usize
     | StyleType::BorderImageRepeat as usize;
 
+const DIRTY_TY1: usize = StyleType1::BorderImageTexture as usize;
+
 // 一些与BorderImage渲染对象的几何体相关的属性脏
 const GEO_DIRTY: usize = StyleType::Layout as usize
-    | StyleType::BorderImage as usize
     | StyleType::BorderImageClip as usize
     | StyleType::BorderImageSlice as usize
     | StyleType::BorderImageRepeat as usize;
@@ -56,6 +55,7 @@ pub struct BorderImageSys<C: HalContext + 'static> {
 impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, BorderImage>,
+		&'a MultiCaseImpl<Node, BorderImageTexture>,
         &'a MultiCaseImpl<Node, BorderImageClip>,
         &'a MultiCaseImpl<Node, BorderImageSlice>,
         &'a MultiCaseImpl<Node, BorderImageRepeat>,
@@ -72,12 +72,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a mut SingleCaseImpl<ShareEngine<C>>,
     );
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        if (read.8).0.len() == 0 {
+        if (read.9).0.len() == 0 {
             return;
         }
 
         let (
             border_images,
+			border_image_textures,
             border_image_clips,
             border_image_slices,
             border_image_repeats,
@@ -103,26 +104,27 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             };
 
             // 不存在Image关心的脏, 跳过
-            if style_mark.dirty & DIRTY_TY == 0 {
+            if style_mark.dirty & DIRTY_TY == 0 && style_mark.dirty1 & DIRTY_TY1 == 0 {
                 continue;
             }
 
             let mut dirty = style_mark.dirty;
+			let dirty1 = style_mark.dirty1;
 
+			let texture = match border_image_textures.get(*id) {
+				Some(r) => r,
+				None => {
+					self.remove_render_obj(*id, render_objs);
+					continue;
+				},
+			};
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
-            let render_index = if dirty & StyleType::BorderImage as usize != 0 {
-                if style_mark.local_style & StyleType::BorderImage as usize == 0
-                    && style_mark.class_style & StyleType::BorderImage as usize == 0
-                {
-                    self.remove_render_obj(*id, render_objs);
-                    continue;
-                } else {
-                    dirty |= DIRTY_TY;
-                    match self.render_map.get_mut(*id) {
-                        Some(r) => *r,
-                        None => self.create_render_obj(*id, render_objs, default_state)
-                    }
-                }
+            let render_index = if dirty1 & DIRTY_TY1 != 0 {
+                dirty |= DIRTY_TY;
+				match self.render_map.get_mut(*id) {
+					Some(r) => *r,
+					None => self.create_render_obj(*id, render_objs, default_state)
+				}
             } else {
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
@@ -130,14 +132,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 }
             };
 
-            let image = &border_images[*id];
             let render_obj = &mut render_objs[render_index];
-            // 图片不存在， 跳过
-            if image.0.src.is_none() {
-                render_obj.geometry = None;
-                continue;
-            }
-
             let layout = &layouts[*id];
 			
             // 世界矩阵脏， 设置世界矩阵ubo
@@ -169,6 +164,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 let image_repeat = border_image_repeats.get(*id);
                 render_obj.geometry = create_geo(
                     image,
+					texture,
                     image_clip,
                     image_slice,
                     image_repeat,
@@ -177,11 +173,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 );
 
                 // BorderImage修改， 修改texture
-                if dirty & StyleType::BorderImage as usize != 0 {
+                if dirty1 & StyleType1::BorderImageTexture as usize != 0 {
                     // 如果四边形与图片宽高一样， 使用点采样， TODO
                     render_obj.paramter.set_texture(
                         "texture",
-                        (&image.0.src.as_ref().unwrap().bind, &self.default_sampler),
+                        (&texture.0.bind, &self.default_sampler),
                     );
                     notify.modify_event(render_index, "ubo", 0);
                 }
@@ -190,11 +186,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
 
             // 不透明度脏或图片脏， 设置is_opacity
             if dirty & StyleType::Opacity as usize != 0
-                || dirty & StyleType::BorderImage as usize != 0
+                || dirty1 & StyleType1::BorderImageTexture as usize != 0
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-                let is_opacity = if let ROpacity::Opaque = image.0.src.as_ref().unwrap().opacity {
+                let is_opacity = if let ROpacity::Opaque = texture.0.opacity {
                     true
                 } else {
                     false
@@ -210,13 +206,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImage, DeleteEvent>
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
     for BorderImageSys<C>
 {
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -279,6 +277,7 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
 
 fn create_geo<C: HalContext + 'static>(
     img: &BorderImage,
+	texture: &BorderImageTexture,
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
@@ -290,7 +289,7 @@ fn create_geo<C: HalContext + 'static>(
         Some(r) => Some(r.clone()),
         None => {
             let (positions, uvs, indices) = get_border_image_stream(
-                img,
+                texture,
                 clip,
                 slice,
                 repeat,
@@ -313,7 +312,7 @@ fn create_geo<C: HalContext + 'static>(
 
 #[inline]
 fn geo_hash(
-    img: &BorderImage,
+	img: &BorderImage,
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
@@ -321,7 +320,7 @@ fn geo_hash(
 ) -> u64 {
     let mut hasher = DefaultHasher::default();
     BORDER_IMAGE.hash(&mut hasher);
-    img.0.url.hash(&mut hasher);
+    img.url.hash(&mut hasher);
     match clip {
         Some(r) => f32_4_hash_(r.mins.x, r.mins.y, r.maxs.x, r.maxs.y, &mut hasher),
         None => 0.hash(&mut hasher),
@@ -348,7 +347,7 @@ fn geo_hash(
 
 #[inline]
 fn get_border_image_stream(
-    img: &BorderImage,
+    texture: &BorderImageTexture,
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
@@ -357,7 +356,6 @@ fn get_border_image_stream(
     mut uv_arr: Polygon,
     mut index_arr: Vec<u16>,
 ) -> (Polygon, Polygon, Vec<u16>) {
-    let src = &img.0.src.as_ref().unwrap();
     let (uv1, uv2) = match clip {
         Some(c) => (c.mins, c.maxs),
         _ => (Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
@@ -564,10 +562,10 @@ fn get_border_image_stream(
     let (ustep, vstep) = match repeat {
         Some(&BorderImageRepeat(utype, vtype)) => {
             // 根据图像大小和uv计算
-            let ustep = calc_step(right - left, src.width as f32 * (uv_right - uv_left), utype);
+            let ustep = calc_step(right - left, texture.0.width as f32 * (uv_right - uv_left), utype);
             let vstep = calc_step(
                 bottom - top,
-                src.height as f32 * (uv_bottom - uv_top),
+                texture.0.height as f32 * (uv_bottom - uv_top),
                 vtype,
             );
             (ustep, vstep)
@@ -761,6 +759,6 @@ impl_system! {
     BorderImageSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BorderImage, DeleteEvent>
-    }
+		EntityListener<Node, DeleteEvent>
+	}
 }

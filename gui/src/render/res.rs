@@ -84,6 +84,10 @@ impl TexturePartRes {
 	pub fn index(&self) -> usize {
 		self.index
 	}
+
+	pub fn get_dyn_texture_set(&self) -> &Share<RefCell<DynAtlasSet>> {
+		&self.dyn_texture_set
+	}
 }
 
 impl Drop for TexturePartRes {
@@ -105,6 +109,22 @@ impl Res for TexturePartRes {
 
 unsafe impl Send for TexturePartRes {}
 unsafe impl Sync for TexturePartRes {}
+
+#[derive(Deref)]
+pub struct RenderBufferRes(HalRenderBuffer);
+
+impl RenderBufferRes {
+	pub fn new(res: HalRenderBuffer) -> RenderBufferRes{
+		return RenderBufferRes(res);
+	}
+}
+
+impl Res for RenderBufferRes {
+    type Key = u64;
+}
+
+unsafe impl Send for RenderBufferRes {}
+unsafe impl Sync for RenderBufferRes {}
 
 // impl<> fmt::Debug for Point {
 //     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

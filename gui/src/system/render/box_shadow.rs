@@ -3,7 +3,7 @@ use std::slice;
 
 use cg2d::{BooleanOperation, Polygon as Polygon2d};
 use nalgebra::Point2;
-use ecs::{DeleteEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
+use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
@@ -180,13 +180,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BoxShadow, DeleteEvent>
+// 监听实体销毁，删除索引
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
     for BoxShadowSys<C>
 {
     type ReadData = ();
-    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
-    fn listen(&mut self, event: &Event, _: Self::ReadData, render_objs: Self::WriteData) {
-        self.remove_render_obj(event.id, render_objs)
+    type WriteData = ();
+
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, _: Self::WriteData) {
+		self.render_map.remove(event.id); // 移除索引
     }
 }
 
@@ -358,6 +360,6 @@ impl_system! {
     BoxShadowSys<C> where [C: HalContext + 'static],
     true,
     {
-        MultiCaseListener<Node, BoxShadow, DeleteEvent>
+        EntityListener<Node, DeleteEvent>
     }
 }

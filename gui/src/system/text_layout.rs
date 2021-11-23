@@ -9,7 +9,7 @@ use ecs::{Event, StdCell};
 use ecs::{
 	component::MultiCaseImpl,
 	entity::EntityImpl,
-    monitor::{CreateEvent, ModifyEvent},
+    monitor::{ModifyEvent},
     single::SingleCaseImpl,
 	system::{MultiCaseListener, Runner},
 };
@@ -116,14 +116,20 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						// read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
 
 						let target = read.5.gl.rt_create(
-							Some(&font_sheet.font_tex.texture.bind),
 							width as u32,
 							height as u32,
-							PixelFormat::RGBA,
-							DataFormat::UnsignedByte,
-							false,
 						)
 						.unwrap();
+						let texture = read.5.gl.texture_create_2d(
+							0, 
+							width as u32,
+							height as u32,
+								PixelFormat::RGBA,
+								DataFormat::UnsignedByte,
+							false, 
+							None
+						).unwrap();
+						read.5.gl.rt_set_color(&target, Some(&texture));
 						
 						read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
 							viewport: (0,0,width as i32,height as i32),
@@ -410,7 +416,7 @@ impl<'a> Calc<'a> {
 		let (mut word_index, mut p_x, mut word_margin_start, mut char_index) = (0, 0.0, 0.0, 0);
 
 		if text_style.text.indent > 0.0 {
-			self.create_or_get_indice(chars, text_style.text.indent, char_index);
+			self.create_or_get_indice(chars, text_style.text.indent, char_index, -1);
 			char_index += 1;
 		}
 
@@ -419,44 +425,45 @@ impl<'a> Calc<'a> {
 			// println!("cacl_simple, cr: {:?}, char_index:{}, word_index: {}, word_margin_start: {}, p_x:{}", cr, char_index, word_index, word_margin_start, p_x);
 			// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
 			match cr {
-				SplitResult::Word(c) => {
-					let cn = self.create_or_get(c, chars, char_index, p_x);
+				SplitResult::Word(char_i,c) => {
+					let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
 					cn.margin_start = word_margin_start;
 					char_index += 1;
 					word_margin_start = self.char_margin;
 				}
-				SplitResult::WordNext(c) => {
-					let cn = self.create_or_get(c, chars, char_index, p_x);
-					
+				SplitResult::WordNext(char_i,c) => {
+					let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+					cn.context_id = word_index as isize;
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
 					char_index += 1;
 					chars[word_index].ch_id_or_count += 1;
 				}
 				// 存在WordStart， 表示开始一个多字符单词
-				SplitResult::WordStart(c) => {
-					self.create_or_get_container(chars, char_index, word_margin_start);
+				SplitResult::WordStart(char_i,c) => {
+					self.create_or_get_container(chars, char_index, word_margin_start, -1);
 					word_index = char_index;
 					p_x = 0.0;
 					word_margin_start = self.char_margin;
 					char_index += 1;
 
-					let cn = self.create_or_get(c, chars, char_index, p_x);
+					let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+					cn.context_id = word_index as isize;
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
 					chars[word_index].ch_id_or_count += 1;
 					char_index += 1;
 				}
-				SplitResult::WordEnd => {
+				SplitResult::WordEnd(_) => {
 					chars[word_index].size = (p_x - self.char_margin, self.line_height);
 				},
-				SplitResult::Whitespace => {
-					let cn = self.create_or_get(' ', chars, char_index, p_x);
+				SplitResult::Whitespace(char_i) => {
+					let cn = self.create_or_get(' ', chars, char_index, p_x, char_i);
 					cn.margin_start = word_margin_start;
 					char_index += 1;
 					word_margin_start = self.char_margin;
 					// word_margin_start += self.font_size/3.0 + self.word_margin;
 				}
-				SplitResult::Newline => {
-					self.create_or_get_breakline(chars, char_index);
+				SplitResult::Newline(char_i) => {
+					self.create_or_get_breakline(chars, char_index, char_i);
 					char_index += 1;
 				}
 			}
@@ -485,7 +492,7 @@ impl<'a> Calc<'a> {
 		
 		if text_style.text.indent > 0.0 {
 			let chars = &mut node_states[id].0.text;
-			let cn = self.create_or_get_indice(chars, text_style.text.indent, char_index);
+			let cn = self.create_or_get_indice(chars, text_style.text.indent, char_index, -1);
 			cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
 			char_index += 1;
 			cur_child = self.idtree[cur_child].next();
@@ -495,26 +502,27 @@ impl<'a> Calc<'a> {
 		for cr in split(self.text, true, text_style.text.white_space.preserve_spaces()) {
 			// 如果是单词的结束字符，释放掉当前节点后面的所有兄弟节点， 并将当前节点索引重置为当前节点的父节点的下一个兄弟节点
 			match cr {
-				SplitResult::Word(c) => {
+				SplitResult::Word(char_i, c) => {
 					let chars = &mut node_states[id].0.text;
-					let cn = self.create_or_get(c, chars, char_index, 0.0);
+					let cn = self.create_or_get(c, chars, char_index, 0.0, char_i);
 					cn.margin_start = word_margin_start;
 					word_margin_start = self.char_margin;
 					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
 					char_index += 1;
 				}
-				SplitResult::WordNext(c) => {
+				SplitResult::WordNext(char_i, c) => {
 					let chars = &mut node_states[id].0.text;
-					let cn = self.create_or_get(c, chars, char_index, p_x);
+					let cn = self.create_or_get(c, chars, char_index, p_x, char_i);
+					cn.context_id = word_index as isize;
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
 					chars[word_index].ch_id_or_count += 1;
 					char_index += 1;
 					continue;
 				}
 				// 存在WordStart， 表示开始一个多字符单词
-				SplitResult::WordStart(c) => {
+				SplitResult::WordStart(char_i, c) => {
 					// 容器节点
-					let cn = self.create_or_get_container(&mut node_states[id].0.text, char_index, word_margin_start);
+					let cn = self.create_or_get_container(&mut node_states[id].0.text, char_index, word_margin_start, -1);
 					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
 
 					word_id = cur_child;
@@ -524,12 +532,13 @@ impl<'a> Calc<'a> {
 					char_index += 1;
 
 					let chars = &mut node_states[id].0.text;
-					let cn = self.create_or_get(c, chars, char_index, 0.0);
+					let cn = self.create_or_get(c, chars, char_index, 0.0, char_i);
+					cn.context_id = word_index as isize;
 					p_x += cn.size.0 + self.char_margin; // 下一个字符的位置
 					chars[word_index].ch_id_or_count += 1;
 					char_index += 1;
 				}
-				SplitResult::WordEnd => {
+				SplitResult::WordEnd(_) => {
 					let chars = &mut node_states[id].0.text;
 					self.rect_layout_styles[word_id].size = Size{
 						width: Dimension::Points(p_x - self.char_margin),
@@ -538,9 +547,9 @@ impl<'a> Calc<'a> {
 					chars[word_index].size = (p_x - self.char_margin, self.line_height);
 					continue;
 				},
-				SplitResult::Whitespace => {
+				SplitResult::Whitespace(char_i) => {
 					let chars = &mut node_states[id].0.text;
-					let cn = self.create_or_get(' ', chars, char_index, 0.0);
+					let cn = self.create_or_get(' ', chars, char_index, 0.0, char_i);
 					cn.margin_start = word_margin_start;
 					word_margin_start = self.char_margin;
 					cur_child = self.create_entity(cur_child, parent, &cn.clone(), word_margin_start, char_index, node_states);
@@ -550,9 +559,9 @@ impl<'a> Calc<'a> {
 					// word_margin_start += self.font_size/3.0 + self.word_margin;
 					// continue;
 				}
-				SplitResult::Newline => {
+				SplitResult::Newline(char_i) => {
 					let chars = &mut node_states[id].0.text;
-					let cn = self.create_or_get_breakline(chars, char_index);
+					let cn = self.create_or_get_breakline(chars, char_index, char_i);
 					cur_child = self.create_entity(cur_child, parent, &cn.clone(), 0.0, char_index, node_states);
 					char_index += 1;
 				}
@@ -602,7 +611,7 @@ impl<'a> Calc<'a> {
 		id
 	}
 
-	fn create_char_node(&mut self, ch: char, p_x: f32) -> CharNode {
+	fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
 		let r = self.font_sheet.measure(
 			&self.tex_font.0,
 			self.font_size as usize,
@@ -618,24 +627,27 @@ impl<'a> Calc<'a> {
 			pos: (p_x, 0.0),
 			base_width: r.1,
 			ch_id_or_count: 0,
+			char_i,
+			context_id: -1,
 		}
 	}
 
-	fn create_or_get<'b>(&mut self, ch: char, chars: &'b mut Vec<CharNode>, index: usize, p_x: f32) -> &'b mut CharNode {
+	fn create_or_get<'b>(&mut self, ch: char, chars: &'b mut Vec<CharNode>, index: usize, p_x: f32, char_i: isize) -> &'b mut CharNode {
 		if index >= chars.len() {
-			chars.push(self.create_char_node(ch, p_x));
+			chars.push(self.create_char_node(ch, p_x, char_i));
 		} else {
 			let cn = &chars[index];
 			if cn.ch != ch {
-				chars[index] = self.create_char_node(ch, p_x);
+				chars[index] = self.create_char_node(ch, p_x, char_i);
 			}
 		}
 		let cn = &mut chars[index];
 		cn.pos.0 = p_x;
+		cn.char_i = char_i;
 		cn
 	}
 
-	fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, word_margin_start: f32) -> &'b mut CharNode {
+	fn create_or_get_container<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, word_margin_start: f32, char_i: isize) -> &'b mut CharNode {
 		let r = CharNode {
 			ch: char::from(0),
 			size: (0.0, self.line_height),
@@ -643,6 +655,8 @@ impl<'a> Calc<'a> {
 			pos: (0.0, 0.0),
 			base_width: self.font_size,
 			ch_id_or_count: 1,
+			char_i,
+			context_id: -1,
 		};
 		if index >= chars.len() {
 			chars.push(r);
@@ -652,7 +666,7 @@ impl<'a> Calc<'a> {
 		&mut chars[index]
 	}
 
-	fn create_or_get_breakline<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize) -> &'b mut CharNode {
+	fn create_or_get_breakline<'b>(&mut self, chars: &'b mut Vec<CharNode>, index: usize, char_i: isize) -> &'b mut CharNode {
 		if index >= chars.len() {
 			chars.push(CharNode {
 				ch: '\n',
@@ -661,6 +675,8 @@ impl<'a> Calc<'a> {
 				pos: (0.0, 0.0),
 				base_width: 0.0,
 				ch_id_or_count: 0,
+				char_i,
+				context_id: -1,
 			});
 		} else {
 			let cn = &chars[index];
@@ -672,13 +688,15 @@ impl<'a> Calc<'a> {
 					pos: (0.0, 0.0),
 					base_width: 0.0,
 					ch_id_or_count: 0,
+					char_i,
+					context_id: -1,
 				};
 			}
 		}
 		&mut chars[index]
 	}
 
-	fn create_or_get_indice<'b>(&mut self, chars: &'b mut Vec<CharNode>, indice: f32, index: usize) -> &'b mut CharNode {
+	fn create_or_get_indice<'b>(&mut self, chars: &'b mut Vec<CharNode>, indice: f32, index: usize, char_i: isize) -> &'b mut CharNode {
 		if index >= chars.len() {
 			chars.push(CharNode {
 				ch: ' ',
@@ -687,6 +705,8 @@ impl<'a> Calc<'a> {
 				pos: (0.0, 0.0),
 				base_width: 0.0,
 				ch_id_or_count: 0,
+				char_i,
+				context_id: -1,
 			});
 		} else {
 			let cn = &chars[index];
@@ -698,6 +718,8 @@ impl<'a> Calc<'a> {
 					pos: (0.0, 0.0),
 					base_width: 0.0,
 					ch_id_or_count: 0,
+					char_i,
+					context_id: -1,
 				};
 			} else {
 				chars[index].size.0 = indice;

@@ -396,12 +396,7 @@ pub fn set_border_image(world: u32, node: u32, url: usize) {
     let border_images = world.gui.border_image.lend_mut();
     border_images.insert(
         node as usize,
-        BorderImage(Image {
-            src: None,
-            url: url,
-            width: None,
-            height: None,
-        }),
+        BorderImage {url},
     );
 }
 

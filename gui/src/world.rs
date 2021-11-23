@@ -72,12 +72,19 @@ pub fn seting_res_mgr(res_mgr: &mut ResMgr) {
 		0,
         "TextureRes".to_string(),
     );
-	res_mgr.register::<TexturePartRes>(
-		3 * 1024 * 1024,
-		8 * 1024 * 1024,
+	res_mgr.register::<RenderBufferRes>(
+		16 * 1024 * 1024,
+		32 * 1024 * 1024,
 		5 * 60,
 		0,
-        "TextureRes".to_string(),
+        "RenderBufferRes".to_string(),
+    );
+	res_mgr.register::<TexturePartRes>(
+		10 * 1024 * 1024,
+		50 * 1024 * 1024,
+		5 * 60,
+		0,
+        "TexturePartRes".to_string(),
     );
     res_mgr.register::<GeometryRes>(
         20 * 1024, 100 * 1024, 5 * 60, 0,
@@ -234,6 +241,8 @@ pub fn create_world<C: HalContext + 'static>(
 	world.register_multi::<Node, ContentBox>();
 
     //calc
+	world.register_multi::<Node, ImageTexture>();
+	world.register_multi::<Node, BorderImageTexture>();
     world.register_multi::<Node, ZDepth>();
     world.register_multi::<Node, Enable>();
     world.register_multi::<Node, Visibility>();
@@ -245,6 +254,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, Culling>();
 	world.register_multi::<Node, TransformWillChangeMatrix>();
 	world.register_multi::<Node, RenderContext>();
+	world.register_multi::<Node, ContextIndex>();
 
 	let mut idtree = IdTree::with_capacity(capacity);
 	idtree.set_statistics_count(true);
@@ -257,7 +267,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<RenderObjs>(RenderObjs::with_capacity(capacity));
 	world.register_single::<PixelRatio>(PixelRatio(1.0));
 	world.register_single::<RootIndexs>(RootIndexs::default());
-	world.register_single::<Share<RefCell<DynAtlasSet>>>(Share::new(RefCell::new(DynAtlasSet::new(engine.res_mgr.clone()))));
+	world.register_single::<Share<RefCell<DynAtlasSet>>>(Share::new(RefCell::new(DynAtlasSet::new(engine.res_mgr.clone(), width as usize, height as usize))));
 	world.register_single::<ShareEngine<C>>(engine);
 	
 
@@ -445,6 +455,7 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub layout: Arc<CellMultiCase<Node, LayoutR>>,
     pub hsv: Arc<CellMultiCase<Node, HSV>>,
     pub culling: Arc<CellMultiCase<Node, Culling>>,
+	pub image_texture:  Arc<CellMultiCase<Node, ImageTexture>>,
 
     //single
     pub idtree: Arc<CellSingleCase<IdTree>>,
@@ -458,6 +469,7 @@ pub struct GuiWorld<C: HalContext + 'static> {
 	pub dirty_list: Arc<CellSingleCase<DirtyList>>,
 	pub system_time: Arc<CellSingleCase<SystemTime>>,
 	pub dirty_view_rect: Arc<CellSingleCase<DirtyViewRect>>,
+	pub dyn_atlas_set: Arc<CellSingleCase<Share<RefCell<DynAtlasSet>>>>,
 
 	pub renderSys: Arc<CellRenderSys<C>>,
 
@@ -508,6 +520,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
             layout: world.fetch_multi::<Node, LayoutR>().unwrap(),
             hsv: world.fetch_multi::<Node, HSV>().unwrap(),
+			image_texture: world.fetch_multi::<Node, ImageTexture>().unwrap(),
 
             //single
             idtree: world.fetch_single::<IdTree>().unwrap(),
@@ -521,6 +534,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
 			system_time: world.fetch_single::<SystemTime>().unwrap(),
 			dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
+			dyn_atlas_set: world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap(),
 
 			renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
 

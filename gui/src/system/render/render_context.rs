@@ -21,7 +21,7 @@ use std::hash::{Hash, Hasher};
 use hash::{DefaultHasher, XHashSet};
 
 use atom::Atom;
-use ecs::{CreateEvent, DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener, EntityListener};
+use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
@@ -84,6 +84,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 	);
 	type WriteData = (
 		&'a mut MultiCaseImpl<Node, RenderContext>,
+		&'a mut MultiCaseImpl<Node, ContextIndex>,
 		&'a mut SingleCaseImpl<RenderObjs>,
 		&'a mut SingleCaseImpl<ShareEngine<C>>,
 		&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>,
@@ -113,6 +114,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 
 		let (
 			render_contexts,
+			context_indexs,
 			render_objs,
 			engine,
 			dyn_atlas_set) = write;
@@ -146,7 +148,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			
 			// 取消渲染上下文
 			if mask_texture.is_none() && opacity.0 == 1.0 {
-				self.unbind_context(*id, render_contexts, &mut render_target_change);
+				if self.unbind_context(*id, render_contexts, &mut render_target_change) {
+					context_indexs.delete(*id); // 上下文发生变化，删除索引，以便后续添加正确的值
+				}
 				continue;
 			}
 
@@ -173,6 +177,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 							Some(0),
 							render_obj_index)
 					);
+					context_indexs.delete(*id); // 上下文发生变化，删除索引，以便后续添加正确的值
 					(render_contexts.get_mut(*id).unwrap(), true)
 				},
 			};
@@ -274,6 +279,47 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 
 			notify.modify_event(render_context.render_obj_index, "", 0);
 		}
+
+		// 渲染上下文设置完成后，再设置节点的渲染上下文索引会更高效（否则会导致一些重复设置）
+		for id in dirty.iter() {
+			let node = match idtree.get(*id) {
+				Some(r) => r,
+				None => continue,
+			};
+			if node.layer() == 0 {
+				continue;
+			}
+
+			// 如果节点存在一个上下文索引，跳过
+			// 应当保证，节点从树上移除，节点删除渲染上下文，节点添加渲染上下文时，将context_index移除
+			// 否则山下问索引将不能正确设置
+			if context_indexs.get(*id).is_some() {
+				continue;
+			}
+
+			match render_contexts.get(*id) {
+				Some(_r) => {
+					// 节点本身是一个渲染上下文，则设置子节点的渲染上下文索引为自身，直到下一个渲染上下文停止
+					recursive_set_context_index(*id, *id, render_contexts, context_indexs, idtree);
+					// 这里必须要设置节点自身的渲染上下文索引，否则，如果节点的父不在脏列表中，本节点将没有机会设置渲染上下文
+					if let Some(r) = context_indexs.get(node.parent()) {
+						let v = r.clone();
+						context_indexs.insert(*id,v);
+					}
+				},
+				None => {
+					// 节点本身不是一个渲染上下文
+					// 如果父存在上下文索引，则设置子节点的上下文索引与父相同
+					// 如果父不存在上下文索引,则忽略，其子节点及自身的上下文索引将由该节点的递归父节点向下设置
+					if let Some(index) = context_indexs.get(node.parent()) {
+						let index = index.clone();
+						recursive_set_context_index(*id, index.0, render_contexts, context_indexs, idtree);
+						context_indexs.insert(*id,index);
+					}
+				}
+			}
+		}
+
 		dirty.clear();
 		self.dirty = dirty;
 
@@ -321,12 +367,25 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ContentBox, (Creat
 }
 
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEvent> for RenderContextSys<C> {
-	type ReadData = &'a SingleCaseImpl<RenderBegin>;
-	type WriteData = &'a mut MultiCaseImpl<Node, RenderContext>;
-	fn listen(&mut self, event: &Event, render_begin: Self::ReadData,render_contexts: Self::WriteData) {
+	type ReadData = (&'a SingleCaseImpl<RenderBegin>, &'a SingleCaseImpl<ShareEngine<C>>);
+	type WriteData = (&'a mut MultiCaseImpl<Node, RenderContext>, &'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>);
+	fn listen(&mut self, _event: &Event, (render_begin, engine): Self::ReadData,(render_contexts, dyn_atlas_set): Self::WriteData) {
 		if let Some(r) = render_contexts.get_mut(1) {
 			r.render_rect = Aabb2::new(Point2::new(render_begin.0.viewport.0 as f32, render_begin.0.viewport.1 as f32), Point2::new(render_begin.0.viewport.0 as f32 + render_begin.0.viewport.2 as f32, render_begin.0.viewport.1 as f32 + render_begin.0.viewport.3 as f32));
 		}
+		// log::warn!("RenderBeginchange============");
+		// let size = match &render_begin.1 {
+		// 	Some(r) => {
+		// 		log::warn!("size============{:?}", engine.gl.rt_get_size(r));
+		// 		engine.gl.rt_get_size(r)
+		// 	},
+		// 	None => {
+		// 		log::warn!("size1============{:?}", (render_begin.0.viewport.2 as u32, render_begin.0.viewport.3 as u32));
+		// 		(render_begin.0.viewport.2 as u32, render_begin.0.viewport.3 as u32)
+		// 	}
+		// };
+		let size = (render_begin.0.viewport.2 as u32, render_begin.0.viewport.3 as u32);
+		dyn_atlas_set.borrow_mut().set_default_size(size.0 as usize, size.1 as usize);
 	}
 }
 
@@ -346,12 +405,32 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RenderContext, Del
 	}
 }
 
+// 监听实体销毁，删除索引
+
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
+    for RenderContextSys<C>
+{
+	type ReadData = &'a MultiCaseImpl<Node, RenderContext>;
+	type WriteData = (&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>, &'a mut SingleCaseImpl<RenderObjs>);
+	fn listen(&mut self, event: &Event, render_contexts: Self::ReadData, (dyn_atlas_set, render_objs): Self::WriteData) {
+		match render_contexts.get(event.id) {
+			Some(ctx) => {
+				if let Some(render_target) = ctx.render_target {
+					self.remove_render_obj(ctx.render_obj_index, render_objs);
+					dyn_atlas_set.borrow_mut().delete_rect(render_target);
+				}
+			}, 
+			None => ()
+		};
+	}
+}
+
 // idtree创建时，递归遍历，如果子节点中存在MaskImage，记脏
 // 注意，不需要处理IdTree的add事件，不在树上，创建RenderContext也没有意义
 impl<'a, C: HalContext + 'static> SingleCaseListener <'a, IdTree, CreateEvent> for RenderContextSys<C> {
 	type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, MaskImage>, &'a MultiCaseImpl<Node, Opacity>, &'a SingleCaseImpl<RenderBegin>, &'a SingleCaseImpl<RenderRect>);
-	type WriteData = &'a mut MultiCaseImpl<Node, RenderContext>;
-	fn listen(&mut self, event: &Event, (idtree, mask_images, opacitys, render_begin, render_rect): Self::ReadData, render_contexts: Self::WriteData) {
+	type WriteData = (&'a mut MultiCaseImpl<Node, RenderContext>, &'a mut MultiCaseImpl<Node, ContextIndex>);
+	fn listen(&mut self, event: &Event, (idtree, mask_images, opacitys, render_begin, render_rect): Self::ReadData, (render_contexts, context_indexs): Self::WriteData) {
 		if event.id == 1 { // 如果id是1, 则直接创建渲染上下文
 			render_contexts.insert(1,
 				RenderContext::new(1,
@@ -365,12 +444,18 @@ impl<'a, C: HalContext + 'static> SingleCaseListener <'a, IdTree, CreateEvent> f
 					None,
 					0)
 			);
+			context_indexs.insert(1, ContextIndex(1));
 			return;
 		}
+
 		let node = &idtree[event.id];
-		if mask_images.get(event.id).is_some() || opacitys[event.id].0 < 1.0 {
-			self.dirty.insert(event.id);
-		}
+		// 插入自身到脏列表，因为除了对其脏列表中的节点插入渲染上下文，也需要为节点设置自己的渲染上下文的索引
+		// 自身没有opacity、maskImage等，也需要设置渲染上下文
+		self.dirty.insert(event.id);
+
+		// 删除上下文索引（节点可能是一个曾今在主树上，但被移除的节点，删除索引，后续才能插入正确的值）
+		context_indexs.delete(event.id); 
+
 		for (id, _node) in idtree.recursive_iter(node.children().head) {
 			if mask_images.get(id).is_some() || opacitys[id].0 < 1.0 {
 				self.dirty.insert(id);
@@ -433,14 +518,15 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 	}
 
 	#[inline]
-	fn unbind_context(&mut self, id: usize, render_ctxs: &mut MultiCaseImpl<Node, RenderContext>, render_target_change: &mut bool) {
+	fn unbind_context(&mut self, id: usize, render_ctxs: &mut MultiCaseImpl<Node, RenderContext>, render_target_change: &mut bool) -> bool {
 		match render_ctxs.get_mut(id) {
 			Some(_ctx) => {
 				render_ctxs.delete(id);
 				*render_target_change = true;
+				true
 			}
-			None => (),
-		};
+			None => false,
+		}
 	}
 
 	#[inline]
@@ -626,7 +712,7 @@ pub fn let_top_offset_matrix(
 	willchange_matrixs: &MultiCaseImpl<Node, TransformWillChangeMatrix>,
 	content_box: &Aabb2,
 ) -> (WorldMatrix, WorldMatrix) {
-	let mut matrix = let_top_offset_matrix1(layout, matrix,transform, 0.0, 0.0, 0.0 );
+	let mut matrix = let_top_offset_matrix1(layout, matrix,transform, 0.0, 0.0 );
 	let mut view_matrix = WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0,1.0,1.0)), false);
 	if let Some(willchange) = find_transfrom_will_change(id, idtree, willchange_matrixs) {
 		matrix = &willchange.0 * matrix;
@@ -670,6 +756,37 @@ fn modify_matrix(
 	);
 }
 
+// 递归设置上下文索引
+fn recursive_set_context_index(
+	id: usize,
+	index: usize,
+	render_contexts: &mut MultiCaseImpl<Node, RenderContext>,
+	context_indexs: &mut MultiCaseImpl<Node, ContextIndex>,
+	idtree: &SingleCaseImpl<IdTree>,
+) {
+	let head = idtree[id].children().head;
+	if head == 0 {
+		return; // 不存在子节点，直接返回
+	}
+	for (child_id, _child) in idtree.iter(head) {
+		// if check_index {
+		// 	if let Some(r) = context_indexs.get(child_id) {
+		// 		if r.0 == index {
+		// 			return; // 子节点的上下文就自身，则直接返回，不需要重设
+		// 		}
+		// 	}
+		// }
+		
+		context_indexs.insert(child_id, ContextIndex(index));
+
+		// 如果子节点也是一个渲染上下文，则不需要再递归子节点
+		if render_contexts.get(child_id).is_some() { 
+			return;
+		}
+
+		recursive_set_context_index(child_id, index, render_contexts, context_indexs, idtree);
+	}
+}
 
 // 找父的transfrom_will_change（如果存在）
 fn find_transfrom_will_change<'a>(
@@ -701,6 +818,7 @@ impl_system! {
 		MultiCaseListener<Node, Opacity, (CreateEvent, DeleteEvent, ModifyEvent)>
 		MultiCaseListener<Node, ContentBox, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, RenderContext, DeleteEvent>
+		EntityListener<Node, DeleteEvent>
 		SingleCaseListener<IdTree, CreateEvent>
 		SingleCaseListener<RenderBegin, ModifyEvent>
 	}

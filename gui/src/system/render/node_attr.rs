@@ -314,24 +314,13 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, CreateEvent> for Node
 }
 
 impl<'a, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent)> for NodeAttrSys<C>
+    MultiCaseListener<'a, Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent, DeleteEvent)> for NodeAttrSys<C>
 {
     type ReadData = &'a SingleCaseImpl<RenderBegin>;
     type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
     fn listen(&mut self, event: &Event, read: Self::ReadData, write: Self::WriteData) {
         self.transform_will_change_matrix_dirtys.push(event.id);
 		set_max_view(read, write);
-    }
-}
-
-
-impl<'a, C: HalContext + 'static>
-    MultiCaseListener<'a, Node, TransformWillChangeMatrix, DeleteEvent> for NodeAttrSys<C>
-{
-    type ReadData = ();
-    type WriteData = ();
-    fn listen(&mut self, event: &Event, _: Self::ReadData, _: Self::WriteData) {
-        self.transform_will_change_matrix_dirtys.push(event.id);
     }
 }
 
@@ -623,6 +612,27 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, (CreateEvent, Modi
     }
 }
 
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
+    for NodeAttrSys<C>
+{
+    type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
+	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	fn listen(
+        &mut self,
+        event: &Event,
+        (octree, render_begin): Self::ReadData,
+        dirty_view_rect: Self::WriteData,
+    ) {
+		// dirty_view_rect已经是最大范围了，不需要再修改
+		if dirty_view_rect.4 == true {
+			return;
+		}
+		if let Some(oct) = octree.get(event.id) {
+			handler_modify_oct(event.id, &oct.0, render_begin, dirty_view_rect);
+		}
+    }
+}
+
 type ReadData<'a> = (
     &'a MultiCaseImpl<Node, Visibility>,
     &'a MultiCaseImpl<Node, Culling>,
@@ -802,6 +812,7 @@ impl_system! {
         SingleCaseListener<RenderObjs, CreateEvent>
 		SingleCaseListener<RenderObjs, DeleteEvent>
 		// SingleCaseListener<ProjectionMatrix, ModifyEvent>
+		EntityListener<Node, ModifyEvent>
 		SingleCaseListener<Oct, (CreateEvent, ModifyEvent, DeleteEvent)>
 		MultiCaseListener<Node, Visibility, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, CVisibility, (CreateEvent, ModifyEvent)>
@@ -809,8 +820,7 @@ impl_system! {
 		MultiCaseListener<Node, Opacity, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, HSV, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, ZDepth, ModifyEvent>
-        MultiCaseListener<Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent)>
-        MultiCaseListener<Node, TransformWillChangeMatrix, DeleteEvent>
+        MultiCaseListener<Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent, DeleteEvent)>
 		MultiCaseListener<Node, BlendMode, (CreateEvent, ModifyEvent)>
     }
 }
