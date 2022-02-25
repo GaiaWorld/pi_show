@@ -1,9 +1,11 @@
 /// 将设置文本属性的接口导出到js
 use std::mem::transmute;
 
+use gui::single::style_parse::parse_text_shadow;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlImageElement;
 use js_sys::Object;
+use smallvec::SmallVec;
 
 
 use atom::Atom;
@@ -196,36 +198,57 @@ pub fn set_white_space(world: u32, node_id: u32, value: u8) {
     );
 }
 
-/// 设置文字阴影
+// /// 设置文字阴影
+// #[allow(unused_attributes)]
+// #[wasm_bindgen]
+// pub fn set_text_shadow(
+//     world: u32,
+//     node_id: u32,
+//     h: f32,
+//     v: f32,
+//     blur: f32,
+//     r: f32,
+//     g: f32,
+//     b: f32,
+//     a: f32,
+// ) {
+//     let value = TextShadow {
+//         h: h,
+//         v: v,
+//         blur: blur,
+//         color: CgColor::new(r, g, b, a),
+//     };
+//     let node_id = node_id as usize;
+//     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+//     let world = &mut world.gui;
+//     let text_styles = world.text_style.lend_mut();
+//     let r = &mut text_styles[node_id];
+//     r.shadow = value;
+//     text_styles
+//         .get_notify_ref()
+//         .modify_event(node_id, "text_shadow", 0);
+//     debug_println!("set_text_shadow");
+// }
+
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_text_shadow(
     world: u32,
     node_id: u32,
-    h: f32,
-    v: f32,
-    blur: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
+    s: &str,
 ) {
-    let value = TextShadow {
-        h: h,
-        v: v,
-        blur: blur,
-        color: CgColor::new(r, g, b, a),
-    };
-    let node_id = node_id as usize;
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let text_styles = world.text_style.lend_mut();
-    let r = &mut text_styles[node_id];
-    r.shadow = value;
-    text_styles
-        .get_notify_ref()
-        .modify_event(node_id, "text_shadow", 0);
-    debug_println!("set_text_shadow");
+	let shadows = parse_text_shadow(s);
+	if let Ok(value) = shadows {
+		let node_id = node_id as usize;
+		let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+		let world = &mut world.gui;
+		let text_styles = world.text_style.lend_mut();
+		let r = &mut text_styles[node_id];
+		r.shadow = value;
+		text_styles
+			.get_notify_ref()
+			.modify_event(node_id, "text_shadow", 0);
+	}
 }
 
 /// 设置字体风格

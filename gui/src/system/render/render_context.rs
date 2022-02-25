@@ -407,7 +407,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RenderContext, Del
 
 // 监听实体销毁，删除索引
 
-impl<'a, C: HalContext + 'static> EntityListener<'a, Node, DeleteEvent>
+impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
     for RenderContextSys<C>
 {
 	type ReadData = &'a MultiCaseImpl<Node, RenderContext>;
@@ -544,7 +544,6 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 		vs: Atom,
 		fs: Atom,
 	) -> usize {
-		
 		create_render_obj(
 			id,
 			-0.1,
@@ -735,7 +734,6 @@ fn modify_matrix(
 	depth: f32,
 	content_box: &Aabb2,
 ) {
-	let depth = -depth / (Z_MAX + 1.0);
 
     let matrix = WorldMatrix(
 			Matrix4::new(
@@ -748,7 +746,6 @@ fn modify_matrix(
         );
     let slice: &[f32] = matrix.as_slice();
     let mut arr = Vec::from(slice);
-    arr[14] = depth;
 
 	render_obj.paramter.set_value(
 		"worldMatrix",
@@ -818,7 +815,7 @@ impl_system! {
 		MultiCaseListener<Node, Opacity, (CreateEvent, DeleteEvent, ModifyEvent)>
 		MultiCaseListener<Node, ContentBox, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, RenderContext, DeleteEvent>
-		EntityListener<Node, DeleteEvent>
+		EntityListener<Node, ModifyEvent>
 		SingleCaseListener<IdTree, CreateEvent>
 		SingleCaseListener<RenderBegin, ModifyEvent>
 	}

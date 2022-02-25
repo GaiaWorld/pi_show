@@ -15,11 +15,13 @@ use atom::Atom;
 use share::Share;
 
 use crate::Z_MAX;
+use crate::component::calc::ViewMatrixUbo;
 use crate::component::calc::{MaskTexture, LayoutR};
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::ShareEngine;
 use crate::single::Oct;
+use crate::single::ViewMatrix;
 use crate::single::dyn_texture::DynAtlasSet;
 use crate::single::{IdTree, RenderObjs, CommonState, State, RenderObj, PreRenderList};
 use crate::single::PreRenderItem;
@@ -107,6 +109,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 								COLOR_FS_SHADER_NAME.clone(),
 								Share::new(ColorParamter::default()),
 								default_state,
+								
 								render_objs,
 								&mut engine
 							);
@@ -189,7 +192,7 @@ pub fn create_render_obj<C: HalContext + 'static>(
 	);
 	render_obj.paramter.set_value(
         "viewMatrix",
-        Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(matrix))),
+        Share::new(ViewMatrixUbo::new(UniformValue::MatrixV4(matrix))),
 	);
 	
 	let project_martix = ProjectionMatrix::new(
@@ -201,7 +204,7 @@ pub fn create_render_obj<C: HalContext + 'static>(
 	let buffer = Vec::from(project_martix.0.as_slice());
 	render_obj.paramter.set_value(
         "projectMatrix",
-        Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(buffer))),
+        Share::new(ProjectMatrixUbo::new(UniformValue::MatrixV4(buffer))),
 	);
 	render_obj.paramter.set_single_uniform(
         "depth",

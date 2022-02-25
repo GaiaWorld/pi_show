@@ -26,6 +26,11 @@ extern "C" {
     fn destroy(this: &Res);
 }
 
+#[wasm_bindgen(module = "/js/res_utils.js")]
+extern "C" {
+	fn destroy_res(res: &Res);
+}
+
 
 /// 资源管理器
 #[wasm_bindgen]
@@ -181,7 +186,8 @@ pub struct TypeId (pub usize);
 
 impl std::ops::Drop for JsRes {
 	fn drop(&mut self) {
-        self.0.destroy();
+		destroy_res(&self.0);
+        // self.0.destroy();
     }
 }
 

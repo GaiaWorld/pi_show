@@ -7,6 +7,7 @@ pub mod style_parse;
 pub mod dyn_texture;
 
 use dirty::LayerDirty;
+use flex_layout::Size;
 use share::Share;
 use std::any::{Any, TypeId};
 use std::default::Default;
@@ -22,7 +23,7 @@ use hash::XHashMap;
 use map::vecmap::VecMap;
 use slab::Slab;
 
-use crate::component::calc::{ClipBox, WorldMatrix};
+use crate::component::calc::{ClipBox, WorldMatrix, ImageTexture};
 use crate::component::user::*;
 use crate::render::res::*;
 pub use crate::single::class::*;
@@ -394,6 +395,28 @@ pub struct RenderObj {
     pub state: State,
 
     pub context: usize,
+
+	pub post_process: Option<Box<PostProcessContext>>,
+}
+
+/// 渲染上下文
+/// 渲染上下文包含一个渲染目标和一个或多个可以渲染到该目标的渲染对象
+/// 渲染上下文也可以包含一些后处理
+pub struct PostProcessContext {
+	pub content_box: Aabb2, // 内容的最大包围盒（纹理在gui最终）
+	pub render_target: Option<usize>, // 后处理对象, 在dyn_texture中的索引，如果为None，不会进行后处理
+	pub post_processes: Vec<PostProcess>, // 后处理
+	pub result: Option<usize>, // 后处理的处理结果, 在dyn_texture中的索引
+	pub copy: usize, // 在renderobjs中的索引，可以将后处理结果拷贝在最终的渲染目标上
+}
+
+/// 后处理。
+/// 每个渲染对象都可能存在一个后处理
+pub struct PostProcess {
+	// pub render_target: Option<usize>, 
+	// pub render_rect: Aabb2, // 大小、尺寸（将纹理渲染到目标的哪个区域）
+	pub render_size: Size<f32>,
+	pub render_obj: RenderObj, // 在RenderObjs中的索引
 }
 
 /// 像素比

@@ -676,7 +676,7 @@ pub fn query_text(world: u32, node: u32, x: f32, y: f32) -> JsValue {
 #[wasm_bindgen]
 pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 	cal_layout(world);
-	log::info!("get_text_pos====={}", index);
+	// log::info!("get_text_pos====={}", index);
 
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -705,7 +705,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 	}
 	let mut char = &text[i];
 
-	log::info!("get_text_pos start=====i: {}, char_i:{}, len:{}", i, char.char_i, len);
+	// log::info!("get_text_pos start=====i: {}, char_i:{}, len:{}", i, char.char_i, len);
 
 	// 跳过char_i为-1的节点
 	while char.char_i == -1 && i < len-1 {
@@ -720,7 +720,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 		return JsValue::from_serde(&char_pos).unwrap()
 	}
 
-	log::info!("get_text_pos start i====={}, {}, {:?}", i, char.char_i, text);
+	// log::info!("get_text_pos start i====={}, {}, {:?}", i, char.char_i, text);
 
 	if char.char_i != index as isize {
 		let diff;
@@ -730,7 +730,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 			diff = -1;
 		}
 		while char.char_i != index as isize {
-			log::info!("get_text_pos loop i====={}, {}, {}", i, index, char.char_i);
+			// log::info!("get_text_pos loop i====={}, {}, {}", i, index, char.char_i);
 			let r = i as isize + diff;
 			if r < 0 {
 				i = 0;
@@ -745,7 +745,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 		}
 	}
 
-	log::info!("get_text_pos end i====={}, {}, {}", i, index, char.char_i);
+	// log::info!("get_text_pos end i====={}, {}, {}", i, index, char.char_i);
 	if char.char_i == -1 {
 		return JsValue::from_serde(&char_pos).unwrap()
 	}
@@ -1090,7 +1090,6 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb2, bind: &usize) 
         }
         None => return,
     };
-    // log::info!("ab_query_func----------------------------bind: {}, aabb: {:?}, arg: {:?}", *bind, aabb, arg.aabb);
     if intersects(&arg.aabb, aabb) {
 		let enable = arg.enables[*bind].0;
 		let z_depth = arg.z_depths[*bind].0;

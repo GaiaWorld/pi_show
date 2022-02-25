@@ -219,133 +219,133 @@ use crate::component::user::ShowWrite;
 #[cfg(test)]
 use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 
-#[test]
-fn test() {
-    let world = new_world();
+// #[test]
+// fn test() {
+//     let world = new_world();
 
-    let idtree = world.fetch_single::<IdTree>().unwrap();
-    let idtree = LendMut::lend_mut(&idtree);
-    // let notify = idtree.get_notify();
-    let shows = world.fetch_multi::<Node, Show>().unwrap();
-    let shows = LendMut::lend_mut(&shows);
-    let cvisibilitys = world.fetch_multi::<Node, CVisibility>().unwrap();
-    let cvisibilitys = LendMut::lend_mut(&cvisibilitys);
-    let cenables = world.fetch_multi::<Node, CEnable>().unwrap();
-    let cenables = LendMut::lend_mut(&cenables);
+//     let idtree = world.fetch_single::<IdTree>().unwrap();
+//     let idtree = LendMut::lend_mut(&idtree);
+//     // let notify = idtree.get_notify();
+//     let shows = world.fetch_multi::<Node, Show>().unwrap();
+//     let shows = LendMut::lend_mut(&shows);
+//     let cvisibilitys = world.fetch_multi::<Node, CVisibility>().unwrap();
+//     let cvisibilitys = LendMut::lend_mut(&cvisibilitys);
+//     let cenables = world.fetch_multi::<Node, CEnable>().unwrap();
+//     let cenables = LendMut::lend_mut(&cenables);
 
-    let e0 = world.create_entity::<Node>();
+//     let e0 = world.create_entity::<Node>();
 
-    idtree.create(e0);
-    idtree.insert_child(e0, 0, 0); //根
-    shows.insert(e0, Show::default());
+//     idtree.create(e0);
+//     idtree.insert_child(e0, 0, 0); //根
+//     shows.insert(e0, Show::default());
 
-    world.run(&Atom::from("test_show_sys"));
+//     world.run(&Atom::from("test_show_sys"));
 
-    let e00 = world.create_entity::<Node>();
-    let e01 = world.create_entity::<Node>();
-    let e02 = world.create_entity::<Node>();
-    idtree.create(e00);
-    idtree.insert_child(e00, e0, 1);
-    shows.insert(e00, Show::default());
-    idtree.create(e01);
-    idtree.insert_child(e01, e0, 2);
-    shows.insert(e01, Show::default());
-    idtree.create(e02);
-    idtree.insert_child(e02, e0, 3);
-    shows.insert(e02, Show::default());
+//     let e00 = world.create_entity::<Node>();
+//     let e01 = world.create_entity::<Node>();
+//     let e02 = world.create_entity::<Node>();
+//     idtree.create(e00);
+//     idtree.insert_child(e00, e0, 1);
+//     shows.insert(e00, Show::default());
+//     idtree.create(e01);
+//     idtree.insert_child(e01, e0, 2);
+//     shows.insert(e01, Show::default());
+//     idtree.create(e02);
+//     idtree.insert_child(e02, e0, 3);
+//     shows.insert(e02, Show::default());
 
-    let e000 = world.create_entity::<Node>();
-    let e001 = world.create_entity::<Node>();
-    let e002 = world.create_entity::<Node>();
-    idtree.create(e000);
-    idtree.insert_child(e000, e00, 1);
-    shows.insert(e000, Show::default());
-    idtree.create(e001);
-    idtree.insert_child(e001, e00, 2);
-    shows.insert(e001, Show::default());
-    idtree.create(e002);
-    idtree.insert_child(e002, e00, 3);
-    shows.insert(e002, Show::default());
+//     let e000 = world.create_entity::<Node>();
+//     let e001 = world.create_entity::<Node>();
+//     let e002 = world.create_entity::<Node>();
+//     idtree.create(e000);
+//     idtree.insert_child(e000, e00, 1);
+//     shows.insert(e000, Show::default());
+//     idtree.create(e001);
+//     idtree.insert_child(e001, e00, 2);
+//     shows.insert(e001, Show::default());
+//     idtree.create(e002);
+//     idtree.insert_child(e002, e00, 3);
+//     shows.insert(e002, Show::default());
 
-    let e010 = world.create_entity::<Node>();
-    let e011 = world.create_entity::<Node>();
-    let e012 = world.create_entity::<Node>();
-    idtree.create(e010);
-    idtree.insert_child(e010, e01, 1);
-    shows.insert(e010, Show::default());
-    idtree.create(e011);
-    idtree.insert_child(e011, e01, 2);
-    shows.insert(e011, Show::default());
-    idtree.create(e012);
-    idtree.insert_child(e012, e01, 3);
-    shows.insert(e012, Show::default());
-    world.run(&Atom::from("test_show_sys"));
+//     let e010 = world.create_entity::<Node>();
+//     let e011 = world.create_entity::<Node>();
+//     let e012 = world.create_entity::<Node>();
+//     idtree.create(e010);
+//     idtree.insert_child(e010, e01, 1);
+//     shows.insert(e010, Show::default());
+//     idtree.create(e011);
+//     idtree.insert_child(e011, e01, 2);
+//     shows.insert(e011, Show::default());
+//     idtree.create(e012);
+//     idtree.insert_child(e012, e01, 3);
+//     shows.insert(e012, Show::default());
+//     world.run(&Atom::from("test_show_sys"));
 
-    unsafe { shows.get_unchecked_write(e00)}.modify(|show: &mut Show| {
-        show.set_visibility(false);
-        true
-    });
+//     unsafe { shows.get_unchecked_write(e00)}.modify(|show: &mut Show| {
+//         show.set_visibility(false);
+//         true
+//     });
 
-    unsafe { shows.get_unchecked_write(e01)}.modify(|show: &mut Show| {
-        show.set_enable(EnableType::None);
-        true
-    });
+//     unsafe { shows.get_unchecked_write(e01)}.modify(|show: &mut Show| {
+//         show.set_enable(EnableType::None);
+//         true
+//     });
 
-    unsafe { shows.get_unchecked_write(e02)}.modify(|show: &mut Show| {
-        show.set_display(Display::None);
-        true
-    });
+//     unsafe { shows.get_unchecked_write(e02)}.modify(|show: &mut Show| {
+//         show.set_display(Display::None);
+//         true
+//     });
 
-    unsafe { shows.get_unchecked_write(e010)}.modify(|show: &mut Show| {
-        show.set_enable(EnableType::Visible);
-        true
-    });
+//     unsafe { shows.get_unchecked_write(e010)}.modify(|show: &mut Show| {
+//         show.set_enable(EnableType::Visible);
+//         true
+//     });
 
-    world.run(&Atom::from("test_show_sys"));
+//     world.run(&Atom::from("test_show_sys"));
 
-    debug_println!("cvisibilitys, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        &cvisibilitys[e0],
-        &cvisibilitys[e00],
-        &cvisibilitys[e01],
-        &cvisibilitys[e02],
-        &cvisibilitys[e000],
-        &cvisibilitys[e001],
-        &cvisibilitys[e002],
-        &cvisibilitys[e010],
-        &cvisibilitys[e011],
-        &cvisibilitys[e012],
-    );
+//     debug_println!("cvisibilitys, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+//         &cvisibilitys[e0],
+//         &cvisibilitys[e00],
+//         &cvisibilitys[e01],
+//         &cvisibilitys[e02],
+//         &cvisibilitys[e000],
+//         &cvisibilitys[e001],
+//         &cvisibilitys[e002],
+//         &cvisibilitys[e010],
+//         &cvisibilitys[e011],
+//         &cvisibilitys[e012],
+//     );
 
-    debug_println!("cenables, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
-        &cenables[e0],
-        &cenables[e00],
-        &cenables[e01],
-        &cenables[e02],
-        &cenables[e000],
-        &cenables[e001],
-        &cenables[e002],
-        &cenables[e010],
-        &cenables[e011],
-        &cenables[e012],
-    );
-}
+//     debug_println!("cenables, e0:{:?}, e00:{:?}, e01:{:?}, e02:{:?}, e000:{:?}, e001:{:?}, e002:{:?}, e010:{:?}, e011:{:?}, e012:{:?}",
+//         &cenables[e0],
+//         &cenables[e00],
+//         &cenables[e01],
+//         &cenables[e02],
+//         &cenables[e000],
+//         &cenables[e001],
+//         &cenables[e002],
+//         &cenables[e010],
+//         &cenables[e011],
+//         &cenables[e012],
+//     );
+// }
 
-#[cfg(test)]
-fn new_world() -> World {
-    let mut world = World::default();
+// #[cfg(test)]
+// fn new_world() -> World {
+//     let mut world = World::default();
 
-    world.register_entity::<Node>();
-    world.register_multi::<Node, Show>();
-    world.register_multi::<Node, CVisibility>();
-    world.register_multi::<Node, CEnable>();
-    world.register_single::<IdTree>(IdTree::default());
+//     world.register_entity::<Node>();
+//     world.register_multi::<Node, Show>();
+//     world.register_multi::<Node, CVisibility>();
+//     world.register_multi::<Node, CEnable>();
+//     world.register_single::<IdTree>(IdTree::default());
 
-    let system = CellShowSys::new(ShowSys::default());
-    world.register_system(Atom::from("system"), system);
+//     let system = CellShowSys::new(ShowSys::default());
+//     world.register_system(Atom::from("system"), system);
 
-    let mut dispatch = SeqDispatcher::default();
-    dispatch.build("system".to_string(), &world);
+//     let mut dispatch = SeqDispatcher::default();
+//     dispatch.build("system".to_string(), &world);
 
-    world.add_dispatcher(Atom::from("test_show_sys"), dispatch);
-    world
-}
+//     world.add_dispatcher(Atom::from("test_show_sys"), dispatch);
+//     world
+// }

@@ -17,7 +17,7 @@ impl Oct {
         Oct(QuadTree::new(
             Aabb2::new(
                 Point2::new(-1024f32, -1024f32),
-                Point2::new(3072f32, 3072f32),
+                Point2::new(4096f32, 4096f32),
             ),
 			max,
             min,
@@ -33,7 +33,7 @@ impl Oct {
         Oct(QuadTree::new(
             Aabb2::new(
                 Point2::new(-1024f32, -1024f32),
-                Point2::new(3072f32, 3072f32),
+                Point2::new(4096f32, 4096f32),
             ),
             max,
             min,

@@ -460,8 +460,8 @@ impl<'a, C: HalContext + 'static>
 
     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
-        set_dirty(dirty_list, event.id, StyleType::Text as usize, style_mark);
+        // let style_mark = &mut style_marks[event.id];
+        set_local_dirty(dirty_list, event.id, StyleType::Text as usize, style_marks);
     }
 }
 
@@ -591,6 +591,7 @@ impl<'a, C: HalContext + 'static>
     }
 }
 
+
 impl<'a, C: HalContext + 'static>
     MultiCaseListener<'a, Node, Image, (CreateEvent, ModifyEvent)> for StyleMarkSys<C>
 {
@@ -616,7 +617,7 @@ impl<'a, C: HalContext + 'static>
 				set_image(id, write.2, write.3, image, write.7, ImageType::ImageLocal);
 			}
 		}
-    }
+	}
 }
 
 impl<'a, C: HalContext + 'static>
@@ -1218,18 +1219,40 @@ impl<'a, C: HalContext + 'static>
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, CreateEvent>
     for StyleMarkSys<C>
 {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ImageTextureWrite<'a, C>;
-    fn listen(&mut self, event: &Event, idtree: Self::ReadData, mut write: Self::WriteData) {
-        load_image(event.id, &mut write);
-		set_local_dirty1(&mut write.3, event.id, StyleType1::Create as usize, &mut write.2);
-
-        let node = &idtree[event.id];
-        for (id, _n) in idtree.recursive_iter(node.children().head) {
-            load_image(id, &mut write);
-			set_local_dirty1(&mut write.3, id, StyleType1::Create as usize, &mut write.2);
-        }
+    fn listen(&mut self, event: &Event, (idtree, node_states): Self::ReadData, mut write: Self::WriteData) {
+		idtree_create(event.id, &idtree, &node_states, &mut write);
     }
+}
+
+fn idtree_create<C: HalContext + 'static>(
+	id: usize,
+	idtree: &IdTree, 
+	node_states: &MultiCaseImpl<Node, NodeState>,
+	write: &mut ImageTextureWrite<'_, C>,
+) {
+	let node_state = match node_states.get(id) {
+		Some(r) => r,
+		None => return
+	};
+
+	if !node_state.0.is_rnode() {
+		return;
+	}
+
+	load_image(id, write);
+	set_local_dirty1(&mut write.3, id, StyleType1::Create as usize, &mut write.2);
+	let mark = &mut write.2[id];
+	let (dirty, dirty1, dirty2) =  (mark.local_style | mark.class_style, mark.local_style1 | mark.class_style1, mark.local_style2 | mark.class_style2);
+	mark.dirty |= dirty;
+	mark.dirty1 |= dirty1;
+	mark.dirty2 |= dirty2;
+
+	let head = idtree[id].children().head;
+	for (id, _n) in idtree.iter(head) {
+		idtree_create(id, idtree, node_states, write);
+	}
 }
 
 

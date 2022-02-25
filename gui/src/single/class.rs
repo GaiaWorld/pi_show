@@ -5,6 +5,7 @@ use atom::Atom;
 use flex_layout::*;
 
 use hash::XHashMap;
+use smallvec::SmallVec;
 
 use crate::component::user::*;
 
@@ -122,7 +123,7 @@ pub enum Attribute3 {
     BorderImageSlice(BorderImageSlice),
 
     Color(Color),
-    TextShadow(TextShadow),
+    TextShadow(SmallVec<[TextShadow;1]>),
     TextStroke(Stroke),
 
     BorderRadius(BorderRadius),

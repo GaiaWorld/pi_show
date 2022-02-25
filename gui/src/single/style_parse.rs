@@ -3,10 +3,13 @@ use std::mem::transmute;
 use std::str::FromStr;
 use std::result::Result;
 
+use smallvec::SmallVec;
+
 use atom::Atom;
 use hash::XHashMap;
 use flex_layout::*;
 use nalgebra::Field;
+use serde::de::value;
 
 use crate::component::calc::*;
 use crate::component::user::Opacity;
@@ -1039,25 +1042,60 @@ fn parse_font_size(value: &str) -> Result<FontSize, String> {
     }
 }
 
-fn parse_text_shadow(value: &str) -> Result<TextShadow, String> {
+pub fn parse_text_shadow(value: &str) -> Result<SmallVec<[TextShadow;1]>, String> {
     let mut i = 0;
+	let mut arr = SmallVec::default();
+	
+	loop {
+		parse_text_shadow1(value, &mut arr, &mut i)?;
+		if i >= value.len() {
+			break;
+		}
+	}
+
+	return Ok(arr)
+}
+
+fn parse_text_shadow1(value: &str, arr: &mut SmallVec<[TextShadow;1]>, i: &mut usize) -> Result<(), String> {
     let mut shadow = TextShadow::default();
-    shadow.h = parse_px(iter_by_space(value, &mut i)?)?;
-    shadow.v = parse_px(iter_by_space(value, &mut i)?)?;
-    match iter_by_space(value, &mut i) {
-        Ok(r) => match parse_px(r) {
-            Ok(r) => {
-                shadow.blur = r;
-                match iter_by_space(value, &mut i) {
-                    Ok(r) => shadow.color = parse_color_string(r)?,
-                    Err(_) => (),
-                };
-            }
-            Err(_) => shadow.color = parse_color_string(r)?,
-        },
-        _ => (),
-    };
-    Ok(shadow)
+	let mut px = Vec::with_capacity(3);
+
+	loop {
+		match parse_color_string1(value, i) {
+			Ok(r) => shadow.color = r,
+			Err(_) => {
+				*i = next_no_empty(value, *i);
+				let mut r = iter_by(value, i, &[",", " "]);
+				if let Ok(r) = r {
+					if let Ok(r) = parse_px(r) {
+						px.push(r);
+						continue;
+					}
+					
+					*i = *i - r.len();
+				}
+				break;
+			},
+		}
+	}
+
+	if px.len() > 0 {
+		shadow.h = px[0];
+	}
+	if px.len() > 1 {
+		shadow.v = px[1];
+	}
+	if px.len() > 2 {
+		shadow.blur = px[2];
+	}
+
+	arr.push(shadow);
+
+	while (*i < value.len() - 1 && (&value[*i..*i+1] == "," || &value[*i..*i+1] == " " || &value[*i..*i+1] == "	")) {
+		*i = *i + 1;
+	}
+
+	Ok(())
 }
 
 fn parse_box_shadow(value: &str) -> Result<BoxShadow, String> {
@@ -1239,6 +1277,34 @@ fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, St
             }
         }
     };
+    *i += first;
+    let pre = &value[0..first];
+    let next = &value[first..];
+    let r = next.trim();
+    *i += next.len() - r.len();
+    Ok(pre)
+}
+
+fn iter_by<'a, 'b>(value: &'a str, i: &'b mut usize,s: &[&str]) -> Result<&'a str, String> {
+    let value = &value[*i..];
+
+	let mut first = std::usize::MAX;
+	for ss in s.iter() {
+		first = first.min( match value.find(*ss) {
+			Some(r) => r,
+			None => continue,
+		});
+	}
+
+	if first == std::usize::MAX {
+		if value.len() == 0 {
+			return Err("".to_string());
+		} else {
+			*i += value.len();
+			return Ok(value);
+		}
+	}
+
     *i += first;
     let pre = &value[0..first];
     let next = &value[first..];
@@ -1499,6 +1565,222 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
             }
         }
 	};
+    Ok(color)
+}
+
+fn next_no_empty(value: &str, mut i: usize) -> usize {
+	while i < value.len() {
+		let r = &value[i..i+1];
+		if r == " " || r == "	" {
+			 i+= 1;
+		} else {
+			return i;
+		}
+	}
+	return i;
+}
+
+fn next_empty(value: &str, mut i: usize) -> usize {
+	while i < value.len() {
+		let r = &value[i..i+1];
+		if r == " " || r == "	" {
+			return i;
+		} else {
+			i += 1;
+		}
+	}
+	return i;
+}
+
+fn parse_color_string1(value: &str, i: &mut usize) -> Result<CgColor, String> {
+    macro_rules! rgb {
+        ($red: expr, $green: expr, $blue: expr) => {
+            CgColor::new(
+                $red as f32 / 255.0,
+                $green as f32 / 255.0,
+                $blue as f32 / 255.0,
+                1.0,
+            )
+        };
+    }
+	let start = next_no_empty(value, *i);
+	if start >= value.len() {
+		return Err(String::from_str("").unwrap());
+	}
+
+	let mut end = next_empty(value, start);
+
+	let value1 = &value[start..end];
+    let color = match value1 {
+        "black" => rgb!(0, 0, 0),
+        "silver" => rgb!(192, 192, 192),
+        "gray" => rgb!(128, 128, 128),
+        "white" => rgb!(255, 255, 255),
+        "maroon" => rgb!(128, 0, 0),
+        "red" => rgb!(255, 0, 0),
+        "purple" => rgb!(128, 0, 128),
+        "fuchsia" => rgb!(255, 0, 255),
+        "green" => rgb!(0, 128, 0),
+        "lime" => rgb!(0, 255, 0),
+        "olive" => rgb!(128, 128, 0),
+        "yellow" => rgb!(255, 255, 0),
+        "navy" => rgb!(0, 0, 128),
+        "blue" => rgb!(0, 0, 255),
+        "teal" => rgb!(0, 128, 128),
+        "aqua" => rgb!(0, 255, 255),
+
+        "aliceblue" => rgb!(240, 248, 255),
+        "antiquewhite" => rgb!(250, 235, 215),
+        "aquamarine" => rgb!(127, 255, 212),
+        "azure" => rgb!(240, 255, 255),
+        "beige" => rgb!(245, 245, 220),
+        "bisque" => rgb!(255, 228, 196),
+        "blanchedalmond" => rgb!(255, 235, 205),
+        "blueviolet" => rgb!(138, 43, 226),
+        "brown" => rgb!(165, 42, 42),
+        "burlywood" => rgb!(222, 184, 135),
+        "cadetblue" => rgb!(95, 158, 160),
+        "chartreuse" => rgb!(127, 255, 0),
+        "chocolate" => rgb!(210, 105, 30),
+        "coral" => rgb!(255, 127, 80),
+        "cornflowerblue" => rgb!(100, 149, 237),
+        "cornsilk" => rgb!(255, 248, 220),
+        "crimson" => rgb!(220, 20, 60),
+        "cyan" => rgb!(0, 255, 255),
+        "darkblue" => rgb!(0, 0, 139),
+        "darkcyan" => rgb!(0, 139, 139),
+        "darkgoldenrod" => rgb!(184, 134, 11),
+        "darkgray" => rgb!(169, 169, 169),
+        "darkgreen" => rgb!(0, 100, 0),
+        "darkgrey" => rgb!(169, 169, 169),
+        "darkkhaki" => rgb!(189, 183, 107),
+        "darkmagenta" => rgb!(139, 0, 139),
+        "darkolivegreen" => rgb!(85, 107, 47),
+        "darkorange" => rgb!(255, 140, 0),
+        "darkorchid" => rgb!(153, 50, 204),
+        "darkred" => rgb!(139, 0, 0),
+        "darksalmon" => rgb!(233, 150, 122),
+        "darkseagreen" => rgb!(143, 188, 143),
+        "darkslateblue" => rgb!(72, 61, 139),
+        "darkslategray" => rgb!(47, 79, 79),
+        "darkslategrey" => rgb!(47, 79, 79),
+        "darkturquoise" => rgb!(0, 206, 209),
+        "darkviolet" => rgb!(148, 0, 211),
+        "deeppink" => rgb!(255, 20, 147),
+        "deepskyblue" => rgb!(0, 191, 255),
+        "dimgray" => rgb!(105, 105, 105),
+        "dimgrey" => rgb!(105, 105, 105),
+        "dodgerblue" => rgb!(30, 144, 255),
+        "firebrick" => rgb!(178, 34, 34),
+        "floralwhite" => rgb!(255, 250, 240),
+        "forestgreen" => rgb!(34, 139, 34),
+        "gainsboro" => rgb!(220, 220, 220),
+        "ghostwhite" => rgb!(248, 248, 255),
+        "gold" => rgb!(255, 215, 0),
+        "goldenrod" => rgb!(218, 165, 32),
+        "greenyellow" => rgb!(173, 255, 47),
+        "grey" => rgb!(128, 128, 128),
+        "honeydew" => rgb!(240, 255, 240),
+        "hotpink" => rgb!(255, 105, 180),
+        "indianred" => rgb!(205, 92, 92),
+        "indigo" => rgb!(75, 0, 130),
+        "ivory" => rgb!(255, 255, 240),
+        "khaki" => rgb!(240, 230, 140),
+        "lavender" => rgb!(230, 230, 250),
+        "lavenderblush" => rgb!(255, 240, 245),
+        "lawngreen" => rgb!(124, 252, 0),
+        "lemonchiffon" => rgb!(255, 250, 205),
+        "lightblue" => rgb!(173, 216, 230),
+        "lightcoral" => rgb!(240, 128, 128),
+        "lightcyan" => rgb!(224, 255, 255),
+        "lightgoldenrodyellow" => rgb!(250, 250, 210),
+        "lightgray" => rgb!(211, 211, 211),
+        "lightgreen" => rgb!(144, 238, 144),
+        "lightgrey" => rgb!(211, 211, 211),
+        "lightpink" => rgb!(255, 182, 193),
+        "lightsalmon" => rgb!(255, 160, 122),
+        "lightseagreen" => rgb!(32, 178, 170),
+        "lightskyblue" => rgb!(135, 206, 250),
+        "lightslategray" => rgb!(119, 136, 153),
+        "lightslategrey" => rgb!(119, 136, 153),
+        "lightsteelblue" => rgb!(176, 196, 222),
+        "lightyellow" => rgb!(255, 255, 224),
+        "limegreen" => rgb!(50, 205, 50),
+        "linen" => rgb!(250, 240, 230),
+        "magenta" => rgb!(255, 0, 255),
+        "mediumaquamarine" => rgb!(102, 205, 170),
+        "mediumblue" => rgb!(0, 0, 205),
+        "mediumorchid" => rgb!(186, 85, 211),
+        "mediumpurple" => rgb!(147, 112, 219),
+        "mediumseagreen" => rgb!(60, 179, 113),
+        "mediumslateblue" => rgb!(123, 104, 238),
+        "mediumspringgreen" => rgb!(0, 250, 154),
+        "mediumturquoise" => rgb!(72, 209, 204),
+        "mediumvioletred" => rgb!(199, 21, 133),
+        "midnightblue" => rgb!(25, 25, 112),
+        "mintcream" => rgb!(245, 255, 250),
+        "mistyrose" => rgb!(255, 228, 225),
+        "moccasin" => rgb!(255, 228, 181),
+        "navajowhite" => rgb!(255, 222, 173),
+        "oldlace" => rgb!(253, 245, 230),
+        "olivedrab" => rgb!(107, 142, 35),
+        "orange" => rgb!(255, 165, 0),
+        "orangered" => rgb!(255, 69, 0),
+        "orchid" => rgb!(218, 112, 214),
+        "palegoldenrod" => rgb!(238, 232, 170),
+        "palegreen" => rgb!(152, 251, 152),
+        "paleturquoise" => rgb!(175, 238, 238),
+        "palevioletred" => rgb!(219, 112, 147),
+        "papayawhip" => rgb!(255, 239, 213),
+        "peachpuff" => rgb!(255, 218, 185),
+        "peru" => rgb!(205, 133, 63),
+        "pink" => rgb!(255, 192, 203),
+        "plum" => rgb!(221, 160, 221),
+        "powderblue" => rgb!(176, 224, 230),
+        "rebeccapurple" => rgb!(102, 51, 153),
+        "rosybrown" => rgb!(188, 143, 143),
+        "royalblue" => rgb!(65, 105, 225),
+        "saddlebrown" => rgb!(139, 69, 19),
+        "salmon" => rgb!(250, 128, 114),
+        "sandybrown" => rgb!(244, 164, 96),
+        "seagreen" => rgb!(46, 139, 87),
+        "seashell" => rgb!(255, 245, 238),
+        "sienna" => rgb!(160, 82, 45),
+        "skyblue" => rgb!(135, 206, 235),
+        "slateblue" => rgb!(106, 90, 205),
+        "slategray" => rgb!(112, 128, 144),
+        "slategrey" => rgb!(112, 128, 144),
+        "snow" => rgb!(255, 250, 250),
+        "springgreen" => rgb!(0, 255, 127),
+        "steelblue" => rgb!(70, 130, 180),
+        "tan" => rgb!(210, 180, 140),
+        "thistle" => rgb!(216, 191, 216),
+        "tomato" => rgb!(255, 99, 71),
+        "turquoise" => rgb!(64, 224, 208),
+        "violet" => rgb!(238, 130, 238),
+        "wheat" => rgb!(245, 222, 179),
+        "whitesmoke" => rgb!(245, 245, 245),
+        "yellowgreen" => rgb!(154, 205, 50),
+
+        "transparent" => rgba(0, 0, 0, 0.0),
+        _ => {
+            if value1.starts_with("#") {
+               	parse_color_hex(&value[(start+ 1)..])?
+            } else if value1.starts_with("rgb") {
+				end = start;
+                match iter_fun(value, &mut end) {
+                    Ok((n, v)) => {
+						parse_color_fun(n, v)?
+					},
+                    Err(_) => return Err(format!("parse color err: '{}'", value)),
+                }
+            } else {
+                return Err(format!("parse color err: '{}'", value));
+            }
+        }
+	};
+
+	*i = end;
     Ok(color)
 }
 
@@ -1850,4 +2132,17 @@ pub fn test() {
 		background: linear-gradient(180deg, #fff, #000);
 	}";
 	parse_class_map_from_string(s);
+
+	// .t_s_12181a_3{
+	// 	text-shadow: 0px 3px 3px #12181a;
+	//   }
+	//   .t_s_bb7be5_3{
+	// 	text-shadow: 0px 3px 3px #bb7be5;
+	//   }
+	//   .t_s_7031e4_3{
+	// 	text-shadow: 0px 3px 3px #7031e4;
+	//   }
+	let s = " 0px 3px 3px #7031e4";
+	let r = parse_text_shadow(s);
+	println!("r============{:?}", r);
 }

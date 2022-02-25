@@ -1,7 +1,7 @@
 /**
  * 渲染对象的通用属性设置， 如alpha， hsv， visible， viewMatrix， projectMatrix
  */
-use std::marker::PhantomData;
+use std::{marker::PhantomData, cell::RefCell};
 
 use nalgebra::DefaultAllocator;
 use share::Share;
@@ -15,7 +15,7 @@ use ecs::{
 use hal_core::*;
 use res::{ResMap, ResMgr};
 
-use crate::component::{calc::*, user::Aabb2, calc::Visibility as CVisibility};
+use crate::{component::{calc::*, user::Aabb2, calc::Visibility as CVisibility}, single::dyn_texture::DynAtlasSet};
 use crate::component::user::Opacity;
 use crate::component::user::BlendMode;
 use crate::entity::Node;
@@ -431,6 +431,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         render_obj.visibility = visibility && !culling && opcaity > 0.0;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
+		// let depth = -(render_obj.depth / (Z_MAX + 1.0) * 2.0 ) + 1.0;
 		let depth = -render_obj.depth / (Z_MAX + 1.0);
 		paramter.set_single_uniform("depth", UniformValue::Float1(depth));
 
@@ -455,17 +456,30 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent>
     for NodeAttrSys<C>
 {
-    type ReadData = &'a SingleCaseImpl<RenderObjs>;
-    type WriteData = &'a mut SingleCaseImpl<NodeRenderMap>;
+    type ReadData = ();
+    type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>);
     fn listen(
         &mut self,
         event: &Event,
         read: Self::ReadData,
-        node_render_map: Self::WriteData,
+        (mut render_objs, node_render_map, mut dyn_atlas_set): Self::WriteData,
     ) {
-        let render_obj = &read[event.id];
+        let render_obj = &render_objs[event.id];
         let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
         node_render_map.remove(render_obj.context, event.id, &notify);
+
+		/// 释放后处理结果
+		if let Some(post_process) = &render_obj.post_process {
+			if let Some(target_index) = &post_process.result {
+				unsafe{&mut *(dyn_atlas_set.as_ptr())}.delete_rect(*target_index);
+			}
+
+			/// 删除copy
+			if post_process.copy > 0 {
+				let copy = post_process.copy;
+				render_objs.remove(copy, None);
+			}
+		}
     }
 }
 
@@ -487,6 +501,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
 			for id in obj_ids.iter() {
 				let render_obj = &mut render_objs[*id];
 				render_obj.depth = z_depth + render_obj.depth_diff;
+				// let depth = -(render_obj.depth / (Z_MAX + 1.0) * 2.0) + 1.0;
 				let depth = -render_obj.depth / (Z_MAX + 1.0);
 				render_obj.paramter.set_single_uniform("depth", UniformValue::Float1(depth));
 				render_objs.get_notify_ref().modify_event(*id, "depth", 0);
@@ -616,13 +631,22 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
     for NodeAttrSys<C>
 {
     type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
-	type WriteData = &'a mut SingleCaseImpl<DirtyViewRect>;
+	type WriteData = (&'a mut SingleCaseImpl<DirtyViewRect>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
 	fn listen(
         &mut self,
         event: &Event,
         (octree, render_begin): Self::ReadData,
-        dirty_view_rect: Self::WriteData,
+        (dirty_view_rect, render_objs, node_render_map): Self::WriteData,
     ) {
+		if let Some(r) = node_render_map.get(event.id) {
+			if r.len() > 0 {
+				// let notify = render_objs.get_notify();
+				for item in r.iter() {
+					render_objs.remove(*item, None);
+				}
+				unsafe {node_render_map.destroy_unchecked( event.id)}
+			}
+		}
 		// dirty_view_rect已经是最大范围了，不需要再修改
 		if dirty_view_rect.4 == true {
 			return;

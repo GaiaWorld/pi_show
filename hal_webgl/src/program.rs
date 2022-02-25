@@ -252,7 +252,7 @@ impl WebGLProgramImpl {
 
         // 初始化attribute和uniform
         let (uniforms, single_uniforms, textures) =
-            WebGLProgramImpl::init_uniform(gl, &program_handle, location_map)?;
+            WebGLProgramImpl::init_uniform(gl, &program_handle, location_map, uniform_layout)?;
         Ok(WebGLProgramImpl {
             handle: program_handle,
             active_uniforms: uniforms,
@@ -297,6 +297,7 @@ impl WebGLProgramImpl {
         gl: &WebGlRenderingContext,
         program: &WebGlProgram,
         location_map: &LayoutLocation,
+		uniform_layout: &UniformLayout,
     ) -> Result<(Vec<CommonUbo>, Vec<CommonUniform>, Vec<SamplerUniform>), String> {
         let uniform_num = match Number::try_from(gl
             .get_program_parameter(program, WebGlRenderingContext::ACTIVE_UNIFORMS)) {

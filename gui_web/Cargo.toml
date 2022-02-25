@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib", "dylib"]
 
 [dependencies]
 flex_layout = { path = "../../pi_lib/flex_layout"}
+getrandom = { version = "0.2.3", features = ["js"] }
 atom = { path = "../../pi_lib/atom"}
 data_view = { path = "../../pi_lib/data_view"}
 share = { path = "../../pi_lib/share"}
@@ -54,6 +55,7 @@ paste = "0.1"
 ordered-float = "1.0"
 log = "*"
 nalgebra = "0.24.0"
+smallvec={version = "1.8", features = ["serde"]}
 
 [dependencies.web-sys]
 version = "*"

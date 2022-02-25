@@ -110,6 +110,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 continue;
 			}
 
+			let shadow = match box_shadows.get(*id) {
+				Some(r) => r,
+				None => {
+					self.remove_render_obj(*id, render_objs);
+					continue;
+				}
+			};
+
             // 阴影脏
             let render_index = if dirty & StyleType::BoxShadow as usize != 0 {
                 // 如果不存在BoxShadow本地样式和class样式， 删除渲染对象
@@ -136,7 +144,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 
             let border_radius = border_radiuses.get(*id);
             let layout = &layouts[*id];
-            let shadow = &box_shadows[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
             if dirty & StyleType::Opacity as usize != 0

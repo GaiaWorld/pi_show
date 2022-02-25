@@ -198,7 +198,7 @@ pub fn create_unit_offset_matrix(
     transform: &Transform,
     depth: f32,
 ) -> Vec<f32> {
-    let depth = -depth / (Z_MAX + 1.0);
+
     let origin = transform.origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
 
     let matrix = matrix
@@ -213,7 +213,6 @@ pub fn create_unit_offset_matrix(
         );
     let slice: &[f32] = matrix.as_slice();
     let mut arr = Vec::from(slice);
-    arr[14] = depth;
     return arr;
 }
 
@@ -396,6 +395,7 @@ pub fn new_render_obj(
         paramter,
         state,
         context,
+		post_process: None,
     }
 }
 
@@ -453,4 +453,25 @@ pub fn create_render_obj(
 	);
     render_map.insert(context, render_index);
     render_index
+}
+
+#[inline]
+pub fn new_render_obj1(
+    context: usize,
+    depth_diff: f32,
+    is_opacity: bool,
+    vs_name: Atom,
+    fs_name: Atom,
+    paramter: Share<dyn ProgramParamter>,
+    default_state: &CommonState,
+) -> RenderObj {
+    let state = State {
+        bs: default_state.df_bs.clone(),
+        rs: default_state.df_rs.clone(),
+        ss: default_state.df_ss.clone(),
+        ds: default_state.df_ds.clone(),
+    };
+	new_render_obj(
+		context, depth_diff, is_opacity, vs_name, fs_name, paramter, state,
+	)
 }

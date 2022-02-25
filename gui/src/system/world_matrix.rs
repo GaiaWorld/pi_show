@@ -106,7 +106,7 @@ impl WorldMatrixSys {
             );
         }
 		// if self.dirty.count() > 0 {
-		// 	log::info!("worldmatrix======={:?}", cross_performance::now() - time);
+		// 	log::info!("worldmatrix======={:?}, {:?}", self.dirty.count(), count);
 		// }
         self.dirty.clear();
     }
@@ -203,7 +203,8 @@ fn recursive_cal_matrix(
 	if !node_states[id].is_rnode() {
 		return;
 	}
-	
+	// *count = 1 + *count;
+
 	dirty_mark_list[id] = 0;
 
     let layout = &layouts[id];

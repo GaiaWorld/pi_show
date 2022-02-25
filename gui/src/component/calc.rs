@@ -38,18 +38,21 @@ use crate::render::res::TextureRes;
 #[derive(Component)]
 pub struct RenderContext{
 	pub index_count: usize, // 索引数量，表示由几种属性创建的context， 如节点上值存在MaskImage，则count=1， 如果同时存在MaskImage和opcaity， 则count = 2， 当indexCount数量为0时，应该删除RenderContext
-	pub render_rect: Aabb2, // 大小、尺寸
-	pub content_box: Aabb2, // 内容的最大包围盒
+	
 	pub view_matrix: Option<WorldMatrix>,
 	pub projection_matrix: Option<ProjectionMatrix>,
 	pub view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
 	pub projection_matrix_ubo: Option<Share<dyn UniformBuffer>>,
 	pub dirty_view_rect: DirtyViewRect,
-	pub render_target: Option<usize>, // 一个在dyn_texture中的索引
+	pub render_rect: Aabb2, // 大小、尺寸
+	pub content_box: Aabb2, // 内容的最大包围盒
+	pub render_target: Option<usize>, // 一个在dyn_texture中的索引，如果为None，将渲染在gui的默认渲染目标上
 	pub geo_change: bool, // 与上一帧相比，在dyn_texture中分配的位置是否改变
-	pub render_obj_index: usize,
+	// pub post_process: Vec<usize>, // 后处理渲染
 	pub opacity_list: Vec<usize>,
 	pub transparent_list: Vec<usize>,
+	pub render_count: usize,
+	pub render_obj_index: usize,
 }
 
 /// 内容最大包围盒范围(不包含自身)
@@ -94,6 +97,7 @@ impl RenderContext {
 			geo_change: false,
 			opacity_list: Vec::new(),
 			transparent_list: Vec::new(),
+			render_count: 0,
 		}
 	}
 }
@@ -664,6 +668,8 @@ defines! {
         CLIP_BOX: String,
         BOX_SHADOW_BLUR: String,
 		MASK_IMAGE: String,
+		HORIZONTAL: String,
+		VERTICAL: String,
     }
 }
 
@@ -745,6 +751,30 @@ program_paramter! {
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
 		depth: UniformValue,
+    }
+}
+
+program_paramter! {
+    #[derive(Clone)]
+    struct GaussBlurParamter {
+        // worldMatrix: WorldMatrixUbo,
+        // viewMatrix: ViewMatrixUbo,
+        // projectMatrix: ProjectMatrixUbo,
+        texture: (HalTexture, HalSampler),
+		blurRadius: UniformValue, // 模糊半径
+		textureSize: UniformValue, // 纹理尺寸
+		uvRegion: UniformValue, // 模糊区域（左下、右上坐标，以像素为单位）
+    }
+}
+
+program_paramter! {
+    #[derive(Clone)]
+    struct BlurParamter {
+        // worldMatrix: WorldMatrixUbo,
+        // viewMatrix: ViewMatrixUbo,
+        // projectMatrix: ProjectMatrixUbo,
+        texture: (HalTexture, HalSampler),
+		offset: UniformValue,
     }
 }
 

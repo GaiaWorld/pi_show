@@ -87,6 +87,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 				log::debug!("TextGlphySys dead loop, the current texture size cannot cache existing text");
 				panic!("TextGlphySys dead loop");
 			}
+
 			for id in (read.4).0.iter() {
 				let r = match read.3.get(*id) {
 					Some(r) => r,
@@ -99,7 +100,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 	
 				match set_gylph(*id, &(read.0, read.1, read.2, read.3, read.4), &mut write) {
 					Result::Err(_message) => {	
-						// log::info!("textTexture flow, reset textTexture");
+						log::info!("textTexture flow, reset textTexture, ${:?}", _message);
 						// panic!("err:{:?}", message);
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
@@ -120,16 +121,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 							height as u32,
 						)
 						.unwrap();
-						let texture = read.5.gl.texture_create_2d(
-							0, 
-							width as u32,
-							height as u32,
-								PixelFormat::RGBA,
-								DataFormat::UnsignedByte,
-							false, 
-							None
-						).unwrap();
-						read.5.gl.rt_set_color(&target, Some(&texture));
+						// let texture = read.5.gl.texture_create_2d(
+						// 	0, 
+						// 	width as u32,
+						// 	height as u32,
+						// 		PixelFormat::RGBA,
+						// 		DataFormat::UnsignedByte,
+						// 	false, 
+						// 	None
+						// ).unwrap();
+						read.5.gl.rt_set_color(&target, Some(&font_sheet.font_tex.texture.bind));
 						
 						read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
 							viewport: (0,0,width as i32,height as i32),
@@ -254,6 +255,11 @@ fn update_layout(
 	};
 	let node_state = unsafe{&mut *((&node_states[id]) as *const NodeState as *mut NodeState)};
 	let chars = &mut node_state.0.text;
+
+	// 可能已经不再是文字节点
+	if chars.len() == 0 {
+		return
+	}
 	let mut rect = Rect{
 		start: std::f32::MAX,
 		end: 0.0,
@@ -293,6 +299,10 @@ fn set_gylph<'a>(
 	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), String> {
 	let scale = Vector4::from(world_matrixs[id].fixed_columns(1));
 	let scale = scale.dot(&scale).sqrt();
+	if scale < 0.000001 {
+		return Ok(());
+	}
+
 	let text_style = &text_styles[id];
 	let font_sheet = &mut font_sheet.borrow_mut();
 	

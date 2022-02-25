@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
  */
 use std::marker::PhantomData;
 
+use flex_layout::Size;
 use hash::{DefaultHasher, XHashMap};
 use ordered_float::NotNan;
 
@@ -20,6 +21,7 @@ use map::Map;
 use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use res::ResMap;
 use share::Share;
+use smallvec::SmallVec;
 
 use crate::component::{calc::*, calc::LayoutR, calc::CharNode};
 use crate::component::user::*;
@@ -30,6 +32,13 @@ use crate::render::res::*;
 use crate::single::*;
 use crate::system::render::shaders::canvas_text::{
     CANVAS_TEXT_FS_SHADER_NAME, CANVAS_TEXT_VS_SHADER_NAME,
+};
+use crate::system::render::shaders::image::{
+	BLUR_DOWN_FS_SHADER_NAME, BLUR_DOWN_VS_SHADER_NAME,
+	BLUR_UP_FS_SHADER_NAME, BLUR_UP_VS_SHADER_NAME,
+	IMAGE_VS_SHADER_NAME, IMAGE_FS_SHADER_NAME,
+	GAUSS_BLUR_VS_SHADER_NAME,
+	GAUSS_BLUR_FS_SHADER_NAME,
 };
 use crate::system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use crate::system::util::*;
@@ -73,7 +82,7 @@ const FONT_DIRTY: usize = StyleType::FontStyle as usize
 #[derive(Default, Clone, Debug)]
 struct I {
     text: usize,
-    shadow: usize,
+    shadow: SmallVec<[usize; 1]>,
 }
 
 struct RenderCatch {
@@ -117,11 +126,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         &'a MultiCaseImpl<Node, TextContent>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a MultiCaseImpl<Node, TextStyle>,
+		&'a MultiCaseImpl<Node, ContentBox>,
         &'a SingleCaseImpl<Share<StdCell<FontSheet>>>,
         &'a SingleCaseImpl<DefaultState>,
 		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<IdTree>,
 		&'a SingleCaseImpl<PixelRatio>,
+		&'a SingleCaseImpl<UnitQuad>,
+		&'a SingleCaseImpl<PremultiState>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
@@ -136,11 +148,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             texts,
             style_marks,
             text_styles,
+			context_boxs,
             font_sheet,
             default_state,
 			dirty_list,
 			idtree,
-			pixel_ratio
+			pixel_ratio,
+			unit_quad,
+			premulti_state,
 		) = read;
 		let font_sheet = &font_sheet.borrow();
 		let t = font_sheet.get_font_tex();
@@ -155,6 +170,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
         let (render_objs, engine, node_states) = write;
         let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
 
+		// 文字纹理只有一张，文字在数量增加的过程中，纹理会被更新
+		// 纹理更新后，需要重新设置纹理的尺寸
         if texture_change == true {
             self.texture_size_ubo = Share::new(TextTextureSize::new(UniformValue::Float2(
                 t.width as f32,
@@ -175,10 +192,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                         render_obj
                             .paramter
                             .set_value("textureSize", self.texture_size_ubo.clone());
-                        if i.shadow > 0 {
-                            render_objs[i.shadow]
-                                .paramter
-                                .set_value("textureSize", self.texture_size_ubo.clone());
+                        if i.shadow.len() > 0 {
+							for ii in i.shadow.iter() {
+								if *ii > 0 {
+									render_objs[*ii]
+										.paramter
+										.set_value("textureSize", self.texture_size_ubo.clone());
+								}
+							}
                         }
                         notify.modify_event(i.text, "ubo", 0);
                     }
@@ -196,6 +217,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 }
 			};
 
+			let node = match idtree.get(*id) {
+				Some(r) => r,
+				None => continue,
+			};
+
+			if node.layer() == 0 {
+				continue;
+			}
+
             let mut dirty = style_mark.dirty;
 
             // 不存在Chablock关心的脏, 跳过
@@ -204,28 +234,39 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 			}
 
 			let tex_font;
-            // 如果Text脏， 并且不存在Text组件， 尝试删除渲染对象
-            let (index, children, text_style) = if dirty & StyleType::FontFamily as usize != 0 {
-                self.remove_render_obj(*id, render_objs); // 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
+            // 如果FontFamily脏， 并需要删除原来的renderobj， 重新创建新的
+			// 如果原有renderobj不存在，也需要创建新的
+            let (index, children, text_style) = if dirty & StyleType::FontFamily as usize != 0 || self.render_map.get(*id).is_none() {
+				if dirty & StyleType::FontFamily as usize != 0 {
+					self.remove_render_obj(*id, render_objs); // 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
+				}
+                
                 let text_style = &text_styles[*id];
                 let children = idtree[*id].children();
 				tex_font = match font_sheet.get_src(&text_style.font.family) {
 					Some(r) => r,
 					None => continue,
 				};
-                let have_shadow = text_style.shadow.color != CgColor::new(0.0, 0.0, 0.0, 0.0);
 				
 				let r = self.create_render_obj(
                     *id,
                     render_objs,
                     default_state,
-                    have_shadow,
                     tex_font,//charblock.is_pixel,
 					text_style,
 					pixel_ratio.0,
                 );
+
+				/// 创建阴影的渲染对象
+				if text_style.shadow.len() > 0 {
+					for s in text_style.shadow.iter() {
+						let shadow_index = self.create_render_obj1(*id, render_objs, default_state, tex_font, text_style, 0.0, pixel_ratio.0);
+						self.render_map[*id].shadow.push(shadow_index);
+					}
+				}
+
                 dirty = dirty | TEXT_STYLE_DIRTY;
-                (r, children, text_style)
+                (self.render_map[*id].clone(), children, text_style)
             } else {
                 match self.render_map.get(*id) {
                     Some(r) => {
@@ -357,92 +398,175 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 );
             }
             notify.modify_event(index.text, "", 0);
-            // 阴影存在
-            if index.shadow > 0 {
-                let shadow_render_obj = &mut render_objs[index.shadow];
 
-                if dirty & (StyleType::TextShadow as usize) != 0 {
-                    // 阴影颜色脏，或描边脏， 修改ubo
-                    modify_shadow_color(
-                        index.shadow,
-                        style_mark.local_style,
-                        text_style,
-                        &notify,
-                        shadow_render_obj,
-                        engine,
-                        tex_font, // charblock.is_pixel,
-                        &class_ubo,
-                        &mut *self.canvas_stroke_ubo_map,
-						&mut *self.msdf_stroke_ubo_map,
-                    );
-                    // 设置ubo TODO
-                }
-
-                // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-                if dirty & FONT_DIRTY != 0 {
-                    modify_font(
-                        index.text,
-                        shadow_render_obj,
-                        tex_font, //charblock.is_pixel,
-                        &font_sheet,
-                        &notify,
-                        &self.default_sampler,
-                        &self.point_sampler,
-                    );
-                }
-
-                if program_change {
-                    notify.modify_event(index.shadow, "program_dirty", 0);
-                }
-
-                // 修改阴影的顶点流
-                if shadow_geometry_change {
-                    // 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
-                    match &text_style.text.color {
-                        Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
-                        Color::LinearGradient(_) => {
-                            let color = text_style.shadow.color.clone();
-                            let l = &mut self.index_len;
-                            shadow_render_obj.geometry = create_geo(
-								dirty,
-								children,
-								idtree,
-								&node_states[*id],
-								layout,
-                                &Color::RGBA(color),
-                                text,
-                                text_style,
-                                font_sheet,
-                                class_ubo,
-                                &self.index_buffer,
-                                l,
+			if index.shadow.len() > 0 {
+				for i in 0..index.shadow.len() {
+					let shadow_index = index.shadow[i];
+					// 阴影存在
+					if shadow_index > 0 {
+						let shadow_render_obj = &mut render_objs[shadow_index];
+						let shadow = &text_style.shadow[i];
+						let mut has_blur = (false, false);
+		
+						if dirty & (StyleType::TextShadow as usize) != 0 {
+							// 阴影颜色脏，或描边脏， 修改ubo
+							modify_shadow_color(
+								shadow_index,
+								style_mark.local_style,
+								text_style,
+								&text_style.shadow[i].color,
+								&notify,
+								shadow_render_obj,
 								engine,
-								node_states[*id].0.scale,
-                            )
-                        }
-                    }
-                    notify.modify_event(index.shadow, "geometry", 0);
-                }
-
-                if dirty & (StyleType::Matrix as usize) != 0
-                    || dirty & (StyleType::TextShadow as usize) != 0
-                {
-                    modify_matrix(
-                        index.shadow,
-                        create_let_top_offset_matrix(
-                            layout,
-                            world_matrix,
-                            transform,
-                            text_style.shadow.h + h,
-                            text_style.shadow.v + v,
-                            // shadow_render_obj.depth,
-                        ),
-                        shadow_render_obj,
-                        &notify,
-                    );
-                }
-                notify.modify_event(index.shadow, "", 0);
+								tex_font, // charblock.is_pixel,
+								&class_ubo,
+								&mut *self.canvas_stroke_ubo_map,
+								&mut *self.msdf_stroke_ubo_map,
+							);
+		
+							has_blur = modify_shadow_gassu_blur(
+								shadow_index,
+								shadow.blur,
+								shadow_render_obj,
+								engine,
+								Size{width: t.width, height: t.height},
+								&context_boxs.get(*id).unwrap().0,
+								&premulti_state.0,
+							);
+							// 设置ubo TODO
+						}
+		
+						// 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
+						if dirty & FONT_DIRTY != 0 {
+							modify_font(
+								index.text,
+								shadow_render_obj,
+								tex_font, //charblock.is_pixel,
+								&font_sheet,
+								&notify,
+								&self.default_sampler,
+								&self.point_sampler,
+							);
+						}
+		
+						if program_change {
+							notify.modify_event(shadow_index, "program_dirty", 0);
+						}
+		
+						// 修改阴影的顶点流
+						if shadow_geometry_change {
+							// 如果填充色是纯色， 阴影的geo和文字的geo一样， 否则重新创建阴影的geo
+							match &text_style.text.color {
+								Color::RGBA(_) => shadow_render_obj.geometry = render_obj.geometry.clone(),
+								Color::LinearGradient(_) => {
+									let color = shadow.color.clone();
+									let l = &mut self.index_len;
+									shadow_render_obj.geometry = create_geo(
+										dirty,
+										children,
+										idtree,
+										&node_states[*id],
+										layout,
+										&Color::RGBA(color),
+										text,
+										text_style,
+										font_sheet,
+										class_ubo,
+										&self.index_buffer,
+										l,
+										engine,
+										node_states[*id].0.scale,
+									)
+								}
+							}
+							notify.modify_event(shadow_index, "geometry", 0);
+						}
+		
+						if dirty & (StyleType::Matrix as usize) != 0
+							|| dirty & (StyleType::TextShadow as usize) != 0
+						{
+							modify_matrix(
+								shadow_index,
+								create_let_top_offset_matrix(
+									layout,
+									world_matrix,
+									transform,
+									shadow.h + h,
+									shadow.v + v,
+									// shadow_render_obj.depth,
+								),
+								shadow_render_obj,
+								&notify,
+							);
+						}
+		
+						if has_blur.0 {
+							if(has_blur.1) {
+								let copy= new_render_obj(
+									*id,
+									0.0,
+									false,
+									IMAGE_VS_SHADER_NAME.clone(),
+									IMAGE_FS_SHADER_NAME.clone(),
+									Share::new(ImageParamter::default()),
+									State {
+										bs: default_state.df_bs.clone(),
+										rs: default_state.df_rs.clone(),
+										ss: default_state.df_ss.clone(),
+										ds: default_state.tarns_ds.clone(),
+									},
+								);
+				
+								let notify = render_objs.get_notify();
+								let copy = render_objs.insert(copy, Some(&notify));
+								render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy = copy;
+							}
+							let copy_index = render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy;
+							let arr = create_unit_offset_matrix(
+								layout.rect.end - layout.rect.start,
+								layout.rect.bottom - layout.rect.top,
+								layout.border.start,
+								layout.border.top,
+								layout,
+								world_matrix,
+								transform,
+								0.0,
+							);
+						
+							let rr = &mut render_objs[copy_index];
+							rr.paramter.set_value(
+								"worldMatrix",
+								Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(arr))),
+							);
+		
+							let geo = engine.create_geometry();
+							engine
+								.gl
+								.geometry_set_attribute(
+									&geo,
+									&AttributeName::Position,
+									&unit_quad.0.buffers[1],
+									2,
+								)
+								.unwrap();
+							engine
+								.gl
+								.geometry_set_indices_short(&geo, &unit_quad.0.buffers[0])
+								.unwrap();
+							let geo_res = GeometryRes {
+								geo: geo,
+								buffers: vec![],
+							};
+							rr.geometry =
+								Some(Share::new(geo_res));
+							notify.modify_event(copy_index, "", 0);
+						}
+		
+						notify.modify_event(shadow_index, "", 0);
+					}
+				}
 			}
+            
         }
     }
 }
@@ -463,7 +587,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
     #[inline]
     pub fn with_capacity(engine: &mut Engine<C>, texture_size: (usize, usize), capacity: usize) -> Self {
         let mut canvas_bs = BlendStateDesc::default();
-		canvas_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
+		canvas_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
 		canvas_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 		// canvas_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
         let canvas_bs = engine.create_bs_res(canvas_bs);
@@ -551,16 +675,15 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
         id: usize,
         render_objs: &mut SingleCaseImpl<RenderObjs>,
         default_state: &DefaultState,
-        have_shadow: bool,
         tex_font: &TexFont,
 		text_style: &TextStyle,
 		pixel_ratio: f32,
     ) -> I {
-        let shadow_index = if !have_shadow {
-            0
-        } else {
-            self.create_render_obj1(id, render_objs, default_state, tex_font, text_style, 0.0, pixel_ratio)
-        };
+        // let shadow_index = if !have_shadow {
+        //     0
+        // } else {
+        //     self.create_render_obj1(id, render_objs, default_state, tex_font, text_style, 0.0, pixel_ratio)
+        // };
         let index = self.create_render_obj1(id, render_objs, default_state, tex_font, text_style,  0.1, pixel_ratio);
 
         // 创建RenderObj与Node实体的索引关系， 并设脏
@@ -568,7 +691,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
             id,
             I {
                 text: index,
-                shadow: shadow_index,
+                shadow: SmallVec::default(),
             },
         );
         self.render_map[id].clone()
@@ -633,7 +756,12 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
             Some(index) => {
                 let notify = unsafe { &*(render_objs.get_notify_ref() as * const NotifyImpl) };
                 render_objs.remove(index.text, Some(notify));
-                render_objs.remove(index.shadow, Some(notify));
+				if index.shadow.len() > 0 {
+					for shadow_index in index.shadow.iter() {
+						render_objs.remove(*shadow_index, Some(notify));
+					}
+					
+				}
             }
             None => (),
         };
@@ -662,6 +790,13 @@ fn modify_stroke(
             canvas_stroke_ubo_map,
         );
         render_obj.paramter.set_value("strokeColor", ubo);
+
+		if text_stroke.width == 0.0 {
+			//删除描边的宏
+			render_obj.fs_defines.remove("STROKE");
+		} else {
+			render_obj.fs_defines.add("STROKE");
+		}
         return false;
     }
 
@@ -757,6 +892,7 @@ fn modify_shadow_color<C: HalContext + 'static>(
     index: usize,
     _local_style: usize,
     text_style: &TextStyle,
+	c: &CgColor,
     notify: &NotifyImpl,
     render_obj: &mut RenderObj,
     engine: &mut Engine<C>,
@@ -765,7 +901,6 @@ fn modify_shadow_color<C: HalContext + 'static>(
     canvas_stroke_ubo_map: &mut ResMap<CanvasTextStrokeColorUbo>,
 	msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
 ) {
-    let c = &text_style.shadow.color;
     if text_style.text.stroke.width > 0.0 && tex_font.is_pixel {
         let ubo = create_hash_res(
             CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
@@ -791,6 +926,207 @@ fn modify_shadow_color<C: HalContext + 'static>(
     render_obj.paramter.set_value("uColor", ubo);
     render_obj.fs_defines.add("UCOLOR");
     notify.modify_event(index, "ubo", 0);
+}
+
+/// 对阴影应用高斯模糊
+fn modify_shadow_gassu_blur<C: HalContext + 'static>(
+    index: usize,
+	blur: f32,
+    render_obj: &mut RenderObj,
+    engine: &mut Engine<C>,
+	mut texture_size: Size<usize>,
+	content_box: &Aabb2,
+	default_state: &CommonState,
+) -> (bool, bool) {
+	// log::warn!("modify_shadow_gassu_blur======================blur:{}", blur);
+	match &mut render_obj.post_process {
+		Some(r) => {
+			if blur==0.0 {
+				render_obj.post_process = None;
+				render_obj.state.bs = default_state.df_bs.clone();
+				return (false, false)
+			} else {
+				for i in 0..r.post_processes.len() {
+					r.post_processes[i].render_obj.paramter.set_single_uniform(
+						"blurRadius", 
+						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
+					);
+				}
+				r.content_box = content_box.clone();
+				return (true, r.copy == 0);
+			}
+		},
+		None => {
+			if blur != 0.0 {
+				render_obj.state.bs = default_state.one_one_bs.clone();
+				let width = content_box.maxs.x - content_box.mins.x;
+				let height = content_box.maxs.y - content_box.mins.y;
+
+				// log::warn!("blur1================={}, {}", width, height);
+				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
+
+				let mut vv = Vec::new();
+
+				for i in 0..2 {
+					let (mut w, mut h) = (width, height);
+					let p: Share<dyn ProgramParamter> = Share::new(GaussBlurParamter::default());
+					p.set_single_uniform(
+						"blurRadius", 
+						UniformValue::Float1(blur)
+					);	
+					w = w.round().max(1.0);
+					h = h.round().max(1.0);
+
+					let mut obj = new_render_obj1(
+						index, 0.0, false, GAUSS_BLUR_VS_SHADER_NAME.clone(), GAUSS_BLUR_FS_SHADER_NAME.clone(), p, default_state,
+					);
+					if i == 0 {
+						obj.vs_defines.add("VERTICAL");
+						obj.vs_defines.remove("HORIZONTAL");
+					} else {
+						obj.vs_defines.add("HORIZONTAL");
+						obj.vs_defines.remove("VERTICAL");
+					}
+					let post_process = PostProcess {
+						render_size: Size{width: w, height: h},
+						// render_size: Size::new(width/4, width/4),
+						render_obj: obj, // 在RenderObjs中的索引
+					};
+					texture_size = Size{width: w as usize, height: h as usize};
+					vv.push(post_process);
+				}
+
+				let post_process_context = PostProcessContext { 
+					content_box: content_box.clone(), 
+					render_target: None, // 如果是None，则分配纹理来渲染阴影
+					post_processes: vv,
+					result: None,
+					copy: 0,
+				};
+				render_obj.post_process = Some(Box::new(post_process_context));
+				return (true, true);
+			}
+		}
+	}
+	(false, false)
+}
+
+fn modify_shadow_blur<C: HalContext + 'static>(
+    index: usize,
+	blur: f32,
+    render_obj: &mut RenderObj,
+    engine: &mut Engine<C>,
+	mut texture_size: Size<usize>,
+	content_box: &Aabb2,
+	default_state: &CommonState,
+) -> (bool, bool) {
+	// log::warn!("modify_shadow_blur======================blur:{}", blur);
+	match &mut render_obj.post_process {
+		Some(r) => {
+			if blur==0.0 {
+				render_obj.post_process = None;
+				return (false, false)
+			} else {
+				for i in 0..r.post_processes.len() {
+					r.post_processes[i].render_obj.paramter.set_single_uniform(
+						"offset", 
+						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
+					);
+				}
+				r.content_box = content_box.clone();
+				return (true, false);
+			}
+		},
+		None => {
+			if blur != 0.0 {
+				let width = content_box.maxs.x - content_box.mins.x;
+				let height = content_box.maxs.y - content_box.mins.y;
+
+				// log::warn!("blur1================={}, {}", width, height);
+				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
+
+				let mut vv = Vec::new();
+
+				let (mut w, mut h) = (width, height);
+				for i in 0..3 {
+					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
+					p.set_single_uniform(
+						"offset", 
+						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
+					);
+					w = (w / 2.0).round().max(1.0);
+					h = (h / 2.0).round().max(1.0);
+					let post_process = PostProcess {
+						render_size: Size{width: w, height: h},
+						// render_size: Size::new(width/4, width/4),
+						render_obj: new_render_obj1(
+							index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), p, default_state,
+						), // 在RenderObjs中的索引
+					};
+					texture_size = Size{width: w as usize, height: h as usize};
+					vv.push(post_process);
+				}
+				for i in 0..2 {
+					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
+					p.set_single_uniform(
+						"offset", 
+						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
+					);
+					w = (w * 2.0).round().max(1.0);
+					h = (h * 2.0).round().max(1.0);
+					let post_process = PostProcess {
+						render_size: Size{width: w, height: h},
+						// render_size: Size::new(width/4, width/4),
+						render_obj: new_render_obj1(
+							index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), p, default_state,
+						), // 在RenderObjs中的索引
+					};
+					texture_size = Size{width: w as usize, height: h as usize};
+					vv.push(post_process);
+				}
+				// let post_process1 = PostProcess {
+				// 	render_size: Size{width: (width/2.0).max(1.0), height: (height/4.0).max(1.0)},
+				// 	// render_size: Size::new(width/4, width/4),
+				// 	render_obj: new_render_obj1(
+				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
+				// 	), // 在RenderObjs中的索引
+				// };
+				// let post_process2 = PostProcess {
+				// 	render_size: Size{width: (width/8.0).max(1.0), height: (height/8.0).max(1.0)},
+				// 	// render_size: Size::new(width/4, width/4),
+				// 	render_obj: new_render_obj1(
+				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
+				// 	), // 在RenderObjs中的索引
+				// };
+				// let post_process3 = PostProcess {
+				// 	render_size: Size{width: (width/4.0).max(1.0), height: (height/4.0).max(1.0)},
+				// 	// render_size: Size::new(width/4, width/4),
+				// 	render_obj: new_render_obj1(
+				// 		index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), paramter, default_state,
+				// 	), // 在RenderObjs中的索引
+				// };
+
+				// let post_process_context = PostProcessContext { 
+				// 	content_box: content_box.clone(), 
+				// 	render_target: None, // 如果是None，则分配纹理来渲染阴影
+				// 	post_processes: vec![post_process1, post_process2, post_process3],
+				// 	result: None,
+				// 	copy: 0,
+				// };
+
+				let post_process_context = PostProcessContext { 
+					content_box: content_box.clone(), 
+					render_target: None, // 如果是None，则分配纹理来渲染阴影
+					post_processes: vv,
+					result: None,
+					copy: 0,
+				};
+				render_obj.post_process = Some(Box::new(post_process_context));
+				return (true, true);
+			}
+		}
+	}
+	(false, false)
 }
 
 #[inline]
@@ -841,8 +1177,8 @@ fn create_geo<C: HalContext + 'static>(
         }
 
         // 如果是渐变色， 计算渐变色的hash
-        if let Color::LinearGradient(ref c) = color {
-            c.hash(&mut hasher);
+        if let Color::LinearGradient(ref blur) = color {
+            blur.hash(&mut hasher);
         }
 
         let hash = hasher.finish();
@@ -1190,7 +1526,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 	size += buffer_size(uvs.len(), BufferType::Attribute);
 
 	Some(match hash {
-		Some(hash) => engine.geometry_res_map.create(hash, geo_res, size, 0),
+		Some(hash) => {
+			engine.geometry_res_map.create(hash, geo_res, size, 0)
+		},
 		None => Share::new(geo_res),
 	})
 }

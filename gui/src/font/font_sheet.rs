@@ -619,7 +619,6 @@ impl<'a> Iterator for SplitChar<'a> {
                             Some(SplitResult::WordNext(self.cur_index as isize,c))
                         } else {
                             self.type_id = 0;
-							self.cur_index += 1;
                             Some(SplitResult::WordEnd(-1))
                         }
                     }

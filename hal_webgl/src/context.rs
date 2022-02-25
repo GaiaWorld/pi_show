@@ -294,13 +294,13 @@ impl HalContext for WebglHalContext {
             let (index, use_count) = create_new_slot(&mut context.rt_slab, rt);
             context.stat.rt_count += 1;
 
-			// log::info!("create rt, index: {}, use_count: {}, w: {}, h: {}", index, use_count, w, h);
+			// log::info!("create rt, index: {}, version: {}, w: {}, h: {}", index, use_count, w, h);
 
             let context_impl = self.0.clone();
             HalRenderTarget {
                 item: HalItem { index, use_count },
                 destroy_func: Share::new(move |index: u32, use_count: u32| {
-					// log::info!("destroy rt, index: {}, use_count: {}", index, use_count);
+					// log::info!("destroy rt, index: {}, version: {}", index, use_count);
                     context_impl.rt_destroy(index, use_count);
                 }),
             }

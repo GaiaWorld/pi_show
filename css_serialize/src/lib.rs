@@ -55,3 +55,20 @@ pub fn init_log() {
     pi_web_logger::init_with_level(pi_web_logger::Level::Info);
 	log::info!("init_logger ok!");
 }
+
+
+#[test]
+fn tests() {
+	let r = "
+.t_s_12181a_3{
+	text-shadow: 0px 3px 3px #12181a;
+}
+.t_s_bb7be5_3{
+	text-shadow: 0px 3px 3px #bb7be5;
+}
+.t_s_7031e4_3{
+	text-shadow: 0px 3px 3px #7031e4;
+}";
+let r = parse_class_map_from_string(value);
+println!("===================={:?}", r);
+}

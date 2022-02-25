@@ -37,6 +37,7 @@ extern crate share;
 extern crate idtree;
 extern crate flex_layout;
 extern crate cross_performance;
+extern crate smallvec;
 
 mod class;
 mod layout;

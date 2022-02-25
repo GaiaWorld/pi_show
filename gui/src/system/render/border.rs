@@ -89,6 +89,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
                     continue;
                 }
 			};
+
+			let color = match border_colors.get(*id) {
+				Some(r) => &r.0,
+				None => {
+					self.remove_render_obj(*id, render_objs);
+					continue;
+				}
+			};
+
 			if style_mark.local_style & StyleType::BorderColor as usize == 0
 				&& style_mark.class_style & StyleType::BorderColor as usize == 0
 			{
@@ -112,7 +121,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 				}
 			};
 
-            let color = &border_colors[*id].0;
             let render_obj = &mut render_objs[render_index];
             let border_radius = border_radiuses.get(*id);
             let layout = &layouts[*id];

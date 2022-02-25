@@ -25,6 +25,7 @@ pub struct ClipSys<C> {
     dirty: bool,
     no_rotate_dirtys: VecMap<bool>,
     render_obj: Option<ClipTextureRender>,
+	texture: Option<HalTexture>,
 	marker: PhantomData<C>,
 	
 	rotate_index: usize,
@@ -97,6 +98,7 @@ impl<C: HalContext + 'static> ClipSys<C> {
 		).unwrap();
 		engine
             .gl.rt_set_color(&target, Some(&texture));
+		self.texture = Some(texture);
 			
         let mut clip_size_ubo = ClipTextureSize::default();
         clip_size_ubo.set_value("clipTextureSize", UniformValue::Float2((viewport.0 + viewport.2) as f32, (viewport.1 + viewport.3) as f32));
@@ -154,6 +156,7 @@ impl<C: HalContext + 'static> ClipSys<C> {
             render_obj: None,
 			marker: PhantomData,
 			rotate_index: 0,
+			texture: None,
         }
     }
 

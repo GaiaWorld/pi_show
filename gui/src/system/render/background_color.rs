@@ -120,6 +120,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             }
 
             let dirty = style_mark.dirty;
+			
+			let color = match background_colors.get(*id) {
+				Some(r) => r,
+				None => {
+					self.remove_render_obj(*id, render_objs);
+					continue;
+				}
+			};
             // 背景颜色脏， 如果不存在BacgroundColor的本地样式和class样式， 删除渲染对象
             let render_index = if dirty & StyleType::BackgroundColor as usize != 0 {
                 if style_mark.local_style & StyleType::BackgroundColor as usize == 0
@@ -140,7 +148,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 }
             };
 
-            let color = &background_colors[*id];
             let render_obj = &mut render_objs[render_index];
             let border_radius = border_radiuses.get(*id);
             let layout = &layouts[*id];
@@ -309,7 +316,7 @@ fn create_rgba_geo<C: HalContext + 'static>(
                     return None;
                 } else {
                     let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-                    return Some(engine.create_geo_res(
+					return Some(engine.create_geo_res(
                         hash,
                         indices.as_slice(),
                         &[AttributeDecs::new(

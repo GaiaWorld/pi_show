@@ -7,6 +7,7 @@ use std::{
 };
 
 use ordered_float::NotNan;
+use smallvec::{SmallVec, smallvec};
 
 use map::vecmap::VecMap;
 use hash::XHashMap;
@@ -259,7 +260,7 @@ pub struct TextContent(pub String, pub Atom);
 pub struct TextStyle {
     pub text: Text,
     pub font: Font,
-    pub shadow: TextShadow,
+    pub shadow: SmallVec<[TextShadow; 1]>,
 }
 
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]

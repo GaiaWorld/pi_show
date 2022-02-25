@@ -12,6 +12,8 @@ use hal_webgl::*;
 use hash::XHashMap;
 use flex_layout::style::*;
 use share::Share;
+use res::ResDebug;
+use res_mgr_web::ResMgr;
 
 use ecs::{Lend, LendMut};
 use gui::component::calc::*;
@@ -800,21 +802,26 @@ fn to_css_str(attr: Attr) -> String {
                 Color::LinearGradient(_r) => "color:linear-gradient".to_string(),
             },
             Attribute3::TextShadow(r) => {
-                "text-shadow:".to_string()
-                    + r.h.to_string().as_str()
+                let mut rr = "text-shadow:".to_string();
+				for shadow in r.iter() {
+					rr = rr
+					+ shadow.h.to_string().as_str()
                     + " "
-                    + r.v.to_string().as_str()
+                    + shadow.v.to_string().as_str()
                     + " "
-                    + r.blur.to_string().as_str()
+                    + shadow.blur.to_string().as_str()
                     + " rgba("
-                    + r.color.r.to_string().as_str()
+                    + shadow.color.r.to_string().as_str()
                     + ","
-                    + r.color.g.to_string().as_str()
+                    + shadow.color.g.to_string().as_str()
                     + ","
-                    + r.color.b.to_string().as_str()
+                    + shadow.color.b.to_string().as_str()
                     + ","
-                    + r.color.a.to_string().as_str()
-                    + ")"
+                    + shadow.color.a.to_string().as_str()
+					+ ","
+                    + ")";
+				}
+				rr
             }
             Attribute3::TextStroke(r) => {
                 "text-stroke:".to_string()
@@ -1274,6 +1281,7 @@ pub fn res_size(world: u32) -> JsValue {
 
     let rs = engine.rs_res_map.all_res();
     for i in rs.0.iter() {
+		// i.0
         size.rs += i.1;
         size.count_rs += 1;
     }
@@ -1494,42 +1502,38 @@ pub struct MemStatistics {
 // }
 
 #[wasm_bindgen]
-pub fn mem_statistics(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let engine = world.gui.engine.lend();
+pub fn mem_statistics(_world: u32) {}
 
-	let r = engine.res_mgr.borrow();
+#[wasm_bindgen]
+pub fn res_debug(res_mgr: &ResMgr) -> JsValue {
+	let res_mgr = res_mgr.get_inner().clone();
+	let res_mgr = res_mgr.borrow_mut();
 
 	let mut use_all = 0;
 	let mut lru_all = 0;
-	for (k, i) in r.tables.iter() {
-		let use_c = i.res_map.use_cost();
-		use_all += use_c;
-		lru_all += i.res_map.lru_cost();
-
-		// log::info!("k: {:?}, use:{}, lru:{}", &k.1, use_c,  i.res_map.lru_cost());
+	let mut res_list = ResDebugList {
+		un_use_total_cost: 0,
+		using_total_cost: 0,
+		details: Vec::new(),
+	};
+	for (k, i) in res_mgr.tables.iter() {
+		let list = i.res_map.debug();
+		
+		for (_g, l) in list.into_iter() {
+			res_list.un_use_total_cost += l.un_use_total_cost;
+			res_list.using_total_cost += l.using_total_cost;
+			res_list.details.push(l);
+		}
 	}
 
-	// log::info!("total, use:{}, lru:{}", use_all,  lru_all);
+	return JsValue::from_serde(&res_list).unwrap();
+}
 
-    let texture = engine.texture_res_map.all_res();
-
-    let mut texture_size = 0;
-    let mut texture_count = 0;
-    let mut catch_texture_count = 0;
-    let mut catch_texture_size = 0;
-    for i in texture.0.iter() {
-        texture_size += i.1;
-        texture_count += 1;
-    }
-    for i in texture.1.iter() {
-        catch_texture_size += i.1.elem.cost;
-        catch_texture_count += 1;
-	}
-	return JsValue::from_serde(&MemStatistics{
-		textureTotalCount: (catch_texture_count + texture_count) as u32, 
-		textureTotalMemory: (catch_texture_size + texture_size) as u32,
-	}).unwrap();
+#[derive(Serialize)]
+struct ResDebugList {
+	pub using_total_cost: usize,
+	pub un_use_total_cost: usize,
+	pub details: Vec<ResDebug>,
 }
 
 #[wasm_bindgen]
@@ -1684,7 +1688,32 @@ pub fn print_memory(world: u32) {
     log::info!("    world::engine.resMap = {:?}", r);
     let r = world.render_objs.lend().mem_size();
     total += r;
-    log::info!("    world::render_objs = {:?}", r);
+	{
+		let render_objs = world.render_objs.lend();
+		let mut text: usize = 0;
+		let mut img: usize = 0;
+		let mut color: usize = 0;
+		let mut canvas: usize = 0;
+		let mut fbo: usize = 0;
+		let mut clip: usize = 0;
+		for (i,r) in render_objs.iter() {
+			if &*r.vs_name == &"color_vs" {
+				color += 1;
+			} else if &*r.vs_name == &"image_vs" {
+				img += 1;
+			} else if &*r.vs_name == &"canvas_text_vs"{
+				text += 1;
+			} else if &*r.vs_name == &"canvas_vs"{
+				canvas += 1;
+			} else if &*r.vs_name == &"fbo_vs"{
+				fbo += 1;
+			}else if &*r.vs_name == &"clip_vs"{
+				clip += 1;
+			}
+		}
+		log::info!("    world::render_objs = {:?}, {}, color:{}, img:{}, canvas_text:{}, canvas:{}, fbo:{}, clip:{}", r, world.render_objs.lend().len(), color, img, text, canvas, fbo, clip);
+	}
+   
     let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
     log::info!("    world::font_sheet = {:?}", r);

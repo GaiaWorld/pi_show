@@ -201,14 +201,15 @@ impl ZIndexImpl {
 	return;
 	}
 	if old == AUTO {
-	if zi.dirty == DirtyType::None {
-		// 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。
-		zi.dirty = DirtyType::Normal;
-		self.dirty.mark(id, node.layer());
-	}
+		if zi.dirty == DirtyType::None {
+			// 如果zindex由auto变成有值，则产生新的堆叠上下文，则自身需要设脏。
+			// zi.dirty = DirtyType::Normal;
+			zi.dirty = DirtyType::Recursive;
+			self.dirty.mark(id, node.layer());
+		}
 	} else if z == AUTO {
-	// 为了防止adjust的auto跳出，提前设置为false
-	zi.dirty = DirtyType::None;
+		// 为了防止adjust的auto跳出，提前设置为false
+		zi.dirty = DirtyType::None;
 	}
 	self.set_parent_dirty(node.parent(), &read.0);
 }
@@ -283,11 +284,13 @@ impl ZIndexImpl {
         if zi.dirty == DirtyType::None {
 			// 当前节点前面的节点存在，并且其最大的z大于等于父节点空余z空间的最小值，则当前节点应该添加到空余z空间中
 			debug_println!("add,zi: {:?}, parent: {}", zi, parent);
-			zi.dirty = DirtyType::Normal;
+			// zi.dirty = DirtyType::Normal;
+			zi.dirty = DirtyType::Recursive;
 			self.dirty.mark(parent, node.layer());
 			//debug_println!("zindex- set_parent_dirty: {:?} {:?} {:?} {:?} {:?} {:?}", id, zi, node.parent, node.layer, node.count, node.children.head);
 		} else /*if zi.dirty == DirtyType::Empty && !(prev == 0 || pre_max_z >= zi.empty_min_z) */{
-			zi.dirty = DirtyType::Normal;
+			// zi.dirty = DirtyType::Normal;
+			zi.dirty = DirtyType::Recursive;
 		}
 		// 如果z范围超过自身全部子节点及其下子节点数量，则继续向上设置脏，等calc_z调整以获得足够的z范围
         if (node.count() as f32) < zi.pre_max_z - zi.pre_min_z {
@@ -330,28 +333,28 @@ impl ZIndexImpl {
 	  let max_z_z = match dirty {
 		  DirtyType::Normal => {
 			self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
-			debug_println!("Normal calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
+			debug_println!("Normal calc, id: {:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 			self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count(), node_states)
 		  },
 		  DirtyType::Recursive => {
 			self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
-			debug_println!("recursive_calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
+			debug_println!("recursive_calc, id: {:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 			self.cache.recursive_calc(node_states, &mut self.map, idtree, zdepth, min_z, max_z, node.count())
 		  },
 		  DirtyType::Empty => { // 
 			if self.cache.node_heap.len() == 0 {
 				let (count, arr) = self.cache.sort_width_empty(zdepth, node_states, &self.map, idtree, node.children().head, 0, old_empty_min_z);
 				let empty_z = max_z - old_empty_min_z;
-				debug_println!("calc_empty, id:{} count: {}, empty_z:{}, min_z:{}, max_z: {}", id, count, empty_z, min_z, max_z);
+				debug_println!("calc_empty, id: {} count: {}, empty_z:{}, min_z:{}, max_z: {}", id, count, empty_z, min_z, max_z);
 				if (count as f32) <= empty_z && empty_z <= max_z - min_z - 1.{ // 如果是空
 					self.cache.calc_empty(&mut self.map, idtree, zdepth, old_empty_min_z, max_z, count, arr, node_states)
 				} else {
-					debug_println!("Empty1 calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
+					debug_println!("Empty1 calc, id: {:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 					self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count(), node_states)
 				}
 			} else {
 				self.cache.sort(zdepth, node_states, &self.map, idtree, node.children().head, 0);
-				debug_println!("Empty2 calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
+				debug_println!("Empty2 calc, id: {:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
 				self.cache.calc(&mut self.map, idtree, zdepth, min_z, max_z, node.count(), node_states)
 			}
 		  },
@@ -367,7 +370,7 @@ impl ZIndexImpl {
 	// 	//       v.push('-')
 	// 	//     }
 	// 	//   }
-	// 	log::info!("zindex======={:?}", cross_performance::now() - time);
+	// 	debug_println!("zindex======={:?}", cross_performance::now() - time);
     // }
     self.dirty.clear();
   }
@@ -446,7 +449,7 @@ impl Cache {
 			self.negative_heap.push(ZSort(zi-1, order, id, n.count()));
 		}
 
-		debug_println!("pre_max_z: {}, empty_min_z: {}, id:{}", z.pre_max_z, empty_min_z, id);
+		debug_println!("pre_max_z: {}, empty_min_z: {}, id: {}", z.pre_max_z, empty_min_z, id);
 		if z.pre_max_z > empty_min_z {
 			last_count += n.count() + 1;
 			arr.push(ZSort(zi, order, id, n.count()));
@@ -460,13 +463,14 @@ impl Cache {
   fn calc(&mut self, map: &mut VecMapWithDefault<ZIndex>, idtree: &IdTree, zdepth: &mut MultiCaseImpl<Node, ZDepth>, mut min_z: f32, mut max_z: f32, count: usize, node_states: &MultiCaseImpl<Node, NodeState>) -> f32 {
     min_z += 1.; // 第一个子节点的z，要在父节点z上加1
     let auto_len = self.z_auto.len();
-    debug_println!("calc count--------------------------count: {}, auto_len: {}", count, auto_len);
+    
     // 计算大致的劈分间距
     let split = if count > auto_len {
       (max_z - min_z - auto_len as f32) / (count - auto_len) as f32
     }else{
 		1.
     };
+	debug_println!("calc count--------------------------count: {}, auto_len: {}, split:{:?}, min_z{:?}, max:{:?}", count, auto_len, split, min_z, max_z);
     debug_println!("negative_heap: len: {:?}, value: {:?}", self.negative_heap.len(), self.negative_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.negative_heap.pop() {
       max_z = min_z + split + split * c as f32;
@@ -481,6 +485,7 @@ impl Cache {
     self.z_auto.clear();
     debug_println!("z_zero: len: {:?}, value: {:?}", self.z_zero.len(), self.z_zero);
     for &ZSort(_, _, n_id, c) in &self.z_zero {
+	  debug_println!("z_zero, c: {}",c);
       max_z = min_z + split + split * c as f32;
       adjust(node_states,  map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
@@ -489,6 +494,7 @@ impl Cache {
     debug_println!("z_node_heapzero: len: {:?}, value: {:?}", self.node_heap.len(), self.node_heap);
     while let Some(ZSort(_, _, n_id, c)) = self.node_heap.pop() {
       max_z = min_z + split + split * c as f32;
+	  debug_println!("node_heap, c: {:?}", c);
       adjust(node_states, map, idtree, zdepth, n_id, &idtree[n_id], min_z, max_z, f32::NAN, 0.);
       min_z = max_z;
 	}
@@ -564,7 +570,7 @@ impl Cache {
 	  zi.pre_max_z = max_z;
       // 设置 z_depth, 其他系统会监听该值
       unsafe {zdepth.get_unchecked_write(id)}.set_0(min_z);
-      //debug_println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
+      debug_println!("zindex- ----recursive_calc: {:?} {:?} {:?}", id, min_z, max_z);
       if min_z == max_z {
         continue
       }
@@ -574,7 +580,7 @@ impl Cache {
         continue;
       }
       self.sort(zdepth, node_states, map, idtree, node.children().head, 0);
-      debug_println!("recursive_calc, id:{:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
+      debug_println!("recursive_calc, id: {:?}, min_z:{:?}, max_z: {:?}", id, min_z, max_z);
       map[id].empty_min_z = self.recursive_calc(node_states, map, idtree, zdepth, min_z, max_z, node.count());
 	}
 	max_z
@@ -606,23 +612,23 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
 	}
   let (min, r, old_min) = {
     let zi = &mut map[id];
-    // debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z)
+    debug_println!("---------dirty adjust: {:?} {:?} {:?} {:?} {:?} pre_min_z:{}, pre_max_z:{}", id, min_z, max_z, rate, parent_min, zi.pre_min_z, zi.pre_max_z);
 
     let (min, max) = if !rate.is_nan() && !rate.is_infinite(){
       (((zi.pre_min_z - parent_min) * rate) + min_z + 1., ((zi.pre_max_z - parent_min) * rate) + min_z + 1.)
     }else{
-      (min_z, max_z)
+      (min_z, max_z) // 前面已经加过了
     };
     zi.pre_min_z = min;
 	zi.pre_max_z = max;
 	
     // 如果节点脏，则跳过，后面会进行处理
     if zi.dirty != DirtyType::None{
-		debug_println!("dirty adjust, id:{:?}, min_z:{:?}, max_z: {:?}", id, min, max);
+		debug_println!("dirty adjust, id: {:?}, min_z:{:?}, max_z: {:?}", id, min, max);
       return
     }
     if max >= zi.max_z && min <= zi.min_z {
-		debug_println!("点的z范围变大 adjust, id:{:?}, min_z:{:?}, max_z: {:?}", id, min, max);
+		debug_println!("点的z范围变大 adjust, id: {:?}, min_z:{:?}, max_z: {:?}", id, min, max);
       // 如果子节点的z范围变大，则可以不继续处理该子节点
       return;
     }
@@ -634,12 +640,12 @@ fn adjust(node_states: &MultiCaseImpl<Node, NodeState>, map: &mut VecMapWithDefa
 	zi.empty_min_z = max;
     // 设置 z_depth, 其他系统会监听该值
     unsafe { zdepth.get_unchecked_write(id) }.set_0(min);
-    debug_println!("---------adjust: {:?} {:?} {:?}", id, min, max);
+    debug_println!("---------adjust, id: {:?} {:?} {:?}", id, min, max);
     
     // 判断是否为auto
     if min != max {
 		
-      debug_println!("xxx---------id: {:?} min_z: {:?} max_z: {:?}, old_min: {:?} old_max:{}, rate:{}", id, min_z, max_z, old_min_z, old_max_z, (max_z - min_z - 1.)/ (old_max_z - old_min_z));
+      debug_println!("xxx---------id: {:?} min_z: {:?} max_z: {:?}, old_min: {:?} old_max:{}, rate:{}", id, min, max, old_min_z, old_max_z, (max - min - 1.)/ (old_max_z - old_min_z));
       (min, (max - min - 1.)/ (old_max_z - old_min_z), old_min_z)
     }else if !rate.is_nan() && !rate.is_infinite(){
       // 如果是auto，则重用min_z, rate, parent_min
@@ -668,179 +674,179 @@ impl_system!{
     }
 }
 
-#[cfg(test)]
-use ecs::{World, SeqDispatcher, Dispatcher, Lend, LendMut};
-#[cfg(test)]
-use std::{usize::MAX as UMAX};
-
-#[cfg(test)]
-fn create_world() -> World {
-	let mut world = World::default();
-	world.register_entity::<Node>();
-	world.register_multi::<Node, ZI>();
-	world.register_multi::<Node, ZDepth>();
-
-	let mut idtree = IdTree::default();
-	idtree.set_statistics_count(true);
-	world.register_single::<IdTree>(idtree);
-	
-	world.register_system(atom::Atom::from("z_index_sys"), CellZIndexImpl::new(ZIndexImpl::new()));
-
-	let mut dispatch = SeqDispatcher::default();
-	dispatch.build("z_index_sys".to_string(), &world);
-
-	world.add_dispatcher(atom::Atom::from("z_index_sys"), dispatch);
-	
-	return world;
-}
-#[test]
-fn test(){
-    let mut world= create_world();
-    test_world_zz(&mut world);
-}
-
-#[cfg(test)]
-fn new_node(mgr: &mut World, parent: usize) -> usize {
-	let node = mgr.fetch_entity::<Node>().unwrap().lend_mut().create();
-	let idtree = mgr.fetch_single::<IdTree>().unwrap();
-	let idtree = idtree.lend_mut();
-	idtree.create(node);
-	let notify = unsafe { &* (idtree.get_notify_ref() as *const NotifyImpl)} ;
-
-	idtree.insert_child_with_notify(node, parent, UMAX, &notify);
-	node
-}
-
-#[cfg(test)]
-fn test_world_zz(mgr: &mut World){
-    let body_id = new_node(mgr, 0);
-    // mgr.run(&atom::Atom::from("z_index_sys"));
-
-    let root_id = new_node(mgr, body_id);
-    let temp_id = new_node(mgr, root_id);
-    let root_top_id = new_node(mgr, root_id);
-    // mgr.run(&atom::Atom::from("z_index_sys"));
-
-    let node_0 = new_node(mgr, root_top_id);
-    let node_0_0 = new_node(mgr, node_0);
-    let node_0_1 = new_node(mgr, node_0);
-    let node_0_1_0 = new_node(mgr, node_0_1);
-    let node_0_1_0_0 = new_node(mgr, node_0_1_0);
- 
-    mgr.run(&atom::Atom::from("z_index_sys"));
-    debug_println!("modify run-----------------------------------------");
-
-    print_node(mgr, body_id, 0);
-    print_node(mgr, root_id, 1);
-    print_node(mgr, temp_id, 2);
-    print_node(mgr, root_top_id, 2);
-    print_node(mgr, node_0, 3);
-    print_node(mgr, node_0_0, 4);
-    print_node(mgr, node_0_1, 4);
-    print_node(mgr, node_0_1_0, 5);
-    print_node(mgr, node_0_1_0_0, 6);
-
-    let node_1 = new_node(mgr, root_top_id);
-    // let node_1_0 = new_node(mgr, node_1);
-    // let node_1_1 = new_node(mgr, node_1);
-    // let node_1_1_0 = new_node(mgr, node_1_1);
-    // let node_1_1_0_0 = new_node(mgr, node_1_1_0);
-
-    mgr.run(&atom::Atom::from("z_index_sys"));
-    print_node(&mgr, body_id, 0);
-    print_node(&mgr, root_id, 1);
-    print_node(&mgr, temp_id, 2);
-    print_node(&mgr, root_top_id, 2);
-    print_node(&mgr, node_0, 3);
-    print_node(&mgr, node_0_0, 4);
-    print_node(&mgr, node_0_1, 4);
-    print_node(&mgr, node_0_1_0, 5);
-    print_node(&mgr, node_0_1_0_0, 6);
-    print_node(&mgr, node_1, 3);
-    // print_node(&mgr, node_1_0, 4);
-    // print_node(&mgr, node_1_1, 4);
-    // print_node(&mgr, node_1_1_0, 5);
-    // print_node(&mgr, node_1_1_0_0, 6);
-}
-// #[cfg(not(feature = "web"))]
 // #[cfg(test)]
-// fn test_world_z(world: &mut World){
-//     let (root, node1, node2, node3, node4, node5) = {
-//         let component_mgr = &mut mgr;
-//         {
-            
-//             let (root, node1, node2, node3, node4, node5) = {
-//                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
-//                 debug_println!("root element: {:?}", root.element);
-//                 let root_id = 1;// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
-//                 let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
-//                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
-//                 let node2 = NodeBuilder::new().build(&mut component_mgr.node);
-//                 let node3 = NodeBuilder::new().build(&mut component_mgr.node);
-//                 let node4 = NodeBuilder::new().build(&mut component_mgr.node);
-//                 let node5 = NodeBuilder::new().build(&mut component_mgr.node);
-//                 // let mut root_ref = component_mgr.get_node_mut(root_id);
-//                 let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
-//                 let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
-//                 let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
-//                 let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
-//                 let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
-//                 (
-//                     root_id,
-//                     n1_id,
-//                     n2_id,
-//                     n3_id,
-//                     n4_id,
-//                     n5_id,
-//                 )
-//            };
-//            component_mgr.get_node_mut(node1).set_zindex(-1);
-//            component_mgr.get_node_mut(node3).set_zindex(2);
-//             print_node(component_mgr, node1);
-//             print_node(component_mgr, node2);
-//             print_node(component_mgr, node3);
-//             print_node(component_mgr, node4);
-//             print_node(component_mgr, node5);
-//             (root, node1, node2, node3, node4, node5)
-//         }
-//     };
+// use ecs::{World, SeqDispatcher, Dispatcher, Lend, LendMut};
+// #[cfg(test)]
+// use std::{usize::MAX as UMAX};
 
-//     debug_println!("modify run-----------------------------------------");
-//     world.run(());
-//     print_node(&mgr, root);
-//     print_node(&mgr, node1);
-//     print_node(&mgr, node2);
-//     print_node(&mgr, node3);
-//     print_node(&mgr, node4);
-//     print_node(&mgr, node5);
-//     let n = NodeBuilder::new().build(&mut mgr.node);
-//     let node6 = mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
-//     debug_println!("modify2 run-----------------------------------------");
-//     world.run(());
-//     print_node(&mgr, root);
-//     print_node(&mgr, node1);
-//     print_node(&mgr, node2);
-//     print_node(&mgr, node3);
-//     print_node(&mgr, node4);
-//     print_node(&mgr, node5);
-//     print_node(&mgr, node6);
+// #[cfg(test)]
+// fn create_world() -> World {
+// 	let mut world = World::default();
+// 	world.register_entity::<Node>();
+// 	world.register_multi::<Node, ZI>();
+// 	world.register_multi::<Node, ZDepth>();
+
+// 	let mut idtree = IdTree::default();
+// 	idtree.set_statistics_count(true);
+// 	world.register_single::<IdTree>(idtree);
+	
+// 	world.register_system(atom::Atom::from("z_index_sys"), CellZIndexImpl::new(ZIndexImpl::new()));
+
+// 	let mut dispatch = SeqDispatcher::default();
+// 	dispatch.build("z_index_sys".to_string(), &world);
+
+// 	world.add_dispatcher(atom::Atom::from("z_index_sys"), dispatch);
+	
+// 	return world;
+// }
+// #[test]
+// fn test(){
+//     let mut world= create_world();
+//     test_world_zz(&mut world);
 // }
 
-#[cfg(test)]
-fn print_node(mgr: &World, id: usize, layer: usize) {
-	let idtree = mgr.fetch_single::<IdTree>().unwrap();
-	let idtree = idtree.lend();
-	let z_indexs = mgr.fetch_multi::<Node, ZI>().unwrap();
-	let z_indexs = z_indexs.lend();
-	let z_depths = mgr.fetch_multi::<Node, ZDepth>().unwrap();
-	let z_depths = z_depths.lend();
-	let node = &idtree[id];
-    let zimpl = mgr.fetch_sys::<CellZIndexImpl>(&atom::Atom::from("z_index_sys")).unwrap();
-    let zi = &zimpl.owner.borrow().map[id];
+// #[cfg(test)]
+// fn new_node(mgr: &mut World, parent: usize) -> usize {
+// 	let node = mgr.fetch_entity::<Node>().unwrap().lend_mut().create();
+// 	let idtree = mgr.fetch_single::<IdTree>().unwrap();
+// 	let idtree = idtree.lend_mut();
+// 	idtree.create(node);
+// 	let notify = unsafe { &* (idtree.get_notify_ref() as *const NotifyImpl)} ;
 
-	let mut r = "".to_string();
-	for i in 0..layer {
-		r = r + "  ";
-	}
-	debug_println!("{}nodeid: {}, zindex: {:?}, z_depth: {:?}, zz: {:?}, count: {}, parent: {}", r, id, z_indexs[id] , z_depths[id], zi, node.count(), node.parent());
-}
+// 	idtree.insert_child_with_notify(node, parent, UMAX, &notify);
+// 	node
+// }
+
+// #[cfg(test)]
+// fn test_world_zz(mgr: &mut World){
+//     let body_id = new_node(mgr, 0);
+//     // mgr.run(&atom::Atom::from("z_index_sys"));
+
+//     let root_id = new_node(mgr, body_id);
+//     let temp_id = new_node(mgr, root_id);
+//     let root_top_id = new_node(mgr, root_id);
+//     // mgr.run(&atom::Atom::from("z_index_sys"));
+
+//     let node_0 = new_node(mgr, root_top_id);
+//     let node_0_0 = new_node(mgr, node_0);
+//     let node_0_1 = new_node(mgr, node_0);
+//     let node_0_1_0 = new_node(mgr, node_0_1);
+//     let node_0_1_0_0 = new_node(mgr, node_0_1_0);
+ 
+//     mgr.run(&atom::Atom::from("z_index_sys"));
+//     debug_println!("modify run-----------------------------------------");
+
+//     print_node(mgr, body_id, 0);
+//     print_node(mgr, root_id, 1);
+//     print_node(mgr, temp_id, 2);
+//     print_node(mgr, root_top_id, 2);
+//     print_node(mgr, node_0, 3);
+//     print_node(mgr, node_0_0, 4);
+//     print_node(mgr, node_0_1, 4);
+//     print_node(mgr, node_0_1_0, 5);
+//     print_node(mgr, node_0_1_0_0, 6);
+
+//     let node_1 = new_node(mgr, root_top_id);
+//     // let node_1_0 = new_node(mgr, node_1);
+//     // let node_1_1 = new_node(mgr, node_1);
+//     // let node_1_1_0 = new_node(mgr, node_1_1);
+//     // let node_1_1_0_0 = new_node(mgr, node_1_1_0);
+
+//     mgr.run(&atom::Atom::from("z_index_sys"));
+//     print_node(&mgr, body_id, 0);
+//     print_node(&mgr, root_id, 1);
+//     print_node(&mgr, temp_id, 2);
+//     print_node(&mgr, root_top_id, 2);
+//     print_node(&mgr, node_0, 3);
+//     print_node(&mgr, node_0_0, 4);
+//     print_node(&mgr, node_0_1, 4);
+//     print_node(&mgr, node_0_1_0, 5);
+//     print_node(&mgr, node_0_1_0_0, 6);
+//     print_node(&mgr, node_1, 3);
+//     // print_node(&mgr, node_1_0, 4);
+//     // print_node(&mgr, node_1_1, 4);
+//     // print_node(&mgr, node_1_1_0, 5);
+//     // print_node(&mgr, node_1_1_0_0, 6);
+// }
+// // #[cfg(not(feature = "web"))]
+// // #[cfg(test)]
+// // fn test_world_z(world: &mut World){
+// //     let (root, node1, node2, node3, node4, node5) = {
+// //         let component_mgr = &mut mgr;
+// //         {
+            
+// //             let (root, node1, node2, node3, node4, node5) = {
+// //                 let root = NodeBuilder::new().build(&mut component_mgr.node); // 创建根节点
+// //                 debug_println!("root element: {:?}", root.element);
+// //                 let root_id = 1;// 不通知的方式添加 NodeWriteRef{id, component_mgr write 'a Ref}
+// //                 let _n = component_mgr.node._group.get_mut(root_id);// ComponentNode{parent:usize, owner: 'a &mut Node}
+// //                 let node1 = NodeBuilder::new().build(&mut component_mgr.node);
+// //                 let node2 = NodeBuilder::new().build(&mut component_mgr.node);
+// //                 let node3 = NodeBuilder::new().build(&mut component_mgr.node);
+// //                 let node4 = NodeBuilder::new().build(&mut component_mgr.node);
+// //                 let node5 = NodeBuilder::new().build(&mut component_mgr.node);
+// //                 // let mut root_ref = component_mgr.get_node_mut(root_id);
+// //                 let n1_id = component_mgr.get_node_mut(root_id).insert_child(node1, InsertType::Back).id;
+// //                 let n2_id = component_mgr.get_node_mut(root_id).insert_child(node2, InsertType::Back).id;
+// //                 let n3_id = component_mgr.get_node_mut(n1_id).insert_child(node3, InsertType::Back).id;
+// //                 let n4_id = component_mgr.get_node_mut(n1_id).insert_child(node4, InsertType::Back).id;
+// //                 let n5_id = component_mgr.get_node_mut(n2_id).insert_child(node5, InsertType::Back).id;
+// //                 (
+// //                     root_id,
+// //                     n1_id,
+// //                     n2_id,
+// //                     n3_id,
+// //                     n4_id,
+// //                     n5_id,
+// //                 )
+// //            };
+// //            component_mgr.get_node_mut(node1).set_zindex(-1);
+// //            component_mgr.get_node_mut(node3).set_zindex(2);
+// //             print_node(component_mgr, node1);
+// //             print_node(component_mgr, node2);
+// //             print_node(component_mgr, node3);
+// //             print_node(component_mgr, node4);
+// //             print_node(component_mgr, node5);
+// //             (root, node1, node2, node3, node4, node5)
+// //         }
+// //     };
+
+// //     debug_println!("modify run-----------------------------------------");
+// //     world.run(());
+// //     print_node(&mgr, root);
+// //     print_node(&mgr, node1);
+// //     print_node(&mgr, node2);
+// //     print_node(&mgr, node3);
+// //     print_node(&mgr, node4);
+// //     print_node(&mgr, node5);
+// //     let n = NodeBuilder::new().build(&mut mgr.node);
+// //     let node6 = mgr.get_node_mut(root).insert_child(n, InsertType::Back).id;
+// //     debug_println!("modify2 run-----------------------------------------");
+// //     world.run(());
+// //     print_node(&mgr, root);
+// //     print_node(&mgr, node1);
+// //     print_node(&mgr, node2);
+// //     print_node(&mgr, node3);
+// //     print_node(&mgr, node4);
+// //     print_node(&mgr, node5);
+// //     print_node(&mgr, node6);
+// // }
+
+// #[cfg(test)]
+// fn print_node(mgr: &World, id: usize, layer: usize) {
+// 	let idtree = mgr.fetch_single::<IdTree>().unwrap();
+// 	let idtree = idtree.lend();
+// 	let z_indexs = mgr.fetch_multi::<Node, ZI>().unwrap();
+// 	let z_indexs = z_indexs.lend();
+// 	let z_depths = mgr.fetch_multi::<Node, ZDepth>().unwrap();
+// 	let z_depths = z_depths.lend();
+// 	let node = &idtree[id];
+//     let zimpl = mgr.fetch_sys::<CellZIndexImpl>(&atom::Atom::from("z_index_sys")).unwrap();
+//     let zi = &zimpl.owner.borrow().map[id];
+
+// 	let mut r = "".to_string();
+// 	for i in 0..layer {
+// 		r = r + "  ";
+// 	}
+// 	debug_println!("{}nodeid: {}, zindex: {:?}, z_depth: {:?}, zz: {:?}, count: {}, parent: {}", r, id, z_indexs[id] , z_depths[id], zi, node.count(), node.parent());
+// }
