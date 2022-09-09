@@ -4,8 +4,8 @@ version = "0.1.0"
 authors = ["suncy <suncy@yineng.com>"]
 edition = "2018"
 
-[lib]
-crate-type = ["cdylib", "rlib", "dylib"]
+# [lib]
+# crate-type = ["cdylib"]
 
 [dependencies]
 flex_layout = { path = "../../pi_lib/flex_layout"}

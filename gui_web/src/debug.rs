@@ -1,30 +1,30 @@
-use std::mem::transmute;
-use std::ops::{Deref};
 use std::cell::RefCell;
+use std::mem::transmute;
+use std::ops::Deref;
 
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-use serde::{Serialize, Deserialize};
 use web_sys::console;
 
+use flex_layout::style::*;
 use hal_core::*;
 use hal_webgl::*;
 use hash::XHashMap;
-use flex_layout::style::*;
-use share::Share;
 use res::ResDebug;
 use res_mgr_web::ResMgr;
+use share::Share;
 
 use ecs::{Lend, LendMut};
-use gui::component::calc::*;
 use gui::component::calc::LayoutR as Layout2;
+use gui::component::calc::*;
 use gui::component::user::*;
 use gui::system::util::cal_matrix;
 // use gui::single::dyn_texture::{exedebug, DynAtlasSet};
 
+use crate::world::GuiWorld;
 use gui::render::engine::ShareEngine;
 use gui::single::*;
-use crate::world::GuiWorld;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Quad {
@@ -36,9 +36,9 @@ struct Quad {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Layout1 {
-	rect:Rect<f32>,
-	border:Rect<f32>,
-	padding:Rect<f32>,
+    rect: Rect<f32>,
+    border: Rect<f32>,
+    padding: Rect<f32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,6 +56,7 @@ struct Info {
     pub visibility: bool,
     pub enable: bool,
     pub opacity: f32,
+    pub blur: f32,
     pub zindex: u32,
     pub zdepth: f32,
     pub layout: Layout1,
@@ -67,7 +68,10 @@ struct Info {
     // char_block: Option<CharBlock1>,
     pub class_name: Option<ClassName>,
     pub image: Option<String>,
+    pub mask_image: Option<MaskImage>,
+    pub context_mark: Option<RenderContextMark>,
     pub border_image: Option<String>,
+    pub render_context: bool,
     pub background_color: Option<BackgroundColor>,
     pub border_color: Option<BorderColor>,
     pub transform: Option<Transform>,
@@ -76,24 +80,26 @@ struct Info {
     pub border_image_slice: Option<BorderImageSlice>,
     pub border_image_repeat: Option<BorderImageRepeat>,
     pub image_clip: Option<ImageClip>,
+    pub mask_image_clip: Option<MaskImageClip>,
     pub border_radius: Option<BorderRadius>,
-    pub object_fit: Option<ObjectFit>,
+    pub object_fit: Option<FitType>,
+    pub background_repeat: Option<(BorderImageRepeatType, BorderImageRepeatType)>,
     pub filter: Option<Filter>,
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<u32>,
-	pub content_bound_box: Option<ContentBox>,
+    pub content_bound_box: Option<ContentBox>,
 
     text: Option<TextStyle>,
-	text_content: Option<TextContent>,
-	style_mark: StyleMark,
-	children: Vec<usize>,
+    text_content: Option<TextContent>,
+    style_mark: StyleMark,
+    children: Vec<usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RenderObject {
     pub depth: f32,
     pub depth_diff: f32,
-	pub visibility: bool,
+    pub visibility: bool,
     pub is_opacity: bool,
     pub vs_name: String,
     pub fs_name: String,
@@ -107,6 +113,9 @@ struct RenderObject {
     pub state: State,
 
     pub context: usize,
+    pub post: bool,
+    pub post_copy: usize,
+    pub id: usize,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -184,18 +193,15 @@ pub struct Clazz(pub Class);
 
 #[wasm_bindgen]
 pub fn list_class(world: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-	let class_map = &world
-        .class_sheet
-        .lend()
-		.borrow_mut().class_map;
-	let mut r = Vec::new();
-	for ci in class_map.iter() {
-		r.push(ci.0);
-	}
-	JsValue::from_serde(&r).unwrap()
+    let class_map = &world.class_sheet.lend().borrow_mut().class_map;
+    let mut r = Vec::new();
+    for ci in class_map.iter() {
+        r.push(ci.0);
+    }
+    JsValue::from_serde(&r).unwrap()
 }
 
 #[allow(unused_attributes)]
@@ -204,28 +210,29 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-	let rect_layout_style = world.rect_layout_style.lend();
-	let other_layout_style = world.other_layout_style.lend();
-	let layouts = world.layout.lend();
+    let rect_layout_style = world.rect_layout_style.lend();
+    let other_layout_style = world.other_layout_style.lend();
+    let layouts = world.layout.lend();
 
-	JsValue::from_serde(&Layout{
-		rect: match rect_layout_style.get(node) {
-			Some(r) => Some(r.clone()),
-			None => None
-		},
-		other: match other_layout_style.get(node) {
-			Some(r) => Some(r.clone()),
-			None => None
-		},
-		layoutRet:match layouts.get(node) {
-			Some(r) => Some(r.clone()),
-			None => None
-		},
-		node_state: match world.node_state.lend().get(node){
-			Some(r) => Some(r.clone()),
-			None => None,
-		},
-	}).unwrap()
+    JsValue::from_serde(&Layout {
+        rect: match rect_layout_style.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        other: match other_layout_style.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        layoutRet: match layouts.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        node_state: match world.node_state.lend().get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+    })
+    .unwrap()
 }
 
 
@@ -237,8 +244,8 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 // 	let rect_layout_style = world.rect_layout_style.lend();
 // 	let other_layout_style = world.other_layout_style.lend();
 // 	let layouts = world.layout.lend();
-    
-// 	unsafe{ 
+
+// 	unsafe{
 // 		console::log_2(&"rect_style:".into(), &format!("{:?}", rect_layout_style.get(node)).into());
 // 		console::log_2(&"other_style:".into(),&format!("{:?}", other_layout_style.get(node)).into());
 // 		console::log_2(&"layout:".into(), &format!("{:?}", layouts.get(node)).into());
@@ -246,16 +253,16 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 // 	}
 // }
 
-use gui::entity::{Node};
 use ecs::World as World1;
-use gui::component::calc::*;
-use gui::component::user::*;
-use gui::component::user;
 use gui::component::calc;
+use gui::component::calc::*;
+use gui::component::user;
+use gui::component::user::*;
+use gui::entity::Node;
 #[wasm_bindgen]
 pub fn test_insert() {
-	let mut world = World1::default();
-	world.register_entity::<Node>();
+    let mut world = World1::default();
+    world.register_entity::<Node>();
     world.register_multi::<Node, BorderRadius>();
     world.register_multi::<Node, user::ZIndex>();
     world.register_multi::<Node, Visibility>();
@@ -268,70 +275,70 @@ pub fn test_insert() {
     world.register_multi::<Node, LayoutR>();
     world.register_multi::<Node, WorldMatrix>();
     world.register_multi::<Node, Enable>();
-	world.register_multi::<Node, NodeState>();
-	world.register_multi::<Node, ByOverflow>();
+    world.register_multi::<Node, NodeState>();
+    world.register_multi::<Node, ByOverflow>();
     world.register_multi::<Node, Culling>();
-	world.register_multi::<Node, BackgroundColor>();
+    world.register_multi::<Node, BackgroundColor>();
 
-	let nodes = world.fetch_entity::<Node>().unwrap();
+    let nodes = world.fetch_entity::<Node>().unwrap();
 
-	let opacity=world.fetch_multi::<Node, gui::component::calc::Opacity>().unwrap();
-	let border_radius=world.fetch_multi::<Node, BorderRadius>().unwrap();
-	let rect_layout_style=world.fetch_multi::<Node, RectLayoutStyle>().unwrap();
-	let other_layout_style=world.fetch_multi::<Node, OtherLayoutStyle>().unwrap();
-	let node_state=world.fetch_multi::<Node, NodeState>().unwrap();
-	let style_mark=world.fetch_multi::<Node, StyleMark>().unwrap();
-	let culling=world.fetch_multi::<Node, Culling>().unwrap();
-	let z_depth=world.fetch_multi::<Node, ZDepth>().unwrap();
-	let enable=world.fetch_multi::<Node, Enable>().unwrap();
-	let visibility=world.fetch_multi::<Node, Visibility>().unwrap();
-	let world_matrix=world.fetch_multi::<Node, WorldMatrix>().unwrap();
-	let by_overflow=world.fetch_multi::<Node, ByOverflow>().unwrap();
-	let layout=world.fetch_multi::<Node, LayoutR>().unwrap();
-	let hsv=world.fetch_multi::<Node, HSV>().unwrap();
-	let bg_color= world.fetch_multi::<Node, BackgroundColor>().unwrap();
+    let opacity = world.fetch_multi::<Node, gui::component::calc::Opacity>().unwrap();
+    let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
+    let rect_layout_style = world.fetch_multi::<Node, RectLayoutStyle>().unwrap();
+    let other_layout_style = world.fetch_multi::<Node, OtherLayoutStyle>().unwrap();
+    let node_state = world.fetch_multi::<Node, NodeState>().unwrap();
+    let style_mark = world.fetch_multi::<Node, StyleMark>().unwrap();
+    let culling = world.fetch_multi::<Node, Culling>().unwrap();
+    let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let enable = world.fetch_multi::<Node, Enable>().unwrap();
+    let visibility = world.fetch_multi::<Node, Visibility>().unwrap();
+    let world_matrix = world.fetch_multi::<Node, WorldMatrix>().unwrap();
+    let by_overflow = world.fetch_multi::<Node, ByOverflow>().unwrap();
+    let layout = world.fetch_multi::<Node, LayoutR>().unwrap();
+    let hsv = world.fetch_multi::<Node, HSV>().unwrap();
+    let bg_color = world.fetch_multi::<Node, BackgroundColor>().unwrap();
 
-	let t = cross_performance::now();
-	for i in 0..200 {
-		let entity = nodes.lend_mut().create();
-		opacity.lend_mut().insert(entity, gui::component::calc::Opacity::default());
-		border_radius.lend_mut().insert(entity, BorderRadius::default());
-		rect_layout_style.lend_mut().insert(entity, RectLayoutStyle::default());
-		other_layout_style.lend_mut().insert(entity, OtherLayoutStyle::default());
-		node_state.lend_mut().insert(entity, NodeState::default());
-		style_mark.lend_mut().insert(entity, StyleMark::default());
-		culling.lend_mut().insert(entity, Culling::default());
-		z_depth.lend_mut().insert(entity, ZDepth::default());
-		enable.lend_mut().insert(entity, Enable::default());
-		visibility.lend_mut().insert(entity, Visibility::default());
-		world_matrix.lend_mut().insert(entity, WorldMatrix::default());
-		by_overflow.lend_mut().insert(entity, ByOverflow::default());
-		layout.lend_mut().insert(entity, LayoutR::default());
-		hsv.lend_mut().insert(entity, HSV::default());
-	}
-	for i in 1..71 {
-		bg_color.lend_mut().insert(i, BackgroundColor::default());
-	}
+    let t = cross_performance::now();
+    for i in 0..200 {
+        let entity = nodes.lend_mut().create();
+        opacity.lend_mut().insert(entity, gui::component::calc::Opacity::default());
+        border_radius.lend_mut().insert(entity, BorderRadius::default());
+        rect_layout_style.lend_mut().insert(entity, RectLayoutStyle::default());
+        other_layout_style.lend_mut().insert(entity, OtherLayoutStyle::default());
+        node_state.lend_mut().insert(entity, NodeState::default());
+        style_mark.lend_mut().insert(entity, StyleMark::default());
+        culling.lend_mut().insert(entity, Culling::default());
+        z_depth.lend_mut().insert(entity, ZDepth::default());
+        enable.lend_mut().insert(entity, Enable::default());
+        visibility.lend_mut().insert(entity, Visibility::default());
+        world_matrix.lend_mut().insert(entity, WorldMatrix::default());
+        by_overflow.lend_mut().insert(entity, ByOverflow::default());
+        layout.lend_mut().insert(entity, LayoutR::default());
+        hsv.lend_mut().insert(entity, HSV::default());
+    }
+    for i in 1..71 {
+        bg_color.lend_mut().insert(i, BackgroundColor::default());
+    }
 
-	for i in 1..201 {
-		rect_layout_style.lend_mut().get_mut(i).unwrap().size.width = flex_layout::Dimension::Points(32.0);
-		rect_layout_style.lend_mut().get_mut(i).unwrap().size.height = flex_layout::Dimension::Points(32.0);
-		other_layout_style.lend_mut().get_mut(i).unwrap().align_content = flex_layout::AlignContent::Center;
-		other_layout_style.lend_mut().get_mut(i).unwrap().align_items = flex_layout::AlignItems::Center;
-		other_layout_style.lend_mut().get_mut(i).unwrap().align_self = flex_layout::AlignSelf::Center;
-	}
-	log::info!("time: {:?}", cross_performance::now() - t);
+    for i in 1..201 {
+        rect_layout_style.lend_mut().get_mut(i).unwrap().size.width = flex_layout::Dimension::Points(32.0);
+        rect_layout_style.lend_mut().get_mut(i).unwrap().size.height = flex_layout::Dimension::Points(32.0);
+        other_layout_style.lend_mut().get_mut(i).unwrap().align_content = flex_layout::AlignContent::Center;
+        other_layout_style.lend_mut().get_mut(i).unwrap().align_items = flex_layout::AlignItems::Center;
+        other_layout_style.lend_mut().get_mut(i).unwrap().align_self = flex_layout::AlignSelf::Center;
+    }
+    log::info!("time: {:?}", cross_performance::now() - t);
 }
 
 
 #[wasm_bindgen]
 pub fn get_class_name(world: u32, node: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
-	
-	let class_name = world.class_name.lend();
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
 
-	JsValue::from_serde(&class_name.get(node as usize)).unwrap()
+    let class_name = world.class_name.lend();
+
+    JsValue::from_serde(&class_name.get(node as usize)).unwrap()
 }
 
 #[allow(unused_attributes)]
@@ -340,12 +347,7 @@ pub fn get_class(world: u32, class_name: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-    let class = match world
-        .class_sheet
-        .lend()
-        .borrow_mut().class_map
-        .get(&(class_name as usize))
-    {
+    let class = match world.class_sheet.lend().borrow_mut().class_map.get(&(class_name as usize)) {
         Some(r) => {
             let mut ret = "".to_string();
             for attr in r.attrs1.iter() {
@@ -371,7 +373,7 @@ pub fn get_class(world: u32, class_name: u32) -> JsValue {
         None => None,
     };
 
-	JsValue::from_serde(&class).unwrap()
+    JsValue::from_serde(&class).unwrap()
 }
 
 enum Attr<'a> {
@@ -394,13 +396,9 @@ fn to_css_str(attr: Attr) -> String {
             },
             Attribute1::FlexDirection(r) => match r {
                 FlexDirection::Column => "flex-direction:column".to_string(),
-                FlexDirection::ColumnReverse => {
-                    "flex-direction:columnreverse".to_string()
-                }
+                FlexDirection::ColumnReverse => "flex-direction:columnreverse".to_string(),
                 FlexDirection::Row => "flex-direction:row".to_string(),
-                FlexDirection::RowReverse => {
-                    "flex-direction:rowreverse".to_string()
-                }
+                FlexDirection::RowReverse => "flex-direction:rowreverse".to_string(),
             },
             Attribute1::AlignContent(r) => match r {
                 // AlignContent::Auto => "align-content:auto".to_string(),
@@ -441,7 +439,7 @@ fn to_css_str(attr: Attr) -> String {
                 JustifyContent::SpaceEvenly => "justify-content:space-evenly".to_string(),
             },
 
-            Attribute1::ObjectFit(r) => match r.0 {
+            Attribute1::ObjectFit(r) => match r {
                 FitType::None => "object-fit:none".to_string(),
                 FitType::Fill => "object-fit:fill".to_string(),
                 FitType::Contain => "object-fit:contain".to_string(),
@@ -451,6 +449,22 @@ fn to_css_str(attr: Attr) -> String {
                 FitType::RepeatX => "object-fit:repeat-x".to_string(),
                 FitType::RepeatY => "object-fit:repeat-y".to_string(),
             },
+
+            Attribute1::BackgroundRepeat(r) => {
+                "background-repeat".to_string()
+                    + match r.0 {
+                        BorderImageRepeatType::Stretch => "stretch ",
+                        BorderImageRepeatType::Repeat => "repeat ",
+                        BorderImageRepeatType::Round => "round ",
+                        BorderImageRepeatType::Space => "space ",
+                    }
+                    + match r.1 {
+                        BorderImageRepeatType::Stretch => "stretch",
+                        BorderImageRepeatType::Repeat => "repeat",
+                        BorderImageRepeatType::Round => "round",
+                        BorderImageRepeatType::Space => "space",
+                    }
+            }
             Attribute1::TextAlign(r) => match r {
                 TextAlign::Left => "text-align:left".to_string(),
                 TextAlign::Right => "text-align:right".to_string(),
@@ -509,9 +523,7 @@ fn to_css_str(attr: Attr) -> String {
             Attribute2::Opacity(r) => "opacity:".to_string() + r.0.to_string().as_str(),
             // Attribute2::BorderImageRepeat(BorderImageRepeat)(x, y) => "border-image-repeat:" + r.to_string().as_str() + " " +,
             Attribute2::ImageUrl(r) => "src:".to_string() + r.to_string().as_str(),
-            Attribute2::BorderImageUrl(r) => {
-                "border-image-src:".to_string() + r.to_string().as_str()
-            }
+            Attribute2::BorderImageUrl(r) => "border-image-src:".to_string() + r.to_string().as_str(),
 
             Attribute2::FlexShrink(r) => "flex-shrink:".to_string() + r.to_string().as_str(),
             Attribute2::FlexGrow(r) => "flex-grow:".to_string() + r.to_string().as_str(),
@@ -525,39 +537,37 @@ fn to_css_str(attr: Attr) -> String {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "height:auto".to_string(),
                 Dimension::Points(r) => "height:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "height:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "height:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginLeft(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "margin-left:auto".to_string(),
                 Dimension::Points(r) => "margin-left:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "margin-left:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "margin-left:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginTop(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "margin-top:auto".to_string(),
                 Dimension::Points(r) => "margin-top:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "margin-top:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "margin-top:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginBottom(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "margin-bottom:auto".to_string(),
                 Dimension::Points(r) => "margin-bottom:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => {
-                    "margin-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
-                }
+                Dimension::Percent(r) => "margin-bottom:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MarginRight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "margin-right:auto".to_string(),
                 Dimension::Points(r) => "margin-right:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "margin-right:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "margin-right:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::Margin(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "margin:auto".to_string(),
                 Dimension::Points(r) => "margin:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "margin:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "margin:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingLeft(r) => match r {
                 Dimension::Undefined => "".to_string(),
@@ -569,117 +579,109 @@ fn to_css_str(attr: Attr) -> String {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "padding-top:auto".to_string(),
                 Dimension::Points(r) => "padding-top:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "padding-top:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "padding-top:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingBottom(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "padding-bottom:auto".to_string(),
-                Dimension::Points(r) => {
-                    "padding-bottom:".to_string() + r.to_string().as_str() + "px"
-                }
-                Dimension::Percent(r) => {
-                    "padding-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
-                }
+                Dimension::Points(r) => "padding-bottom:".to_string() + r.to_string().as_str() + "px",
+                Dimension::Percent(r) => "padding-bottom:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PaddingRight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "padding-right:auto".to_string(),
                 Dimension::Points(r) => "padding-right:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => {
-                    "padding-right:".to_string() + (r*100.0).to_string().as_str() + "%"
-                }
+                Dimension::Percent(r) => "padding-right:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::Padding(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "padding:auto".to_string(),
                 Dimension::Points(r) => "padding:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "padding:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "padding:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderLeft(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "border-left:auto".to_string(),
                 Dimension::Points(r) => "borderleft:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "borderleft:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "borderleft:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderTop(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "border-top:auto".to_string(),
                 Dimension::Points(r) => "border-top:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "border-top:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "border-top:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderBottom(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "border-bottom:auto".to_string(),
                 Dimension::Points(r) => "border-bottom:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => {
-                    "border-bottom:".to_string() + (r*100.0).to_string().as_str() + "%"
-                }
+                Dimension::Percent(r) => "border-bottom:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::BorderRight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "border-right:auto".to_string(),
                 Dimension::Points(r) => "border-right:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "border-right:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "border-right:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::Border(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "width:auto".to_string(),
                 Dimension::Points(r) => "width:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "width:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "width:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MinWidth(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "min-width:auto".to_string(),
                 Dimension::Points(r) => "min-width:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "min-width:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "min-width:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MinHeight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "min-height:auto".to_string(),
                 Dimension::Points(r) => "min-height:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "min-height:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "min-height:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MaxHeight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "max-height:auto".to_string(),
                 Dimension::Points(r) => "max-height:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "max-height:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "max-height:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::MaxWidth(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "max-width:auto".to_string(),
                 Dimension::Points(r) => "max-width:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "max-width:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "max-width:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::FlexBasis(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "flex-basis:auto".to_string(),
                 Dimension::Points(r) => "flex-basis:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "flex-basis:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "flex-basis:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionLeft(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "left:auto".to_string(),
                 Dimension::Points(r) => "left:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "left:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "left:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionTop(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "top:auto".to_string(),
                 Dimension::Points(r) => "top:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "top:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "top:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionRight(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "right:auto".to_string(),
                 Dimension::Points(r) => "right:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "right:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "right:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             Attribute2::PositionBottom(r) => match r {
                 Dimension::Undefined => "".to_string(),
                 Dimension::Auto => "bottom:auto".to_string(),
                 Dimension::Points(r) => "bottom:".to_string() + r.to_string().as_str() + "px",
-                Dimension::Percent(r) => "bottom:".to_string() + (r*100.0).to_string().as_str() + "%",
+                Dimension::Percent(r) => "bottom:".to_string() + (r * 100.0).to_string().as_str() + "%",
             },
             _ => "".to_string(),
         },
@@ -698,7 +700,7 @@ fn to_css_str(attr: Attr) -> String {
                 }
                 Color::LinearGradient(_r) => "background-color:linear-gradient".to_string(),
             },
-			
+
             Attribute3::BorderColor(r) => {
                 let r = r.0;
                 "border-color:rgba(".to_string()
@@ -747,7 +749,7 @@ fn to_css_str(attr: Attr) -> String {
                     + (r.mins.x * 100.0).to_string().as_str()
                     + "%"
             }
-			Attribute3::MaskImageClip(r) => {
+            Attribute3::MaskImageClip(r) => {
                 "mask-image-clip:".to_string()
                     + (r.mins.y * 100.0).to_string().as_str()
                     + "% "
@@ -803,25 +805,25 @@ fn to_css_str(attr: Attr) -> String {
             },
             Attribute3::TextShadow(r) => {
                 let mut rr = "text-shadow:".to_string();
-				for shadow in r.iter() {
-					rr = rr
-					+ shadow.h.to_string().as_str()
-                    + " "
-                    + shadow.v.to_string().as_str()
-                    + " "
-                    + shadow.blur.to_string().as_str()
-                    + " rgba("
-                    + shadow.color.r.to_string().as_str()
-                    + ","
-                    + shadow.color.g.to_string().as_str()
-                    + ","
-                    + shadow.color.b.to_string().as_str()
-                    + ","
-                    + shadow.color.a.to_string().as_str()
-					+ ","
-                    + ")";
-				}
-				rr
+                for shadow in r.iter() {
+                    rr = rr
+                        + shadow.h.to_string().as_str()
+                        + " "
+                        + shadow.v.to_string().as_str()
+                        + " "
+                        + shadow.blur.to_string().as_str()
+                        + " rgba("
+                        + shadow.color.r.to_string().as_str()
+                        + ","
+                        + shadow.color.g.to_string().as_str()
+                        + ","
+                        + shadow.color.b.to_string().as_str()
+                        + ","
+                        + shadow.color.a.to_string().as_str()
+                        + ","
+                        + ")";
+                }
+                rr
             }
             Attribute3::TextStroke(r) => {
                 "text-stroke:".to_string()
@@ -836,10 +838,10 @@ fn to_css_str(attr: Attr) -> String {
                     + ")"
             }
 
-            Attribute3::BorderRadius(_r) => "".to_string(), // TODO
-            Attribute3::TransformFunc(_r) => "".to_string(), // TODO
+            Attribute3::BorderRadius(_r) => "".to_string(),    // TODO
+            Attribute3::TransformFunc(_r) => "".to_string(),   // TODO
             Attribute3::TransformOrigin(_r) => "".to_string(), // TODO
-            Attribute3::Filter(_r) => "".to_string(),       // TODO
+            Attribute3::Filter(_r) => "".to_string(),          // TODO
         },
     }
 }
@@ -850,8 +852,8 @@ fn to_css_str(attr: Attr) -> String {
 pub fn node_info(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
-	let idtree = world.idtree.lend();
+    let world = &mut world.gui;
+    let idtree = world.idtree.lend();
 
     // let z_depth = unsafe { world.z_depth.lend()[node]}.0;
 
@@ -873,8 +875,8 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
     let layout = &layout[node];
 
-	let width = layout.rect.end - layout.rect.start;
-	let height = layout.rect.bottom - layout.rect.top;
+    let width = layout.rect.end - layout.rect.start;
+    let height = layout.rect.bottom - layout.rect.top;
     // border box
     let b_left_top = world_matrix1 * Vector4::new(0.0, 0.0, 1.0, 1.0);
     let b_left_bottom = world_matrix1 * Vector4::new(0.0, height, 1.0, 1.0);
@@ -891,27 +893,9 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 
     // padding box
     let p_left_top = world_matrix1 * Vector4::new(layout.border.start, layout.border.top, 1.0, 1.0);
-    let p_left_bottom = world_matrix1
-        * Vector4::new(
-            layout.border.start,
-            height - layout.border.bottom,
-            1.0,
-            1.0,
-        );
-    let p_right_bottom = world_matrix1
-        * Vector4::new(
-            width - layout.border.end,
-            height - layout.border.bottom,
-            1.0,
-            1.0,
-        );
-    let p_right_top = world_matrix1
-        * Vector4::new(
-            width - layout.border.end,
-            layout.border.top,
-            1.0,
-            1.0,
-        );
+    let p_left_bottom = world_matrix1 * Vector4::new(layout.border.start, height - layout.border.bottom, 1.0, 1.0);
+    let p_right_bottom = world_matrix1 * Vector4::new(width - layout.border.end, height - layout.border.bottom, 1.0, 1.0);
+    let p_right_top = world_matrix1 * Vector4::new(width - layout.border.end, layout.border.top, 1.0, 1.0);
 
     let absolute_p_box = Quad {
         left_top: Point2::new(p_left_top.x, p_left_top.y),
@@ -967,13 +951,12 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let map = world.world.fetch_single::<NodeRenderMap>().unwrap();
     let map = map.lend();
     let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
-	let content_boxs = world.world.fetch_multi::<Node, ContentBox>().unwrap();
+    let content_boxs = world.world.fetch_multi::<Node, ContentBox>().unwrap();
     let render_objs = render_objs.lend();
-    let engine = world
-        .world
-        .fetch_single::<ShareEngine<WebglHalContext>>()
-        .unwrap();
+    let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
     let engine = engine.lend();
+    let mask_images = world.mask_image.lend();
+    let mask_image_clips = world.mask_image_clip.lend();
     if let Some(arr) = map.get(node) {
         for id in arr.iter() {
             let v = match render_objs.get(*id) {
@@ -1022,11 +1005,12 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
                 }
             }
 
-			// let projectMatrix = world.world.fetch_single::<ProjectionMatrix>();
-			// let viewMatrux = world.world.fetch_single::<ViewMatrix>();
-			// let worldMatrix = world.world.fetch_single::<ViewMatrix>();
-			
+            // let projectMatrix = world.world.fetch_single::<ProjectionMatrix>();
+            // let viewMatrux = world.world.fetch_single::<ViewMatrix>();
+            // let worldMatrix = world.world.fetch_single::<ViewMatrix>();
+
             let obj = RenderObject {
+                id: *id,
                 depth: v.depth,
                 depth_diff: v.depth_diff,
                 visibility: v.visibility,
@@ -1048,6 +1032,8 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
                 },
 
                 context: v.context,
+                post: v.post_process.is_none(),
+                post_copy: v.post_process.as_ref().map_or(0, |r| r.copy),
             };
             render_map.push(obj);
         }
@@ -1088,11 +1074,16 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     //         Some(c)
     //     }
     //     None => None,
-	// };
-	let mut children = Vec::new();
-	for id in idtree.iter(idtree[node].children().head) {
-		children.push(id.0);
-	}
+    // };
+    let mut children = Vec::new();
+    for id in idtree.iter(idtree[node].children().head) {
+        children.push(id.0);
+    }
+    let context_marks = world.world.fetch_multi::<Node, RenderContextMark>().unwrap();
+    let context_marks = context_marks.lend();
+
+    let render_contexts = world.world.fetch_multi::<Node, RenderContext>().unwrap();
+    let render_contexts = render_contexts.lend();
 
     let info = Info {
         // char_block: char_block,
@@ -1100,14 +1091,31 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         by_overflow: by_overflow,
         visibility: visibility,
         enable: enable,
+        mask_image: match mask_images.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        mask_image_clip: match mask_image_clips.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        context_mark: match context_marks.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        render_context: match render_contexts.get(node) {
+            Some(r) => true,
+            None => false,
+        },
         opacity: opacity,
+        blur: world.blur.lend().get(node).unwrap_or(&Blur(0.0)).0,
         zindex: world.z_index.lend()[node].0 as u32,
         zdepth: world.z_depth.lend()[node].0,
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
-		content_bound_box: match content_boxs.lend().get(node) {
+        content_bound_box: match content_boxs.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
         },
@@ -1170,20 +1178,24 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
             None => None,
         },
         object_fit: match world.object_fit.lend().get(node) {
-            Some(r) => Some(r.clone()),
+            Some(r) => Some(r.object_fit.clone()),
+            None => None,
+        },
+        background_repeat: match world.object_fit.lend().get(node) {
+            Some(r) => Some(r.repeat.clone()),
             None => None,
         },
         filter: match world.filter.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
-		},
-		style_mark: world.style_mark.lend()[node],
+        },
+        style_mark: world.style_mark.lend()[node],
         transform_will_change: match world.transform_will_change.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
         },
-		parent_id: Some(parent as u32),
-		children: children,
+        parent_id: Some(parent as u32),
+        children: children,
     };
 
     return JsValue::from_serde(&info).unwrap();
@@ -1209,8 +1221,8 @@ pub fn overflow_clip(world: u32) -> JsValue {
         id_map: overflow_clip.id_map.clone(),
         clip: clips,
         clip_map: clip_map,
-	};
-	return JsValue::from_serde(&c).unwrap();
+    };
+    return JsValue::from_serde(&c).unwrap();
 }
 
 // pub fn create_gui(engine: u32, width: f32, height: f32) -> u32 {
@@ -1281,7 +1293,7 @@ pub fn res_size(world: u32) -> JsValue {
 
     let rs = engine.rs_res_map.all_res();
     for i in rs.0.iter() {
-		// i.0
+        // i.0
         size.rs += i.1;
         size.count_rs += 1;
     }
@@ -1330,7 +1342,7 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_sampler += 1;
     }
 
-	let res_mgr_ref = engine.res_mgr.borrow();
+    let res_mgr_ref = engine.res_mgr.borrow();
     let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
     let ucolor = ucolor.all_res();
     for i in ucolor.0.iter() {
@@ -1364,9 +1376,7 @@ pub fn res_size(world: u32) -> JsValue {
         size.count_catch_msdf_stroke += 1;
     }
 
-    let canvas_stroke = res_mgr_ref
-        .fetch_map::<CanvasTextStrokeColorUbo>(0)
-        .unwrap();
+    let canvas_stroke = res_mgr_ref.fetch_map::<CanvasTextStrokeColorUbo>(0).unwrap();
     let canvas_stroke = canvas_stroke.all_res();
     for i in canvas_stroke.0.iter() {
         size.canvas_stroke += i.1;
@@ -1386,37 +1396,38 @@ pub fn res_size(world: u32) -> JsValue {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct TexureInfo {
-	list: Vec<(usize, usize, bool, usize)>,/*key, cost, isUsed, freeTime*/
-	min_capacity: usize,
-	max_capacity: usize,
-	cur_cost: usize,
+    list: Vec<(usize, usize, bool, usize)>, /*key, cost, isUsed, freeTime*/
+    min_capacity: usize,
+    max_capacity: usize,
+    cur_cost: usize,
 }
 /// 列出现有的纹理资源
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 pub fn list_texture(world: u32) -> JsValue {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let engine = world.engine.lend();
-	let sys_time = world.system_time.lend_mut();
+    let sys_time = world.system_time.lend_mut();
 
-	let mut info = TexureInfo::default();
+    let mut info = TexureInfo::default();
     let list = &mut info.list;
 
     let texture = engine.texture_res_map.all_res();
     for i in texture.0.iter() {
-		list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+        list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
     }
 
-	for (key, v) in texture.2.iter() {
-		if *v.get_id() > 0 { // 在lru中的资源
-			list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
-		}
-	}
-	info.min_capacity = engine.texture_res_map.cache.min_capacity();
-	info.max_capacity = engine.texture_res_map.cache.max_capacity();
-	info.cur_cost = engine.texture_res_map.cache.size();
-	return JsValue::from_serde(&info).unwrap();
+    for (key, v) in texture.2.iter() {
+        if *v.get_id() > 0 {
+            // 在lru中的资源
+            list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+        }
+    }
+    info.min_capacity = engine.texture_res_map.cache.min_capacity();
+    info.max_capacity = engine.texture_res_map.cache.max_capacity();
+    info.cur_cost = engine.texture_res_map.cache.size();
+    return JsValue::from_serde(&info).unwrap();
 }
 
 #[allow(non_snake_case)]
@@ -1426,44 +1437,44 @@ pub fn common_statistics(world: u32) -> JsValue {
     let world = &mut world.gui.world;
 
     let mut all_run_time = std::time::Duration::from_micros(0);
-	let mut sys_time = Vec::new();
+    let mut sys_time = Vec::new();
     for t in world.runtime.iter() {
-		sys_time.push((t.sys_name.as_ref().to_string(),(t.cost_time.as_secs_f64() * 1000.0) as f32));
+        sys_time.push((t.sys_name.as_ref().to_string(), (t.cost_time.as_secs_f64() * 1000.0) as f32));
         all_run_time += t.cost_time;
     }
 
     let statistics = world.fetch_single::<Statistics>().unwrap();
     let statistics = statistics.lend_mut();
-    sys_time.push(("runTotalTimes".to_string(), (all_run_time.as_secs_f64() * 1000.0)  as f32));
-	sys_time.push(("drawCallTimes".to_string(), statistics.drawcall_times as f32));
+    sys_time.push(("runTotalTimes".to_string(), (all_run_time.as_secs_f64() * 1000.0) as f32));
+    sys_time.push(("drawCallTimes".to_string(), statistics.drawcall_times as f32));
 
-	return JsValue::from_serde(&sys_time).unwrap();
+    return JsValue::from_serde(&sys_time).unwrap();
 }
 
 #[wasm_bindgen]
 pub fn is_dirty(world: u32) -> bool {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	if world.gui.dirty_list.lend().0.len() > 0 {
-		true
-	} else{
-		world.gui.renderSys.owner.deref().borrow().dirty
-	}
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    if world.gui.dirty_list.lend().0.len() > 0 {
+        true
+    } else {
+        world.gui.renderSys.owner.deref().borrow().dirty
+    }
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CommonStatistics {
-	pub renderTime: f32,
-	pub layoutTime: f32,
-	pub runTotalTimes: f32,
-	pub drawCallTimes: u32,
+    pub renderTime: f32,
+    pub layoutTime: f32,
+    pub runTotalTimes: f32,
+    pub drawCallTimes: u32,
 }
 
 #[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 pub struct MemStatistics {
-	pub textureTotalCount: u32,
-	pub textureTotalMemory: u32,
+    pub textureTotalCount: u32,
+    pub textureTotalMemory: u32,
 }
 
 // #[test]
@@ -1506,61 +1517,58 @@ pub fn mem_statistics(_world: u32) {}
 
 #[wasm_bindgen]
 pub fn res_debug(res_mgr: &ResMgr) -> JsValue {
-	let res_mgr = res_mgr.get_inner().clone();
-	let res_mgr = res_mgr.borrow_mut();
+    let res_mgr = res_mgr.get_inner().clone();
+    let res_mgr = res_mgr.borrow_mut();
 
-	let mut use_all = 0;
-	let mut lru_all = 0;
-	let mut res_list = ResDebugList {
-		un_use_total_cost: 0,
-		using_total_cost: 0,
-		details: Vec::new(),
-	};
-	for (k, i) in res_mgr.tables.iter() {
-		let list = i.res_map.debug();
-		
-		for (_g, l) in list.into_iter() {
-			res_list.un_use_total_cost += l.un_use_total_cost;
-			res_list.using_total_cost += l.using_total_cost;
-			res_list.details.push(l);
-		}
-	}
+    let mut use_all = 0;
+    let mut lru_all = 0;
+    let mut res_list = ResDebugList {
+        un_use_total_cost: 0,
+        using_total_cost: 0,
+        details: Vec::new(),
+    };
+    for (k, i) in res_mgr.tables.iter() {
+        let list = i.res_map.debug();
 
-	return JsValue::from_serde(&res_list).unwrap();
+        for (_g, l) in list.into_iter() {
+            res_list.un_use_total_cost += l.un_use_total_cost;
+            res_list.using_total_cost += l.using_total_cost;
+            res_list.details.push(l);
+        }
+    }
+
+    return JsValue::from_serde(&res_list).unwrap();
 }
 
 #[derive(Serialize)]
 struct ResDebugList {
-	pub using_total_cost: usize,
-	pub un_use_total_cost: usize,
-	pub details: Vec<ResDebug>,
+    pub using_total_cost: usize,
+    pub un_use_total_cost: usize,
+    pub details: Vec<ResDebug>,
 }
 
 #[wasm_bindgen]
-pub fn get_font_sheet_debug(world: u32){
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let font_sheet = world.gui.font_sheet.lend();
-	log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
-	
+pub fn get_font_sheet_debug(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let font_sheet = world.gui.font_sheet.lend();
+    log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
 }
 
 
 #[wasm_bindgen]
-pub fn get_opcaity(world: u32){
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+pub fn get_opcaity(world: u32) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
-	let itree = world.gui.idtree.lend();
-	let opacity = world.gui.opacity.lend();
+    let itree = world.gui.idtree.lend();
+    let opacity = world.gui.opacity.lend();
 
-	for (id, _node) in itree.recursive_iter(1){
-		if let Some(r) = opacity.get(id) {
-			if r.0 < 1.0 {
-				log::info!("opcaity==============={},{}", id, r.0);
-			}
-			
-		}
-	}
-	
+    for (id, _node) in itree.recursive_iter(1) {
+        if let Some(r) = opacity.get(id) {
+            if r.0 < 1.0 {
+                log::info!("opcaity==============={},{}", id, r.0);
+            }
+        }
+    }
 }
 /// 打印内存情况
 #[allow(unused_attributes)]
@@ -1637,8 +1645,8 @@ pub fn print_memory(world: u32) {
     log::info!("    world::filter = {:?}", r);
     let r = world.rect_layout_style.lend().mem_size();
     total += r;
-	log::info!("    world::rect_layout_style = {:?}", r);
-	let r = world.other_layout_style.lend().mem_size();
+    log::info!("    world::rect_layout_style = {:?}", r);
+    let r = world.other_layout_style.lend().mem_size();
     total += r;
     log::info!("    world::other_layout_style = {:?}", r);
     let r = world.class_name.lend().mem_size();
@@ -1688,32 +1696,42 @@ pub fn print_memory(world: u32) {
     log::info!("    world::engine.resMap = {:?}", r);
     let r = world.render_objs.lend().mem_size();
     total += r;
-	{
-		let render_objs = world.render_objs.lend();
-		let mut text: usize = 0;
-		let mut img: usize = 0;
-		let mut color: usize = 0;
-		let mut canvas: usize = 0;
-		let mut fbo: usize = 0;
-		let mut clip: usize = 0;
-		for (i,r) in render_objs.iter() {
-			if &*r.vs_name == &"color_vs" {
-				color += 1;
-			} else if &*r.vs_name == &"image_vs" {
-				img += 1;
-			} else if &*r.vs_name == &"canvas_text_vs"{
-				text += 1;
-			} else if &*r.vs_name == &"canvas_vs"{
-				canvas += 1;
-			} else if &*r.vs_name == &"fbo_vs"{
-				fbo += 1;
-			}else if &*r.vs_name == &"clip_vs"{
-				clip += 1;
-			}
-		}
-		log::info!("    world::render_objs = {:?}, {}, color:{}, img:{}, canvas_text:{}, canvas:{}, fbo:{}, clip:{}", r, world.render_objs.lend().len(), color, img, text, canvas, fbo, clip);
-	}
-   
+    {
+        let render_objs = world.render_objs.lend();
+        let mut text: usize = 0;
+        let mut img: usize = 0;
+        let mut color: usize = 0;
+        let mut canvas: usize = 0;
+        let mut fbo: usize = 0;
+        let mut clip: usize = 0;
+        for (i, r) in render_objs.iter() {
+            if &*r.vs_name == &"color_vs" {
+                color += 1;
+            } else if &*r.vs_name == &"image_vs" {
+                img += 1;
+            } else if &*r.vs_name == &"canvas_text_vs" {
+                text += 1;
+            } else if &*r.vs_name == &"canvas_vs" {
+                canvas += 1;
+            } else if &*r.vs_name == &"fbo_vs" {
+                fbo += 1;
+            } else if &*r.vs_name == &"clip_vs" {
+                clip += 1;
+            }
+        }
+        log::info!(
+            "    world::render_objs = {:?}, {}, color:{}, img:{}, canvas_text:{}, canvas:{}, fbo:{}, clip:{}",
+            r,
+            world.render_objs.lend().len(),
+            color,
+            img,
+            text,
+            canvas,
+            fbo,
+            clip
+        );
+    }
+
     let r = world.font_sheet.lend().borrow().mem_size();
     total += r;
     log::info!("    world::font_sheet = {:?}", r);
@@ -1728,29 +1746,17 @@ pub fn print_memory(world: u32) {
     let stat = engine.gl.render_get_stat();
 
     total += stat.slab_mem_size;
-    log::info!(
-        "    world::engine::slab_mem_size = {:?}",
-        stat.slab_mem_size
-    );
+    log::info!("    world::engine::slab_mem_size = {:?}", stat.slab_mem_size);
 
     let total: f32 = total as f32;
     log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
     log::info!("");
 
     log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
-    log::info!(
-        "    world::engine::texture_count = {:?}",
-        stat.texture_count
-    );
+    log::info!("    world::engine::texture_count = {:?}", stat.texture_count);
     log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
-    log::info!(
-        "    world::engine::geometry_count = {:?}",
-        stat.geometry_count
-    );
-    log::info!(
-        "    world::engine::program_count = {:?}",
-        stat.program_count
-    );
+    log::info!("    world::engine::geometry_count = {:?}", stat.geometry_count);
+    log::info!("    world::engine::program_count = {:?}", stat.program_count);
 
     log::info!("print_memory end");
 }
@@ -1834,8 +1840,8 @@ pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
     let world_matrix = match world_matrixs.get(node) {
         Some(r) => r,
         None => return JsValue::null(),
-	};
-	
+    };
+
     JsValue::from_serde(world_matrix).unwrap()
 }
 
@@ -1849,18 +1855,17 @@ pub fn get_transform(world: u32, node: u32) -> JsValue {
     let transform = match transforms.get(node) {
         Some(r) => r,
         None => return JsValue::null(),
-	};
-	JsValue::from_serde(transform).unwrap()
+    };
+    JsValue::from_serde(transform).unwrap()
 }
 
 
-
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Layout{
-	pub rect: Option<RectLayoutStyle>,
-	pub other: Option<OtherLayoutStyle>,
-	pub node_state: Option<NodeState>,
-	pub layoutRet: Option<Layout2>
+pub struct Layout {
+    pub rect: Option<RectLayoutStyle>,
+    pub other: Option<OtherLayoutStyle>,
+    pub node_state: Option<NodeState>,
+    pub layoutRet: Option<Layout2>,
 }
 
 // #[derive(Serialize, Deserialize, Debug)]

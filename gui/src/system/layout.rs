@@ -9,8 +9,8 @@ use map::vecmap::VecMap;
 use crate::util::vecmap_default::VecMapWithDefault;
 use crate::entity::Node;
 use crate::single::{IdTree, DirtyList};
-use crate::component::user::{OtherLayoutStyle, RectLayoutStyle};
-use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK};
+use crate::component::user::{OtherLayoutStyle, RectLayoutStyle, FontSize};
+use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK, StyleType};
 
 // 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
 pub const RECT_DIRTY: usize = StyleType2::Width as usize 
@@ -79,10 +79,11 @@ impl<'a> Runner<'a> for LayoutSys {
             };
 			let dirty2 = style_mark.dirty2;
 			let dirty1 = style_mark.dirty1;
+			let dirty = style_mark.dirty;
 			// log::info!("layout dirty============={}, {}, {}", dirty2, dirty1, dirty2 & RECT_DIRTY);
 
             // 不存在LayoutTree关心的脏, 跳过
-            if dirty2 & DIRTY2 == 0 && dirty1 & StyleType1::Display as usize == 0 && dirty1 & StyleType1::FlexBasis as usize == 0 && dirty1 & StyleType1::Create as usize == 0 {
+            if dirty2 & DIRTY2 == 0 && dirty1 & StyleType1::Display as usize == 0 && dirty1 & StyleType1::FlexBasis as usize == 0 && dirty1 & StyleType1::Create as usize == 0 && dirty & StyleType::FontSize as usize == 0 {
                 continue;
 			}
 
@@ -92,7 +93,7 @@ impl<'a> Runner<'a> for LayoutSys {
 			let rect_style = &flex_rect_styles[*id];
 			let other_style = &flex_other_styles[*id];
 
-			if dirty2 & RECT_DIRTY != 0 || dirty1 & StyleType1::Create as usize != 0 {
+			if dirty2 & RECT_DIRTY != 0 || dirty1 & StyleType1::Create as usize != 0 || dirty & StyleType::FontSize as usize != 0 {
 				set_rect(tree, node_states, &mut self.dirty, *id, rect_style, other_style, true, true);
 			}
 

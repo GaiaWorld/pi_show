@@ -96,7 +96,7 @@ impl TextureCache {
         sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
         sampler_slab: &mut Slab<(SamplerDesc, u32)>,
-    ) -> (u32, bool) {
+    ) -> Result<(u32, bool), String>  {
         if let (Some(t), Some(s)) = (
             get_mut_ref(texture_slab, texture.index, texture.use_count),
             get_ref(sampler_slab, sampler.index, sampler.use_count),
@@ -110,7 +110,7 @@ impl TextureCache {
                     t.apply_sampler(gl, s);
                     t.curr_sampler = (sampler.index, sampler.use_count);
                 }
-                return (unit as u32, false);
+                return Ok((unit as u32, false));
             }
         }
 
@@ -141,11 +141,10 @@ impl TextureCache {
             gl.bind_texture(WebGlRenderingContext1::TEXTURE_2D, Some(&t.handle));
             t.apply_sampler(gl, s);
 
-            return (unit as u32, true);
+            return Ok((unit as u32, true));
         }
 
-		log::error!("not found texture or sampler, texture: {:?}, sampler: {:?}", texture, sampler);
-        panic!();
+		Err(format!("not found texture or sampler, texture: {:?}, sampler: {:?}", texture, sampler))
     }
 }
 
@@ -214,7 +213,7 @@ impl StateMachine {
         sampler: &HalItem,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
         sampler_slab: &mut Slab<(SamplerDesc, u32)>,
-    ) -> (u32, bool) {
+    ) -> Result<(u32, bool), String> {
         self.tex_caches
             .use_texture(gl, texture, sampler, texture_slab, sampler_slab)
     }
@@ -370,13 +369,16 @@ impl StateMachine {
         pp: &Share<dyn ProgramParamter>,
         texture_slab: &mut Slab<(WebGLTextureImpl, u32)>,
         sampler_slab: &mut Slab<(SamplerDesc, u32)>,
-    ) -> i32 {
+    ) -> Result<i32, String> {
         let mut tex_change_count = 0;
 
         let texs = pp.get_textures();
         for loc in program.active_textures.iter_mut() {
             let (t, s) = &texs[loc.slot_uniform];
-            let (unit, is_change) = self.use_texture(gl, &t, &s, texture_slab, sampler_slab);
+            let (unit, is_change) = match self.use_texture(gl, &t, &s, texture_slab, sampler_slab) {
+				Ok(r) => r,
+				Err(e) => return Err(e),
+			};
             if is_change {
                 tex_change_count += 1;
             }
@@ -385,7 +387,7 @@ impl StateMachine {
 
         let singles = pp.get_single_uniforms();
         for loc in program.active_single_uniforms.iter_mut() {
-            loc.set_gl_uniform(gl, &singles[loc.slot_uniform]);
+            loc.set_gl_uniform(gl, &singles[loc.slot_uniform])?;
         }
 
         let pp = pp.get_values();
@@ -397,13 +399,13 @@ impl StateMachine {
             if should_set_ubo {
                 let uniforms = pp[ubo_loc.slot_ubo].get_values();
                 for u_loc in ubo_loc.values.iter_mut() {
-                    u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform]);
+                    u_loc.set_gl_uniform(gl, &uniforms[u_loc.slot_uniform])?;
                 }
                 ubo_loc.last = Some(pp[ubo_loc.slot_ubo].clone());
             }
         }
 
-        tex_change_count
+        Ok(tex_change_count)
     }
 
 	/**

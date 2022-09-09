@@ -43,6 +43,8 @@ use crate::system::render::shaders::image::{
 use crate::system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use crate::system::util::*;
 
+use super::gassu_blur::add_gassu_blur;
+
 const TEXT_STYLE_DIRTY: usize = StyleType::LetterSpacing as usize
     | StyleType::WordSpacing as usize
     | StyleType::LineHeight as usize
@@ -227,6 +229,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 			}
 
             let mut dirty = style_mark.dirty;
+			let dirty1 = style_mark.dirty1;
 
             // 不存在Chablock关心的脏, 跳过
             if dirty & TEXT_STYLE_DIRTY == 0 {
@@ -257,7 +260,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 					pixel_ratio.0,
                 );
 
-				/// 创建阴影的渲染对象
+				// 创建阴影的渲染对象
 				if text_style.shadow.len() > 0 {
 					for s in text_style.shadow.iter() {
 						let shadow_index = self.create_render_obj1(*id, render_objs, default_state, tex_font, text_style, 0.0, pixel_ratio.0);
@@ -407,6 +410,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 						let shadow_render_obj = &mut render_objs[shadow_index];
 						let shadow = &text_style.shadow[i];
 						let mut has_blur = (false, false);
+
+						let context_box = &context_boxs.get(*id).unwrap().0;
 		
 						if dirty & (StyleType::TextShadow as usize) != 0 {
 							// 阴影颜色脏，或描边脏， 修改ubo
@@ -423,16 +428,29 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 								&mut *self.canvas_stroke_ubo_map,
 								&mut *self.msdf_stroke_ubo_map,
 							);
-		
-							has_blur = modify_shadow_gassu_blur(
+							
+							has_blur = add_gassu_blur(
 								shadow_index,
 								shadow.blur,
 								shadow_render_obj,
 								engine,
-								Size{width: t.width, height: t.height},
-								&context_boxs.get(*id).unwrap().0,
-								&premulti_state.0,
+								context_box,
+								&premulti_state.0
 							);
+							if has_blur.0 {
+								shadow_render_obj.state.bs = default_state.one_one_bs.clone();
+							} else {
+								shadow_render_obj.state.bs = default_state.df_bs.clone();
+							}
+							// has_blur = modify_shadow_gassu_blur(
+							// 	shadow_index,
+							// 	shadow.blur,
+							// 	shadow_render_obj,
+							// 	engine,
+							// 	Size{width: t.width, height: t.height},
+							// 	&context_boxs.get(*id).unwrap().0,
+							// 	&premulti_state.0,
+							// );
 							// 设置ubo TODO
 						}
 		
@@ -491,8 +509,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 									layout,
 									world_matrix,
 									transform,
-									shadow.h + h,
-									shadow.v + v,
+									h,
+									v,
 									// shadow_render_obj.depth,
 								),
 								shadow_render_obj,
@@ -501,7 +519,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 						}
 		
 						if has_blur.0 {
-							if(has_blur.1) {
+							if has_blur.1 {
+								
 								let copy= new_render_obj(
 									*id,
 									0.0,
@@ -516,17 +535,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 										ds: default_state.tarns_ds.clone(),
 									},
 								);
+								
 				
 								let notify = render_objs.get_notify();
 								let copy = render_objs.insert(copy, Some(&notify));
+								// log::warn!("create copy================={}, {}, {}, {}",id, shadow_index, render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy, copy);
 								render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy = copy;
 							}
 							let copy_index = render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy;
 							let arr = create_unit_offset_matrix(
 								layout.rect.end - layout.rect.start,
 								layout.rect.bottom - layout.rect.top,
-								layout.border.start,
-								layout.border.top,
+								layout.border.start + shadow.h,
+								layout.border.top + shadow.v,
 								layout,
 								world_matrix,
 								transform,
@@ -758,6 +779,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
                 render_objs.remove(index.text, Some(notify));
 				if index.shadow.len() > 0 {
 					for shadow_index in index.shadow.iter() {
+						// log::warn!("del shadow============obj: {:?}, context: {:?}, copy: {}", shadow_index, id, render_objs[*shadow_index].post_process.as_deref_mut().unwrap().copy);
 						render_objs.remove(*shadow_index, Some(notify));
 					}
 					
@@ -928,206 +950,206 @@ fn modify_shadow_color<C: HalContext + 'static>(
     notify.modify_event(index, "ubo", 0);
 }
 
-/// 对阴影应用高斯模糊
-fn modify_shadow_gassu_blur<C: HalContext + 'static>(
-    index: usize,
-	blur: f32,
-    render_obj: &mut RenderObj,
-    engine: &mut Engine<C>,
-	mut texture_size: Size<usize>,
-	content_box: &Aabb2,
-	default_state: &CommonState,
-) -> (bool, bool) {
-	// log::warn!("modify_shadow_gassu_blur======================blur:{}", blur);
-	match &mut render_obj.post_process {
-		Some(r) => {
-			if blur==0.0 {
-				render_obj.post_process = None;
-				render_obj.state.bs = default_state.df_bs.clone();
-				return (false, false)
-			} else {
-				for i in 0..r.post_processes.len() {
-					r.post_processes[i].render_obj.paramter.set_single_uniform(
-						"blurRadius", 
-						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
-					);
-				}
-				r.content_box = content_box.clone();
-				return (true, r.copy == 0);
-			}
-		},
-		None => {
-			if blur != 0.0 {
-				render_obj.state.bs = default_state.one_one_bs.clone();
-				let width = content_box.maxs.x - content_box.mins.x;
-				let height = content_box.maxs.y - content_box.mins.y;
+// /// 对阴影应用高斯模糊
+// fn modify_shadow_gassu_blur<C: HalContext + 'static>(
+//     index: usize,
+// 	blur: f32,
+//     render_obj: &mut RenderObj,
+//     engine: &mut Engine<C>,
+// 	mut texture_size: Size<usize>,
+// 	content_box: &Aabb2,
+// 	default_state: &CommonState,
+// ) -> (bool, bool) {
+// 	// log::warn!("modify_shadow_gassu_blur======================blur:{}", blur);
+// 	match &mut render_obj.post_process {
+// 		Some(r) => {
+// 			if blur==0.0 {
+// 				render_obj.post_process = None;
+// 				render_obj.state.bs = default_state.df_bs.clone();
+// 				return (false, false)
+// 			} else {
+// 				for i in 0..r.post_processes.len() {
+// 					r.post_processes[i].render_obj.paramter.set_single_uniform(
+// 						"blurRadius", 
+// 						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
+// 					);
+// 				}
+// 				r.content_box = content_box.clone();
+// 				return (true, r.copy == 0);
+// 			}
+// 		},
+// 		None => {
+// 			if blur != 0.0 {
+// 				render_obj.state.bs = default_state.one_one_bs.clone();
+// 				let width = content_box.maxs.x - content_box.mins.x;
+// 				let height = content_box.maxs.y - content_box.mins.y;
 
-				// log::warn!("blur1================={}, {}", width, height);
-				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
+// 				// log::warn!("blur1================={}, {}", width, height);
+// 				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
 
-				let mut vv = Vec::new();
+// 				let mut vv = Vec::new();
 
-				for i in 0..2 {
-					let (mut w, mut h) = (width, height);
-					let p: Share<dyn ProgramParamter> = Share::new(GaussBlurParamter::default());
-					p.set_single_uniform(
-						"blurRadius", 
-						UniformValue::Float1(blur)
-					);	
-					w = w.round().max(1.0);
-					h = h.round().max(1.0);
+// 				for i in 0..2 {
+// 					let (mut w, mut h) = (width, height);
+// 					let p: Share<dyn ProgramParamter> = Share::new(GaussBlurParamter::default());
+// 					p.set_single_uniform(
+// 						"blurRadius", 
+// 						UniformValue::Float1(blur)
+// 					);	
+// 					w = w.round().max(1.0);
+// 					h = h.round().max(1.0);
 
-					let mut obj = new_render_obj1(
-						index, 0.0, false, GAUSS_BLUR_VS_SHADER_NAME.clone(), GAUSS_BLUR_FS_SHADER_NAME.clone(), p, default_state,
-					);
-					if i == 0 {
-						obj.vs_defines.add("VERTICAL");
-						obj.vs_defines.remove("HORIZONTAL");
-					} else {
-						obj.vs_defines.add("HORIZONTAL");
-						obj.vs_defines.remove("VERTICAL");
-					}
-					let post_process = PostProcess {
-						render_size: Size{width: w, height: h},
-						// render_size: Size::new(width/4, width/4),
-						render_obj: obj, // 在RenderObjs中的索引
-					};
-					texture_size = Size{width: w as usize, height: h as usize};
-					vv.push(post_process);
-				}
+// 					let mut obj = new_render_obj1(
+// 						index, 0.0, false, GAUSS_BLUR_VS_SHADER_NAME.clone(), GAUSS_BLUR_FS_SHADER_NAME.clone(), p, default_state,
+// 					);
+// 					if i == 0 {
+// 						obj.vs_defines.add("VERTICAL");
+// 						obj.vs_defines.remove("HORIZONTAL");
+// 					} else {
+// 						obj.vs_defines.add("HORIZONTAL");
+// 						obj.vs_defines.remove("VERTICAL");
+// 					}
+// 					let post_process = PostProcess {
+// 						render_size: Size{width: w, height: h},
+// 						// render_size: Size::new(width/4, width/4),
+// 						render_obj: obj, // 在RenderObjs中的索引
+// 					};
+// 					texture_size = Size{width: w as usize, height: h as usize};
+// 					vv.push(post_process);
+// 				}
 
-				let post_process_context = PostProcessContext { 
-					content_box: content_box.clone(), 
-					render_target: None, // 如果是None，则分配纹理来渲染阴影
-					post_processes: vv,
-					result: None,
-					copy: 0,
-				};
-				render_obj.post_process = Some(Box::new(post_process_context));
-				return (true, true);
-			}
-		}
-	}
-	(false, false)
-}
+// 				let post_process_context = PostProcessContext { 
+// 					content_box: content_box.clone(), 
+// 					render_target: None, // 如果是None，则分配纹理来渲染阴影
+// 					post_processes: vv,
+// 					result: None,
+// 					copy: 0,
+// 				};
+// 				render_obj.post_process = Some(Box::new(post_process_context));
+// 				return (true, true);
+// 			}
+// 		}
+// 	}
+// 	(false, false)
+// }
 
-fn modify_shadow_blur<C: HalContext + 'static>(
-    index: usize,
-	blur: f32,
-    render_obj: &mut RenderObj,
-    engine: &mut Engine<C>,
-	mut texture_size: Size<usize>,
-	content_box: &Aabb2,
-	default_state: &CommonState,
-) -> (bool, bool) {
-	// log::warn!("modify_shadow_blur======================blur:{}", blur);
-	match &mut render_obj.post_process {
-		Some(r) => {
-			if blur==0.0 {
-				render_obj.post_process = None;
-				return (false, false)
-			} else {
-				for i in 0..r.post_processes.len() {
-					r.post_processes[i].render_obj.paramter.set_single_uniform(
-						"offset", 
-						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
-					);
-				}
-				r.content_box = content_box.clone();
-				return (true, false);
-			}
-		},
-		None => {
-			if blur != 0.0 {
-				let width = content_box.maxs.x - content_box.mins.x;
-				let height = content_box.maxs.y - content_box.mins.y;
+// fn modify_shadow_blur<C: HalContext + 'static>(
+//     index: usize,
+// 	blur: f32,
+//     render_obj: &mut RenderObj,
+//     engine: &mut Engine<C>,
+// 	mut texture_size: Size<usize>,
+// 	content_box: &Aabb2,
+// 	default_state: &CommonState,
+// ) -> (bool, bool) {
+// 	// log::warn!("modify_shadow_blur======================blur:{}", blur);
+// 	match &mut render_obj.post_process {
+// 		Some(r) => {
+// 			if blur==0.0 {
+// 				render_obj.post_process = None;
+// 				return (false, false)
+// 			} else {
+// 				for i in 0..r.post_processes.len() {
+// 					r.post_processes[i].render_obj.paramter.set_single_uniform(
+// 						"offset", 
+// 						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32/10.0)
+// 					);
+// 				}
+// 				r.content_box = content_box.clone();
+// 				return (true, false);
+// 			}
+// 		},
+// 		None => {
+// 			if blur != 0.0 {
+// 				let width = content_box.maxs.x - content_box.mins.x;
+// 				let height = content_box.maxs.y - content_box.mins.y;
 
-				// log::warn!("blur1================={}, {}", width, height);
-				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
+// 				// log::warn!("blur1================={}, {}", width, height);
+// 				// log::warn!("size=================blur: {}, width: {}, height: {}", blur, texture_size.width, texture_size.height);
 
-				let mut vv = Vec::new();
+// 				let mut vv = Vec::new();
 
-				let (mut w, mut h) = (width, height);
-				for i in 0..3 {
-					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
-					p.set_single_uniform(
-						"offset", 
-						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
-					);
-					w = (w / 2.0).round().max(1.0);
-					h = (h / 2.0).round().max(1.0);
-					let post_process = PostProcess {
-						render_size: Size{width: w, height: h},
-						// render_size: Size::new(width/4, width/4),
-						render_obj: new_render_obj1(
-							index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), p, default_state,
-						), // 在RenderObjs中的索引
-					};
-					texture_size = Size{width: w as usize, height: h as usize};
-					vv.push(post_process);
-				}
-				for i in 0..2 {
-					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
-					p.set_single_uniform(
-						"offset", 
-						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
-					);
-					w = (w * 2.0).round().max(1.0);
-					h = (h * 2.0).round().max(1.0);
-					let post_process = PostProcess {
-						render_size: Size{width: w, height: h},
-						// render_size: Size::new(width/4, width/4),
-						render_obj: new_render_obj1(
-							index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), p, default_state,
-						), // 在RenderObjs中的索引
-					};
-					texture_size = Size{width: w as usize, height: h as usize};
-					vv.push(post_process);
-				}
-				// let post_process1 = PostProcess {
-				// 	render_size: Size{width: (width/2.0).max(1.0), height: (height/4.0).max(1.0)},
-				// 	// render_size: Size::new(width/4, width/4),
-				// 	render_obj: new_render_obj1(
-				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
-				// 	), // 在RenderObjs中的索引
-				// };
-				// let post_process2 = PostProcess {
-				// 	render_size: Size{width: (width/8.0).max(1.0), height: (height/8.0).max(1.0)},
-				// 	// render_size: Size::new(width/4, width/4),
-				// 	render_obj: new_render_obj1(
-				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
-				// 	), // 在RenderObjs中的索引
-				// };
-				// let post_process3 = PostProcess {
-				// 	render_size: Size{width: (width/4.0).max(1.0), height: (height/4.0).max(1.0)},
-				// 	// render_size: Size::new(width/4, width/4),
-				// 	render_obj: new_render_obj1(
-				// 		index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), paramter, default_state,
-				// 	), // 在RenderObjs中的索引
-				// };
+// 				let (mut w, mut h) = (width, height);
+// 				for i in 0..3 {
+// 					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
+// 					p.set_single_uniform(
+// 						"offset", 
+// 						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
+// 					);
+// 					w = (w / 2.0).round().max(1.0);
+// 					h = (h / 2.0).round().max(1.0);
+// 					let post_process = PostProcess {
+// 						render_size: Size{width: w, height: h},
+// 						// render_size: Size::new(width/4, width/4),
+// 						render_obj: new_render_obj1(
+// 							index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), p, default_state,
+// 						), // 在RenderObjs中的索引
+// 					};
+// 					texture_size = Size{width: w as usize, height: h as usize};
+// 					vv.push(post_process);
+// 				}
+// 				for i in 0..2 {
+// 					let p: Share<dyn ProgramParamter> = Share::new(BlurParamter::default());
+// 					p.set_single_uniform(
+// 						"offset", 
+// 						UniformValue::Float2(blur/texture_size.width as f32, blur/texture_size.height as f32)
+// 					);
+// 					w = (w * 2.0).round().max(1.0);
+// 					h = (h * 2.0).round().max(1.0);
+// 					let post_process = PostProcess {
+// 						render_size: Size{width: w, height: h},
+// 						// render_size: Size::new(width/4, width/4),
+// 						render_obj: new_render_obj1(
+// 							index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), p, default_state,
+// 						), // 在RenderObjs中的索引
+// 					};
+// 					texture_size = Size{width: w as usize, height: h as usize};
+// 					vv.push(post_process);
+// 				}
+// 				// let post_process1 = PostProcess {
+// 				// 	render_size: Size{width: (width/2.0).max(1.0), height: (height/4.0).max(1.0)},
+// 				// 	// render_size: Size::new(width/4, width/4),
+// 				// 	render_obj: new_render_obj1(
+// 				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
+// 				// 	), // 在RenderObjs中的索引
+// 				// };
+// 				// let post_process2 = PostProcess {
+// 				// 	render_size: Size{width: (width/8.0).max(1.0), height: (height/8.0).max(1.0)},
+// 				// 	// render_size: Size::new(width/4, width/4),
+// 				// 	render_obj: new_render_obj1(
+// 				// 		index, 0.0, true, BLUR_DOWN_VS_SHADER_NAME.clone(), BLUR_DOWN_FS_SHADER_NAME.clone(), paramter.clone(), default_state,
+// 				// 	), // 在RenderObjs中的索引
+// 				// };
+// 				// let post_process3 = PostProcess {
+// 				// 	render_size: Size{width: (width/4.0).max(1.0), height: (height/4.0).max(1.0)},
+// 				// 	// render_size: Size::new(width/4, width/4),
+// 				// 	render_obj: new_render_obj1(
+// 				// 		index, 0.0, true, BLUR_UP_VS_SHADER_NAME.clone(), BLUR_UP_FS_SHADER_NAME.clone(), paramter, default_state,
+// 				// 	), // 在RenderObjs中的索引
+// 				// };
 
-				// let post_process_context = PostProcessContext { 
-				// 	content_box: content_box.clone(), 
-				// 	render_target: None, // 如果是None，则分配纹理来渲染阴影
-				// 	post_processes: vec![post_process1, post_process2, post_process3],
-				// 	result: None,
-				// 	copy: 0,
-				// };
+// 				// let post_process_context = PostProcessContext { 
+// 				// 	content_box: content_box.clone(), 
+// 				// 	render_target: None, // 如果是None，则分配纹理来渲染阴影
+// 				// 	post_processes: vec![post_process1, post_process2, post_process3],
+// 				// 	result: None,
+// 				// 	copy: 0,
+// 				// };
 
-				let post_process_context = PostProcessContext { 
-					content_box: content_box.clone(), 
-					render_target: None, // 如果是None，则分配纹理来渲染阴影
-					post_processes: vv,
-					result: None,
-					copy: 0,
-				};
-				render_obj.post_process = Some(Box::new(post_process_context));
-				return (true, true);
-			}
-		}
-	}
-	(false, false)
-}
+// 				let post_process_context = PostProcessContext { 
+// 					content_box: content_box.clone(), 
+// 					render_target: None, // 如果是None，则分配纹理来渲染阴影
+// 					post_processes: vv,
+// 					result: None,
+// 					copy: 0,
+// 				};
+// 				render_obj.post_process = Some(Box::new(post_process_context));
+// 				return (true, true);
+// 			}
+// 		}
+// 	}
+// 	(false, false)
+// }
 
 #[inline]
 fn set_canvas_default_stroke(
@@ -1200,6 +1222,7 @@ fn create_geo<C: HalContext + 'static>(
             share_index_buffer,
 			index_buffer_max_len,
 			scale,
+			text_style,
         )
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
@@ -1215,6 +1238,7 @@ fn create_geo<C: HalContext + 'static>(
             share_index_buffer,
 			index_buffer_max_len,
 			scale,
+			text_style,
         )
     }
 }
@@ -1275,6 +1299,7 @@ fn get_geo_flow<C: HalContext + 'static>(
     index_buffer: &Share<BufferRes>,
 	index_buffer_max_len: &mut usize,
 	scale: f32,
+	text_style: &TextStyle,
 ) -> Option<Share<GeometryRes>> {
     let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
@@ -1293,6 +1318,19 @@ fn get_geo_flow<C: HalContext + 'static>(
 	let mut count = 0;
     match color {
 		Color::RGBA(_) => {
+			let font_size = match font_sheet.get_font_info(&text_style.font.family) {
+				Some(r) => get_size(r.1, &text_style.font.size) as f32,
+				None => get_size(16, &text_style.font.size) as f32
+			};
+			let mut debug_infos = DebugInfos {
+				font_size: font_size,
+				scale,
+				calc_font_size: font_size * scale,
+				chars: Vec::new(),
+				family: text_style.font.family,
+				weight: text_style.font.weight as f32,
+				stroke: text_style.text.stroke.width as f32,
+			};
 			for c in node_state.0.text.iter(){
 				if c.ch == char::from(0) {
 					if c.ch_id_or_count > 0 {
@@ -1308,6 +1346,15 @@ fn get_geo_flow<C: HalContext + 'static>(
 				let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
 					Some(r) => r.1.clone(),
 					None => continue,
+				};
+
+				let mut debug_info = DebugInfo {
+					ch: c.ch,
+					size: c.size,
+					pos: c.pos,
+					glyph: glyph.clone(),
+					positions: Vec::new(),
+					uvs: Vec::new(),
 				};
 				if count > 0 {
 					count -= 1;
@@ -1333,7 +1380,15 @@ fn get_geo_flow<C: HalContext + 'static>(
 						scale,
 					);
 				}
+				debug_info.positions.extend_from_slice(&positions[positions.len() - 8..positions.len()]);
+				debug_info.uvs.extend_from_slice(&uvs[uvs.len() - 8..uvs.len()]);
+				debug_infos.chars.push(debug_info);
 			}
+
+			if debug_infos.chars.len() != 0 {
+				// log::info!("chars======{:?}", debug_infos);
+			}
+			
 			// 更新buffer
 			let l = positions.len() / 8;
 			if l > *index_buffer_max_len {
@@ -1531,6 +1586,27 @@ fn get_geo_flow<C: HalContext + 'static>(
 		},
 		None => Share::new(geo_res),
 	})
+}
+
+#[derive(Debug)]
+pub struct DebugInfo {
+	pub ch: char,
+	pub size: (f32, f32),        // 字符大小
+    pub pos: (f32, f32),
+	pub glyph: Glyph,
+	pub positions: Vec<f32>,
+	pub uvs: Vec<f32>,
+}
+
+#[derive(Debug)]
+pub struct DebugInfos {
+	pub font_size: f32,
+	family: usize,
+	weight: f32,
+	stroke: f32,
+	pub scale: f32,
+	pub calc_font_size: f32,
+	pub chars: Vec<DebugInfo>,
 }
 
 #[inline]

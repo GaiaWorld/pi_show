@@ -1,3 +1,4 @@
+use std::hash::Hasher;
 /// 字体表， 管理字体的几何信息和图像信息
 /// 依赖环境中的文字测量：
 /// ctx.measureText("h")
@@ -14,7 +15,7 @@ use data_view::GetView;
 use share::Share;
 use slab::Slab;
 use ucd::Codepoint;
-use hash::XHashMap;
+use hash::{XHashMap, DefaultHasher};
 
 use crate::render::res::TextureRes;
 
@@ -250,6 +251,7 @@ impl FontSheet {
 						if is_blod {
 							w = w * BLOD_FACTOR;
 						}
+						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
 						r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
 						return (w * font_size as f32 / FONT_SIZE + sw as f32, w);
 					}
@@ -308,6 +310,7 @@ impl FontSheet {
             {
                 Entry::Occupied(e) => *e.get(),
                 Entry::Vacant(r) => {
+
                     // 在指定字体及字号下，查找该字符的宽度
                     let w = (base_width as f32 * font_size as f32 / FONT_SIZE + stroke_width as f32) * scale;
                     // 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
@@ -336,6 +339,7 @@ impl FontSheet {
                             advance: w,
                         },
                     ));
+
                     // 将需要渲染的字符放入等待队列
                     match self
                         .wait_draw_map
@@ -372,6 +376,7 @@ impl FontSheet {
                             }
                         }
                         Entry::Vacant(r) => {
+							// log::info!("calc_gylph==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, base_width: {:?}, scale: {:?}, fs_scale: {} ", c, font.name, font_size, base_width, scale, fs_scale);
                             r.insert((self.wait_draw_list.len(), p.y));
                             self.wait_draw_list.push(TextInfo {
                                 font: font.name,
@@ -417,6 +422,13 @@ impl FontSheet {
         let radio = font_size / FONT_SIZE;
         (gylph.width * radio, gylph.width * radio)
     }
+}
+
+pub fn calc_xhash<T: std::hash::Hash>(v: &T) -> u64 {
+	// (w, font.name, font.factor_t, font.factor_b, font.is_pixel)
+	let mut hasher = DefaultHasher::default();
+	v.hash(&mut hasher);
+	hasher.finish()
 }
 
 // 字体表现

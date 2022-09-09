@@ -464,20 +464,25 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
         read: Self::ReadData,
         (mut render_objs, node_render_map, mut dyn_atlas_set): Self::WriteData,
     ) {
+	
         let render_obj = &render_objs[event.id];
+		// log::warn!("del obj============{:?}, {:?}", event.id, render_obj.post_process.is_some());
         let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
-        node_render_map.remove(render_obj.context, event.id, &notify);
+		let context = render_obj.context;
+        node_render_map.remove(context, event.id, &notify);
 
-		/// 释放后处理结果
+		// 释放后处理结果
 		if let Some(post_process) = &render_obj.post_process {
+			// log::warn!("del post_process============{:?}, {:?}, {}", event.id, post_process.copy, render_obj.context);
 			if let Some(target_index) = &post_process.result {
 				unsafe{&mut *(dyn_atlas_set.as_ptr())}.delete_rect(*target_index);
 			}
-
-			/// 删除copy
+			// log::warn!("render_obj remove:{}, context: {}", post_process.copy, render_obj.context);
+			// 删除copy
 			if post_process.copy > 0 {
 				let copy = post_process.copy;
 				render_objs.remove(copy, None);
+				node_render_map.remove(context, copy, &notify);
 			}
 		}
     }
@@ -684,13 +689,16 @@ fn modify_visible(id: usize, read: ReadData, write: WriteData) {
     }
 }
 
-const CONTENT_DIRTY: usize = StyleType::Filter as usize | StyleType::Opacity as usize;
+const CONTENT_DIRTY: usize = StyleType::Filter as usize 
+	| StyleType::Opacity as usize
+	| StyleType::BackgroundColor as usize; // 还有其他属性 TODO
 const CONTENT_DIRTY1:usize = StyleType1::Display as usize
 	| StyleType1::Visibility as usize
 	| StyleType1::Overflow as usize
 	| StyleType1::MaskImage as usize
 	| StyleType1::MaskImageClip as usize
-	| StyleType1::MaskTexture as usize;
+	| StyleType1::MaskTexture as usize
+	| StyleType1::Blur as usize;
 
 fn content_show_change(style_mark: &StyleMark) -> bool{
 	if style_mark.dirty & CONTENT_DIRTY != 0 || style_mark.dirty1 & CONTENT_DIRTY1 != 0 {
@@ -699,134 +707,134 @@ fn content_show_change(style_mark: &StyleMark) -> bool{
 		false
 	}
 }
-// 枚举样式的类型
-#[derive(Debug)]
-pub enum StyleType {
-    Text = 1,
-    FontStyle = 2,
-    FontWeight = 4,
-    FontSize = 0x8,
-    FontFamily = 0x10,
-    LetterSpacing = 0x20,
-    WordSpacing = 0x40,
-    LineHeight = 0x80,
-    Indent = 0x100,
-    WhiteSpace = 0x200,
-    TextAlign = 0x400,
-    VerticalAlign = 0x800,
-    Color = 0x1000,
-    Stroke = 0x2000,
-    TextShadow = 0x4000,
+// // 枚举样式的类型
+// #[derive(Debug)]
+// pub enum StyleType {
+//     Text = 1,
+//     FontStyle = 2,
+//     FontWeight = 4,
+//     FontSize = 0x8,
+//     FontFamily = 0x10,
+//     LetterSpacing = 0x20,
+//     WordSpacing = 0x40,
+//     LineHeight = 0x80,
+//     Indent = 0x100,
+//     WhiteSpace = 0x200,
+//     TextAlign = 0x400,
+//     VerticalAlign = 0x800,
+//     Color = 0x1000,
+//     Stroke = 0x2000,
+//     TextShadow = 0x4000,
 
-    Image = 0x8000,
-    ImageClip = 0x10000,
-    ObjectFit = 0x20000,
+//     Image = 0x8000,
+//     ImageClip = 0x10000,
+//     ObjectFit = 0x20000,
 
-    BorderImage = 0x40000,
-    BorderImageClip = 0x80000,
-    BorderImageSlice = 0x100000,
-    BorderImageRepeat = 0x200000,
+//     BorderImage = 0x40000,
+//     BorderImageClip = 0x80000,
+//     BorderImageSlice = 0x100000,
+//     BorderImageRepeat = 0x200000,
 
-    BorderColor = 0x400000,
+//     BorderColor = 0x400000,
 
-    BackgroundColor = 0x800000,
+//     BackgroundColor = 0x800000,
 
-    BoxShadow = 0x1000000,
+//     BoxShadow = 0x1000000,
 
-    Matrix = 0x2000000,
-    Opacity = 0x4000000,
-    Layout = 0x8000000,
-    BorderRadius = 0x10000000,
-    ByOverflow = 0x20000000,
-	Filter = 0x40000000,
-	Oct = std::isize::MIN,
-}
+//     Matrix = 0x2000000,
+//     Opacity = 0x4000000,
+//     Layout = 0x8000000,
+//     BorderRadius = 0x10000000,
+//     ByOverflow = 0x20000000,
+// 	Filter = 0x40000000,
+// 	Oct = std::isize::MIN,
+// }
 
-// 枚举样式的类型
-#[derive(Debug)]
-pub enum StyleType1 {
-    // Width = 1,
-    // Height = 2,
-    // Margin = 4,
-    // Padding = 8,
-    // Border = 0x10,
-    // Position = 0x20,
-    // MinWidth = 0x40,
-    // MinHeight = 0x80,
-    // MaxHeight = 0x100,
-    // MaxWidth = 0x200,
-    // FlexBasis = 0x400,
-    // FlexShrink = 0x800,
-    // FlexGrow = 0x1000,
-    // PositionType = 0x2000,
-    // FlexWrap = 0x4000,
-    // FlexDirection = 0x8000,
-    // AlignContent = 0x10000,
-    // AlignItems = 0x20000,
-    // AlignSelf = 0x40000,
-	TransformOrigin = 0x4000,
-	ContentBox = 0x8000,
-	Direction = 0x10000,
-	AspectRatio = 0x20000,
-	Order = 0x40000,
-	FlexBasis = 0x80000,
+// // 枚举样式的类型
+// #[derive(Debug)]
+// pub enum StyleType1 {
+//     // Width = 1,
+//     // Height = 2,
+//     // Margin = 4,
+//     // Padding = 8,
+//     // Border = 0x10,
+//     // Position = 0x20,
+//     // MinWidth = 0x40,
+//     // MinHeight = 0x80,
+//     // MaxHeight = 0x100,
+//     // MaxWidth = 0x200,
+//     // FlexBasis = 0x400,
+//     // FlexShrink = 0x800,
+//     // FlexGrow = 0x1000,
+//     // PositionType = 0x2000,
+//     // FlexWrap = 0x4000,
+//     // FlexDirection = 0x8000,
+//     // AlignContent = 0x10000,
+//     // AlignItems = 0x20000,
+//     // AlignSelf = 0x40000,
+// 	TransformOrigin = 0x4000,
+// 	ContentBox = 0x8000,
+// 	Direction = 0x10000,
+// 	AspectRatio = 0x20000,
+// 	Order = 0x40000,
+// 	FlexBasis = 0x80000,
 
-    Display = 0x100000,
-    Visibility = 0x200000,
-    Enable = 0x400000,
-    ZIndex = 0x800000,
-    Transform = 0x1000000,
-    TransformWillChange = 0x2000000,
-	Overflow = 0x4000000,
+//     Display = 0x100000,
+//     Visibility = 0x200000,
+//     Enable = 0x400000,
+//     ZIndex = 0x800000,
+//     Transform = 0x1000000,
+//     TransformWillChange = 0x2000000,
+// 	Overflow = 0x4000000,
 	
-	Create = 0x8000000,
-	Delete = 0x10000000,
+// 	Create = 0x8000000,
+// 	Delete = 0x10000000,
 
-	MaskImage = 0x20000000,
-	MaskImageClip = 0x40000000,
-	MaskTexture = std::isize::MIN,
-}
+// 	MaskImage = 0x20000000,
+// 	MaskImageClip = 0x40000000,
+// 	MaskTexture = std::isize::MIN,
+// }
 
-// 布局属性标记
-pub enum StyleType2 {
-	Width = 1,
-    Height = 2,
+// // 布局属性标记
+// pub enum StyleType2 {
+// 	Width = 1,
+//     Height = 2,
 	
-	MarginTop = 4,
-	MarginRight = 8,
-	MarginBottom = 0x10,
-	MarginLeft = 0x20,
+// 	MarginTop = 4,
+// 	MarginRight = 8,
+// 	MarginBottom = 0x10,
+// 	MarginLeft = 0x20,
 
-	PaddingTop = 0x40,
-	PaddingRight = 0x80,
-	PaddingBottom = 0x100,
-	PaddingLeft = 0x200,
+// 	PaddingTop = 0x40,
+// 	PaddingRight = 0x80,
+// 	PaddingBottom = 0x100,
+// 	PaddingLeft = 0x200,
 
-	BorderTop = 0x400,
-	BorderRight = 0x800,
-	BorderBottom = 0x1000,
-	BorderLeft = 0x2000,
+// 	BorderTop = 0x400,
+// 	BorderRight = 0x800,
+// 	BorderBottom = 0x1000,
+// 	BorderLeft = 0x2000,
 
-	PositionTop = 0x4000,
-	PositionRight = 0x8000,
-	PositionBottom = 0x10000,
-	PositionLeft = 0x20000,
+// 	PositionTop = 0x4000,
+// 	PositionRight = 0x8000,
+// 	PositionBottom = 0x10000,
+// 	PositionLeft = 0x20000,
 	
-    MinWidth = 0x40000,
-    MinHeight = 0x80000,
-    MaxHeight = 0x100000,
-	MaxWidth = 0x200000,
-	JustifyContent = 0x400000,
-    FlexShrink = 0x800000,
-	FlexGrow = 0x1000000,
-	PositionType = 0x2000000,
-    FlexWrap = 0x4000000,
-    FlexDirection = 0x8000000,
-    AlignContent = 0x10000000,
-    AlignItems = 0x20000000,
-    AlignSelf = 0x40000000,
-	BlendMode = std::isize::MIN,
-}
+//     MinWidth = 0x40000,
+//     MinHeight = 0x80000,
+//     MaxHeight = 0x100000,
+// 	MaxWidth = 0x200000,
+// 	JustifyContent = 0x400000,
+//     FlexShrink = 0x800000,
+// 	FlexGrow = 0x1000000,
+// 	PositionType = 0x2000000,
+//     FlexWrap = 0x4000000,
+//     FlexDirection = 0x8000000,
+//     AlignContent = 0x10000000,
+//     AlignItems = 0x20000000,
+//     AlignSelf = 0x40000000,
+// 	BlendMode = std::isize::MIN,
+// }
 
 impl_system! {
     NodeAttrSys<C> where [C: HalContext + 'static],

@@ -18,8 +18,8 @@ pub struct Class {
     pub attrs3: Vec<Attribute3>,
 
     pub class_style_mark: usize,  // 标记class中的有效属性
-	pub class_style_mark1: usize, // 标记class中布局的有效属性
-	pub class_style_mark2: usize, // 标记class中布局的有效属性
+    pub class_style_mark1: usize, // 标记class中布局的有效属性
+    pub class_style_mark2: usize, // 标记class中布局的有效属性
 }
 
 // 全局Class表
@@ -51,7 +51,7 @@ pub enum Attribute1 {
     AlignSelf(AlignSelf),
     JustifyContent(JustifyContent),
 
-    ObjectFit(ObjectFit),
+    ObjectFit(FitType),
     TextAlign(TextAlign),
     VerticalAlign(VerticalAlign),
     WhiteSpace(WhiteSpace),
@@ -60,10 +60,12 @@ pub enum Attribute1 {
     Display(Display),
     Visibility(bool),
     Overflow(bool),
+    BackgroundRepeat((BorderImageRepeatType, BorderImageRepeatType)),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Attribute2 {
+    Blur(Blur),
     LetterSpacing(f32),
     LineHeight(LineHeight),
     TextIndent(f32),
@@ -107,8 +109,8 @@ pub enum Attribute2 {
     PositionRight(Dimension),
     PositionBottom(Dimension),
 
-	MaskImage(MaskImage),
-	BlendMode(BlendMode),
+    MaskImage(MaskImage),
+    BlendMode(BlendMode),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -123,7 +125,7 @@ pub enum Attribute3 {
     BorderImageSlice(BorderImageSlice),
 
     Color(Color),
-    TextShadow(SmallVec<[TextShadow;1]>),
+    TextShadow(SmallVec<[TextShadow; 1]>),
     TextStroke(Stroke),
 
     BorderRadius(BorderRadius),
@@ -131,7 +133,7 @@ pub enum Attribute3 {
     TransformOrigin(TransformOrigin),
     Filter(Filter),
 
-	MaskImageClip(MaskImageClip),
+    MaskImageClip(MaskImageClip),
 }
 
 // #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]

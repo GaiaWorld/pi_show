@@ -105,7 +105,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
 
-						// // 纹理清空为蓝色
+						// // 纹理清空为玫红
 						let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
 						// let mut vec = Vec::with_capacity(width * height * 4);
 						// for _a in 0..width * height {
@@ -135,7 +135,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
 							viewport: (0,0,width as i32,height as i32),
 							scissor: (0,0,width as i32,height as i32),
-							clear_color: Some((OrderedFloat(0.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
+							clear_color: Some((OrderedFloat(1.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
 							clear_depth: read.6.0.clear_depth.clone(),
 							clear_stencil: read.6.0.clear_stencil.clone(),
 						}, true);

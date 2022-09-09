@@ -48,7 +48,7 @@ impl SamplerUniform {
 }
 
 impl CommonUniform {
-    pub fn set_gl_uniform(&mut self, gl: &WebGlRenderingContext, value: &UniformValue) {
+    pub fn set_gl_uniform(&mut self, gl: &WebGlRenderingContext, value: &UniformValue) -> Result<(), String> {
         match (value, &mut self.last) {
             (UniformValue::Float1(c1), UniformValue::Float1(o1)) => {
                 if *c1 != *o1 {
@@ -145,9 +145,10 @@ impl CommonUniform {
             }
             _ => {
 				log::error!("Invalid Uniform, name: {:?}, value: {:?}", self.name.as_ref(), value);
-				panic!()
+				return Err(format!("Invalid Uniform, name: {:?}, value: {:?}", self.name.as_ref(), value));
 			},
         }
+		Ok(())
     }
 }
 

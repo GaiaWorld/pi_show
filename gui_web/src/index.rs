@@ -185,7 +185,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 		.unwrap();
 		// unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
 		// unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
-	
+	log::info!("hash============{:?}", Atom::from("__$text".to_string()).get_hash());
     let res = engine.create_texture_res(
         Atom::from("__$text".to_string()).get_hash(),
         TextureResRaw::new(
@@ -215,47 +215,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option);
     // unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
 	let world = GuiWorld1::<WebglHalContext>::new(world);
-    let idtree = world.idtree.lend_mut();
-    let node = world.node.lend_mut().create();
-    idtree.create(node);
-	let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
-	let root_indexs = root_indexs.lend_mut();
-	root_indexs.mark(1, idtree[1].layer());
 
-    let border_radius = world.border_radius.lend_mut();
-    border_radius.insert(
-        node,
-        BorderRadius {
-            x: LengthUnit::Pixel(0.0),
-            y: LengthUnit::Pixel(0.0),
-        },
-    );
-	// unsafe{ console::log_1(&JsValue::from("create_gui5================================="))};
-
-    let visibilitys = world.visibility.lend_mut();
-    visibilitys.insert(node, Visibility(true));
-
-	let rect_layout_styles = world.rect_layout_style.lend_mut();
-	let other_layout_styles = world.other_layout_style.lend_mut();
-	let rect_layout_style = &mut rect_layout_styles[node];
-	let other_layout_style = &mut other_layout_styles[node];
-
-    // let config = YgConfig::new();
-    // config.set_point_scale_factor(0.0);
-    // let ygnode1 = YgNode::new_with_config(config);
-	// let ygnode1 = YgNode::default();
-	rect_layout_style.size = Size{width: Dimension::Points(width), height: Dimension::Points(height)};
-	other_layout_style.position_type = PositionType::Absolute;
-	other_layout_style.position = Rect::default();
-	rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
-	other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
-	// ygnode.align_items = AlignItems::FlexStart;
-    // ygnode.set_align_items(AlignItems::FlexStart);
-    // *ygnode = ygnode1;
 	let font_sheet_version = world.font_sheet.lend().borrow().tex_version;
-
-	idtree.insert_child(node, 0, 0);
-	idtree.get_notify_ref().create_event(node);
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
@@ -309,6 +270,38 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 		}) )},
 	}
 	world_id
+}
+
+#[allow(unused_attributes)]
+#[allow(unused_unsafe)]
+#[wasm_bindgen]
+pub fn get_text_texture_width(world: u32) -> u32 {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	
+    let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
+	let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom::from("_$text").get_hash(), 0);
+	if let Some(r) = res {
+		r.width as u32
+	} else {
+		0
+	}
+}
+
+#[allow(unused_attributes)]
+#[allow(unused_unsafe)]
+#[wasm_bindgen]
+pub fn get_text_texture_height(world: u32) -> u32 {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	
+    let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
+	let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom::from("_$text").get_hash(), 0);
+	if let Some(r) = res {
+		r.height as u32
+	} else {
+		0
+	}
 }
 
 // fn push_runtime(runtime_ref: &mut Vec<ecs::RunTime>, name: Atom) -> usize {
@@ -809,5 +802,18 @@ pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
         Some(_) => true,
         None => false,
     }
+}
+
+#[wasm_bindgen]
+pub struct Atom1(Atom);
+
+#[wasm_bindgen]
+pub fn get_atom(s: &str) -> Atom1 {
+	Atom1(Atom::from(s))
+}
+
+#[wasm_bindgen]
+pub fn get_atom_hash(s: &Atom1) -> u32 {
+	s.0.get_hash() as u32
 }
 

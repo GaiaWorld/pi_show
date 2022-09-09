@@ -289,6 +289,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 					text_info.font as u32, 
 					text_info.stroke_width as u8);
 			};
+			// log::info!("draw_chars=====font_size: {:?}, stroke{:?}, famliy:{}, weight: {}, chars: {:?} ", text_info.font_size, text_info.stroke_width, text_info.font, text_info.weight, &text_info.chars);
             // js! {
 
             //     var c = @{canvas};

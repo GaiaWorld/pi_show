@@ -290,6 +290,26 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     let idtree = world.idtree.lend_mut();
+
+	// 如果父节点不存在，则为根节点，根节点需要特殊处理
+	if parent == 0 {
+		let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
+		let root_indexs = root_indexs.lend_mut();
+		root_indexs.mark(child as usize, idtree[1].layer());
+
+		let border_radius = world.border_radius.lend_mut();
+		border_radius.insert(
+			child as usize,
+			BorderRadius {
+				x: LengthUnit::Pixel(0.0),
+				y: LengthUnit::Pixel(0.0),
+			},
+		);
+
+		let visibilitys = world.visibility.lend_mut();
+		visibilitys.insert(child as usize, Visibility(true));
+	}
+
 	let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
 	// idtree.remove(child as usize, None);

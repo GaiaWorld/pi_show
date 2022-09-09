@@ -7,13 +7,13 @@ use wasm_bindgen::prelude::*;
 use ecs::LendMut;
 use hash::XHashMap;
 
-use gui::component::user::{*, BlendMode as BlendMode1};
+use crate::world::GuiWorld;
+use flex_layout::Rect;
+use gui::component::user::{BlendMode as BlendMode1, *};
+#[cfg(feature = "create_class_by_str")]
+use gui::single::style_parse::parse_class_from_string;
 use gui::single::*;
 use gui::util::vecmap_default::VecMapWithDefault;
-#[cfg(feature = "create_class_by_str")]
-use gui::single::style_parse::{parse_class_from_string};
-use flex_layout::Rect;
-use crate::world::GuiWorld;
 
 #[macro_use()]
 macro_rules! insert_value {
@@ -40,13 +40,13 @@ macro_rules! set_show {
         let node_id = $node_id as usize;
         let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
         let world = &mut world.gui;
-		let show = world.show.lend_mut();
-		let s = unsafe { show.get_unchecked_mut(node_id) };
-		let old = s.clone();
-		s.$name($value);
-		if old != *s {
-			show.get_notify_ref().modify_event(node_id, $field, 0);
-		}
+        let show = world.show.lend_mut();
+        let s = unsafe { show.get_unchecked_mut(node_id) };
+        let old = s.clone();
+        s.$name($value);
+        if old != *s {
+            show.get_notify_ref().modify_event(node_id, $field, 0);
+        }
     };
 }
 
@@ -54,13 +54,7 @@ macro_rules! set_show {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
-    insert_value!(
-        world,
-        node,
-        BackgroundColor,
-        Color::RGBA(CgColor::new(r, g, b, a)),
-        background_color
-    );
+    insert_value!(world, node, BackgroundColor, Color::RGBA(CgColor::new(r, g, b, a)), background_color);
 }
 
 // // 设置一个径向渐变的背景颜色
@@ -75,10 +69,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
-    let value = Color::LinearGradient(to_linear_gradient_color(
-        color_and_positions,
-        direction,
-    ));
+    let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
     insert_value!(world, node, BackgroundColor, value, background_color);
 }
 
@@ -86,13 +77,7 @@ pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f3
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
-    insert_value!(
-        world,
-        node,
-        BorderColor,
-        CgColor::new(r, g, b, a),
-        border_color
-    );
+    insert_value!(world, node, BorderColor, CgColor::new(r, g, b, a), border_color);
 }
 
 /// 设置边框圆角
@@ -168,18 +153,7 @@ pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
 /// 设置阴影v
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_box_shadow(
-    world: u32,
-    node: u32,
-    h: f32,
-    v: f32,
-    blur: f32,
-    spread: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-    a: f32,
-) {
+pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: f32, r: f32, g: f32, b: f32, a: f32) {
     // let v = 0;
     insert_attr!(
         world,
@@ -200,25 +174,32 @@ pub fn set_box_shadow(
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_object_fit(world: u32, node: u32, value: u8) {
-    insert_value!(
-        world,
-        node,
-        ObjectFit,
-        unsafe { transmute(value) },
-        object_fit
-    );
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let object_fits = world.gui.object_fit.lend_mut();
+    if let None = object_fits.get(node as usize) {
+        object_fits.insert_no_notify(node as usize, BackgroundImageOption::default());
+    }
+    object_fits[node as usize].object_fit = unsafe { transmute(value) };
+    object_fits.get_notify_ref().modify_event(node as usize, "", 0);
 }
+
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_background_repeat(world: u32, node: u32, x: u8, y: u8) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let object_fits = world.gui.object_fit.lend_mut();
+    if let None = object_fits.get(node as usize) {
+        object_fits.insert_no_notify(node as usize, BackgroundImageOption::default());
+    }
+    object_fits[node as usize].repeat = (unsafe { transmute(x) }, unsafe { transmute(y) });
+    object_fits.get_notify_ref().modify_event(node as usize, "", 0);
+}
+
 // 设置图像裁剪
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
-    insert_value!(
-        world,
-        node,
-        ImageClip,
-        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
-        image_clip
-    );
+    insert_value!(world, node, ImageClip, Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)), image_clip);
 }
 
 // 设置图像裁剪
@@ -250,15 +231,7 @@ pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v
 /// 设置border_image_slice
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_image_slice(
-    world: u32,
-    node: u32,
-    top: f32,
-    right: f32,
-    bottom: f32,
-    left: f32,
-    fill: bool,
-) {
+pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, bottom: f32, left: f32, fill: bool) {
     insert_attr!(
         world,
         node,
@@ -281,9 +254,7 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
         world,
         node,
         BorderImageRepeat,
-        BorderImageRepeat(unsafe { transmute(vertical) }, unsafe {
-            transmute(horizontal)
-        }),
+        BorderImageRepeat(unsafe { transmute(vertical) }, unsafe { transmute(horizontal) }),
         border_image_repeat
     );
 }
@@ -303,7 +274,7 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
         value = 1.0;
     } else if value < 0.0 {
         value = 0.0;
-	}
+    }
     insert_value!(world, node, Opacity, value, opacity);
 }
 
@@ -311,14 +282,11 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_display(world: u32, node: u32, value: u8) {
-	unsafe {
-		let layouts = (&mut *(world as usize as *mut GuiWorld))
-				.gui
-				.other_layout_style
-				.lend_mut();
-		layouts[node as usize].display = transmute(value);
-		layouts.get_notify_ref().modify_event(node as usize, "display", 0);
-	}
+    unsafe {
+        let layouts = (&mut *(world as usize as *mut GuiWorld)).gui.other_layout_style.lend_mut();
+        layouts[node as usize].display = transmute(value);
+        layouts.get_notify_ref().modify_event(node as usize, "display", 0);
+    }
 
     let value = unsafe { transmute(value) };
     set_show!(world, node, set_display, value, "display");
@@ -342,13 +310,13 @@ pub fn set_enable(world: u32, node: u32, value: u32) {
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn get_enable(world: u32, node: u32) -> bool {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
     let enables = world.gui.enable.lend_mut();
-	match enables.get(node as usize) {
-		Some(r) => r.0,
-		None => false
-	}
+    match enables.get(node as usize) {
+        Some(r) => r.0,
+        None => false,
+    }
 }
 
 // let enable = arg.enables[*bind].0;
@@ -359,6 +327,12 @@ pub fn get_enable(world: u32, node: u32) -> bool {
 pub fn set_zindex(world: u32, node: u32, value: i32) {
     let value = value as isize;
     insert_value!(world, node, ZIndex, value, z_index);
+}
+
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_filter_blur(world: u32, node: u32, blur: f32) {
+    insert_value!(world, node, Blur, blur, blur);
 }
 
 /// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
@@ -394,10 +368,7 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 pub fn set_border_image(world: u32, node: u32, url: usize) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let border_images = world.gui.border_image.lend_mut();
-    border_images.insert(
-        node as usize,
-        BorderImage {url},
-    );
+    border_images.insert(node as usize, BorderImage { url });
 }
 
 /// __jsObj: image_name(String)
@@ -406,47 +377,35 @@ pub fn set_border_image(world: u32, node: u32, url: usize) {
 pub fn set_mask_image(world: u32, node: u32, url: usize) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let mask_images = world.gui.mask_image.lend_mut();
-    mask_images.insert(
-        node as usize,
-        MaskImage::Path(url),
-    );
+    mask_images.insert(node as usize, MaskImage::Path(url));
 }
 
 // 设置mask_image为渐变色
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_mask_image_linenear(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
-	let value = to_linear_gradient_color(
-        color_and_positions,
-        direction,
-    );
+    let value = to_linear_gradient_color(color_and_positions, direction);
 
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let mask_images = world.gui.mask_image.lend_mut();
-	// log::info!("set_mask_image_linenear========={}, {:?}", node, value);
-    mask_images.insert(
-        node as usize,
-        MaskImage::LinearGradient(value),
-    );
+    // log::info!("set_mask_image_linenear========={}, {:?}", node, value);
+    mask_images.insert(node as usize, MaskImage::LinearGradient(value));
 }
 
 #[wasm_bindgen]
 pub enum BlendMode {
-	Normal,
-	AlphaAdd,
-	Subtract,
-	Multiply,
-	OneOne,
+    Normal,
+    AlphaAdd,
+    Subtract,
+    Multiply,
+    OneOne,
 }
 
 #[wasm_bindgen]
 pub fn set_blend_mode(world: u32, node: u32, blend_mode: u8) {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let blend_modes = world.gui.blend_mode.lend_mut();
-    blend_modes.insert(
-        node as usize,
-        unsafe{transmute(blend_mode)},
-    );
+    blend_modes.insert(node as usize, unsafe { transmute(blend_mode) });
 }
 
 /// 设置默认样式, 暂支持布局属性、 文本属性的设置
@@ -462,7 +421,7 @@ pub fn set_default_style_by_bin(world: u32, bin: &[u8]) {
         }
     };
 
-	let default_style = map.remove(&0).unwrap();
+    let default_style = map.remove(&0).unwrap();
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     set_default_style1(world, default_style);
 }
@@ -499,10 +458,7 @@ pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
         }
     } else {
         if transforms.get(node_id).is_some() {
-            transform_will_changes.insert(
-                node_id,
-                TransformWillChange(transforms.delete(node_id).unwrap()),
-            );
+            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
         } else if transform_will_changes.get(node_id).is_none() {
             transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
         }
@@ -510,9 +466,9 @@ pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
 }
 
 fn set_default_style1(world: &mut GuiWorld, r: Class) {
-	let mut text_style = TextStyle::default();
-	let mut rect_layout_style = RectLayoutStyle::default();
-	let mut other_layout_style = OtherLayoutStyle::default();
+    let mut text_style = TextStyle::default();
+    let mut rect_layout_style = RectLayoutStyle::default();
+    let mut other_layout_style = OtherLayoutStyle::default();
     // let mut border_color = BorderColor::default();
     // let mut bg_color = BackgroundColor::default();
     // let mut box_shadow = BoxShadow::default();
@@ -521,15 +477,15 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
         match attr {
             // Attribute::BGColor(r) => bg_color = r,
             Attribute1::TextAlign(r) => text_style.text.text_align = r,
-			Attribute1::WhiteSpace(r) => text_style.text.white_space = r,
-			
-			Attribute1::PositionType(r) => other_layout_style.position_type = r,
-			Attribute1::FlexWrap(r) => other_layout_style.flex_wrap = r,
-			Attribute1::FlexDirection(r) => other_layout_style.flex_direction = r,
-			Attribute1::AlignContent(r) => other_layout_style.align_content = r,
-			Attribute1::AlignItems(r) => other_layout_style.align_items = r,
-			Attribute1::AlignSelf(r) => other_layout_style.align_self = r,
-			Attribute1::JustifyContent(r) => other_layout_style.justify_content = r,
+            Attribute1::WhiteSpace(r) => text_style.text.white_space = r,
+
+            Attribute1::PositionType(r) => other_layout_style.position_type = r,
+            Attribute1::FlexWrap(r) => other_layout_style.flex_wrap = r,
+            Attribute1::FlexDirection(r) => other_layout_style.flex_direction = r,
+            Attribute1::AlignContent(r) => other_layout_style.align_content = r,
+            Attribute1::AlignItems(r) => other_layout_style.align_items = r,
+            Attribute1::AlignSelf(r) => other_layout_style.align_self = r,
+            Attribute1::JustifyContent(r) => other_layout_style.justify_content = r,
 
             // Attribute::BorderColor(r) => border_color = r,
             _ => debug_println!("set_class error"),
@@ -545,54 +501,60 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
 
             Attribute2::FontWeight(r) => text_style.font.weight = r as usize,
             Attribute2::FontSize(r) => text_style.font.size = r,
-			Attribute2::FontFamily(r) => {
-				text_style.font.family = r;
-			},
-			
-			Attribute2::Width(r) => rect_layout_style.size.width = r,
-			Attribute2::Height(r) => rect_layout_style.size.height = r,
-			Attribute2::MarginLeft(r) => rect_layout_style.margin.start = r,
-			Attribute2::MarginTop(r) => rect_layout_style.margin.top = r,
-			Attribute2::MarginBottom(r) => rect_layout_style.margin.bottom = r,
-			Attribute2::MarginRight(r) => rect_layout_style.margin.end = r,
-			Attribute2::Margin(r) => rect_layout_style.margin = Rect{
-				start: r,
-				end: r,
-				bottom: r,
-				top: r
-			},
+            Attribute2::FontFamily(r) => {
+                text_style.font.family = r;
+            }
 
-			Attribute2::FlexShrink(r) => other_layout_style.flex_shrink = r,
-			Attribute2::FlexGrow(r) => other_layout_style.flex_grow = r,
-			Attribute2::PaddingLeft(r) => other_layout_style.padding.start = r,
-			Attribute2::PaddingTop(r) => other_layout_style.padding.top = r,
-			Attribute2::PaddingBottom(r) => other_layout_style.padding.bottom = r,
-			Attribute2::PaddingRight(r) => other_layout_style.padding.end = r,
-			Attribute2::Padding(r) => other_layout_style.padding = Rect{
-				start: r,
-				end: r,
-				bottom: r,
-				top: r
-			},
-			Attribute2::BorderLeft(r) => other_layout_style.border.start = r,
-			Attribute2::BorderTop(r) => other_layout_style.border.top = r,
-			Attribute2::BorderBottom(r) => other_layout_style.border.bottom = r,
-			Attribute2::BorderRight(r) => other_layout_style.border.end = r,
-			Attribute2::Border(r) => other_layout_style.border = Rect{
-				start: r,
-				end: r,
-				bottom: r,
-				top: r
-			},
-			Attribute2::MinWidth(r) => other_layout_style.min_size.width = r,
-			Attribute2::MinHeight(r) => other_layout_style.min_size.height = r,
-			Attribute2::MaxHeight(r) => other_layout_style.max_size.width = r,
-			Attribute2::MaxWidth(r) => other_layout_style.max_size.width = r,
-			Attribute2::FlexBasis(r) => other_layout_style.flex_basis = r,
-			Attribute2::PositionLeft(r) => other_layout_style.position.start = r,
-			Attribute2::PositionTop(r) => other_layout_style.position.top = r,
-			Attribute2::PositionRight(r) => other_layout_style.position.end = r,
-			Attribute2::PositionBottom(r) => other_layout_style.position.bottom = r,
+            Attribute2::Width(r) => rect_layout_style.size.width = r,
+            Attribute2::Height(r) => rect_layout_style.size.height = r,
+            Attribute2::MarginLeft(r) => rect_layout_style.margin.start = r,
+            Attribute2::MarginTop(r) => rect_layout_style.margin.top = r,
+            Attribute2::MarginBottom(r) => rect_layout_style.margin.bottom = r,
+            Attribute2::MarginRight(r) => rect_layout_style.margin.end = r,
+            Attribute2::Margin(r) => {
+                rect_layout_style.margin = Rect {
+                    start: r,
+                    end: r,
+                    bottom: r,
+                    top: r,
+                }
+            }
+
+            Attribute2::FlexShrink(r) => other_layout_style.flex_shrink = r,
+            Attribute2::FlexGrow(r) => other_layout_style.flex_grow = r,
+            Attribute2::PaddingLeft(r) => other_layout_style.padding.start = r,
+            Attribute2::PaddingTop(r) => other_layout_style.padding.top = r,
+            Attribute2::PaddingBottom(r) => other_layout_style.padding.bottom = r,
+            Attribute2::PaddingRight(r) => other_layout_style.padding.end = r,
+            Attribute2::Padding(r) => {
+                other_layout_style.padding = Rect {
+                    start: r,
+                    end: r,
+                    bottom: r,
+                    top: r,
+                }
+            }
+            Attribute2::BorderLeft(r) => other_layout_style.border.start = r,
+            Attribute2::BorderTop(r) => other_layout_style.border.top = r,
+            Attribute2::BorderBottom(r) => other_layout_style.border.bottom = r,
+            Attribute2::BorderRight(r) => other_layout_style.border.end = r,
+            Attribute2::Border(r) => {
+                other_layout_style.border = Rect {
+                    start: r,
+                    end: r,
+                    bottom: r,
+                    top: r,
+                }
+            }
+            Attribute2::MinWidth(r) => other_layout_style.min_size.width = r,
+            Attribute2::MinHeight(r) => other_layout_style.min_size.height = r,
+            Attribute2::MaxHeight(r) => other_layout_style.max_size.width = r,
+            Attribute2::MaxWidth(r) => other_layout_style.max_size.width = r,
+            Attribute2::FlexBasis(r) => other_layout_style.flex_basis = r,
+            Attribute2::PositionLeft(r) => other_layout_style.position.start = r,
+            Attribute2::PositionTop(r) => other_layout_style.position.top = r,
+            Attribute2::PositionRight(r) => other_layout_style.position.end = r,
+            Attribute2::PositionBottom(r) => other_layout_style.position.bottom = r,
 
             // Attribute::BorderColor(r) => border_color = r,
             _ => debug_println!("set_class error"),
@@ -609,10 +571,18 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
         }
     }
 
-	let text_styles = unsafe {&mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)};
-	let flex_rect_styles = unsafe {&mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<RectLayoutStyle>)};
-	let flex_other_styles = unsafe {&mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<OtherLayoutStyle>)};
-	flex_rect_styles.set_default(rect_layout_style);
-	flex_other_styles.set_default(other_layout_style);
-	text_styles.set_default(text_style);
+    let text_styles = unsafe {
+        &mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)
+    };
+    let flex_rect_styles = unsafe {
+        &mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize
+            as *mut VecMapWithDefault<RectLayoutStyle>)
+    };
+    let flex_other_styles = unsafe {
+        &mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize
+            as *mut VecMapWithDefault<OtherLayoutStyle>)
+    };
+    flex_rect_styles.set_default(rect_layout_style);
+    flex_other_styles.set_default(other_layout_style);
+    text_styles.set_default(text_style);
 }

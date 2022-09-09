@@ -3,8 +3,8 @@ name = "res_mgr_web"
 version = "0.1.0"
 authors = ["sun <sun@yineng.com>"]
 
-[lib]
-crate-type = ["cdylib", "rlib", "dylib"]
+# [lib]
+# crate-type = ["cdylib", "rlib", "dylib"]
 
 [dependencies]
 res = { path = "../../pi_lib/res"}

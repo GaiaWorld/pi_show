@@ -360,6 +360,9 @@ impl<C> Data<C> {
     }
 }
 
+#[derive(Clone, Deref, DerefMut, Default)]
+pub struct RenderContextAttrCount(usize);
+
 #[derive(Clone)]
 pub struct State {
     pub rs: Share<RasterStateRes>,
@@ -397,6 +400,24 @@ pub struct RenderObj {
     pub context: usize,
 
 	pub post_process: Option<Box<PostProcessContext>>,
+}
+
+impl PostProcessObj for RenderObj {
+	fn get_post(&self) -> &Option<Box<PostProcessContext>> {
+		&self.post_process
+	}
+	fn get_post_mut(&mut self) -> &mut Option<Box<PostProcessContext>> {
+		&mut self.post_process
+	}
+	fn set_post(&mut self, v: Option<Box<PostProcessContext>>) {
+		self.post_process = v;
+	}
+}
+
+pub trait PostProcessObj {
+	fn get_post(&self) -> &Option<Box<PostProcessContext>>;
+	fn get_post_mut(&mut self) -> &mut Option<Box<PostProcessContext>>;
+	fn set_post(&mut self, v: Option<Box<PostProcessContext>>);
 }
 
 /// 渲染上下文
@@ -448,20 +469,20 @@ impl RenderObjs {
     }
 
     pub unsafe fn remove_unchecked(&mut self, id: usize, notify: Option<&NotifyImpl>) {
-        self.0.remove(id);
-        match notify {
+		match notify {
             Some(n) => n.delete_event(id),
             _ => (),
         };
+        self.0.remove(id);
     }
 
     pub fn remove(&mut self, id: usize, notify: Option<&NotifyImpl>) {
         if self.0.contains(id) {
-            self.0.remove(id);
-            match notify {
+			match notify {
                 Some(n) => n.delete_event(id),
                 _ => (),
             };
+            self.0.remove(id);
         }
     }
 	pub fn get_write<'a>(
@@ -606,6 +627,7 @@ impl IdTree {
 		};
 		IdTree::notify_move(id, r.1, notify);
 		self.remove(id, r);
+		// log::warn!("remove is some========:{:?}", self.get(id).is_some());
 		Some(id)
 	}
 

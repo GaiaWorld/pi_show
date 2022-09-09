@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 
 use atom::Atom;
 use data_view::GetView;
-use ecs::LendMut;
+use ecs::{LendMut, Lend};
 use gui::component::user::*;
 use gui::font::font_sheet::{FontSheet, Glyph, TexFont};
 use hal_core::*;
@@ -30,6 +30,21 @@ macro_rules! set_attr {
             r.$name.$name1 = value;
             attr.get_notify_ref().modify_event(node_id, $name2, 0);
         }
+    };
+}
+
+#[macro_use()]
+macro_rules! get_attr {
+    ($world:ident, $node_id:ident, $name:ident, $name1:ident, $name2: expr, $key: ident) => {
+		{
+			let node_id = $node_id as usize;
+			let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
+			let attr = world.gui.$key.lend();
+			$crate::paste::item! {
+				let r = &attr[node_id];
+				&r.$name.$name1
+			}
+		}
     };
 }
 
@@ -309,6 +324,20 @@ pub fn set_font_size(world: u32, node_id: u32, value: f32) {
         FontSize::Length(value),
         text_style
     );
+}
+
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_font_size(world: u32, node_id: u32) -> JsValue {
+    let r = get_attr!(
+        world,
+        node_id,
+        font,
+        size,
+        "font_size",
+        text_style
+    );
+	JsValue::from_serde(r).unwrap()
 }
 
 /// 设置字体尺寸的百分比

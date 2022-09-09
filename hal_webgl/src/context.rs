@@ -890,7 +890,7 @@ impl HalContext for WebglHalContext {
 		context.state_machine.reset_geometry();
 	}
     
-	fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) {
+	fn render_draw(&self, geometry: &HalGeometry, pp: &Share<dyn ProgramParamter>) -> Result<(), String> {
         let context = convert_to_mut(self.0.as_ref());
 
         let program = context.state_machine.get_curr_program();
@@ -907,7 +907,7 @@ impl HalContext for WebglHalContext {
             pp,
             &mut context.texture_slab,
             &mut context.sampler_slab,
-        );
+        )?;
 
         #[cfg(feature = "frame_stat")]
         context.stat.add_texture_change(_count);
@@ -919,7 +919,7 @@ impl HalContext for WebglHalContext {
         ) {
 			Some(r) => r,
 			None => {
-				log::error!("geometry not found");
+				log::error!("geometry not found, index:{}, use_count:{}", geometry.item.index, geometry.item.use_count);
 				panic!();
 			}
 		};
@@ -936,6 +936,8 @@ impl HalContext for WebglHalContext {
 
         #[cfg(feature = "frame_stat")]
         context.stat.add_draw_call();
+
+		Ok(())
     }
 }
 

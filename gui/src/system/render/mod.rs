@@ -10,6 +10,10 @@ mod charblock;
 mod clip;
 mod render_context;
 pub mod res_release;
+pub mod blur;
+pub mod opacity;
+pub mod mask_texture;
+pub mod gassu_blur;
 
 
 

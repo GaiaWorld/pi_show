@@ -1,13 +1,13 @@
 /// 解析字符串格式的样式
 use std::mem::transmute;
-use std::str::FromStr;
 use std::result::Result;
+use std::str::FromStr;
 
 use smallvec::SmallVec;
 
 use atom::Atom;
-use hash::XHashMap;
 use flex_layout::*;
+use hash::XHashMap;
 use nalgebra::Field;
 use serde::de::value;
 
@@ -113,16 +113,14 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "background-color" => {
             class
                 .attrs3
-                .push(Attribute3::BGColor(BackgroundColor(Color::RGBA(
-                    parse_color_string(value)?,
-                ))));
+                .push(Attribute3::BGColor(BackgroundColor(Color::RGBA(parse_color_string(value)?))));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
         }
         "background" => {
             if value.starts_with("linear-gradient") {
-                class.attrs3.push(Attribute3::BGColor(BackgroundColor(
-                    parse_linear_gradient_color_string(value)?,
-                )));
+                class
+                    .attrs3
+                    .push(Attribute3::BGColor(BackgroundColor(parse_linear_gradient_color_string(value)?)));
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             } else {
                 log::warn!("background err: {}", value);
@@ -131,32 +129,26 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
 
         "border-color" => {
-            class
-                .attrs3
-                .push(Attribute3::BorderColor(BorderColor(parse_color_string(
-                    value,
-                )?)));
+            class.attrs3.push(Attribute3::BorderColor(BorderColor(parse_color_string(value)?)));
             class.class_style_mark |= StyleType::BorderColor as usize;
         }
         "box-shadow" => {
-            class
-                .attrs3
-                .push(Attribute3::BoxShadow(parse_box_shadow(value)?));
+            class.attrs3.push(Attribute3::BoxShadow(parse_box_shadow(value)?));
             class.class_style_mark |= StyleType::BoxShadow as usize;
         }
 
         "background-image" => {
-			if value.starts_with("linear-gradient") {
-                class.attrs3.push(Attribute3::BGColor(BackgroundColor(
-                    parse_linear_gradient_color_string(value)?,
-                )));
+            if value.starts_with("linear-gradient") {
+                class
+                    .attrs3
+                    .push(Attribute3::BGColor(BackgroundColor(parse_linear_gradient_color_string(value)?)));
                 class.class_style_mark |= StyleType::BackgroundColor as usize;
             } else {
-				class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?.get_hash()));
-				class.class_style_mark |= StyleType::Image as usize;
-			}
-		}
-		"image-clip" => {
+                class.attrs2.push(Attribute2::ImageUrl(parse_url(value)?.get_hash()));
+                class.class_style_mark |= StyleType::Image as usize;
+            }
+        }
+        "image-clip" => {
             class.attrs3.push(Attribute3::ImageClip(unsafe {
                 transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
             }));
@@ -169,16 +161,17 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::BackgroundColor as usize;
         }
         "object-fit" => {
-            class
-                .attrs1
-                .push(Attribute1::ObjectFit(ObjectFit(parse_object_fit(value)?)));
+            class.attrs1.push(Attribute1::ObjectFit(parse_object_fit(value)?));
+            class.class_style_mark |= StyleType::ObjectFit as usize;
+        }
+        "background-repeat" => {
+            let ty = parse_border_image_repeat(value)?;
+            class.attrs1.push(Attribute1::BackgroundRepeat((ty, ty)));
             class.class_style_mark |= StyleType::ObjectFit as usize;
         }
 
         "border-image" => {
-            class
-                .attrs2
-                .push(Attribute2::BorderImageUrl(parse_url(value)?.get_hash()));
+            class.attrs2.push(Attribute2::BorderImageUrl(parse_url(value)?.get_hash()));
             class.class_style_mark |= StyleType::BorderImage as usize;
         }
         "border-image-clip" => {
@@ -188,66 +181,52 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::BorderImageClip as usize;
         }
         "border-image-slice" => {
-            class
-                .attrs3
-                .push(Attribute3::BorderImageSlice(parse_border_image_slice(
-                    value,
-                )?));
+            class.attrs3.push(Attribute3::BorderImageSlice(parse_border_image_slice(value)?));
             class.class_style_mark |= StyleType::BorderImageSlice as usize;
         }
         "border-image-repeat" => {
             let ty = parse_border_image_repeat(value)?;
-            class
-                .attrs2
-                .push(Attribute2::BorderImageRepeat(BorderImageRepeat(ty, ty)));
+            class.attrs2.push(Attribute2::BorderImageRepeat(BorderImageRepeat(ty, ty)));
             class.class_style_mark |= StyleType::BackgroundColor as usize;
-		}
-		"mask-image" => {
-			if value.starts_with("linear-gradient") {
-				class.attrs2.push(Attribute2::MaskImage(MaskImage::LinearGradient(
-                    parse_linear_gradient_color(value)?
-                )));
-			} else {
-				class.attrs2.push(Attribute2::MaskImage(MaskImage::Path(parse_url(value)?.get_hash())));
-			}
-			class.class_style_mark1 |= StyleType1::MaskImage as usize;
-		}
-		"mask-image-clip" => {
+        }
+        "mask-image" => {
+            if value.starts_with("linear-gradient") {
+                class
+                    .attrs2
+                    .push(Attribute2::MaskImage(MaskImage::LinearGradient(parse_linear_gradient_color(value)?)));
+            } else {
+                class.attrs2.push(Attribute2::MaskImage(MaskImage::Path(parse_url(value)?.get_hash())));
+            }
+            class.class_style_mark1 |= StyleType1::MaskImage as usize;
+        }
+        "mask-image-clip" => {
             class.attrs3.push(Attribute3::MaskImageClip(unsafe {
                 transmute(f32_4_to_aabb(parse_percent_to_f32_4(value, " ")?))
             }));
             class.class_style_mark1 |= StyleType1::MaskImageClip as usize;
         }
-		"blend-mode" => {
+        "blend-mode" => {
             class.attrs2.push(Attribute2::BlendMode(parse_blend_mode(value)?));
             class.class_style_mark1 |= StyleType1::MaskImageClip as usize;
         }
-		"text-gradient" => {
-			class.attrs3.push(Attribute3::Color(parse_linear_gradient_color_string(value)?));
-			class.class_style_mark |= StyleType::Color as usize;
-		}
+        "text-gradient" => {
+            class.attrs3.push(Attribute3::Color(parse_linear_gradient_color_string(value)?));
+            class.class_style_mark |= StyleType::Color as usize;
+        }
         "color" => {
-            class
-                .attrs3
-                .push(Attribute3::Color(Color::RGBA(parse_color_string(value)?)));
+            class.attrs3.push(Attribute3::Color(Color::RGBA(parse_color_string(value)?)));
             class.class_style_mark |= StyleType::Color as usize;
         }
         "letter-spacing" => {
-            class
-                .attrs2
-                .push(Attribute2::LetterSpacing(parse_px(value)?));
+            class.attrs2.push(Attribute2::LetterSpacing(parse_px(value)?));
             class.class_style_mark |= StyleType::LetterSpacing as usize;
         }
         "line-height" => {
-            class
-                .attrs2
-                .push(Attribute2::LineHeight(parse_line_height(value)?));
+            class.attrs2.push(Attribute2::LineHeight(parse_line_height(value)?));
             class.class_style_mark |= StyleType::LineHeight as usize;
         }
         "text-align" => {
-            class
-                .attrs1
-                .push(Attribute1::TextAlign(parse_text_align(value)?));
+            class.attrs1.push(Attribute1::TextAlign(parse_text_align(value)?));
             class.class_style_mark |= StyleType::TextAlign as usize;
         }
         "text-indent" => {
@@ -255,16 +234,12 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::Indent as usize;
         }
         "text-shadow" => {
-            class
-                .attrs3
-                .push(Attribute3::TextShadow(parse_text_shadow(value)?));
+            class.attrs3.push(Attribute3::TextShadow(parse_text_shadow(value)?));
             class.class_style_mark |= StyleType::TextShadow as usize;
         }
         // "vertical-align" => show_attr.push(Attribute::Color( Color::RGBA(parse_color_string(value)?) )),
         "white-space" => {
-            class
-                .attrs1
-                .push(Attribute1::WhiteSpace(pasre_white_space(value)?));
+            class.attrs1.push(Attribute1::WhiteSpace(pasre_white_space(value)?));
             class.class_style_mark |= StyleType::WhiteSpace as usize;
         }
         "word-spacing" => {
@@ -273,23 +248,17 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
 
         "text-stroke" => {
-            class
-                .attrs3
-                .push(Attribute3::TextStroke(parse_text_stroke(value)?));
+            class.attrs3.push(Attribute3::TextStroke(parse_text_stroke(value)?));
             class.class_style_mark |= StyleType::Stroke as usize;
         }
 
         // "font-style" => show_attr.push(Attribute::FontStyle( Color::RGBA(parse_color_string(value)?) )),
         "font-weight" => {
-            class
-                .attrs2
-                .push(Attribute2::FontWeight(parse_font_weight(value)?));
+            class.attrs2.push(Attribute2::FontWeight(parse_font_weight(value)?));
             class.class_style_mark |= StyleType::FontWeight as usize;
         }
         "font-size" => {
-            class
-                .attrs2
-                .push(Attribute2::FontSize(parse_font_size(value)?));
+            class.attrs2.push(Attribute2::FontSize(parse_font_size(value)?));
             class.class_style_mark |= StyleType::FontSize as usize;
         }
         "font-family" => {
@@ -299,40 +268,27 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
 
         "border-radius" => {
             let v = parse_len_or_percent(value)?;
-            class.attrs3.push(Attribute3::BorderRadius(BorderRadius {
-                x: v.clone(),
-                y: v,
-            }));
+            class.attrs3.push(Attribute3::BorderRadius(BorderRadius { x: v.clone(), y: v }));
             class.class_style_mark |= StyleType::BorderRadius as usize;
         }
         "opacity" => {
-            class
-                .attrs2
-                .push(Attribute2::Opacity(Opacity(parse_f32(value)?)));
+            class.attrs2.push(Attribute2::Opacity(Opacity(parse_f32(value)?)));
             class.class_style_mark |= StyleType::Opacity as usize;
         }
         "transform" => {
-            class
-                .attrs3
-                .push(Attribute3::TransformFunc(parse_transform(value)?));
+            class.attrs3.push(Attribute3::TransformFunc(parse_transform(value)?));
             class.class_style_mark1 |= StyleType1::Transform as usize;
         }
         "transform-origin" => {
-            class
-                .attrs3
-                .push(Attribute3::TransformOrigin(parse_transform_origin(value)?));
+            class.attrs3.push(Attribute3::TransformOrigin(parse_transform_origin(value)?));
             class.class_style_mark1 |= StyleType1::TransformOrigin as usize;
         }
         "z-index" => {
-            class
-                .attrs2
-                .push(Attribute2::ZIndex(parse_f32(value)? as isize));
+            class.attrs2.push(Attribute2::ZIndex(parse_f32(value)? as isize));
             class.class_style_mark1 |= StyleType1::ZIndex as usize;
         }
         "visibility" => {
-            class
-                .attrs1
-                .push(Attribute1::Visibility(parse_visibility(value)?));
+            class.attrs1.push(Attribute1::Visibility(parse_visibility(value)?));
             class.class_style_mark1 |= StyleType1::Visibility as usize;
         }
         "pointer-events" => {
@@ -340,21 +296,15 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark1 |= StyleType1::Enable as usize;
         }
         "display" => {
-            class
-                .attrs1
-                .push(Attribute1::Display(parse_display(value)?));
+            class.attrs1.push(Attribute1::Display(parse_display(value)?));
             class.class_style_mark1 |= StyleType1::Display as usize;
         }
         "overflow" => {
-            class
-                .attrs1
-                .push(Attribute1::Overflow(parse_overflow(value)?));
+            class.attrs1.push(Attribute1::Overflow(parse_overflow(value)?));
             class.class_style_mark1 |= StyleType1::Overflow as usize;
         }
         "overflow-y" => {
-            class
-                .attrs1
-                .push(Attribute1::Overflow(parse_overflow(value)?));
+            class.attrs1.push(Attribute1::Overflow(parse_overflow(value)?));
             class.class_style_mark1 |= StyleType1::Overflow as usize;
         }
         "width" => {
@@ -366,51 +316,35 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark2 |= StyleType2::Height as usize;
         }
         "left" => {
-            class
-                .attrs2
-                .push(Attribute2::PositionLeft(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PositionLeft(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PositionLeft as usize;
         }
         "bottom" => {
-            class
-                .attrs2
-                .push(Attribute2::PositionBottom(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PositionBottom(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PositionBottom as usize;
         }
         "right" => {
-            class
-                .attrs2
-                .push(Attribute2::PositionRight(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PositionRight(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PositionRight as usize;
         }
         "top" => {
-            class
-                .attrs2
-                .push(Attribute2::PositionTop(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PositionTop(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PositionTop as usize;
         }
         "margin-left" => {
-            class
-                .attrs2
-                .push(Attribute2::MarginLeft(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MarginLeft(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MarginLeft as usize;
         }
         "margin-bottom" => {
-            class
-                .attrs2
-                .push(Attribute2::MarginBottom(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MarginBottom(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MarginBottom as usize;
         }
         "margin-right" => {
-            class
-                .attrs2
-                .push(Attribute2::MarginRight(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MarginRight(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MarginRight as usize;
         }
         "margin-top" => {
-            class
-                .attrs2
-                .push(Attribute2::MarginTop(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MarginTop(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MarginTop as usize;
         }
         "margin" => {
@@ -419,33 +353,25 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::MarginRight(r2));
             class.attrs2.push(Attribute2::MarginBottom(r3));
             class.attrs2.push(Attribute2::MarginLeft(r4));
-			class.class_style_mark2 |= StyleType2::MarginTop as usize 
-			| StyleType2::MarginRight as usize 
-			| StyleType2::MarginBottom as usize 
-			| StyleType2::MarginLeft as usize;
+            class.class_style_mark2 |= StyleType2::MarginTop as usize
+                | StyleType2::MarginRight as usize
+                | StyleType2::MarginBottom as usize
+                | StyleType2::MarginLeft as usize;
         }
         "padding-left" => {
-            class
-                .attrs2
-                .push(Attribute2::PaddingLeft(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PaddingLeft(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PaddingLeft as usize;
         }
         "padding-bottom" => {
-            class
-                .attrs2
-                .push(Attribute2::PaddingBottom(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PaddingBottom(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PaddingBottom as usize;
         }
         "padding-right" => {
-            class
-                .attrs2
-                .push(Attribute2::PaddingRight(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PaddingRight(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PaddingRight as usize;
         }
         "padding-top" => {
-            class
-                .attrs2
-                .push(Attribute2::PaddingTop(parse_unity(value)?));
+            class.attrs2.push(Attribute2::PaddingTop(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::PaddingTop as usize;
         }
         "padding" => {
@@ -454,10 +380,10 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::PaddingRight(r2));
             class.attrs2.push(Attribute2::PaddingBottom(r3));
             class.attrs2.push(Attribute2::PaddingLeft(r4));
-			class.class_style_mark2 |= StyleType2::PaddingTop as usize
-				| StyleType2::PaddingRight as usize
-				| StyleType2::PaddingBottom as usize
-				| StyleType2::PaddingLeft as usize;
+            class.class_style_mark2 |= StyleType2::PaddingTop as usize
+                | StyleType2::PaddingRight as usize
+                | StyleType2::PaddingBottom as usize
+                | StyleType2::PaddingLeft as usize;
         }
         "border-left" => {
             let r = parse_border(value)?;
@@ -485,10 +411,10 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             let r = parse_border(value)?;
             class.attrs3.push(Attribute3::BorderColor(BorderColor(r.1)));
             class.attrs2.push(Attribute2::Border(r.0));
-			class.class_style_mark2 |= StyleType2::BorderTop as usize 
-				| StyleType2::BorderRight as usize 
-				| StyleType2::BorderBottom as usize 
-				| StyleType2::BorderLeft as usize;
+            class.class_style_mark2 |= StyleType2::BorderTop as usize
+                | StyleType2::BorderRight as usize
+                | StyleType2::BorderBottom as usize
+                | StyleType2::BorderLeft as usize;
         }
         "border-width" => {
             let [r1, r2, r3, r4] = parse_four_f32(value)?;
@@ -496,19 +422,17 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.attrs2.push(Attribute2::BorderRight(r2));
             class.attrs2.push(Attribute2::BorderBottom(r3));
             class.attrs2.push(Attribute2::BorderLeft(r4));
-            class.class_style_mark2 |= StyleType2::BorderTop as usize 
-				| StyleType2::BorderRight as usize 
-				| StyleType2::BorderBottom as usize 
-				| StyleType2::BorderLeft as usize;
+            class.class_style_mark2 |= StyleType2::BorderTop as usize
+                | StyleType2::BorderRight as usize
+                | StyleType2::BorderBottom as usize
+                | StyleType2::BorderLeft as usize;
         }
         "min-width" => {
             class.attrs2.push(Attribute2::MinWidth(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MinWidth as usize;
         }
         "min-height" => {
-            class
-                .attrs2
-                .push(Attribute2::MinHeight(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MinHeight(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MinHeight as usize;
         }
         "max-width" => {
@@ -516,15 +440,11 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark2 |= StyleType2::MaxWidth as usize;
         }
         "max-height" => {
-            class
-                .attrs2
-                .push(Attribute2::MaxHeight(parse_unity(value)?));
+            class.attrs2.push(Attribute2::MaxHeight(parse_unity(value)?));
             class.class_style_mark2 |= StyleType2::MaxHeight as usize;
         }
         "flex-basis" => {
-            class
-                .attrs2
-                .push(Attribute2::FlexBasis(parse_unity(value)?));
+            class.attrs2.push(Attribute2::FlexBasis(parse_unity(value)?));
             class.class_style_mark1 |= StyleType1::FlexBasis as usize;
         }
         "flex-shrink" => {
@@ -536,101 +456,144 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark2 |= StyleType2::FlexGrow as usize;
         }
         "position" => {
-            class
-                .attrs1
-                .push(Attribute1::PositionType(parse_yg_position_type(value)?));
+            class.attrs1.push(Attribute1::PositionType(parse_yg_position_type(value)?));
             class.class_style_mark2 |= StyleType2::PositionType as usize;
         }
         "flex-wrap" => {
-            class
-                .attrs1
-                .push(Attribute1::FlexWrap(parse_yg_wrap(value)?));
+            class.attrs1.push(Attribute1::FlexWrap(parse_yg_wrap(value)?));
             class.class_style_mark2 |= StyleType2::FlexWrap as usize;
         }
         "flex-direction" => {
-            class
-                .attrs1
-                .push(Attribute1::FlexDirection(parse_yg_direction(value)?));
+            class.attrs1.push(Attribute1::FlexDirection(parse_yg_direction(value)?));
             class.class_style_mark2 |= StyleType2::FlexDirection as usize;
         }
         "align-content" => {
-            class
-                .attrs1
-                .push(Attribute1::AlignContent(parse_yg_align_content(value)?));
+            class.attrs1.push(Attribute1::AlignContent(parse_yg_align_content(value)?));
             class.class_style_mark2 |= StyleType2::AlignContent as usize;
         }
         "align-items" => {
-            class
-                .attrs1
-                .push(Attribute1::AlignItems(parse_yg_align_items(value)?));
+            class.attrs1.push(Attribute1::AlignItems(parse_yg_align_items(value)?));
             class.class_style_mark2 |= StyleType2::AlignItems as usize;
         }
         "align-self" => {
-            class
-                .attrs1
-                .push(Attribute1::AlignSelf(parse_yg_align_self(value)?));
+            class.attrs1.push(Attribute1::AlignSelf(parse_yg_align_self(value)?));
             class.class_style_mark2 |= StyleType2::AlignSelf as usize;
         }
         "justify-content" => {
-            class
-                .attrs1
-                .push(Attribute1::JustifyContent(parse_yg_justify_content(value)?));
+            class.attrs1.push(Attribute1::JustifyContent(parse_yg_justify_content(value)?));
             class.class_style_mark2 |= StyleType2::JustifyContent as usize;
-		},
-		"filter" => {
-            class
-                .attrs3
-                .push(Attribute3::Filter(parse_filter(value)?));
-            class.class_style_mark2 |= StyleType2::JustifyContent as usize;
+        }
+        "filter" => {
+            parse_filter(value, class)?;
         }
         _ => (),
     };
     Ok(())
 }
 
-fn parse_filter(value: &str) -> Result<Filter, String>{
-	let err = Err(format!("parse_filter fail, str: {:?}", value));
-	if value.starts_with("hsi(") && value.ends_with(")") {
-		let mut iter = value[4..value.len() - 1].trim().split(",");
-		let h = match iter.next() {
-			Some(r) => parse_f32(r)?,
-			None => return err,
-		} ;
-		let s = match iter.next() {
-			Some(r) => parse_f32(r)?,
-			None => return err,
-		};
-		let i = match iter.next() {
-			Some(r) => parse_f32(r)?,
-			None => return err,
-		};
-		return Ok(trans_filter(h, s, i));
-	} else {
-		let mut hsi = Filter::default();
-		let mut i = 0;
-		loop {
-			match iter_fun(value, &mut i) {
-				Ok((n, v)) => {
-					match n {
-						"hue-rotate" => {
-							let r = parse_deg(v)?;
-							hsi.hue_rotate = if r > 180.0 {r - 360.0}else{r};
-						},
-						"saturate" => hsi.saturate = parse_percent_to_f32(v)?*100.0 - 100.0,
-						"brightness" => hsi.bright_ness = parse_percent_to_f32(v)?*100.0 - 100.0,
-						"grayscale" => hsi.saturate = -parse_percent_to_f32(v)?*100.0,
-						_ => (),
-					};
-				},
-				Err(_) => break,
-			}
-		}
-		Ok(hsi)
-	}
+fn parse_filter(value: &str, class: &mut Class) -> Result<(), String> {
+    let mut i = 0;
+    let mut hsi = Filter::default();
+    let mut hah_hsi = false;
+    let err = Err(format!("parse_filter fail, str: {:?}", value));
+    loop {
+        match iter_fun(value, &mut i) {
+            Ok((n, v)) => {
+                match n {
+                    "hue-rotate" => {
+                        let r = parse_deg(v)?;
+                        hsi.hue_rotate = if r > 180.0 { r - 360.0 } else { r };
+                        hah_hsi = true;
+                    }
+                    "saturate" => {
+                        hsi.saturate = parse_percent_to_f32(v)? * 100.0 - 100.0;
+                        hah_hsi = true;
+                    }
+                    "brightness" => {
+                        hsi.bright_ness = parse_percent_to_f32(v)? * 100.0 - 100.0;
+                        hah_hsi = true;
+                    }
+                    "grayscale" => {
+                        hsi.saturate = -parse_percent_to_f32(v)? * 100.0;
+                        hah_hsi = true;
+                    }
+                    "hsi" => {
+                        let mut iter = v.split(",");
+                        let h = match iter.next() {
+                            Some(r) => parse_f32(r.trim())?,
+                            None => return err,
+                        };
+                        let s = match iter.next() {
+                            Some(r) => parse_f32(r.trim())?,
+                            None => return err,
+                        };
+                        let i = match iter.next() {
+                            Some(r) => parse_f32(r.trim())?,
+                            None => return err,
+                        };
+                        hsi = trans_filter(h, s, i);
+                        hah_hsi = true;
+                    }
+                    "blur" => {
+                        class.attrs2.push(Attribute2::Blur(Blur(parse_f32(&v[0..v.len() - 2])?)));
+                        class.class_style_mark1 |= StyleType1::Blur as usize;
+                    }
+                    _ => (),
+                };
+            }
+            Err(_) => break,
+        }
+    }
+    if hah_hsi {
+        class.attrs3.push(Attribute3::Filter(hsi));
+        class.class_style_mark |= StyleType::Filter as usize;
+    }
+    Ok(())
 }
 
+// fn parse_filter(value: &str) -> Result<Filter, String>{
+// 	let err = Err(format!("parse_filter fail, str: {:?}", value));
+// 	if value.starts_with("hsi(") && value.ends_with(")") {
+// 		let mut iter = value[4..value.len() - 1].trim().split(",");
+// 		let h = match iter.next() {
+// 			Some(r) => parse_f32(r)?,
+// 			None => return err,
+// 		} ;
+// 		let s = match iter.next() {
+// 			Some(r) => parse_f32(r)?,
+// 			None => return err,
+// 		};
+// 		let i = match iter.next() {
+// 			Some(r) => parse_f32(r)?,
+// 			None => return err,
+// 		};
+// 		return Ok(trans_filter(h, s, i));
+// 	} else {
+// 		let mut hsi = Filter::default();
+// 		let mut i = 0;
+// 		loop {
+// 			match iter_fun(value, &mut i) {
+// 				Ok((n, v)) => {
+// 					match n {
+// 						"hue-rotate" => {
+// 							let r = parse_deg(v)?;
+// 							hsi.hue_rotate = if r > 180.0 {r - 360.0}else{r};
+// 						},
+// 						"saturate" => hsi.saturate = parse_percent_to_f32(v)?*100.0 - 100.0,
+// 						"brightness" => hsi.bright_ness = parse_percent_to_f32(v)?*100.0 - 100.0,
+// 						"grayscale" => hsi.saturate = -parse_percent_to_f32(v)?*100.0,
+// 						_ => (),
+// 					};
+// 				},
+// 				Err(_) => break,
+// 			}
+// 		}
+// 		Ok(hsi)
+// 	}
+// }
+
 fn trans_filter(mut h: f32, mut s: f32, mut i: f32) -> Filter {
-	if h > 180.0 {
+    if h > 180.0 {
         h = 180.0;
     } else if h < -180.0 {
         h = -180.0
@@ -649,7 +612,7 @@ fn trans_filter(mut h: f32, mut s: f32, mut i: f32) -> Filter {
         hue_rotate: h / 360.0,
         saturate: s / 100.0,
         bright_ness: i / 100.0,
-	};
+    };
 }
 
 fn parse_enable(value: &str) -> Result<EnableType, String> {
@@ -718,9 +681,7 @@ fn parse_linear_gradient_color(value: &str) -> Result<LinearGradientColor, Strin
                 parser_color_stop(first, &mut list, &mut color.list, &mut pre_percent)?;
             }
         }
-        None =>  {
-			return Ok(color)
-		},
+        None => return Ok(color),
     };
 
     for value in iter {
@@ -733,12 +694,7 @@ fn parse_linear_gradient_color(value: &str) -> Result<LinearGradientColor, Strin
     Ok(color)
 }
 
-fn parser_color_stop(
-    value: &str,
-    list: &mut Vec<CgColor>,
-    color_stop: &mut Vec<ColorAndPosition>,
-    pre_percent: &mut f32,
-) -> Result<(), String> {
+fn parser_color_stop(value: &str, list: &mut Vec<CgColor>, color_stop: &mut Vec<ColorAndPosition>, pre_percent: &mut f32) -> Result<(), String> {
     if value.ends_with("%") {
         if let Some(index) = value.find(" ") {
             let r = value.split_at(index);
@@ -748,13 +704,7 @@ fn parser_color_stop(
                 Err(e) => return Err(e.to_string()),
             };
             let v = v / 100.0;
-            return parser_color_stop_last(
-                v,
-                list,
-                color_stop,
-                pre_percent,
-                Some(parse_color_string(r.0.trim())?),
-            );
+            return parser_color_stop_last(v, list, color_stop, pre_percent, Some(parse_color_string(r.0.trim())?));
         }
     }
     list.push(parse_color_string(value.trim())?);
@@ -793,9 +743,7 @@ fn parse_f32_3(value: &str, split: &str) -> Result<[f32; 3], String> {
     Ok(r)
 }
 
-fn f32_4_to_aabb(value: [f32; 4]) -> [f32; 4]{
-	return [value[3], value[0], value[1], value[2]];
-}
+fn f32_4_to_aabb(value: [f32; 4]) -> [f32; 4] { return [value[3], value[0], value[1], value[2]]; }
 
 fn parse_percent_to_f32_4(value: &str, split: &str) -> Result<[f32; 4], String> {
     let mut r = Vec::new();
@@ -851,10 +799,7 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
     let mut i = 0;
     for v in value.split(" ") {
         if i > 4 {
-            return Err(format!(
-                "parse_border_image_slice error, value: {:?}",
-                value
-            ));
+            return Err(format!("parse_border_image_slice error, value: {:?}", value));
         }
         let v = v.trim();
         match v {
@@ -887,14 +832,14 @@ fn parse_border_image_slice(value: &str) -> Result<BorderImageSlice, String> {
 }
 
 fn parse_blend_mode(value: &str) -> Result<BlendMode, String> {
-	match value {
-		"normal" => Ok(BlendMode::Normal),
-		"alpha-add" => Ok(BlendMode::AlphaAdd),
-		"subtract" => Ok(BlendMode::Subtract),
-		"multiply" => Ok(BlendMode::Multiply),
-		"one-one" => Ok(BlendMode::OneOne),
+    match value {
+        "normal" => Ok(BlendMode::Normal),
+        "alpha-add" => Ok(BlendMode::AlphaAdd),
+        "subtract" => Ok(BlendMode::Subtract),
+        "multiply" => Ok(BlendMode::Multiply),
+        "one-one" => Ok(BlendMode::OneOne),
         _ => Err(format!("parse_blend_mode error, value: {}, please modify to: normal | screen", value)),
-	}
+    }
 }
 
 fn parse_font_weight(value: &str) -> Result<f32, String> {
@@ -937,7 +882,7 @@ fn parse_text_align(value: &str) -> Result<TextAlign, String> {
 
 fn parse_yg_align_items(value: &str) -> Result<AlignItems, String> {
     match value {
-		// "auto" => Ok(AlignItems::Auto),
+        // "auto" => Ok(AlignItems::Auto),
         "flex-start" => Ok(AlignItems::FlexStart),
         "center" => Ok(AlignItems::Center),
         "flex-end" => Ok(AlignItems::FlexEnd),
@@ -949,7 +894,7 @@ fn parse_yg_align_items(value: &str) -> Result<AlignItems, String> {
 
 fn parse_yg_align_self(value: &str) -> Result<AlignSelf, String> {
     match value {
-		// "auto" => Ok(AlignItems::Auto),
+        // "auto" => Ok(AlignItems::Auto),
         "flex-start" => Ok(AlignSelf::FlexStart),
         "center" => Ok(AlignSelf::Center),
         "flex-end" => Ok(AlignSelf::FlexEnd),
@@ -961,7 +906,7 @@ fn parse_yg_align_self(value: &str) -> Result<AlignSelf, String> {
 
 fn parse_yg_align_content(value: &str) -> Result<AlignContent, String> {
     match value {
-		// "auto" => Ok(AlignItems::Auto),
+        // "auto" => Ok(AlignItems::Auto),
         "flex-start" => Ok(AlignContent::FlexStart),
         "center" => Ok(AlignContent::Center),
         "flex-end" => Ok(AlignContent::FlexEnd),
@@ -1042,60 +987,60 @@ fn parse_font_size(value: &str) -> Result<FontSize, String> {
     }
 }
 
-pub fn parse_text_shadow(value: &str) -> Result<SmallVec<[TextShadow;1]>, String> {
+pub fn parse_text_shadow(value: &str) -> Result<SmallVec<[TextShadow; 1]>, String> {
     let mut i = 0;
-	let mut arr = SmallVec::default();
-	
-	loop {
-		parse_text_shadow1(value, &mut arr, &mut i)?;
-		if i >= value.len() {
-			break;
-		}
-	}
+    let mut arr = SmallVec::default();
 
-	return Ok(arr)
+    loop {
+        parse_text_shadow1(value, &mut arr, &mut i)?;
+        if i >= value.len() {
+            break;
+        }
+    }
+
+    return Ok(arr);
 }
 
-fn parse_text_shadow1(value: &str, arr: &mut SmallVec<[TextShadow;1]>, i: &mut usize) -> Result<(), String> {
+fn parse_text_shadow1(value: &str, arr: &mut SmallVec<[TextShadow; 1]>, i: &mut usize) -> Result<(), String> {
     let mut shadow = TextShadow::default();
-	let mut px = Vec::with_capacity(3);
+    let mut px = Vec::with_capacity(3);
 
-	loop {
-		match parse_color_string1(value, i) {
-			Ok(r) => shadow.color = r,
-			Err(_) => {
-				*i = next_no_empty(value, *i);
-				let mut r = iter_by(value, i, &[",", " "]);
-				if let Ok(r) = r {
-					if let Ok(r) = parse_px(r) {
-						px.push(r);
-						continue;
-					}
-					
-					*i = *i - r.len();
-				}
-				break;
-			},
-		}
-	}
+    loop {
+        match parse_color_string1(value, i) {
+            Ok(r) => shadow.color = r,
+            Err(_) => {
+                *i = next_no_empty(value, *i);
+                let mut r = iter_by(value, i, &[",", " "]);
+                if let Ok(r) = r {
+                    if let Ok(r) = parse_px(r) {
+                        px.push(r);
+                        continue;
+                    }
 
-	if px.len() > 0 {
-		shadow.h = px[0];
-	}
-	if px.len() > 1 {
-		shadow.v = px[1];
-	}
-	if px.len() > 2 {
-		shadow.blur = px[2];
-	}
+                    *i = *i - r.len();
+                }
+                break;
+            }
+        }
+    }
 
-	arr.push(shadow);
+    if px.len() > 0 {
+        shadow.h = px[0];
+    }
+    if px.len() > 1 {
+        shadow.v = px[1];
+    }
+    if px.len() > 2 {
+        shadow.blur = px[2];
+    }
 
-	while (*i < value.len() - 1 && (&value[*i..*i+1] == "," || &value[*i..*i+1] == " " || &value[*i..*i+1] == "	")) {
-		*i = *i + 1;
-	}
+    arr.push(shadow);
 
-	Ok(())
+    while (*i < value.len() - 1 && (&value[*i..*i + 1] == "," || &value[*i..*i + 1] == " " || &value[*i..*i + 1] == "	")) {
+        *i = *i + 1;
+    }
+
+    Ok(())
 }
 
 fn parse_box_shadow(value: &str) -> Result<BoxShadow, String> {
@@ -1118,11 +1063,7 @@ fn parse_box_shadow(value: &str) -> Result<BoxShadow, String> {
     Ok(shadow)
 }
 
-fn parse_box_shadow_number(
-    value: &str,
-    i: &mut usize,
-    shadow: &mut BoxShadow,
-) -> Result<(), String> {
+fn parse_box_shadow_number(value: &str, i: &mut usize, shadow: &mut BoxShadow) -> Result<(), String> {
     shadow.h = parse_px(iter_by_space(value, i)?)?;
     shadow.v = parse_px(iter_by_space(value, i)?)?;
     let j = *i;
@@ -1227,16 +1168,9 @@ fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String> 
         "translate" => {
             let r = parse_len_or_percent_2(value, ",")?;
             match (r[0], r[1]) {
-                (LengthUnit::Percent(r), LengthUnit::Percent(r1)) => {
-                    TransformFunc::TranslatePercent(r, r1)
-                }
+                (LengthUnit::Percent(r), LengthUnit::Percent(r1)) => TransformFunc::TranslatePercent(r, r1),
                 (LengthUnit::Pixel(r), LengthUnit::Pixel(r1)) => TransformFunc::Translate(r, r1),
-                _ => {
-                    return Err(format!(
-                        "parse_transform_fun error, key: {}, value: {}",
-                        key, value
-                    ))
-                }
+                _ => return Err(format!("parse_transform_fun error, key: {}, value: {}", key, value)),
             }
         }
         "translateX" => {
@@ -1254,12 +1188,7 @@ fn parse_transform_fun(key: &str, value: &str) -> Result<TransformFunc, String> 
             }
         }
         "rotate" | "rotateZ" => TransformFunc::RotateZ(parse_deg(value)?),
-        _ => {
-            return Err(format!(
-                "parse_transform_fun error, key: {}, value: {}",
-                key, value
-            ))
-        }
+        _ => return Err(format!("parse_transform_fun error, key: {}, value: {}", key, value)),
     };
     Ok(r)
 }
@@ -1285,25 +1214,25 @@ fn iter_by_space<'a, 'b>(value: &'a str, i: &'b mut usize) -> Result<&'a str, St
     Ok(pre)
 }
 
-fn iter_by<'a, 'b>(value: &'a str, i: &'b mut usize,s: &[&str]) -> Result<&'a str, String> {
+fn iter_by<'a, 'b>(value: &'a str, i: &'b mut usize, s: &[&str]) -> Result<&'a str, String> {
     let value = &value[*i..];
 
-	let mut first = std::usize::MAX;
-	for ss in s.iter() {
-		first = first.min( match value.find(*ss) {
-			Some(r) => r,
-			None => continue,
-		});
-	}
+    let mut first = std::usize::MAX;
+    for ss in s.iter() {
+        first = first.min(match value.find(*ss) {
+            Some(r) => r,
+            None => continue,
+        });
+    }
 
-	if first == std::usize::MAX {
-		if value.len() == 0 {
-			return Err("".to_string());
-		} else {
-			*i += value.len();
-			return Ok(value);
-		}
-	}
+    if first == std::usize::MAX {
+        if value.len() == 0 {
+            return Err("".to_string());
+        } else {
+            *i += value.len();
+            return Ok(value);
+        }
+    }
 
     *i += first;
     let pre = &value[0..first];
@@ -1356,7 +1285,7 @@ fn parser_color_stop_last(
 ) -> Result<(), String> {
     if list.len() > 0 {
         if color_stop.len() != 0 {
-			let pos = (v - *pre_percent) / list.len() as f32;
+            let pos = (v - *pre_percent) / list.len() as f32;
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * (i + 1) as f32,
@@ -1364,11 +1293,11 @@ fn parser_color_stop_last(
                 });
             }
         } else {
-			let pos = if list.len() == 1 {
-				0.0
-			} else {
-				(v - *pre_percent) / (list.len() as f32 - 1.0)
-			};
+            let pos = if list.len() == 1 {
+                0.0
+            } else {
+                (v - *pre_percent) / (list.len() as f32 - 1.0)
+            };
             for i in 0..list.len() {
                 color_stop.push(ColorAndPosition {
                     position: *pre_percent + pos * i as f32,
@@ -1392,12 +1321,7 @@ fn parser_color_stop_last(
 fn parse_color_string(value: &str) -> Result<CgColor, String> {
     macro_rules! rgb {
         ($red: expr, $green: expr, $blue: expr) => {
-            CgColor::new(
-                $red as f32 / 255.0,
-                $green as f32 / 255.0,
-                $blue as f32 / 255.0,
-                1.0,
-            )
+            CgColor::new($red as f32 / 255.0, $green as f32 / 255.0, $blue as f32 / 255.0, 1.0)
         };
     }
     let color = match value {
@@ -1564,53 +1488,48 @@ fn parse_color_string(value: &str) -> Result<CgColor, String> {
                 return Err(format!("parse color err: '{}'", value));
             }
         }
-	};
+    };
     Ok(color)
 }
 
 fn next_no_empty(value: &str, mut i: usize) -> usize {
-	while i < value.len() {
-		let r = &value[i..i+1];
-		if r == " " || r == "	" {
-			 i+= 1;
-		} else {
-			return i;
-		}
-	}
-	return i;
+    while i < value.len() {
+        let r = &value[i..i + 1];
+        if r == " " || r == "	" {
+            i += 1;
+        } else {
+            return i;
+        }
+    }
+    return i;
 }
 
 fn next_empty(value: &str, mut i: usize) -> usize {
-	while i < value.len() {
-		let r = &value[i..i+1];
-		if r == " " || r == "	" {
-			return i;
-		} else {
-			i += 1;
-		}
-	}
-	return i;
+    while i < value.len() {
+        let r = &value[i..i + 1];
+        if r == " " || r == "	" {
+            return i;
+        } else {
+            i += 1;
+        }
+    }
+    return i;
 }
 
 fn parse_color_string1(value: &str, i: &mut usize) -> Result<CgColor, String> {
     macro_rules! rgb {
         ($red: expr, $green: expr, $blue: expr) => {
-            CgColor::new(
-                $red as f32 / 255.0,
-                $green as f32 / 255.0,
-                $blue as f32 / 255.0,
-                1.0,
-            )
+            CgColor::new($red as f32 / 255.0, $green as f32 / 255.0, $blue as f32 / 255.0, 1.0)
         };
     }
-	let start = next_no_empty(value, *i);
-	if start >= value.len() {
-		return Err(String::from_str("").unwrap());
-	}
+    let start = next_no_empty(value, *i);
+    if start >= value.len() {
+        return Err(String::from_str("").unwrap());
+    }
 
-	let mut end = next_empty(value, start);
+    let mut end = next_empty(value, start);
 
-	let value1 = &value[start..end];
+    let value1 = &value[start..end];
     let color = match value1 {
         "black" => rgb!(0, 0, 0),
         "silver" => rgb!(192, 192, 192),
@@ -1765,22 +1684,20 @@ fn parse_color_string1(value: &str, i: &mut usize) -> Result<CgColor, String> {
         "transparent" => rgba(0, 0, 0, 0.0),
         _ => {
             if value1.starts_with("#") {
-               	parse_color_hex(&value[(start+ 1)..])?
+                parse_color_hex(&value1[1..])?
             } else if value1.starts_with("rgb") {
-				end = start;
-                match iter_fun(value, &mut end) {
-                    Ok((n, v)) => {
-						parse_color_fun(n, v)?
-					},
+                let mut i = 0;
+                match iter_fun(value1, &mut i) {
+                    Ok((n, v)) => parse_color_fun(n, v)?,
                     Err(_) => return Err(format!("parse color err: '{}'", value)),
                 }
             } else {
                 return Err(format!("parse color err: '{}'", value));
             }
         }
-	};
+    };
 
-	*i = end;
+    *i = end;
     Ok(color)
 }
 
@@ -1804,7 +1721,7 @@ fn parse_four_f32(value: &str) -> Result<[Dimension; 4], String> {
 }
 
 fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
-	let r = if arr.len() == 1 {
+    let r = if arr.len() == 1 {
         let v = arr[0];
         Ok([v, v, v, v])
     } else if arr.len() == 2 {
@@ -1817,16 +1734,11 @@ fn to_four_f32(arr: &Vec<f32>) -> Result<[f32; 4], String> {
         let v2 = arr[2];
         Ok([v, v1, v2, v1])
     } else if arr.len() == 4 {
-        Ok([
-            arr[0],
-            arr[1],
-            arr[2],
-            arr[3],
-        ])
+        Ok([arr[0], arr[1], arr[2], arr[3]])
     } else {
         Err(format!("to_four_f32 error"))
-	};
-	r
+    };
+    r
 }
 
 fn to_four(arr: Vec<&str>) -> Result<[Dimension; 4], String> {
@@ -1843,12 +1755,7 @@ fn to_four(arr: Vec<&str>) -> Result<[Dimension; 4], String> {
         let v2 = parse_unity(arr[2])?;
         [v, v1.clone(), v2, v1]
     } else if arr.len() == 4 {
-        [
-            parse_unity(arr[0])?,
-            parse_unity(arr[1])?,
-            parse_unity(arr[2])?,
-            parse_unity(arr[3])?,
-        ]
+        [parse_unity(arr[0])?, parse_unity(arr[1])?, parse_unity(arr[2])?, parse_unity(arr[3])?]
     } else {
         return Err(format!("to_four error"));
     };
@@ -1861,7 +1768,7 @@ fn parse_unity(value: &str) -> Result<Dimension, String> {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
-        Ok(Dimension::Percent(v/100.0))
+        Ok(Dimension::Percent(v / 100.0))
     } else if value == "auto" {
         Ok(Dimension::Auto)
     } else if value.ends_with("px") {
@@ -1893,15 +1800,15 @@ fn parse_len_or_percent_2(value: &str, split: &str) -> Result<[LengthUnit; 2], S
 }
 
 fn parse_percent_to_f32(value: &str) -> Result<f32, String> {
-	if value.ends_with("%") {
+    if value.ends_with("%") {
         let v = match f32::from_str(&value[..value.len() - 1]) {
             Ok(r) => r,
             Err(e) => return Err(e.to_string()),
         };
         Ok(v / 100.0)
     } else {
-		Err("parse_len_or_percent error".to_string())
-	}
+        Err("parse_len_or_percent error".to_string())
+    }
 }
 
 fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {
@@ -1969,10 +1876,7 @@ fn parse_url(value: &str) -> Result<Atom, String> {
         return Err(format!("parse_url error, {}", value));
     }
     let value = value[4..value.len() - 1].trim();
-    if value.len() > 2
-        && ((value.starts_with("'") && value.ends_with("'"))
-            || (value.starts_with("\"") && value.ends_with("\"")))
-    {
+    if value.len() > 2 && ((value.starts_with("'") && value.ends_with("'")) || (value.starts_with("\"") && value.ends_with("\""))) {
         Ok(Atom::from(&value[1..value.len() - 1]))
     } else {
         Ok(Atom::from(&value[1..value.len() - 1]))
@@ -1997,12 +1901,7 @@ fn parse_border_image_repeat(value: &str) -> Result<BorderImageRepeatType, Strin
         "repeat" => BorderImageRepeatType::Repeat,
         "round" => BorderImageRepeatType::Round,
         "space" => BorderImageRepeatType::Space,
-        _ => {
-            return Err(format!(
-                "parse_border_image_repeat error, value: {:?}",
-                value
-            ))
-        }
+        _ => return Err(format!("parse_border_image_repeat error, value: {:?}", value)),
     };
     Ok(r)
 }
@@ -2017,12 +1916,7 @@ fn parse_color_fun(key: &str, value: &str) -> Result<CgColor, String> {
             let r = parse_f32_3(value, ",")?;
             rgb(r[0] as u8, r[1] as u8, r[2] as u8)
         }
-        _ => {
-            return Err(format!(
-                "parse_color_fun error, key: {}, value: {}",
-                key, value
-            ))
-        }
+        _ => return Err(format!("parse_color_fun error, key: {}, value: {}", key, value)),
     };
     Ok(r)
 }
@@ -2048,33 +1942,14 @@ fn parse_color_hex(value: &str) -> Result<CgColor, String> {
             from_hex(value[2])? * 17,
             (from_hex(value[3])? * 17) as f32 / 255.0,
         )),
-        3 => Ok(rgba(
-            from_hex(value[0])? * 17,
-            from_hex(value[1])? * 17,
-            from_hex(value[2])? * 17,
-            1.0,
-        )),
+        3 => Ok(rgba(from_hex(value[0])? * 17, from_hex(value[1])? * 17, from_hex(value[2])? * 17, 1.0)),
         _ => Err("".to_string()),
     }
 }
 
-fn rgba(red: u8, green: u8, blue: u8, alpha: f32) -> CgColor {
-    CgColor::new(
-        red as f32 / 255.0,
-        green as f32 / 255.0,
-        blue as f32 / 255.0,
-        alpha,
-    )
-}
+fn rgba(red: u8, green: u8, blue: u8, alpha: f32) -> CgColor { CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, alpha) }
 
-fn rgb(red: u8, green: u8, blue: u8) -> CgColor {
-    CgColor::new(
-        red as f32 / 255.0,
-        green as f32 / 255.0,
-        blue as f32 / 255.0,
-        1.0,
-    )
-}
+fn rgb(red: u8, green: u8, blue: u8) -> CgColor { CgColor::new(red as f32 / 255.0, green as f32 / 255.0, blue as f32 / 255.0, 1.0) }
 
 fn from_hex(c: u8) -> Result<u8, String> {
     match c {
@@ -2092,7 +1967,7 @@ pub enum Attribute {
 
     ImageUrl(Atom),
     ImageClip(ImageClip),
-    ObjectFit(ObjectFit),
+    ObjectFit(BackgroundImageOption),
 
     BorderImageUrl(Atom),
     BorderImageClip(BorderImageClip),
@@ -2128,21 +2003,34 @@ pub enum Attribute {
 
 #[test]
 pub fn test() {
-	let s = ".1{
+    let s = ".1{
 		background: linear-gradient(180deg, #fff, #000);
 	}";
-	parse_class_map_from_string(s);
+    parse_class_map_from_string(s);
 
-	// .t_s_12181a_3{
-	// 	text-shadow: 0px 3px 3px #12181a;
-	//   }
-	//   .t_s_bb7be5_3{
-	// 	text-shadow: 0px 3px 3px #bb7be5;
-	//   }
-	//   .t_s_7031e4_3{
-	// 	text-shadow: 0px 3px 3px #7031e4;
-	//   }
-	let s = " 0px 3px 3px #7031e4";
-	let r = parse_text_shadow(s);
-	println!("r============{:?}", r);
+    // .t_s_12181a_3{
+    // 	text-shadow: 0px 3px 3px #12181a;
+    //   }
+    //   .t_s_bb7be5_3{
+    // 	text-shadow: 0px 3px 3px #bb7be5;
+    //   }
+    //   .t_s_7031e4_3{
+    // 	text-shadow: 0px 3px 3px #7031e4;
+    //   }
+    let s = "1px 0px 10px #af264e ,-1px 0px 10px #af264e ,0px 1px 10px #af264e ,0px -1px 10px #af264e";
+    let s = "1px 0px 10px rgb(10,10,10) ,-1px 0px 10px rgb(20,20,20) ,0px 1px 10px rgb(30,30,30) ,0px -1px 10px #af264e";
+    let r = parse_text_shadow(s);
+    println!("r============{:?}", r);
+
+
+    let s = "hsi(100, -1,-2) blur(3px)";
+    let mut class = Class::default();
+    let r = parse_filter(s, &mut class);
+    println!("test filter============{:?}", class);
 }
+
+// .bt_waifaguang_hong_30{
+//     color: #ffffff;
+//     font-size: 30px;
+//     text-shadow:1px 0px 10px #af264e,-1px 0px 10px #af264e,0px 1px 10px #af264e,0px -1px 10px #af264e;
+// }

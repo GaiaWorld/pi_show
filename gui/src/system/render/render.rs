@@ -14,13 +14,13 @@ use hal_core::*;
 use ordered_float::OrderedFloat;
 use share::Share;
 use crate::Z_MAX;
-use crate::component::user::{Aabb2, Matrix4, Point2, Vector3};
-use crate::component::calc::{WorldMatrix, RenderContext, ProjectMatrixUbo, FboParamter};
+use crate::component::user::{Aabb2, Matrix4, Point2, Vector3, Opacity};
+use crate::component::calc::{WorldMatrix, RenderContext, ProjectMatrixUbo, FboParamter, Visibility};
 use crate::entity::Node;
 
 use crate::render::engine::{Engine, ShareEngine};
 use crate::render::res::{SamplerRes, GeometryRes, BufferRes};
-use crate::single::{PreRenderList, PostProcessContext, State};
+use crate::single::{PreRenderList, PostProcessContext, State, PostProcessObj};
 use crate::single::{DirtyViewRect, IdTree, NodeRenderMap, Oct, ProjectionMatrix, RenderBegin, RenderObj, RenderObjs, Statistics, dyn_texture::DynAtlasSet};
 use crate::system::util::{cal_uv_hash, create_uv_buffer, intersect};
 
@@ -120,7 +120,8 @@ impl<C: HalContext + 'static> RenderSys<C> {
 		view_matrix: Option<&Share<dyn UniformBuffer>>,
 		// dyn_atlas_set: &DynAtlasSet,
 		// unit_geo: &HalGeometry,
-	) {
+		id: usize,
+	){
 		// if let Some(r) = obj.post_process {
 		// 	if let Some(index) = r.result {
 		// 		let target = dyn_atlas_set.get_target(index).unwrap();
@@ -138,7 +139,16 @@ impl<C: HalContext + 'static> RenderSys<C> {
 			Some(g) => g,
 		};
 
-		render1(gl, &geometry.geo, &obj.paramter, &obj.state, obj.program.as_ref().unwrap(), project_matrix, view_matrix);
+		// log::warn!("context: {}", obj.context);
+		if let Err(e) = render1(gl, &geometry.geo, &obj.paramter, &obj.state, obj.program.as_ref().unwrap(), project_matrix, view_matrix) {
+			log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
+				obj.context,
+				id,
+				obj.vs_name,
+				obj.fs_name,
+				e,
+			);
+		}
 	}
 }
 
@@ -197,14 +207,36 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			
 			if let Some(r) = render_contexts1.get_mut(id) {
 				self.render_context(base, basemut, id, parent_target,r);
-
 				let is_render = match r.render_target {
 					Some(r) => r > 0,
 					None => false
 				};
 
-				if r.render_count > 0 && is_render && is_intersect(&base.dirty_rect, oct) {
-					self.list_render_obj(base, basemut, render_context, r.render_obj_index, parent_target);
+				if r.render_count > 0 && is_render && is_intersect(&base.dirty_rect, &r.content_box) {
+					// log::info!("list===obj1==============={:?}, {:?}, {}", id, r.render_obj_index, basemut.render_objs[r.render_obj_index].context );
+
+					if r.render_count > 0 && is_render {
+						// render_post_process1
+						let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
+						let target = r.render_target.clone();
+						let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
+							let result = self.render_post_process1(base, basemut, target.unwrap(), post);
+							r.render_target = Some(0); // 它在后处理的过程中已经被释放
+							(result, &self.linner_sampler)
+						} else {
+							(r.render_target.unwrap_or(0), &self.default_sampler)
+						};
+	
+						if render_index > 0 {
+							self.set_render_result(
+								r.render_obj_index,
+								render_index,
+								sampler,
+								basemut
+							);
+						}
+						
+					}
 				}
 				continue;
 			}
@@ -236,7 +268,27 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					None => false
 				};
 				if r.render_count > 0 && is_render {
-					self.list_render_obj(base, basemut, render_context, r.render_obj_index, parent_target);
+					// render_post_process1
+					// log::info!("list===obj==============={:?}, {:?}, {}", id, r.render_obj_index, basemut.render_objs[r.render_obj_index].context );
+					let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
+					let target = r.render_target.clone();
+					let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
+						let result = self.render_post_process1(base, basemut, target.unwrap(), post);
+						r.render_target = Some(0); // 它在后处理的过程中已经被释放
+						(result, &self.linner_sampler)
+					} else {
+						(r.render_target.unwrap_or(0), &self.default_sampler)
+					};
+
+					if render_index > 0 {
+						self.set_render_result(
+							r.render_obj_index,
+							render_index,
+							sampler,
+							basemut
+						);
+					}
+					
 				}
 				continue;
 			}
@@ -259,7 +311,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		render_index: usize,
 		parent_target: usize,
 		post_process_context: &mut PostProcessContext,
-		) {
+		) -> usize {
 		let RenderBase {
 			idtree,
 			dirty_rect,
@@ -304,7 +356,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		// log::warn!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
 		if cur_render_begin.scissor.2 == 0 || cur_render_begin.scissor.3 == 0 {
 			log::info!("render_post_process fail, scissor is zero, node:{}", render_obj.context);
-			return;
+			return 0;
 		}
 		// log::info!("begine====={:?}, {:?}, id:{}, dirty_rect: {:?}", begine.viewport, begine.scissor, id, dirty_rect);
 		engine.gl.render_begin(
@@ -319,7 +371,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			UniformValue::MatrixV4(vec![1.0,0.0,0.0,0.0, 0.0,1.0,0.0,0.0, 0.0,0.0,1.0,0.0, 0.0,0.0,0.0,1.0]),
 		));
 		let project_ubo = self.get_projection_matrix(&render_rect, content_box);
-		self.render(&engine.gl, render_obj, Some(&project_ubo), Some(&view_ubo));
+		// log::info!("post render======{}, vs:{:?}", obj.context, obj.vs_name);
+		self.render(&engine.gl, render_obj, Some(&project_ubo), Some(&view_ubo), render_index);
 		self.render_count += 1;
 
 		if self.render_count > 0 { // 如果进行了一些渲染，则需要重置状态
@@ -327,9 +380,36 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			self.render_count = 0;
 		}
 
-		// log::warn!("render_post_process======================target, len:  {}", post_process_context.post_processes.len());
-		let mut source = target.unwrap();
+		self.render_post_process1(base, basemut, render_target, post_process_context)
+	}
+
+	/// 渲染后处理
+	fn render_post_process1<'b>(&mut self, 
+		base: &RenderBase<'b>, 
+		basemut: &mut RenderBaseMut<'b, C>,
+		render_target: usize, // 后处理纹理
+		post_process_context: &mut PostProcessContext,
+		) -> usize {
+		let RenderBase {
+			idtree,
+			dirty_rect,
+			is_reset,
+			render_begin,
+			render_contexts,
+			..
+		} = base;
+		let RenderBaseMut{
+			render_objs,
+			engine,
+			dyn_atlas_set
+		} = basemut;
+		let dyn_atlas_set1 = unsafe{&mut *( *dyn_atlas_set as *const DynAtlasSet as * mut DynAtlasSet)};
+
+		/// 渲染目标对象
+		let mut source = dyn_atlas_set.get_target(render_target).unwrap();
+		let mut render_rect = dyn_atlas_set.get_rect(render_target).unwrap();
 		let mut index = render_target;
+		let mut target;
 		
 		/// 对目标对象进行后处理
 		for post_processe in post_process_context.post_processes.iter_mut() {
@@ -401,7 +481,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 			let uv = update_geo(obj, engine, &uv);
 
-			if obj.program.is_none() {
+			if obj.program.is_none() || obj.program_dirty == true {
 				let program = engine.create_program(
 					obj.vs_name.get_hash() as u64,
 					obj.fs_name.get_hash() as u64,
@@ -412,6 +492,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					obj.paramter.as_ref(),
 				);
 				obj.program = Some(program);
+				obj.program_dirty == false;
 			}	
 			
 			engine.gl.render_begin(
@@ -423,7 +504,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					}
 			);
 			// uvRegion
-			render1(
+			// log::info!("post render1======{}, vs:{:?}", obj.context, obj.vs_name);
+			if let Err(e) = render1(
 				&engine.gl,
 				&obj.geometry.as_ref().unwrap(),
 				&obj.paramter,
@@ -431,7 +513,15 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				obj.program.as_ref().unwrap(),
 				None,
 				None
-			);
+			) {
+				log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
+					obj.context,
+					"post_process1",
+					obj.vs_name,
+					obj.fs_name,
+					e,
+				);
+			}
 
 			/// 释放分配（后处理分配以一些临时纹理）
 			dyn_atlas_set1.delete_rect(index);
@@ -452,18 +542,35 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		if let Some(r) = post_process_context.result {
 			dyn_atlas_set1.delete_rect(r);
 		}
+
 		post_process_context.result = Some(index);
 
-		let copy = &mut render_objs[post_process_context.copy];
-		let t = engine.gl
-					.rt_get_color(source, 0).unwrap();
-		// log::warn!("render_post_process======================end, {}", copy.geometry.is_some());
-		
-		// if render_obj.context == 314 {
-		// 	log::info!("context 314============={}, {:?}, {:?}, {}", index, t, self.linner_sampler, post_process_context.copy);
-		// }
-		copy.paramter.set_texture("texture", (t, &self.linner_sampler));
-		update_geo(copy, engine, &uv);
+		if post_process_context.copy > 0 {
+			self.set_render_result(
+				post_process_context.copy,
+				index,
+				&self.linner_sampler,
+				basemut
+			);
+		}
+
+		return index;
+	}
+
+	fn set_render_result<'b>(
+		&self,
+		target_obj_index: usize, 
+		texture_index: usize, 
+		sampler: &HalSampler,
+		basemut: &mut RenderBaseMut<'b, C>
+	) {
+		let uv = basemut.dyn_atlas_set.get_uv(texture_index).unwrap();
+		let copy = &mut basemut.render_objs[target_obj_index];
+		let target = basemut.dyn_atlas_set.get_target(texture_index).unwrap();
+		let t = basemut.engine.gl
+					.rt_get_color(target, 0).unwrap();
+		copy.paramter.set_texture("texture", (t, sampler));
+		update_geo(copy, basemut.engine, &uv);
 	}
 
 	fn calc_render_begin(
@@ -533,12 +640,14 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		
 		if let Some(mut render_target) = render_context.render_target {
 			let render_obj = &mut basemut.render_objs[render_index_context];
+			// 重新赋值rendercontext render_obj的可见性，否则可能被overflow剔除（剔除是使用oct而不是content_box剔除）
+			render_obj.visibility = base.visibilitys[id].0 && base.opacitys[id].0 > 0.0;
 			if !render_obj.visibility { // 如果不可见，可以不用渲染
 				return;
 			}
 			// log::info!("======================={:?}", render_obj.context);
 			
-			if self.is_update_context_texture {
+			if self.is_update_context_texture || render_target == 0 {
 				let content_box = render_context.content_box.clone();
 				
 				if content_box.maxs.x-content_box.mins.x <= 0.0 || content_box.maxs.y-content_box.mins.y <= 0.0 {
@@ -552,14 +661,6 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					render_context.render_target = Some(target_index);
 					render_target = target_index;
 					render_target_change = true;
-					
-					let t = basemut.engine.gl
-					.rt_get_color(basemut.dyn_atlas_set.get_target(target_index).unwrap(), 0).unwrap();
-					// 绑定纹理
-					render_obj.paramter.set_texture(
-						"texture",
-						(t, &self.default_sampler),
-					);
 				}
 			}
 
@@ -571,10 +672,6 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				let uv = basemut.dyn_atlas_set.get_uv(render_target).unwrap();
 				let rect = basemut.dyn_atlas_set.get_rect(render_target).unwrap();
 				render_context.render_rect = rect;
-	
-				// 设置uv
-				update_geo(render_obj, basemut.engine, &uv);
-				
 				// 渲染目标矩形改变，投影矩阵也需要重新设置
 				// 重新计算投影矩阵
 				let project_martix = ProjectionMatrix(ProjectionMatrix::new(
@@ -643,6 +740,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			if render_target_change || is_reset == true || (is_intersect(&base.dirty_rect, oct)) { 
 				for render_obj_index in r.iter() {
 					if *render_obj_index != render_index_context {
+						// log::info!("list!!!==================={}, {}, {}", render_index_context, render_obj_index, id);
 						self.list_render_obj(base, basemut, render_context, *render_obj_index, parent_target);
 					}
 				}
@@ -756,17 +854,21 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		if scissor.2 == 0 {
 			return;
 		}
+
+		// log::info!("render context============================={}", id);
 	
 		// log::info!("begine====={:?}, {:?}, id:{}, dirty_rect: {:?}", begine.viewport, begine.scissor, id, dirty_rect);
 		basemut.engine.gl.render_begin(target, &begine, match self.render_count {0 => true, _=> {basemut.engine.gl.render_reset_geometry();false}});
 		// log::info!("direct: {:?}, {:?}, {:?}", dirty_rect, self.opacity_list, self.transparent_list);
 		for id in render_context.opacity_list.iter() {
 			let obj = &basemut.render_objs[*id];
-			self.render(&basemut.engine.gl, obj, Some(project_ubo), Some(view_ubo));
+			// log::info!("render obj=============={:?}, {}, {:?}", id, obj.context, obj.vs_name);
+			self.render(&basemut.engine.gl, obj, Some(project_ubo), Some(view_ubo), *id);
 		}
 		for id in render_context.transparent_list.iter() {
 			let obj = &basemut.render_objs[*id];
-			self.render(&basemut.engine.gl, obj, Some(project_ubo), Some(view_ubo));
+			// log::info!("render obj=============={:?}, {}, {:?}", id, obj.context, obj.vs_name);
+			self.render(&basemut.engine.gl, obj, Some(project_ubo), Some(view_ubo), *id);
 		};
 		self.render_count += 1;
 	}
@@ -778,20 +880,31 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		render_context: &mut RenderContext,  
 		index: usize, 
 		parent_target: usize,
-	) {
+	) -> usize {
 		let item = &basemut.render_objs[index];
 		if item.visibility == true {
 			if let Some(post_process) = &item.post_process {
 				let post_mut = unsafe{ &mut *( &**post_process as *const PostProcessContext as usize as *mut PostProcessContext)};
-				self.render_post_process(base, basemut, index, parent_target, post_mut);
-				return;
+				return self.render_post_process(base, basemut, index, parent_target, post_mut);
+				;
 			}
 			if item.is_opacity == true {
 				render_context.opacity_list.push(index);
 			} else {
 				render_context.transparent_list.push(index);
 			}
+
+			// log::info!("list===================index: {}, context: {}", index, item.context);
+
+			if item.paramter.get_single_uniform("context_id").is_some() {
+				let tt = item.context;
+				item.paramter.set_single_uniform(
+					"context_id", 
+					UniformValue::Int1(tt as i32),
+				);
+			}
 		}
+		return 0;
 	}
 
 	// if dirty_view_rect.4 == true || dirty_view_rect.3 - dirty_view_rect.1 <= 0.0 {
@@ -805,6 +918,8 @@ pub struct RenderBase<'a> {
 	pub render_begin: &'a RenderBegin, 
 	pub octree: &'a SingleCaseImpl<Oct>,
 	pub render_contexts: &'a MultiCaseImpl<Node, RenderContext>,
+	pub visibilitys: &'a MultiCaseImpl<Node, Visibility>,
+	pub opacitys: &'a MultiCaseImpl<Node, Opacity>
 }
 pub struct RenderBaseMut<'a, C: HalContext + 'static> {
 	dyn_atlas_set:&'a mut DynAtlasSet,
@@ -839,6 +954,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		&'a SingleCaseImpl<Oct>,
 		&'a SingleCaseImpl<IdTree>,
 		&'a SingleCaseImpl<NodeRenderMap>,
+		&'a MultiCaseImpl<Node, Visibility>,
+		&'a MultiCaseImpl<Node, Opacity>,
 	);
     type WriteData = (
 		&'a mut SingleCaseImpl<PreRenderList>,
@@ -855,7 +972,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		let (
 			octree, 
 			idtree,
-			render_map,) = read;
+			render_map,
+			visibilitys,
+			opacitys) = read;
         let (
 			pre_render_list, 
 			dyn_atlas_set, 
@@ -915,7 +1034,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 						_=> {engine.gl.render_reset_geometry();false}
 					}
 				);
-				self.render(&engine.gl, render_obj, None, None);
+				self.render(&engine.gl, render_obj, None, None, 0);
 				self.render_count += 1;
 			}
 			pre_render_list.clear();
@@ -937,6 +1056,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
                 &*render_obj.fs_defines,
                 render_obj.paramter.as_ref(),
             );
+
             render_obj.program = Some(program);
             render_obj.program_dirty = false;
         }
@@ -986,6 +1106,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			is_reset,
 			render_begin,
 			render_contexts: render_contexts1,
+			visibilitys,
+			opacitys,
 		};
 		let mut basemut = RenderBaseMut{
 			render_objs,
@@ -1118,7 +1240,7 @@ fn render1<C: HalContext + 'static>(
 	program: &HalProgram,
 	project_matrix: Option<&Share<dyn UniformBuffer>>,
 	view_matrix: Option<&Share<dyn UniformBuffer>>,
-) {
+) -> Result<(), String> {
 	gl.render_set_program(program);
 	if let Some(project_matrix) = project_matrix {
 		paramter.set_value("projectMatrix", project_matrix.clone());
@@ -1129,7 +1251,8 @@ fn render1<C: HalContext + 'static>(
 
     // statistics.drawcall_times += 1;
     gl.render_set_state(&state.bs, &state.ds, &state.rs, &state.ss);
-    gl.render_draw(geo, paramter);
+    gl.render_draw(geo, paramter)?;
+	Ok(())
 }
 // fn render<C: HalContext + 'static>(gl: &C, obj: &RenderObj, statistics: &mut Statistics) {
 //     let geometry = match &obj.geometry {
@@ -1215,7 +1338,6 @@ impl_system! {
 #[cfg(test)]
 use crate::component::user::Vector4;
 
-use super::shaders::image::FBO_VS_SHADER_NAME;
 #[test]
 fn test() {
 	let rect = Aabb2::new(Point2::new(0.0, 457.0), Point2::new(113.0, 614.0));

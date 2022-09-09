@@ -38,12 +38,15 @@ impl<'a> Runner<'a> for ContentBoxSys {
 		let dirty_mark_list = &mut d.dirty_mark_list;
 		// 从叶子节点往根节点遍历
 		for (id, layer) in dirty.iter_reverse() {
+			// let dirty_type = dirty_mark_list[*id].clone();
+			dirty_mark_list[*id] = DirtyMark::default(); // 清除标记
+
 			let node= match idtree.get(*id){
 				Some(r) => r,
-				None => continue,
+				None => {
+					continue},
 			};
-			let dirty_type = dirty_mark_list[*id].clone();
-			dirty_mark_list[*id] = DirtyMark::default(); // 清除标记
+			
 			if node.layer() != layer {
 				continue;
 			}
@@ -51,7 +54,8 @@ impl<'a> Runner<'a> for ContentBoxSys {
 			
 			let mut content_box = match oct.get(*id) {
 				Some(r) => r.0.clone(),
-				None => continue,
+				None => {
+					continue},
 			}; // 
 			if node.children().len > 0 {
 				if node_states[node.children().head].is_rnode() {

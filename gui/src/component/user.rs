@@ -6,19 +6,21 @@ use std::{
     mem::transmute,
 };
 
+use bitvec::view::BitView;
+use getset::Getters;
 use ordered_float::NotNan;
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
-use map::vecmap::VecMap;
-use hash::XHashMap;
-use share::Share;
 use atom::Atom;
 use ecs::component::Component;
 use flex_layout::*;
+use hash::XHashMap;
+use map::vecmap::VecMap;
+use share::Share;
 
-use crate::util::vecmap_default::VecMapWithDefault;
 use crate::component::calc::WorldMatrix;
 use crate::render::res::TextureRes;
+use crate::util::vecmap_default::VecMapWithDefault;
 
 pub type Matrix4 = nalgebra::Matrix4<f32>;
 pub type Point2 = nalgebra::Point2<f32>;
@@ -41,15 +43,15 @@ impl Default for RectLayoutStyle {
     fn default() -> RectLayoutStyle {
         RectLayoutStyle {
             margin: Default::default(),
-			size: Default::default(),
+            size: Default::default(),
         }
     }
 }
 
 #[derive(Clone, Component, Serialize, Deserialize, Debug)]
 #[storage(VecMapWithDefault)]
-pub struct OtherLayoutStyle{
-	pub display: Display,
+pub struct OtherLayoutStyle {
+    pub display: Display,
     pub position_type: PositionType,
     pub direction: Direction,
 
@@ -71,7 +73,7 @@ pub struct OtherLayoutStyle{
     pub border: Rect<Dimension>,
     pub min_size: Size<Dimension>,
     pub max_size: Size<Dimension>,
-	pub aspect_ratio: Number,
+    pub aspect_ratio: Number,
 }
 
 impl Default for OtherLayoutStyle {
@@ -85,16 +87,16 @@ impl Default for OtherLayoutStyle {
             overflow: Default::default(),
             align_items: Default::default(),
             align_self: Default::default(),
-			// align_content: Default::default(),
-			align_content: AlignContent::FlexStart,
+            // align_content: Default::default(),
+            align_content: AlignContent::FlexStart,
             justify_content: Default::default(),
-            position: Rect{
-				start: Dimension::Undefined,
-				end: Dimension::Undefined,
-				top: Dimension::Undefined,
-				bottom: Dimension::Undefined,
-			},
-			// position:Default::default(),
+            position: Rect {
+                start: Dimension::Undefined,
+                end: Dimension::Undefined,
+                top: Dimension::Undefined,
+                bottom: Dimension::Undefined,
+            },
+            // position:Default::default(),
             padding: Default::default(),
             border: Default::default(),
             flex_grow: 0.0,
@@ -103,7 +105,7 @@ impl Default for OtherLayoutStyle {
             flex_basis: Dimension::Auto,
             min_size: Default::default(),
             max_size: Default::default(),
-			aspect_ratio: Default::default(),
+            aspect_ratio: Default::default(),
         }
     }
 }
@@ -127,11 +129,11 @@ pub struct Opacity(pub f32);
 #[derive(Clone, Component, Debug, Serialize, Deserialize, EnumDefault)]
 #[storage(VecMapWithDefault)]
 pub enum BlendMode {
-	Normal,
-	AlphaAdd,
-	Subtract,
-	Multiply,
-	OneOne,
+    Normal,
+    AlphaAdd,
+    Subtract,
+    Multiply,
+    OneOne,
 }
 
 // 将display、visibility、enable合并为show组件
@@ -176,13 +178,13 @@ pub struct Image {
 // 遮罩图片是图片路径或线性渐变色
 #[derive(Clone, Component, Debug, Serialize, Deserialize)]
 pub enum MaskImage {
-	Path(usize),
-	LinearGradient(LinearGradientColor),
+    Path(usize),
+    LinearGradient(LinearGradientColor),
 }
 
 
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
-pub struct MaskImageClip (pub Aabb2);
+pub struct MaskImageClip(pub Aabb2);
 
 // 滤镜， 与CSS的Filter不同， 该滤镜不依赖Filter 函数的先后顺序， 且同种滤镜设置多次，会覆盖前面的设置（css是一种叠加效果）
 #[derive(Clone, Debug, Component, Default, Serialize, Deserialize)]
@@ -192,9 +194,21 @@ pub struct Filter {
     pub bright_ness: f32, //亮度 -1。0 ~1.0 ， 对应ps的 -100 ~ 100
 }
 
+#[derive(Clone, Debug, Component, Default, Serialize, Deserialize, Deref, DerefMut)]
+pub struct Blur(pub f32);
+
+/// 标记渲染context中需要的效果， 如Blur、Opacity、Hsi、MasImage等
+/// 此数据结构仅记录位标记，具体哪些属性用哪一位来标记，这里并不关心，由逻辑保证
+#[derive(Clone, Debug, Component, Default, Deref, DerefMut, Serialize, Deserialize)]
+#[storage(VecMapWithDefault)]
+pub struct RenderContextMark(bitvec::prelude::BitArray);
+
 //ObjectFit
-#[derive(Debug, Deref, DerefMut, Clone, Component, Default, Serialize, Deserialize)]
-pub struct ObjectFit(pub FitType);
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+pub struct BackgroundImageOption {
+    pub object_fit: FitType,
+    pub repeat: (BorderImageRepeatType, BorderImageRepeatType),
+}
 
 // image图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
@@ -202,7 +216,9 @@ pub struct ImageClip(pub Aabb2);
 
 // 边框图片
 #[derive(Clone, Component)]
-pub struct BorderImage{pub url: usize}
+pub struct BorderImage {
+    pub url: usize,
+}
 
 // borderImage图像的uv（仅支持百分比， 不支持像素值）
 #[derive(Debug, Deref, DerefMut, Clone, Component, Serialize, Deserialize)]
@@ -276,7 +292,7 @@ pub struct Font {
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
     pub size: FontSize,   //
-    pub family: usize,     //	规定字体系列。参阅：font-family 中可能的值。
+    pub family: usize,    //	规定字体系列。参阅：font-family 中可能的值。
 }
 
 // TransformWillChange， 用于优化频繁变化的Transform
@@ -394,10 +410,7 @@ pub enum RadialGradientShape {
 pub type Polygon = Vec<f32>;
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
-pub fn to_linear_gradient_color(
-    color_and_positions: &[f32],
-    direction: f32,
-) -> LinearGradientColor {
+pub fn to_linear_gradient_color(color_and_positions: &[f32], direction: f32) -> LinearGradientColor {
     let arr = color_and_positions;
     let len = arr.len();
     let count = len / 5;
@@ -417,13 +430,7 @@ pub fn to_linear_gradient_color(
 }
 
 // color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], center_x: 0~1, center_y: 0~1, shape: RadialGradientShape, size: RadialGradientSize
-pub fn to_radial_gradient_color(
-    color_and_positions: &[f32],
-    center_x: f32,
-    center_y: f32,
-    shape: u8,
-    size: u8,
-) -> RadialGradientColor {
+pub fn to_radial_gradient_color(color_and_positions: &[f32], center_x: f32, center_y: f32, shape: u8, size: u8) -> RadialGradientColor {
     let arr = color_and_positions;
     let len = arr.len();
     let count = len / 5;
@@ -453,8 +460,8 @@ pub struct Stroke {
 // 图像填充的方式
 #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
 pub enum FitType {
-    None,
     Fill,
+    None,
     Contain,
     Cover,
     ScaleDown,
@@ -463,12 +470,12 @@ pub enum FitType {
     RepeatY,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, PartialEq, Eq)]
 pub enum BorderImageRepeatType {
     Stretch, // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
-    Repeat, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
-    Round, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
-    Space, // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
+    Repeat,  // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
+    Round,   // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
+    Space,   // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]
@@ -502,12 +509,12 @@ pub enum TransformFunc {
     ScaleY(f32),
     Scale(f32, f32),
 
-	RotateX(f32),
-	RotateY(f32),
+    RotateX(f32),
+    RotateY(f32),
     RotateZ(f32),
 
-	SkewX(f32),
-	SkewY(f32),
+    SkewX(f32),
+    SkewY(f32),
 }
 
 #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
@@ -597,126 +604,74 @@ impl Transform {
 
         for func in self.funcs.iter() {
             match func {
-                TransformFunc::TranslateX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)),
-                        false,
-                    )
-                }
-                TransformFunc::TranslateY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)),
-                        false,
-                    )
-                }
-                TransformFunc::Translate(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)),
-						false
-					)
-                }
+                TransformFunc::TranslateX(x) => m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, 0.0, 0.0)), false),
+                TransformFunc::TranslateY(y) => m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y, 0.0)), false),
+                TransformFunc::Translate(x, y) => m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(*x, *y, 0.0)), false),
 
-                TransformFunc::TranslateXPercent(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)),
-                        false,
-                    )
-                }
-                TransformFunc::TranslateYPercent(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)),
-                        false,
-                    )
-                }
+                TransformFunc::TranslateXPercent(x) => m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, 0.0, 0.0)), false),
+                TransformFunc::TranslateYPercent(y) => m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, *y * height, 0.0)), false),
                 TransformFunc::TranslatePercent(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)),
-                        false,
-                    )
+                    m = m * WorldMatrix(Matrix4::new_translation(&Vector3::new(*x * width, *y * height, 0.0)), false)
                 }
 
-                TransformFunc::ScaleX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)),
-						false
-					)
-                }
-                TransformFunc::ScaleY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)),
-						false
-					)
-                }
-                TransformFunc::Scale(x, y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)),
-						false
-					)
-                }
+                TransformFunc::ScaleX(x) => m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)), false),
+                TransformFunc::ScaleY(y) => m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)), false),
+                TransformFunc::Scale(x, y) => m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)), false),
 
                 TransformFunc::RotateZ(z) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z/180.0 * std::f32::consts::PI)),
-						true
-					)
+                    m = m * WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z / 180.0 * std::f32::consts::PI)), true)
                 }
-				TransformFunc::RotateX(x) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(*x/180.0 * std::f32::consts::PI, 0.0, 0.0)),
-						true
-					)
+                TransformFunc::RotateX(x) => {
+                    m = m * WorldMatrix(Matrix4::new_rotation(Vector3::new(*x / 180.0 * std::f32::consts::PI, 0.0, 0.0)), true)
                 }
-				TransformFunc::RotateY(y) => {
-                    m = m * WorldMatrix(
-						Matrix4::new_rotation(Vector3::new(0.0, *y/180.0 * std::f32::consts::PI, 0.0)),
-						true
-					)
+                TransformFunc::RotateY(y) => {
+                    m = m * WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, *y / 180.0 * std::f32::consts::PI, 0.0)), true)
                 }
-				TransformFunc::SkewX(x) => {
+                TransformFunc::SkewX(x) => {
                     m = m * WorldMatrix(
-						Matrix4::new(
-							1.0,
-							(*x/180.0 * std::f32::consts::PI).tan(),
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-						),
-						true
-					)
+                        Matrix4::new(
+                            1.0,
+                            (*x / 180.0 * std::f32::consts::PI).tan(),
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                        ),
+                        true,
+                    )
                 }
-				TransformFunc::SkewY(y) => {
+                TransformFunc::SkewY(y) => {
                     m = m * WorldMatrix(
-						Matrix4::new(
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							(*y/180.0 * std::f32::consts::PI).tan(),
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-							0.0,
-							0.0,
-							0.0,
-							0.0,
-							1.0,
-						),
-						true
-					)
+                        Matrix4::new(
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            (*y / 180.0 * std::f32::consts::PI).tan(),
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                        ),
+                        true,
+                    )
                 }
             }
         }
@@ -737,9 +692,9 @@ pub enum TextAlign {
 #[derive(Debug, Clone, Copy, EnumDefault, Hash, Serialize, Deserialize)]
 pub enum WhiteSpace {
     Normal,  //	默认。空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围会换行。
-    Nowrap, //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
+    Nowrap,  //	空白会被浏览器忽略(其实是所有的空白被合并成一个空格), 超出范围文本也不会换行，文本会在在同一行上继续，直到遇到 <br> 标签为止。
     PreWrap, //	保留所有空白符序列，超出范围会换行。
-    Pre,    //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
+    Pre,     //	保留空白符，超出范围不会换行(利用yoga无法支持， 暂不支持)
     PreLine, //	合并空白符序列，如果存在换行符，优先保留换行符， 超出范围会换行。
 }
 
@@ -748,8 +703,8 @@ impl WhiteSpace {
         // match *self {
         //     WhiteSpace::Nowrap | WhiteSpace::Pre => false,
         //     WhiteSpace::Normal | WhiteSpace::PreWrap | WhiteSpace::PreLine => true,
-		// }
-		match *self {
+        // }
+        match *self {
             WhiteSpace::Nowrap => false,
             _ => true,
         }
@@ -784,16 +739,12 @@ pub enum VerticalAlign {
 }
 
 impl Default for Opacity {
-    fn default() -> Opacity {
-        Opacity(1.0)
-    }
+    fn default() -> Opacity { Opacity(1.0) }
 }
 
 impl Show {
     #[inline]
-    pub fn get_display(&self) -> Display {
-        unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) }
-    }
+    pub fn get_display(&self) -> Display { unsafe { transmute((self.0 & (ShowType::Display as usize)) as u8) } }
 
     #[inline]
     pub fn set_display(&mut self, display: Display) {
@@ -804,9 +755,7 @@ impl Show {
     }
 
     #[inline]
-    pub fn get_visibility(&self) -> bool {
-        (self.0 & (ShowType::Visibility as usize)) != 0
-    }
+    pub fn get_visibility(&self) -> bool { (self.0 & (ShowType::Visibility as usize)) != 0 }
 
     #[inline]
     pub fn set_visibility(&mut self, visibility: bool) {
@@ -824,24 +773,16 @@ impl Show {
     }
 
     #[inline]
-    pub fn set_enable(&mut self, enable: EnableType) {
-        self.0 = self.0 & !(ShowType::Enable as usize) | ((enable as usize) << 2);
-    }
+    pub fn set_enable(&mut self, enable: EnableType) { self.0 = self.0 & !(ShowType::Enable as usize) | ((enable as usize) << 2); }
 }
 
 impl Default for Show {
-    fn default() -> Show {
-        Show(ShowType::Visibility as usize)
-    }
+    fn default() -> Show { Show(ShowType::Visibility as usize) }
 }
 impl Default for ImageClip {
-    fn default() -> ImageClip {
-        ImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
-    }
+    fn default() -> ImageClip { ImageClip(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0))) }
 }
 
 impl Default for BorderImageClip {
-    fn default() -> Self {
-        Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)))
-    }
+    fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0))) }
 }

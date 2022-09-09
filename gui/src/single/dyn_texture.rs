@@ -138,7 +138,6 @@ impl DynAtlasSet {
 
 	/// 添加矩形
 	pub fn add_rect<C: HalContext>(&mut self, exclude: usize, width: f32, height: f32, pformat: PixelFormat, dformat: DataFormat, need_depth: bool, ty: usize/*纹理类型，不同类型的纹理，不会分配到同一张fbo上*/, mut multiple: usize/*倍数：新开纹理是矩形的多少倍 */, gl: &mut C) -> usize {
-
 		let width = width.ceil() as usize;
 		let height = height.ceil() as usize;
 		for (index, dyn_atlas) in self.dyn_atlas.iter_mut() {
@@ -161,7 +160,6 @@ impl DynAtlasSet {
 			};
 		}
 
-		
 		let (mut w, mut h) = if !need_depth && multiple > 0 {
 			while multiple > 1 {
 				if width*multiple > self.default_size.width || width*multiple > self.default_size.height {
@@ -204,7 +202,6 @@ impl DynAtlasSet {
 				}
 			}
 		}
-
 		let (texture_res, target) = match catch_texture {
 			Some(r) => r,
 			None => {
@@ -241,7 +238,6 @@ impl DynAtlasSet {
 				(texture, target)
 			}
 		};
-
 		if need_depth {
 			let mut hasher = DefaultHasher::default();
 			w.hash(&mut hasher);
@@ -306,7 +302,6 @@ impl DynAtlasSet {
 
 			// self.debugList.push(Cmd::Deallocate(dyn_atlas.allocator_index, rect_index.allocation.id.serialize()));
 			dyn_atlas.allocator.deallocate(rect_index.allocation.id);
-			// log::info!("allocation_index============={}", old);
 			
 			dyn_atlas.count -= 1;
 			rect_index.allocation_index

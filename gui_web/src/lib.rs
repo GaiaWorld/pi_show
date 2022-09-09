@@ -38,6 +38,7 @@ extern crate idtree;
 extern crate flex_layout;
 extern crate cross_performance;
 extern crate smallvec;
+extern crate res_mgr_web;
 
 mod class;
 mod layout;

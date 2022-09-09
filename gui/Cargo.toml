@@ -76,6 +76,8 @@ nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
 ncollide2d = {version = "0.27.0", features = ["serde"]}
 log="*"
 smallvec={version = "1.8", features = ["serde"]}
+getset="0.1"
+bitvec={version = "1.0", features = ["serde"]}
 
 [dependencies.web-sys]
 version = "*"

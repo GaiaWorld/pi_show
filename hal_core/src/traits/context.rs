@@ -471,5 +471,5 @@ pub trait HalContext {
      * 渲染物体
      * 注：该方法都要在begin_render和end_render之间调用，否则无效
      */
-    fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>);
+    fn render_draw(&self, geometry: &HalGeometry, parameter: &Share<dyn ProgramParamter>) -> Result<(), String>;
 }

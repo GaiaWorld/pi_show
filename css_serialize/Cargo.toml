@@ -5,7 +5,7 @@ authors = ["sun <530739162@qq.com>"]
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib", "rlib", "dylib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 gui = {path="../gui"}
