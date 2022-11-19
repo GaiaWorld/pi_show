@@ -65,48 +65,124 @@ pub trait DefinesClip {
     fn get_clip(&self) -> bool;
 }
 
-pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> Point2 {
-    match border_radius {
-        Some(border_radius) => Point2::new(
-            match border_radius.x {
-                LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
-            },
-            match border_radius.y {
-                LengthUnit::Pixel(r) => r,
-                LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
-            },
-        ),
-        None => Point2::new(0.0, 0.0),
-    }
+// pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> Point2 {
+//     match border_radius {
+//         Some(border_radius) => Point2::new(
+//             match border_radius.x {
+//                 LengthUnit::Pixel(r) => r,
+//                 LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
+//             },
+//             match border_radius.y {
+//                 LengthUnit::Pixel(r) => r,
+//                 LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
+//             },
+//         ),
+//         None => Point2::new(0.0, 0.0),
+//     }
+// }
+
+pub struct BorderRadiusPixel {
+    pub x: [f32; 4],
+	pub y: [f32; 4],
 }
+
+/// 计算圆角半径
+pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> BorderRadiusPixel {
+	if let Some(border_radius) = border_radius {
+		#[inline]
+		fn trans(l: LengthUnit, size: f32) -> f32 {
+			match l {
+				LengthUnit::Pixel(r) => r,
+				LengthUnit::Percent(r) => r * size,
+			}
+		}
+		let (width, height) = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+		let mut r = BorderRadiusPixel {
+			x: [
+				trans(border_radius.x[0], width),
+				trans(border_radius.x[1], width),
+				trans(border_radius.x[2], width),
+				trans(border_radius.x[3], width),
+			],
+			y: [
+				trans(border_radius.x[0], height),
+				trans(border_radius.x[1], height),
+				trans(border_radius.x[2], height),
+				trans(border_radius.x[3], height),
+			],
+		};
+		let (top, bottom, left, right) = (
+			r.x[0] + r.x[1], 
+			r.x[2] + r.x[3], 
+			r.y[0] + r.y[3], 
+			r.y[1] + r.y[2], 
+		);
+		// 修正圆角的，同一条边长的圆角半径之和不能大于边长
+		if top > width {
+			r.x[0] = width/top * r.x[0];
+			r.x[1] = width/top * r.x[1];
+		}
+		if bottom > width {
+			r.x[2] = width/bottom * r.x[2];
+			r.x[3] = width/bottom * r.x[3];
+		}
+		if left > height {
+			r.y[0] = height/left * r.y[0];
+			r.y[3] = height/left * r.y[3];
+		}
+		if right > height {
+			r.y[1] = height/right * r.y[1];
+			r.y[2] = height/right * r.y[2];
+		}
+		r
+	} else {
+		BorderRadiusPixel {
+			x: [0.0, 0.0, 0.0, 0.0],
+			y: [0.0, 0.0, 0.0, 0.0],
+		}
+	}
+	
+}
+
+/// 计算内容区域的圆角半径
+pub fn cal_content_border_radius(border_radius: &BorderRadiusPixel, border: (f32, f32, f32, f32)/*上右下左*/) -> BorderRadiusPixel {
+	BorderRadiusPixel {
+		x: [
+			border_radius.x[0] - border.3,
+			border_radius.x[1] - border.1,
+			border_radius.x[2] - border.1,
+			border_radius.x[3] - border.3,
+		],
+		y: [
+			border_radius.y[0] - border.0,
+			border_radius.y[1] - border.0,
+			border_radius.y[2] - border.2,
+			border_radius.y[3] - border.2,
+		],
+	}
+}
+
+// pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> BorderRadiusPixel {
+//     match border_radius {
+//         Some(border_radius) => Point2::new(
+//             match border_radius.x {
+//                 LengthUnit::Pixel(r) => r,
+//                 LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
+//             },
+//             match border_radius.y {
+//                 LengthUnit::Pixel(r) => r,
+//                 LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
+//             },
+//         ),
+//         None => Point2::new(0.0, 0.0),
+//     }
+// }
 
 pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
     RADIUS_QUAD_POSITION_INDEX.hash(hasher);
     NotNan::new(radius).unwrap().hash(hasher);
     NotNan::new(width).unwrap().hash(hasher);
     NotNan::new(height).unwrap().hash(hasher);
-}
-
-pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
-    let mut hasher = DefaultHasher::default();
-    if let Err(_r) = NotNan::new(r) {
-        log::info!("r=============={}", r);
-    }
-    if let Err(g) = NotNan::new(g) {
-        log::info!("g=============={}", g);
-    }
-    if let Err(r) = NotNan::new(b) {
-        log::info!("b=============={}", b);
-    }
-    if let Err(r) = NotNan::new(a) {
-        log::info!("a=============={}", a);
-    }
-    NotNan::new(r).unwrap().hash(&mut hasher);
-    NotNan::new(g).unwrap().hash(&mut hasher);
-    NotNan::new(b).unwrap().hash(&mut hasher);
-    NotNan::new(a).unwrap().hash(&mut hasher);
-    hasher.finish()
 }
 
 pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut DefaultHasher) {
@@ -369,6 +445,8 @@ pub fn new_render_obj(
         state,
         context,
         post_process: None,
+		// NOTE：此处unsafe必然是安全的，因为bits为0
+		flag: unsafe { MaterialFlags::from_bits_unchecked(0) },
     }
 }
 

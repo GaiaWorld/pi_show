@@ -2350,7 +2350,7 @@ pub fn set_attr3(
 //     } else {
 //         set_dirty(dirty_list, id, ty as usize, style_mark);
 //         return true;
-//     }
+//     }ImageTextureWrite
 // }
 
 type ImageTextureWrite<'a, C> = (

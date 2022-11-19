@@ -6,6 +6,7 @@ authors = ["wzjsun <530739162@qq.com>"]
 edition = "2018"
 
 [dependencies]
+bitflags = "1.2"
 share = { path = "../../pi_lib/share"}
 idtree = { path = "../../pi_lib/idtree"}
 flex_layout = { path =  "../../pi_lib/flex_layout"}

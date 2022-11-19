@@ -15,7 +15,7 @@ use hal_core::*;
 use crate::component::calc::*;
 use crate::component::user::CgColor;
 use crate::render::res::*;
-use crate::system::util::f32_4_hash;
+use crate::util::f32_4_hash;
 
 pub type ShareEngine<C> = UnsafeMut<Engine<C>>;
 

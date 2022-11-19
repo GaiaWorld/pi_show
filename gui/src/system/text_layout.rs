@@ -470,7 +470,7 @@ impl<'a> Calc<'a> {
 					cn.margin_start = word_margin_start;
 					char_index += 1;
 					word_margin_start = self.char_margin;
-					// word_margin_start += self.font_size/3.0 + self.word_margin;
+					word_margin_start += self.font_size/3.0 + self.word_margin;
 				}
 				SplitResult::Newline(char_i) => {
 					self.create_or_get_breakline(chars, char_index, char_i);
@@ -566,7 +566,7 @@ impl<'a> Calc<'a> {
 					char_index += 1;
 
 					// 如果用magine-start来表示空格，会导致行首的空格无效
-					// word_margin_start += self.font_size/3.0 + self.word_margin;
+					word_margin_start += self.font_size/3.0 + self.word_margin;
 					// continue;
 				}
 				SplitResult::Newline(char_i) => {

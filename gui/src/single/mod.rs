@@ -400,6 +400,23 @@ pub struct RenderObj {
     pub context: usize,
 
 	pub post_process: Option<Box<PostProcessContext>>,
+
+	pub flag: MaterialFlags,
+}
+
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct MaterialFlags: u32 {
+		/// 矩形裁剪
+        const RECT         = (1 << 0);
+		/// 椭圆裁剪
+        const ELLIPSE           = (1 << 1);
+		/// 线性渐变
+        const LINEAR_GRADIENT = (1 << 2);
+
+        const NONE                       = 0;
+        const UNINITIALIZED              = 0xFFFF;
+    }
 }
 
 impl PostProcessObj for RenderObj {

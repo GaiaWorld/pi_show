@@ -1,11 +1,12 @@
 use std::cell::RefCell;
+use std::mem::transmute;
 /// 将设置节点属性的接口导出到js
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
 use flex_layout::CharNode;
 use js_sys::{Math, Object};
 use wasm_bindgen::prelude::*;
-use web_sys::{WebGlFramebuffer, WebGlTexture};
+use web_sys::{WebGlFramebuffer, WebGlTexture, HtmlImageElement};
 
 use atom::Atom;
 use cg2d::{include_quad2, InnOuter};
@@ -29,6 +30,7 @@ use hal_core::*;
 use gui::render::res::TextureRes;
 use gui::system::util::let_top_offset_matrix;
 use gui::Z_MAX;
+use crate::create_texture;
 use crate::index::cal_layout;
 
 use crate::world::GuiWorld;
@@ -145,7 +147,7 @@ pub fn get_webgl_texture(world: u32, texture: u32) -> WebGlTexture {
 }
 
 #[derive(Serialize)]
-pub struct CanvasRect (u32, u32, u32, u32);
+pub struct CanvasRect (u32, u32, u32, u32, u32, u32);
 
 
 /**
@@ -222,6 +224,37 @@ pub fn set_canvas_size(
 	}
 }
 
+/// 设置图片数据为一个fbo
+#[wasm_bindgen]
+pub fn set_data_image_fbo(
+    world: u32,
+    node: u32,
+	soruce: u32, // 是否缓存
+	index: usize,
+) {
+	
+	
+}
+
+/// 设置图片为一个内存图片
+#[wasm_bindgen]
+pub fn set_data_image_image(
+    world_id: u32,
+	node: u32,
+	name: u32,
+    pformate: u8,
+    data: HtmlImageElement,
+) {
+	let (width, height) = (data.width(), data.height());
+    let (res, _name) = create_texture(world_id, unsafe {transmute(pformate)}, -1, 0, name, width, height, data.into(), width * height * 4);
+
+	let node_id = node as usize;
+    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+
+	world.image_texture.lend_mut().insert(node_id, ImageTexture::All(res));
+}
+
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn get_canvas_rect(world: u32, index: usize) -> JsValue {
@@ -229,8 +262,9 @@ pub fn get_canvas_rect(world: u32, index: usize) -> JsValue {
 	let mut dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
 	let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 	let rect = dyn_atlas_set.get_rect(index).unwrap();
+	let texture = dyn_atlas_set.get_texture(index).unwrap();
 
-	JsValue::from_serde(&CanvasRect(rect.mins.x as u32, rect.mins.y as u32, (rect.maxs.x - rect.mins.x) as u32, (rect.maxs.y - rect.mins.y) as u32)).unwrap()
+	JsValue::from_serde(&CanvasRect(rect.mins.x as u32, rect.mins.y as u32, (rect.maxs.x - rect.mins.x) as u32, (rect.maxs.y - rect.mins.y) as u32, texture.width as u32, texture.height as u32, )).unwrap()
 }
 
 #[allow(unused_attributes)]

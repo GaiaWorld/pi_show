@@ -392,9 +392,9 @@ fn get_border_image_stream(
         None => BorderImageRepeat::default(),
     };
     let (
-        (offset_top, space_top, step_top),
+        (offset_top, space_top, mut step_top),
         (offset_bottom, space_bottom, step_bottom),
-        (offset_left, space_left, step_left),
+        (offset_left, space_left, mut step_left),
         (offset_right, space_right, step_right),
     ) = (
         calc_step(right - left, layout.border.top / texture_top_height * texture_center_width, repeat.0),
@@ -487,6 +487,14 @@ fn get_border_image_stream(
 
     // 处理中间
     if let Some(slice) = slice {
+
+		if repeat.0 == BorderImageRepeatType::Stretch {
+			step_top = right - left;
+		}
+		if repeat.1 == BorderImageRepeatType::Stretch {
+			step_left = bottom - top;
+		}
+
         if slice.fill && step_top > 0.0 && step_left > 0.0 {
             // push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
             let mut cur_y = top;

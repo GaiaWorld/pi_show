@@ -161,6 +161,13 @@ pub struct ByOverflow(pub usize);
 #[storage(VecMapWithDefault)]
 pub struct WorldMatrix(pub Matrix4<f32>, pub bool);
 
+impl WorldMatrix {
+	#[inline]
+	pub fn is_rotate(&self) -> bool {
+		self.1
+	}
+}
+
 //是否可见,
 #[derive(Deref, DerefMut, Component, Clone, Debug, Default)]
 #[storage(VecMapWithDefault)]

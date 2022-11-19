@@ -267,8 +267,8 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         }
 
         "border-radius" => {
-            let v = parse_len_or_percent(value)?;
-            class.attrs3.push(Attribute3::BorderRadius(BorderRadius { x: v.clone(), y: v }));
+            let v = parse_border_radius(value)?;
+            class.attrs3.push(Attribute3::BorderRadius(v));
             class.class_style_mark |= StyleType::BorderRadius as usize;
         }
         "opacity" => {
@@ -1811,6 +1811,56 @@ fn parse_percent_to_f32(value: &str) -> Result<f32, String> {
     }
 }
 
+fn fill_four<T: Copy>(arr: &mut [T; 4], mut index: usize) {
+	if index > 0 {
+		if index == 1 {
+			arr[1] = arr[0];
+			index += 1;
+		}
+		while index < 4 {
+			arr[index] = arr[index-2];
+			index += 1;
+		}
+	}
+}
+
+fn parse_border_radius(value: &str) -> Result<BorderRadius, String> {
+	let mut i = 0;
+	let mut x = [LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0)];
+	let mut index = 0;
+	while let Ok(r) = iter_by_space(value, &mut i) {
+		if index == 4 {
+			break;
+		}
+		x[index] = parse_len_or_percent(r)?;
+		index += 1;
+	}
+	fill_four(&mut x, index);
+
+	i = next_no_empty(value, i);
+	
+	let y = if i < value.len() && &value[i..i + 1] == "/" {
+		let mut y = [LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0), LengthUnit::Pixel(0.0)];
+		let value = &value[i + 1..value.len()];
+		while let Ok(r) = iter_by_space(value, &mut i) {
+			if index == 4 {
+				break;
+			}
+			y[index] = parse_len_or_percent(r)?;
+			index += 1;
+		}
+		fill_four(&mut y, index);
+		y
+	} else {
+		x.clone()
+	};
+
+	Ok(BorderRadius {
+		x, y
+	})
+	
+}
+
 fn parse_len_or_percent(value: &str) -> Result<LengthUnit, String> {
     if value.ends_with("%") {
         let v = match f32::from_str(&value[..value.len() - 1]) {
@@ -2034,3 +2084,4 @@ pub fn test() {
 //     font-size: 30px;
 //     text-shadow:1px 0px 10px #af264e,-1px 0px 10px #af264e,0px 1px 10px #af264e,0px -1px 10px #af264e;
 // }
+

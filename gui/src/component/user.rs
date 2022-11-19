@@ -235,13 +235,21 @@ pub struct BorderImageSlice {
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
-// 圆角， 目前仅支持x分量
+// // 圆角， 目前仅支持x分量
+// #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+// #[storage(VecMapWithDefault)]
+// pub struct BorderRadius {
+//     pub x: LengthUnit,
+//     pub y: LengthUnit,
+// }
+
 #[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
 #[storage(VecMapWithDefault)]
 pub struct BorderRadius {
-    pub x: LengthUnit,
-    pub y: LengthUnit,
+    pub x: [LengthUnit; 4],
+	pub y: [LengthUnit; 4],
 }
+
 
 // 参考CSS的box-shadow的语法
 #[derive(Debug, Clone, Default, Component, Serialize, Deserialize)]
