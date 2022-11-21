@@ -2,6 +2,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(core_intrinsics)]
 #![feature(type_ascription)]
+#![feature(if_let_guard)]
 #![allow(unused_attributes)]
 #![allow(dead_code)]
 #![feature(rustc_private)]
@@ -61,13 +62,13 @@ extern crate cross_performance;
 #[cfg(feature = "wasm-bindgen")]
 extern crate cross_performance;
 
-// pub mod system;
+pub mod system;
 pub mod component;
 pub mod single;
 pub mod layout;
 pub mod font;
 pub mod render;
-// pub mod world;
+pub mod world;
 pub mod util;
 // pub mod exports;
 

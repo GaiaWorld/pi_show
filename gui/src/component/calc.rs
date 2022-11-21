@@ -261,6 +261,7 @@ pub enum StyleType1 {
     // FlexDirection = 0x8000,
     // AlignContent = 0x10000,
     // AlignItems = 0x20000,
+	ClipPath = 0x200,
     BackgroundRepeat = 0x400,
     Blur = 0x800,
     BorderImageTexture = 0x1000,
@@ -684,6 +685,7 @@ defines! {
         MASK_IMAGE: String,
         HORIZONTAL: String,
         VERTICAL: String,
+		SDF_CLIP: String,
     }
 }
 
@@ -700,6 +702,12 @@ defines! {
         STROKE: String,
         MASK_IMAGE: String,
         OPACITY: String,
+		BORDER: String,
+		BORDER_RADIUS: String,
+		CIRCLE: String,
+		RECT: String,
+		ELLIPSE: String,
+		SECTOR: String,
     }
 }
 
@@ -735,6 +743,7 @@ program_paramter! {
         weight: UniformValue,
         fontSize: UniformValue,
         depth: UniformValue,
+		clipSdf: UniformValue,
     }
 }
 
@@ -766,6 +775,7 @@ program_paramter! {
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
         depth: UniformValue,
+		clipSdf: UniformValue,
     }
 }
 
@@ -811,6 +821,7 @@ program_paramter! {
         blur: UniformValue,
         depth: UniformValue,
         texture: (HalTexture, HalSampler),
+		clipSdf: UniformValue,
     }
 }
 
@@ -829,6 +840,7 @@ program_paramter! {
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
         depth: UniformValue,
+		clipSdf: UniformValue,
     }
 }
 
@@ -850,6 +862,9 @@ program_paramter! {
         maskUv: UniformValue,
         depth: UniformValue,
         context_id: UniformValue,
+		clipSdf: UniformValue,
+		clipMatrixInvert: UniformValue,
+		clipBoxRect: UniformValue,
     }
 }
 

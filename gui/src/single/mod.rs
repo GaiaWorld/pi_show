@@ -125,6 +125,7 @@ pub struct ImageWaitSheet {
     pub loads: Vec<usize>,
 }
 
+
 impl ImageWaitSheet {
     pub fn mem_size(&self) -> usize {
         let mut r = 0;
@@ -401,22 +402,17 @@ pub struct RenderObj {
 
 	pub post_process: Option<Box<PostProcessContext>>,
 
-	pub flag: MaterialFlags,
+	pub vert_type: VertType,
 }
 
-bitflags::bitflags! {
-    #[repr(transparent)]
-    pub struct MaterialFlags: u32 {
-		/// 矩形裁剪
-        const RECT         = (1 << 0);
-		/// 椭圆裁剪
-        const ELLIPSE           = (1 << 1);
-		/// 线性渐变
-        const LINEAR_GRADIENT = (1 << 2);
-
-        const NONE                       = 0;
-        const UNINITIALIZED              = 0xFFFF;
-    }
+/// 是否使用单位四边形渲染
+#[derive(EnumDefault, PartialEq, Eq, Clone, Copy)]
+pub enum VertType {
+	Border, // 渲染为边框部分
+	ContentNone, // 渲染为content区，世界矩阵不变换
+	BorderNone, // 渲染为border区，世界矩阵不变换
+	ContentRect, // 渲染为content区，世界矩阵需要变换
+	BorderRect,	// 渲染为border区，世界矩阵需要变换
 }
 
 impl PostProcessObj for RenderObj {

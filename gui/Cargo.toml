@@ -79,6 +79,8 @@ log="*"
 smallvec={version = "1.8", features = ["serde"]}
 getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
+polygon2 = "0.3"
+cssparser = "0.29"
 
 [dependencies.web-sys]
 version = "*"

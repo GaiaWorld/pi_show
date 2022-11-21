@@ -8,32 +8,36 @@ use ecs::SingleCaseListener;
 //八叉树系统
 use ecs::{CreateEvent, Event, ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, MultiCaseListener}; 
 
-use flex_layout::Rect;
+use flex_layout::Size;
 use hal_core::*;
 use hash::{ DefaultHasher};
 use atom::Atom;
+use ordered_float::NotNan;
 use share::Share;
 
 use crate::Z_MAX;
 use crate::component::calc::ViewMatrixUbo;
-use crate::component::calc::{MaskTexture, LayoutR};
+use crate::component::calc::MaskTexture;
 use crate::component::user::*;
 use crate::entity::Node;
+use crate::render::engine::AttributeDecs;
 use crate::render::engine::ShareEngine;
+use crate::render::res::GeometryRes;
 use crate::single::Oct;
-use crate::single::ViewMatrix;
 use crate::single::dyn_texture::DynAtlasSet;
-use crate::single::{IdTree, RenderObjs, CommonState, State, RenderObj, PreRenderList};
+use crate::single::{IdTree, CommonState, State, RenderObj, PreRenderList};
 use crate::single::PreRenderItem;
 use crate::render::res::TexturePartRes;
 use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use crate::component::calc::ColorParamter;
 use crate::single::DefaultState;
-use crate::system::create_linear_gradient_geo;
 use crate::component::calc::WorldMatrixUbo;
 use crate::single::ProjectionMatrix;
 use crate::component::calc::ProjectMatrixUbo;
 
+use super::linear_gradient_split;
+use super::util::calc_float_hash;
+use super::util::calc_hash;
 use super::util::new_render_obj;
 use super::util::to_vex_color_defines;
 lazy_static! {
@@ -63,10 +67,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 		&'a mut MultiCaseImpl<Node, MaskTexture>, 
 		&'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>,
 		&'a mut SingleCaseImpl<ShareEngine<C>>,
-		&'a mut SingleCaseImpl<RenderObjs>,
+		// &'a mut SingleCaseImpl<RenderObjs>,
 		&'a mut SingleCaseImpl<PreRenderList>,
 	);
-	fn run(&mut self, (idtree, mask_images, default_state, octree): Self::ReadData, (mask_texture, dyn_atlas_set, mut engine, render_objs, pre_render_list): Self::WriteData) {
+	fn run(&mut self, (idtree, mask_images, default_state, octree): Self::ReadData, (mask_texture, dyn_atlas_set, mut engine, pre_render_list): Self::WriteData) {
 		if self.0.len() == 0 {
 			return;
 		}
@@ -110,7 +114,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 								Share::new(ColorParamter::default()),
 								default_state,
 								
-								render_objs,
 								&mut engine
 							);
 
@@ -119,7 +122,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 							engine.texture_part_res_map.create(hash, texture, cost, 0)
 						}
 					};
-					mask_texture.insert(id, MaskTexture::Part(texture));;
+					mask_texture.insert(id, MaskTexture::Part(texture));
 				}
 			}
 		}
@@ -162,7 +165,6 @@ pub fn create_render_obj<C: HalContext + 'static>(
     fs_name: Atom,
     paramter: Share<dyn ProgramParamter>,
     default_state: &CommonState,
-    render_objs: &mut SingleCaseImpl<RenderObjs>,
 	engine: &mut ShareEngine<C>
 ) -> RenderObj {
     let state = State {
@@ -216,14 +218,44 @@ pub fn create_render_obj<C: HalContext + 'static>(
 	);
 	// alpha, depth
 
-	render_obj.geometry = create_linear_gradient_geo(color, None, &LayoutR{
-		rect: Rect{top: rect.mins.y, bottom: rect.maxs.y, start: rect.mins.x, end: rect.maxs.x},
-		border: Rect{top: 0.0, bottom: 0.0, start: 0.0, end: 0.0},
-		padding:  Rect{top: 0.0, bottom: 0.0, start: 0.0, end: 0.0}
-	}, engine);
+	render_obj.geometry = create_linear_gradient_geo(
+        &rect,
+		color,
+        engine,
+    );
 
 	render_obj
 }
+
+fn create_linear_gradient_geo<C: HalContext + 'static>(rect: &Aabb2, color: &LinearGradientColor, engine: &mut ShareEngine<C>) -> Option<Share<GeometryRes>>{
+	let size = Size {width: NotNan::new(rect.maxs.x - rect.mins.x).unwrap(), height: NotNan::new(rect.maxs.y - rect.mins.y).unwrap()};
+	let (positions, indices) = (
+		vec![
+			rect.mins.x, rect.mins.y, // left_top
+			rect.mins.x, rect.maxs.y, // left_bootom
+			rect.maxs.x, rect.maxs.y, // right_bootom
+			rect.maxs.x, rect.mins.x, // right_top
+		],
+		vec![0, 1, 2, 3],
+	);
+
+	let hash = calc_hash(&"linear_gradient geo", calc_hash(color, calc_float_hash(&positions.as_slice(), 0)));
+	match engine.geometry_res_map.get(&hash) {
+		Some(r) => Some(r),
+		None => {
+			let (positions, colors, indices) = linear_gradient_split(color, positions, indices, &size);
+			Some(engine.create_geo_res(
+				hash,
+				indices.as_slice(),
+				&[
+					AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
+					AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
+				],
+			))
+		}
+	}
+}
+
 
 fn calc_size(oct: &Aabb2, linear: &LinearGradientColor) -> u32 {
 	let width = oct.maxs.x - oct.mins.x;

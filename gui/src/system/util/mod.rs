@@ -1,16 +1,19 @@
 pub mod constant;
 
+use num_traits::Float;
 use share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::DefaultHasher;
 use ordered_float::NotNan;
+use num_traits::float::FloatCore;
 
 use atom::Atom;
 use ecs::monitor::NotifyImpl;
 use ecs::{MultiCaseImpl, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
+use flex_layout::Rect;
 
 use crate::component::user::*;
 use crate::component::{calc::LayoutR, calc::*};
@@ -87,61 +90,73 @@ pub struct BorderRadiusPixel {
 }
 
 /// 计算圆角半径
-pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> BorderRadiusPixel {
-	if let Some(border_radius) = border_radius {
-		#[inline]
-		fn trans(l: LengthUnit, size: f32) -> f32 {
-			match l {
-				LengthUnit::Pixel(r) => r,
-				LengthUnit::Percent(r) => r * size,
-			}
-		}
-		let (width, height) = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
-		let mut r = BorderRadiusPixel {
-			x: [
-				trans(border_radius.x[0], width),
-				trans(border_radius.x[1], width),
-				trans(border_radius.x[2], width),
-				trans(border_radius.x[3], width),
-			],
-			y: [
-				trans(border_radius.x[0], height),
-				trans(border_radius.x[1], height),
-				trans(border_radius.x[2], height),
-				trans(border_radius.x[3], height),
-			],
-		};
-		let (top, bottom, left, right) = (
-			r.x[0] + r.x[1], 
-			r.x[2] + r.x[3], 
-			r.y[0] + r.y[3], 
-			r.y[1] + r.y[2], 
-		);
-		// 修正圆角的，同一条边长的圆角半径之和不能大于边长
-		if top > width {
-			r.x[0] = width/top * r.x[0];
-			r.x[1] = width/top * r.x[1];
-		}
-		if bottom > width {
-			r.x[2] = width/bottom * r.x[2];
-			r.x[3] = width/bottom * r.x[3];
-		}
-		if left > height {
-			r.y[0] = height/left * r.y[0];
-			r.y[3] = height/left * r.y[3];
-		}
-		if right > height {
-			r.y[1] = height/right * r.y[1];
-			r.y[2] = height/right * r.y[2];
-		}
-		r
-	} else {
-		BorderRadiusPixel {
-			x: [0.0, 0.0, 0.0, 0.0],
-			y: [0.0, 0.0, 0.0, 0.0],
+pub fn cal_border_radius(border_radius: &BorderRadius, rect: &Rect<f32>) -> BorderRadiusPixel {
+	#[inline]
+	fn trans(l: LengthUnit, size: f32) -> f32 {
+		match l {
+			LengthUnit::Pixel(r) => r,
+			LengthUnit::Percent(r) => r * size,
 		}
 	}
+	let (width, height) = (rect.end - rect.start, rect.bottom - rect.top);
+	let mut r = BorderRadiusPixel {
+		x: [
+			trans(border_radius.x[0], width),
+			trans(border_radius.x[1], width),
+			trans(border_radius.x[2], width),
+			trans(border_radius.x[3], width),
+		],
+		y: [
+			trans(border_radius.y[0], height),
+			trans(border_radius.y[1], height),
+			trans(border_radius.y[2], height),
+			trans(border_radius.y[3], height),
+		],
+	};
+	let (top, bottom, left, right) = (
+		r.x[0] + r.x[1], 
+		r.x[2] + r.x[3], 
+		r.y[0] + r.y[3], 
+		r.y[1] + r.y[2], 
+	);
+	// 修正圆角的，同一条边长的圆角半径之和不能大于边长
+	if top > width {
+		r.x[0] = width/top * r.x[0];
+		r.x[1] = width/top * r.x[1];
+	}
+	if bottom > width {
+		r.x[2] = width/bottom * r.x[2];
+		r.x[3] = width/bottom * r.x[3];
+	}
+	if left > height {
+		r.y[0] = height/left * r.y[0];
+		r.y[3] = height/left * r.y[3];
+	}
+	if right > height {
+		r.y[1] = height/right * r.y[1];
+		r.y[2] = height/right * r.y[2];
+	}
+	r
 	
+}
+
+pub fn calc_float_hash<T: Float>(v: &[T], cur: u64) -> u64 {
+    let mut hasher = DefaultHasher::default();
+    cur.hash(&mut hasher);
+    for i in v.iter() {
+        unsafe { NotNan::unchecked_new(*i) }.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+#[inline]
+pub fn get_content_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {
+    Rect {
+        top: unsafe { NotNan::unchecked_new(layout.border.top + layout.border.top) },
+        end: unsafe { NotNan::unchecked_new(layout.rect.end - layout.border.end) },
+        bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.border.bottom) },
+        start: unsafe { NotNan::unchecked_new(layout.rect.start + layout.border.start) },
+    }
 }
 
 /// 计算内容区域的圆角半径
@@ -162,21 +177,22 @@ pub fn cal_content_border_radius(border_radius: &BorderRadiusPixel, border: (f32
 	}
 }
 
-// pub fn cal_border_radius(border_radius: Option<&BorderRadius>, layout: &LayoutR) -> BorderRadiusPixel {
-//     match border_radius {
-//         Some(border_radius) => Point2::new(
-//             match border_radius.x {
-//                 LengthUnit::Pixel(r) => r,
-//                 LengthUnit::Percent(r) => r * (layout.rect.end - layout.rect.start),
-//             },
-//             match border_radius.y {
-//                 LengthUnit::Pixel(r) => r,
-//                 LengthUnit::Percent(r) => r * (layout.rect.bottom - layout.rect.top),
-//             },
-//         ),
-//         None => Point2::new(0.0, 0.0),
-//     }
-// }
+#[inline]
+pub fn get_box_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {
+    Rect {
+        top: unsafe { NotNan::unchecked_new(0.0) },
+        end: unsafe { NotNan::unchecked_new(layout.rect.end - layout.rect.start) },
+        bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top) },
+        start: unsafe { NotNan::unchecked_new(0.0) },
+    }
+}
+
+pub fn calc_hash<T: Hash>(v: &T, cur: u64) -> u64 {
+    let mut hasher = DefaultHasher::default();
+    cur.hash(&mut hasher);
+    v.hash(&mut hasher);
+    hasher.finish()
+}
 
 pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, height: f32) {
     RADIUS_QUAD_POSITION_INDEX.hash(hasher);
@@ -445,8 +461,7 @@ pub fn new_render_obj(
         state,
         context,
         post_process: None,
-		// NOTE：此处unsafe必然是安全的，因为bits为0
-		flag: unsafe { MaterialFlags::from_bits_unchecked(0) },
+		vert_type: VertType::Border,
     }
 }
 

@@ -149,7 +149,31 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 
             // 布局或圆角修改， 重新创建geometry
             if dirty & GEO_DIRTY != 0 {
-                render_obj.geometry = Some(create_geo(border_radius, layout, engine));
+				let (radius_hash, border_radius) = match border_radius {
+					Some(r) => {
+						let border_radius = cal_border_radius(r, &layout.rect);
+						render_obj.fs_defines.add(BORDER);
+						let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+
+						// 设置clipSdf
+						render_obj
+						.paramter
+						.as_ref()
+						.set_single_uniform("clipSdf", UniformValue::MatrixV4(vec![
+							width/2.0, height/2.0, layout.border.bottom, layout.border.start,
+							width/2.0, height/2.0, layout.border.top, layout.border.end,
+							border_radius.y[0], border_radius.x[0], border_radius.x[1], border_radius.y[1],
+							border_radius.y[2], border_radius.x[2], border_radius.x[3], border_radius.y[3],
+						]));
+
+						(calc_float_hash(&border_radius.y, calc_float_hash(&border_radius.x, 0)), Some(border_radius))
+					},
+					None => {
+						render_obj.fs_defines.remove(BORDER);
+						(0, None)
+					}
+				};
+                render_obj.geometry = Some(create_geo(&border_radius, layout, engine));
             }
 
             // 如果矩阵脏， 更新worldMatrix ubo
@@ -257,11 +281,11 @@ impl<C: HalContext + 'static> BorderColorSys<C> {
 // 创建几何体， 没有缓冲几何体， 应该缓冲？TODO
 #[inline]
 fn create_geo<C: HalContext + 'static>(
-    radiu: Option<&BorderRadius>,
+    radius: &Option<BorderRadiusPixel>,
     layout: &LayoutR,
     engine: &mut Engine<C>,
 ) -> Share<GeometryRes> {
-    let buffer = get_geo_flow(radiu, layout);
+    let buffer = get_geo_flow(radius, layout);
     engine.create_geo_res(
         0,
         buffer.1.as_slice(),
@@ -275,52 +299,104 @@ fn create_geo<C: HalContext + 'static>(
 
 #[inline]
 /// 取几何体的顶点流和属性流
-fn get_geo_flow(radiu: Option<&BorderRadius>, layout: &LayoutR) -> (Vec<f32>, Vec<u16>) {
-    let radius = cal_border_radius(radiu, layout);
+fn get_geo_flow(radius: &Option<BorderRadiusPixel>, layout: &LayoutR) -> (Vec<f32>, Vec<u16>) {
 
 	let width = layout.rect.end - layout.rect.start;
 	let height = layout.rect.bottom - layout.rect.top;
-    if radius.x == 0.0 {
-        let border_start_x = layout.border.start;
-        let border_start_y = layout.border.top;
-        let border_end_x = width - layout.border.end;
-		let border_end_y = height - layout.border.bottom;
+	let border = &layout.border;
+    match radius {
+		None => {
+			let border_start_x = border.start;
+			let border_start_y = border.top;
+			let border_end_x = width - border.end;
+			let border_end_y = height - border.bottom;
 
-        (
-            vec![
-                0.0,
-                0.0,
-                0.0,
-                height,
-                width,
-                height,
-                width,
-                0.0,
-                border_start_x,
-                border_start_y,
-                border_start_x,
-                border_end_y,
-                border_end_x,
-                border_end_y,
-                border_end_x,
-                border_start_y,
-            ],
-            vec![
-                0, 1, 4, 0, 4, 3, 3, 4, 7, 3, 7, 2, 2, 7, 6, 2, 6, 1, 1, 6, 5, 1, 5, 4,
-            ],
-        )
-    } else {
-        split_by_radius_border(
-            0.0,
-            0.0,
-            width,
-            height,
-            radius.x,
-            layout.border.start,
-            None,
-        )
+			(
+				vec![
+					0.0,
+					0.0,
+					0.0,
+					height,
+					width,
+					height,
+					width,
+					0.0,
+					border_start_x,
+					border_start_y,
+					border_start_x,
+					border_end_y,
+					border_end_x,
+					border_end_y,
+					border_end_x,
+					border_start_y,
+				],
+				vec![
+					0, 1, 4, 0, 4, 3, 3, 4, 7, 3, 7, 2, 2, 7, 6, 2, 6, 1, 1, 6, 5, 1, 5, 4,
+				],
+			)
+		}
+		Some(radius) => {
+			let mut vert = Vec::new();
+			let mut index = Vec::new();
+
+			// 索引位置
+			// 0         4      5       9
+			//   ________|______|________
+			//  |                        |
+			//  |        3      6        |
+			//  |     ___|______|___     |
+			//  |    |              |    |
+			//1 |-   |-2          7-|   -|8
+			//  |    |              |    |
+			//15|-   |-19        14-|   -|13
+			//  |    |              |    |
+			//  |    |___|_______|__|    |
+			//  |        18     10       |
+			//  |                        |
+			//16|_______|_______|________|
+			//         17     11     12
+			vert.extend_from_slice(&[
+				0.0, 0.0, // 0
+				0.0, radius.y[0], // 1
+				border.start, radius.y[0], // 2
+				radius.x[0], border.top, // 3
+				radius.x[0], 0.0, // 4
+
+				width - radius.x[1], 0.0, // 5
+				width - radius.x[1], border.top, // 6
+				width - border.end, radius.y[1], // 7
+				width, radius.y[1], // 8
+				width, 0.0, // 9
+
+
+				width - radius.x[2], height - border.bottom, // 10
+				width - radius.x[2], height, // 11
+				width, height, // 12
+				width, height - radius.y[2], // 13
+				width - border.end, height - radius.y[2], // 14
+
+				0.0, height - radius.y[3], // 15
+				0.0, height, // 16
+				radius.x[3], height, // 17
+				radius.x[3], height - border.bottom, // 18
+				border.start, height - radius.y[3], // 19
+				]);
+			index.extend_from_slice(&[
+				0, 1, 2, 0, 2, 3, 0, 3, 4, // 左上
+				5, 6, 9, 6, 7, 9, 7, 8, 9, // 右上
+				10, 11, 12, 10, 12, 14, 14, 12, 13, // 右下
+				15, 16, 19, 19, 16, 18, 18, 16, 17, // 左下
+				4, 3, 6, 4, 6, 5, // 上
+				7, 14, 13, 7, 13, 8, // 右
+				18, 17, 11, 18, 11, 10, // 下
+				1, 15, 19, 1, 19, 2, // 左
+				]);
+			(vert, index)
+		}
     }
 }
+
+const BORDER: &'static str = "BORDER";
 
 impl_system! {
     BorderColorSys<C> where [C: HalContext + 'static],

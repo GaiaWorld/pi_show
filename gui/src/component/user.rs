@@ -204,7 +204,7 @@ pub struct Blur(pub f32);
 pub struct RenderContextMark(bitvec::prelude::BitArray);
 
 //ObjectFit
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize, Hash)]
 pub struct BackgroundImageOption {
     pub object_fit: FitType,
     pub repeat: (BorderImageRepeatType, BorderImageRepeatType),
@@ -232,7 +232,7 @@ pub struct BorderImageSlice {
     pub left: f32,
     pub fill: bool,
 }
-#[derive(Debug, Clone, Component, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Component, Default, Serialize, Deserialize, Hash)]
 pub struct BorderImageRepeat(pub BorderImageRepeatType, pub BorderImageRepeatType);
 
 // // 圆角， 目前仅支持x分量
@@ -343,6 +343,22 @@ pub enum Color {
     RGBA(CgColor),
     LinearGradient(LinearGradientColor),
     // RadialGradient(RadialGradientColor),
+}
+
+impl Hash for Color {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+		match self {
+			Color::RGBA(color) => {
+				NotNan::new(color.r).unwrap().hash(hasher);
+				NotNan::new(color.g).unwrap().hash(hasher);
+				NotNan::new(color.b).unwrap().hash(hasher);
+				NotNan::new(color.a).unwrap().hash(hasher);
+			},
+			Color::LinearGradient(color) =>  {
+				color.hash(hasher);
+			},
+		}
+    }
 }
 
 impl Color {
@@ -466,7 +482,7 @@ pub struct Stroke {
 }
 
 // 图像填充的方式
-#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]
+#[derive(Debug, Clone, EnumDefault, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum FitType {
     Fill,
     None,
@@ -478,12 +494,54 @@ pub enum FitType {
     RepeatY,
 }
 
-#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize, PartialEq, Hash)]
 pub enum BorderImageRepeatType {
     Stretch, // 拉伸源图像的边缘区域以填充每个边界之间的间隙。
     Repeat,  // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以修剪瓷砖以实现适当的配合。
     Round,   // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以拉伸瓷砖以实现适当的配合。
     Space,   // 源图像的边缘区域被平铺（重复）以填充每个边界之间的间隙。可以缩小瓷砖以实现适当的配合。
+}
+
+#[derive(Deref, DerefMut, Clone, Component, Debug, Serialize, Deserialize)]
+pub struct ClipPath(pub BaseShape);
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BaseShape {
+	Circle {
+		radius: LengthUnit,
+		center: Center,
+	},
+	Ellipse {
+		rx: LengthUnit,
+		ry: LengthUnit,
+		center: Center,
+	},
+	Inset {
+		rect_box: [LengthUnit;4],
+		border_radius: BorderRadius,
+	},
+	Sector {
+		rotate: f32, // 旋转 （单位： 弧度）
+		angle: f32, // 弧度角
+		radius: LengthUnit, // 半径
+		center: Center
+	}
+}
+
+impl Default for BaseShape {
+    fn default() -> Self {
+        BaseShape::Circle {
+			radius: Default::default(),
+			center: Default::default(),
+		}
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Center {
+	pub x: LengthUnit,
+	pub y: LengthUnit
 }
 
 #[derive(Debug, Clone, Copy, EnumDefault, Serialize, Deserialize)]

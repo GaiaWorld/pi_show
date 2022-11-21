@@ -1,8 +1,10 @@
 use std::mem::transmute;
 
+use gui::single::style_parse::StyleParse;
 use wasm_bindgen::prelude::*;
 // use stdweb::unstable::TryInto;
 // use stdweb::web::TypedArray;
+use cssparser::{ParserInput, Parser};
 
 use ecs::LendMut;
 use hash::XHashMap;
@@ -83,34 +85,181 @@ pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
 /// 设置边框圆角
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn set_border_radius(world: u32, node: u32, x: f32, y: f32) {
-    insert_attr!(
-        world,
-        node,
-        BorderRadius,
-        BorderRadius {
-            x: LengthUnit::Pixel(x),
-            y: LengthUnit::Pixel(y)
-        },
-        border_radius
-    );
+pub fn set_border_radius(world: u32, node: u32, value: String) {
+	let mut input = ParserInput::new(value.as_str());
+    let mut parse = Parser::new(&mut input);
+	match BorderRadius::parse(&mut parse) {
+		Ok(v) => {
+			insert_attr!(
+				world,
+				node,
+				BorderRadius,
+				v,
+				border_radius
+			);
+		},
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}", value);
+		}
+	}
 }
 
-/// 设置边框圆角
-#[allow(unused_attributes)]
+/// 设置clip_path
 #[wasm_bindgen]
-pub fn set_border_radius_percent(world: u32, node: u32, x: f32, y: f32) {
-    insert_attr!(
-        world,
-        node,
-        BorderRadius,
-        BorderRadius {
-            x: LengthUnit::Percent(x),
-            y: LengthUnit::Percent(y)
-        },
-        border_radius
-    );
+pub fn set_clip_path_str(world: u32, node: u32, value: String) {
+	let mut input = ParserInput::new(value.as_str());
+    let mut parse = Parser::new(&mut input);
+	match BaseShape::parse(&mut parse) {
+		Ok(v) => {
+			insert_attr!(
+				world,
+				node,
+				ClipPath,
+				ClipPath(v),
+				clip_path
+			);
+		},
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}", value);
+		}
+	}
 }
+
+/// 设置clip_path
+#[wasm_bindgen]
+pub fn set_clip_path(world: u32, node: u32, value: &BaseShape1) {
+	insert_attr!(
+		world,
+		node,
+		ClipPath,
+		ClipPath(value.0.clone()),
+		clip_path
+	);
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct BaseShape1 (BaseShape);
+
+/// 对clip属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_clip_path(value1: &BaseShape1, value2: &BaseShape1, process: f32) -> BaseShape1 {
+	BaseShape1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
+}
+
+/// 创建baseshape
+#[wasm_bindgen]
+pub fn create_base_shape(value: String) -> Option<BaseShape1> {
+	let mut input = ParserInput::new(value.as_str());
+    let mut parse = Parser::new(&mut input);
+	match BaseShape::parse(&mut parse) {
+		Ok(v) => Some(BaseShape1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+pub trait AnimatableValue {
+    fn add(&self, rhs: &Self) -> Self;
+    fn scale(&self, other: f32) -> Self;
+}
+
+impl AnimatableValue for BaseShape {
+    fn add(&self, rhs: &Self) -> Self {
+        match (self, rhs) {
+            (BaseShape::Circle{radius: radius1, center: center1}, BaseShape::Circle {radius: radius2, center: center2}) => BaseShape::Circle {
+				radius: radius1.add(radius2),
+				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
+			},
+            (BaseShape::Ellipse{rx: rx1, ry: ry1, center: center1}, BaseShape::Ellipse{rx: rx2, ry: ry2, center: center2}) => BaseShape::Ellipse {
+				rx: rx1.add(rx2),
+				ry: ry1.add(ry2),
+				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
+			},
+			(BaseShape::Inset{rect_box: rect_box1, border_radius: border_radius1}, BaseShape::Inset {rect_box: rect_box2, border_radius: border_radius2}) => BaseShape::Inset {
+				rect_box: [
+					rect_box1[0].add(&rect_box2[0]), 
+					rect_box1[1].add(&rect_box2[1]), 
+					rect_box1[2].add(&rect_box2[2]), 
+					rect_box1[3].add(&rect_box2[3]),
+				],
+				border_radius: BorderRadius { 
+					x: [
+						border_radius1.x[0].add(&border_radius2.x[0]), 
+						border_radius1.x[1].add(&border_radius2.x[1]), 
+						border_radius1.x[2].add(&border_radius2.x[2]), 
+						border_radius1.x[3].add(&border_radius2.x[3]),
+					], 
+					y: [
+						border_radius1.y[0].add(&border_radius2.y[0]), 
+						border_radius1.y[1].add(&border_radius2.y[1]), 
+						border_radius1.y[2].add(&border_radius2.y[2]), 
+						border_radius1.y[3].add(&border_radius2.y[3]),
+					]
+				}
+			},
+			(BaseShape::Sector{angle: angle1, rotate: rotate1, radius: radius1,  center: center1}, BaseShape::Sector{angle: angle2, rotate: rotate2, radius: radius2, center: center2}) => BaseShape::Sector {
+				angle: angle1 + angle2,
+				rotate: rotate1 + rotate2,
+				radius: radius1.add(radius2),
+				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
+			},
+			(_, rhs) => rhs.clone()
+        }
+    }
+    #[inline]
+    fn scale(&self, other: f32) -> Self {
+		match self {
+			BaseShape::Circle { radius, center } => BaseShape::Circle { radius: radius.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
+			BaseShape::Ellipse { rx, ry, center } => BaseShape::Ellipse { rx: rx.scale(other), ry: ry.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
+			BaseShape::Inset { rect_box, border_radius } => BaseShape::Inset { rect_box: [
+				rect_box[0].scale(other), 
+				rect_box[1].scale(other), 
+				rect_box[2].scale(other), 
+				rect_box[3].scale(other),
+			], border_radius: BorderRadius {
+				x: [
+					border_radius.x[0].scale(other), 
+					border_radius.x[1].scale(other), 
+					border_radius.x[2].scale(other), 
+					border_radius.x[3].scale(other),
+				], 
+				y: [
+					border_radius.y[0].scale(other), 
+					border_radius.y[1].scale(other), 
+					border_radius.y[2].scale(other), 
+					border_radius.y[3].scale(other),
+				]
+			} } ,
+			BaseShape::Sector { angle, rotate, radius, center } => BaseShape::Sector { angle: angle * other, rotate: rotate * other, radius: radius.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
+		}
+        // match self {
+        //     LengthUnit::Pixel(r1) => LengthUnit::Pixel(r1 * other),
+        //     LengthUnit::Percent(r1) => LengthUnit::Percent(r1 * other),
+        // }
+    }
+}
+
+impl AnimatableValue for LengthUnit {
+    fn add(&self, rhs: &Self) -> Self {
+        match (self, rhs) {
+            (LengthUnit::Pixel(r1), LengthUnit::Pixel(r2)) => LengthUnit::Pixel(r1 + r2),
+            (LengthUnit::Pixel(r1), LengthUnit::Percent(_)) => LengthUnit::Pixel(*r1),
+            (LengthUnit::Percent(r1), LengthUnit::Pixel(_)) => LengthUnit::Percent(*r1),
+            (LengthUnit::Percent(r1), LengthUnit::Percent(r2)) => LengthUnit::Percent(r1 + r2),
+        }
+    }
+    #[inline]
+    fn scale(&self, other: f32) -> Self {
+        match self {
+            LengthUnit::Pixel(r1) => LengthUnit::Pixel(r1 * other),
+            LengthUnit::Percent(r1) => LengthUnit::Percent(r1 * other),
+        }
+    }
+}
+
 
 // // 设置阴影颜色
 // #[allow(unused_attributes)]

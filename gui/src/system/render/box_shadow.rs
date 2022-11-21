@@ -1,25 +1,23 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use cg2d::{BooleanOperation, Polygon as Polygon2d};
+use cg2d::{Polygon as Polygon2d};
 use nalgebra::Point2;
 use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
-use map::Map;
-use polygon::*;
 use share::Share;
 
 use crate::single::*;
 use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use crate::system::util::*;
 use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
-use crate::render::res::GeometryRes;
 use crate::entity::Node;
-use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
+use polygon2::difference;
 
 const DITY_TYPE: usize = StyleType::BoxShadow as usize
             | StyleType::Matrix as usize
@@ -171,8 +169,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             {
                 // render_obj.program_dirty =  true;
                 // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
-                render_obj.geometry =
-                    create_shadow_geo(engine, render_obj, layout, shadow, border_radius);
+                create_shadow_geo(engine, render_obj, layout, shadow, border_radius);
             }
 
             // 矩阵脏，或者布局脏
@@ -261,55 +258,76 @@ fn create_shadow_geo<C: HalContext + 'static>(
     layout: &LayoutR,
     shadow: &BoxShadow,
     border_radius: Option<&BorderRadius>,
-) -> Option<Share<GeometryRes>> {
-    let radius = cal_border_radius(border_radius, layout);
-    let g_b = geo_box(layout);
-    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
-        return None;
+) {
+    let g_b = get_box_rect(layout);
+    if *(g_b.end) - *(g_b.start) == 0.0 || *(g_b.bottom) - *(g_b.top) == 0.0 {
+		render_obj.geometry = None;
+		return;
     }
 
-    let x = g_b.mins.x;
-    let y = g_b.mins.y;
-    let w = g_b.maxs.x - g_b.mins.x;
-    let h = g_b.maxs.y - g_b.mins.y;
-    let bg = split_by_radius(x, y, w, h, radius.x, Some(16));
-    if bg.0.len() == 0 {
-        return None;
-    }
+    let left = *(g_b.start) + shadow.h - shadow.spread - (shadow.blur/2.0);
+    let top = *(g_b.top) + shadow.v - shadow.spread - (shadow.blur/2.0);
+    let right = *g_b.end + shadow.spread + shadow.blur;
+    let bottom = *g_b.bottom + shadow.spread + shadow.blur;
 
-    let x = g_b.mins.x + shadow.h - shadow.spread - shadow.blur;
-    let y = g_b.mins.y + shadow.v - shadow.spread - shadow.blur;
-    let w = g_b.maxs.x - g_b.mins.x + 2.0 * shadow.spread + 2.0 * shadow.blur;
-    let h = g_b.maxs.y - g_b.mins.y + 2.0 * shadow.spread + 2.0 * shadow.blur;
-    let shadow_pts = split_by_radius(x, y, w, h, radius.x, Some(16));
-    if shadow_pts.0.len() == 0 {
-        return None;
-    }
+	let hash = calc_hash(&"shadow geo", calc_float_hash(&[left, top, right, bottom, shadow.blur], 0));
 
-    let polygon_shadow = Polygon2d::new(convert_to_point(shadow_pts.0.as_slice()));
-    let polygon_bg = Polygon2d::new(convert_to_point(bg.0.as_slice()));
+	match engine.geometry_res_map.get(&hash) {
+		Some(r) => render_obj.geometry = Some(r),
+		None => {
+			let bg = vec![
+				*g_b.start, *g_b.top,
+				*g_b.start, *g_b.bottom,
+				*g_b.end, *g_b.bottom,
+				*g_b.end, *g_b.top,
+			];
+			let shadow = vec![
+				left, top,
+				left, bottom,
+				right, bottom,
+				right, top,
+			];
 
-    let mut curr_index = 0;
-    let mut pts: Vec<f32> = vec![];
-    let mut indices: Vec<u16> = vec![];
-    for p in Polygon2d::boolean(&polygon_shadow, &polygon_bg, BooleanOperation::Difference) {
-        pts.extend_from_slice(convert_to_f32(p.vertices.as_slice()));
+			let polygon_shadow = convert_to_f32_tow(shadow.as_slice());
+			let polygon_bg = convert_to_f32_tow(bg.as_slice());
+			let difference_polygons = difference (polygon_shadow, polygon_bg);
 
-        let tri_indices = p.triangulation();
-        indices.extend_from_slice(
-            tri_indices
-                .iter()
-                .map(|&v| (v + curr_index) as u16)
-                .collect::<Vec<u16>>()
-                .as_slice(),
-        );
+			let mut curr_index = 0;
+			let mut positions: Vec<f32> = vec![];
+			let mut indices: Vec<u16> = vec![];
 
-        curr_index += p.vertices.len();
-    }
+			for p_slice in difference_polygons.into_iter() {
+				let p = Polygon2d::new(convert_to_point(convert_to_f32(p_slice.as_slice())));
+				positions.extend_from_slice(convert_to_f32(p_slice.as_slice()));
 
-    if pts.len() == 0 {
-        return None;
-    }
+				let tri_indices = p.triangulation();
+				indices.extend_from_slice(
+					tri_indices
+						.iter()
+						.map(|&v| (v + curr_index) as u16)
+						.collect::<Vec<u16>>()
+						.as_slice(),
+				);
+
+				curr_index += p.vertices.len();
+			}
+
+			if positions.len() == 0 {
+				render_obj.geometry = None;
+				return;
+			} else {
+				render_obj.geometry = Some(engine.create_geo_res(
+					0,
+					indices.as_slice(),
+					&[AttributeDecs::new(
+						AttributeName::Position,
+						positions.as_slice(),
+						2,
+					)],
+				));
+			}
+		}
+	};
 
     render_obj.paramter.as_ref().set_single_uniform(
         "blur",
@@ -320,14 +338,14 @@ fn create_shadow_geo<C: HalContext + 'static>(
         render_obj.vs_defines.add("BOX_SHADOW_BLUR");
         render_obj.fs_defines.add("BOX_SHADOW_BLUR");
 
-        let x = g_b.mins.x + shadow.h - shadow.spread;
-        let y = g_b.mins.y + shadow.v - shadow.spread;
-        let w = g_b.maxs.x - g_b.mins.x + 2.0 * shadow.spread;
-        let h = g_b.maxs.y - g_b.mins.y + 2.0 * shadow.spread;
+        let x = g_b.start + shadow.h - shadow.spread;
+        let y = g_b.top + shadow.v - shadow.spread;
+        let w = g_b.end - g_b.start + 2.0 * shadow.spread;
+        let h = g_b.bottom - g_b.top + 2.0 * shadow.spread;
         render_obj
             .paramter
             .as_ref()
-            .set_single_uniform("uRect", UniformValue::Float4(x, y, x + w, y + h));
+            .set_single_uniform("uRect", UniformValue::Float4(*x, *y, *(x + w), *(y + h)));
     } else {
         render_obj.fs_defines.add("BOX_SHADOW_BLUR");
         render_obj.fs_defines.remove("BOX_SHADOW_BLUR");
@@ -338,15 +356,6 @@ fn create_shadow_geo<C: HalContext + 'static>(
         pts.as_slice(),
         indices.as_slice()
     );
-    Some(engine.create_geo_res(
-        0,
-        indices.as_slice(),
-        &[AttributeDecs::new(
-            AttributeName::Position,
-            pts.as_slice(),
-            2,
-        )],
-    ))
 }
 
 #[inline]
@@ -357,7 +366,14 @@ fn convert_to_point(pts: &[f32]) -> &[Point2<f32>] {
 }
 
 #[inline]
-fn convert_to_f32(pts: &[Point2<f32>]) -> &[f32] {
+fn convert_to_f32_tow(pts: &[f32]) -> &[[f32; 2]] {
+    let ptr = pts.as_ptr();
+    let ptr = ptr as *const [f32; 2];
+    unsafe { slice::from_raw_parts(ptr, pts.len() / 2) }
+}
+
+#[inline]
+fn convert_to_f32(pts: &[[f32; 2]]) -> &[f32] {
     let ptr = pts.as_ptr();
     let ptr = ptr as *const f32;
     unsafe { slice::from_raw_parts(ptr, 2 * pts.len()) }

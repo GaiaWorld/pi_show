@@ -40,6 +40,7 @@ hal_webgl = {path="../hal_webgl"}
 gui_tool = {path="../gui_tool"}
 hal_core = {path="../hal_core", features = ["serde"]}
 # platform = {path="../../pi_lib/platform", features = ["web"]}
+cssparser = "0.29"
 
 gui = {path="../gui", features = ["web"]} #, features = ["performance"]
 res_mgr_web = { path = "../res_mgr_web"}

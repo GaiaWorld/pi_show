@@ -686,6 +686,44 @@ fn to_css_str(attr: Attr) -> String {
             _ => "".to_string(),
         },
         Attr::Attr3(attr) => match attr {
+			Attribute3::ClipPath(r) => {
+				"clip-path:".to_string()
+					+ match &r.0 {
+						BaseShape::Circle { radius, center } => "circle(".to_string()
+							+ len_to_string(radius).as_str()
+							+ " at "
+							+ len_to_string(&center.x).as_str()
+							+ " "
+							+ len_to_string(&center.y).as_str(),
+						BaseShape::Ellipse { rx, ry, center } => "ellipse(".to_string()
+							+ len_to_string(rx).as_str() + " "
+							+ len_to_string(ry).as_str()
+							+ " at "
+							+ len_to_string(&center.x).as_str() + " "
+							+ len_to_string(&center.y).as_str(),
+						BaseShape::Inset { rect_box, border_radius } =>  "ellipse(".to_string()
+							+ len_to_string(&rect_box[0]).as_str() + " "
+							+ len_to_string(&rect_box[1]).as_str() + " "
+							+ len_to_string(&rect_box[2]).as_str() + " "
+							+ len_to_string(&rect_box[3]).as_str()
+							+ " round "
+							+ len_to_string(&border_radius.x[0]).as_str() + " "
+							+ len_to_string(&border_radius.x[1]).as_str() + " "
+							+ len_to_string(&border_radius.x[2]).as_str() + " "
+							+ len_to_string(&border_radius.x[3]).as_str() + " / "
+							+ len_to_string(&border_radius.y[0]).as_str() + " "
+							+ len_to_string(&border_radius.y[1]).as_str() + " "
+							+ len_to_string(&border_radius.y[2]).as_str() + " "
+							+ len_to_string(&border_radius.y[3]).as_str(),
+						BaseShape::Sector { rotate, angle, radius, center } => "sector(".to_string()
+							+ rotate.to_string().as_str() + " "
+							+ angle.to_string().as_str() + " "
+							+ len_to_string(radius).as_str()
+							+ " at "
+							+ len_to_string(&center.x).as_str() + " "
+							+ len_to_string(&center.y).as_str(),
+						}.as_str()
+			}
             Attribute3::BGColor(color) => match &color.0 {
                 Color::RGBA(r) => {
                     "background-color:rgba(".to_string()
@@ -845,6 +883,14 @@ fn to_css_str(attr: Attr) -> String {
         },
     }
 }
+
+fn len_to_string(r: &LengthUnit) -> String {
+	match r {
+		LengthUnit::Percent(r) => r.to_string() + "%",
+		LengthUnit::Pixel(r) => r.to_string() + "px",
+	}
+}
+
 
 // 打印节点信息
 #[allow(unused_attributes)]

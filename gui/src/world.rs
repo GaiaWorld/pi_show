@@ -66,6 +66,8 @@ lazy_static! {
     pub static ref CONTENT_BOX_N: Atom = Atom::from("content_box_sys");
     pub static ref MASK_IMAGE_N: Atom = Atom::from("mask_image_sys");
     pub static ref RENDER_CONTEXT_N: Atom = Atom::from("render_context_sys");
+	pub static ref CLIP_PATH_N: Atom = Atom::from("clip_path_sys");
+	
 }
 
 /// 设置资源管理器
@@ -184,6 +186,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, NodeState>();
     world.register_multi::<Node, BlendMode>();
     world.register_multi::<Node, ContentBox>();
+	world.register_multi::<Node, ClipPath>();
 
     //calc
     world.register_multi::<Node, ImageTexture>();
@@ -257,6 +260,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<ImageWaitSheet>(ImageWaitSheet::default());
     world.register_single::<DirtyList>(DirtyList::with_capacity(capacity));
     world.register_single::<SystemTime>(sys_time);
+	world.register_single::<VertType>(VertType::default());
 
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -306,9 +310,10 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_system(MASK_TEXTURE_N.clone(), mask_texture_sys);
 
     world.register_system(OPACITY_N.clone(), opacity_sys);
+	world.register_system(CLIP_PATH_N.clone(), CellClipPathSys::<C>::new(ClipPathSys::default()));
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys,  clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -327,7 +332,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_sys, mask_image_sys, node_attr_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys, clip_sys, mask_image_sys, node_attr_sys, style_mark_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }
@@ -364,6 +369,7 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub mask_image_clip: Arc<CellMultiCase<Node, MaskImageClip>>,
     pub blend_mode: Arc<CellMultiCase<Node, BlendMode>>,
     pub blur: Arc<CellMultiCase<Node, Blur>>,
+	pub clip_path: Arc<CellMultiCase<Node, ClipPath>>,
 
     //calc
     pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
@@ -431,6 +437,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             mask_image_clip: world.fetch_multi::<Node, MaskImageClip>().unwrap(),
             blend_mode: world.fetch_multi::<Node, BlendMode>().unwrap(),
             blur: world.fetch_multi::<Node, Blur>().unwrap(),
+			clip_path: world.fetch_multi::<Node, ClipPath>().unwrap(),
 
             //calc
             z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),

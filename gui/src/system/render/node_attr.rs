@@ -15,7 +15,7 @@ use ecs::{
 use hal_core::*;
 use res::{ResMap, ResMgr};
 
-use crate::{component::{calc::*, user::Aabb2, calc::Visibility as CVisibility}, single::dyn_texture::DynAtlasSet};
+use crate::{component::{calc::*, calc::LayoutR, user::{Aabb2, BorderRadius}, calc::Visibility as CVisibility}, single::dyn_texture::DynAtlasSet};
 use crate::component::user::Opacity;
 use crate::component::user::BlendMode;
 use crate::entity::Node;
@@ -632,6 +632,135 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, (CreateEvent, Modi
     }
 }
 
+//创建索引
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, VertType, ModifyEvent> for NodeAttrSys<C> {
+    type ReadData = (
+		&'a MultiCaseImpl<Node, BorderRadius>,
+		&'a MultiCaseImpl<Node, LayoutR>,
+    );
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &Event, read: Self::ReadData, render_objs: Self::WriteData) {
+        let (border_radiuses, layouts) = read;
+        let render_obj = &mut render_objs[event.id];
+        
+		// 如果存在圆角，需要设置圆角的uniform
+		if let Some(border_radius) = border_radiuses.get(render_obj.context) {
+			let layout = &layouts[render_obj.context];
+			let border_radius = cal_border_radius(border_radius, &layout.rect);
+			set_radius(&border_radius, layout, render_obj);
+		}
+	}
+}
+
+const BORDER_RADIUS: &'static str = "BORDER_RADIUS";
+
+/// 处理圆角的删除
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, DeleteEvent> for NodeAttrSys<C> {
+    type ReadData = &'a SingleCaseImpl<NodeRenderMap>;
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &Event, node_render_map: Self::ReadData, render_objs: Self::WriteData) {
+		if let Some(render_list) = node_render_map.get(event.id) {
+			for i in render_list.iter() {
+				if let Some(draw_obj) = render_objs.get_mut(*i) {
+					// 移除宏
+					if let Some(_) = draw_obj.fs_defines.remove(BORDER_RADIUS) {
+						render_objs.get_notify_ref().modify_event(*i, "pipeline", 0);
+					}
+				}
+			}
+		}
+    }
+}
+
+/// 处理圆角的修改
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, (CreateEvent, ModifyEvent)> for NodeAttrSys<C> {
+    type ReadData = (
+		&'a MultiCaseImpl<Node, BorderRadius>,
+		&'a MultiCaseImpl<Node, LayoutR>,
+		&'a SingleCaseImpl<NodeRenderMap>
+	);
+    type WriteData = &'a mut SingleCaseImpl<RenderObjs>;
+    fn listen(&mut self, event: &Event, (border_radiuses, layouts, node_render_map): Self::ReadData, render_objs: Self::WriteData) {
+		if let Some(render_list) = node_render_map.get(event.id) {
+			if render_list.len() == 0 {
+				return;
+			}
+
+			let (border_radius, layout) = (&border_radiuses[event.id], &layouts[event.id]);
+
+			let border_radius = cal_border_radius(border_radius, &layout.rect);
+			for i in render_list.iter() {
+				if let Some(draw_obj) = render_objs.get_mut(*i) {
+					if draw_obj.vert_type == VertType::Border {
+						continue;
+					}
+
+					if set_radius(&border_radius, layout, draw_obj) {
+						// 需要重新编译shader
+						render_objs.get_notify_ref().modify_event(*i, "program_dirty", 0);
+					} else {
+						// 否则仅仅发送改变的通知
+						render_objs.get_notify_ref().modify_event(*i, "", 0);
+					}
+				}
+			}
+		}
+    }
+}
+
+// 设置圆角， 返回宏是否改变
+fn set_radius(border_radius: &BorderRadiusPixel, layout: &LayoutR, draw_obj: &mut RenderObj) -> bool {
+	let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+	let (x, y, z, w) = match draw_obj.vert_type {
+		VertType::BorderRect | VertType::ContentRect  => (
+			width/2.0, 
+			height/2.0, 
+			width, 
+			height, 
+		),
+		VertType::BorderNone | VertType::ContentNone => (
+			width/2.0, 
+			height/2.0, 
+			1.0, 1.0
+		),
+		VertType::Border => return false, // 渲染边框，不需要额外添加圆角的uniform
+	};
+
+	let mut change = false;
+	if draw_obj.fs_defines.add(BORDER_RADIUS).is_some() {
+		change = true;
+	}
+
+	let temp;
+	let border_radius = match draw_obj.vert_type {
+		VertType::ContentNone | VertType::ContentRect  => {
+			temp = cal_content_border_radius(&border_radius, (
+				layout.border.top,
+				layout.border.end,
+				layout.border.bottom,
+				layout.border.start,
+			));
+			&temp
+		},
+		VertType::BorderNone | VertType::BorderRect => &border_radius, 
+		_ => return change,
+	};
+
+	// 设置uniform
+	draw_obj
+	.paramter
+	.as_ref()
+	.set_single_uniform("clipSdf", UniformValue::MatrixV4(vec![
+		x, y, z, w, 
+		width/2.0, height/2.0, 0.0, 0.0,
+		border_radius.y[0], border_radius.x[0], border_radius.x[1], border_radius.y[1],
+		border_radius.y[2], border_radius.x[2], border_radius.x[3], border_radius.y[3],
+	]));
+
+	change
+}	
+
+
 impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
     for NodeAttrSys<C>
 {
@@ -846,6 +975,9 @@ impl_system! {
 		// SingleCaseListener<ProjectionMatrix, ModifyEvent>
 		EntityListener<Node, ModifyEvent>
 		SingleCaseListener<Oct, (CreateEvent, ModifyEvent, DeleteEvent)>
+		SingleCaseListener<VertType, ModifyEvent>
+		MultiCaseListener<Node, BorderRadius, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, BorderRadius, DeleteEvent>
 		MultiCaseListener<Node, Visibility, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, CVisibility, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, Culling, ModifyEvent>

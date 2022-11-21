@@ -208,15 +208,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
     let root_indexs = root_indexs.lend_mut();
     root_indexs.mark(1, idtree[1].layer());
-
-    let border_radius = world.border_radius.lend_mut();
-    border_radius.insert(
-        node,
-        BorderRadius {
-            x: LengthUnit::Pixel(0.0),
-            y: LengthUnit::Pixel(0.0),
-        },
-    );
+    
     // unsafe{ console::log_1(&JsValue::from("create_gui5================================="))};
 
     let visibilitys = world.visibility.lend_mut();

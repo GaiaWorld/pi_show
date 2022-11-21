@@ -14,6 +14,7 @@ pub mod blur;
 pub mod opacity;
 pub mod mask_texture;
 pub mod gassu_blur;
+pub mod clip_path;
 
 
 
@@ -28,3 +29,4 @@ pub use crate::system::render::render::*;
 pub use crate::system::render::box_shadow::*;
 pub use crate::system::render::res_release::*;
 pub use crate::system::render::render_context::*;
+pub use crate::system::render::clip_path::*;

@@ -3,13 +3,12 @@ use std::mem::transmute;
 use std::result::Result;
 use std::str::FromStr;
 
+use cssparser::{Parser, ParseError, Token, ParserInput};
 use smallvec::SmallVec;
 
 use atom::Atom;
 use flex_layout::*;
 use hash::XHashMap;
-use nalgebra::Field;
-use serde::de::value;
 
 use crate::component::calc::*;
 use crate::component::user::Opacity;
@@ -486,9 +485,183 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
         "filter" => {
             parse_filter(value, class)?;
         }
+		"clip-path" => {
+			let mut input = ParserInput::new(value);
+    		let mut parse = Parser::new(&mut input);
+			let base_shape = match BaseShape::parse(&mut parse) {
+				Ok(r) => r,
+				Err(r) => return Err(format!("{:?}", r)),
+			};
+			class.attrs3.push(Attribute3::ClipPath(ClipPath(base_shape)));
+			class.class_style_mark1 |= StyleType1::ClipPath as usize;
+            // ClipPath::parse(value, class)?;
+        }
         _ => (),
     };
     Ok(())
+}
+
+pub trait StyleParse: Sized {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>>;
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueParseErrorKind<'i> {
+    InvalidStepPosition(Token<'i>),
+    InvalidTimingFunction(Token<'i>),
+    InvalidTime(Token<'i>),
+    InvalidAnimationDirection(Token<'i>),
+    InvalidAnimationPlayState(Token<'i>),
+    InvalidAnimationPlayFillMode(Token<'i>),
+    InvalidAnimationIterationCount(Token<'i>),
+    InvalidAnimation(Token<'i>),
+    /// An invalid token was encountered while parsing a color value.
+    InvalidColor,
+    /// An invalid filter value was encountered.
+    InvalidFilter,
+    InvalidBlur,
+    InvalidHsi,
+    InvalidAttr(Token<'i>),
+    InvalidBackground,
+    InvalidLinear,
+    InvalidTextShadow,
+    InvalidImage,
+    InvalidObjectFit(Token<'i>),
+    InvalidRepeat(Token<'i>),
+    InvalidKeyFrameProgress(Token<'i>),
+}
+
+impl StyleParse for LengthUnit {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
+		let location = input.current_source_location();
+		let toke = input.next()?;
+		match toke {
+			Token::Percentage { unit_value, .. } => Ok(LengthUnit::Percent(*unit_value)),
+			Token::Dimension { value, .. } => Ok(LengthUnit::Pixel(*value)),
+			Token::Number { value, .. } => Ok(LengthUnit::Pixel(*value)),
+			_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+		}
+	}
+}
+
+impl StyleParse for BaseShape {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
+        let location = input.current_source_location();
+		let func_name = input.expect_function()?;
+		match func_name.as_ref() {
+			"inset" => input.parse_nested_block(|input| {
+				let rect_box = parse_top_right_bottom_left(input)?;
+				let radius = input.try_parse(|input| {
+					let location1 = input.current_source_location();
+					let ident = input.expect_ident()?;
+					if ident.as_ref() == "round" {
+						Ok(BorderRadius::parse(input)?)
+					} else {
+						Err(location1.new_custom_error(ValueParseErrorKind::InvalidFilter))
+					}
+				});
+				Ok(BaseShape::Inset { rect_box, border_radius: match radius {
+					Ok(r) => r,
+					_ => BorderRadius::default(),
+				} })
+			}),
+			"circle" => input.parse_nested_block(|input| {
+				let radius = LengthUnit::parse(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Circle { radius, center })
+			}),
+			"ellipse" => input.parse_nested_block(|input| {
+				let rx = LengthUnit::parse(input)?;
+				let ry = LengthUnit::parse(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Ellipse { rx, ry, center })
+			}),
+			"sector" => input.parse_nested_block(|input| {
+				let rotate = parse_angle(input)?/180.0 * 3.1415926535;
+				let angle = parse_angle(input)?/180.0 * 3.1415926535;
+				let radius = LengthUnit::parse(input)?;
+				let center = parse_center(input);
+				Ok(BaseShape::Sector { rotate, angle, radius, center: center })
+			}),
+			_ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+		}
+    }
+}
+
+impl StyleParse for BorderRadius {
+    fn parse<'i, 't>(input: &mut Parser<'i, 't>) -> Result<Self, ParseError<'i, ValueParseErrorKind<'i>>> {
+		let x = parse_top_right_bottom_left(input)?;
+		let y = input.next();
+		let y = if let Ok(&Token::Delim('/')) = y {
+			parse_top_right_bottom_left(input)?
+		} else {
+			x.clone()
+		};
+		
+		Ok(BorderRadius {
+			x,
+			y,
+		})
+	}
+}
+
+fn parse_top_right_bottom_left<'i, 't, T: StyleParse + Copy + Default>(
+    input: &mut Parser<'i, 't>,
+) -> Result<[T; 4], ParseError<'i, ValueParseErrorKind<'i>>> {
+    let mut rect = vec![T::parse(input)?];
+	while let Ok(r) = input.try_parse(|input| {T::parse(input)})  {
+		rect.push(r);
+	}
+	Ok(to_tuple_four(rect))
+}
+
+
+pub fn parse_angle<'i, 't>(input: &mut Parser<'i, 't>) -> Result<f32, ParseError<'i, ValueParseErrorKind<'i>>> {
+    let location = input.current_source_location();
+    let t = input.next()?;
+    match *t {
+        Token::Dimension { value, ref unit, .. } => match unit.as_ref() {
+            "deg" => Ok(value),
+            _ => Err(location.new_custom_error(ValueParseErrorKind::InvalidFilter)),
+        },
+        ref t => {
+            let t = t.clone();
+            Err(input.new_unexpected_token_error(t))
+        }
+    }
+}
+
+fn to_tuple_four<T: Clone + Copy>(
+    value: Vec<T>,
+) -> [T; 4] {
+	if value.len() == 1 {
+		return [value[0].clone(), value[0].clone(), value[0].clone(), value[0]];
+	} else if value.len() == 2 {
+		return [value[0].clone(), value[1].clone(), value[0], value[1]];
+	} else if value.len() == 3 {
+		return [value[0], value[1].clone(), value[2], value[1]];
+	} else {
+		return [value[0], value[1], value[2], value[3]];
+	}
+}
+
+
+fn parse_center<'i, 't>(input: &mut Parser<'i, 't>) -> Center {
+    let mut center = Center {x: LengthUnit::Percent(0.5), y: LengthUnit::Percent(0.5)};
+	let _ = input.try_parse(|input| {
+		let location1 = input.current_source_location();
+		let ident = input.expect_ident()?;
+		if ident.as_ref() == "at" {
+			center.x = LengthUnit::parse(input)?;
+			if let Ok(r) = LengthUnit::parse(input) {
+				center.y = r;
+			};
+			Ok(())
+		} else {
+			Err(location1.new_custom_error(ValueParseErrorKind::InvalidFilter))
+		}
+	});
+	center
 }
 
 fn parse_filter(value: &str, class: &mut Class) -> Result<(), String> {
@@ -1010,7 +1183,7 @@ fn parse_text_shadow1(value: &str, arr: &mut SmallVec<[TextShadow; 1]>, i: &mut 
             Ok(r) => shadow.color = r,
             Err(_) => {
                 *i = next_no_empty(value, *i);
-                let mut r = iter_by(value, i, &[",", " "]);
+                let r = iter_by(value, i, &[",", " "]);
                 if let Ok(r) = r {
                     if let Ok(r) = parse_px(r) {
                         px.push(r);

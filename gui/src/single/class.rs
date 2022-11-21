@@ -134,6 +134,7 @@ pub enum Attribute3 {
     Filter(Filter),
 
     MaskImageClip(MaskImageClip),
+	ClipPath(ClipPath)
 }
 
 // #[derive(Debug, Clone, EnumDefault, Serialize, Deserialize)]

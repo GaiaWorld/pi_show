@@ -1,3 +1,4 @@
+use flex_layout::Size;
 /**
  * 背景色渲染对象的构建及其属性设置
 */
@@ -7,7 +8,6 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 use map::vecmap::VecMap;
-use map::Map;
 use ordered_float::NotNan;
 
 use atom::Atom;
@@ -18,7 +18,6 @@ use hal_core::*;
 use polygon::*;
 
 use crate::component::calc::LayoutR;
-use crate::component::calc::Opacity;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::*;
@@ -76,6 +75,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
         &'a SingleCaseImpl<UnitQuad>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
+		&'a SingleCaseImpl<VertType>,
     );
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
@@ -99,6 +99,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             unit_quad,
             dirty_list,
             default_state,
+			single_vert_type,
         ) = read;
         let (render_objs, engine) = write;
 
@@ -165,21 +166,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 modify_opacity(engine, render_obj, default_state);
             }
 
-            let program_dirty = modify_color(
+			let (program_dirty, vert_type) = modify_color(
                 render_obj,
                 color,
                 engine,
                 dirty,
                 layout,
                 &unit_quad.0,
-                border_radius,
             );
 
-            // program管线脏, 通知
-            if program_dirty {
-                notify.modify_event(render_index, "program_dirty", 0);
-            }
-
+			if vert_type != render_obj.vert_type {
+				render_obj.vert_type = vert_type;
+				single_vert_type.get_notify_ref().modify_event(render_index, "", 0);
+			}
             // 如果矩阵脏
             if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
@@ -188,40 +187,32 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                     None => &default_transform,
                 };
                 let depth = z_depths[*id].0;
-                let is_unit_geo = match &color.0 {
+
+                match &color.0 {
                     Color::RGBA(_) => {
-                        let radius = cal_border_radius(border_radius, layout);
-                        let g_b = geo_box(layout);
-                        if radius.x <= g_b.mins.x {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Color::LinearGradient(_) => false,
+						modify_matrix(
+							render_index,
+							create_unit_matrix_by_layout(layout, world_matrix, transform, depth),
+							render_obj,
+							&notify,
+						);
+					},
+                    Color::LinearGradient(_) => {
+						modify_matrix(
+							render_index,
+							create_let_top_offset_matrix(
+								layout,
+								world_matrix,
+								transform,
+								0.0,
+								0.0,
+								// depth,
+							),
+							render_obj,
+							&notify,
+						);
+					},
                 };
-                if is_unit_geo {
-                    modify_matrix(
-                        render_index,
-                        create_unit_matrix_by_layout(layout, world_matrix, transform, depth),
-                        render_obj,
-                        &notify,
-                    );
-                } else {
-                    modify_matrix(
-                        render_index,
-                        create_let_top_offset_matrix(
-                            layout,
-                            world_matrix,
-                            transform,
-                            0.0,
-                            0.0,
-                            // depth,
-                        ),
-                        render_obj,
-                        &notify,
-                    );
-                }
             }
             notify.modify_event(render_index, "", 0);
         }
@@ -281,175 +272,6 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
     }
 }
 
-// 背景颜色时rgba（而非渐变）， 创建geo
-#[inline]
-fn create_rgba_geo<C: HalContext + 'static>(
-    border_radius: Option<&BorderRadius>,
-    layout: &LayoutR,
-    unit_quad: &Share<GeometryRes>,
-    engine: &mut Engine<C>,
-) -> Option<Share<GeometryRes>> {
-    let radius = cal_border_radius(border_radius, layout);
-    let g_b = geo_box(layout);
-    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
-        return None;
-    }
-
-    if radius.x <= g_b.mins.x {
-        return Some(unit_quad.clone());
-    } else {
-        let mut hasher = DefaultHasher::default();
-        radius_quad_hash(&mut hasher, radius.x, layout.rect.end - layout.rect.start - layout.border.start - layout.border.end, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
-        let hash = hasher.finish();
-        match engine.geometry_res_map.get(&hash) {
-            Some(r) => Some(r.clone()),
-            None => {
-                let r = split_by_radius(
-                    g_b.mins.x,
-                    g_b.mins.y,
-                    g_b.maxs.x - g_b.mins.x,
-                    g_b.maxs.y - g_b.mins.y,
-                    radius.x - g_b.mins.x,
-                    None,
-                );
-                if r.0.len() == 0 {
-                    return None;
-                } else {
-                    let indices = to_triangle(&r.1, Vec::with_capacity(r.1.len()));
-					return Some(engine.create_geo_res(
-                        hash,
-                        indices.as_slice(),
-                        &[AttributeDecs::new(
-                            AttributeName::Position,
-                            r.0.as_slice(),
-                            2,
-                        )],
-                    ));
-                }
-            }
-        }
-    }
-}
-
-// 创建一个线性渐变背景色的geo
-#[inline]
-pub fn create_linear_gradient_geo<C: HalContext + 'static>(
-    color: &LinearGradientColor,
-    border_radius: Option<&BorderRadius>,
-    layout: &LayoutR,
-    engine: &mut Engine<C>,
-) -> Option<Share<GeometryRes>> {
-    let radius = cal_border_radius(border_radius, layout);
-    let g_b = geo_box(layout);
-    if g_b.mins.x - g_b.maxs.x == 0.0 || g_b.mins.y - g_b.maxs.y == 0.0 {
-        return None;
-    }
-
-    // 圆角 + 渐变hash
-    let mut hasher = DefaultHasher::default();
-    GRADUAL.hash(&mut hasher);
-    NotNan::new(color.direction).unwrap().hash(&mut hasher);
-    for c in color.list.iter() {
-        NotNan::new(c.position).unwrap().hash(&mut hasher);
-        NotNan::new(c.rgba.r).unwrap().hash(&mut hasher);
-        NotNan::new(c.rgba.g).unwrap().hash(&mut hasher);
-        NotNan::new(c.rgba.b).unwrap().hash(&mut hasher);
-        NotNan::new(c.rgba.a).unwrap().hash(&mut hasher);
-    }
-    NotNan::new(color.direction).unwrap().hash(&mut hasher);
-    radius_quad_hash(
-        &mut hasher,
-        radius.x - g_b.mins.x,
-        g_b.maxs.x - g_b.mins.x,
-        g_b.maxs.y - g_b.mins.y,
-    );
-    let hash = hasher.finish();
-
-    match engine.geometry_res_map.get(&hash) {
-        Some(r) => Some(r.clone()),
-        None => {
-            let (positions, indices) = if radius.x <= g_b.mins.x {
-                (
-                    vec![
-                        g_b.mins.x, g_b.mins.y, // left_top
-                        g_b.mins.x, g_b.maxs.y, // left_bootom
-                        g_b.maxs.x, g_b.maxs.y, // right_bootom
-                        g_b.maxs.x, g_b.mins.y, // right_top
-                    ],
-                    vec![0, 1, 2, 3],
-                )
-            } else {
-                split_by_radius(
-                    g_b.mins.x,
-                    g_b.mins.y,
-                    g_b.maxs.x - g_b.mins.x,
-                    g_b.maxs.y - g_b.mins.y,
-                    radius.x - g_b.mins.x,
-                    None,
-                )
-            };
-
-            let mut lg_pos = Vec::with_capacity(color.list.len());
-            let mut colors = Vec::with_capacity(color.list.len() * 4);
-            for v in color.list.iter() {
-                lg_pos.push(v.position);
-                colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
-            }
-
-			let width = layout.rect.end - layout.rect.start - layout.border.start - layout.border.end;
-			let height = layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top;
-            //渐变端点
-            let endp = find_lg_endp(
-                &[
-                    0.0,
-                    0.0,
-                    0.0,
-                    height,
-                    width,
-                    height,
-                    width,
-                    0.0,
-                ],
-                color.direction,
-            );
-
-            let (positions, indices_arr) = split_by_lg(
-                positions,
-                indices,
-                lg_pos.as_slice(),
-                endp.0.clone(),
-                endp.1.clone(),
-            );
-
-            let mut colors = interp_mult_by_lg(
-                positions.as_slice(),
-                &indices_arr,
-                vec![Vec::new()],
-                vec![LgCfg {
-                    unit: 4,
-                    data: colors,
-                }],
-                lg_pos.as_slice(),
-                endp.0,
-                endp.1,
-            );
-
-            let indices = mult_to_triangle(&indices_arr, Vec::new());
-
-            let colors = colors.pop().unwrap();
-            // 创建geo， 设置attribut
-            Some(engine.create_geo_res(
-                hash,
-                indices.as_slice(),
-                &[
-                    AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
-                    AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
-                ],
-            ))
-        }
-    }
-}
-
 #[inline]
 fn background_is_opacity(opacity: f32, background_color: &BackgroundColor) -> bool {
     if opacity < 1.0 {
@@ -467,49 +289,123 @@ fn modify_color<C: HalContext + 'static>(
     dirty: usize,
     layout: &LayoutR,
     unit_quad: &Share<GeometryRes>,
-    border_radius: Option<&BorderRadius>,
-) -> bool {
+) -> (bool, VertType) {
     let mut change = false;
-    match &background_color.0 {
-        Color::RGBA(c) => {
-            if dirty & StyleType::BackgroundColor as usize != 0 {
-                change = to_ucolor_defines(
-                    render_obj.vs_defines.as_mut(),
-                    render_obj.fs_defines.as_mut(),
-                );
-                render_obj
-                    .paramter
-                    .as_ref()
-                    .set_value("uColor", engine.create_u_color_ubo(c));
-            }
-            // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change
-                || dirty & StyleType::BorderRadius as usize != 0
-                || dirty & StyleType::Layout as usize != 0
-            {
-                render_obj.geometry = create_rgba_geo(border_radius, layout, unit_quad, engine);
-            }
-        }
-        Color::LinearGradient(c) => {
-            if dirty & StyleType::BackgroundColor as usize != 0 {
-                change = to_vex_color_defines(
-                    render_obj.vs_defines.as_mut(),
-                    render_obj.fs_defines.as_mut(),
-                );
-            }
+	let mut vert_type = render_obj.vert_type;
+	if dirty & StyleType::BackgroundColor as usize != 0 {
+		match &background_color.0 {
+			Color::RGBA(c) => {
+				change = to_ucolor_defines(
+					render_obj.vs_defines.as_mut(),
+					render_obj.fs_defines.as_mut(),
+				);
+				render_obj
+					.paramter
+					.as_ref()
+					.set_value("uColor", engine.create_u_color_ubo(c));
+				vert_type = VertType::ContentRect;
+			}
+			Color::LinearGradient(c) => {
+				change = to_vex_color_defines(
+					render_obj.vs_defines.as_mut(),
+					render_obj.fs_defines.as_mut(),
+				);
+				vert_type = VertType::ContentNone;
+			}
+		};
+	}
+	
+	if change || dirty & StyleType::Layout as usize != 0 {
+		let mut hasher = DefaultHasher::default();
+		background_color.0.hash(&mut hasher);
+		radius_quad_hash(&mut hasher, 0.0, layout.rect.end - layout.rect.start - layout.border.start - layout.border.end, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
+		let hash = hasher.finish();
 
-            // 如果颜色类型改变（纯色改为渐变色， 或渐变色改为纯色）或圆角改变， 需要重新创建geometry
-            if change
-                || dirty & StyleType::BorderRadius as usize != 0
-                || dirty & StyleType::Layout as usize != 0
-            {	
+		match engine.geometry_res_map.get(&hash) {
+			Some(r) => render_obj.geometry = Some(r.clone()),
+			None => {
+				if let Color::LinearGradient(color) = &background_color.0 {
+					let rect = get_content_rect(layout);
+					let size = Size {width: rect.end - rect.start, height: rect.bottom - rect.top};
+					let (positions, indices) = (
+						vec![
+							*rect.start, *rect.top, // left_top
+							*rect.start, *rect.bottom, // left_bootom
+							*rect.end, *rect.bottom, // right_bootom
+							*rect.end, *rect.top, // right_top
+						],
+						vec![0, 1, 2, 3],
+					);
 
-                render_obj.geometry = create_linear_gradient_geo(c, border_radius, layout, engine);
-            }
-        }
-    };
-    change
+					let (positions, colors, indices) = linear_gradient_split(color, positions, indices, &size);
+	
+					render_obj.geometry = Some(engine.create_geo_res(
+						hash,
+						indices.as_slice(),
+						&[
+							AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
+							AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
+						],
+					))
+				} else {
+					render_obj.geometry = Some(unit_quad.clone());
+				}
+			}
+		}
+	}
+    (change, vert_type)
 }
+
+pub fn linear_gradient_split(color: &LinearGradientColor, positions: Vec<f32>, indices: Vec<u16>, size: &Size<NotNan<f32>>) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+	let mut lg_pos = Vec::with_capacity(color.list.len());
+	let mut colors = Vec::with_capacity(color.list.len() * 4);
+	for v in color.list.iter() {
+		lg_pos.push(v.position);
+		colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
+	}
+
+	//渐变端点
+	let endp = find_lg_endp(
+		&[
+			0.0,
+			0.0,
+			0.0,
+			*size.height,
+			*size.width,
+			*size.height,
+			*size.width,
+			0.0,
+		],
+		color.direction,
+	);
+
+	let (positions1, indices1) = split_by_lg(
+		positions,
+		indices,
+		lg_pos.as_slice(),
+		endp.0.clone(),
+		endp.1.clone(),
+	);
+
+	let mut colors = interp_mult_by_lg(
+		positions1.as_slice(),
+		&indices1,
+		vec![Vec::new()],
+		vec![LgCfg {
+			unit: 4,
+			data: colors,
+		}],
+		lg_pos.as_slice(),
+		endp.0,
+		endp.1,
+	);
+
+	let indices = mult_to_triangle(&indices1, Vec::new());
+	let colors = colors.pop().unwrap();
+
+	(positions1, colors, indices)
+}
+
 
 impl_system! {
     BackgroundColorSys<C> where [C: HalContext + 'static],

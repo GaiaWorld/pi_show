@@ -766,6 +766,15 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ByOverflow, Modify
     }
 }
 
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClipPath, (CreateEvent, ModifyEvent)> for StyleMarkSys<C> {
+    type ReadData = ();
+    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+    fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
+        let (style_marks, dirty_list) = write;
+        set_local_dirty1(dirty_list, event.id, StyleType1::ClipPath as usize, style_marks);
+    }
+}
+
 // // visibility修改， 设置ByOverflow脏（clipsys 使用， dirty上没有位置容纳Visibility脏了， 因此设置在ByOverflow上）
 // impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Visibility, ModifyEvent> for StyleMarkSys<C>{
 // 	type ReadData = ();
@@ -934,6 +943,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent> fo
     }
 }
 
+
 type ReadData<'a> = (&'a MultiCaseImpl<Node, ClassName>, &'a SingleCaseImpl<Share<StdCell<ClassSheet>>>);
 type WriteData<'a, C> = (
     &'a mut MultiCaseImpl<Node, TextStyle>,
@@ -969,6 +979,7 @@ type WriteData<'a, C> = (
     &'a mut MultiCaseImpl<Node, ImageTexture>,
     &'a mut MultiCaseImpl<Node, BorderImageTexture>,
     &'a mut MultiCaseImpl<Node, Blur>,
+	&'a mut MultiCaseImpl<Node, ClipPath>,
 );
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for ClassSetting<C> {
@@ -1169,6 +1180,7 @@ fn reset_attr<C: HalContext>(id: usize, read: ReadData, write: &mut WriteData<C>
         _image_textures,
         _border_image_textures,
         blur,
+		clip_paths,
     ) = write;
 
     let rect_layout_style = &mut rect_layout_styles[id];
@@ -1322,6 +1334,11 @@ fn reset_attr<C: HalContext>(id: usize, read: ReadData, write: &mut WriteData<C>
         if old_style1 & StyleType1::MaskImageClip as usize != 0 {
             mask_clips.delete(id);
             set_dirty1(dirty_list, id, StyleType1::MaskImageClip as usize, style_mark);
+        }
+
+		if old_style1 & StyleType1::ClipPath as usize != 0 {
+            clip_paths.delete(id);
+            set_dirty1(dirty_list, id, StyleType1::ClipPath as usize, style_mark);
         }
 
         if old_style2 & StyleType2::BlendMode as usize != 0 {
@@ -1586,6 +1603,7 @@ fn set_attr<C: HalContext>(id: usize, class_name: usize, read: ReadData, write: 
         image_textures,
         border_image_textures,
         blurs,
+		clip_paths,
     ) = write;
     let class_sheet = &class_sheet.borrow();
     let style_mark = &mut style_marks[id];
@@ -1660,6 +1678,7 @@ fn set_attr<C: HalContext>(id: usize, class_name: usize, read: ReadData, write: 
         transforms,
         rect_layout_styles,
         mask_image_clips,
+		clip_paths,
     );
 }
 
@@ -1799,7 +1818,7 @@ pub fn set_attr1(
                         true
                     });
                 }
-            }
+            },
         }
     }
 }
@@ -2195,9 +2214,16 @@ pub fn set_attr3(
     transforms: &mut MultiCaseImpl<Node, Transform>,
     rect_layout_styles: &mut MultiCaseImpl<Node, RectLayoutStyle>,
     mask_image_clips: &mut MultiCaseImpl<Node, MaskImageClip>,
+	clip_path: &mut MultiCaseImpl<Node, ClipPath>,
 ) {
     for attr in attrs.iter() {
         match attr {
+			Attribute3::ClipPath(r) => {
+                if style_mark.local_style1 & StyleType1::ClipPath as usize == 0 {
+                    clip_path.insert_no_notify(id, r.clone());
+                    set_dirty1(dirty_list, id, StyleType1::ClipPath as usize, style_mark);
+                }
+            }
             Attribute3::BGColor(r) => {
                 if style_mark.local_style & StyleType::BackgroundColor as usize == 0 {
                     background_colors.insert_no_notify(id, r.clone());
@@ -2667,6 +2693,7 @@ impl_system! {
         MultiCaseListener<Node, TransformWillChange, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, Overflow, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, ContentBox, (CreateEvent, ModifyEvent)>
+		MultiCaseListener<Node, ClipPath, (CreateEvent, ModifyEvent)>
 
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
         MultiCaseListener<Node, ZDepth, ModifyEvent>

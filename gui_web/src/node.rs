@@ -39,14 +39,6 @@ fn create(world: &GuiWorld) -> usize {
     let gui = &world.gui;
     let idtree = gui.idtree.lend_mut();
 	let node = gui.node.lend_mut().create();
-    let border_radius = gui.border_radius.lend_mut();
-    border_radius.insert(
-        node,
-        BorderRadius {
-            x: LengthUnit::Pixel(0.0),
-            y: LengthUnit::Pixel(0.0),
-        },
-    );
 	idtree.create(node);
     // set_layout_style(&world.default_attr, unsafe {gui.yoga.lend_mut().get_unchecked(node)}, &mut StyleMark::default());
     node
@@ -330,16 +322,6 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
 		let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
 		let root_indexs = root_indexs.lend_mut();
 		root_indexs.mark(child as usize, idtree[1].layer());
-
-		let border_radius = world.border_radius.lend_mut();
-		border_radius.insert(
-			child as usize,
-			BorderRadius {
-				x: LengthUnit::Pixel(0.0),
-				y: LengthUnit::Pixel(0.0),
-			},
-		);
-
 		let visibilitys = world.visibility.lend_mut();
 		visibilitys.insert(child as usize, Visibility(true));
 	}
