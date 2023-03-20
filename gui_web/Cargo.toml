@@ -8,6 +8,7 @@ edition = "2018"
 # crate-type = ["cdylib"]
 
 [dependencies]
+console_error_panic_hook = "0.1"
 flex_layout = { path = "../../pi_lib/flex_layout"}
 getrandom = { version = "0.2.3", features = ["js"] }
 atom = { path = "../../pi_lib/atom"}
@@ -49,6 +50,7 @@ res_mgr_web = { path = "../res_mgr_web"}
 # webgl-rendering-context = "0.1.0"
 wasm-bindgen = { version = "*", features = ["serde-serialize"] }
 js-sys = "*"
+serde_json = "1.0"
 
 lazy_static = "1"
 serde = { version = "1.0", features = ["derive"]}

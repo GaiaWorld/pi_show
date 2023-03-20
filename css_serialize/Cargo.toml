@@ -11,8 +11,11 @@ crate-type = ["cdylib"]
 gui = {path="../gui"}
 bincode = { path = "../../pi_lib/bincode"}
 fx_hashmap = { path = "../../pi_lib/fx_hashmap"}
+hash = { path = "../../pi_lib/hash"}
 wasm-bindgen= {version="*", features=["serde-serialize"]}
 serde = { version = "1.0", features = ["derive"] }
+js-sys = "*"
+serde_json = "1.0"
 
 # log
 log = "0.4.14"

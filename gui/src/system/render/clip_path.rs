@@ -15,7 +15,7 @@ use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::ShareEngine;
-use crate::system::util::cal_border_radius;
+use crate::system::util::{cal_border_radius, create_let_top_offset_matrix};
 use crate::{single::*};
 
 pub struct ClipPathSys<C> {
@@ -38,6 +38,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 		&'a MultiCaseImpl<Node, LayoutR>,
 		&'a MultiCaseImpl<Node, WorldMatrix>,
 		&'a MultiCaseImpl<Node, ContentBox>,
+		&'a MultiCaseImpl<Node, Transform>,
 	);
 	type WriteData = (
 		&'a mut MultiCaseImpl<Node, RenderContext>,
@@ -45,7 +46,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 		&'a mut SingleCaseImpl<ShareEngine<C>>,
 		&'a mut SingleCaseImpl<RenderContextAttrCount>,
 	);
-	fn run(&mut self, (clip_paths, style_marks, layouts, world_matrixs, content_boxs): Self::ReadData, write: Self::WriteData) {
+	fn run(&mut self, (clip_paths, style_marks, layouts, world_matrixs, content_boxs, transforms): Self::ReadData, write: Self::WriteData) {
 		if self.dirty.len() == 0 {
 			return;
 		}
@@ -64,7 +65,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 				Some(r) => r,
 				None => continue,
 			};
-			let (clip_path, render_context, layout, _world_matrix, content_box, w_invert) = match (
+			let (clip_path, render_context, layout, world_matrix, content_box, w_invert) = match (
 				clip_paths.get(id), 
 				render_contexts.get_mut(id),
 				layouts.get(id),
@@ -72,7 +73,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 				content_boxs.get(id),
 			) {
 				(Some(r), Some(r1),  Some(r2),  Some(r3),  Some(r4)) if let Some(invert) = r3.invert() =>  {
-					(r, r1, r2, r3, r4, invert)
+					let transform = &transforms[id];
+					(r, r1, r2, create_let_top_offset_matrix(r2, r3, transform, 0.0, 0.0), r4, invert)
 				},
 				(_, Some(r1), _, _, _) => {
 
@@ -94,7 +96,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 			let render_obj = &mut render_objs[render_context.render_obj_index];
 
 			render_obj.paramter.set_single_uniform("clipMatrixInvert", UniformValue::MatrixV4(w_invert.as_slice().to_vec()));
-			render_obj.paramter.set_single_uniform("clipBoxRect", UniformValue::Float4(content_box.0.mins.x, content_box.0.mins.y, content_box.0.maxs.x - content_box.0.mins.x, content_box.0.maxs.y - content_box.0.mins.y));
+			render_obj.paramter.set_single_uniform("clipBoxRect", UniformValue::Float4(world_matrix[12] - world_matrix[12].floor(), world_matrix[13] - world_matrix[13].floor(), content_box.0.maxs.x - content_box.0.mins.x, content_box.0.maxs.y - content_box.0.mins.y));
 
 			let vs_defines_change = render_obj.vs_defines.add("SDF_CLIP");
 			let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);

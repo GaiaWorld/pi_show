@@ -6,9 +6,14 @@ extern crate gui;
 #[macro_use]
 extern crate serde;
 
+use std::mem::transmute;
+
+use js_sys::Uint8Array;
+
 use fx_hashmap::FxHashMap32;
-use gui::single::style_parse::parse_class_map_from_string;
-use gui::single::Class;
+use hash::XHashMap;
+use gui::single::{style_parse::parse_class_map_from_string};
+use gui::{single::Class, font::font_cfg::{FontCfg, GlyphInfo, MetricsInfo, CharSdf}};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -18,6 +23,25 @@ pub struct Result {
 	pub bin: Option<Vec<u8>>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GlyphInfo1 {
+	unicode: u32,
+	glyph: GlyphInfo,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FontAtlasData {
+    name: String,
+    metrics: MetricsInfo,
+    glyphs: Vec<GlyphInfo1>,
+	// atlas: Vec<CharSdf>,
+}
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct FontAtlasData1 {
+//     cfg: FontCfg,
+// 	atlas: Vec<CharSdf>,
+// }
 
 /**
  * 在指定上下文中创建一个 文本样式表
@@ -48,6 +72,44 @@ pub fn deserialize_class_map(bin: &[u8]) {
         }
     };
     // println!("r: {:?}", r);
+}
+
+// 序列化sdf配置的json格式的文件
+#[wasm_bindgen]
+pub fn serialize_sdf_json(s: &str) -> Uint8Array {
+	let info: FontAtlasData = match serde_json::from_str(s) {
+		Ok(r) => r,
+		Err(e) => {
+			log::error!("serialize_sdf_json fail, {:?}", e);
+			return Uint8Array::from(Vec::new().as_slice());
+		}
+	};
+	let mut map = XHashMap::default();
+	for item in info.glyphs.into_iter() {
+		map.insert(unsafe{transmute::<u32, char>(item.unicode)}, item.glyph);
+	}
+
+	// let r = FontAtlasData1 {
+	// 	cfg: FontCfg {
+	// 		name: info.name,
+	// 		metrics: info.metrics,
+	// 		glyphs: map,
+	// 	},
+	// 	atlas: info.atlas,
+	// };
+	let r = FontCfg {
+		name: info.name,
+		metrics: info.metrics,
+		glyphs: map,
+	};
+
+	match bincode::serialize(&r) {
+        Ok(r) => Uint8Array::from(r.as_slice()),
+        Err(e) => {
+            log::error!("serialize_sdf_json error: {:?}", e);
+            return Uint8Array::from(Vec::new().as_slice());
+        }
+    }
 }
 
 #[wasm_bindgen]

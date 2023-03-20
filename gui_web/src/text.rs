@@ -2,9 +2,10 @@
 use std::mem::transmute;
 
 use gui::single::style_parse::parse_text_shadow;
+use hash::XHashMap;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlImageElement;
-use js_sys::Object;
+use js_sys::{Object, Uint8Array};
 use smallvec::SmallVec;
 
 
@@ -12,7 +13,8 @@ use atom::Atom;
 use data_view::GetView;
 use ecs::{LendMut, Lend};
 use gui::component::user::*;
-use gui::font::font_sheet::{FontSheet, Glyph, TexFont};
+use gui::font::{font_sheet::{FontSheet, Glyph, TexFont}, font_cfg::{FontCfg, MetricsInfo, CharSdf}};
+
 use hal_core::*;
 use crate::world::{GuiWorld, next_power_of_two};
 use crate::index::create_texture;
@@ -374,6 +376,48 @@ pub fn set_font_family(world: u32, node_id: u32, name: u32) {
 /// 添加一个msdf字体资源
 /// 图片            配置       
 ///__jsObj: image , __jsObj1: glyph cfg
+/// cfg: XHashMap<char, GlyphInfo>
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn add_sdf_font(world_id: u32, name: u32, cfgs: &[u8]) {
+    let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+    let world = &mut world1.gui;
+	let font_sheet = world.font_sheet.lend_mut();
+	let font_sheet = &mut font_sheet.borrow_mut();
+
+	let msdf_width_map: FontCfg = match bincode::deserialize(cfgs) {
+        Ok(r) => r,
+        Err(e) => {
+            debug_println!("deserialize_class_map error: {:?}", e);
+            return;
+        }
+    };
+
+	// log::info!("name==================={}, ascender: {}, descender: {}, len: {}，glyphs: {:?} ", name, msdf_width_map.metrics.ascender, msdf_width_map.metrics.descender, msdf_width_map.glyphs.len(), msdf_width_map.glyphs.get(&'基'));
+	font_sheet.set_src(name as usize, Some(msdf_width_map.glyphs), 0.0, 0.0,msdf_width_map.metrics);
+	// let font_tex = font_sheet.get_font_info().0;
+
+	// for char_sdf in msdf_width_map.atlas.iter() {
+	// 	let c = unsafe {transmute::<_, char>(char_sdf.unicode)};
+	// 	font_sheet.calc_gylph(font_tex, 32, 0, 0, 0.0, 0.0, c);
+	// 	chars.insert(c, char_sdf.buffer);
+	// }
+
+
+}
+
+// #[derive(Debug, Serialize, Deserialize)]
+// pub struct FontAtlasData {
+//     cfg: FontCfg,
+// 	atlas: Vec<CharSdf>,
+// }
+
+// serde_json = "1.0"
+
+
+/// 添加一个msdf字体资源
+/// 图片            配置       
+///__jsObj: image , __jsObj1: glyph cfg
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn add_msdf_font_res(world_id: u32, image: HtmlImageElement, cfg: &[u8], name: u32) {
@@ -394,14 +438,13 @@ pub fn add_msdf_font_res(world_id: u32, image: HtmlImageElement, cfg: &[u8], nam
         is_pixel: false,
 		factor_t: 0.0,
 		factor_b: 0.0,
-		textures: Some(Vec::new()),
-		ascender: 0.0,
-		descender: 0.0,
-		font_size: 32.0
+		metrics: MetricsInfo::default(),
+		msdf_cfg: Default::default(),
     };
+	tex_font.metrics.font_size = 32.0;
 
-	let (res, name) = create_texture(world_id, PixelFormat::RGBA, -1, 0, name, width, height, Object::from(image), width * height * 4);
-	tex_font.textures.as_mut().unwrap().push(res);
+	// let (res, name) = create_texture(world_id, PixelFormat::RGBA, -1, 0, name, width, height, Object::from(image), width * height * 4);
+	// tex_font.textures.as_mut().unwrap().push(res);
 	parse_msdf_font_res(cfg.as_slice(), font_sheet, name as u32, tex_font);
 		// font_sheet.font_tex.last_v += height as f32;
 	
@@ -447,7 +490,7 @@ pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32, name: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 	let font_sheet = world.font_sheet.lend_mut();
-    font_sheet.borrow_mut().set_src(name as usize, true, factor_t, factor_b, 0.0, 0.0);
+    font_sheet.borrow_mut().set_src(name as usize, None, factor_t, factor_b, MetricsInfo::default());
 }
 
 /// 添加font-face
@@ -880,66 +923,66 @@ pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32, img: HtmlIma
 fn parse_msdf_font_res(value: &[u8], font_sheet: &mut FontSheet, name: u32, mut tex_font: TexFont) -> Result<(), String> {
     let mut offset = 12;
 
-    match String::from_utf8(Vec::from(&value[0..11])) {
-        Ok(s) => {
-            if s != "GLYPL_TABLE".to_string() {
-                return Err("parse error, it's not GLYPL_TABLE".to_string());
-            }
-        }
-        Err(s) => return Err(s.to_string()),
-    };
-
-	tex_font.ascender = value.get_lf32(offset);
-	offset += 4;
-	tex_font.descender = value.get_lf32(offset);
-	offset += 4;
-
-	tex_font.font_size = value.get_lf32(offset);
-	offset += 4;
-	// log::info!("font_size=================={:?}", tex_font.font_size);
-	
-
-    let name_len = value.get_u8(offset);
-    offset += 1;
-    // let name_str = match String::from_utf8(Vec::from(&value[offset..offset + name_len as usize])) {
-    //     Ok(s) => s,
+    // match String::from_utf8(Vec::from(&value[0..11])) {
+    //     Ok(s) => {
+    //         if s != "GLYPL_TABLE".to_string() {
+    //             return Err("parse error, it's not GLYPL_TABLE".to_string());
+    //         }
+    //     }
     //     Err(s) => return Err(s.to_string()),
     // };
-    offset += name_len as usize;
 
-	// 基数变偶数
-	if offset % 2 > 0 {
-		offset += 1;
-	}
+	// tex_font.ascender = value.get_lf32(offset);
+	// offset += 4;
+	// tex_font.descender = value.get_lf32(offset);
+	// offset += 4;
 
-	// log::info!("load================= {:?}", name_str);
-
-	tex_font.name = name as usize;
-
-
-
-	// 跳过不解析
-	// line_height: 2字节,
-	// atlas_width: 2字节,
-	// atlas_height: 2字节,
-	// padding: 2字节,
-    offset += 8;
-	// log::info!("offset=================={:?}",offset);
-
-    loop {
-        if offset >= value.len() {
-            break;
-        }
-        let ch = unsafe { transmute(value.get_lu16(offset) as u32) };
-        offset += 2;
-        let glyph = Glyph::parse(value, &mut offset);
-        let index = font_sheet.char_slab.insert((ch, glyph));
-        font_sheet
-            .char_map
-            .insert((tex_font.name.clone(), 0, 0, 0, ch), index);
-    }
+	// tex_font.font_size = value.get_lf32(offset);
+	// offset += 4;
+	// // log::info!("font_size=================={:?}", tex_font.font_size);
 	
-    font_sheet.src_map.insert(tex_font.name.clone(), tex_font);
+
+    // let name_len = value.get_u8(offset);
+    // offset += 1;
+    // // let name_str = match String::from_utf8(Vec::from(&value[offset..offset + name_len as usize])) {
+    // //     Ok(s) => s,
+    // //     Err(s) => return Err(s.to_string()),
+    // // };
+    // offset += name_len as usize;
+
+	// // 基数变偶数
+	// if offset % 2 > 0 {
+	// 	offset += 1;
+	// }
+
+	// // log::info!("load================= {:?}", name_str);
+
+	// tex_font.name = name as usize;
+
+
+
+	// // 跳过不解析
+	// // line_height: 2字节,
+	// // atlas_width: 2字节,
+	// // atlas_height: 2字节,
+	// // padding: 2字节,
+    // offset += 8;
+	// // log::info!("offset=================={:?}",offset);
+
+    // loop {
+    //     if offset >= value.len() {
+    //         break;
+    //     }
+    //     let ch = unsafe { transmute(value.get_lu16(offset) as u32) };
+    //     offset += 2;
+    //     let glyph = Glyph::parse(value, &mut offset);
+    //     let index = font_sheet.char_slab.insert((ch, glyph));
+    //     font_sheet
+    //         .char_map
+    //         .insert((tex_font.name.clone(), 0, 0, 0, ch), index);
+    // }
+	
+    // font_sheet.src_map.insert(tex_font.name.clone(), tex_font);
 
     Ok(())
 }

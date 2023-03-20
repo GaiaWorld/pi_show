@@ -466,7 +466,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
     ) {
 	
         let render_obj = &render_objs[event.id];
-		// log::warn!("del obj============{:?}, {:?}", event.id, render_obj.post_process.is_some());
+		// log::warn!("del obj============{:?}, {:?}, {:?}", event.id, render_obj.post_process.is_some(), render_obj.post_process.is_some());
         let notify = unsafe { &*(node_render_map.get_notify_ref() as * const NotifyImpl) };
 		let context = render_obj.context;
         node_render_map.remove(context, event.id, &notify);
@@ -475,6 +475,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
 		if let Some(post_process) = &render_obj.post_process {
 			// log::warn!("del post_process============{:?}, {:?}, {}", event.id, post_process.copy, render_obj.context);
 			if let Some(target_index) = &post_process.result {
+				// log::info!("delete_rect renderobj remove============={}", target_index);
 				unsafe{&mut *(dyn_atlas_set.as_ptr())}.delete_rect(*target_index);
 			}
 			// log::warn!("render_obj remove:{}, context: {}", post_process.copy, render_obj.context);
@@ -765,17 +766,27 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
     for NodeAttrSys<C>
 {
     type ReadData = (&'a SingleCaseImpl<Oct>, &'a SingleCaseImpl<RenderBegin>);
-	type WriteData = (&'a mut SingleCaseImpl<DirtyViewRect>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>);
+	type WriteData = (&'a mut SingleCaseImpl<DirtyViewRect>, &'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<NodeRenderMap>, &'a mut SingleCaseImpl<Share<RefCell<DynAtlasSet>>>);
 	fn listen(
         &mut self,
         event: &Event,
         (octree, render_begin): Self::ReadData,
-        (dirty_view_rect, render_objs, node_render_map): Self::WriteData,
+        (dirty_view_rect, render_objs, node_render_map, dyn_atlas_set): Self::WriteData,
     ) {
 		if let Some(r) = node_render_map.get(event.id) {
 			if r.len() > 0 {
 				// let notify = render_objs.get_notify();
 				for item in r.iter() {
+					// 释放后处理结果
+					let render_obj = &render_objs[*item];
+					if let Some(post_process) = &render_obj.post_process {
+						// log::warn!("del post_process============{:?}, {:?}, {}", event.id, post_process.copy, render_obj.context);
+						if let Some(target_index) = &post_process.result {
+							// log::info!("delete_rect renderobj remove============={}", target_index);
+							unsafe{&mut *(dyn_atlas_set.as_ptr())}.delete_rect(*target_index);
+						}
+					}
+
 					render_objs.remove(*item, None);
 				}
 				unsafe {node_render_map.destroy_unchecked( event.id)}

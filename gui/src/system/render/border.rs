@@ -131,7 +131,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-				render_obj.is_opacity = color.a >= 1.0;
+				render_obj.is_opacity = color.a >= 1.0 && border_radius.is_none();
 				if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				};

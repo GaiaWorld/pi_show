@@ -8,6 +8,7 @@
 #![recursion_limit = "512"]
 #![feature(unboxed_closures)]
 #![feature(maybe_uninit_extra)]
+#![feature(box_into_inner)]
 
 #[macro_use]
 extern crate serde;

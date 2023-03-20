@@ -64,6 +64,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
+		&'a MultiCaseImpl<Node, BorderRadius>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
@@ -84,6 +85,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             style_marks,
             dirty_list,
             default_state,
+			border_radiuses,
         ) = read;
         let (render_objs, mut engine) = write;
 
@@ -167,13 +169,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                 }
                 notify.modify_event(render_index, "geometry", 0);
             }
+			let border_radius = border_radiuses.get(*id);
 
             // 不透明度脏或图片脏， 设置is_opacity
             if dirty & StyleType::Opacity as usize != 0 || dirty1 & StyleType1::BorderImageTexture as usize != 0 {
                 // let opacity = opacitys[*id].0;
                 let is_opacity_old = render_obj.is_opacity;
                 let is_opacity = if let ROpacity::Opaque = texture.0.opacity { true } else { false };
-                render_obj.is_opacity = is_opacity;
+                render_obj.is_opacity = is_opacity && border_radius.is_none();
                 if render_obj.is_opacity != is_opacity_old {
                     notify.modify_event(render_index, "is_opacity", 0);
                 }

@@ -120,7 +120,7 @@ impl<'a> Runner<'a> for LayoutSys {
 		let count = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
 		// if count > 0 {
-		// 	log::info!("layout======={:?}", cross_performance::now() - time);
+		// 	log::warn!("layout======={:?}", cross_performance::now() - time);
 		// }
 	}
 }
@@ -142,6 +142,10 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
 	}
 }
 
+
+pub fn aa() {
+	Vec::new().push(1);
+}
 // impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys {
 //     type ReadData = &'a SingleCaseImpl<IdTree>;
 //     type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);

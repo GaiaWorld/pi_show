@@ -19,10 +19,20 @@ export class AtomTable{
 export const atomTable = new AtomTable();
 
 export function fillBackGround(canvas, ctx, x, y) {
-	canvas.width = x;
-	canvas.height = y;
+	if (canvas.width < x) {
+		canvas.width = x;
+	}
+
+	if (canvas.height < y) {
+		canvas.height = y;
+	}
+	
 	ctx.fillStyle = "#00f";
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+export function drawSdf(font/**number */, chars/**Uint32Array */, info/*object*/) {
+	
 }
 
 export function drawCharWithStroke(ctx, ch_code, x, y) {

@@ -40,6 +40,7 @@ use crate::{
 
 /// 渲染上下文，一些具有特殊属性的节点，可以是一个新的渲染上下文，另外根节点也是一个渲染上下文，
 #[derive(Component)]
+// #[storage()]
 pub struct RenderContext {
     pub index_count: usize, // 索引数量，表示由几种属性创建的context， 如节点上值存在MaskImage，则count=1， 如果同时存在MaskImage和opcaity， 则count = 2， 当indexCount数量为0时，应该删除RenderContext
 
@@ -355,7 +356,7 @@ pub enum MaskTexture {
 // 图片使用纹理（可以是canvas，如果是canvas，不要再同时渲染一张图片，否则会冲突，他们的纹理是共用该组件）
 #[derive(Component, Clone)]
 pub enum ImageTexture {
-    All(Share<TextureRes>),
+    All(Share<TextureRes>, usize/*url*/),
     Part(Share<TexturePartRes>),
 }
 
@@ -726,11 +727,12 @@ program_paramter! {
     #[derive(Clone)]
     struct MsdfParamter {
         uColor: UColorUbo,
-        stroke: MsdfStrokeUbo,
+		strokeColor: CanvasTextStrokeColorUbo,
+		line: UniformValue,
         textureSize: TextTextureSize,
         worldMatrix: WorldMatrixUbo,
-        // viewMatrix: ViewMatrixUbo,
-        // projectMatrix: ProjectMatrixUbo,
+        viewMatrix: ViewMatrixUbo,
+        projectMatrix: ProjectMatrixUbo,
         hsvValue: HsvUbo,
         clipIndices1: UniformValue,
         clipIndices2: UniformValue,
@@ -739,9 +741,6 @@ program_paramter! {
         clipBox: ClipBox,
         texture: (HalTexture, HalSampler),
         alpha: UniformValue,
-        pixelRatio: UniformValue,
-        weight: UniformValue,
-        fontSize: UniformValue,
         depth: UniformValue,
 		clipSdf: UniformValue,
     }

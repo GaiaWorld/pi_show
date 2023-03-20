@@ -50,6 +50,19 @@ impl FontTex {
         }
     }
 
+	pub fn get_line(&mut self, line_height: usize) -> Option<TexLine>{
+		match self.line_map.get_mut(&line_height) {
+			Some(line) => Some(TexLine {
+				line,
+				last_v: &mut self.last_v,
+				tex_width: self.texture.width as f32,
+				line_height: line_height as f32
+			}),
+			None => None
+		}
+	}
+	
+
     // fn update(&self, tex: Res<TextureRes>, u: f32, v: f32, w: f32, h: f32, data: &Object) {
     //     if v + h > self.last_v {
     //         // 纹理高度扩展1倍
@@ -60,7 +73,7 @@ impl FontTex {
 
 #[derive(Debug)]
 pub struct TexLine<'a> {
-    line: &'a mut (Point2, usize),
+    pub line: &'a mut (Point2, usize),
     pub last_v: &'a mut f32,
     pub tex_width: f32,
     line_height: f32,

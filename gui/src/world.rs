@@ -100,6 +100,7 @@ pub fn create_world<C: HalContext + 'static>(
 
     share_class_sheet: Option<Share<StdCell<ClassSheet>>>,
     share_font_sheet: Option<Share<StdCell<FontSheet>>>,
+	is_sdf_font: bool,
 ) -> World {
     let capacity = 2000;
     let mut world = World::default();
@@ -228,7 +229,7 @@ pub fn create_world<C: HalContext + 'static>(
 
     match share_font_sheet {
         Some(r) => world.register_single::<Share<StdCell<FontSheet>>>(r),
-        None => world.register_single::<Share<StdCell<FontSheet>>>(Share::new(StdCell::new(FontSheet::new(font_texture, font_measure)))),
+        None => world.register_single::<Share<StdCell<FontSheet>>>(Share::new(StdCell::new(FontSheet::new(font_texture, font_measure, is_sdf_font)))),
     }
 
     world.register_single::<ViewMatrix>(ViewMatrix(WorldMatrix(

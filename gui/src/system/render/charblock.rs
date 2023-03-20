@@ -161,11 +161,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 		) = read;
 		let font_sheet = &font_sheet.borrow();
 		let t = font_sheet.get_font_tex();
-		let mut texture_change = false;
-		if font_sheet.tex_version != self.old_texture_tex_version {
-			texture_change = true;
-			self.old_texture_tex_version = font_sheet.tex_version;
-		}
+		let mut texture_change = font_sheet.tex_change(&mut self.old_texture_tex_version);
+
         if dirty_list.0.len() == 0 && !texture_change {
             return;
         }
@@ -183,14 +180,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 match i {
                     Some(i) => {
 						let render_obj = &render_objs[i.text];
-						let is_pixel = match font_sheet.get_src(&text_styles[render_obj.context].font.family) {
-							Some(r) => r.is_pixel,
-							None => continue,
-						};
-						// canvas文字才会更新
-						if !is_pixel {
-							continue;
-						}
+						// let is_pixel = match font_sheet.get_src(&text_styles[render_obj.context].font.family) {
+						// 	Some(r) => r.is_pixel,
+						// 	None => continue,
+						// };
+						// // canvas文字才会更新
+						// if !is_pixel {
+						// 	continue;
+						// }
                         render_obj
                             .paramter
                             .set_value("textureSize", self.texture_size_ubo.clone());
@@ -286,6 +283,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     None => continue,
                 }
             };
+			let is_pixel = tex_font.is_pixel;
+			let font_size = get_size(0, &text_style.font.size) as f32;
+			let font_height = tex_font.get_font_height(font_size as usize, text_style.text.stroke.width);
 			let world_matrix = &world_matrixs[*id];
 			let layout = &layouts[*id];
             let transform = &transforms[*id];
@@ -329,6 +329,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                         &mut *self.msdf_stroke_ubo_map,
                     );
             }
+			if !tex_font.is_pixel {
+				if dirty & (StyleType::Stroke as usize) != 0 || dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::FontWeight as usize) != 0 {
+					let mut scale = node_states[*id].0.scale;
+					scale = scale * font_height / (tex_font.metrics.ascender - tex_font.metrics.descender);
+					let sw = scale * text_style.text.stroke.width;
+					let distance_px_range = scale * tex_font.metrics.distance_range;
+					let fill_bound = (0.5 - (text_style.font.weight as f32 / 500 as f32 - 1.0) / distance_px_range) ;
+					let stroke_bound = fill_bound - sw/distance_px_range;
+					// log::info!("=====state_scale:{:?}, scale: {}, font_height:{:?}, sw: {:?}, stroke_width: {:?}, distance_px_range: {:?}, ", node_states[*id].0.scale, scale, font_height, sw, text_style.text.stroke.width, distance_px_range);
+					render_obj.paramter.set_single_uniform("line", UniformValue::Float4(distance_px_range, fill_bound, stroke_bound, 0.0));
+					// log::info!("set line======================={:?}", index);
+				}
+			}
             // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
             if dirty & FONT_DIRTY != 0 {
                 modify_font(
@@ -371,7 +384,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     &self.index_buffer,
                     l,
 					engine,
-					node_states[*id].0.scale
+					node_states[*id].0.scale,
+					is_pixel,
+					font_height,
                 );
                 render_objs
                     .get_notify_ref()
@@ -494,6 +509,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 										l,
 										engine,
 										node_states[*id].0.scale,
+										is_pixel,
+										font_height,
 									)
 								}
 							}
@@ -615,6 +632,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
 
         let mut msdf_bs = BlendStateDesc::default();
         msdf_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::OneMinusSrcAlpha);
+		msdf_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
         let msdf_bs = engine.create_bs_res(msdf_bs);
 
 		let mut default_sampler = SamplerDesc::default();
@@ -742,17 +760,21 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
         } else {
             let paramter: Share<dyn ProgramParamter> =
                 Share::new(self.msdf_default_paramter.clone());
-			let texture = &tex_font.textures.as_ref().unwrap()[0];
-			let size_ubo = self.msdf_texture_size_ubo.entry(tex_font.name).or_insert_with(|| {
-				Share::new(TextTextureSize::new(UniformValue::Float2(
-					texture.width as f32,
-					texture.height as f32,
-				)))
-			});
-			paramter.set_value("textureSize", size_ubo.clone());
-			paramter.set_single_uniform("pixelRatio", UniformValue::Float1(pixel_ratio));
-			paramter.set_single_uniform("weight", UniformValue::Float1(text_style.font.weight as f32));
-			paramter.set_single_uniform("fontSize", UniformValue::Float1(get_size(32, &text_style.font.size) as f32));
+			paramter.set_value("textureSize", self.texture_size_ubo.clone());
+			paramter.set_value("strokeColor", self.canvas_default_stroke_color.clone());
+			paramter.set_single_uniform("line", UniformValue::Float4(tex_font.metrics.distance_range, 0.5, 0.5, 0.0));
+			// paramter.set_single_uniform("line", UniformValue::Float4(0.0, 0.0, 0.0, tex_font.distance_px_range));
+			// let texture = &tex_font.textures.as_ref().unwrap()[0];
+			// let size_ubo = self.msdf_texture_size_ubo.entry(tex_font.name).or_insert_with(|| {
+			// 	Share::new(TextTextureSize::new(UniformValue::Float2(
+			// 		texture.width as f32,
+			// 		texture.height as f32,
+			// 	)))
+			// });
+			// paramter.set_value("textureSize", size_ubo.clone());
+			// paramter.set_single_uniform("pixelRatio", UniformValue::Float1(pixel_ratio));
+			// paramter.set_single_uniform("weight", UniformValue::Float1(text_style.font.weight as f32));
+			// paramter.set_single_uniform("fontSize", UniformValue::Float1(get_size(32, &text_style.font.size) as f32));
             (
                 TEXT_VS_SHADER_NAME.clone(),
                 TEXT_FS_SHADER_NAME.clone(),
@@ -804,50 +826,69 @@ fn modify_stroke(
     msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
 ) -> bool {
     notify.modify_event(index, "", 0);
-    // canvas 字体
-    if tex_font.is_pixel {
-        let color = &text_stroke.color;
-        let ubo = create_hash_res(
-            CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)),
-            canvas_stroke_ubo_map,
-        );
-        render_obj.paramter.set_value("strokeColor", ubo);
-
-		if text_stroke.width == 0.0 {
-			//删除描边的宏
-			render_obj.fs_defines.remove("STROKE");
-		} else {
-			render_obj.fs_defines.add("STROKE");
+	if text_stroke.width == 0.0 {
+		//删除描边的宏
+		match render_obj.fs_defines.remove("STROKE") {
+			Some(r) => true,
+			None => false
 		}
-        return false;
-    }
+	} else {
+		let color = &text_stroke.color;
+		let ubo = create_hash_res(
+			CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)),
+			canvas_stroke_ubo_map,
+		);
+		render_obj.paramter.set_value("strokeColor", ubo);
 
-    // msdf字体
-    if text_stroke.width == 0.0 {
-        //删除描边的宏
-        match render_obj.fs_defines.remove("STROKE") {
-            Some(_) => true,
-            None => false,
-        }
-    } else {
-        let ubo = if local_style & (StyleType::Stroke as usize) == 0 {
-            class_ubo.stroke_ubo.clone()
-        } else {
-            let color = &text_stroke.color;
-            create_hash_res(
-                MsdfStrokeUbo::new(
-                    UniformValue::Float1(text_stroke.width),
-                    UniformValue::Float4(color.r, color.g, color.b, color.a),
-                ),
-                msdf_stroke_ubo_map,
-            )
-        };
-        render_obj.paramter.set_value("stroke", ubo);
-        match render_obj.fs_defines.add("STROKE") {
-            Some(_) => false,
-            None => true,
-        }
-    }
+		match render_obj.fs_defines.add("STROKE") {
+			Some(_) => false,
+			None => true,
+		}
+	}
+
+    // // canvas 字体
+    // if tex_font.is_pixel {
+    //     let color = &text_stroke.color;
+    //     let ubo = create_hash_res(
+    //         CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)),
+    //         canvas_stroke_ubo_map,
+    //     );
+    //     render_obj.paramter.set_value("strokeColor", ubo);
+
+		
+    //     return false;
+    // }
+
+    // // msdf字体
+    // if text_stroke.width == 0.0 {
+    //     //删除描边的宏
+    //     match render_obj.fs_defines.remove("STROKE") {
+    //         Some(_) => true,
+    //         None => false,
+    //     }
+    // } else {
+	// 	// paramter.set_single_uniform("line", UniformValue::Float4(0.0, 0.0, 0.0, tex_font.distance_px_range));
+	// 	// let stroke
+	// 	if tex_font.is_pixel {
+	// 		let ubo = if local_style & (StyleType::Stroke as usize) == 0 {
+	// 			class_ubo.stroke_ubo.clone()
+	// 		} else {
+	// 			let color = &text_stroke.color;
+	// 			create_hash_res(
+	// 				MsdfStrokeUbo::new(
+	// 					UniformValue::Float1(text_stroke.width),
+	// 					UniformValue::Float4(color.r, color.g, color.b, color.a),
+	// 				),
+	// 				msdf_stroke_ubo_map,
+	// 			)
+	// 		};
+	// 		render_obj.paramter.set_value("stroke", ubo);
+	// 		match render_obj.fs_defines.add("STROKE") {
+	// 			Some(_) => false,
+	// 			None => true,
+	// 		}
+	// 	}
+    // }
 }
 
 #[inline]
@@ -905,7 +946,10 @@ fn modify_font(
     } else {
 		render_obj
         .paramter
-        .set_texture("texture", (&tex_font.textures.as_ref().unwrap()[0].bind, &default_sampler));
+        .set_texture("texture", (&font_sheet.get_font_tex().bind, &default_sampler));
+		// render_obj
+        // .paramter
+        // .set_texture("texture", (&tex_font.textures.as_ref().unwrap()[0].bind, &default_sampler));
     };
 }
 
@@ -923,19 +967,27 @@ fn modify_shadow_color<C: HalContext + 'static>(
     canvas_stroke_ubo_map: &mut ResMap<CanvasTextStrokeColorUbo>,
 	msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
 ) {
-    if text_style.text.stroke.width > 0.0 && tex_font.is_pixel {
-        let ubo = create_hash_res(
-            CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
-            canvas_stroke_ubo_map,
-        );
-        render_obj.paramter.set_value("strokeColor", ubo);
-    } else if text_style.text.stroke.width > 0.0 {
-		let stroke_color_ubo = create_hash_res(
-            MsdfStrokeUbo::new(UniformValue::Float1(text_style.text.stroke.width), UniformValue::Float4(c.r, c.g, c.b, c.a)) ,
-            msdf_stroke_ubo_map,
-        );
-		render_obj.paramter.set_value("stroke", stroke_color_ubo);
+	if text_style.text.stroke.width > 0.0 {
+		let ubo = create_hash_res(
+			CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+			canvas_stroke_ubo_map,
+		);
+		render_obj.paramter.set_value("strokeColor", ubo);
 	}
+
+    // if text_style.text.stroke.width > 0.0 && tex_font.is_pixel {
+    //     let ubo = create_hash_res(
+    //         CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+    //         canvas_stroke_ubo_map,
+    //     );
+    //     render_obj.paramter.set_value("strokeColor", ubo);
+    // } else if text_style.text.stroke.width > 0.0 {
+	// 	let stroke_color_ubo = create_hash_res(
+    //         MsdfStrokeUbo::new(UniformValue::Float1(text_style.text.stroke.width), UniformValue::Float4(c.r, c.g, c.b, c.a)) ,
+    //         msdf_stroke_ubo_map,
+    //     );
+	// 	render_obj.paramter.set_value("stroke", stroke_color_ubo);
+	// }
     // let ubo = if local_style & (StyleType::TextShadow as usize) == 0 {
     //     class_ubo.shadow_color_ubo.clone()
     // } else {
@@ -1184,6 +1236,8 @@ fn create_geo<C: HalContext + 'static>(
     index_buffer_max_len: &mut usize,
 	engine: &mut Engine<C>,
 	scale: f32,
+	is_pixel: bool,
+	font_height: f32
 ) -> Option<Share<GeometryRes>> {
     // 是共享文字
     if text.0 == String::new() {
@@ -1223,6 +1277,8 @@ fn create_geo<C: HalContext + 'static>(
 			index_buffer_max_len,
 			scale,
 			text_style,
+			is_pixel,
+			font_height,
         )
     } else {
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
@@ -1239,6 +1295,8 @@ fn create_geo<C: HalContext + 'static>(
 			index_buffer_max_len,
 			scale,
 			text_style,
+			is_pixel,
+			font_height,
         )
     }
 }
@@ -1300,10 +1358,14 @@ fn get_geo_flow<C: HalContext + 'static>(
 	index_buffer_max_len: &mut usize,
 	scale: f32,
 	text_style: &TextStyle,
+	is_pixel: bool,
+	mut font_height: f32,
 ) -> Option<Share<GeometryRes>> {
     let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
     // let font_height = char_block.font_height;
+	// font_height = font_height * scale;
+	// log::warn!("fontheight1================={}, {}, {}", size, self.ascender, self.descender);
     let mut i = 0;
     let mut size = 0;
 
@@ -1347,6 +1409,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 					Some(r) => r.1.clone(),
 					None => continue,
 				};
+				// log::info!("glyph=============, id:{}, c:{}, glyph: {:?}", c.ch_id_or_count, c.ch , glyph);
 
 				let mut debug_info = DebugInfo {
 					ch: c.ch,
@@ -1367,6 +1430,11 @@ fn get_geo_flow<C: HalContext + 'static>(
 						c.size.0,
 						c.size.1,
 						scale,
+						is_pixel,
+						text_style.font.weight,
+						text_style.text.stroke.width,
+						font_height,
+						c.ch
 					);
 				} else {
 					push_pos_uv(
@@ -1378,6 +1446,11 @@ fn get_geo_flow<C: HalContext + 'static>(
 						c.size.0,
 						c.size.1,
 						scale,
+						is_pixel,
+						text_style.font.weight,
+						text_style.text.stroke.width,
+						font_height,
+						c.ch
 					);
 				}
 				debug_info.positions.extend_from_slice(&positions[positions.len() - 8..positions.len()]);
@@ -1484,6 +1557,11 @@ fn get_geo_flow<C: HalContext + 'static>(
 						c.size.0,
 						c.size.1,
 						scale,
+						is_pixel,
+						text_style.font.weight,
+						text_style.text.stroke.width,
+						font_height,
+						c.ch
 					);
 				} else {
 					push_pos_uv(
@@ -1495,6 +1573,11 @@ fn get_geo_flow<C: HalContext + 'static>(
 						c.size.0,
 						c.size.1,
 						scale,
+						is_pixel,
+						text_style.font.weight,
+						text_style.text.stroke.width,
+						font_height,
+						c.ch
 					);
 				}
 
@@ -1703,7 +1786,94 @@ fn fill_uv(positions: &mut Vec<f32>, uvs: &mut Vec<f32>, i: usize) {
     }
 }
 
+
+
 fn push_pos_uv(
+    positions: &mut Vec<f32>,
+    uvs: &mut Vec<f32>,
+	mut x: f32,
+	mut y: f32,
+    glyph: &Glyph,
+	width: f32,
+	height: f32,
+	scale: f32,
+	is_pixel: bool,
+	weight: usize,
+	stroke_width: f32,
+	font_height: f32, // 单位： 逻辑像素
+	c: char,
+) {
+	if is_pixel {
+		push_pos_uv_canvas(
+			positions,
+			uvs,
+			x,
+			y,
+			glyph,
+			width,
+			height,
+			scale,
+		);
+		return;
+	}
+
+	y += (height - font_height) / 2.0;
+	let (xx, font_width) = fix_box(is_pixel, width, weight, stroke_width);
+	x += xx;
+
+	let font_ratio = font_width/glyph.advance;
+
+	let ox = font_width * glyph.ox;
+	let oy = font_height * glyph.oy;
+
+	let w = glyph.width*font_ratio;
+	let h = glyph.height*font_ratio;
+	// height为行高， 当行高高于字体高度时，需要居中
+	// if is_pixel {
+	// 	y += (height - h)/2.0;
+	// } else {
+	// 	y += yy;
+	// 	y += (height - oy - h) / 2.0;
+
+		
+	// }
+	
+	let left_top = (
+		x + ox,
+		y  + oy, // 保证顶点对应整数像素
+	);
+	let right_bootom = (
+		left_top.0 + w,
+		left_top.1 + h,
+	);
+	// log::info!("y=====c: {:?},is_pixel: {:?},left_top: {:?}, right_bootom: {:?}, font_width: {:?}, font_height: {:?}, glyph: {:?}, x: {}, y: {}, width: {}, height: {}, ox: {}, oy: {}, w: {}, h: {}", c, is_pixel, left_top, right_bootom, font_width, font_height, glyph, x, y, width, height, ox, oy, w, h);
+
+    let ps = [
+        left_top.0,
+        left_top.1,
+        left_top.0,
+        right_bootom.1,
+        right_bootom.0,
+        right_bootom.1,
+        right_bootom.0,
+        left_top.1,
+	];
+	let uv = [
+        glyph.x + 0.5,
+        glyph.y + 0.5,
+        glyph.x + 0.5,
+        glyph.y + glyph.height,
+        glyph.x + glyph.width,
+        glyph.y + glyph.height,
+        glyph.x + glyph.width,
+        glyph.y + 0.5,
+	];
+    uvs.extend_from_slice(&uv);
+	// log::info!("uv=================={:?}, {:?}, w:{:?},h:{:?},scale:{:?},glyph:{:?}", uv, ps, width, height, scale, glyph);
+    positions.extend_from_slice(&ps[..]);
+}
+
+fn push_pos_uv_canvas(
     positions: &mut Vec<f32>,
     uvs: &mut Vec<f32>,
 	x: f32,

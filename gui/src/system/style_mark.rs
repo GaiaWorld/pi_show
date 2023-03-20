@@ -252,7 +252,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RectLayoutStyle, M
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
-        // log::info!("RectLayoutStyle modify============={}, {:?}", event.id, event.field);
+        
         let r = match event.field {
             "margin" => LAYOUT_MARGIN_MARK,
             "margin-top" => StyleType2::MarginTop as usize,
@@ -264,6 +264,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RectLayoutStyle, M
             // "aspect_ratio" => StyleType1::As,
             _ => return,
         };
+		
         let (style_marks, dirty_list) = write;
         set_local_dirty2(dirty_list, event.id, r as usize, style_marks);
     }
@@ -271,7 +272,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RectLayoutStyle, M
 
 // 监听TextStyle属性的改变
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, OtherLayoutStyle, ModifyEvent> for StyleMarkSys<C> {
-    type ReadData = ();
+    type ReadData = &'a MultiCaseImpl<Node, OtherLayoutStyle>;
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
 
     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
@@ -324,6 +325,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, OtherLayoutStyle, 
             "flex_basis" => StyleType1::FlexBasis as usize,
             _ => return,
         };
+		
         set_local_dirty1(dirty_list, event.id, r as usize, style_marks);
     }
 }
@@ -420,7 +422,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageTexture, (Cre
         set_dirty1(dirty_list, id, StyleType1::ImageTexture as usize, &mut style_marks[id]);
 
         if let Some(texture) = image_textures.get(id) {
-            if let ImageTexture::All(texture) = texture {
+            if let ImageTexture::All(texture, url) = texture {
                 set_image_size(texture, &mut layout_styles[id], image_clips.get(id), &mut style_marks[id]);
             }
         }
@@ -531,7 +533,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageClip, (Create
         set_local_dirty(dirty_list, id, StyleType::ImageClip as usize, style_marks);
 
         if let Some(texture) = image_textures.get(id) {
-            if let ImageTexture::All(texture) = texture {
+            if let ImageTexture::All(texture, _) = texture {
                 set_image_size(texture, &mut layout_styles[id], image_clips.get(id), &mut style_marks[id]);
             }
         }
@@ -1039,7 +1041,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
                     ImageType::ImageLocal | ImageType::ImageClass => {
                         if let Some(image) = images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
-                                image_textures.insert(image_wait.id, ImageTexture::All(wait.1.clone()));
+                                image_textures.insert(image_wait.id, ImageTexture::All(wait.1.clone(), image.url));
 
                                 // set_image_size(
                                 //     &wait.1,
@@ -2247,7 +2249,7 @@ pub fn set_attr3(
                 if style_mark.local_style & StyleType::ImageClip as usize == 0 {
                     set_dirty(dirty_list, id, StyleType::ImageClip as usize, style_mark);
                     if let Some(teture) = image_textures.get(id) {
-                        if let ImageTexture::All(src) = teture {
+                        if let ImageTexture::All(src, _) = teture {
                             set_image_size(src, &mut rect_layout_styles[id], Some(r), style_mark);
                         }
                     }
@@ -2534,9 +2536,12 @@ fn set_image<C: HalContext + 'static>(
 ) {
     match engine.texture_res_map.get(&image.url) {
         Some(texture) => {
-            image_textures.insert(id, ImageTexture::All(texture));
+            image_textures.insert(id, ImageTexture::All(texture, image.url));
         }
         None => {
+			// if image.url == 1196902338 || image.url == 1483981615 {
+			// 	log::info!("set image await==============={:?}", image.url);
+			// }
             image_wait_sheet.add(image.url, ImageWait { id, ty: wait_ty });
         }
     }

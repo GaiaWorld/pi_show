@@ -44,7 +44,14 @@ impl WebGLTextureImpl {
 
         gl.pixel_storei(WebGlRenderingContext1::UNPACK_FLIP_Y_WEBGL, 0);
         gl.pixel_storei(WebGlRenderingContext1::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
-        gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4);
+		match  pformat{
+			PixelFormat::RGB => gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4),
+			PixelFormat::RGBA => gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4),
+			PixelFormat::ALPHA => gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 1),
+			PixelFormat::DEPTH16 => gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4),
+			PixelFormat::LUMINANCE => gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4),
+		}
+       
 
         match webgl_object {
             Some(object) => {
@@ -350,7 +357,12 @@ impl WebGLTextureImpl {
 
         gl.pixel_storei(WebGlRenderingContext1::UNPACK_FLIP_Y_WEBGL, 0);
         gl.pixel_storei(WebGlRenderingContext1::UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
-        gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4);
+		if let PixelFormat::ALPHA = self.pixel_format {
+			gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 1);
+		} else {
+			gl.pixel_storei(WebGlRenderingContext1::UNPACK_ALIGNMENT, 4);
+		}
+        
 
         match webgl_object {
             Some((x, y, object)) => {
@@ -374,6 +386,7 @@ impl WebGLTextureImpl {
                             d,
                             Some(*v),
                         );
+						
                     }
                     TextureData::F32(x, y, w, h, v) => {
                         gl.tex_sub_image_2d_with_i32_and_i32_and_u32_and_type_and_opt_f32_array(

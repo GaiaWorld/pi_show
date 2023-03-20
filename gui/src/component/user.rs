@@ -67,7 +67,7 @@ pub struct OtherLayoutStyle {
     pub flex_shrink: f32,
     pub align_self: AlignSelf,
 
-    pub overflow: Overflow,
+    // pub overflow: Overflow,
     pub position: Rect<Dimension>,
     pub padding: Rect<Dimension>,
     pub border: Rect<Dimension>,
@@ -84,7 +84,7 @@ impl Default for OtherLayoutStyle {
             direction: Default::default(),
             flex_direction: Default::default(),
             flex_wrap: Default::default(),
-            overflow: Default::default(),
+            // overflow: Default::default(),
             align_items: Default::default(),
             align_self: Default::default(),
             // align_content: Default::default(),
@@ -166,7 +166,7 @@ pub struct ClassName {
 pub struct BorderColor(pub CgColor);
 
 // 图片路劲及纹理
-#[derive(Clone, Component)]
+#[derive(Clone, Component, Debug)]
 pub struct Image {
     // pub src: Option<Share<TextureRes>>,
     pub url: usize,
@@ -851,4 +851,7 @@ impl Default for ImageClip {
 
 impl Default for BorderImageClip {
     fn default() -> Self { Self(Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0))) }
+}
+fn aa() {
+	Vec::new().push(1);
 }

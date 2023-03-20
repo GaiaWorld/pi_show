@@ -61,8 +61,7 @@ bincode = { path = "../../pi_lib/bincode"}
 # cgmath = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
 # collision = { git = "https://github.com/GaiaWorld/pi_math.git", features = ["serde"]}
 # octree = { git = "https://github.com/GaiaWorld/pi_math.git"}
-
-hal_core = {path="../hal_core"}
+hal_core = {path="../hal_core", features=["serde"]}
 hal_derive = {path="../hal_derive"}
 num-traits = "0.2.6"
 fnv = "1.0.6"
@@ -81,6 +80,7 @@ getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
 polygon2 = "0.3"
 cssparser = "0.29"
+pi_print_any="0.1"
 
 [dependencies.web-sys]
 version = "*"

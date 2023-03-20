@@ -101,7 +101,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 						None => {
 							let size = size as f32;
 							let index = dyn_atlas_set.borrow_mut().update_or_add_rect(0, 0, size, size, PixelFormat::RGB, DataFormat::UnsignedByte, false, 1, 2, &mut engine.gl);
-
+							// log::info!("mask update_or_add_rect============={}", index);
 							let texture = TexturePartRes::new(index, dyn_atlas_set.clone());
 							let cost = texture.cost();
 							

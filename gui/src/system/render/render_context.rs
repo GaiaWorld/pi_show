@@ -1,3 +1,4 @@
+use core::panic;
 use std::cell::RefCell;
 /// 处理渲染上下文（遮罩、半透明、裁剪、willchange都可以创建渲染上下文）
 /// 目前只支持了遮罩，
@@ -18,7 +19,7 @@ use share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
-use hash::{DefaultHasher, XHashSet};
+use hash::{DefaultHasher, XHashSet, XHashMap};
 
 use atom::Atom;
 use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
@@ -61,6 +62,7 @@ pub struct RenderContextSys<C> {
 	uv1_sampler: Share<SamplerRes>,
 	unit_geo: Share<GeometryRes>, // 含uv， index， pos
 	default_paramter: FboParamter,
+
 	marker: PhantomData<C>,
 }
 
@@ -150,8 +152,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 					let render_obj_index = self.create_render_obj(*id, render_objs, state, vs, fs);
 
 					let aabb = content_boxs.get(*id).unwrap().0;
-
-					// TODO
+					
 					render_contexts.insert(*id,
 						RenderContext::new(1,
 							aabb.clone(),
@@ -296,13 +297,23 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RenderContext, Del
 			Some(ctx) => {
 				if let Some(render_target) = ctx.render_target {
 					self.remove_render_obj(ctx.render_obj_index, render_objs);
+					// log::info!("delete_rect rendercontext remove============={}", render_target);
 					dyn_atlas_set.borrow_mut().delete_rect(render_target);
+				}
+
+				if let Some(post_process) = &ctx.post_process {
+					if let Some(result) = post_process.result {
+						// log::info!("delete_rect rendercontext remove1============={}", result);
+						dyn_atlas_set.borrow_mut().delete_rect(result);
+					}
 				}
 			}, 
 			None => ()
 		};
 	}
 }
+
+
 
 /// 监听实体销毁，释放渲染抓住的渲染对象，并释放其分配的纹理空间
 /// 实体删除，不会再通知组件的删除事件，所以除了监听组件的RenderContext组件的删除，还要监听实体的删除
@@ -316,7 +327,15 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
 			Some(ctx) => {
 				if let Some(render_target) = ctx.render_target {
 					self.remove_render_obj(ctx.render_obj_index, render_objs);
+					// log::info!("delete_rect Node remove============={}", render_target);
 					dyn_atlas_set.borrow_mut().delete_rect(render_target);
+				}
+
+				if let Some(post_process) = &ctx.post_process {
+					if let Some(result) = post_process.result {
+						// log::info!("delete_rect Node remove1============={}", result);
+						dyn_atlas_set.borrow_mut().delete_rect(result);
+					}
 				}
 			}, 
 			None => ()

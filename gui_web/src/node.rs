@@ -244,7 +244,7 @@ pub fn set_data_image_image(
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
-	world.image_texture.lend_mut().insert(node_id, ImageTexture::All(res));
+	world.image_texture.lend_mut().insert(node_id, ImageTexture::All(res, 0));
 }
 
 #[allow(unused_attributes)]

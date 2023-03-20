@@ -159,7 +159,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-				render_obj.is_opacity = background_is_opacity(1.0, color);
+				render_obj.is_opacity = background_is_opacity(1.0, color) && border_radius.is_none();
 				if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				}

@@ -62,6 +62,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, ImageTexture>,
+		&'a MultiCaseImpl<Node, Image>,
         &'a MultiCaseImpl<Node, ImageClip>,
         &'a MultiCaseImpl<Node, BackgroundImageOption>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
@@ -80,6 +81,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             border_radiuss,
             z_depths,
             image_textures,
+			images,
             image_clips,
             object_fits,
             world_matrixs,
@@ -114,6 +116,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 continue;
             }
 
+			// 如果不存在Texture， 删除渲染对象
             let texture = match image_textures.get(*id) {
                 Some(r) => r,
                 None => {
@@ -121,9 +124,30 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     continue;
                 }
             };
+			
+			if let ImageTexture::All(_, url ) = texture {
+				if (*url != 0) {// 
+					let image = match images.get(*id) {
+						Some(r) => r,
+						None => continue,
+					};
+					// 如果纹理和image的url不相等， 什么也不做，保持现在的渲染状态
+					// 新的图片可能处于未加载完成状态，首先，不应该删除原有的渲染对象， 如果是帧动画，会造成闪烁
+					// 另外，也不应更新当前设置的最新数据， 可能造成image_clip和image本身不匹配，计算出错误的uv，也会造成闪烁
+					if (image.url != *url) {
+						// if *url == 1196902338 || *url == 1483981615 {
+						// 	log::info!("!!!!!image==============={:?}, image_clip: {:?}, url: {:?}", images.get(*id), image_clips.get(*id), url);
+						// }
+						continue;
+					}
+				}
+				// if *url == 1196902338 || *url == 1483981615 {
+				// 	log::info!("image==============={:?}, image_clip: {:?}, url: {:?}", images.get(*id), image_clips.get(*id), url);
+				// }
+			}
+			
 			let border_radius = border_radiuss.get(*id);
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
-                // 如果不存在Texture， 删除渲染对象
                 dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
@@ -131,7 +155,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                         let (state, vs, fs) = {
                             match texture {
                                 ImageTexture::Part(_r) => (&***premulti_state, CANVAS_VS_SHADER_NAME.clone(), CANVAS_FS_SHADER_NAME.clone()),
-                                ImageTexture::All(_r) => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
+                                ImageTexture::All(_r, _) => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
                             }
                         };
                         self.create_render_obj(*id, render_objs, state, vs, fs)
@@ -193,7 +217,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                 // let opacity = opacitys[*id].0;
                 let dyn_texture_set;
                 let tex = match texture {
-                    ImageTexture::All(r) => &r,
+                    ImageTexture::All(r, _) => &r,
                     ImageTexture::Part(r) => {
                         let index = r.index();
                         dyn_texture_set = r.get_dyn_texture_set().borrow();
@@ -206,7 +230,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                     notify.modify_event(render_index, "ubo", 0);
                 }
 
-                let is_opacity = if let ROpacity::Opaque = tex.opacity { true } else { false };
+                let is_opacity = if let ROpacity::Opaque = tex.opacity { true && border_radius.is_none() } else { false };
 
                 if render_obj.is_opacity != is_opacity {
                     render_obj.is_opacity = is_opacity;
@@ -215,7 +239,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                         engine,
                         render_obj,
                         match texture {
-                            ImageTexture::All(_r) => premulti_state,
+                            ImageTexture::All(_r, _) => premulti_state,
                             ImageTexture::Part(_r) => default_state,
                         },
                     );
@@ -308,7 +332,7 @@ fn get_pos_uv(texture: &ImageTexture, clip: Option<&ImageClip>, fit: &Background
     let mut p2 = Point2::new(width, height);
 
     match texture {
-        ImageTexture::All(src) => {
+        ImageTexture::All(src, _) => {
             let (size, mut uv1, mut uv2) = match clip {
                 Some(c) => {
                     let size = Vector2::new(

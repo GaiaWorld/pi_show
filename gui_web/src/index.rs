@@ -1,11 +1,12 @@
 // use std::cell::RefCell;
-use std::mem::{transmute, MaybeUninit};
+use std::mem::{transmute, MaybeUninit, forget};
 use std::ptr::write;
+use std::panic;
 
-use js_sys::{Date, Function, Object};
+use js_sys::{Date, Function, Object, Float32Array, Uint8Array};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext};
+use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext, HtmlImageElement};
 
 use flex_layout::{Dimension, PositionType, Rect, Size};
 use ordered_float::OrderedFloat;
@@ -30,7 +31,7 @@ use res::Res;
 use res_mgr_web::ResMgr;
 use share::Share;
 
-use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, GuiWorld};
+use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, GuiWorld, setSdfSuccessCallback};
 
 
 #[wasm_bindgen]
@@ -77,6 +78,11 @@ impl TextureRes {
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
 pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
+	let r: Box<dyn FnMut(u32, u32, u32, u32,u32,Uint8Array)> = Box::new(load_sdf_success);
+	let r = Closure::wrap(r);
+	setSdfSuccessCallback(r.as_ref().unchecked_ref());
+	forget(r);
+	panic::set_hook(Box::new(console_error_panic_hook::hook));
     let use_vao = unsafe { useVao() };
     // let use_vao = false;
     // let gl = WebglHalContext::new(gl, fbo, false);
@@ -149,17 +155,11 @@ pub fn clone_engine(engine: u32) -> u32 {
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
-pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<Function>, class_sheet: u32, font_sheet: u32) -> u32 {
+pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<Function>, class_sheet: u32, font_sheet: u32, is_sdf_font: bool) -> u32 {
     // unsafe{ console::log_1(&JsValue::from("create_gui0================================="))};
     // println!("create_gui 1============================");
     let mut engine = *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
-    let draw_text_sys = DrawTextSys::new();
-    let ctx = draw_text_sys.ctx.clone();
-    let f = Box::new(move |name: usize, font_size: usize, ch: char| -> f32 {
-        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name as u32) };
-    });
-    // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
-    let mut max_texture_size = match engine.gl.get_raw_gl().get_parameter(RawWebGlRenderingContext::MAX_TEXTURE_SIZE) {
+	let mut max_texture_size = match engine.gl.get_raw_gl().get_parameter(RawWebGlRenderingContext::MAX_TEXTURE_SIZE) {
         Ok(r) => r.as_f64().unwrap() as u32,
         Err(_r) => 1024,
     };
@@ -167,10 +167,31 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     if max_texture_size > 4096 {
         max_texture_size = 4096;
     }
-    let texture = engine
+	let draw_text_sys = DrawTextSys::new(max_texture_size);
+
+    let ctx = draw_text_sys.ctx.clone();
+    let f = Box::new(move |name: usize, font_size: usize, ch: char| -> f32 {
+        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name as u32) };
+    });
+    // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
+    
+	let hh = 32;
+	// log::info!("text texture=============={:?}", max_texture_size);
+    // let texture = engine
+    //     .gl
+    //     .texture_create_2d(0, max_texture_size, 32, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
+    //     .unwrap();
+	let texture = if is_sdf_font {
+		engine
         .gl
-        .texture_create_2d(0, max_texture_size, 32, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
-        .unwrap();
+        .texture_create_2d(0, max_texture_size, hh, PixelFormat1::ALPHA, DataFormat::UnsignedByte, false, None)
+        .unwrap()
+	} else {
+		engine
+        .gl
+        .texture_create_2d(0, max_texture_size, hh, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
+        .unwrap()
+	};
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
     // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
     log::info!("hash============{:?}", Atom::from("__$text".to_string()).get_hash());
@@ -178,7 +199,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         Atom::from("__$text".to_string()).get_hash(),
         TextureResRaw::new(
             max_texture_size as usize,
-            32,
+            hh as usize,
             PixelFormat1::RGBA,
             DataFormat::UnsignedByte,
             unsafe { transmute(1 as u8) },
@@ -198,7 +219,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         font_sheet_option = Some(*unsafe { Box::from_raw(font_sheet as usize as *mut Share<StdCell<FontSheet>>) });
     }
     // unsafe{ console::log_1(&JsValue::from("create_gui3================================="))};
-    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option);
+    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option, is_sdf_font);
     // unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
     let world = GuiWorld1::<WebglHalContext>::new(world);
 
@@ -484,7 +505,7 @@ pub fn render(world_id: u32) -> js_sys::Promise {
     // let time = std::time::Instant::now();
 
     let r = js_sys::Promise::resolve(&world_id.into()).then(&gui_world.draw_text);
-
+	// let r = js_sys::Promise::resolve(&world_id.into());
     {
         // 纹理更新了, 设置脏
         let font_sheet = gui_world.gui.font_sheet.lend_mut();
@@ -660,6 +681,31 @@ pub fn load_image_success(
         }
         None => (),
     };
+}
+
+// callback(x, y, boxs, buffer, 0);
+
+#[wasm_bindgen]
+pub fn load_sdf_success(
+	world: u32,
+	x: u32,
+	y: u32,
+	w: u32,
+	h: u32,
+	data: Uint8Array,
+) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let single_font_sheet = &mut world.font_sheet.lend_mut();
+	let font_sheet = &mut single_font_sheet.borrow_mut();
+	font_sheet.tex_version += 1;
+
+    let engine = world.engine.lend_mut();
+    let texture = font_sheet.get_font_tex();
+
+	engine
+            .gl
+            .texture_update(&texture.bind, 0, &TextureData::U8(x, y, w, h,  data.to_vec().as_slice()));
 }
 
 /// 创建纹理资源

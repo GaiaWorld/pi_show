@@ -397,6 +397,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, RenderContext, Del
 			Some(ctx) => {
 				if let Some(render_target) = ctx.render_target {
 					self.remove_render_obj(ctx.render_obj_index, render_objs);
+					// log::info!("delete_rect render_context remove============={}", render_target);
 					dyn_atlas_set.borrow_mut().delete_rect(render_target);
 				}
 			}, 
@@ -417,6 +418,7 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent>
 			Some(ctx) => {
 				if let Some(render_target) = ctx.render_target {
 					self.remove_render_obj(ctx.render_obj_index, render_objs);
+					// log::info!("delete_rect Node remove============={}", render_target);
 					dyn_atlas_set.borrow_mut().delete_rect(render_target);
 				}
 			}, 

@@ -2,6 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 
 use atom::Atom;
+use flex_layout::Rect;
 use guillotiere::*;
 use slab::Slab;
 use hal_core::*;
@@ -40,6 +41,7 @@ pub struct DynAtlas {
 	dformat: DataFormat,
 	need_depth: bool,
 	ty: usize,
+	hash: usize,
 }
 
 pub struct DynAtlasSet {
@@ -106,9 +108,11 @@ struct UnuseTexture {
 	width: u32,
 	height: u32,
 	ty: usize,
+	hash: usize,
 	target: HalRenderTarget,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Size {
 	pub width: usize,
 	pub height: usize,
@@ -190,7 +194,7 @@ impl DynAtlasSet {
 						Some(r) => {
 							w = unuse_texture.width as i32;
 							h = unuse_texture.height as i32;
-							catch_texture = Some((r, unuse_texture.target));
+							catch_texture = Some((unuse_texture.hash, r, unuse_texture.target));
 							break;
 						},
 						None => {
@@ -202,7 +206,7 @@ impl DynAtlasSet {
 				}
 			}
 		}
-		let (texture_res, target) = match catch_texture {
+		let (texture_hash, texture_res, target) = match catch_texture {
 			Some(r) => r,
 			None => {
 				// 如果缓冲上不存在纹理，则重新创建纹理
@@ -215,7 +219,7 @@ impl DynAtlasSet {
 					false, 
 					None
 				).unwrap();
-				log::info!("create fbo texture, index: {}, use_count: {}, w: {}, h: {}", texture.item.index, texture.item.use_count, w, h);
+				log::trace!("create fbo texture, index: {}, use_count: {}, w: {}, h: {}", texture.item.index, texture.item.use_count, w, h);
 				let mut hasher = DefaultHasher::default();
 				DYN_TEXTURE.hash(&mut hasher);
 				self.texture_cur_index.hash(&mut hasher);
@@ -235,7 +239,7 @@ impl DynAtlasSet {
 				)
 				.unwrap();
 				gl.rt_set_color(&target, Some(&texture.bind));
-				(texture, target)
+				(hash, texture, target)
 			}
 		};
 		if need_depth {
@@ -275,6 +279,7 @@ impl DynAtlasSet {
 			dformat,
 			need_depth,
 			ty: ty,
+			hash: texture_hash
 			// allocator_index: self.cur_allocator_index,
 		});
 		// self.cur_allocator_index += 1;
@@ -297,6 +302,7 @@ impl DynAtlasSet {
 				return 0;
 			}
 
+			// log::info!("update_or_add_rect del============={}", old);
 			let rect_index = self.rects.remove(old);
 			let dyn_atlas = &mut self.dyn_atlas[rect_index.allocation_index];
 
@@ -315,7 +321,7 @@ impl DynAtlasSet {
 			let dyn_atlas = &mut self.dyn_atlas[allocation_index];
 			if dyn_atlas.count == 0 {
 				let dyn_atla = self.dyn_atlas.remove(allocation_index);
-				let (pformat, dformat, width, height, ty, target) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target);
+				let (pformat, dformat, width, height, ty, target, hash) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash);
 				self.unuse_texture.push(UnuseTexture{
 					pformat,
 					dformat,
@@ -324,6 +330,7 @@ impl DynAtlasSet {
 					weak: Share::downgrade(&dyn_atla.texture),
 					target: target,
 					ty,
+					hash,
 				});
 			}
 		}
@@ -348,7 +355,7 @@ impl DynAtlasSet {
 		// 将纹理缓冲起来
 		if dyn_atlas.count == 0 && self.dyn_atlas.len() > 1 {
 			let dyn_atla = self.dyn_atlas.remove(r.allocation_index);
-			let (pformat, dformat, width, height, ty, target) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target);
+			let (pformat, dformat, width, height, ty, target,hash) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash);
 			self.unuse_texture.push(UnuseTexture{
 				pformat,
 				dformat,
@@ -357,6 +364,7 @@ impl DynAtlasSet {
 				target: target,
 				weak: Share::downgrade(&dyn_atla.texture),
 				ty,
+				hash,
 			});
 		}
 		let r = &r.allocation.rectangle;
@@ -415,6 +423,59 @@ impl DynAtlasSet {
 			None => None,
 		}
 	}
+
+	pub fn debug_rects(&self) -> Vec<DebugRect>{
+		let mut l = Vec::new();
+		for (i, r) in self.rects.iter() {
+			let rect = r.allocation.rectangle.clone();
+			l.push(DebugRect {
+				id: i,
+				rect: Aabb2 {
+					mins: Point2::new(rect.min.x as f32, rect.min.y as f32),
+					maxs: Point2::new(rect.max.x as f32, rect.max.y as f32),
+				},
+				texture_id: r.allocation_index,
+			});
+		}
+		l
+	}
+
+	pub fn debug_texture(&self) -> Vec<DebugTexture>{
+		let mut l = Vec::new();
+		for (i, r) in self.dyn_atlas.iter() {
+			let size = r.allocator.size();
+			l.push(DebugTexture {
+				id: i,
+				rect: Size { width: size.width as usize, height: size.height as usize },
+				count: r.count,
+				pformat: r.pformat,
+				dformat: r.dformat,
+				need_depth: r.need_depth,
+				ty: r.ty,
+				hash: r.hash,
+			});
+		}
+		l
+	}
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DebugRect {
+	pub id: usize,
+	pub rect: Aabb2,
+	pub texture_id: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DebugTexture {
+	pub id: usize,
+	pub rect: Size,
+	pub count: usize,
+	pub pformat: PixelFormat,
+	pub dformat: DataFormat,
+	pub need_depth: bool,
+	pub ty: usize,
+	pub hash: usize,
 }
 
 #[test]

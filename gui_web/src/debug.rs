@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::mem::transmute;
 use std::ops::Deref;
 
+use gui::single::dyn_texture::DebugRect;
+use gui::single::dyn_texture::DebugTexture;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -1475,6 +1477,86 @@ pub fn list_texture(world: u32) -> JsValue {
     info.cur_cost = engine.texture_res_map.cache.size();
     return JsValue::from_serde(&info).unwrap();
 }
+
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+pub fn list_fbo(world: u32) -> JsValue {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+	let dyn_atlas_set = world.dyn_atlas_set.lend();
+	
+	let rects = dyn_atlas_set.borrow().debug_rects();
+	let textures = dyn_atlas_set.borrow().debug_texture();
+
+	let render_context = world.world.fetch_multi::<Node, RenderContext>().unwrap();
+	let render_context = render_context.lend();
+	let mut list = Vec::new();
+	let mut i = 0;
+	for context in render_context.get_storage().iter() {
+		if let Some(context) = context {
+			list.push(DebugContext {
+				entity: i,
+				result: match &context.post_process {
+					Some(r) => r.result.clone(),
+					None => None,
+				},
+				render_target: match &context.post_process {
+					Some(r) => r.render_target.clone(),
+					None => None,
+				},
+				render_target1: context.render_target.clone(),
+			});
+		}
+		i += 1;
+	}
+
+	let render_objs = world.world.fetch_single::<RenderObjs>().unwrap();
+	let render_objs = render_objs.lend();
+	let mut list1 = Vec::new();
+	for (i, obj) in render_objs.iter() {
+		if let Some(context) = &obj.post_process {
+			list1.push(DebugRenderObjFbo {
+				entity: i,
+				result: context.result.clone(),
+			});
+		}
+	}
+
+	let info = DebugFbo{
+		textures: textures,
+		rects: rects,
+		render_context: list,
+		render_obj: list1,
+	};
+	return JsValue::from_serde(&info).unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DebugFbo {
+	textures: Vec<DebugTexture>,
+	rects: Vec<DebugRect>,
+	render_context: Vec<DebugContext>,
+	render_obj: Vec<DebugRenderObjFbo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DebugContext {
+	entity: usize,
+	result: Option<usize>,
+	render_target: Option<usize>,
+	render_target1: Option<usize>,
+	// rects: DebugRect,
+	// render_context: Vec<>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DebugRenderObjFbo {
+	entity: usize,
+	result: Option<usize>,
+	// rects: DebugRect,
+	// render_context: Vec<>,
+}
+
 
 #[allow(non_snake_case)]
 #[wasm_bindgen]

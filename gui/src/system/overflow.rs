@@ -389,6 +389,9 @@ fn calc_clip<'a>(
                     //     ))
                     // }
                     if !(m.0).1 {
+						// if !is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0)) {
+						// 	log::warn!("cull will change=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0));
+						// }
                         unsafe {
                             cullings
                                 .get_unchecked_write(id)
@@ -396,7 +399,12 @@ fn calc_clip<'a>(
                         };
                     }
                 }
-                None => unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0)),
+                None => {
+					// if !is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0) {
+					// 	log::warn!("cull=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &unsafe { read.5.get_unchecked(id) }.0);
+					// }
+					unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0))
+				},
             }
         }
         // 通知by_overflow改变，以修改clipBox

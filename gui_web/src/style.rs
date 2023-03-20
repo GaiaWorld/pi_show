@@ -120,7 +120,7 @@ pub fn set_clip_path_str(world: u32, node: u32, value: String) {
 			);
 		},
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}", value);
+			log::error!("set_clip_path_str invalid, {:?}", value);
 		}
 	}
 }
@@ -731,6 +731,7 @@ fn set_default_style1(world: &mut GuiWorld, r: Class) {
         &mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize
             as *mut VecMapWithDefault<OtherLayoutStyle>)
     };
+
     flex_rect_styles.set_default(rect_layout_style);
     flex_other_styles.set_default(other_layout_style);
     text_styles.set_default(text_style);

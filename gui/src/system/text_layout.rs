@@ -1,3 +1,4 @@
+use std::mem::transmute;
 // 文字布局及布局系统
 // 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yoga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
@@ -326,7 +327,7 @@ fn set_gylph<'a>(
     for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
             char_id = font_sheet.calc_gylph(
-                &tex_font,
+                tex_font,
                 font_size as usize,
                 sw as usize,
                 weight,
@@ -357,7 +358,7 @@ struct Calc<'a> {
 
 	text: &'a str,
 	style_mark: &'a StyleMark,
-	tex_font: (TexFont, usize),
+	tex_font: (usize, usize),
 	font_size: f32,
 	font_height: f32,
 	line_height: f32,
@@ -623,7 +624,7 @@ impl<'a> Calc<'a> {
 
 	fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
 		let r = self.font_sheet.measure(
-			&self.tex_font.0,
+			self.tex_font.0,
 			self.font_size as usize,
 			self.sw as usize,
 			self.text_style.font.weight,
@@ -768,9 +769,8 @@ fn calc<'a>(
 		}
 	};
 	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
-	let font_height = tex_font
-		.0
-		.get_font_height(font_size as usize, text_style.text.stroke.width);
+	let font_height = font_sheet.get_font_height(tex_font
+		.0, font_size as usize, text_style.text.stroke.width);
 	let sw = text_style.text.stroke.width;
 	let parent = idtree[id].parent();
 	let mut calc = Calc {

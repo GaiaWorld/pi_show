@@ -11,6 +11,7 @@ use ecs::{
 };
 use ecs::monitor::{Event};
 use hal_core::*;
+use nalgebra::Orthographic3;
 use ordered_float::OrderedFloat;
 use share::Share;
 use crate::Z_MAX;
@@ -190,6 +191,17 @@ fn get_render_project_matrix(content_box: &Aabb2) -> WorldMatrix{
 		false,
 	)
 }
+
+// 137
+// 46
+// ]
+// maxs:[
+// 184
+// 93
+// #[test]
+// fn xxx() {
+
+// }
 impl<'a, C: HalContext + 'static>  RenderSys<C> {
 	
 	fn recursive_list_by_intersect<'b>(&mut self, base: &RenderBase<'b>, 
@@ -220,7 +232,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 						let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
 						let target = r.render_target.clone();
 						let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
-							let result = self.render_post_process1(base, basemut, target.unwrap(), post);
+							let result = self.render_post_process1(base, basemut, target.unwrap(), post, id);
 							r.render_target = Some(0); // 它在后处理的过程中已经被释放
 							(result, &self.linner_sampler)
 						} else {
@@ -273,7 +285,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
 					let target = r.render_target.clone();
 					let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
-						let result = self.render_post_process1(base, basemut, target.unwrap(), post);
+						let result = self.render_post_process1(base, basemut, target.unwrap(), post, id);
 						r.render_target = Some(0); // 它在后处理的过程中已经被释放
 						(result, &self.linner_sampler)
 					} else {
@@ -344,6 +356,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					1, 
 					1, 
 					&mut engine.gl);
+				// log::info!("post update_or_add_rect============={}", target_index);
 				target_index
 			},
 		};
@@ -355,7 +368,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 		// log::warn!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
 		if cur_render_begin.scissor.2 == 0 || cur_render_begin.scissor.3 == 0 {
-			log::info!("render_post_process fail, scissor is zero, node:{}", render_obj.context);
+			// log::info!("render_post_process fail, scissor is zero, node:{}", render_obj.context);
 			return 0;
 		}
 		// log::info!("begine====={:?}, {:?}, id:{}, dirty_rect: {:?}", begine.viewport, begine.scissor, id, dirty_rect);
@@ -380,7 +393,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			self.render_count = 0;
 		}
 
-		self.render_post_process1(base, basemut, render_target, post_process_context)
+		// log::info!("post_process======================{}", render_index);
+		self.render_post_process1(base, basemut, render_target, post_process_context, render_index)
 	}
 
 	/// 渲染后处理
@@ -389,6 +403,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		basemut: &mut RenderBaseMut<'b, C>,
 		render_target: usize, // 后处理纹理
 		post_process_context: &mut PostProcessContext,
+		obj_index: usize,
 		) -> usize {
 		let RenderBase {
 			idtree,
@@ -426,6 +441,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				1, 
 				1, 
 				&mut engine.gl);
+			// log::info!("post1 update_or_add_rect============={}, render_obj: {}", target_index, obj_index);
 			target = dyn_atlas_set.get_target(target_index);
 			render_rect = dyn_atlas_set.get_rect(target_index).unwrap();
 			let cur_render_begin = self.calc_render_begin(&render_rect, render_begin);
@@ -524,6 +540,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			}
 
 			/// 释放分配（后处理分配以一些临时纹理）
+			// log::info!("delete_rect render temp============={}", index);
 			dyn_atlas_set1.delete_rect(index);
 
 			self.render_count += 1;
@@ -540,6 +557,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 		/// 修改渲染结果的目标索引， 修改前释放旧的
 		if let Some(r) = post_process_context.result {
+			// log::info!("delete_rect render temp1============={}", r);
 			dyn_atlas_set1.delete_rect(r);
 		}
 
@@ -655,7 +673,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				}
 				
 				let target_index = basemut.dyn_atlas_set.update_or_add_rect(render_target,parent_target, content_box.maxs.x-content_box.mins.x,content_box.maxs.y-content_box.mins.y, PixelFormat::RGBA, DataFormat::UnsignedByte, true, 1, 1, &mut basemut.engine.gl);
-				
+				// log::info!("render_context update_or_add_rect============={}, old: {:?}", target_index, render_target);
 				// 如果纹理区域修改了，则重新设置纹理，以及重新更新uv
 				if target_index != 0 {
 					render_context.render_target = Some(target_index);
@@ -1340,8 +1358,8 @@ use crate::component::user::Vector4;
 
 #[test]
 fn test() {
-	let rect = Aabb2::new(Point2::new(0.0, 457.0), Point2::new(113.0, 614.0));
-	let content_box = Aabb2::new(Point2::new(337.0, 305.0), Point2::new(450.0, 462.0));
+	let rect = Aabb2::new(Point2::new(0.0, 0.0), Point2::new(46.0, 46.0));
+	let content_box = Aabb2::new(Point2::new(133.0, 44.0), Point2::new(179.0, 46.0));
 	
 	let project_martix = ProjectionMatrix(ProjectionMatrix::new(
 		rect.maxs.x - rect.mins.x,
@@ -1351,10 +1369,26 @@ fn test() {
 	).0 * get_render_project_matrix(&content_box));
 	println!("{:?}", project_martix.0.as_slice());
 
+	
+   	let ortho = Orthographic3::new(133.0, 46.0, 46.0, 44.0, -Z_MAX - 1.0, Z_MAX + 1.0);
+	let project_martix1 = 	WorldMatrix(Matrix4::from(ortho), false);
+	println!("project_martix 1 {:?}", project_martix1.as_slice());
+
+	println!("0 project_martix 1 {:?}", (&project_martix1) * Vector4::new(0.0, 0.0, 0.0, 1.0));
+
+
+	let mm = WorldMatrix(Matrix4::new(
+		44.6097, 0.0, 0.0, 133.8290,
+		0.0, 44.6777, 0.0, 44.6777,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	), false);
+
+	println!("1 project_martix 1 {:?}", &((&project_martix1) * mm) * Vector4::new(0.0, 0.0, 0.0, 1.0));
 
 	let wm = WorldMatrix(Matrix4::new(
 		112.2750, 0.0, 0.0, 337.0,
-		 0.0, 156.7172, 0.0, 305.0,
+		0.0, 156.7172, 0.0, 305.0,
 		0.0, 0.0, 1.0, -0.3275,
 		0.0,0.0,0.0,1.0,
 	), false);
