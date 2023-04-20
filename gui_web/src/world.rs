@@ -224,6 +224,13 @@ impl DrawTextSys {
     }
 }
 
+// 恢复canvas（ios小游戏切换到后台，canvas变得无效）
+#[wasm_bindgen]
+pub fn resume(world_id: u32) {
+	let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+	world1.draw_text_sys = DrawTextSys::new(2048); // 重新创建canvas
+}
+
 /// 绘制文字
 #[allow(unused_unsafe)]
 pub fn draw_canvas_text(world_id: u32, data: u32){
@@ -246,7 +253,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 	let mut sdf_map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
     for i in 0..text_info_list.len() {
         let text_info = std::mem::replace(&mut text_info_list[i], TextInfo1 { font: 0, font_size: 0, stroke_width: 0, weight: 0, size: Vector2::new(0.0, 0.0), chars: Vec::new(), top: 0, is_pixel: false }) ;
-        let first = &text_info.chars[0];
+		let first = &text_info.chars[0];
         let h = first.y + text_info.size.y as u32;
         if h > end_v {
             end_v = h;
@@ -276,19 +283,20 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 			if text_info.chars.len() > 0 {
 				let x = text_info.chars[0].x;
 				let y = text_info.chars[0].y;
+				// log::info!("char1!!!================={:?}", y);
 				for char_info in text_info.chars.iter() {
+					// if (x > char_info.x) 
 					sdf_wait_bin.push(unsafe { transmute::<_, u32>(char_info.ch) }); // char
 					sdf_offset_bin.push(char_info.x - x);
 					sdf_offset_bin.push(char_info.width as u32);
 					sdf_offset_bin.push(char_info.height as u32);
+					// log::info!("char1!!! ================={:?}, x: {:?}, y: {:?}, yy: {:?} xx: {:?}, v: {:?}", char_info.ch, x, y, char_info.y, char_info.x, char_info.x - x);
 					// log::info!("char1!!!================={:?}", char_info.height);
 				}
 	
 				// 找高层绘制， 绘制完成后， 应该调用全局方法回调回来(这里应该异步绘制，否则纹理尺寸可能不满足)
 				drawSdf(world_id, text_info.font as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
 			}
-			
-
 			// engine
             // .gl
             // .texture_update_webgl(&texture.bind, 0, start.0 as u32, start.1 as u32, &ctx.get_image_data(0.0, 0.0, draw_width as f64, draw_height as f64).unwrap());

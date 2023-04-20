@@ -388,12 +388,12 @@ pub fn add_sdf_font(world_id: u32, name: u32, cfgs: &[u8]) {
 	let msdf_width_map: FontCfg = match bincode::deserialize(cfgs) {
         Ok(r) => r,
         Err(e) => {
-            debug_println!("deserialize_class_map error: {:?}", e);
+            log::error!("deserialize_class_map error: {:?}", e);
             return;
         }
     };
 
-	// log::info!("name==================={}, ascender: {}, descender: {}, len: {}，glyphs: {:?} ", name, msdf_width_map.metrics.ascender, msdf_width_map.metrics.descender, msdf_width_map.glyphs.len(), msdf_width_map.glyphs.get(&'基'));
+	// log::info!("name==================={}, ascender: {}, descender: {}, len: {}，glyphs: {:?} ", name, msdf_width_map.metrics.ascender, msdf_width_map.metrics.descender, msdf_width_map.glyphs.len(), msdf_width_map.glyphs.get(&'风'));
 	font_sheet.set_src(name as usize, Some(msdf_width_map.glyphs), 0.0, 0.0,msdf_width_map.metrics);
 	// let font_tex = font_sheet.get_font_info().0;
 
@@ -456,6 +456,7 @@ pub fn add_msdf_font_res(world_id: u32, image: HtmlImageElement, cfg: &[u8], nam
 #[allow(unused_attributes)]
 #[wasm_bindgen]
 pub fn set_text_content(world_id: u32, node: u32, content: String) {
+	// log::info!("set text content======{}, {:?}", node, content);
     let node = node as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;

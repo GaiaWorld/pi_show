@@ -175,23 +175,29 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
-	let hh = 32;
+	let hh = max_texture_size;
 	// log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
     //     .gl
     //     .texture_create_2d(0, max_texture_size, 32, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
     //     .unwrap();
-	let texture = if is_sdf_font {
-		engine
-        .gl
-        .texture_create_2d(0, max_texture_size, hh, PixelFormat1::ALPHA, DataFormat::UnsignedByte, false, None)
-        .unwrap()
+	let mut d: Vec<u8>;
+	let (format, data) = if is_sdf_font {
+		(PixelFormat1::ALPHA, {
+			let l = max_texture_size * hh;
+			d = Vec::with_capacity(l as usize);
+			for _ in 0..l {
+				d.push(0);
+			}
+			Some(TextureData::U8(0, 0, max_texture_size, hh, d.as_slice()))
+		})
 	} else {
-		engine
-        .gl
-        .texture_create_2d(0, max_texture_size, hh, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
-        .unwrap()
+		(PixelFormat1::RGBA, None)
 	};
+	let texture = engine
+	.gl
+	.texture_create_2d(0, max_texture_size, hh, format, DataFormat::UnsignedByte, false, data)
+	.unwrap();
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
     // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
     log::info!("hash============{:?}", Atom::from("__$text".to_string()).get_hash());
@@ -200,7 +206,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
         TextureResRaw::new(
             max_texture_size as usize,
             hh as usize,
-            PixelFormat1::RGBA,
+            format,
             DataFormat::UnsignedByte,
             unsafe { transmute(1 as u8) },
             None, //unsafe { transmute(0 as usize) },
@@ -263,7 +269,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
-        max_texture_size: 4096,
+        max_texture_size,
         default_attr: Class::default(),
         performance_inspector: 0,
         load_image_success: unsafe { MaybeUninit::uninit().assume_init() },
@@ -703,9 +709,10 @@ pub fn load_sdf_success(
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
 
+	// log::info!("load_sdf_success================{:?}, {:?}, {}, {}, {}", x, y, w, h, data.length());
 	engine
             .gl
-            .texture_update(&texture.bind, 0, &TextureData::U8(x, y, w, h,  data.to_vec().as_slice()));
+            .texture_update(&texture.bind, 0, &TextureData::U8(x, y, w, h, data.to_vec().as_slice()));
 }
 
 /// 创建纹理资源
