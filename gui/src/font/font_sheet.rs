@@ -36,7 +36,7 @@ pub const OFFSET_RANGE: f32 = (2 as u32).pow(15) as f32;
 const SMALL_FONT: usize = 20;
 
 // 粗体字的font-weight
-const BLOD_WEIGHT: usize = 700;
+pub const BLOD_WEIGHT: usize = 700;
 
 // 粗体字的放大因子
 const BLOD_FACTOR: f32 = 1.13;
@@ -204,11 +204,15 @@ impl FontSheet {
 		}
     }
 
-    pub fn get_src(&self, name: &usize) -> Option<&TexFont> {
-        match self.src_map.get(name) {
-			Some(index) => self.src_slab.get(*index),
+    pub fn get_first_src(&self, name: &usize) -> Option<&TexFont> {
+		match self.face_map.get(name) {
+			Some(r) => self.src_slab.get(r.src_index[0]),
 			None => None,
 		}
+        // match self.src_map.get(name) {
+		// 	Some(index) => self.src_slab.get(*index),
+		// 	None => None,
+		// }
     }
 
 	pub fn get_src_index(&self, name: &usize) -> Option<&usize> {
@@ -216,20 +220,21 @@ impl FontSheet {
     }
 
 	// 没有font将崩溃
-	pub fn get_font_height(&self, font_index: usize, size: usize, stroke_width: f32) -> f32{
-        self.src_slab[font_index].get_font_height(size, stroke_width)
+	pub fn get_font_height(&self, font_index: &Vec<usize>, size: usize, stroke_width: f32) -> f32{
+        self.src_slab[font_index[0]].get_font_height(size, stroke_width)
     }
 
     // 取字体详情
-    pub fn get_font_info(&self, font_face: &usize) -> Option<(usize, usize /* font_size */)> {
+    pub fn get_font_info(&self, font_face: &usize) -> Option<(&Vec<usize>, usize /* font_size */)> {
         match self.face_map.get(font_face) {
             Some(face) => {
-                for name in &face.src {
-                    match self.src_map.get(name) {
-                        Some(font) => return Some((*font, face.size)),
-                        _ => (),
-                    }
-                }
+				return Some((&face.src_index, face.size));
+                // for name in &face.src {
+                //     match self.src_map.get(name) {
+                //         Some(font) => return Some((*font, face.size)),
+                //         _ => (),
+                //     }
+                // }
             }
             _ => (),
         };
@@ -245,25 +250,33 @@ impl FontSheet {
         weight: usize,
         src: Vec<usize>,
     ) {
-        let face = FontFace {
+        let mut face = FontFace {
             oblique: oblique,
             size: size,
             weight: weight,
+			src_index: Vec::with_capacity(src.len()),
             src: src,
         };
+		for src in face.src.iter() {
+			match self.src_map.get(src) {
+				Some(r) => face.src_index.push(*r),
+				None => panic!("set_face fail, not exist font: {:?}", src),
+			}
+		}
         self.face_map.entry(family.clone()).or_insert(face);
     }
 
     // 取字体信息
-    pub fn get_font(&self, font_face: &usize) -> Option<usize> {
+    pub fn get_font(&self, font_face: &usize) -> Option<&Vec<usize>> {
         match self.face_map.get(font_face) {
             Some(face) => {
-                for name in &face.src {
-                    if let Some(font) = self.src_map.get(name) {
-                        return Some(*font);
-                    }
-                }
-                None
+				Some(&face.src_index)
+                // for name in &face.src {
+                //     if let Some(font) = self.src_map.get(name) {
+                //         return Some(*font);
+                //     }
+                // }
+                // None
             }
             None => None,
         }
@@ -272,50 +285,62 @@ impl FontSheet {
     // 测量指定字符的宽高，返回字符宽高(不考虑scale因素)，字符的slab_id，是否为pixel字体。 不同字符可能使用不同字体。 测量时，计算出Glyth, 并创建font_char_id, 将未绘制的放入wait_draw_list。
     pub fn measure(
         &mut self,
-        font: usize,
+        fonts: &Vec<usize>,
         font_size: usize,
         sw: usize, /*描边宽度*/
         weight: usize,
         c: char,
     ) -> (f32 /*width,height*/, f32 /*base_width*/) {
-		let font = self.src_slab.get(font).unwrap();
-		let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
-		let r = match self.char_w_map.entry((font.name, c, is_blod)) {
-			Entry::Occupied(e) => {
-				let r = e.get();
-				(
-					r.0 * font_size as f32 / font.metrics.font_size + sw as f32,
-					r.0,
-				)
-			}
-			Entry::Vacant(r) => {
-				let mut w = if font.is_pixel {
-					self.measure_char.as_ref()(font.name, font.metrics.font_size as usize, c)
-				} else {
-					match font.msdf_cfg.get(&c) {
-						Some(r) => r.advance as f32,
-						None => match font.msdf_cfg.get(&'□') {
-							Some(r) => r.advance as f32,
-							None => return (0.0, 0.0)
-						}, // TODO
-					}
-				};
-				if w > 0.0 {
-					if is_blod {
-						w = w * BLOD_FACTOR;
-					}
-					// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
-					r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
-					log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
-					(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
-				} else {
-					(0.0, 0.0)
+		for i in 0..fonts.len() {
+			let font = self.src_slab.get(fonts[i]).unwrap();
+			let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
+			let r = match self.char_w_map.entry((font.name, c, is_blod)) {
+				Entry::Occupied(e) => {
+					let r = e.get();
+					(
+						r.0 * font_size as f32 / font.metrics.font_size + sw as f32,
+						r.0,
+					)
 				}
-			}
-		};
+				Entry::Vacant(r) => {
+					let mut w = if font.is_pixel {
+						// font.name位置应该传入fontface的名称， TODO
+						self.measure_char.as_ref()(font.name, font.metrics.font_size as usize, c)
+					} else {
+						match font.msdf_cfg.get(&c) {
+							Some(r) => r.advance as f32,
+							None => {
+								// 还不是最后一个fontfamily，继续迭代
+								if i < fonts.len() - 1 {
+									continue;
+								}
+								// 已经是最后一个，则测量默认文字
+								match font.msdf_cfg.get(&'□') {
+									Some(r) => r.advance as f32,
+									None => return (0.0, 0.0)
+								} // TODO
+							}
+						}
+					};
+					if w > 0.0 {
+						if is_blod {
+							w = w * BLOD_FACTOR;
+						}
+						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
+						r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
+						// log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
+						(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
+					} else {
+						(0.0, 0.0)
+					}
+				}
+			};
 
-		// log::info!("measure================name: {:?}, is_pixel: {:?}, char: {:?}, width: {:?}, base_width: {:?}", font.name, font.is_pixel, c, r.0, r.1);
-		r
+			// log::info!("measure================name: {:?}, is_pixel: {:?}, char: {:?}, width: {:?}, base_width: {:?}", font.name, font.is_pixel, c, r.0, r.1);
+			return r
+		}
+		unreachable!("measure");
+		
 		// if font.is_pixel {
 		// 	let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
 		// 	match self.char_w_map.entry((font.name, c, is_blod)) {
@@ -355,7 +380,7 @@ impl FontSheet {
     // 添加一个字形信息,
     pub fn calc_gylph(
         &mut self,
-        font: usize,
+        fonts: &Vec<usize>,
         font_size: usize,
         stroke_width: usize,
         weight: usize,
@@ -363,151 +388,183 @@ impl FontSheet {
         base_width: f32,
         mut c: char,
     ) -> usize {
-		let font = self.src_slab.get(font).unwrap();
-		let (fs_scale, sw, draw_weight) =  if font.is_pixel {
-            // 像素纹理
-            //let fs = font_size as f32 * font.factor;
-            let fs_scale_f = font_size as f32 * scale;
-            let fs_scale = fs_scale_f.floor() as usize;
-            // 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
-            let sw = if stroke_width != 0 {
-                let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
-                if r == 0 {
-                    1
-                } else {
-                    r
-                } // 保证最少1个像素
-                  // }else if fs_scale < SMALL_FONT {
-                  //     1
-                  // }else{
-                  //     2
-            } else {
-                0
-            };
-			(fs_scale, sw, weight)
-		} else {
-			(0, 0, 0)
-		};
-
-        // 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
-		let id = match self
-			.char_map
-			.entry((font.name, fs_scale, sw, weight, c))
-		{
-			Entry::Occupied(e) => *e.get(),
-			Entry::Vacant(mut char_id) => {
-				// log::info!("font-size=================={:?}, {:?}", font.font_size, FONT_SIZE);
-				let (mut glyph, hh, h) = if !font.is_pixel {
-					
-					let info = match font.msdf_cfg.get(&c) {
-						Some(r) => r,
-						None => match font.msdf_cfg.get(&'□'){
-							Some(r) => {
-								c = '□'; // 字符不存在， 默认显示该字符
-								match self
-									.char_map
-									.entry((font.name, fs_scale, sw, weight, c)){
-										Entry::Occupied(e) => return *e.get(),
-										Entry::Vacant(r1) => char_id = r1,
-								};
-								r
-							},
-							None => {
-								log::warn!("not exist char: {:?}", c);
-								// 返回默认字形
-								return 1;
-							},
-						}
-					};
-
-					(
-						Glyph {
-							x: 0.0,
-							y: 0.0,
-							ox: info.ox as f32 / OFFSET_RANGE,
-							oy: info.oy as f32 / OFFSET_RANGE,
-							width: info.width as f32,
-							height: info.height as f32,
-							advance: info.advance as f32,
-						},
-						font.metrics.max_height as f32,
-						// font.ascender - font.descender,
-						info.height as f32,
-					)
+		for i in 0..fonts.len() {
+			let font = self.src_slab.get(fonts[i]).unwrap();
+			let (fs_scale, sw, draw_weight) =  if font.is_pixel {
+				// 像素纹理
+				//let fs = font_size as f32 * font.factor;
+				let fs_scale_f = font_size as f32 * scale;
+				let fs_scale = fs_scale_f.floor() as usize;
+				// 为了泛用，渲染的字符总是会有边框， 要么是默认的，要么是参数指定的
+				let sw = if stroke_width != 0 {
+					let r = (stroke_width as f32 * scale).round() as usize; // 勾边也要用缩放后
+					if r == 0 {
+						1
+					} else {
+						r
+					} // 保证最少1个像素
+					// }else if fs_scale < SMALL_FONT {
+					//     1
+					// }else{
+					//     2
 				} else {
-					// 在指定字体及字号下，查找该字符的宽度
-					let w = (base_width as f32 * font_size as f32 / font.metrics.font_size + stroke_width as f32) * scale;
-					// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-					let height= (font_size as f32 * (font.factor_t + font.factor_b + 1.0) + stroke_width as f32) * scale;
-					let (ww, hh) = (w.ceil(), height.ceil());
-					(
-						Glyph {
-							x: 0.0,
-							y: 0.0,
-							ox: 0.0,
-							oy: 0.0,
-							width: ww ,
-							height: hh,
-							advance: w,
-						},
-						hh,
-						hh
-					)
+					0
 				};
+				(fs_scale, sw, weight)
+			} else {
+				(0, 0, 0)
+			};
 
-				let ww = glyph.width;
-				let mut line = self.font_tex.alloc_line(hh as usize);
-				let p = line.alloc(ww);
+			// 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
+			let id = match self
+				.char_map
+				.entry((font.name, fs_scale, sw, draw_weight, c))
+			{
+				Entry::Occupied(e) => *e.get(),
+				Entry::Vacant(mut char_id) => {
+					// log::info!("font-size=================={:?}, {:?}", font.font_size, FONT_SIZE);
+					let (mut glyph, hh, h, key) = if !font.is_pixel {
+						
+						let info = match font.msdf_cfg.get(&c) {
+							Some(r) => r,
+							None => {
+								// 还不是最后一个fontfamily，继续迭代
+								if i < fonts.len() - 1 {
+									continue;
+								}
 
-				// 超出最大纹理范围，需要清空所有文字，重新布局
-				if *(line.last_v) > line.tex_width {
-					return 0; // 0表示异常情况，不能计算字形
-				}
-
-				glyph.x = p.x;
-				glyph.y = p.y;
-
-				let id = self.char_slab.insert((
-					c,
-					glyph,
-				));
-
-				// log::info!("char!!!================={}, {:?}", c, h);
-
-				// 将需要渲染的字符放入等待队列
-				match self
-					.wait_draw_map
-					.entry((font.name, fs_scale, sw, draw_weight))
-				{
-					Entry::Occupied(mut e) => {
-						let level = if font.is_pixel {
-							p.y
-						} else {
-							0.0
+								match font.msdf_cfg.get(&'□'){
+									Some(r) => {
+										c = '□'; // 字符不存在， 默认显示该字符
+										match self
+											.char_map
+											.entry((font.name, fs_scale, sw, draw_weight, c)){
+												Entry::Occupied(e) => return *e.get(),
+												Entry::Vacant(r1) => char_id = r1,
+										};
+										r
+									},
+									None => {
+										log::warn!("not exist char: {:?}", c);
+										// 返回默认字形
+										return 1;
+									},
+								}
+							}
 						};
 
-						let mut r = *e.get_mut();
-						if r.1 == level {
-							let info = &mut self.wait_draw_list[r.0];
-							info.chars.push(WaitChar {
-								ch: c,
-								width: ww,
-								height:h,
-								x: p.x as u32,
-								y: p.y as u32,
-								id: id as u32,
-							});
-							info.size.x += ww;
-						} else {
-							r.0 = self.wait_draw_list.len();
-							r.1 = level;
+						(
+							Glyph {
+								x: 0.0,
+								y: 0.0,
+								ox: info.ox as f32 / OFFSET_RANGE,
+								oy: info.oy as f32 / OFFSET_RANGE,
+								width: info.width as f32,
+								height: info.height as f32,
+								advance: info.advance as f32,
+							},
+							font.metrics.max_height as f32,
+							// font.ascender - font.descender,
+							info.height as f32,
+							font.name,
+						)
+					} else {
+						// 在指定字体及字号下，查找该字符的宽度
+						let w = (base_width as f32 * font_size as f32 / font.metrics.font_size + stroke_width as f32) * scale;
+						// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
+						let height= (font_size as f32 * (font.factor_t + font.factor_b + 1.0) + stroke_width as f32) * scale;
+						let (ww, hh) = (w.ceil(), height.ceil());
+						(
+							Glyph {
+								x: 0.0,
+								y: 0.0,
+								ox: 0.0,
+								oy: 0.0,
+								width: ww ,
+								height: hh,
+								advance: w,
+							},
+							hh,
+							hh,
+							0, // canvas在分配时不区分字体
+						)
+					};
+					// if c == '号' {
+					// 	log::info!("号 font---------{:?}", font);
+					// }
+
+
+					let ww = glyph.width;
+					let mut line = self.font_tex.alloc_line(hh as usize, key);
+					let p = line.alloc(ww);
+
+					// 超出最大纹理范围，需要清空所有文字，重新布局
+					if *(line.last_v) > line.tex_width {
+						return 0; // 0表示异常情况，不能计算字形
+					}
+
+					glyph.x = p.x;
+					glyph.y = p.y;
+
+					let id = self.char_slab.insert((
+						c,
+						glyph,
+					));
+
+					// log::info!("char!!!================={}, {:?}", c, h);
+
+					// 将需要渲染的字符放入等待队列
+					match self
+						.wait_draw_map
+						.entry((font.name, fs_scale, sw, draw_weight))
+					{
+						Entry::Occupied(mut e) => {
+							let level = p.y;
+
+							let mut r = *e.get_mut();
+							if r.1 == level {
+								let info = &mut self.wait_draw_list[r.0];
+								info.chars.push(WaitChar {
+									ch: c,
+									width: ww,
+									height:h,
+									x: p.x as u32,
+									y: p.y as u32,
+									id: id as u32,
+								});
+								info.size.x += ww;
+							} else {
+								r.0 = self.wait_draw_list.len();
+								r.1 = level;
+								self.wait_draw_list.push(TextInfo {
+									font: font.name,
+									font_size: fs_scale,
+									stroke_width: sw,
+									weight: weight,
+									top: (fs_scale as f32 * font.factor_t) as usize,
+									size: Vector2::new(ww, hh as f32),
+									chars: vec![WaitChar {
+										ch: c,
+										width: ww,
+										height: h,
+										x: p.x as u32,
+										y: p.y as u32,
+										id: id as u32,
+									}],
+									is_pixel: font.is_pixel,
+								});
+							}
+						}
+						Entry::Vacant(r) => {
+							// log::info!("calc_gylph==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, base_width: {:?}, scale: {:?}, fs_scale: {} ", c, font.name, font_size, base_width, scale, fs_scale);
+							r.insert((self.wait_draw_list.len(), p.y));
 							self.wait_draw_list.push(TextInfo {
 								font: font.name,
 								font_size: fs_scale,
+								top: (fs_scale as f32 * font.factor_t) as usize,
 								stroke_width: sw,
 								weight: weight,
-								top: (fs_scale as f32 * font.factor_t) as usize,
-								size: Vector2::new(ww, hh as f32),
+								size: Vector2::new(ww, hh),
 								chars: vec![WaitChar {
 									ch: c,
 									width: ww,
@@ -520,34 +577,14 @@ impl FontSheet {
 							});
 						}
 					}
-					Entry::Vacant(r) => {
-						// log::info!("calc_gylph==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, base_width: {:?}, scale: {:?}, fs_scale: {} ", c, font.name, font_size, base_width, scale, fs_scale);
-						r.insert((self.wait_draw_list.len(), p.y));
-						self.wait_draw_list.push(TextInfo {
-							font: font.name,
-							font_size: fs_scale,
-							top: (fs_scale as f32 * font.factor_t) as usize,
-							stroke_width: sw,
-							weight: weight,
-							size: Vector2::new(ww, hh),
-							chars: vec![WaitChar {
-								ch: c,
-								width: ww,
-								height: h,
-								x: p.x as u32,
-								y: p.y as u32,
-								id: id as u32,
-							}],
-							is_pixel: font.is_pixel,
-						});
-					}
+					
+					char_id.insert(id);
+					id
 				}
-				
-				char_id.insert(id);
-				id
-			}
-		};
-		return id;
+			};
+			return id;
+		}
+		unreachable!("calc_gylph");
     }
 
 	// // 添加sdf
@@ -658,6 +695,7 @@ pub struct FontFace {
     size: usize,
     weight: usize,
     src: Vec<usize>,
+	src_index: Vec<usize>,
 }
 
 pub fn get_size(size: usize, s: &FontSize) -> usize {

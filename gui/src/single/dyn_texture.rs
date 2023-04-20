@@ -20,13 +20,15 @@ lazy_static! {
 pub struct RectIndex {
 	allocation: Allocation,
 	allocation_index: usize,
+	rect: Aabb2,
 }
 
 impl RectIndex {
-	pub fn new(allocation: Allocation, allocation_index: usize) -> Self {
+	pub fn new(allocation: Allocation, allocation_index: usize, rect: Aabb2) -> Self {
 		Self{
 			allocation,
 			allocation_index,
+			rect
 		}
 	}
 }
@@ -118,6 +120,9 @@ pub struct Size {
 	pub height: usize,
 }
 
+const PADDING: i32 = 1;
+const DOUBLE_PADDING: usize = 2;
+
 impl DynAtlasSet {
 	pub fn new(res_mgr: Share<RefCell<ResMgr>>, default_width: usize, default_height: usize) -> DynAtlasSet {
 		let res_mgr_ref = res_mgr.borrow();
@@ -144,6 +149,7 @@ impl DynAtlasSet {
 	pub fn add_rect<C: HalContext>(&mut self, exclude: usize, width: f32, height: f32, pformat: PixelFormat, dformat: DataFormat, need_depth: bool, ty: usize/*纹理类型，不同类型的纹理，不会分配到同一张fbo上*/, mut multiple: usize/*倍数：新开纹理是矩形的多少倍 */, gl: &mut C) -> usize {
 		let width = width.ceil() as usize;
 		let height = height.ceil() as usize;
+
 		for (index, dyn_atlas) in self.dyn_atlas.iter_mut() {
 			if exclude == index { // 不能分配在exclude上
 				continue;
@@ -152,12 +158,23 @@ impl DynAtlasSet {
 			if dyn_atlas.pformat != pformat || dyn_atlas.dformat != dformat || dyn_atlas.need_depth != need_depth || dyn_atlas.ty != ty{
 				continue;
 			}
+
+			let (offset, width, height) = if dyn_atlas.count == 0 {
+				(0.0, width, height)
+			} else {
+				(PADDING as f32, width + DOUBLE_PADDING, height + DOUBLE_PADDING)
+			};
 			
 			// self.debugList.push(Cmd::Allocate(dyn_atlas.allocator_index, width as i32, height as i32));
 			match dyn_atlas.allocator.allocate(guillotiere::Size::new(width as i32, height as i32)) {
 				Some(allocation) => {
 					dyn_atlas.count += 1;
-					let index = self.rects.insert(RectIndex::new(allocation, index));
+					let rectangle = &allocation.rectangle;
+					let rect = Aabb2::new(
+						Point2::new(rectangle.min.x as f32 + offset, rectangle.min.y as f32 + offset),
+						Point2::new(rectangle.max.x as f32 - offset, rectangle.max.y as f32 - offset)
+					);
+					let index = self.rects.insert(RectIndex::new(allocation, index, rect));
 					return index;
 				},
 				None => (),
@@ -282,8 +299,13 @@ impl DynAtlasSet {
 			hash: texture_hash
 			// allocator_index: self.cur_allocator_index,
 		});
+		let rectangle = &allocation.rectangle;
+		let rect = Aabb2::new(
+			Point2::new(rectangle.min.x as f32, rectangle.min.y as f32),
+			Point2::new(rectangle.max.x as f32, rectangle.max.y as f32)
+		);
 		// self.cur_allocator_index += 1;
-		let index = self.rects.insert(RectIndex::new(allocation.clone(),  dyn_atlas_index));
+		let index = self.rects.insert(RectIndex::new(allocation.clone(),  dyn_atlas_index, rect));
 		index
 	}
 
@@ -367,8 +389,8 @@ impl DynAtlasSet {
 				hash,
 			});
 		}
-		let r = &r.allocation.rectangle;
-		Some(guillotiere::Size::new(r.max.x - r.min.x, r.max.y - r.min.y))
+		let r = &r.rect;
+		Some(guillotiere::Size::new((r.maxs.x - r.mins.x) as i32, (r.maxs.y - r.mins.y) as i32))
 	}
 
 	pub fn get_target(&self, index: usize) -> Option<&HalRenderTarget> {
@@ -397,27 +419,36 @@ impl DynAtlasSet {
 		}
 	}
 
-	pub fn get_rect(&self, index: usize) -> Option<Aabb2> {
+	pub fn get_rect(&self, index: usize) -> Option<&Aabb2> {
 		match self.rects.get(index) {
-			Some(r) => {
-				let rectangle = &r.allocation.rectangle;
-				Some(Aabb2::new(
-					Point2::new(rectangle.min.x as f32 as f32, rectangle.min.y as f32),
-						Point2::new(rectangle.max.x as f32, rectangle.max.y as f32)
-					))
-			},
+			Some(r) => Some(&r.rect),
 			None => None,
 		}
 	}
+
+	pub fn get_rect_with_border(&self, index: usize) -> Option<Aabb2> {
+
+		match self.rects.get(index) {
+			Some(r) =>{
+				let rectangle = &r.allocation.rectangle;
+				Some( Aabb2::new(
+					Point2::new(rectangle.min.x as f32, rectangle.min.y as f32),
+					Point2::new(rectangle.max.x as f32, rectangle.max.y as f32)
+				))
+			} ,
+			None => None,
+		}
+	}
+
 	// 返回uv(0~1)
 	pub fn get_uv(&self, index: usize) -> Option<Aabb2> {
 		match self.rects.get(index) {
 			Some(r) => {
 				let size = self.dyn_atlas[r.allocation_index].allocator.size();
-				let rectangle = &r.allocation.rectangle;
+				let rectangle = &r.rect;
 				Some(Aabb2::new(
-					Point2::new(rectangle.min.x as f32 / size.width as f32, rectangle.max.y as f32 / size.height as f32),
-						Point2::new(rectangle.max.x as f32 / size.width as f32, rectangle.min.y as f32 / size.height as f32)
+					Point2::new(rectangle.mins.x as f32 / size.width as f32, rectangle.maxs.y as f32 / size.height as f32),
+						Point2::new((rectangle.maxs.x as f32) / size.width as f32, rectangle.mins.y as f32 / size.height as f32)
 					))
 			},
 			None => None,
@@ -427,13 +458,10 @@ impl DynAtlasSet {
 	pub fn debug_rects(&self) -> Vec<DebugRect>{
 		let mut l = Vec::new();
 		for (i, r) in self.rects.iter() {
-			let rect = r.allocation.rectangle.clone();
+			let rect = r.rect.clone();
 			l.push(DebugRect {
 				id: i,
-				rect: Aabb2 {
-					mins: Point2::new(rect.min.x as f32, rect.min.y as f32),
-					maxs: Point2::new(rect.max.x as f32, rect.max.y as f32),
-				},
+				rect,
 				texture_id: r.allocation_index,
 			});
 		}

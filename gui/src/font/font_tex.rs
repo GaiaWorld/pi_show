@@ -6,7 +6,7 @@ use crate::component::user::{Point2};
 
 pub struct FontTex{
     pub texture: Share<TextureRes>,
-    line_map: XHashMap<usize, (Point2, usize)>,
+    line_map: XHashMap<(usize, usize), (Point2, usize)>,
     pub last_v: f32,
 }
 
@@ -26,14 +26,14 @@ impl FontTex {
         }
     }
     // 分配行
-    pub fn alloc_line(&mut self, mut line_height: usize) -> TexLine {
+    pub fn alloc_line(&mut self, mut line_height: usize, key: usize) -> TexLine {
         // 将奇数的行高向上变成偶数，这样单行容纳2种字号，提高利用率
         if line_height %2 != 0 {
             line_height += 1;
         }
         let v = self.last_v;
         let mut is_new = false;
-        let line = self.line_map.entry(line_height).or_insert_with(|| {
+        let line = self.line_map.entry((line_height, key)).or_insert_with(|| {
             is_new = true;
             (Point2::new(0.0, v), 0)
         });
@@ -50,17 +50,17 @@ impl FontTex {
         }
     }
 
-	pub fn get_line(&mut self, line_height: usize) -> Option<TexLine>{
-		match self.line_map.get_mut(&line_height) {
-			Some(line) => Some(TexLine {
-				line,
-				last_v: &mut self.last_v,
-				tex_width: self.texture.width as f32,
-				line_height: line_height as f32
-			}),
-			None => None
-		}
-	}
+	// pub fn get_line(&mut self, line_height: usize) -> Option<TexLine>{
+	// 	match self.line_map.get_mut(&line_height) {
+	// 		Some(line) => Some(TexLine {
+	// 			line,
+	// 			last_v: &mut self.last_v,
+	// 			tex_width: self.texture.width as f32,
+	// 			line_height: line_height as f32
+	// 		}),
+	// 		None => None
+	// 	}
+	// }
 	
 
     // fn update(&self, tex: Res<TextureRes>, u: f32, v: f32, w: f32, h: f32, data: &Object) {

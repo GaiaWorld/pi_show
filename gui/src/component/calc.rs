@@ -50,6 +50,7 @@ pub struct RenderContext {
     pub projection_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     pub dirty_view_rect: DirtyViewRect,
     pub render_rect: Aabb2,           // 大小、尺寸
+	pub clear_rect: Aabb2,           // 清屏范围
     pub content_box: Aabb2,           // 内容的最大包围盒
     pub render_target: Option<usize>, // 一个在dyn_texture中的索引，如果为None，将渲染在gui的默认渲染目标上
     pub geo_change: bool,             // 与上一帧相比，在dyn_texture中分配的位置是否改变
@@ -78,6 +79,7 @@ impl RenderContext {
     pub fn new(
         index_count: usize,
         render_rect: Aabb2,
+		clear_rect: Aabb2,
         content_box: Aabb2,
         view_matrix: Option<WorldMatrix>,
         projection_matrix: Option<ProjectionMatrix>,
@@ -90,6 +92,7 @@ impl RenderContext {
         Self {
             index_count,
             render_rect,
+			clear_rect,
             content_box,
             view_matrix,
             projection_matrix,

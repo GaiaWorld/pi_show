@@ -157,6 +157,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 						RenderContext::new(1,
 							aabb.clone(),
 							aabb.clone(),
+							aabb.clone(),
 							Some(WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0,1.0,1.0)), false)),
 							Some(ProjectionMatrix::new(10.0, 10.0,1.0, 2.0)),
 							Some(Share::new(WorldMatrixUbo::default())),
@@ -253,7 +254,7 @@ impl<'a, C> MultiCaseListener<'a, Node, ContentBox, (CreateEvent, ModifyEvent)> 
 		event: &Event, 
 		(render_context_mark, octs, content_box): Self::ReadData, 
 		render_contexts: Self::WriteData) {
-		/// 根节点一定是一个renderContext
+		// 根节点一定是一个renderContext
 		if event.id == 1 {
 			if let Some(r) = render_contexts.get_mut(1) {
 				r.content_box = octs.get(1).unwrap().0.clone();
@@ -282,6 +283,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderBegin, ModifyEven
 	fn listen(&mut self, _event: &Event, (render_begin, engine): Self::ReadData,(render_contexts, dyn_atlas_set): Self::WriteData) {
 		if let Some(r) = render_contexts.get_mut(1) {
 			r.render_rect = Aabb2::new(Point2::new(render_begin.0.viewport.0 as f32, render_begin.0.viewport.1 as f32), Point2::new(render_begin.0.viewport.0 as f32 + render_begin.0.viewport.2 as f32, render_begin.0.viewport.1 as f32 + render_begin.0.viewport.3 as f32));
+			r.clear_rect = Aabb2::new(Point2::new(render_begin.0.scissor.0 as f32, render_begin.0.scissor.1 as f32), Point2::new(render_begin.0.scissor.0 as f32 + render_begin.0.scissor.2 as f32, render_begin.0.scissor.1 as f32 + render_begin.0.scissor.3 as f32));
 		}
 		let size = (render_begin.0.viewport.2 as u32, render_begin.0.viewport.3 as u32);
 		dyn_atlas_set.borrow_mut().set_default_size(size.0 as usize, size.1 as usize);
@@ -381,6 +383,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener <'a, IdTree, CreateEvent> f
 			render_contexts.insert(1,
 				RenderContext::new(1,
 					Aabb2::new(Point2::new(render_begin.0.viewport.0 as f32, render_begin.0.viewport.1 as f32), Point2::new(render_begin.0.viewport.0 as f32 + render_begin.0.viewport.2 as f32, render_begin.0.viewport.1 as f32 + render_begin.0.viewport.3 as f32)),
+					Aabb2::new(Point2::new(render_begin.0.scissor.0 as f32, render_begin.0.scissor.1 as f32), Point2::new(render_begin.0.scissor.0 as f32 + render_begin.0.scissor.2 as f32, render_begin.0.scissor.1 as f32 + render_begin.0.scissor.3 as f32)),
 					Aabb2::new(Point2::new(0.0, 0.0), Point2::new(render_rect.width as f32, render_rect.height as f32)),
 					None,
 					None,
@@ -407,6 +410,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener <'a, IdTree, CreateEvent> f
 		}
 	}
 }
+
 
 impl<C: HalContext + 'static> RenderContextSys<C> {
 	pub fn with_capacity(engine: &mut Engine<C>, capacity: usize) -> Self {

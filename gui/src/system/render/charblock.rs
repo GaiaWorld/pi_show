@@ -215,12 +215,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     continue;
                 }
 			};
-
 			let node = match idtree.get(*id) {
 				Some(r) => r,
 				None => continue,
 			};
-
 			if node.layer() == 0 {
 				continue;
 			}
@@ -243,7 +241,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 
                 let text_style = &text_styles[*id];
                 let children = idtree[*id].children();
-				tex_font = match font_sheet.get_src(&text_style.font.family) {
+				tex_font = match font_sheet.get_first_src(&text_style.font.family) {
 					Some(r) => r,
 					None => continue,
 				};
@@ -270,7 +268,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             } else {
                 match self.render_map.get(*id) {
                     Some(r) => {
-						tex_font = match font_sheet.get_src(&text_styles[*id].font.family) {
+						tex_font = match font_sheet.get_first_src(&text_styles[*id].font.family) {
 							Some(r) => r,
 							None => continue,
 						};
@@ -331,12 +329,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             }
 			if !tex_font.is_pixel {
 				if dirty & (StyleType::Stroke as usize) != 0 || dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::FontWeight as usize) != 0 {
-					let mut scale = node_states[*id].0.scale;
-					scale = scale * font_height / (tex_font.metrics.ascender - tex_font.metrics.descender);
-					let sw = scale * text_style.text.stroke.width;
+					let mut scale1 = node_states[*id].0.scale;
+					let scale = scale1 * font_height / (tex_font.metrics.ascender - tex_font.metrics.descender);
+					let sw = (scale1 * text_style.text.stroke.width).round();
 					let distance_px_range = scale * tex_font.metrics.distance_range;
-					let fill_bound = (0.5 - (text_style.font.weight as f32 / 500 as f32 - 1.0) / distance_px_range) ;
-					let stroke_bound = fill_bound - sw/distance_px_range;
+					let mut fill_bound = (0.5 - (text_style.font.weight as f32 / 500 as f32 - 1.0) / distance_px_range) ;
+					let stroke = sw/2.0/distance_px_range;
+					let stroke_bound = fill_bound - stroke;
+					// fill_bound = fill_bound + stroke;
 					// log::info!("=====state_scale:{:?}, scale: {}, font_height:{:?}, sw: {:?}, stroke_width: {:?}, distance_px_range: {:?}, ", node_states[*id].0.scale, scale, font_height, sw, text_style.text.stroke.width, distance_px_range);
 					render_obj.paramter.set_single_uniform("line", UniformValue::Float4(distance_px_range, fill_bound, stroke_bound, 0.0));
 					// log::info!("set line======================={:?}", index);
@@ -443,7 +443,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 								&mut *self.canvas_stroke_ubo_map,
 								&mut *self.msdf_stroke_ubo_map,
 							);
-							
+						}
+						if dirty & (StyleType::TextShadow as usize) != 0 || dirty & (StyleType::Matrix as usize) != 0 {
 							has_blur = add_gassu_blur(
 								shadow_index,
 								shadow.blur,
@@ -1823,11 +1824,11 @@ fn push_pos_uv(
 
 	let font_ratio = font_width/glyph.advance;
 
-	let ox = font_width * glyph.ox;
+	let ox = font_height * glyph.ox;
 	let oy = font_height * glyph.oy;
 
-	let w = glyph.width*font_ratio;
-	let h = glyph.height*font_ratio;
+	let w = (glyph.width - 1.0)*font_ratio;
+	let h = (glyph.height - 1.0)*font_ratio;
 	// height为行高， 当行高高于字体高度时，需要居中
 	// if is_pixel {
 	// 	y += (height - h)/2.0;
@@ -1858,14 +1859,15 @@ fn push_pos_uv(
         right_bootom.0,
         left_top.1,
 	];
+	// 加0.5和减0.5，是为了保证采样不超出文字范围
 	let uv = [
         glyph.x + 0.5,
         glyph.y + 0.5,
         glyph.x + 0.5,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
         glyph.y + 0.5,
 	];
     uvs.extend_from_slice(&uv);
@@ -1913,10 +1915,10 @@ fn push_pos_uv_canvas(
         glyph.x + 0.5,
         glyph.y + 0.5,
         glyph.x + 0.5,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
-        glyph.y + glyph.height,
-        glyph.x + glyph.width,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
+        glyph.y + glyph.height - 0.5,
+        glyph.x + glyph.width - 0.5,
         glyph.y + 0.5,
 	];
     uvs.extend_from_slice(&uv);

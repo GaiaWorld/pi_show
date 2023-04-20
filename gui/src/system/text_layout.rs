@@ -106,42 +106,42 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
 
-						// // 纹理清空为玫红
-						let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
-						// let mut vec = Vec::with_capacity(width * height * 4);
-						// for _a in 0..width * height {
-						// 	vec.push(0);
-						// 	vec.push(0);
-						// 	vec.push(1);
-						// 	vec.push(1);
-						// }
-						// read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
+						// // // 纹理清空为玫红 （不清理，已经处理了采样溢出边界问题，因此可以不用清理，使用sdf时，用的是alpha通道纹理，也没法通过绘制的方式清理纹理）
+						// let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
+						// // let mut vec = Vec::with_capacity(width * height * 4);
+						// // for _a in 0..width * height {
+						// // 	vec.push(0);
+						// // 	vec.push(0);
+						// // 	vec.push(1);
+						// // 	vec.push(1);
+						// // }
+						// // read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
 
-						let target = read.5.gl.rt_create(
-							width as u32,
-							height as u32,
-						)
-						.unwrap();
-						// let texture = read.5.gl.texture_create_2d(
-						// 	0, 
+						// let target = read.5.gl.rt_create(
 						// 	width as u32,
 						// 	height as u32,
-						// 		PixelFormat::RGBA,
-						// 		DataFormat::UnsignedByte,
-						// 	false, 
-						// 	None
-						// ).unwrap();
-						read.5.gl.rt_set_color(&target, Some(&font_sheet.font_tex.texture.bind));
+						// )
+						// .unwrap();
+						// // let texture = read.5.gl.texture_create_2d(
+						// // 	0, 
+						// // 	width as u32,
+						// // 	height as u32,
+						// // 		PixelFormat::RGBA,
+						// // 		DataFormat::UnsignedByte,
+						// // 	false, 
+						// // 	None
+						// // ).unwrap();
+						// read.5.gl.rt_set_color(&target, Some(&font_sheet.font_tex.texture.bind));
 						
-						read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
-							viewport: (0,0,width as i32,height as i32),
-							scissor: (0,0,width as i32,height as i32),
-							clear_color: Some((OrderedFloat(1.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
-							clear_depth: read.6.0.clear_depth.clone(),
-							clear_stencil: read.6.0.clear_stencil.clone(),
-						}, true);
+						// read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
+						// 	viewport: (0,0,width as i32,height as i32),
+						// 	scissor: (0,0,width as i32,height as i32),
+						// 	clear_color: Some((OrderedFloat(1.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
+						// 	clear_depth: read.6.0.clear_depth.clone(),
+						// 	clear_stencil: read.6.0.clear_stencil.clone(),
+						// }, true);
 
-						read.5.gl.render_end();
+						// read.5.gl.render_end();
 						
 						// 对界面上的文字全部重新计算字形
 						let idtree = &write.6;
@@ -327,7 +327,7 @@ fn set_gylph<'a>(
     for char_node in chars.iter_mut(){
         if char_node.ch > ' ' {
             char_id = font_sheet.calc_gylph(
-                tex_font,
+                &tex_font,
                 font_size as usize,
                 sw as usize,
                 weight,
@@ -358,7 +358,7 @@ struct Calc<'a> {
 
 	text: &'a str,
 	style_mark: &'a StyleMark,
-	tex_font: (usize, usize),
+	tex_font: (Vec<usize>, usize),
 	font_size: f32,
 	font_height: f32,
 	line_height: f32,
@@ -472,6 +472,8 @@ impl<'a> Calc<'a> {
 					char_index += 1;
 					word_margin_start = self.char_margin;
 					word_margin_start += self.font_size/3.0 + self.word_margin;
+					cn.size.0 = self.font_size/3.0;
+					// log::info!("space====={:?}, {:?}", self.font_size, self.word_margin);
 				}
 				SplitResult::Newline(char_i) => {
 					self.create_or_get_breakline(chars, char_index, char_i);
@@ -624,7 +626,7 @@ impl<'a> Calc<'a> {
 
 	fn create_char_node(&mut self, ch: char, p_x: f32, char_i: isize) -> CharNode {
 		let r = self.font_sheet.measure(
-			self.tex_font.0,
+			&self.tex_font.0,
 			self.font_size as usize,
 			self.sw as usize,
 			self.text_style.font.weight,
@@ -769,7 +771,7 @@ fn calc<'a>(
 		}
 	};
 	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
-	let font_height = font_sheet.get_font_height(tex_font
+	let font_height = font_sheet.get_font_height(&tex_font
 		.0, font_size as usize, text_style.text.stroke.width);
 	let sw = text_style.text.stroke.width;
 	let parent = idtree[id].parent();
@@ -779,7 +781,7 @@ fn calc<'a>(
 			_ => "",
 		},
 		style_mark: &style_marks[id],
-		tex_font,
+		tex_font: (tex_font.0.clone(), tex_font.1),
 		font_size,
 		font_height,
 		line_height: get_line_height(font_height as usize, &text_style.text.line_height),

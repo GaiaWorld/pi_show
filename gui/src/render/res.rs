@@ -63,16 +63,19 @@ impl TexturePartRes {
 	}
 
 	pub fn cost(&self) -> usize {
-		let rect = self.dyn_texture_set.borrow_mut().get_rect(self.index).unwrap();
+		let dyn_texture_set = self.dyn_texture_set.borrow_mut();
+		let rect =dyn_texture_set.get_rect(self.index).unwrap();
 		(rect.maxs.y - rect.mins.y) as usize * (rect.maxs.x - rect.mins.x) as usize * 4
 	}
 
 	pub fn get_uv(&self) -> Aabb2 {
-		return self.dyn_texture_set.borrow_mut().get_uv(self.index).unwrap()
+		let dyn_texture_set = self.dyn_texture_set.borrow_mut();
+		return dyn_texture_set.get_uv(self.index).unwrap()
 	}
 
 	pub fn get_rect(&self) -> Aabb2 {
-		return self.dyn_texture_set.borrow_mut().get_rect(self.index).unwrap()
+		let dyn_texture_set = self.dyn_texture_set.borrow_mut();
+		return dyn_texture_set.get_rect(self.index).unwrap().clone()
 	}
 
 	pub fn size(&self) -> (usize, usize) {

@@ -31,7 +31,7 @@ pub fn add_gassu_blur<C: HalContext + 'static, T: PostProcessObj>(
 						UniformValue::Float1(blur)
 					);
 				}
-				// r.content_box = content_box.clone();
+				r.content_box = content_box.clone();
 				return (true, r.copy == 0);
 			}
 		},

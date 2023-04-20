@@ -364,7 +364,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		/// 渲染目标对象
 		let mut target = dyn_atlas_set.get_target(render_target);
 		let mut render_rect = dyn_atlas_set.get_rect(render_target).unwrap();
-		let cur_render_begin = self.calc_render_begin(&render_rect, render_begin);
+		let mut clear_rect = dyn_atlas_set.get_rect_with_border(render_target).unwrap();
+		let cur_render_begin = self.calc_render_begin(&render_rect, &clear_rect, render_begin);
 
 		// log::warn!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
 		if cur_render_begin.scissor.2 == 0 || cur_render_begin.scissor.3 == 0 {
@@ -423,6 +424,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		/// 渲染目标对象
 		let mut source = dyn_atlas_set.get_target(render_target).unwrap();
 		let mut render_rect = dyn_atlas_set.get_rect(render_target).unwrap();
+		let mut clear_rect = dyn_atlas_set.get_rect_with_border(render_target).unwrap();
 		let mut index = render_target;
 		let mut target;
 		
@@ -444,7 +446,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			// log::info!("post1 update_or_add_rect============={}, render_obj: {}", target_index, obj_index);
 			target = dyn_atlas_set.get_target(target_index);
 			render_rect = dyn_atlas_set.get_rect(target_index).unwrap();
-			let cur_render_begin = self.calc_render_begin(&render_rect, render_begin);
+			clear_rect = dyn_atlas_set.get_rect_with_border(target_index).unwrap();
+			let cur_render_begin = self.calc_render_begin(&render_rect, &clear_rect, render_begin);
 			// let project_ubo = self.get_projection_matrix(&render_rect, content_box);
 			let obj = &mut post_processe.render_obj;
 
@@ -594,13 +597,18 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 	fn calc_render_begin(
 		&self,
 		rect: &Aabb2, 
+		clear_rect: &Aabb2, 
 		render_begin: &RenderBegin) -> RenderBeginDesc {
 		let viewport = (
 			rect.mins.x as i32, 
 			rect.mins.y as i32, 
 			(rect.maxs.x- rect.mins.x) as i32, 
 			(rect.maxs.y - rect.mins.y) as i32);
-		let scissor = viewport.clone();
+		let scissor = (
+			clear_rect.mins.x as i32, 
+			clear_rect.mins.y as i32, 
+			(clear_rect.maxs.x- clear_rect.mins.x) as i32, 
+			(clear_rect.maxs.y - clear_rect.mins.y) as i32);
 
 		RenderBeginDesc {
 			viewport: viewport,
@@ -689,7 +697,9 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			if render_target_change || render_context.geo_change {
 				let uv = basemut.dyn_atlas_set.get_uv(render_target).unwrap();
 				let rect = basemut.dyn_atlas_set.get_rect(render_target).unwrap();
-				render_context.render_rect = rect;
+				let clear_rect = basemut.dyn_atlas_set.get_rect_with_border(render_target).unwrap();
+				render_context.render_rect = rect.clone();
+				render_context.clear_rect = clear_rect.clone();
 				// 渲染目标矩形改变，投影矩阵也需要重新设置
 				// 重新计算投影矩阵
 				let project_martix = ProjectionMatrix(ProjectionMatrix::new(
@@ -708,6 +718,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		}
 
 		let rect = &render_context.render_rect;
+		let clear_rect = &render_context.clear_rect;
 		let content_box = &render_context.content_box;
 		let viewport = (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32);
 			
@@ -742,7 +753,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			// } else {
 			// 	log::info!("scissor1: {:?}, {:?}, {:?}, {:?}, {:?}", id, (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32), viewport, dirty_rect, content_box);
 			// }
-			(rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32)
+			(clear_rect.mins.x as i32, clear_rect.mins.y as i32, (clear_rect.maxs.x- clear_rect.mins.x) as i32, (clear_rect.maxs.y - clear_rect.mins.y) as i32)
 		};
 		// log::info!("scissor====={:?}, {}, {:?}, {:?}", scissor, id, viewport, dirty_rect);
 
@@ -1035,11 +1046,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 				// 渲染（每次渲染只有一个obj， 多个obj， TODO）
 				let index = item.index;
 				let rect = dyn_atlas_set.get_rect(index).unwrap();
+				let clear_rect = dyn_atlas_set.get_rect_with_border(index).unwrap();
 				let v = (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x - rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32);
+				let s = (clear_rect.mins.x as i32, clear_rect.mins.y as i32, (clear_rect.maxs.x - clear_rect.mins.x) as i32, (clear_rect.maxs.y - clear_rect.mins.y) as i32);
 				// 不需要深度
 				let begine = RenderBeginDesc {
 					viewport: v.clone(),
-					scissor: v,
+					scissor: s,
 					clear_color: Some((OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0))),
 					clear_depth: render_begin.0.clear_depth.clone(),
 					clear_stencil: render_begin.0.clear_stencil.clone(),

@@ -169,6 +169,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 						RenderContext::new(1,
 							aabb.clone(),
 							aabb.clone(),
+							aabb.clone(),
 							Some(WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0,1.0,1.0)), false)),
 							Some(ProjectionMatrix::new(10.0, 10.0,1.0, 2.0)),
 							Some(Share::new(WorldMatrixUbo::default())),
