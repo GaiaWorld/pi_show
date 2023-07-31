@@ -336,7 +336,7 @@ fn modify_color<C: HalContext + 'static>(
 						],
 						vec![0, 1, 2, 3],
 					);
-
+					
 					let (positions, colors, indices) = linear_gradient_split(color, positions, indices, &size);
 	
 					render_obj.geometry = Some(engine.create_geo_res(

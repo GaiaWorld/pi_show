@@ -277,8 +277,7 @@ fn calc_size(oct: &Aabb2, linear: &LinearGradientColor) -> u32 {
 	}
 
 	// 保证渐变百分比中，渐变端点之间的距离至少两个像素
-	let at_least =  2.0_f32.min((min * l).ceil() + 1.0)/min;
-
+	let at_least =  (2.0_f32.min((min * l).ceil() + 1.0)/min).min(width.max(height) / 4.0);
 	// 渐变颜色渲染尺寸为20的整数倍，使得不同大小的渐变色，可以共用同一张纹理
 	// 加2，使得分配的纹理四周可以扩充一个像素，避免采样问题导致边界模糊 TODO
 	return ((at_least/10.0).ceil() * 10.0) as u32;

@@ -345,6 +345,7 @@ impl<'a, C: HalContext + 'static>
 				BlendMode::Multiply => &default_state.multiply_bs,
 				BlendMode::OneOne => &default_state.one_one_bs,
 			};
+
 			for id in obj_ids.iter() {
 				let render_obj = &mut render_objs[*id];
 				render_obj.state.bs = bs.clone();

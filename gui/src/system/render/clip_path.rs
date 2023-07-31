@@ -15,7 +15,7 @@ use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::ShareEngine;
-use crate::system::util::{cal_border_radius, create_let_top_offset_matrix};
+use crate::system::util::{cal_border_radius, create_let_top_offset_matrix, let_top_offset_matrix};
 use crate::{single::*};
 
 pub struct ClipPathSys<C> {
@@ -39,6 +39,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 		&'a MultiCaseImpl<Node, WorldMatrix>,
 		&'a MultiCaseImpl<Node, ContentBox>,
 		&'a MultiCaseImpl<Node, Transform>,
+		&'a SingleCaseImpl<RenderBegin>,
 	);
 	type WriteData = (
 		&'a mut MultiCaseImpl<Node, RenderContext>,
@@ -46,7 +47,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 		&'a mut SingleCaseImpl<ShareEngine<C>>,
 		&'a mut SingleCaseImpl<RenderContextAttrCount>,
 	);
-	fn run(&mut self, (clip_paths, style_marks, layouts, world_matrixs, content_boxs, transforms): Self::ReadData, write: Self::WriteData) {
+	fn run(&mut self, (clip_paths, style_marks, layouts, world_matrixs, content_boxs, transforms, render_begin): Self::ReadData, write: Self::WriteData) {
 		if self.dirty.len() == 0 {
 			return;
 		}
@@ -72,9 +73,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 				world_matrixs.get(id),
 				content_boxs.get(id),
 			) {
-				(Some(r), Some(r1),  Some(r2),  Some(r3),  Some(r4)) if let Some(invert) = r3.invert() =>  {
+				(Some(r), Some(r1),  Some(r2),  Some(r3),  Some(r4)) => {
 					let transform = &transforms[id];
-					(r, r1, r2, create_let_top_offset_matrix(r2, r3, transform, 0.0, 0.0), r4, invert)
+					let m = let_top_offset_matrix(r2, r3, transform, 0.0, 0.0);
+					if let Some(invert) = m.invert() {
+						(r, r1, r2, m, r4, invert)
+					} else {
+						continue;
+					}
 				},
 				(_, Some(r1), _, _, _) => {
 
@@ -95,8 +101,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 			
 			let render_obj = &mut render_objs[render_context.render_obj_index];
 
+			let min_x = content_box.0.mins.x.max(render_begin.0.viewport.0 as f32).floor();
+			let min_y = content_box.0.mins.y.max(render_begin.0.viewport.1 as f32).floor();
+			let max_x = content_box.0.maxs.x.min(render_begin.0.viewport.2 as f32).ceil();
+			let max_y = content_box.0.maxs.y.min(render_begin.0.viewport.3 as f32).ceil();
+
 			render_obj.paramter.set_single_uniform("clipMatrixInvert", UniformValue::MatrixV4(w_invert.as_slice().to_vec()));
-			render_obj.paramter.set_single_uniform("clipBoxRect", UniformValue::Float4(world_matrix[12] - world_matrix[12].floor(), world_matrix[13] - world_matrix[13].floor(), content_box.0.maxs.x - content_box.0.mins.x, content_box.0.maxs.y - content_box.0.mins.y));
+			render_obj.paramter.set_single_uniform("clipBoxRect", UniformValue::Float4(min_x, min_y, max_x - min_x, max_y - min_y));
 
 			let vs_defines_change = render_obj.vs_defines.add("SDF_CLIP");
 			let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
@@ -168,6 +179,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 						0.0, 0.0, 0.0, 0.0,
 						0.0, 0.0, 0.0, 0.0,
 					]));
+
 					render_obj.fs_defines.add("SECTOR")
 				}
 			};
@@ -186,6 +198,26 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 		***write.3 = ***write.3 + 1;
 		self.render_mark_index = ***write.3; // Opacity属性的rendercontext标记索引
 	}
+}
+
+#[inline]
+pub fn center_offset_matrix(layout: &LayoutR, matrix: &WorldMatrix, transform: &Transform, h: f32, v: f32) -> WorldMatrix {
+    // let depth = -depth / (Z_MAX + 1.0);
+    // let depth = depth1;
+	if let TransformOrigin::Center = transform.origin {
+		return matrix.clone();
+	}
+
+	let width = layout.rect.end - layout.rect.start;
+	let height = layout.rect.bottom - layout.rect.top;
+    let origin = transform
+        .origin
+        .to_value(width, height);
+    if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
+        matrix.clone()
+    } else {
+        matrix * WorldMatrix(Matrix4::new_translation(&Vector3::new(-origin.x + h + width, -origin.y + v + height, 0.0)), false)
+    }
 }
 
 fn len_value( v: &LengthUnit, c: f32) -> f32 {

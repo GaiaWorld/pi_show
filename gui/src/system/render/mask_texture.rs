@@ -94,6 +94,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskTextureSys<C> {
 				(_, None) => continue,
 				(Some(r1), Some(r2)) => (r1, r2), 
 				(None, Some(r2)) => {
+					if r2.render_obj_index == 0 {
+						continue; // 根节点，什么也不做
+					}
 					let render_obj = &mut render_objs[r2.render_obj_index];
 					render_obj.vs_defines.remove("MASK_IMAGE");
 					if let Some(_r) = render_obj.fs_defines.remove("MASK_IMAGE") {
@@ -124,7 +127,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskTextureSys<C> {
 				);	
 			}
 
-			/// oct发生改变时，重新设置maskRect
+			// oct发生改变时，重新设置maskRect
 			if style_mark.dirty & StyleType::Oct as usize != 0 || dirty1 & StyleType1::MaskTexture as usize != 0 {
 				let oct = octree.get(id).unwrap().0;
 				render_obj.paramter.set_single_uniform(
@@ -158,10 +161,20 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, MaskTexture, (Crea
 
 		// 存在遮罩纹理，则标记在上下文标记中设置纹理为true，否则设置为false
 		match marks.get(event.id) {
-			Some(r) => marks[event.id].set(self.render_mark_index, true),
+			Some(_r) => marks[event.id].set(self.render_mark_index, true),
 			None => marks[event.id].set(self.render_mark_index, false)
 		};
 		marks.get_notify().modify_event(event.id, "", 0);
+	}
+}
+
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, Oct, (CreateEvent, ModifyEvent)> for MaskTextureSys<C> {
+	type ReadData = ();
+	type WriteData = &'a mut MultiCaseImpl<Node, RenderContextMark>;
+	fn listen(&mut self, event: &Event, _: Self::ReadData, marks: Self::WriteData) {
+		if let Some(_r) = marks.get(event.id) {
+			self.dirty.insert(event.id); // 插入到脏列表中
+		}
 	}
 }
 
@@ -207,7 +220,7 @@ fn update_geo_quad_with_mask<C: HalContext + 'static>(
 	};
 	let geo = unsafe { &mut *(Share::as_ptr(geo) as usize as *mut GeometryRes) };
 
-	/// 存在maskuv,不需要添加uv
+	// 存在maskuv,不需要添加uv
 	if geo.buffers.get(2).is_some() {
 		return;
 	}
@@ -278,5 +291,6 @@ impl_system! {
 	{
 		MultiCaseListener<Node, MaskTexture, DeleteEvent>
 		MultiCaseListener<Node, MaskTexture, (CreateEvent, ModifyEvent)>
+		SingleCaseListener<Oct, (CreateEvent, ModifyEvent)>
 	}
 }
