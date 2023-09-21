@@ -261,7 +261,11 @@ fn match_key(key: &str, value: &str, class: &mut Class) -> Result<(), String> {
             class.class_style_mark |= StyleType::FontSize as usize;
         }
         "font-family" => {
-            class.attrs2.push(Attribute2::FontFamily(parse_usize(value)?));
+			let key = match parse_usize(value) {
+				Ok(r) => r,
+				_ => Atom::from(value).get_hash(),
+			};
+            class.attrs2.push(Attribute2::FontFamily(key));
             class.class_style_mark |= StyleType::FontFamily as usize;
         }
 

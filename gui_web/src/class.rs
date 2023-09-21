@@ -16,7 +16,7 @@ use crate::world::GuiWorld;
 ///__jsObj: class样式的文本描述
 #[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn create_class(world: u32, class_id: u32, css: &str) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
@@ -34,7 +34,7 @@ pub fn create_class(world: u32, class_id: u32, css: &str) {
 
 /// 添加二进制格式的css表
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn create_class_by_bin(world: u32, bin: &[u8]) {
     let map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
         Ok(r) => r,

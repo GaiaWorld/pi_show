@@ -392,6 +392,10 @@ fn calc_clip<'a>(
 						// if !is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0)) {
 						// 	log::warn!("cull will change=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0));
 						// }
+						if read.5.get(id).is_none() {
+							log::error!("!!!!======read.5 is none, {:?}", id);
+							
+						}
                         unsafe {
                             cullings
                                 .get_unchecked_write(id)
@@ -400,6 +404,10 @@ fn calc_clip<'a>(
                     }
                 }
                 None => {
+					if read.5.get(id).is_none() {
+						log::error!("!!!!======read.5 1 is none, {:?}", id);
+						
+					}
 					// if !is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0) {
 					// 	log::warn!("cull=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &unsafe { read.5.get_unchecked(id) }.0);
 					// }
@@ -437,8 +445,16 @@ fn calc_clip<'a>(
 
     style_marks[id].dirty_other &= !(StyleType1::Overflow as usize);
 
+	if read.0.get(id).is_none() {
+		log::error!("!!!!======read.0 1 is none, {:?}", id);
+		
+	}
     let first = read.0[id].children().head;
     for (child_id, _child) in read.0.iter(first) {
+		if read.7.get(child_id).is_none() {
+			log::error!("!!!!======read.0 1 is none, {:?}", child_id);
+			
+		}
         if !read.7[child_id].0.is_rnode() {
             continue;
         }
@@ -459,12 +475,21 @@ fn calc_clip<'a>(
 //================================ 内部静态方法
 // 设置裁剪区域，需要 world_matrix LayoutR
 fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<OverflowClip>, transform_will_change: Option<&TransformWillChangeMatrix>) {
+	if read.2.get(id).is_none() {
+		log::error!("!!!!======read.2 is none, {:?}", id);
+		
+	}
+
     let mut world_matrix = &read.2[id];
     let temp;
     if let Some(r) = transform_will_change {
         temp = &r.0 * world_matrix;
         world_matrix = &temp;
     }
+	if read.4.get(id).is_none() {
+		log::error!("!!!!======read.4 is none, {:?}", id);
+		
+	}
     let layout = &read.4[id];
     // BUG , overflow与tranwillchange在同一节点上， origin应该从tranwillchange上取
     let origin = match read.3.get(id) {
@@ -472,7 +497,7 @@ fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<Overflow
         None => TransformOrigin::Center,
     };
     let origin = origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
-    let c = &mut clip.clip[i];
+	let c = &mut clip.clip[i];
     *c = Clip {
         view: calc_point(layout, world_matrix, &origin),
         has_rotate: world_matrix.1,

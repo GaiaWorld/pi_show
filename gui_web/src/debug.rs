@@ -193,7 +193,7 @@ pub struct CharNode {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Clazz(pub Class);
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn list_class(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -207,7 +207,7 @@ pub fn list_class(world: u32) -> JsValue {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_layout(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -238,7 +238,7 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 }
 
 
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn get_layout(world: u32, node: u32) {
 //     let node = node as usize;
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -261,7 +261,7 @@ use gui::component::calc::*;
 use gui::component::user;
 use gui::component::user::*;
 use gui::entity::Node;
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn test_insert() {
     let mut world = World1::default();
     world.register_entity::<Node>();
@@ -333,7 +333,7 @@ pub fn test_insert() {
 }
 
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_class_name(world: u32, node: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -344,7 +344,7 @@ pub fn get_class_name(world: u32, node: u32) -> JsValue {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_class(world: u32, class_name: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -896,7 +896,7 @@ fn len_to_string(r: &LengthUnit) -> String {
 
 // 打印节点信息
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn node_info(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -1250,7 +1250,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn overflow_clip(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1277,7 +1277,7 @@ pub fn overflow_clip(world: u32) -> JsValue {
 
 // // 打开性能检视面板
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn open_performance_inspector(world: u32, width: f32, height: f32) -> u32 {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector == 0 {
@@ -1292,7 +1292,7 @@ pub fn overflow_clip(world: u32) -> JsValue {
 
 // // 关闭性能检视面板
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn close_performance_inspector(world: u32) {
 // 	let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
 // 	if world.performance_inspector > 0 {
@@ -1302,7 +1302,7 @@ pub fn overflow_clip(world: u32) -> JsValue {
 // 	}
 // }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn res_size(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1451,7 +1451,7 @@ pub struct TexureInfo {
 }
 /// 列出现有的纹理资源
 #[allow(non_snake_case)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn list_texture(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1479,7 +1479,7 @@ pub fn list_texture(world: u32) -> JsValue {
 }
 
 #[allow(non_snake_case)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn list_fbo(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1559,7 +1559,7 @@ pub struct DebugRenderObjFbo {
 
 
 #[allow(non_snake_case)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn common_statistics(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui.world;
@@ -1579,7 +1579,7 @@ pub fn common_statistics(world: u32) -> JsValue {
     return JsValue::from_serde(&sys_time).unwrap();
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn is_dirty(world: u32) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     if world.gui.dirty_list.lend().0.len() > 0 {
@@ -1611,7 +1611,7 @@ pub struct MemStatistics {
 // 	exec_dyn_texture(r);
 // }
 
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn exec_dyn_texture(bin: Vec<u8>) {
 // 	match bincode::deserialize(bin.as_slice()) {
 // 		Ok(r) => exedebug(&r),
@@ -1622,7 +1622,7 @@ pub struct MemStatistics {
 // 	}
 // }
 
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn get_debug_dyn_texture(world: u32) -> Option<Vec<u8>> {
 // 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 // 	let mut dyn_texture = world.gui.world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap();
@@ -1640,10 +1640,10 @@ pub struct MemStatistics {
 // 	};
 // }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn mem_statistics(_world: u32) {}
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn res_debug(res_mgr: &ResMgr) -> JsValue {
     let res_mgr = res_mgr.get_inner().clone();
     let res_mgr = res_mgr.borrow_mut();
@@ -1675,7 +1675,7 @@ struct ResDebugList {
     pub details: Vec<ResDebug>,
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_font_sheet_debug(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let font_sheet = world.gui.font_sheet.lend();
@@ -1683,7 +1683,7 @@ pub fn get_font_sheet_debug(world: u32) {
 }
 
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_opcaity(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
@@ -1700,7 +1700,7 @@ pub fn get_opcaity(world: u32) {
 }
 /// 打印内存情况
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn print_memory(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -1948,7 +1948,7 @@ struct ResMgrSize {
 }
 
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn bound_box(world: u32, node: u32) {
 //     let node = node as usize
 //     let world = unsafe {&mut *(world as usize as *mut GuiWorld)};
@@ -1959,7 +1959,7 @@ struct ResMgrSize {
 //     }
 // }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -1974,7 +1974,7 @@ pub fn get_world_matrix(world: u32, node: u32) -> JsValue {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_transform(world: u32, node: u32) -> JsValue {
     let node = node as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };

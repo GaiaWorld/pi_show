@@ -1,0 +1,25 @@
+[package]
+name = "gui_size"
+version = "0.1.0"
+authors = ["suncy <suncy@yineng.com>"]
+edition = "2018"
+
+# [lib]
+# crate-type = ["cdylib"]
+
+[dependencies]
+gui_web = {path= "../gui_web"}
+gui = {path= "../gui"}
+ecs = { path =  "../../pi_lib/ecs"}
+hal = { path =  "../../pi_lib/ecs"}
+
+[profile.release]
+lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅使.wasm尺寸更小，而且在运行时也更快！缺点是编译将花费更长的时间
+#opt-level = 's'  # 默认情况下，对LLVM的优化通道进行了调整，以提高速度，而不是大小。我们可以通过修改以下
+# opt-level = "z" # 了更积极地优化尺寸，以进一步的潜在速度成本
+# 请注意，令人惊讶的是，opt-level = "s"有时二进制文件的大小可能小于opt-level = "z"。总是测量！
+opt-level = "z" # 性能优先
+panic = 'abort'
+codegen-units = 1
+
+

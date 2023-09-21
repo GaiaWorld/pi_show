@@ -54,14 +54,14 @@ macro_rules! set_show {
 
 /// 设置背景色的rgba
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(world, node, BackgroundColor, Color::RGBA(CgColor::new(r, g, b, a)), background_color);
 }
 
 // // 设置一个径向渐变的背景颜色
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8,color_and_positions: &[f32] ){
 //     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
 //     insert_value!(world, node, BackgroundColor, value);
@@ -69,7 +69,7 @@ pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, 
 
 /// 设置一个线性渐变的背景颜色
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
     let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
     insert_value!(world, node, BackgroundColor, value, background_color);
@@ -77,14 +77,14 @@ pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f3
 
 /// 设置边框颜色， 类型为rgba
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
     insert_value!(world, node, BorderColor, CgColor::new(r, g, b, a), border_color);
 }
 
 /// 设置边框圆角
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_radius(world: u32, node: u32, value: String) {
 	let mut input = ParserInput::new(value.as_str());
     let mut parse = Parser::new(&mut input);
@@ -105,7 +105,7 @@ pub fn set_border_radius(world: u32, node: u32, value: String) {
 }
 
 /// 设置clip_path
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_clip_path_str(world: u32, node: u32, value: String) {
 	let mut input = ParserInput::new(value.as_str());
     let mut parse = Parser::new(&mut input);
@@ -126,7 +126,7 @@ pub fn set_clip_path_str(world: u32, node: u32, value: String) {
 }
 
 /// 设置clip_path
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_clip_path(world: u32, node: u32, value: &BaseShape1) {
 	insert_attr!(
 		world,
@@ -137,18 +137,18 @@ pub fn set_clip_path(world: u32, node: u32, value: &BaseShape1) {
 	);
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 #[derive(Debug)]
 pub struct BaseShape1 (BaseShape);
 
 /// 对clip属性进行插值
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn interpolation_clip_path(value1: &BaseShape1, value2: &BaseShape1, process: f32) -> BaseShape1 {
 	BaseShape1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
 }
 
 /// 创建baseshape
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn create_base_shape(value: String) -> Option<BaseShape1> {
 	let mut input = ParserInput::new(value.as_str());
     let mut parse = Parser::new(&mut input);
@@ -263,21 +263,21 @@ impl AnimatableValue for LengthUnit {
 
 // // 设置阴影颜色
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
 //     let color = 0;
 //     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
 // }
 
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
 //     let spread = 0;
 //     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
 // }
 
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
 //     let blur = 0;
 //     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
@@ -285,7 +285,7 @@ impl AnimatableValue for LengthUnit {
 
 // // 设置阴影h
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
 //     let h = 0;
 //     set_attr!(world, node, BoxShadow, h, value, box_shadow);
@@ -293,7 +293,7 @@ impl AnimatableValue for LengthUnit {
 
 // // 设置阴影v
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
 //     let v = 0;
 //     set_attr!(world, node, BoxShadow, v, value, box_shadow);
@@ -301,7 +301,7 @@ impl AnimatableValue for LengthUnit {
 
 /// 设置阴影v
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: f32, r: f32, g: f32, b: f32, a: f32) {
     // let v = 0;
     insert_attr!(
@@ -321,7 +321,7 @@ pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: 
 
 /// 设置object_fit
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_object_fit(world: u32, node: u32, value: u8) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let object_fits = world.gui.object_fit.lend_mut();
@@ -333,7 +333,7 @@ pub fn set_object_fit(world: u32, node: u32, value: u8) {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_background_repeat(world: u32, node: u32, x: u8, y: u8) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let object_fits = world.gui.object_fit.lend_mut();
@@ -346,14 +346,14 @@ pub fn set_background_repeat(world: u32, node: u32, x: u8, y: u8) {
 
 // 设置图像裁剪
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     insert_value!(world, node, ImageClip, Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)), image_clip);
 }
 
 // 设置图像裁剪
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_mask_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     insert_value!(
         world,
@@ -366,7 +366,7 @@ pub fn set_mask_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2:
 
 // 设置图像裁剪
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
     // println!("set_border_image_clip: {:?}, {}, {}, {}", u1, v1, u2, v2);
     insert_value!(
@@ -379,7 +379,7 @@ pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v
 }
 /// 设置border_image_slice
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, bottom: f32, left: f32, fill: bool) {
     insert_attr!(
         world,
@@ -397,7 +397,7 @@ pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, botto
 }
 /// 设置border_image_slice
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8) {
     insert_attr!(
         world,
@@ -410,14 +410,14 @@ pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: 
 
 /// 设置overflow
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_overflow(world: u32, node: u32, value: bool) {
     insert_value!(world, node, Overflow, value, overflow);
 }
 
 /// 设置不透明度
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_opacity(world: u32, node: u32, mut value: f32) {
     if value > 1.0 {
         value = 1.0;
@@ -429,7 +429,7 @@ pub fn set_opacity(world: u32, node: u32, mut value: f32) {
 
 /// 设置display
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_display(world: u32, node: u32, value: u8) {
     unsafe {
         let layouts = (&mut *(world as usize as *mut GuiWorld)).gui.other_layout_style.lend_mut();
@@ -443,21 +443,21 @@ pub fn set_display(world: u32, node: u32, value: u8) {
 
 /// 设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_visibility(world: u32, node: u32, value: bool) {
     set_show!(world, node, set_visibility, value, "visibility");
 }
 
 /// 设置enable
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_enable(world: u32, node: u32, value: u32) {
     set_show!(world, node, set_enable, unsafe { transmute(value as u8) }, "enable");
 }
 
 /// 取enable
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_enable(world: u32, node: u32) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
@@ -472,21 +472,21 @@ pub fn get_enable(world: u32, node: u32) -> bool {
 
 /// 这只z_index
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_zindex(world: u32, node: u32, value: i32) {
     let value = value as isize;
     insert_value!(world, node, ZIndex, value, z_index);
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_filter_blur(world: u32, node: u32, blur: f32) {
     insert_value!(world, node, Blur, blur, blur);
 }
 
 /// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32) {
     if h > 180.0 {
         h = 180.0;
@@ -513,7 +513,7 @@ pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32)
 
 /// __jsObj: image_name(String)
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_border_image(world: u32, node: u32, url: usize) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let border_images = world.gui.border_image.lend_mut();
@@ -522,7 +522,7 @@ pub fn set_border_image(world: u32, node: u32, url: usize) {
 
 /// __jsObj: image_name(String)
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_mask_image(world: u32, node: u32, url: usize) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let mask_images = world.gui.mask_image.lend_mut();
@@ -531,7 +531,7 @@ pub fn set_mask_image(world: u32, node: u32, url: usize) {
 
 // 设置mask_image为渐变色
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_mask_image_linenear(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
     let value = to_linear_gradient_color(color_and_positions, direction);
 
@@ -541,7 +541,7 @@ pub fn set_mask_image_linenear(world: u32, node: u32, direction: f32, color_and_
     mask_images.insert(node as usize, MaskImage::LinearGradient(value));
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub enum BlendMode {
     Normal,
     AlphaAdd,
@@ -550,7 +550,7 @@ pub enum BlendMode {
     OneOne,
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_blend_mode(world: u32, node: u32, blend_mode: u8) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let blend_modes = world.gui.blend_mode.lend_mut();
@@ -560,7 +560,27 @@ pub fn set_blend_mode(world: u32, node: u32, blend_mode: u8) {
 /// 设置默认样式, 暂支持布局属性、 文本属性的设置
 /// __jsObj: class样式的二进制描述， 如".0{color:red}"生成的二进制， class名称必须是“0”
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+pub fn set_default_style_by_str(world: u32, value: &str) {
+	let default_style = match parse_class_from_string(value) {
+		Ok(r) => r,
+		Err(_e) => return,
+	};
+    // let mut map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
+    //     Ok(r) => r,
+    //     Err(e) => {
+    //         debug_println!("deserialize_class_map error: {:?}", e);
+    //         return;
+    //     }
+    // };
+
+    // let default_style = map.remove(&0).unwrap();
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    set_default_style1(world, default_style);
+}
+
+#[allow(unused_attributes)]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_default_style_by_bin(world: u32, bin: &[u8]) {
     let mut map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
         Ok(r) => r,
@@ -579,7 +599,7 @@ pub fn set_default_style_by_bin(world: u32, bin: &[u8]) {
 /// __jsObj: class样式的文本描述
 #[cfg(feature = "create_class_by_str")]
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_default_style(world: u32, css: &str) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let r = match parse_class_from_string(css) {
@@ -595,7 +615,7 @@ pub fn set_default_style(world: u32, css: &str) {
 
 /// 设置transform_will_change
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node_id = node_id as usize;

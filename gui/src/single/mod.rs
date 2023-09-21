@@ -115,6 +115,7 @@ pub struct RenderRect {
 	pub width: usize,
 	pub height: usize,
 	pub view_port: Aabb2,
+	pub flex: (f32, f32),
 }
 
 // 图片等待表

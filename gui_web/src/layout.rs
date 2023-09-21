@@ -14,7 +14,7 @@ use crate::world::GuiWorld;
 macro_rules! func_enum {
     ($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, value: u8) {
             let value = unsafe { transmute(value) };
             let node_id = node_id as usize;
@@ -30,7 +30,7 @@ macro_rules! func_enum {
 macro_rules! func_value_dimension {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -45,7 +45,7 @@ macro_rules! func_value_dimension {
 
 	($func:ident, $feild1:ident, $dime:ident, $notify_feild0:expr, $notify_feild1:expr, $notify_feild2:expr, $notify_feild3:expr, $notify_feild4:expr,$ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, edge: u8, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -93,7 +93,7 @@ macro_rules! func_value_dimension {
 
 	($func:ident, $feild1:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, edge: u8) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -124,7 +124,7 @@ macro_rules! func_value_dimension {
 macro_rules! func_value_dimension_simple {
 	($func:ident, $feild1:ident, $feild2:ident, $dime:ident, $notify_feild1:expr, $ty:ident, $style_tyle:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -144,7 +144,7 @@ macro_rules! func_value {
 	
 	($func:ident, $ty:ident) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -156,7 +156,7 @@ macro_rules! func_value {
     };
     ($func:ident, $ty:ident, $feild:expr) => {
         #[allow(unused_attributes)]
-        #[wasm_bindgen]
+        #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
         pub fn $func(world: u32, node_id: u32, value: f32) {
             let node_id = node_id as usize;
             let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -213,7 +213,7 @@ func_value_dimension!(set_margin_percent,   margin, Percent, "margin", "margin-t
 func_value_dimension!(set_position_percent, position, Percent, "position", "top", "right", "bottom", "left", Position, other_layout_style);
 
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_margin_auto(world: u32, node_id: u32, edge: u8) {
 	let node_id = node_id as usize;
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };

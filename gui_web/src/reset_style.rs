@@ -146,7 +146,7 @@ macro_rules! reset_value_del {
 		$ty_value:expr
 	) => {
 		$crate::paste::item! {
-			#[wasm_bindgen]
+			#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 			pub fn [<reset_ $key>](world: u32, node_id: u32){
 				let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 				let world = &mut world.gui;
@@ -184,7 +184,7 @@ macro_rules! reset_value_del {
 		$ty_value:expr
 	) => {
 		$crate::paste::item! {
-			#[wasm_bindgen]
+			#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 			pub fn [<reset_ $key>](world: u32, node_id: u32){
 				let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 				let world = &mut world.gui;
@@ -223,7 +223,7 @@ macro_rules! reset_value_del {
 		$ty_value:expr
 	) => {
 		$crate::paste::item! {
-			#[wasm_bindgen]
+			#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 			pub fn [<reset_ $key>](world: u32, node_id: u32){
 				let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 				let world = &mut world.gui;
@@ -437,7 +437,7 @@ reset_value_del!(blend_mode, "2", BlendMode);
 
 /// 设置display
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn reset_display(world: u32, node: u32) {
 	let node_id = node as usize;
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -469,7 +469,7 @@ pub fn reset_display(world: u32, node: u32) {
 
 /// 设置visibility, true: visible, false: hidden,	默认true
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn reset_visibility(world: u32, node: u32) {
     let node_id = node as usize;
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -497,7 +497,7 @@ pub fn reset_visibility(world: u32, node: u32) {
 
 /// 设置enable
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn reset_enable(world: u32, node: u32) {
     let node_id = node as usize;
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -525,7 +525,7 @@ pub fn reset_enable(world: u32, node: u32) {
 
 // $crate::paste::item! {
 // 	#[allow(unused_attributes)]
-// 	#[wasm_bindgen]
+// 	#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // 	pub fn [<set_ $func>]
 
 // #[macro_use()]

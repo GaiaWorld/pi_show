@@ -132,26 +132,26 @@ use crate::load_sdf_success;
 
 #[wasm_bindgen(module = "/js/utils.js")]
 extern "C" {
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
     fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: u32, strokeWidth: u8);
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	
 	fn drawSdf(world: u32, font: u32, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
 	pub fn setSdfSuccessCallback(callback: &Function);
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: u32) -> f32;
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	pub fn loadImage(image_name: u32, callback: &Function);
-	// #[wasm_bindgen]
+	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 	pub fn useVao() -> bool;
 }
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub struct TextInfos(TextInfo1);
 
 pub struct GuiWorld {
@@ -225,7 +225,7 @@ impl DrawTextSys {
 }
 
 // 恢复canvas（ios小游戏切换到后台，canvas变得无效）
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn resume(world_id: u32) {
 	let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 	world1.draw_text_sys = DrawTextSys::new(2048); // 重新创建canvas
@@ -420,7 +420,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 
 /// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_render_dirty(world: u32) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;

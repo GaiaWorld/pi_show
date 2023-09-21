@@ -13,7 +13,7 @@
 extern crate wasm_bindgen;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn offset_height(a: u32, b: u32) -> f32 {
 	return (a + b) as f32;
 }

@@ -246,6 +246,7 @@ pub fn create_world<C: HalContext + 'static>(
         width: width as usize,
         height: height as usize,
         view_port: Aabb2::new(Point2::new(0.0, 0.0), Point2::new(width, height)),
+		flex: (1.0, 1.0),
     });
 
 

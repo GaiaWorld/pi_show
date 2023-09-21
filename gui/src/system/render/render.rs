@@ -368,7 +368,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let cur_render_begin = self.calc_render_begin(&render_rect, &clear_rect, render_begin);
 
 		// log::warn!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
-		if cur_render_begin.scissor.2 == 0 || cur_render_begin.scissor.3 == 0 {
+		if cur_render_begin.viewport.2 == 0 || cur_render_begin.viewport.3 == 0 {
 			// log::info!("render_post_process fail, scissor is zero, node:{}", render_obj.context);
 			return 0;
 		}
@@ -384,6 +384,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let view_ubo: Share<dyn UniformBuffer> = Share::new(ProjectMatrixUbo::new(
 			UniformValue::MatrixV4(vec![1.0,0.0,0.0,0.0, 0.0,1.0,0.0,0.0, 0.0,0.0,1.0,0.0, 0.0,0.0,0.0,1.0]),
 		));
+		// log::warn!("get_projection_matrix======context={:?}, render_rect={:?}, content_box={:?}", render_obj.context, render_rect, content_box);
 		let project_ubo = self.get_projection_matrix(&render_rect, content_box);
 		// log::info!("post render======{}, vs:{:?}", obj.context, obj.vs_name);
 		self.render(&engine.gl, render_obj, Some(&project_ubo), Some(&view_ubo), render_index);
@@ -695,11 +696,14 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			}
 
 			if render_target_change || render_context.geo_change {
-				let uv = basemut.dyn_atlas_set.get_uv(render_target).unwrap();
+				// let uv = basemut.dyn_atlas_set.get_uv(render_target).unwrap();
 				let rect = basemut.dyn_atlas_set.get_rect(render_target).unwrap();
 				let clear_rect = basemut.dyn_atlas_set.get_rect_with_border(render_target).unwrap();
 				render_context.render_rect = rect.clone();
 				render_context.clear_rect = clear_rect.clone();
+				if rect.maxs.x - rect.mins.x <= 0.0 || rect.maxs.y - rect.mins.y <= 0.0 {
+					return;
+				}
 				// 渲染目标矩形改变，投影矩阵也需要重新设置
 				// 重新计算投影矩阵
 				let project_martix = ProjectionMatrix(ProjectionMatrix::new(

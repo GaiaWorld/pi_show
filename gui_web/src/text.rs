@@ -52,7 +52,7 @@ macro_rules! get_attr {
 
 /// 设置字符间距
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_letter_spacing(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -67,7 +67,7 @@ pub fn set_letter_spacing(world: u32, node_id: u32, value: f32) {
 
 /// 设置单词间距
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_word_spacing(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -82,7 +82,7 @@ pub fn set_word_spacing(world: u32, node_id: u32, value: f32) {
 
 /// 设置文字rgba颜色
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: f32) {
     set_attr!(
         world,
@@ -98,7 +98,7 @@ pub fn set_text_rgba_color(world: u32, node_id: u32, r: f32, g: f32, b: f32, a: 
 /// 设置文字渐变颜色
 /// __jsObj: color_and_positions: [r, g, b, a, pos,   r, g, b, a, pos], direction: 0-360度
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32, color_and_positions: &[f32]) {
     let value = Color::LinearGradient(to_linear_gradient_color(
         color_and_positions,
@@ -109,7 +109,7 @@ pub fn set_text_linear_gradient_color(world: u32, node_id: u32, direction: f32, 
 
 /// 设置行高为normal
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_line_height_normal(world: u32, node_id: u32) {
     set_attr!(
         world,
@@ -124,7 +124,7 @@ pub fn set_line_height_normal(world: u32, node_id: u32) {
 
 /// 设置行高的像素值
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_line_height(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -139,7 +139,7 @@ pub fn set_line_height(world: u32, node_id: u32, value: f32) {
 
 /// 设置行高的百分比值
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_line_height_percent(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -154,7 +154,7 @@ pub fn set_line_height_percent(world: u32, node_id: u32, value: f32) {
 
 /// 设置文字首行缩进的像素值
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_indent(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -169,7 +169,7 @@ pub fn set_text_indent(world: u32, node_id: u32, value: f32) {
 
 /// 设置文本的水平对齐方式
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_align(world: u32, node_id: u32, value: u8) {
     set_attr!(
         world,
@@ -184,7 +184,7 @@ pub fn set_text_align(world: u32, node_id: u32, value: u8) {
 
 /// 设置文字的描边属性
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: f32, a: f32) {
     set_attr!(
         world,
@@ -202,7 +202,7 @@ pub fn set_text_stroke(world: u32, node_id: u32, width: f32, r: f32, g: f32, b: 
 
 /// 设置文字的空白处理方式
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_white_space(world: u32, node_id: u32, value: u8) {
     set_attr!(
         world,
@@ -217,7 +217,7 @@ pub fn set_white_space(world: u32, node_id: u32, value: u8) {
 
 // /// 设置文字阴影
 // #[allow(unused_attributes)]
-// #[wasm_bindgen]
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 // pub fn set_text_shadow(
 //     world: u32,
 //     node_id: u32,
@@ -248,7 +248,7 @@ pub fn set_white_space(world: u32, node_id: u32, value: u8) {
 // }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_shadow(
     world: u32,
     node_id: u32,
@@ -270,7 +270,7 @@ pub fn set_text_shadow(
 
 /// 设置字体风格
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_style(world: u32, node_id: u32, value: u8) {
     set_attr!(
         world,
@@ -285,7 +285,7 @@ pub fn set_font_style(world: u32, node_id: u32, value: u8) {
 
 /// 设置字体粗度
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_weight(world: u32, node_id: u32, value: u32) {
     set_attr!(
         world,
@@ -300,7 +300,7 @@ pub fn set_font_weight(world: u32, node_id: u32, value: u32) {
 
 /// 设置字体尺寸为none（使用默认）
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_size_none(world: u32, node_id: u32) {
     set_attr!(
         world,
@@ -315,7 +315,7 @@ pub fn set_font_size_none(world: u32, node_id: u32) {
 
 /// 设置字体尺寸的像素值
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_size(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -329,7 +329,7 @@ pub fn set_font_size(world: u32, node_id: u32, value: f32) {
 }
 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_font_size(world: u32, node_id: u32) -> JsValue {
     let r = get_attr!(
         world,
@@ -344,7 +344,7 @@ pub fn get_font_size(world: u32, node_id: u32) -> JsValue {
 
 /// 设置字体尺寸的百分比
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_size_percent(world: u32, node_id: u32, value: f32) {
     set_attr!(
         world,
@@ -360,7 +360,7 @@ pub fn set_font_size_percent(world: u32, node_id: u32, value: f32) {
 /// 设置字体
 /// __jsObj: family name
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_font_family(world: u32, node_id: u32, name: u32) {
     set_attr!(
         world,
@@ -378,7 +378,7 @@ pub fn set_font_family(world: u32, node_id: u32, name: u32) {
 ///__jsObj: image , __jsObj1: glyph cfg
 /// cfg: XHashMap<char, GlyphInfo>
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn add_sdf_font(world_id: u32, name: u32, cfgs: &[u8]) {
     let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world1.gui;
@@ -419,7 +419,7 @@ pub fn add_sdf_font(world_id: u32, name: u32, cfgs: &[u8]) {
 /// 图片            配置       
 ///__jsObj: image , __jsObj1: glyph cfg
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn add_msdf_font_res(world_id: u32, image: HtmlImageElement, cfg: &[u8], name: u32) {
     let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world1.gui;
@@ -454,7 +454,7 @@ pub fn add_msdf_font_res(world_id: u32, image: HtmlImageElement, cfg: &[u8], nam
 /// 设置文本内容
 /// __jsObj 文字字符串
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_content(world_id: u32, node: u32, content: String) {
 	// log::info!("set text content======{}, {:?}", node, content);
     let node = node as usize;
@@ -470,7 +470,7 @@ pub fn set_text_content(world_id: u32, node: u32, content: String) {
 /// 设置文本内容
 /// 文本内容为utf8编码的Uint8Array， 
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn set_text_content_utf8(world_id: u32, node: u32, content: Vec<u8>) {
 	let content = unsafe{String::from_utf8_unchecked(content)};
     let node = node as usize;
@@ -486,7 +486,7 @@ pub fn set_text_content_utf8(world_id: u32, node: u32, content: Vec<u8>) {
 /// 添加一个canvas字体 
 /// __jsObj1: name(String)
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32, name: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -498,7 +498,7 @@ pub fn add_canvas_font(world: u32, factor_t: f32, factor_b: f32, name: u32) {
 ///          字体族名称                        字体名称（逗号分隔）     
 /// __jsObj: family_name(String), __jsObj1: src_name(String, 逗号分隔),
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32, family: u32, src: Vec<usize>) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -516,7 +516,7 @@ pub fn add_font_face(world: u32, oblique: f32, size: u32, weight: u32, family: u
 /// 更新字体纹理
 /// __jsObj: canvas
 #[allow(unused_attributes)]
-#[wasm_bindgen]
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn update_text_texture(world: u32, u: u32, v: u32, height: u32, img: HtmlImageElement) {
     let world1 = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let world = &mut world1.gui;
