@@ -8,10 +8,15 @@ edition = "2018"
 # crate-type = ["cdylib"]
 
 [dependencies]
+pi_spatial = "0.5"
+pi_flex_layout = "0.2"
+derive_deref = "1.1"
+postcard = {version = "1.0", features = ["use-std"]}
 console_error_panic_hook = "0.1"
 flex_layout = { path = "../../pi_lib/flex_layout"}
 getrandom = { version = "0.2.3", features = ["js"] }
-atom = { path = "../../pi_lib/atom"}
+# atom = { path = "../../pi_lib/atom"}
+pi_atom={version="0.2", features = ["serde", "pointer_width_32"]}
 data_view = { path = "../../pi_lib/data_view"}
 share = { path = "../../pi_lib/share"}
 ecs = { path = "../../pi_lib/ecs"}
@@ -27,11 +32,11 @@ res = { path = "../../pi_lib/res"}
 cross_performance = { path = "../../pi_lib/cross_performance", features=["wasm-bindgen"]}
 
 
-cg2d = { path = "../../pi_math/cg2d"}
-color = { path = "../../pi_math/color"}
+pi_cg2d = "0.3"
+# color = { path = "../../pi_math/color"}
 # cgmath = { path = "../../pi_math/cgmath"}
 # octree = { path = "../../pi_math/octree"}
-spatialtree = { path = "../../pi_math/spatialtree"}
+# spatialtree = { path = "../../pi_math/spatialtree"}
 # cg2d = { git = "https://github.com/GaiaWorld/pi_math.git"}
 # color = { git = "https://github.com/GaiaWorld/pi_math.git"}
 # cgmath = { git = "https://github.com/GaiaWorld/pi_math.git"}
@@ -55,10 +60,11 @@ serde_json = "1.0"
 lazy_static = "1"
 serde = { version = "1.0", features = ["derive"]}
 paste = "0.1"
-ordered-float = "1.0"
+ordered-float = "3.0"
 log = "*"
-nalgebra = "0.24.0"
+nalgebra = {version = "0.32", features = ["serde", "serde-serialize"]}
 smallvec={version = "1.8", features = ["serde"]}
+pi_style = {version = "0.1", registry = "yn"}
 
 [dependencies.web-sys]
 version = "*"

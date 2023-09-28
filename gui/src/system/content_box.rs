@@ -125,7 +125,7 @@ impl_system! {
 }
 
 // #[cfg(test)]
-// use atom::Atom;
+// use pi_atom::Atom;
 // #[cfg(test)]
 // use component::calc::{ZDepth};
 // #[cfg(test)]

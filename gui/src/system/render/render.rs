@@ -210,7 +210,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let (idtree, octree) = ( base.idtree.clone(),  base.octree.clone());
 		for (id, node) in idtree.iter(head) {
 			let oct = match octree.get(id) {
-				Some(r) => r.0,
+				Some(r) => &r.0,
 				None => {
 					// log::warn!("render list fail, oct is not exist, id: {}", id);
 					return;
@@ -762,7 +762,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		// log::info!("scissor====={:?}, {}, {:?}, {:?}", scissor, id, viewport, dirty_rect);
 
 		let oct = match octree.get(id) {
-			Some(r) => r.0,
+			Some(r) => &r.0,
 			None => {
 				// log::warn!("render list fail, oct is not exist, id: {}", id);
 				return;

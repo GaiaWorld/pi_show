@@ -4,7 +4,7 @@
 use ecs::{CreateEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, SingleCaseImpl, SingleCaseListener};
 
 use crate::component::calc::HSV;
-use crate::component::user::Filter;
+use crate::component::user::Hsi;
 use crate::entity::Node;
 use crate::single::IdTree;
 
@@ -19,8 +19,8 @@ pub struct FilterSys;
 //     }
 // }
 
-impl<'a> MultiCaseListener<'a, Node, Filter, (CreateEvent, ModifyEvent)> for FilterSys {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
+impl<'a> MultiCaseListener<'a, Node, Hsi, (CreateEvent, ModifyEvent)> for FilterSys {
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Hsi>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
     fn listen(&mut self, event: &Event, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
@@ -29,7 +29,7 @@ impl<'a> MultiCaseListener<'a, Node, Filter, (CreateEvent, ModifyEvent)> for Fil
 }
 
 impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for FilterSys {
-    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Filter>);
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, Hsi>);
     type WriteData = &'a mut MultiCaseImpl<Node, HSV>;
     fn listen(&mut self, event: &Event, read: Self::ReadData, hsvs: Self::WriteData) {
         let (idtree, filters) = read;
@@ -41,7 +41,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for FilterSys {
 fn cal_hsv(
     id: usize,
     idtree: &SingleCaseImpl<IdTree>,
-    filters: &MultiCaseImpl<Node, Filter>,
+    filters: &MultiCaseImpl<Node, Hsi>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
     let parent_id = match idtree.get(id) {
@@ -64,7 +64,7 @@ fn recursive_cal_hsv(
     id: usize,
     idtree: &SingleCaseImpl<IdTree>,
     parent_hsv: &HSV,
-    filters: &MultiCaseImpl<Node, Filter>,
+    filters: &MultiCaseImpl<Node, Hsi>,
     hsvs: &mut MultiCaseImpl<Node, HSV>,
 ) {
     let old_hsv =  hsvs[id].clone();
@@ -127,13 +127,13 @@ impl_system! {
     false,
     {
         // EntityListener<Node, CreateEvent>
-        MultiCaseListener<Node, Filter, (CreateEvent, ModifyEvent)>
+        MultiCaseListener<Node, Hsi, (CreateEvent, ModifyEvent)>
         SingleCaseListener<IdTree, CreateEvent>
     }
 }
 
 #[cfg(test)]
-use atom::Atom;
+use pi_atom::Atom;
 #[cfg(test)]
 use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 
@@ -144,7 +144,7 @@ fn test() {
     let idtree = world.fetch_single::<IdTree>().unwrap();
     let idtree = LendMut::lend_mut(&idtree);
     // let notify = idtree.get_notify();
-    let filters = world.fetch_multi::<Node, Filter>().unwrap();
+    let filters = world.fetch_multi::<Node, Hsi>().unwrap();
     let filters = LendMut::lend_mut(&filters);
     let hsvs = world.fetch_multi::<Node, HSV>().unwrap();
     let hsvs = LendMut::lend_mut(&hsvs);
@@ -153,11 +153,11 @@ fn test() {
 
     idtree.create(e0);
     idtree.insert_child(e0, 0, 0); //根
-    let filter = Filter {
+    let filter = Hsi(pi_style::style::Hsi {
         hue_rotate: 380.0,
         bright_ness: 0.5,
         saturate: 0.3,
-    };
+    });
     filters.insert(e0, filter.clone());
 
     world.run(&Atom::from("test_filter_sys"));
@@ -190,13 +190,13 @@ fn test() {
     let e012 = world.create_entity::<Node>();
     idtree.create(e010);
     idtree.insert_child(e010, e01, 1);
-    filters.insert(e010, Filter::default());
+    filters.insert(e010, Hsi::default());
     idtree.create(e011);
     idtree.insert_child(e011, e01, 2);
-    filters.insert(e011, Filter::default());
+    filters.insert(e011, Hsi::default());
     idtree.create(e012);
     idtree.insert_child(e012, e01, 3);
-    filters.insert(e012, Filter::default());
+    filters.insert(e012, Hsi::default());
     world.run(&Atom::from("test_opacity_sys"));
 
     // world.run(&Atom::from("test_opacity_sys"));
@@ -220,7 +220,7 @@ fn new_world() -> World {
     let mut world = World::default();
 
     world.register_entity::<Node>();
-    world.register_multi::<Node, Filter>();
+    world.register_multi::<Node, Hsi>();
     world.register_multi::<Node, HSV>();
     world.register_single::<IdTree>(IdTree::default());
 

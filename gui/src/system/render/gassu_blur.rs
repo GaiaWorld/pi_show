@@ -4,7 +4,7 @@ use flex_layout::Size;
 use hal_core::{ProgramParamter, UniformValue, HalContext};
 use share::Share;
 
-use crate::{single::{PostProcess, CommonState, RenderObj, PostProcessContext, PostProcessObj}, component::{calc::GaussBlurParamter, user::Aabb2}, render::engine::Engine, system::util::new_render_obj1};
+use crate::{single::{PostProcess, CommonState, PostProcessContext, PostProcessObj}, component::{calc::GaussBlurParamter, user::Aabb2}, render::engine::Engine, system::util::new_render_obj1};
 
 use super::shaders::image::{GAUSS_BLUR_VS_SHADER_NAME, GAUSS_BLUR_FS_SHADER_NAME};
 

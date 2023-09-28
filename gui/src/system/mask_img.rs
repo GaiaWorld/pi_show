@@ -10,8 +10,8 @@ use ecs::{CreateEvent, Event, ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl
 
 use flex_layout::Size;
 use hal_core::*;
-use hash::{ DefaultHasher};
-use atom::Atom;
+use hash::DefaultHasher;
+use pi_atom::Atom;
 use ordered_float::NotNan;
 use share::Share;
 
@@ -87,9 +87,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 					None => return,
 				};
 	
-				if let MaskImage::LinearGradient(color) = mask_image {
+				if let pi_style::style::MaskImage::LinearGradient(color) = &mask_image.0 {
 					let oct = octree.get(id).unwrap();
-					let size = calc_size(oct.0, color) as u32;
+					let size = calc_size(&oct.0, color) as u32;
 					let mut hasher = DefaultHasher::default();
 					MASK_IMAGE_TEXTURE.hash(&mut hasher);
 					color.hash(&mut hasher);
@@ -149,7 +149,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, ModifyEvent>
     fn listen(&mut self, event: &Event, mask_images: Self::ReadData, _: Self::WriteData) {
 		if event.field == "totree" {
 			if let Some(r) = mask_images.get(event.id) {
-				if let MaskImage::LinearGradient(_r) = r {
+				if let pi_style::style::MaskImage::LinearGradient(_r) = &r.0 {
 					self.0.push(event.id);
 				}
 			}
@@ -293,7 +293,7 @@ impl_system! {
 }
 
 // #[cfg(test)]
-// use atom::Atom;
+// use pi_atom::Atom;
 // #[cfg(test)]
 // use component::calc::{ZDepth};
 // #[cfg(test)]

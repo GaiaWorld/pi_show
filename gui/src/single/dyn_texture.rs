@@ -1,7 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 
-use atom::Atom;
+use pi_atom::Atom;
 use flex_layout::Rect;
 use guillotiere::*;
 use slab::Slab;

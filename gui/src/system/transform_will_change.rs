@@ -5,11 +5,11 @@
 use ecs::{CreateEvent, ModifyEvent, DeleteEvent, MultiCaseListener, SingleCaseListener, SingleCaseImpl, MultiCaseImpl, Runner, Event};
 use dirty::LayerDirty;
 
-use crate::component::user::{ Transform };
-use crate::component::calc::{ WorldMatrix, StyleMark, StyleType1, TransformWillChangeMatrix, LayoutR };
+use crate::component::user::Transform;
+use crate::component::calc::{ WorldMatrix, StyleMark, TransformWillChangeMatrix, LayoutR };
 
 use crate::component::user::*;
-use crate::entity::{Node};
+use crate::entity::Node;
 use crate::single::IdTree;
 
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl TransformWillChangeSys{
 	fn mark_dirty(&mut self, id: usize, style_marks: &mut MultiCaseImpl<Node, StyleMark>) {
 		self.dirty = true;
 		let mark = &mut style_marks[id];
-		mark.dirty_other |= StyleType1::TransformWillChange as usize;
+		mark.dirty_other |= StyleType::TransformWillChange as usize;
 	}
 }
 
@@ -81,7 +81,7 @@ impl<'a> Runner<'a> for TransformWillChangeSys{
 			}
 
 			// TransformWillChange不脏
-			if style_mark.dirty_other | StyleType1::TransformWillChange as usize == 0 {
+			if style_mark.dirty_other | StyleType::TransformWillChange as usize == 0 {
 				continue;
 			}
 
@@ -198,24 +198,24 @@ fn recursive_cal_matrix(
 	transform_will_change_matrixs: &mut MultiCaseImpl<Node, TransformWillChangeMatrix>,
 ){  
 	let mut parent_will_change_matrix = parent_will_change_matrix;
-	style_marks[id].dirty_other &= !(StyleType1::TransformWillChange as usize);
+	style_marks[id].dirty_other &= !(StyleType::TransformWillChange as usize);
 	match willchange.get(id) {
 		Some(transform_value) => {
 			let layout = &layouts[id];
-			let width = layout.rect.end - layout.rect.start;
+			let width = layout.rect.right - layout.rect.left;
 			let height = layout.rect.bottom - layout.rect.top;
 			let p_matrix = if parent == 0 {
-				WorldMatrix(Matrix4::new_translation(&Vector3::new(layout.rect.start, layout.rect.top, 0.0)), false)
+				WorldMatrix(Matrix4::new_translation(&Vector3::new(layout.rect.left, layout.rect.top, 0.0)), false)
 			} else {
 				let parent_layout = &layouts[parent];
 				let parent_world_matrix = &world_matrixs[parent];
 				let parent_transform = &transforms[parent];
-				let parent_transform_origin = parent_transform.origin.to_value(parent_layout.rect.end - parent_layout.rect.start, parent_layout.rect.bottom - parent_layout.rect.top);
+				let parent_transform_origin = parent_transform.origin.to_value(parent_layout.rect.right - parent_layout.rect.left, parent_layout.rect.bottom - parent_layout.rect.top);
 				let offset = get_lefttop_offset(&layout, &parent_transform_origin, &parent_layout);
-				parent_world_matrix * transforms[std::usize::MAX].matrix(width, height, &offset)
+				parent_world_matrix * WorldMatrix::matrix(&transforms[std::usize::MAX].all_transform, &transforms[std::usize::MAX].origin, width, height, &offset)
 			};
 
-			let transform_will_change_matrix = transform_value.0.matrix(width, height, &Point2::new(-width/2.0, -height/2.0));
+			let transform_will_change_matrix = WorldMatrix::matrix(&transform_value.0, &transforms[std::usize::MAX].origin, width, height, &Point2::new(-width/2.0, -height/2.0));
 			let invert = p_matrix.invert().unwrap();
 			let mut will_change_matrix = p_matrix * transform_will_change_matrix * invert;
 			if let Some(parent_will_change_matrix) = parent_will_change_matrix {
@@ -256,7 +256,7 @@ fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &
 		// layout.left - parent_origin.x + parent_layout.border_left + parent_layout.padding_left,
 		// layout.top - parent_origin.y + parent_layout.border_top + parent_layout.padding_top
 		// 当设置宽高为auto时 可能存在bug
-		parent_layout.border.start + parent_layout.padding.start + layout.rect.start - parent_origin.x,
+		parent_layout.border.left + parent_layout.padding.left + layout.rect.left - parent_origin.x,
 		parent_layout.border.top + parent_layout.padding.top + layout.rect.top - parent_origin.y
 	)  
 }

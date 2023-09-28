@@ -113,6 +113,7 @@ use std::mem::transmute;
 
 use js_sys::{Uint32Array, Uint8Array, Float32Array};
 use js_sys::{Object, Function};
+use pi_atom::Atom;
 use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -124,43 +125,44 @@ use hal_core::HalContext;
 use hal_webgl::WebglHalContext;
 
 use gui::component::user::{TextStyle, Vector2};
-use gui::single::Class;
+// use gui::single::Class;
 use gui::world::GuiWorld as GuiWorld1;
-use gui::font::font_sheet::{TextInfo as TextInfo1};
+use gui::font::font_sheet::TextInfo as TextInfo1;
 use crate::index::PixelFormat;
 use crate::load_sdf_success;
 
 #[wasm_bindgen(module = "/js/utils.js")]
 extern "C" {
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
     fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: u32, strokeWidth: u8);
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	
 	fn drawSdf(world: u32, font: u32, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
 	pub fn setSdfSuccessCallback(callback: &Function);
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: u32) -> f32;
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	pub fn loadImage(image_name: u32, callback: &Function);
-	// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+	// #[wasm_bindgen]
 	pub fn useVao() -> bool;
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub struct TextInfos(TextInfo1);
 
+#[wasm_bindgen]
 pub struct GuiWorld {
-    pub gui: GuiWorld1<WebglHalContext>,
-    pub draw_text_sys: DrawTextSys,
-    pub default_attr: Class,
-	pub max_texture_size: u32,
-	pub performance_inspector: usize,
-	pub load_image_success: Closure<dyn FnMut(
+    pub(crate) gui: GuiWorld1<WebglHalContext>,
+    pub(crate) draw_text_sys: DrawTextSys,
+    // pub(crate) default_attr: Class,
+	pub(crate) max_texture_size: u32,
+	pub(crate) performance_inspector: usize,
+	pub(crate) load_image_success: Closure<dyn FnMut(
 		PixelFormat,
 		i32,
 		u8, /* 缓存类型，支持0， 1， 2三种类型 */
@@ -169,9 +171,9 @@ pub struct GuiWorld {
 		u32,
 		Object,
 		u32,)>,
-	pub load_image: Box<dyn Fn(u32, &Function)>,
-	pub draw_text: Closure<dyn FnMut(JsValue)>,
-	pub old_texture_tex_version: usize, // 上次run时的文字纹理版本
+	pub(crate) load_image: Box<dyn Fn(u32, &Function)>,
+	pub(crate) draw_text: Closure<dyn FnMut(JsValue)>,
+	pub(crate) old_texture_tex_version: usize, // 上次run时的文字纹理版本
 }
 
 pub struct DrawTextSys {
@@ -203,7 +205,7 @@ impl DrawTextSys {
 		let ptr;
 		{
 			let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-			let world = &mut world.gui;
+			let world = &mut world.gui.world_ext;
 			let font_sheet = world.font_sheet.lend_mut();
 			let font_sheet = &mut font_sheet.borrow_mut();
 			if font_sheet.wait_draw_list.len() == 0 {
@@ -225,10 +227,16 @@ impl DrawTextSys {
 }
 
 // 恢复canvas（ios小游戏切换到后台，canvas变得无效）
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn resume(world_id: u32) {
 	let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 	world1.draw_text_sys = DrawTextSys::new(2048); // 重新创建canvas
+}
+
+
+lazy_static::lazy_static! {
+
+	static ref DEFAULT_FONT: Atom = Atom::from("");
 }
 
 /// 绘制文字
@@ -239,11 +247,11 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
     let world1 = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let canvas = &world1.draw_text_sys.canvas;
 	let ctx = &world1.draw_text_sys.ctx;
-    let world = &mut world1.gui;
+	let engine = world1.gui.engine.lend_mut();
+    let world = &mut world1.gui.world_ext;
 	let single_font_sheet = &mut world.font_sheet.lend_mut();
 	let font_sheet = &mut single_font_sheet.borrow_mut();
 	font_sheet.tex_version += 1;
-    let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
 
     // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
@@ -252,7 +260,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
     let mut map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
 	let mut sdf_map: XHashMap<u32, (Vec<usize>, Vector2)> = XHashMap::default();
     for i in 0..text_info_list.len() {
-        let text_info = std::mem::replace(&mut text_info_list[i], TextInfo1 { font: 0, font_size: 0, stroke_width: 0, weight: 0, size: Vector2::new(0.0, 0.0), chars: Vec::new(), top: 0, is_pixel: false }) ;
+        let text_info = std::mem::replace(&mut text_info_list[i], TextInfo1 { font: DEFAULT_FONT.clone(), font_size: 0, stroke_width: 0, weight: 0, size: Vector2::new(0.0, 0.0), chars: Vec::new(), top: 0, is_pixel: false }) ;
 		let first = &text_info.chars[0];
         let h = first.y + text_info.size.y as u32;
         if h > end_v {
@@ -295,7 +303,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 				}
 	
 				// 找高层绘制， 绘制完成后， 应该调用全局方法回调回来(这里应该异步绘制，否则纹理尺寸可能不满足)
-				drawSdf(world_id, text_info.font as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
+				drawSdf(world_id, text_info.font.get_hash() as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
 			}
 			// engine
             // .gl
@@ -357,7 +365,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 					ctx, 
 					text_info.weight as u32, 
 					text_info.font_size as u32, 
-					text_info.font as u32, 
+					text_info.font.get_hash() as u32, 
 					text_info.stroke_width as u8);
 			};
             if text_info.stroke_width > 0 {
@@ -420,10 +428,10 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 
 /// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_render_dirty(world: u32) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     let render_objs = world.render_objs.lend();
 	let dirty_view_rect = world.dirty_view_rect.lend_mut();
 	dirty_view_rect.4 = true;

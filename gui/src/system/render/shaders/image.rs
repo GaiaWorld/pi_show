@@ -1,4 +1,4 @@
-use atom::Atom;
+use pi_atom::Atom;
 
 // 渲染图片
 lazy_static! {

@@ -11,6 +11,7 @@
 use std::{collections::hash_map::Entry, default::Default, str::Chars};
 
 use data_view::GetView;
+use pi_atom::Atom;
 use share::Share;
 use slab::Slab;
 use ucd::Codepoint;
@@ -21,7 +22,7 @@ use crate::render::res::TextureRes;
 use crate::component::user::*;
 use crate::font::font_tex::*;
 
-use super::font_cfg::{GlyphInfo, MetricsInfo, CharSdf};
+use super::font_cfg::{GlyphInfo, MetricsInfo};
 
 
 // 默认字体尺寸
@@ -41,6 +42,11 @@ pub const BLOD_WEIGHT: usize = 700;
 // 粗体字的放大因子
 const BLOD_FACTOR: f32 = 1.13;
 
+lazy_static::lazy_static! {
+
+	static ref DEFAULT_FONT: Atom = Atom::from("");
+}
+
 // TODO 将字体样式和字符做为键，查hashmap，获得slab id，slab中放字符和字形信息， 其他地方仅使用id
 // TODO pixel font 和 xysdf font, 都使用一个文字纹理。 也是预处理的纹理。
 // 相同的font_farmly在不同的字符上也可能使用不同的font， text_layout需要根据pixel和sdf分成char_blocks 的2个arr
@@ -50,11 +56,11 @@ const BLOD_FACTOR: f32 = 1.13;
 pub struct FontSheet {
     size: f32,
     color: CgColor,
-    pub src_map: XHashMap<usize, usize>, // 在src_slab中的索引
+    pub src_map: XHashMap<Atom, usize>, // 在src_slab中的索引
 	src_slab: Slab<TexFont>,
-    face_map: XHashMap<usize, FontFace>,
+    face_map: XHashMap<Atom, FontFace>,
     char_w_map: XHashMap<
-        (usize/*font-family */, char, bool /*是否为加粗字体*/),
+        (Atom/*font-family */, char, bool /*是否为加粗字体*/),
         (
             f32,
             /* char width */ usize,
@@ -78,14 +84,14 @@ pub struct FontSheet {
     pub wait_draw_list: Vec<TextInfo>,
     pub wait_draw_map: XHashMap<
         (
-            usize, /*font-family */
+            Atom, /*font-family */
             usize, /*font_size*/
             usize, /*stroke_width*/
             usize, /*font_weight */
         ),
         (usize /* TextInfo_Index */, f32 /* v */),
     >,
-    measure_char: Box<dyn Fn(usize/*font-family */ ,usize, char) -> f32>,
+    measure_char: Box<dyn Fn(&Atom/*font-family */ ,usize, char) -> f32>,
 	pub font_tex: FontTex,
 	pub tex_version: usize,
 
@@ -96,7 +102,7 @@ pub struct FontSheet {
 impl FontSheet {
     pub fn new(
         texture: Share<TextureRes>,
-        measure: Box<dyn Fn(usize, usize, char) -> f32>,
+        measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
 		is_sdf_font: bool,
     ) -> Self {
         let mut r = FontSheet {
@@ -133,7 +139,7 @@ impl FontSheet {
     pub fn mem_size(&self) -> usize {
         self.src_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
-                * (std::mem::size_of::<usize>() + std::mem::size_of::<(FontFace)>())
+                * (std::mem::size_of::<usize>() + std::mem::size_of::<FontFace>())
             + self.char_w_map.capacity()
                 * (std::mem::size_of::<(usize, char, bool)>()
                     + std::mem::size_of::<(f32, usize, f32, bool)>())
@@ -154,7 +160,7 @@ impl FontSheet {
         self.color = color;
     }
     // 设置Font
-    pub fn set_src(&mut self, name: usize, msdf_cfg: Option<XHashMap<char, GlyphInfo>>, factor_t: f32, factor_b: f32, mut metrics: MetricsInfo) {
+    pub fn set_src(&mut self, name: Atom, msdf_cfg: Option<XHashMap<char, GlyphInfo>>, factor_t: f32, factor_b: f32, mut metrics: MetricsInfo) {
 		let (msdf_cfg, is_pixel) = match msdf_cfg {
 			Some(r) => (r, false),
 			None => (XHashMap::default(), true)
@@ -171,7 +177,7 @@ impl FontSheet {
 			metrics.font_size = FONT_SIZE;
 		}
 		
-        match self.src_map.entry(name){
+        match self.src_map.entry(name.clone()){
 			Entry::Occupied(mut e) => {
 				let index = e.get_mut();
 				let r = &mut self.src_slab[*index];
@@ -182,7 +188,7 @@ impl FontSheet {
 			},
 			Entry::Vacant(r) => { 
 				let index = self.src_slab.insert(TexFont {
-					name,
+					name: name,
 					factor_t,
 					factor_b,
 					is_pixel,
@@ -204,7 +210,7 @@ impl FontSheet {
 		}
     }
 
-    pub fn get_first_src(&self, name: &usize) -> Option<&TexFont> {
+    pub fn get_first_src(&self, name: &Atom) -> Option<&TexFont> {
 		match self.face_map.get(name) {
 			Some(r) => self.src_slab.get(r.src_index[0]),
 			None => None,
@@ -215,7 +221,7 @@ impl FontSheet {
 		// }
     }
 
-	pub fn get_src_index(&self, name: &usize) -> Option<&usize> {
+	pub fn get_src_index(&self, name: &Atom) -> Option<&usize> {
         self.src_map.get(name)
     }
 
@@ -225,7 +231,7 @@ impl FontSheet {
     }
 
     // 取字体详情
-    pub fn get_font_info(&self, font_face: &usize) -> Option<(&Vec<usize>, usize /* font_size */)> {
+    pub fn get_font_info(&self, font_face: &Atom) -> Option<(&Vec<usize>, usize /* font_size */)> {
         match self.face_map.get(font_face) {
             Some(face) => {
 				return Some((&face.src_index, face.size));
@@ -244,11 +250,11 @@ impl FontSheet {
     // 设置FontFace
     pub fn set_face(
         &mut self,
-        family: usize,
+        family: &Atom,
         oblique: f32,
         size: usize,
         weight: usize,
-        src: Vec<usize>,
+        src: Vec<Atom>,
     ) {
         let mut face = FontFace {
             oblique: oblique,
@@ -267,7 +273,7 @@ impl FontSheet {
     }
 
     // 取字体信息
-    pub fn get_font(&self, font_face: &usize) -> Option<&Vec<usize>> {
+    pub fn get_font(&self, font_face: &Atom) -> Option<&Vec<usize>> {
         match self.face_map.get(font_face) {
             Some(face) => {
 				Some(&face.src_index)
@@ -294,7 +300,7 @@ impl FontSheet {
 		for i in 0..fonts.len() {
 			let font = self.src_slab.get(fonts[i]).unwrap();
 			let is_blod = c.is_ascii() && weight >= BLOD_WEIGHT;
-			let r = match self.char_w_map.entry((font.name, c, is_blod)) {
+			let r = match self.char_w_map.entry((font.name.clone(), c, is_blod)) {
 				Entry::Occupied(e) => {
 					let r = e.get();
 					(
@@ -305,7 +311,7 @@ impl FontSheet {
 				Entry::Vacant(r) => {
 					let mut w = if font.is_pixel {
 						// font.name位置应该传入fontface的名称， TODO
-						self.measure_char.as_ref()(font.name, font.metrics.font_size as usize, c)
+						self.measure_char.as_ref()(&font.name, font.metrics.font_size as usize, c)
 					} else {
 						match font.msdf_cfg.get(&c) {
 							Some(r) => r.advance as f32,
@@ -327,7 +333,7 @@ impl FontSheet {
 							w = w * BLOD_FACTOR;
 						}
 						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
-						r.insert((w, font.name, font.factor_t, font.factor_b, font.is_pixel));
+						r.insert((w, font.name.get_hash(), font.factor_t, font.factor_b, font.is_pixel));
 						// log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
 						(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
 					} else {
@@ -418,7 +424,7 @@ impl FontSheet {
 			// 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
 			let id = match self
 				.char_map
-				.entry((font.name, fs_scale, sw, draw_weight, c))
+				.entry((font.name.get_hash(), fs_scale, sw, draw_weight, c))
 			{
 				Entry::Occupied(e) => *e.get(),
 				Entry::Vacant(mut char_id) => {
@@ -438,7 +444,7 @@ impl FontSheet {
 										c = '□'; // 字符不存在， 默认显示该字符
 										match self
 											.char_map
-											.entry((font.name, fs_scale, sw, draw_weight, c)){
+											.entry((font.name.get_hash(), fs_scale, sw, draw_weight, c)){
 												Entry::Occupied(e) => return *e.get(),
 												Entry::Vacant(r1) => char_id = r1,
 										};
@@ -466,7 +472,7 @@ impl FontSheet {
 							font.metrics.max_height as f32,
 							// font.ascender - font.descender,
 							info.height as f32,
-							font.name,
+							font.name.clone(),
 						)
 					} else {
 						// 在指定字体及字号下，查找该字符的宽度
@@ -486,7 +492,7 @@ impl FontSheet {
 							},
 							hh,
 							hh,
-							0, // canvas在分配时不区分字体
+							DEFAULT_FONT.clone(), // canvas在分配时不区分字体
 						)
 					};
 					// if c == '号' {
@@ -495,7 +501,7 @@ impl FontSheet {
 
 
 					let ww = glyph.width;
-					let mut line = self.font_tex.alloc_line(hh as usize, key);
+					let mut line = self.font_tex.alloc_line(hh as usize, key.get_hash());
 					let p = line.alloc(ww);
 
 					// 超出最大纹理范围，需要清空所有文字，重新布局
@@ -516,7 +522,7 @@ impl FontSheet {
 					// 将需要渲染的字符放入等待队列
 					match self
 						.wait_draw_map
-						.entry((font.name, fs_scale, sw, draw_weight))
+						.entry((font.name.clone(), fs_scale, sw, draw_weight))
 					{
 						Entry::Occupied(mut e) => {
 							let level = p.y;
@@ -537,7 +543,7 @@ impl FontSheet {
 								r.0 = self.wait_draw_list.len();
 								r.1 = level;
 								self.wait_draw_list.push(TextInfo {
-									font: font.name,
+									font: font.name.clone(),
 									font_size: fs_scale,
 									stroke_width: sw,
 									weight: weight,
@@ -559,7 +565,7 @@ impl FontSheet {
 							// log::info!("calc_gylph==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, base_width: {:?}, scale: {:?}, fs_scale: {} ", c, font.name, font_size, base_width, scale, fs_scale);
 							r.insert((self.wait_draw_list.len(), p.y));
 							self.wait_draw_list.push(TextInfo {
-								font: font.name,
+								font: font.name.clone(),
 								font_size: fs_scale,
 								top: (fs_scale as f32 * font.factor_t) as usize,
 								stroke_width: sw,
@@ -675,7 +681,7 @@ impl FontSheet {
 }
 
 // msdf 需要修正字形信息
-pub fn fix_box(is_pixel: bool, mut width: f32, weight: usize, sw: f32) -> (f32, f32) {
+pub fn fix_box(is_pixel: bool, width: f32, weight: usize, sw: f32) -> (f32, f32) {
 	if !is_pixel {
 		let mut w = width - sw;
 		if weight >= BLOD_WEIGHT {
@@ -694,14 +700,14 @@ pub struct FontFace {
     oblique: f32,
     size: usize,
     weight: usize,
-    src: Vec<usize>,
+    src: Vec<Atom>,
 	src_index: Vec<usize>,
 }
 
 pub fn get_size(size: usize, s: &FontSize) -> usize {
     match s {
         &FontSize::None => {log::info!("get_size======={}", size); size},
-        &FontSize::Length(r) => r.round() as usize,
+        &FontSize::Length(r) => r,
         &FontSize::Percent(r) => (r * size as f32).round() as usize,
     }
 }
@@ -720,7 +726,7 @@ pub fn get_line_height(size: usize, line_height: &LineHeight) -> f32 {
 // }
 
 pub struct TexFont {
-    pub name: usize,
+    pub name: Atom,
 	pub is_pixel: bool,
 	pub factor_t: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
 	pub factor_b: f32,    // 像素纹理字体大小有时超出，需要一个字体的修正系数
@@ -801,7 +807,7 @@ impl Glyph {
 
 #[derive(Debug)]
 pub struct TextInfo {
-    pub font: usize, /*font-famliy */
+    pub font: Atom, /*font-famliy */
     pub font_size: usize,
     pub stroke_width: usize,
     pub weight: usize,
@@ -980,7 +986,7 @@ fn test() {
 		for cr in split(s.as_str(), true, true) {
 			match cr {
 				// 存在WordStart， 表示开始一个多字符单词
-				SplitResult::Word(index,_c) => {
+				SplitResult::Word(_index,_c) => {
 					ret.push(_c);
 				},
 				_ => (),

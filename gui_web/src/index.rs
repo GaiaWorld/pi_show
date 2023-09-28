@@ -3,15 +3,17 @@ use std::mem::{transmute, MaybeUninit, forget};
 use std::ptr::write;
 use std::panic;
 
-use js_sys::{Date, Function, Object, Float32Array, Uint8Array};
+use derive_deref::{DerefMut, Deref};
+use js_sys::{Date, Function, Object, Uint8Array};
+use pi_style::style_type::{ClassSheet, VisibilityType, WidthType, HeightType, PositionTypeType, PositionLeftType, PositionRightType, PositionTopType, PositionBottomType, MarginLeftType, MarginRightType, MarginTopType, MarginBottomType};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext, HtmlImageElement};
+use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext};
 
-use flex_layout::{Dimension, PositionType, Rect, Size};
+use flex_layout::{Dimension, PositionType, Rect, Size as Size1};
 use ordered_float::OrderedFloat;
 
-use atom::Atom as Atom1;
+use pi_atom::Atom as Atom1;
 use ecs::{Lend, LendMut, StdCell};
 use gui::component::calc::Visibility;
 use gui::component::user::*;
@@ -19,8 +21,8 @@ use gui::font::font_sheet::FontSheet;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::Opacity as ROpacity;
 use gui::render::res::TextureRes as TextureResRaw;
-use gui::single::{Class, ImageType, RootIndexs};
-use gui::single::{ClassSheet, PixelRatio, RenderBegin};
+use gui::single::RootIndexs;
+use gui::single::{PixelRatio, RenderBegin};
 use gui::world::GuiWorld as GuiWorld1;
 
 use gui::world::{create_world, seting_res_mgr, CALC_DISPATCH, CALC_GEO_DISPATCH, LAYOUT_DISPATCH, RENDER_DISPATCH};
@@ -31,23 +33,24 @@ use res::Res;
 use res_mgr_web::ResMgr;
 use share::Share;
 
-use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, GuiWorld, setSdfSuccessCallback};
+use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, setSdfSuccessCallback};
+pub use crate::world::GuiWorld;
 
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 /// 资源包装
 pub struct TextureRes(TextureResRaw);
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 impl TextureRes {
     pub fn new(res: usize) -> TextureRes { TextureRes(*unsafe { Box::from_raw(res as *mut TextureResRaw) }) }
 }
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub struct NativeResRef {
     inner: Share<dyn Res<Key = usize>>,
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 impl TextureRes {
     /// 创建一个资源， 如果资源已经存在，则会修改资源的配置
     pub fn register_to_resmgr(mgr: &mut ResMgr, ty: usize, min_capacity: usize, max_capacity: usize, time_out: usize) {
@@ -76,7 +79,7 @@ impl TextureRes {
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_unsafe)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
 	let r: Box<dyn FnMut(u32, u32, u32, u32,u32,Uint8Array)> = Box::new(load_sdf_success);
 	let r = Closure::wrap(r);
@@ -94,23 +97,23 @@ pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
     r
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_font_sheet(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let font_sheet = (*world.gui.font_sheet.lend()).clone();
+    let font_sheet = (*world.gui.world_ext.font_sheet.lend()).clone();
     Box::into_raw(Box::new(font_sheet)) as u32
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_class_sheet(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let class_sheet = (*world.gui.class_sheet.lend()).clone();
+    let class_sheet = (*world.gui.world_ext.class_sheet.lend()).clone();
     Box::into_raw(Box::new(class_sheet)) as u32
 }
 
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_render_target(world: u32, fbo: WebGlFramebuffer) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -121,13 +124,13 @@ pub fn create_render_target(world: u32, fbo: WebGlFramebuffer) -> u32 {
 
 /// 销毁渲染目标
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn destroy_render_target(render_target: u32) { unsafe { Box::from_raw(&mut *(render_target as usize as *mut Share<HalRenderTarget>)) }; }
 
 /// 绑定rendertarget
 /// render_target为0时， 表示绑定gl默认的渲染目标， 当大于0时， render_target必须是一个RenderTarget的指针
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn bind_render_target(world_id: u32, render_target: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -145,7 +148,7 @@ pub fn bind_render_target(world_id: u32, render_target: u32) {
 
 /// 克隆渲染引擎（某些情况下， 需要多个gui实例共享同一个渲染引擎）
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn clone_engine(engine: u32) -> u32 {
     let engine: ShareEngine<WebglHalContext> = ShareEngine::clone(unsafe { &*(engine as usize as *const ShareEngine<WebglHalContext>) });
     Box::into_raw(Box::new(engine)) as u32
@@ -154,7 +157,7 @@ pub fn clone_engine(engine: u32) -> u32 {
 /// 创建gui实例
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<Function>, class_sheet: u32, font_sheet: u32, is_sdf_font: bool) -> u32 {
     // unsafe{ console::log_1(&JsValue::from("create_gui0================================="))};
     // println!("create_gui 1============================");
@@ -170,8 +173,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	let draw_text_sys = DrawTextSys::new(max_texture_size);
 
     let ctx = draw_text_sys.ctx.clone();
-    let f = Box::new(move |name: usize, font_size: usize, ch: char| -> f32 {
-        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name as u32) };
+    let f = Box::new(move |name: &Atom1, font_size: usize, ch: char| -> f32 {
+        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name.get_hash() as u32) };
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
@@ -227,50 +230,57 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     // unsafe{ console::log_1(&JsValue::from("create_gui3================================="))};
     let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option, is_sdf_font);
     // unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
-    let world = GuiWorld1::<WebglHalContext>::new(world);
+    let mut world = GuiWorld1::<WebglHalContext>::new(world);
 
-    let idtree = world.idtree.lend_mut();
-    let node = world.node.lend_mut().create();
-    idtree.create(node);
-    let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
-    let root_indexs = root_indexs.lend_mut();
-    root_indexs.mark(1, idtree[1].layer());
-    
+	let node = world.world_ext.node.lend_mut().create();
+
     // unsafe{ console::log_1(&JsValue::from("create_gui5================================="))};
 
-    let visibilitys = world.visibility.lend_mut();
-    visibilitys.insert(node, Visibility(true));
+	world.set_style(node, VisibilityType(true));
+	world.set_style(node, WidthType(Dimension::Points(width)));
+	world.set_style(node, HeightType(Dimension::Points(height)));
 
-    let rect_layout_styles = world.rect_layout_style.lend_mut();
-    let other_layout_styles = world.other_layout_style.lend_mut();
-    let rect_layout_style = &mut rect_layout_styles[node];
-    let other_layout_style = &mut other_layout_styles[node];
+	world.set_style(node, PositionTypeType(PositionType::Absolute));
+	world.set_style(node, PositionLeftType(Dimension::Points(0.0)));
+	world.set_style(node, PositionRightType(Dimension::Points(0.0)));
+	world.set_style(node, PositionTopType(Dimension::Points(0.0)));
+	world.set_style(node, PositionBottomType(Dimension::Points(0.0)));
+	world.set_style(node, MarginLeftType(Dimension::Points(0.0)));
+	world.set_style(node, MarginRightType(Dimension::Points(0.0)));
+	world.set_style(node, MarginTopType(Dimension::Points(0.0)));
+	world.set_style(node, MarginBottomType(Dimension::Points(0.0)));
+	
+
+    // rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
+    // other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
+
+    // let rect_layout_styles = world.world_ext.rect_layout_style.lend_mut();
+    // let other_layout_styles = world.world_ext.other_layout_style.lend_mut();
+    // let rect_layout_style = &mut rect_layout_styles[node];
+    // let other_layout_style = &mut other_layout_styles[node];
 
     // let config = YgConfig::new();
     // config.set_point_scale_factor(0.0);
     // let ygnode1 = YgNode::new_with_config(config);
     // let ygnode1 = YgNode::default();
-    rect_layout_style.size = Size {
-        width: Dimension::Points(width),
-        height: Dimension::Points(height),
-    };
-    other_layout_style.position_type = PositionType::Absolute;
-    other_layout_style.position = Rect::default();
-    rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
-    other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
+    
     // ygnode.align_items = AlignItems::FlexStart;
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
 
+	let idtree = world.world_ext.idtree.lend_mut();
+    idtree.create(node);
+    let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
+    let root_indexs = root_indexs.lend_mut();
+    root_indexs.mark(1, idtree[1].layer());
     idtree.insert_child(node, 0, 0);
     idtree.get_notify_ref().create_event(node);
 
-    let font_sheet_version = world.font_sheet.lend().borrow().tex_version;
+    let font_sheet_version = world.world_ext.font_sheet.lend().borrow().tex_version;
     let world = GuiWorld {
         gui: world,
         draw_text_sys: draw_text_sys,
         max_texture_size,
-        default_attr: Class::default(),
         performance_inspector: 0,
         load_image_success: unsafe { MaybeUninit::uninit().assume_init() },
         load_image: unsafe { MaybeUninit::uninit().assume_init() },
@@ -301,8 +311,9 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                     let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
                     let world = &mut *(world_id as usize as *mut GuiWorld);
                     let world = &mut world.gui;
+					let name = Atom1::get(name).unwrap();
 
-                    let image_wait_sheet = world.image_wait_sheet.lend_mut();
+                    let image_wait_sheet = world.world_ext.image_wait_sheet.lend_mut();
                     match image_wait_sheet.wait.remove(&name) {
                         Some(r) => {
                             image_wait_sheet.finish.push((name, res, r));
@@ -339,7 +350,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_text_texture_width(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -355,7 +366,7 @@ pub fn get_text_texture_width(world: u32) -> u32 {
 
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_text_texture_height(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -377,7 +388,7 @@ pub fn get_text_texture_height(world: u32) -> u32 {
 /// 创建gui实例
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_pixel_ratio(world: u32, pixel_ratio: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -387,7 +398,7 @@ pub fn set_pixel_ratio(world: u32, pixel_ratio: f32) {
 
 /// 设置gui渲染的清屏颜色
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -398,7 +409,7 @@ pub fn set_clear_color(world: u32, r: f32, g: f32, b: f32, a: f32) {
 
 /// 使gui渲染不清屏
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn nullify_clear_color(world: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -409,7 +420,7 @@ pub fn nullify_clear_color(world: u32) {
 
 /// 设置视口
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -420,7 +431,7 @@ pub fn set_view_port(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
 }
 
 /// 设置视口
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     set_render_dirty(world_id);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -431,7 +442,7 @@ pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
 
 /// 设置投影变换
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_project_transfrom(world_id: u32, scale_x: f32, scale_y: f32, translate_x: f32, translate_y: f32, rotate: f32, width: u32, height: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let mut m = Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, 1.0, 1.0));
@@ -454,7 +465,7 @@ pub fn set_project_transfrom(world_id: u32, scale_x: f32, scale_y: f32, translat
         gui::component::calc::WorldMatrix(m, true) * gui::single::ProjectionMatrix::new(width as f32, height as f32, -Z_MAX - 1.0, Z_MAX + 1.0).0;
     project_matrix.get_notify_ref().modify_event(0, "", 0);
 
-    let rect_layout_style1 = world.gui.rect_layout_style.lend_mut();
+    let rect_layout_style1 = world.gui.world_ext.rect_layout_style.lend_mut();
     let rect_layout_style = &mut rect_layout_style1[1];
 
     // let config = YgConfig::new();
@@ -491,11 +502,11 @@ pub fn set_project_transfrom(world_id: u32, scale_x: f32, scale_y: f32, translat
  * 调用此犯法，可强制更新一次缩放值
  */
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn force_update_text(world_id: u32, node_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let idtree = world.gui.idtree.lend();
-    let text_contents = world.gui.text_content.lend();
+    let idtree = world.gui.world_ext.idtree.lend();
+    let text_contents = world.gui.world_ext.text_content.lend();
     let node = match idtree.get(node_id as usize) {
         Some(r) => r,
         None => return,
@@ -516,7 +527,7 @@ pub fn force_update_text(world_id: u32, node_id: u32) {
 
 /// 渲染gui， 通常每帧调用
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn render(world_id: u32) -> js_sys::Promise {
     let gui_world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     // #[cfg(feature = "debug")]
@@ -526,7 +537,7 @@ pub fn render(world_id: u32) -> js_sys::Promise {
 	// let r = js_sys::Promise::resolve(&world_id.into());
     {
         // 纹理更新了, 设置脏
-        let font_sheet = gui_world.gui.font_sheet.lend_mut();
+        let font_sheet = gui_world.gui.world_ext.font_sheet.lend_mut();
         let font_sheet = &mut font_sheet.borrow_mut();
         if gui_world.old_texture_tex_version != font_sheet.tex_version {
             gui_world.old_texture_tex_version = font_sheet.tex_version;
@@ -542,12 +553,12 @@ pub fn render(world_id: u32) -> js_sys::Promise {
     let world = &mut gui_world.gui;
     load_image(world_id);
 
-    let dirty_list_len = world.dirty_list.lend().0.len();
+    let dirty_list_len = world.world_ext.dirty_list.lend().0.len();
 
     // #[cfg(feature = "debug")]
     // let load_image_time = std::time::Instant::now() - time;
     let cur_time: usize = (Date::now() as u64 / 1000) as usize;
-    let sys_time = world.system_time.lend_mut();
+    let sys_time = world.world_ext.system_time.lend_mut();
     sys_time.cur_time = cur_time;
 
     // #[cfg(feature = "debug")]
@@ -608,14 +619,14 @@ pub struct RunTime {
 // js_serializable!(RunTime);
 
 /// 强制计算一次
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn calc(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
     world.world.run(&CALC_DISPATCH);
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn calc_geo(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -624,7 +635,7 @@ pub fn calc_geo(world_id: u32) {
 
 /// 强制计算一次布局
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn cal_layout(world_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -654,13 +665,13 @@ pub fn cal_layout(world_id: u32) {
 
 //设置shader
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_shader(engine: u32, shader_name: String, shader_code: String) {
     let engine = unsafe { &mut *(engine as usize as *mut ShareEngine<WebglHalContext>) };
     engine.gl.render_set_shader_code(&shader_name, &shader_code);
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 #[derive(Debug)]
 pub enum PixelFormat {
     RGB,
@@ -673,7 +684,7 @@ pub enum PixelFormat {
 /// 加载图片成功后调用
 /// image_name可以使用hash值与高层交互 TODO
 /// __jsObj: image, __jsObj1: image_name(String)
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn load_image_success(
     world_id: u32,
     pformate: PixelFormat,
@@ -687,7 +698,8 @@ pub fn load_image_success(
 ) {
     let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
+	let name = Atom1::get(name).unwrap();
 
     let image_wait_sheet = world.image_wait_sheet.lend_mut();
     match image_wait_sheet.wait.remove(&name) {
@@ -703,7 +715,7 @@ pub fn load_image_success(
 
 // callback(x, y, boxs, buffer, 0);
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn load_sdf_success(
 	world: u32,
 	x: u32,
@@ -714,7 +726,7 @@ pub fn load_sdf_success(
 ) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-	let single_font_sheet = &mut world.font_sheet.lend_mut();
+	let single_font_sheet = &mut world.world_ext.font_sheet.lend_mut();
 	let font_sheet = &mut single_font_sheet.borrow_mut();
 	font_sheet.tex_version += 1;
 
@@ -729,7 +741,7 @@ pub fn load_sdf_success(
 
 /// 创建纹理资源
 /// image_name可以使用hash值与高层交互 TODO
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_texture_res(
     world_id: u32,
     pformate: PixelFormat,
@@ -745,7 +757,7 @@ pub fn create_texture_res(
 }
 
 // 释放纹理资源
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn destroy_texture_res(texture: u32) { unsafe { Share::from_raw(texture as usize as *const (Share<TextureResRaw>, usize)) }; }
 
 pub fn create_texture(
@@ -842,9 +854,9 @@ fn load_image(world_id: u32) {
     // let mut clicks = 0;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
 
-    let image_wait_sheet = &mut world.gui.image_wait_sheet.lend_mut();
+    let image_wait_sheet = &mut world.gui.world_ext.image_wait_sheet.lend_mut();
     for img_name in image_wait_sheet.loads.iter() {
-        (world.load_image)(*img_name as u32, world.load_image_success.as_ref().unchecked_ref());
+        (world.load_image)(img_name.get_hash() as u32, world.load_image_success.as_ref().unchecked_ref());
         //  load_image(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
         // unsafe{loadImage(img_name.as_ref().to_string(),
         // 	world.load_image_success.as_ref().unchecked_ref()
@@ -854,7 +866,7 @@ fn load_image(world_id: u32) {
 }
 
 // /// 调试使用， 设置渲染脏， 使渲染系统在下一帧进行渲染
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+// #[wasm_bindgen]
 // pub fn set_render_dirty(world: u32) {
 // 	// println!("set_render_dirty============={}", world);
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
@@ -869,7 +881,7 @@ fn load_image(world_id: u32) {
 
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
@@ -879,12 +891,85 @@ pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
         None => false,
     }
 }
+#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+pub fn create_fragment_by_bin(world: u32, bin: &[u8]) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+	match postcard::from_bytes::<gui::single::fragment::Fragments>(bin) {
+		Ok(r) => {
+			world.gui.add_fragment_by_bin(r);
+		}
+		Err(e) => {
+			log::warn!("deserialize_fragment error: {:?}", e);
+			return;
+		}
+	}
+}
+
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+pub enum BlendMode {
+    Normal,
+    AlphaAdd,
+    Subtract,
+    Multiply,
+    OneOne,
+}
+
+/// 设置默认样式, 暂支持布局属性、 文本属性的设置
+/// __jsObj: class样式的文本描述
+#[cfg(feature = "create_class_by_str")]
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn set_default_style(world: u32, css: &str) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	world.gui.set_default_style(css);
+    // set_default_style1(world, r);
+    // world.default_layout_attr = r.1;
+}
+
+#[wasm_bindgen]
+#[derive(Debug, Deref, DerefMut)]
 pub struct Atom(Atom1);
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+impl Atom {
+	pub fn inner(&self) -> &Atom1 {
+		&self.0
+	}
+}
+
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+impl Atom {
+	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
+
+	pub fn get_string_by_hash(value: u32) -> Option<String> { 
+		match pi_atom::Atom::get(value as usize) {
+			Some(r) => Some(r.as_ref().to_string()),
+			None => None,
+		} 
+	}
+
+	pub fn get_hash(&self) -> u32 { self.0.get_hash() as u32 }
+}
+
+#[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_atom_hash(s: &Atom) -> u32 { s.0.get_hash() as u32 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct OffsetDocument {
+    pub left: f32,
+    pub top: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Size {
+    pub width: f32,
+    pub height: f32,
+}
+
+

@@ -8,12 +8,13 @@ use hash::DefaultHasher;
 use ordered_float::NotNan;
 use num_traits::float::FloatCore;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::monitor::NotifyImpl;
 use ecs::{MultiCaseImpl, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 use flex_layout::Rect;
+use pi_style::style::BorderRadius;
 
 use crate::component::user::*;
 use crate::component::{calc::LayoutR, calc::*};
@@ -50,7 +51,7 @@ pub fn cal_matrix(
 
     let origin = transform
         .origin
-        .to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+        .to_value(layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 
     if origin.x != 0.0 || origin.y != 0.0 {
         return world_matrix.0 * Matrix4::new_translation(&Vector3::new(-origin.x, -origin.y, 0.0));
@@ -98,7 +99,7 @@ pub fn cal_border_radius(border_radius: &BorderRadius, rect: &Rect<f32>) -> Bord
 			LengthUnit::Percent(r) => r * size,
 		}
 	}
-	let (width, height) = (rect.end - rect.start, rect.bottom - rect.top);
+	let (width, height) = (rect.right - rect.left, rect.bottom - rect.top);
 	let mut r = BorderRadiusPixel {
 		x: [
 			trans(border_radius.x[0], width),
@@ -140,11 +141,11 @@ pub fn cal_border_radius(border_radius: &BorderRadius, rect: &Rect<f32>) -> Bord
 	
 }
 
-pub fn calc_float_hash<T: Float>(v: &[T], cur: u64) -> u64 {
+pub fn calc_float_hash<T: Float + FloatCore>(v: &[T], cur: u64) -> u64 {
     let mut hasher = DefaultHasher::default();
     cur.hash(&mut hasher);
     for i in v.iter() {
-        unsafe { NotNan::unchecked_new(*i) }.hash(&mut hasher);
+        unsafe { NotNan::new_unchecked(*i) }.hash(&mut hasher);
     }
     hasher.finish()
 }
@@ -152,10 +153,10 @@ pub fn calc_float_hash<T: Float>(v: &[T], cur: u64) -> u64 {
 #[inline]
 pub fn get_content_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {
     Rect {
-        top: unsafe { NotNan::unchecked_new(layout.border.top + layout.border.top) },
-        end: unsafe { NotNan::unchecked_new(layout.rect.end - layout.border.end) },
-        bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.border.bottom) },
-        start: unsafe { NotNan::unchecked_new(layout.rect.start + layout.border.start) },
+        top: unsafe { NotNan::new_unchecked(layout.border.top + layout.border.top) },
+        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.border.right) },
+        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.border.bottom) },
+        left: unsafe { NotNan::new_unchecked(layout.rect.left + layout.border.left) },
     }
 }
 
@@ -180,10 +181,10 @@ pub fn cal_content_border_radius(border_radius: &BorderRadiusPixel, border: (f32
 #[inline]
 pub fn get_box_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {
     Rect {
-        top: unsafe { NotNan::unchecked_new(0.0) },
-        end: unsafe { NotNan::unchecked_new(layout.rect.end - layout.rect.start) },
-        bottom: unsafe { NotNan::unchecked_new(layout.rect.bottom - layout.rect.top) },
-        start: unsafe { NotNan::unchecked_new(0.0) },
+        top: unsafe { unsafe{NotNan::new_unchecked(0.0)} },
+        right: unsafe { NotNan::new_unchecked(layout.rect.right - layout.rect.left) },
+        bottom: unsafe { NotNan::new_unchecked(layout.rect.bottom - layout.rect.top) },
+        left: unsafe { unsafe{NotNan::new_unchecked(0.0)} },
     }
 }
 
@@ -254,10 +255,10 @@ pub fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv1: &Point2, uv2
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
 pub fn create_unit_matrix_by_layout(layout: &LayoutR, matrix: &WorldMatrix, transform: &Transform, depth: f32) -> Vec<f32> {
-    let width = layout.rect.end - layout.rect.start - layout.border.start - layout.border.end;
+    let width = layout.rect.right - layout.rect.left - layout.border.left - layout.border.right;
     let height = layout.rect.bottom - layout.rect.top - layout.border.top - layout.border.bottom;
 
-    create_unit_offset_matrix(width, height, layout.border.start, layout.border.top, layout, matrix, transform, depth)
+    create_unit_offset_matrix(width, height, layout.border.left, layout.border.top, layout, matrix, transform, depth)
 }
 
 // 计算矩阵变化， 将其变换到0~1, 以左上角为中心
@@ -273,7 +274,7 @@ pub fn create_unit_offset_matrix(
 ) -> Vec<f32> {
     let origin = transform
         .origin
-        .to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+        .to_value(layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 
     let matrix = matrix
         * WorldMatrix(
@@ -346,7 +347,7 @@ pub fn let_top_offset_matrix(layout: &LayoutR, matrix: &WorldMatrix, transform: 
 
     let origin = transform
         .origin
-        .to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+        .to_value(layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
     if origin.x == 0.0 && origin.y == 0.0 && h == 0.0 && v == 0.0 {
         matrix.clone()
     } else {
@@ -365,9 +366,9 @@ pub fn modify_matrix(index: usize, matrix: Vec<f32>, render_obj: &mut RenderObj,
 #[inline]
 pub fn geo_box(layout: &LayoutR) -> Aabb2 {
     Aabb2::new(
-        Point2::new(layout.border.start, layout.border.top),
+        Point2::new(layout.border.left, layout.border.top),
         Point2::new(
-            layout.rect.end - layout.rect.start - layout.border.end,
+            layout.rect.right - layout.rect.left - layout.border.right,
             layout.rect.bottom - layout.rect.top - layout.border.bottom,
         ),
     )

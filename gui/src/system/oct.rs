@@ -1,7 +1,6 @@
 //八叉树系统
 use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
 use dirty::LayerDirty;
-use idtree::Node as TreeNode;
 use ecs::monitor::NotifyImpl;
 
 
@@ -9,10 +8,9 @@ use crate::component::calc::{LayoutR, StyleMark, WorldMatrix};
 use crate::component::user::*;
 use crate::component::calc::{NodeState, TransformWillChangeMatrix};
 use crate::entity::Node;
-use crate::single::oct::Oct;
+use crate::single::oct::{Oct, OctKey};
 use crate::single::*;
 use crate::single::IdTree;
-use crate::Z_MAX;
 
 #[derive(Default)]
 pub struct OctSys{
@@ -153,7 +151,7 @@ impl OctSys {
         let layout = &layouts[id];
         // let transform = get_or_default(id, transforms, default_table);
 
-		let width = layout.rect.end - layout.rect.start;
+		let width = layout.rect.right - layout.rect.left;
 		let height = layout.rect.bottom - layout.rect.top;
         let origin = transform.origin.to_value(width, height);
         let aabb = cal_bound_box((width, height), world_matrix, &origin);
@@ -186,12 +184,12 @@ fn recursive_calc_aabb<'a>(
 		parent_will_change_matrix = Some(r);
 	}
 	if id == 804 {
-		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
+		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(OctKey(id)) }.0);
 	}
 	
 
 	// 此时，一定存在一个原来的包围盒
-	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
+	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(OctKey(id)) }.0);
 	if id == 804 {
 		println!("id: {:?}, aabb: {:?}", id, aabb);
 	}
@@ -294,7 +292,7 @@ impl_system! {
 }
 
 // #[cfg(test)]
-// use atom::Atom;
+// use pi_atom::Atom;
 // #[cfg(test)]
 // use component::calc::{ZDepth};
 // #[cfg(test)]

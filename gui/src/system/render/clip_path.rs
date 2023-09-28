@@ -9,14 +9,15 @@ use hash::XHashSet;
 use ecs::{CreateEvent, DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
+use pi_style::style::BaseShape;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::ShareEngine;
-use crate::system::util::{cal_border_radius, create_let_top_offset_matrix, let_top_offset_matrix};
-use crate::{single::*};
+use crate::system::util::{cal_border_radius, let_top_offset_matrix};
+use crate::single::*;
 
 pub struct ClipPathSys<C> {
 	render_mark_index: usize,
@@ -110,7 +111,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 			render_obj.paramter.set_single_uniform("clipBoxRect", UniformValue::Float4(min_x, min_y, max_x - min_x, max_y - min_y));
 
 			let vs_defines_change = render_obj.vs_defines.add("SDF_CLIP");
-			let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+			let (width, height)  = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 			let fs_defines_change = match &clip_path.0 {
 				BaseShape::Circle { radius, center } => {
 					let w = f32::sqrt(width * width + height * height);
@@ -133,25 +134,25 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 				},
 				BaseShape::Inset { rect_box, border_radius } => {
 					let mut rect = Rect {
-						start: len_value(&rect_box[0], height),
-						end: width - len_value(&rect_box[1], width),
+						left: len_value(&rect_box[0], height),
+						right: width - len_value(&rect_box[1], width),
 						top: len_value(&rect_box[2], height),
 						bottom: height - len_value(&rect_box[3], width),
 					};
 					if rect.bottom < rect.top {
 						rect.bottom = rect.top;
 					}
-					if rect.end < rect.start {
-						rect.end = rect.start;
+					if rect.right < rect.left {
+						rect.right = rect.left;
 					}
-					let (width, height)  = (rect.end - rect.start, rect.bottom - rect.top);
+					let (width, height)  = (rect.right - rect.left, rect.bottom - rect.top);
 
-					let border_radius = cal_border_radius(&border_radius, &rect);
+					let border_radius = cal_border_radius(border_radius, &rect);
 					
 					if border_radius.x[0] <= 0.0 && border_radius.x[1] <= 0.0 && border_radius.x[2] <= 0.0 && border_radius.x[3] <= 0.0 &&
 					   border_radius.y[0] <= 0.0 && border_radius.y[1] <= 0.0 && border_radius.y[2] <= 0.0 && border_radius.y[3] <= 0.0 {
 						render_obj.paramter.set_single_uniform("clipSdf", UniformValue::MatrixV4(vec![
-							rect.start + width/2.0, rect.top + height/2.0, 1.0, 1.0,
+							rect.left + width/2.0, rect.top + height/2.0, 1.0, 1.0,
 							width/2.0, height/2.0, 0.0, 0.0,
 							0.0, 0.0, 0.0, 0.0,
 							0.0, 0.0, 0.0, 0.0,
@@ -160,7 +161,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipPathSys<C> {
 						render_obj.fs_defines.add("RECT")
 					} else {
 						render_obj.paramter.set_single_uniform("clipSdf", UniformValue::MatrixV4(vec![
-							rect.start + width/2.0, rect.top + height/2.0, 1.0, 1.0,
+							rect.left + width/2.0, rect.top + height/2.0, 1.0, 1.0,
 							width/2.0, height/2.0, 0.0, 0.0,
 							border_radius.y[0], border_radius.x[0], border_radius.x[1], border_radius.y[1],
 							border_radius.y[2], border_radius.x[2], border_radius.x[3], border_radius.y[3],
@@ -208,7 +209,7 @@ pub fn center_offset_matrix(layout: &LayoutR, matrix: &WorldMatrix, transform: &
 		return matrix.clone();
 	}
 
-	let width = layout.rect.end - layout.rect.start;
+	let width = layout.rect.right - layout.rect.left;
 	let height = layout.rect.bottom - layout.rect.top;
     let origin = transform
         .origin

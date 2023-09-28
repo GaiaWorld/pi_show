@@ -1,10 +1,11 @@
-pub mod class;
+// pub mod class;
 /**
  * 定义单例类型
 */
 pub mod oct;
-pub mod style_parse;
+// pub mod style_parse;
 pub mod dyn_texture;
+pub mod fragment;
 
 use dirty::LayerDirty;
 use flex_layout::Size;
@@ -13,7 +14,7 @@ use std::any::{Any, TypeId};
 use std::default::Default;
 use std::ops::{Index, IndexMut};
 
-use atom::Atom;
+use pi_atom::Atom;
 // use cgmath::Ortho;
 use nalgebra::Orthographic3;
 use ecs::monitor::NotifyImpl;
@@ -26,7 +27,7 @@ use slab::Slab;
 use crate::component::calc::{ClipBox, WorldMatrix, ImageTexture};
 use crate::component::user::*;
 use crate::render::res::*;
-pub use crate::single::class::*;
+// pub use crate::single::class::*;
 pub use crate::single::oct::Oct;
 
 pub struct OverflowClip {
@@ -121,9 +122,9 @@ pub struct RenderRect {
 // 图片等待表
 #[derive(Default)]
 pub struct ImageWaitSheet {
-    pub wait: XHashMap<usize, Vec<ImageWait>>,
-    pub finish: Vec<(usize, Share<TextureRes>, Vec<ImageWait>)>,
-    pub loads: Vec<usize>,
+    pub wait: XHashMap<Atom, Vec<ImageWait>>,
+    pub finish: Vec<(Atom, Share<TextureRes>, Vec<ImageWait>)>,
+    pub loads: Vec<Atom>,
 }
 
 
@@ -141,10 +142,10 @@ impl ImageWaitSheet {
 
         r
     }
-    pub fn add(&mut self, name: usize, wait: ImageWait) {
+    pub fn add(&mut self, name: Atom, wait: ImageWait) {
         let loads = &mut self.loads;
         self.wait
-            .entry(name)
+            .entry(name.clone())
             .or_insert_with(|| {
                 loads.push(name);
                 Vec::with_capacity(1)
@@ -155,12 +156,9 @@ impl ImageWaitSheet {
 
 #[derive(Debug)]
 pub enum ImageType {
-    ImageClass,
-    ImageLocal,
-    BorderImageClass,
-    BorderImageLocal,
-	MaskImageClass,
-    MaskImageLocal,
+    Image,
+    BorderImage,
+	MaskImage,
 }
 
 // 渲染根节点

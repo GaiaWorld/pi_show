@@ -7,7 +7,7 @@ use data_view::GetView;
 
 use render::res::TextureRes; 
 
-use atom::Atom;
+use pi_atom::Atom;
 // use font::FontMeasure;
 
 pub trait SdfFont {

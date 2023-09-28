@@ -4,26 +4,24 @@ use std::hash::{Hash, Hasher};
  */
 use std::marker::PhantomData;
 
-use flex_layout::Size;
 use hash::{DefaultHasher, XHashMap};
 use ordered_float::NotNan;
 
 use ecs::monitor::{Event, NotifyImpl};
 use ecs::{
-    DeleteEvent, ModifyEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl,
-	SingleCaseListener,
+    DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl,
 	StdCell,
 };
 use idtree::NodeList;
 use hal_core::*;
 use map::vecmap::VecMap;
-use map::Map;
-use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
+use pi_atom::Atom;
+use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use res::ResMap;
 use share::Share;
 use smallvec::SmallVec;
 
-use crate::component::{calc::*, calc::LayoutR, calc::CharNode};
+use crate::component::{calc::*, calc::LayoutR};
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::font::font_sheet::*;
@@ -34,52 +32,47 @@ use crate::system::render::shaders::canvas_text::{
     CANVAS_TEXT_FS_SHADER_NAME, CANVAS_TEXT_VS_SHADER_NAME,
 };
 use crate::system::render::shaders::image::{
-	BLUR_DOWN_FS_SHADER_NAME, BLUR_DOWN_VS_SHADER_NAME,
-	BLUR_UP_FS_SHADER_NAME, BLUR_UP_VS_SHADER_NAME,
 	IMAGE_VS_SHADER_NAME, IMAGE_FS_SHADER_NAME,
-	GAUSS_BLUR_VS_SHADER_NAME,
-	GAUSS_BLUR_FS_SHADER_NAME,
 };
 use crate::system::render::shaders::text::{TEXT_FS_SHADER_NAME, TEXT_VS_SHADER_NAME};
 use crate::system::util::*;
 
 use super::gassu_blur::add_gassu_blur;
+lazy_static! {
+	static ref TEXT_STYLE_DIRTY: StyleBit = style_bit().set_bit(StyleType::LetterSpacing as usize)
+		.set_bit(StyleType::WordSpacing as usize)
+		.set_bit(StyleType::LineHeight as usize)
+		.set_bit(StyleType::TextIndent as usize)
+		.set_bit(StyleType::WhiteSpace as usize)
+		.set_bit(StyleType::TextAlign as usize)
+		.set_bit(StyleType::VerticalAlign as usize)
+		.set_bit(StyleType::Color as usize)
+		.set_bit(StyleType::TextStroke as usize)
+		.set_bit(StyleType::FontStyle as usize)
+		.set_bit(StyleType::FontFamily as usize)
+		.set_bit(StyleType::FontSize as usize)
+		.set_bit(StyleType::FontWeight as usize)
+		.set_bit(StyleType::TextShadow as usize)
+		.set_bit(StyleType::TextContent as usize);
+	static ref TEXT_LAYOUT_DIRTY: StyleBit = style_bit().set_bit(StyleType::FontStyle as usize)
+		.set_bit(StyleType::FontWeight as usize)
+		.set_bit(StyleType::FontSize as usize)
+		.set_bit(StyleType::FontFamily as usize)
+		.set_bit(StyleType::LetterSpacing as usize)
+		.set_bit(StyleType::WordSpacing as usize)
+		.set_bit(StyleType::LineHeight as usize)
+		.set_bit(StyleType::TextIndent as usize)
+		.set_bit(StyleType::WhiteSpace as usize)
+		.set_bit(StyleType::TextAlign as usize)
+		.set_bit(StyleType::TextContent as usize)
+		.set_bit(StyleType::VerticalAlign as usize);
 
-const TEXT_STYLE_DIRTY: usize = StyleType::LetterSpacing as usize
-    | StyleType::WordSpacing as usize
-    | StyleType::LineHeight as usize
-    | StyleType::Indent as usize
-    | StyleType::WhiteSpace as usize
-    | StyleType::TextAlign as usize
-    | StyleType::VerticalAlign as usize
-    | StyleType::Color as usize
-    | StyleType::Stroke as usize
-    | StyleType::FontStyle as usize
-    | StyleType::FontFamily as usize
-    | StyleType::FontSize as usize
-    | StyleType::FontWeight as usize
-    | StyleType::TextShadow as usize
-    | StyleType::Layout as usize
-    | StyleType::Text as usize
-    | StyleType::Matrix as usize;
-const TEXT_LAYOUT_DIRTY: usize = StyleType::FontStyle as usize
-    | StyleType::FontWeight as usize
-    | StyleType::FontSize as usize
-    | StyleType::FontFamily as usize
-    | StyleType::LetterSpacing as usize
-    | StyleType::WordSpacing as usize
-    | StyleType::LineHeight as usize
-    | StyleType::Indent as usize
-    | StyleType::WhiteSpace as usize
-    | StyleType::TextAlign as usize
-    | StyleType::Text as usize
-    | StyleType::VerticalAlign as usize
-    | StyleType::Layout as usize;
+	static ref FONT_DIRTY: StyleBit = style_bit().set_bit(StyleType::FontStyle as usize)
+		.set_bit(StyleType::FontWeight as usize)
+		.set_bit(StyleType::FontSize as usize)
+		.set_bit(StyleType::FontFamily as usize);
+}
 
-const FONT_DIRTY: usize = StyleType::FontStyle as usize
-    | StyleType::FontWeight as usize
-    | StyleType::FontSize as usize
-    | StyleType::FontFamily as usize;
 
 #[derive(Default, Clone, Debug)]
 struct I {
@@ -116,7 +109,7 @@ pub struct CharBlockSys<C: HalContext + 'static> {
 
     msdf_default_paramter: MsdfParamter,
     canvas_default_paramter: CanvasTextParamter,
-    mark: PhantomData<(C)>,
+    mark: PhantomData<C>,
 }
 
 // 将顶点数据改变的渲染对象重新设置索引流和顶点流
@@ -224,18 +217,18 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 			}
 
             let mut dirty = style_mark.dirty;
-			let dirty1 = style_mark.dirty1;
+			let mut dirty1 = style_mark.dirty1;
 
             // 不存在Chablock关心的脏, 跳过
-            if dirty & TEXT_STYLE_DIRTY == 0 {
+            if !(dirty & &*TEXT_STYLE_DIRTY).any() && dirty1 & GEO_DIRTY_TYPE == 0 {
                 continue;
 			}
 
 			let tex_font;
             // 如果FontFamily脏， 并需要删除原来的renderobj， 重新创建新的
 			// 如果原有renderobj不存在，也需要创建新的
-            let (index, children, text_style) = if dirty & StyleType::FontFamily as usize != 0 || self.render_map.get(*id).is_none() {
-				if dirty & StyleType::FontFamily as usize != 0 {
+            let (index, children, text_style) = if dirty[StyleType::FontFamily as usize] || self.render_map.get(*id).is_none() {
+				if dirty[StyleType::FontFamily as usize] {
 					self.remove_render_obj(*id, render_objs); // 可能存在旧的render_obj， 先尝试删除（FontFamily修改， 整renderobj中大部分值都会修改， 因此直接重新创建）
 				}
                 
@@ -263,7 +256,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 					}
 				}
 
-                dirty = dirty | TEXT_STYLE_DIRTY;
+                dirty = dirty | &*TEXT_STYLE_DIRTY;
+				dirty1 = dirty1 | GEO_DIRTY_TYPE;
                 (self.render_map[*id].clone(), children, text_style)
             } else {
                 match self.render_map.get(*id) {
@@ -283,7 +277,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             };
 			let is_pixel = tex_font.is_pixel;
 			let font_size = get_size(0, &text_style.font.size) as f32;
-			let font_height = tex_font.get_font_height(font_size as usize, text_style.text.stroke.width);
+			let font_height = tex_font.get_font_height(font_size as usize, *text_style.text.stroke.width);
 			let world_matrix = &world_matrixs[*id];
 			let layout = &layouts[*id];
             let transform = &transforms[*id];
@@ -299,10 +293,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             let mut shadow_geometry_change = false;
 
             // 颜色脏， 如果是渐变色和纯色切换， 需要修改宏， 且顶点需要重新计算， 因此标记program_change 和 geometry_change脏
-            if dirty & (StyleType::Color as usize) != 0 {
+            if dirty[StyleType::Color as usize] {
                 let exchange = modify_color(
                     index.text,
-                    style_mark.local_style,
                     &text_style.text.color,
                     engine,
                     &notify,
@@ -313,7 +306,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 geometry_change = geometry_change | exchange;
             }
             // 描边脏, 如果字体是canvas绘制类型(不支持Stroke的宽度修改)， 仅修改stroke的uniform， 否则， 如果Stroke是添加或删除， 还要修改Stroke宏， 因此可能设置program_change脏
-            if dirty & (StyleType::Stroke as usize) != 0 {
+            if dirty[StyleType::TextStroke as usize] {
                 program_change = program_change
                     | modify_stroke(
                         index.text,
@@ -328,12 +321,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                     );
             }
 			if !tex_font.is_pixel {
-				if dirty & (StyleType::Stroke as usize) != 0 || dirty & (StyleType::Matrix as usize) != 0 || dirty & (StyleType::FontWeight as usize) != 0 {
+				if dirty[StyleType::TextStroke as usize] || dirty1 & (CalcType::Matrix as usize) != 0 || dirty[StyleType::FontWeight as usize] {
 					let mut scale1 = node_states[*id].0.scale;
 					let scale = scale1 * font_height / (tex_font.metrics.ascender - tex_font.metrics.descender);
-					let sw = (scale1 * text_style.text.stroke.width).round();
+					let sw = (scale1 * *text_style.text.stroke.width).round();
 					let distance_px_range = scale * tex_font.metrics.distance_range;
-					let mut fill_bound = (0.5 - (text_style.font.weight as f32 / 500 as f32 - 1.0) / distance_px_range) ;
+					let mut fill_bound = 0.5 - (text_style.font.weight as f32 / 500 as f32 - 1.0) / distance_px_range ;
 					let stroke = sw/2.0/distance_px_range;
 					let stroke_bound = fill_bound - stroke;
 					// fill_bound = fill_bound + stroke;
@@ -343,7 +336,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 				}
 			}
             // 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-            if dirty & FONT_DIRTY != 0 {
+            if (dirty & &*FONT_DIRTY).any() {
                 modify_font(
                     index.text,
                     render_obj,
@@ -357,7 +350,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             }
 
             // 文字内容脏， 这是顶点流脏
-            if dirty & TEXT_LAYOUT_DIRTY != 0 {
+            if (dirty & &*TEXT_LAYOUT_DIRTY).any() || dirty1 & CalcType::Layout as usize != 0 {
                 geometry_change = true;
                 shadow_geometry_change = true;
             }
@@ -372,6 +365,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                 let l = &mut self.index_len;
                 render_obj.geometry = create_geo(
                     dirty,
+					dirty1,
 					children,
 					idtree,
 					&node_states[*id],
@@ -394,12 +388,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 			}
 			let (mut h, mut v) = (0.0, 0.0);
 			if node_states[*id].0.is_vnode() {
-				h = -layout.rect.start;
+				h = -layout.rect.left;
 				v = -layout.rect.top;
 			}
 
             // 矩阵脏
-            if dirty & (StyleType::Matrix as usize) != 0 {
+            if dirty1 & (CalcType::Matrix as usize) != 0 {
 				
                 modify_matrix(
                     index.text,
@@ -428,11 +422,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 
 						let context_box = &context_boxs.get(*id).unwrap().0;
 		
-						if dirty & (StyleType::TextShadow as usize) != 0 {
+						if dirty[StyleType::TextShadow as usize] {
 							// 阴影颜色脏，或描边脏， 修改ubo
 							modify_shadow_color(
 								shadow_index,
-								style_mark.local_style,
 								text_style,
 								&text_style.shadow[i].color,
 								&notify,
@@ -444,7 +437,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 								&mut *self.msdf_stroke_ubo_map,
 							);
 						}
-						if dirty & (StyleType::TextShadow as usize) != 0 || dirty & (StyleType::Matrix as usize) != 0 {
+						if dirty[StyleType::TextShadow as usize] || dirty1 & (CalcType::Matrix as usize) != 0 {
 							has_blur = add_gassu_blur(
 								shadow_index,
 								shadow.blur,
@@ -471,7 +464,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 						}
 		
 						// 尝试修改字体， 如果字体类型修改（dyn_type）， 需要修改pipeline， （字体类型修改应该重新创建paramter， TODO）
-						if dirty & FONT_DIRTY != 0 {
+						if (dirty & &*FONT_DIRTY).any() {
 							modify_font(
 								index.text,
 								shadow_render_obj,
@@ -497,6 +490,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 									let l = &mut self.index_len;
 									shadow_render_obj.geometry = create_geo(
 										dirty,
+										dirty1,
 										children,
 										idtree,
 										&node_states[*id],
@@ -512,14 +506,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 										node_states[*id].0.scale,
 										is_pixel,
 										font_height,
+										
 									)
 								}
 							}
 							notify.modify_event(shadow_index, "geometry", 0);
 						}
 		
-						if dirty & (StyleType::Matrix as usize) != 0
-							|| dirty & (StyleType::TextShadow as usize) != 0
+						if dirty1 & (CalcType::Matrix as usize) != 0
+							|| dirty[StyleType::TextShadow as usize]
 						{
 							modify_matrix(
 								shadow_index,
@@ -562,9 +557,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 							}
 							let copy_index = render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy;
 							let arr = create_unit_offset_matrix(
-								layout.rect.end - layout.rect.start,
+								layout.rect.right - layout.rect.left,
 								layout.rect.bottom - layout.rect.top,
-								layout.border.start + shadow.h,
+								layout.border.left + shadow.h,
 								layout.border.top + shadow.v,
 								layout,
 								world_matrix,
@@ -816,7 +811,7 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
 #[inline]
 fn modify_stroke(
     index: usize,
-    local_style: usize,
+    local_style: StyleBit,
     text_stroke: &Stroke,
     render_obj: &mut RenderObj,
     // engine: &mut SingleCaseImpl<Engine<C>>,
@@ -836,7 +831,7 @@ fn modify_stroke(
 	} else {
 		let color = &text_stroke.color;
 		let ubo = create_hash_res(
-			CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.r, color.g, color.b, color.a)),
+			CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.x, color.y, color.z, color.w)),
 			canvas_stroke_ubo_map,
 		);
 		render_obj.paramter.set_value("strokeColor", ubo);
@@ -895,7 +890,6 @@ fn modify_stroke(
 #[inline]
 fn modify_color<C: HalContext + 'static>(
     index: usize,
-    _local_style: usize,
     color: &Color,
     engine: &mut Engine<C>,
     notify: &NotifyImpl,
@@ -905,7 +899,7 @@ fn modify_color<C: HalContext + 'static>(
     let change = match color {
         Color::RGBA(c) => {
             let ubo = create_hash_res(
-                UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+                UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
                 &mut *engine.u_color_ubo_map,
             );
             render_obj.paramter.set_value("uColor", ubo);
@@ -957,7 +951,6 @@ fn modify_font(
 #[inline]
 fn modify_shadow_color<C: HalContext + 'static>(
     index: usize,
-    _local_style: usize,
     text_style: &TextStyle,
 	c: &CgColor,
     notify: &NotifyImpl,
@@ -968,9 +961,9 @@ fn modify_shadow_color<C: HalContext + 'static>(
     canvas_stroke_ubo_map: &mut ResMap<CanvasTextStrokeColorUbo>,
 	msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
 ) {
-	if text_style.text.stroke.width > 0.0 {
+	if *text_style.text.stroke.width > 0.0 {
 		let ubo = create_hash_res(
-			CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+			CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
 			canvas_stroke_ubo_map,
 		);
 		render_obj.paramter.set_value("strokeColor", ubo);
@@ -995,7 +988,7 @@ fn modify_shadow_color<C: HalContext + 'static>(
     //     create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
     // };
     let ubo = create_hash_res(
-        UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+        UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
         &mut *engine.u_color_ubo_map,
     );
     render_obj.paramter.set_value("uColor", ubo);
@@ -1222,7 +1215,8 @@ fn set_canvas_default_stroke(
 // 返回position， uv， color， index
 #[inline]
 fn create_geo<C: HalContext + 'static>(
-	dirty: usize,
+	dirty: StyleBit,
+	dirty1: usize,
 	children: &NodeList,
 	idtree: &SingleCaseImpl<IdTree>,
 	node_state: &NodeState,
@@ -1241,11 +1235,11 @@ fn create_geo<C: HalContext + 'static>(
 	font_height: f32
 ) -> Option<Share<GeometryRes>> {
     // 是共享文字
-    if text.0 == String::new() {
+    if text.0.0 == String::new() {
         let mut hasher = DefaultHasher::default();
         text.1.hash(&mut hasher);
         // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
-        if dirty & TEXT_LAYOUT_DIRTY == 0 {
+        if !(dirty & &*TEXT_LAYOUT_DIRTY).any() && dirty1 & CalcType::Layout as usize == 0 {
             share_data.layout_hash.hash(&mut hasher);
         } else {
             //在style中使用了文字布局属性, 重新计算文字布局属性的hash
@@ -1332,7 +1326,7 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
         FontSize::None => 0.hash(hasher),
         FontSize::Length(r) => {
             1.hash(hasher);
-            NotNan::new(r).unwrap().hash(hasher);
+            r.hash(hasher);
         }
         FontSize::Percent(r) => {
             3.hash(hasher);
@@ -1390,9 +1384,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 				scale,
 				calc_font_size: font_size * scale,
 				chars: Vec::new(),
-				family: text_style.font.family,
+				family: text_style.font.family.clone(),
 				weight: text_style.font.weight as f32,
-				stroke: text_style.text.stroke.width as f32,
+				stroke: *text_style.text.stroke.width,
 			};
 			for c in node_state.0.text.iter(){
 				if c.ch == char::from(0) {
@@ -1433,7 +1427,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 						scale,
 						is_pixel,
 						text_style.font.weight,
-						text_style.text.stroke.width,
+						*text_style.text.stroke.width,
 						font_height,
 						c.ch
 					);
@@ -1449,7 +1443,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 						scale,
 						is_pixel,
 						text_style.font.weight,
-						text_style.text.stroke.width,
+						*text_style.text.stroke.width,
 						font_height,
 						c.ch
 					);
@@ -1492,13 +1486,13 @@ fn get_geo_flow<C: HalContext + 'static>(
 				// 如果是虚拟节点，则节点自身的布局信息会在顶点上体现，此时找渐变端点需要考虑布局结果的起始点
 				true => find_lg_endp(
 					&[
-						rect.start,
+						rect.left,
 						rect.top,
-						rect.start,
+						rect.left,
 						rect.bottom,
-						rect.end,
+						rect.right,
 						rect.bottom,
-						rect.end,
+						rect.right,
 						rect.top,//渐变端点
 					],
 					color.direction,
@@ -1510,9 +1504,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 						0.0,
 						0.0,
 						rect.bottom - rect.top,
-						rect.end - rect.start,
+						rect.right - rect.left,
 						rect.bottom - rect.top,
-						rect.end - rect.start,
+						rect.right - rect.left,
 						0.0,
 					],
 					color.direction,
@@ -1523,7 +1517,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 			let mut lg_color = Vec::with_capacity(color.list.len() * 4);
 			for v in color.list.iter() {
 				lg_pos.push(v.position);
-				lg_color.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
+				lg_color.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
 			}
 			let lg_color = vec![LgCfg {
 				unit: 4,
@@ -1560,7 +1554,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 						scale,
 						is_pixel,
 						text_style.font.weight,
-						text_style.text.stroke.width,
+						*text_style.text.stroke.width,
 						font_height,
 						c.ch
 					);
@@ -1576,7 +1570,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 						scale,
 						is_pixel,
 						text_style.font.weight,
-						text_style.text.stroke.width,
+						*text_style.text.stroke.width,
 						font_height,
 						c.ch
 					);
@@ -1685,7 +1679,7 @@ pub struct DebugInfo {
 #[derive(Debug)]
 pub struct DebugInfos {
 	pub font_size: f32,
-	family: usize,
+	family: Atom,
 	weight: f32,
 	stroke: f32,
 	pub scale: f32,

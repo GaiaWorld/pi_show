@@ -17,7 +17,7 @@ debug_info = { path = "../../pi_lib/debug_info"}
 
 hal_core = { path = "../hal_core"}
 
-ordered-float = "1.0"
+ordered-float = "3.0"
 wasm-bindgen = {version="*", features = ["serde-serialize"]}
 js-sys = "*"
 log ="*"

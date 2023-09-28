@@ -6,12 +6,13 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::monitor::{Event, NotifyImpl};
 use ecs::{DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl};
 
 use hal_core::*;
 use map::vecmap::VecMap;
+use pi_style::style::ImageRepeatOption;
 use share::Share;
 
 use crate::component::calc::LayoutR;
@@ -24,23 +25,22 @@ use crate::single::*;
 use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 use crate::system::util::*;
 
-// 本系统关心的脏
-const DIRTY_TY: usize = StyleType::Matrix as usize
-    | StyleType::Opacity as usize
-    | StyleType::Layout as usize
-    | StyleType::BorderImageClip as usize
-    | StyleType::BorderImageSlice as usize
-    | StyleType::BorderImageRepeat as usize;
 
-const DIRTY_TY1: usize = StyleType1::BorderImageTexture as usize;
-
-// 一些与BorderImage渲染对象的几何体相关的属性脏
-const GEO_DIRTY: usize =
-    StyleType::Layout as usize | StyleType::BorderImageClip as usize | StyleType::BorderImageSlice as usize | StyleType::BorderImageRepeat as usize;
 
 lazy_static! {
     static ref BORDER_IMAGE: Atom = Atom::from("border_image");
+
+	// 本系统关心的脏
+	static ref DIRTY_TY: StyleBit = style_bit().set_bit(StyleType::Opacity as usize)
+	.set_bit(StyleType::BorderImageClip as usize)
+	.set_bit(StyleType::BorderImageSlice as usize)
+	.set_bit(StyleType::BorderImageRepeat as usize);
+
+	// 一些与BorderImage渲染对象的几何体相关的属性脏
+	static ref GEO_DIRTY: StyleBit = style_bit().set_bit(StyleType::BorderImageClip as usize) .set_bit(StyleType::BorderImageSlice as usize) .set_bit(StyleType::BorderImageRepeat as usize);
 }
+
+const DIRTY_TY1: usize = CalcType::BorderImageTexture as usize | GEO_DIRTY_TYPE;
 
 pub struct BorderImageSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
@@ -101,12 +101,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             };
 
             // 不存在Image关心的脏, 跳过
-            if style_mark.dirty & DIRTY_TY == 0 && style_mark.dirty1 & DIRTY_TY1 == 0 {
+            if !(style_mark.dirty & &*DIRTY_TY).any() && style_mark.dirty1 & DIRTY_TY1 == 0 {
                 continue;
             }
 
             let mut dirty = style_mark.dirty;
-            let dirty1 = style_mark.dirty1;
+            let mut dirty1 = style_mark.dirty1;
 
             let texture = match border_image_textures.get(*id) {
                 Some(r) => r,
@@ -117,7 +117,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             };
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
-                dirty |= DIRTY_TY;
+                dirty |= DIRTY_TY.clone();
+				dirty1 |= DIRTY_TY1;
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
                     None => self.create_render_obj(*id, render_objs, default_state),
@@ -133,7 +134,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             let layout = &layouts[*id];
 
             // 世界矩阵脏， 设置世界矩阵ubo
-            if dirty & StyleType::Matrix as usize != 0 {
+            if dirty1 & CalcType::Matrix as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -155,14 +156,14 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             }
 
             let image = &border_images[*id];
-            if dirty & GEO_DIRTY != 0 {
+            if (dirty & &*GEO_DIRTY).any() || dirty1 & CalcType::Layout as usize != 0 {
                 let image_clip = border_image_clips.get(*id);
                 let image_slice = border_image_slices.get(*id);
                 let image_repeat = border_image_repeats.get(*id);
                 render_obj.geometry = create_geo(image, texture, image_clip, image_slice, image_repeat, layout, &mut engine);
 
                 // BorderImage修改， 修改texture
-                if dirty1 & StyleType1::BorderImageTexture as usize != 0 {
+                if dirty1 & CalcType::BorderImageTexture as usize != 0 {
                     // 如果四边形与图片宽高一样， 使用点采样， TODO
                     render_obj.paramter.set_texture("texture", (&texture.0.bind, &self.default_sampler));
                     notify.modify_event(render_index, "ubo", 0);
@@ -172,7 +173,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
 			let border_radius = border_radiuses.get(*id);
 
             // 不透明度脏或图片脏， 设置is_opacity
-            if dirty & StyleType::Opacity as usize != 0 || dirty1 & StyleType1::BorderImageTexture as usize != 0 {
+            if dirty[StyleType::Opacity as usize] || dirty1 & CalcType::BorderImageTexture as usize != 0 {
                 // let opacity = opacitys[*id].0;
                 let is_opacity_old = render_obj.is_opacity;
                 let is_opacity = if let ROpacity::Opaque = texture.0.opacity { true } else { false };
@@ -286,28 +287,13 @@ fn geo_hash(
 ) -> u64 {
     let mut hasher = DefaultHasher::default();
     BORDER_IMAGE.hash(&mut hasher);
-    img.url.hash(&mut hasher);
-    match clip {
-        Some(r) => f32_4_hash_(r.mins.x, r.mins.y, r.maxs.x, r.maxs.y, &mut hasher),
-        None => 0.hash(&mut hasher),
-    };
-    match slice {
-        Some(r) => {
-            f32_4_hash_(r.left, r.top, r.bottom, r.right, &mut hasher);
-            r.fill.hash(&mut hasher);
-        }
-        None => 0.hash(&mut hasher),
-    };
-    match repeat {
-        Some(r) => {
-            (r.0 as u8).hash(&mut hasher);
-            (r.1 as u8).hash(&mut hasher);
-        }
-        None => 0.hash(&mut hasher),
-    };
-    let width = layout.rect.end - layout.rect.start;
+    img.0.hash(&mut hasher);
+    clip.hash(&mut hasher);
+	slice.hash(&mut hasher);
+   	repeat.hash(&mut hasher);
+    let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
-    f32_3_hash_(width, height, layout.border.start, &mut hasher);
+    f32_3_hash_(width, height, layout.border.left, &mut hasher);
     hasher.finish()
 }
 
@@ -323,27 +309,27 @@ fn get_border_image_stream(
     mut index_arr: Vec<u16>,
 ) -> (Polygon, Polygon, Vec<u16>) {
     let (uv1, uv2) = match clip {
-        Some(c) => (c.mins, c.maxs),
+        Some(c) => (Point2::new(*c.left, *c.top), Point2::new(*c.right, *c.bottom)),
         _ => (Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
     };
-    let width = layout.rect.end - layout.rect.start;
+    let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     let p1 = Point2::new(0.0, 0.0);
     let p2 = Point2::new(width, height);
     // let w = p2.x - p1.x;
     // let h = p2.y - p1.y;
-    let left = layout.border.start;
-    let right = width - layout.border.end;
+    let left = layout.border.left;
+    let right = width - layout.border.right;
     let top = layout.border.top;
     let bottom = height - layout.border.bottom;
     let uvw = uv2.x - uv1.x;
     let uvh = uv2.y - uv1.y;
     let (uv_left, uv_right, uv_top, uv_bottom) = match slice {
         Some(slice) => (
-            uv1.x + slice.left * uvw,
-            uv2.x - slice.right * uvw,
-            uv1.y + slice.top * uvh,
-            uv2.y - slice.bottom * uvh,
+            uv1.x + *slice.left * uvw,
+            uv2.x - *slice.right * uvw,
+            uv1.y + *slice.top * uvh,
+            uv2.y - *slice.bottom * uvh,
         ),
         None => (uv1.x + 0.25 * uvw, uv2.x - 0.25 * uvw, uv1.y + 0.25 * uvh, uv2.y - 0.25 * uvh),
     };
@@ -400,14 +386,14 @@ fn get_border_image_stream(
         (offset_left, space_left, mut step_left),
         (offset_right, space_right, step_right),
     ) = (
-        calc_step(right - left, layout.border.top / texture_top_height * texture_center_width, repeat.0),
+        calc_step(right - left, layout.border.top / texture_top_height * texture_center_width, repeat.x),
         calc_step(
             right - left,
             layout.border.bottom / texture_bottom_height * texture_center_width,
-            repeat.0,
+            repeat.x,
         ),
-        calc_step(bottom - top, layout.border.start / texture_left_width * texture_center_height, repeat.1),
-        calc_step(bottom - top, layout.border.end / texture_right_width * texture_center_height, repeat.1),
+        calc_step(bottom - top, layout.border.left / texture_left_width * texture_center_height, repeat.y),
+        calc_step(bottom - top, layout.border.right / texture_right_width * texture_center_height, repeat.y),
     );
 
     if step_top > 0.0 {
@@ -491,10 +477,10 @@ fn get_border_image_stream(
     // 处理中间
     if let Some(slice) = slice {
 
-		if repeat.0 == BorderImageRepeatType::Stretch {
+		if repeat.x == ImageRepeatOption::Stretch {
 			step_top = right - left;
 		}
-		if repeat.1 == BorderImageRepeatType::Stretch {
+		if repeat.y == ImageRepeatOption::Stretch {
 			step_left = bottom - top;
 		}
 
@@ -599,8 +585,8 @@ pub fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16) {
 
 
 // 根据参数计算uv的step
-fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> (f32, f32, f32) {
-    if let BorderImageRepeatType::Stretch = rtype {
+fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, f32) {
+    if let ImageRepeatOption::Stretch = rtype {
         return (0.0, 0.0, csize);
     }
     if img_size == 0.0 {
@@ -614,9 +600,9 @@ fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> (f32, f
     }
 
     match rtype {
-        BorderImageRepeatType::Repeat => (-(csize % img_size) / 2.0, 0.0, img_size),
-        BorderImageRepeatType::Round => (0.0, 0.0, if f > 0.0 { csize / f } else { csize }),
-        BorderImageRepeatType::Space => {
+        ImageRepeatOption::Repeat => (-(csize % img_size) / 2.0, 0.0, img_size),
+        ImageRepeatOption::Round => (0.0, 0.0, if f > 0.0 { csize / f } else { csize }),
+        ImageRepeatOption::Space => {
             let space = csize % img_size; // 空白尺寸
             let pre_space = space / (c.floor() + 1.0);
             (0.0, pre_space, if c >= 1.0 { img_size } else { 0.0 })

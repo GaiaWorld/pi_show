@@ -29,7 +29,7 @@ extern crate map;
 extern crate debug_info;
 extern crate atom;
 extern crate bincode;
-extern crate cg2d;
+extern crate pi_cg2d;
 extern crate data_view;
 extern crate gui_tool;
 extern crate hal_core;

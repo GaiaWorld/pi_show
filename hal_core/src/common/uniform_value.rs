@@ -32,21 +32,21 @@ pub enum UniformValue {
 impl Hash for UniformValue {
     fn hash<T: Hasher>(&self, hasher: &mut T) {
         match self {
-            UniformValue::Float1(f1) => unsafe { NotNan::unchecked_new(*f1).hash(hasher) },
+            UniformValue::Float1(f1) => unsafe { NotNan::new_unchecked(*f1).hash(hasher) },
             UniformValue::Float2(f1, f2) => {
-                unsafe { NotNan::unchecked_new(*f1).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f2).hash(hasher) }
+                unsafe { NotNan::new_unchecked(*f1).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f2).hash(hasher) }
             }
             UniformValue::Float3(f1, f2, f3) => {
-                unsafe { NotNan::unchecked_new(*f1).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f2).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f3).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f1).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f2).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f3).hash(hasher) };
             }
             UniformValue::Float4(f1, f2, f3, f4) => {
-                unsafe { NotNan::unchecked_new(*f1).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f2).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f3).hash(hasher) };
-                unsafe { NotNan::unchecked_new(*f4).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f1).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f2).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f3).hash(hasher) };
+                unsafe { NotNan::new_unchecked(*f4).hash(hasher) };
             }
             UniformValue::Int1(i1) => i1.hash(hasher),
             UniformValue::Int2(i1, i2) => {
@@ -72,7 +72,7 @@ impl Hash for UniformValue {
             | UniformValue::MatrixV3(fv)
             | UniformValue::MatrixV4(fv) => {
                 for f in fv.iter() {
-                    unsafe { NotNan::unchecked_new(*f).hash(hasher) };
+                    unsafe { NotNan::new_unchecked(*f).hash(hasher) };
                 }
             }
             UniformValue::IntV1(fv)

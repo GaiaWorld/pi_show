@@ -7,6 +7,7 @@ use ecs::{
     SingleCaseImpl, SingleCaseListener, Event,
 };
 use flex_layout::Display;
+use pi_style::style_type::EnableType;
 
 use crate::component::calc::{NodeState,
     Enable as CEnable, EnableWrite as CEnableWrite, Visibility as CVisibility,
@@ -171,9 +172,9 @@ fn modify_show(
 
     let c_visibility = display_value && visibility_value && parent_c_visibility;
     let c_enable = match enable_value {
-        EnableType::Visible => true,
-        EnableType::Auto => parent_c_enable,
-        EnableType::None => false,
+        pi_style::style::Enable::Visible => true,
+        pi_style::style::Enable::Auto => parent_c_enable,
+        pi_style::style::Enable::None => false,
     };
     let c_enable = c_visibility && c_enable;
     let mut visibility_write = unsafe { visibility.get_unchecked_write(id) };
@@ -182,7 +183,7 @@ fn modify_show(
     //     println!("c_visibility1-------------------{}, {}, {}, {}", c_visibility, **visibility_write.value, c_enable, **enable_write.value);
     //     return;
     // }
-
+	log::warn!("set_visibility=====id={}, c_visibility={}, parent_c_visibility={}, visibility_value={}, display_value={}", id, c_visibility, parent_c_visibility, visibility_value, display_value);
     visibility_write.set_0(c_visibility);
     enable_write.set_0(c_enable);
 
@@ -212,12 +213,12 @@ impl_system! {
     }
 }
 
-#[cfg(test)]
-use atom::Atom;
-#[cfg(test)]
-use crate::component::user::ShowWrite;
-#[cfg(test)]
-use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
+// #[cfg(test)]
+// use pi_atom::Atom;
+// #[cfg(test)]
+// use crate::component::user::ShowWrite;
+// #[cfg(test)]
+// use ecs::{Dispatcher, LendMut, SeqDispatcher, World};
 
 // #[test]
 // fn test() {

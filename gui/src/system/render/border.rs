@@ -8,10 +8,8 @@ use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{NotifyImpl, Event};
 use hal_core::*;
 use map::vecmap::VecMap;
-use map::Map;
-use polygon::*;
 
-use crate::component::calc::{Opacity, LayoutR};
+use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
@@ -21,18 +19,17 @@ use crate::single::*;
 use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use crate::system::util::*;
 
-const DIRTY_TY: usize = StyleType::Matrix as usize
-    | StyleType::Opacity as usize
-    | StyleType::Layout as usize
-    | StyleType::BorderColor as usize
-    | StyleType::BorderRadius as usize;
+// const GEO_DIRTY: usize = StyleType::Layout as usize | StyleType::BorderRadius as usize;
 
-const GEO_DIRTY: usize = StyleType::Layout as usize | StyleType::BorderRadius as usize;
-
-// lazy_static! {
+lazy_static! {
 //     // BorderColor几何属性的标志， 用于计算geometry的hash， 减弱hash冲突
 //     pub static ref BORDER_COLOR: Atom = Atom::from("border_color");
-// }
+	static ref DIRTY_TY: StyleBit = style_bit().set_bit(StyleType::Opacity as usize)
+		.set_bit(StyleType::BorderColor as usize)
+		.set_bit(StyleType::BorderRadius as usize);
+	static ref OPACITY_TYPE: StyleBit = style_bit().set_bit(StyleType::BorderColor as usize)
+		.set_bit(StyleType::Opacity as usize);
+}
 
 // 声明结构
 /// BorderColor 操作
@@ -98,17 +95,18 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 				}
 			};
 
-			if style_mark.local_style & StyleType::BorderColor as usize == 0
-				&& style_mark.class_style & StyleType::BorderColor as usize == 0
+			if style_mark.local_style [StyleType::BorderColor as usize]
+				&& style_mark.class_style [StyleType::BorderColor as usize]
 			{
 				self.remove_render_obj(*id, render_objs);
 				continue;
 			}
 
             let mut dirty = style_mark.dirty;
+			let mut dirty1 = style_mark.dirty1;
 
             // 不存在BorderColor关心的脏, 跳过
-            if dirty & DIRTY_TY == 0 {
+            if !(dirty & &*DIRTY_TY).any() && dirty1 & GEO_DIRTY_TYPE == 0 {
                 continue;
             }
 
@@ -116,7 +114,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             let render_index = match self.render_map.get_mut(*id) {
 				Some(r) => *r,
 				None => {
-					dirty |= DIRTY_TY;
+					dirty |= DIRTY_TY.clone();
+					dirty1 |= GEO_DIRTY_TYPE;
 					self.create_render_obj(*id, render_objs, default_state)
 				}
 			};
@@ -126,12 +125,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             let layout = &layouts[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
-            if dirty & StyleType::BorderColor as usize != 0
-                || dirty & StyleType::Opacity as usize != 0
+            if (dirty & &*OPACITY_TYPE).any()
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
-				render_obj.is_opacity = color.a >= 1.0 && border_radius.is_none();
+				render_obj.is_opacity = color.w >= 1.0 && border_radius.is_none();
 				if render_obj.is_opacity != is_opacity_old {
 					notify.modify_event(render_index, "is_opacity", 0);
 				};
@@ -139,7 +137,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 颜色修改， 设置ucolor ubo
-            if dirty & StyleType::BorderColor as usize != 0 {
+            if !dirty[StyleType::BorderColor as usize] {
                 // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 render_obj
                     .paramter
@@ -148,20 +146,20 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 布局或圆角修改， 重新创建geometry
-            if dirty & GEO_DIRTY != 0 {
+            if !dirty[StyleType::BorderRadius as usize] || dirty1 & CalcType::Layout as usize != 0 {
 				let (radius_hash, border_radius) = match border_radius {
 					Some(r) => {
 						let border_radius = cal_border_radius(r, &layout.rect);
 						render_obj.fs_defines.add(BORDER);
-						let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+						let (width, height)  = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 
 						// 设置clipSdf
 						render_obj
 						.paramter
 						.as_ref()
 						.set_single_uniform("clipSdf", UniformValue::MatrixV4(vec![
-							width/2.0, height/2.0, layout.border.bottom, layout.border.start,
-							width/2.0, height/2.0, layout.border.top, layout.border.end,
+							width/2.0, height/2.0, layout.border.bottom, layout.border.left,
+							width/2.0, height/2.0, layout.border.top, layout.border.right,
 							border_radius.y[0], border_radius.x[0], border_radius.x[1], border_radius.y[1],
 							border_radius.y[2], border_radius.x[2], border_radius.x[3], border_radius.y[3],
 						]));
@@ -177,7 +175,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 如果矩阵脏， 更新worldMatrix ubo
-            if dirty & StyleType::Matrix as usize != 0 {
+            if dirty1 & CalcType::Matrix as usize != 0 {
                 let world_matrix = &world_matrixs[*id];
 
                 let transform = &transforms[*id];
@@ -301,14 +299,14 @@ fn create_geo<C: HalContext + 'static>(
 /// 取几何体的顶点流和属性流
 fn get_geo_flow(radius: &Option<BorderRadiusPixel>, layout: &LayoutR) -> (Vec<f32>, Vec<u16>) {
 
-	let width = layout.rect.end - layout.rect.start;
+	let width = layout.rect.right - layout.rect.left;
 	let height = layout.rect.bottom - layout.rect.top;
 	let border = &layout.border;
     match radius {
 		None => {
-			let border_start_x = border.start;
+			let border_start_x = border.left;
 			let border_start_y = border.top;
-			let border_end_x = width - border.end;
+			let border_end_x = width - border.right;
 			let border_end_y = height - border.bottom;
 
 			(
@@ -358,13 +356,13 @@ fn get_geo_flow(radius: &Option<BorderRadiusPixel>, layout: &LayoutR) -> (Vec<f3
 			vert.extend_from_slice(&[
 				0.0, 0.0, // 0
 				0.0, radius.y[0], // 1
-				border.start, radius.y[0], // 2
+				border.left, radius.y[0], // 2
 				radius.x[0], border.top, // 3
 				radius.x[0], 0.0, // 4
 
 				width - radius.x[1], 0.0, // 5
 				width - radius.x[1], border.top, // 6
-				width - border.end, radius.y[1], // 7
+				width - border.right, radius.y[1], // 7
 				width, radius.y[1], // 8
 				width, 0.0, // 9
 
@@ -373,13 +371,13 @@ fn get_geo_flow(radius: &Option<BorderRadiusPixel>, layout: &LayoutR) -> (Vec<f3
 				width - radius.x[2], height, // 11
 				width, height, // 12
 				width, height - radius.y[2], // 13
-				width - border.end, height - radius.y[2], // 14
+				width - border.right, height - radius.y[2], // 14
 
 				0.0, height - radius.y[3], // 15
 				0.0, height, // 16
 				radius.x[3], height, // 17
 				radius.x[3], height - border.bottom, // 18
-				border.start, height - radius.y[3], // 19
+				border.left, height - radius.y[3], // 19
 				]);
 			index.extend_from_slice(&[
 				0, 1, 2, 0, 2, 3, 0, 3, 4, // 左上

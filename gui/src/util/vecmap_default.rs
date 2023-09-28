@@ -2,6 +2,7 @@
 use std::ops::{Index, IndexMut};
 use std::default::Default;
 
+use ecs::component::GetDefault;
 use map::vecmap::VecMap;
 use map::Map;
 
@@ -39,6 +40,15 @@ impl<T: Default> Index<usize> for VecMapWithDefault<T> {
 impl<T: Clone + Default> IndexMut<usize> for VecMapWithDefault<T> {
     fn index_mut(&mut self, index: usize) -> &mut T {
 		unsafe { Map::get_unchecked_mut(self, &index) }
+    }
+}
+impl<T: Clone+ Default> GetDefault<T> for VecMapWithDefault<T> {
+    fn get_default(&self) -> Option<&T> {
+        Some(&self.default_v)
+    }
+
+    fn get_default_mut(&mut self) -> Option<&mut T> {
+        Some(&mut self.default_v)
     }
 }
 

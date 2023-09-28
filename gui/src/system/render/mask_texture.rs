@@ -7,31 +7,25 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 
-use ecs::entity::Entity;
 use share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::{DefaultHasher, XHashSet};
 
-use atom::Atom;
-use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
+use pi_atom::Atom;
+use ecs::{CreateEvent, DeleteEvent, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
-use map::vecmap::VecMap;
 
-use crate::component::calc::{LayoutR, MaskTexture};
+use crate::component::calc::MaskTexture;
 use crate::component::calc::*;
 use crate::component::user::{Point2, MaskImageClip, RenderContextMark, Aabb2};
 use crate::entity::Node;
 use crate::render::engine::{Engine, ShareEngine};
 use crate::render::res::*;
-use crate::{single::*};
+use crate::single::*;
 use crate::single::dyn_texture::DynAtlasSet;
-use crate::single::{DirtyViewRect};
-use crate::system::render::shaders::image::{ FBO_VS_SHADER_NAME, FBO_FS_SHADER_NAME};
-use crate::system::util::constant::*;
-use crate::system::util::{*, let_top_offset_matrix as let_top_offset_matrix1};
-use crate::Z_MAX;
+use crate::system::util::*;
 
 lazy_static! {
 	static ref UV: Atom = Atom::from("UV");
@@ -111,7 +105,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskTextureSys<C> {
 			let render_obj = &mut render_objs[render_context.render_obj_index];
 
 			// 设置mask_image
-			if dirty1 & StyleType1::MaskTexture as usize != 0 {
+			if dirty1 & CalcType::MaskImageTexture as usize != 0 {
 				let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 				render_obj.vs_defines.add("MASK_IMAGE");
 				if let None = render_obj.fs_defines.add("MASK_IMAGE") {
@@ -128,7 +122,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskTextureSys<C> {
 			}
 
 			// oct发生改变时，重新设置maskRect
-			if style_mark.dirty & StyleType::Oct as usize != 0 || dirty1 & StyleType1::MaskTexture as usize != 0 {
+			if style_mark.dirty1 & CalcType::Oct as usize != 0 || dirty1 & CalcType::MaskImageTexture as usize != 0 {
 				let oct = octree.get(id).unwrap().0;
 				render_obj.paramter.set_single_uniform(
 				"maskRect",
@@ -136,7 +130,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskTextureSys<C> {
 				);
 			}
 
-			if dirty1 & StyleType1::ContentBox as usize != 0 || dirty1 & StyleType1::MaskTexture as usize != 0 {
+			if dirty1 & CalcType::ContentBox as usize != 0 || dirty1 & CalcType::MaskImageTexture as usize != 0 {
 				update_geo_quad_with_mask(render_obj, mask_texture, mask_image_clips.get(id), engine)
 			}
 		}
@@ -226,7 +220,7 @@ fn update_geo_quad_with_mask<C: HalContext + 'static>(
 	}
 	let clip = match texture {
 		MaskTexture::All(_r) => match image_clip {
-			Some(r) => r.0.clone(),
+			Some(r) => Aabb2::new(Point2::new(*r.left, *r.top), Point2::new(*r.right, *r.bottom)),
 			None => Aabb2::new(Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)),
 		},
 		MaskTexture::Part(r) => {

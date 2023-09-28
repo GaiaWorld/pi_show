@@ -3,10 +3,10 @@
  */
 use std::{marker::PhantomData, cell::RefCell};
 
-use nalgebra::DefaultAllocator;
+use crate::component::user::StyleType;
 use share::Share;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::{
     CreateEvent, DeleteEvent, EntityImpl, EntityListener, ModifyEvent, MultiCaseImpl,
 	MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener,
@@ -14,6 +14,7 @@ use ecs::{
 };
 use hal_core::*;
 use res::{ResMap, ResMgr};
+use pi_style::style::BlendMode as BlendMode1;
 
 use crate::{component::{calc::*, calc::LayoutR, user::{Aabb2, BorderRadius}, calc::Visibility as CVisibility}, single::dyn_texture::DynAtlasSet};
 use crate::component::user::Opacity;
@@ -113,7 +114,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 		&'a SingleCaseImpl<Oct>,
 		&'a SingleCaseImpl<RenderBegin>,
 		&'a EntityImpl<Node>,
-		&'a MultiCaseImpl<Node, crate::component::user::Image>,
+		&'a MultiCaseImpl<Node, crate::component::user::BackgroundImage>,
 		
     );
     type WriteData = (
@@ -150,7 +151,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
 				if let Some(content_box) = content_boxs.get(*id) {
 					handler_modify_oct(*id, &content_box.0, render_begin, dirty_view_rect);
 				}
-			} else if style_mark.dirty & StyleType::Oct as usize == 0 { // oct不脏才更新，因为监听器已经处理了oct
+			} else if style_mark.dirty1 & CalcType::Oct as usize == 0 { // oct不脏才更新，因为监听器已经处理了oct
 				if let Some(oct) = octree.get(*id) {
 					handler_modify_oct(*id, &oct.0, render_begin, dirty_view_rect);
 				}
@@ -202,7 +203,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for NodeAttrSys<C> {
         let slice: &[f32] = view_matrix.0.as_slice();
         let view_matrix_ubo = ViewMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
 
-        let slice: &[f32] = projection_matrix.0.as_slice();;
+        let slice: &[f32] = projection_matrix.0.as_slice();
         let project_matrix_ubo =
             ProjectMatrixUbo::new(UniformValue::MatrixV4(Vec::from(slice)));
 
@@ -335,15 +336,15 @@ impl<'a, C: HalContext + 'static>
     fn listen(&mut self, event: &Event, (blend_modes, default_state): Self::ReadData, write: Self::WriteData) {
         let (render_objs, node_render_map) = write;
         let obj_ids = &node_render_map[event.id];
-        let blend_mode = &blend_modes[event.id];
+        let blend_mode = &blend_modes[event.id].0;
 
 		if obj_ids.len() > 0 {
 			let bs = match blend_mode {
-				BlendMode::Normal => &default_state.df_bs,
-				BlendMode::AlphaAdd => &default_state.alpha_add_bs,
-				BlendMode::Subtract => &default_state.subtract_bs,
-				BlendMode::Multiply => &default_state.multiply_bs,
-				BlendMode::OneOne => &default_state.one_one_bs,
+				BlendMode1::Normal => &default_state.df_bs,
+				BlendMode1::AlphaAdd => &default_state.alpha_add_bs,
+				BlendMode1::Subtract => &default_state.subtract_bs,
+				BlendMode1::Multiply => &default_state.multiply_bs,
+				BlendMode1::OneOne => &default_state.one_one_bs,
 			};
 
 			for id in obj_ids.iter() {
@@ -442,12 +443,12 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
             paramter.set_value("hsvValue", self.create_hsv_ubo(hsv)); // hsv
         }
 
-		let blend_mode = &blend_modes[render_obj.context];
+		let blend_mode = &blend_modes[render_obj.context].0;
 		match blend_mode {
-			BlendMode::AlphaAdd => render_obj.state.bs = default_state.alpha_add_bs.clone(),
-			BlendMode::Subtract => render_obj.state.bs = default_state.subtract_bs.clone(),
-			BlendMode::Multiply => render_obj.state.bs = default_state.multiply_bs.clone(),
-			BlendMode::OneOne => render_obj.state.bs = default_state.one_one_bs.clone(),
+			BlendMode1::AlphaAdd => render_obj.state.bs = default_state.alpha_add_bs.clone(),
+			BlendMode1::Subtract => render_obj.state.bs = default_state.subtract_bs.clone(),
+			BlendMode1::Multiply => render_obj.state.bs = default_state.multiply_bs.clone(),
+			BlendMode1::OneOne => render_obj.state.bs = default_state.one_one_bs.clone(),
 			_ => (),
 		}
     }
@@ -712,7 +713,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderRadius, (Cre
 
 // 设置圆角， 返回宏是否改变
 fn set_radius(border_radius: &BorderRadiusPixel, layout: &LayoutR, draw_obj: &mut RenderObj) -> bool {
-	let (width, height)  = (layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+	let (width, height)  = (layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 	let (x, y, z, w) = match draw_obj.vert_type {
 		VertType::BorderRect | VertType::ContentRect  => (
 			width/2.0, 
@@ -738,9 +739,9 @@ fn set_radius(border_radius: &BorderRadiusPixel, layout: &LayoutR, draw_obj: &mu
 		VertType::ContentNone | VertType::ContentRect  => {
 			temp = cal_content_border_radius(&border_radius, (
 				layout.border.top,
-				layout.border.end,
+				layout.border.right,
 				layout.border.bottom,
-				layout.border.start,
+				layout.border.left,
 			));
 			&temp
 		},
@@ -829,20 +830,23 @@ fn modify_visible(id: usize, read: ReadData, write: WriteData) {
         render_obj.set_visibility(visibility && !culling && opcaity > 0.0);
     }
 }
+lazy_static! {
+	static ref CONTENT_DIRTY: StyleBit = style_bit().set_bit(StyleType::Hsi as usize) 
+		.set_bit(StyleType::Opacity as usize)
+		.set_bit(StyleType::BackgroundColor as usize) // 还有其他属性 TODO
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::Visibility as usize)
+		.set_bit( StyleType::Overflow as usize)
+		.set_bit(StyleType::MaskImage as usize)
+		.set_bit(StyleType::MaskImageClip as usize)
+		.set_bit(StyleType::Blur as usize);
+}
 
-const CONTENT_DIRTY: usize = StyleType::Filter as usize 
-	| StyleType::Opacity as usize
-	| StyleType::BackgroundColor as usize; // 还有其他属性 TODO
-const CONTENT_DIRTY1:usize = StyleType1::Display as usize
-	| StyleType1::Visibility as usize
-	| StyleType1::Overflow as usize
-	| StyleType1::MaskImage as usize
-	| StyleType1::MaskImageClip as usize
-	| StyleType1::MaskTexture as usize
-	| StyleType1::Blur as usize;
+
+	// | StyleType::MaskTexture as usize
 
 fn content_show_change(style_mark: &StyleMark) -> bool{
-	if style_mark.dirty & CONTENT_DIRTY != 0 || style_mark.dirty1 & CONTENT_DIRTY1 != 0 {
+	if (style_mark.dirty & &*CONTENT_DIRTY).any() || style_mark.dirty1 & CalcType::MaskImageTexture as usize != 0 {
 		true
 	} else {
 		false

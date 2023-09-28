@@ -1,10 +1,13 @@
 /// 中间计算的组件
-use std::ops::{Deref, DerefMut, Mul};
+use std::ops::{Deref, DerefMut, Mul, BitAndAssign, BitAnd, BitOr, BitOrAssign, Not, BitXor};
 
+use bitvec::prelude::BitArray;
 use densevec::DenseVecMap;
 use ecs::component::Component;
 use map::vecmap::VecMap;
 use nalgebra::Matrix4;
+use pi_atom::Atom;
+use pi_style::style::AllTransform;
 use share::Share;
 
 use hal_core::*;
@@ -16,8 +19,8 @@ use res::Res;
 
 use crate::render::res::TextureRes;
 use crate::{
-    render::res::{BufferRes, TexturePartRes},
-    single::{DirtyViewRect, PostProcessContext, PostProcessObj, ProjectionMatrix, RenderObj},
+    render::res::TexturePartRes,
+    single::{DirtyViewRect, PostProcessContext, PostProcessObj, ProjectionMatrix},
     util::vecmap_default::VecMapWithDefault,
 };
 
@@ -129,20 +132,20 @@ impl Default for LayoutR {
     fn default() -> LayoutR {
         LayoutR {
             rect: Rect {
-                start: 0.0,
-                end: 0.0,
+                left: 0.0,
+                right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
             border: Rect {
-                start: 0.0,
-                end: 0.0,
+                left: 0.0,
+                right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
             padding: Rect {
-                start: 0.0,
-                end: 0.0,
+                left: 0.0,
+                right: 0.0,
                 top: 0.0,
                 bottom: 0.0,
             },
@@ -201,153 +204,154 @@ pub struct HSV {
     pub v: f32, // 0 ~ 正无穷 0表示黑色， 1表示不变， 2表示更亮
 }
 
-// 枚举样式的类型
-#[derive(Debug)]
-pub enum StyleType {
-    Text = 1,
-    FontStyle = 2,
-    FontWeight = 4,
-    FontSize = 0x8,
-    FontFamily = 0x10,
-    LetterSpacing = 0x20,
-    WordSpacing = 0x40,
-    LineHeight = 0x80,
-    Indent = 0x100,
-    WhiteSpace = 0x200,
-    TextAlign = 0x400,
-    VerticalAlign = 0x800,
-    Color = 0x1000,
-    Stroke = 0x2000,
-    TextShadow = 0x4000,
+// // 枚举样式的类型
+// #[derive(Debug)]
+// pub enum StyleType {
+//     Text = 1,
+//     FontStyle = 2,
+//     FontWeight = 4,
+//     FontSize = 0x8,
+//     FontFamily = 0x10,
+//     LetterSpacing = 0x20,
+//     WordSpacing = 0x40,
+//     LineHeight = 0x80,
+//     Indent = 0x100,
+//     WhiteSpace = 0x200,
+//     TextAlign = 0x400,
+//     VerticalAlign = 0x800,
+//     Color = 0x1000,
+//     Stroke = 0x2000,
+//     TextShadow = 0x4000,
 
-    Image = 0x8000,
-    ImageClip = 0x10000,
-    ObjectFit = 0x20000,
+//     Image = 0x8000,
+//     ImageClip = 0x10000,
+//     ObjectFit = 0x20000,
 
-    BorderImage = 0x40000,
-    BorderImageClip = 0x80000,
-    BorderImageSlice = 0x100000,
-    BorderImageRepeat = 0x200000,
+//     BorderImage = 0x40000,
+//     BorderImageClip = 0x80000,
+//     BorderImageSlice = 0x100000,
+//     BorderImageRepeat = 0x200000,
 
-    BorderColor = 0x400000,
+//     BorderColor = 0x400000,
 
-    BackgroundColor = 0x800000,
+//     BackgroundColor = 0x800000,
 
-    BoxShadow = 0x1000000,
+//     BoxShadow = 0x1000000,
 
-    Matrix = 0x2000000,
-    Opacity = 0x4000000,
-    Layout = 0x8000000,
-    BorderRadius = 0x10000000,
-    ByOverflow = 0x20000000,
-    Filter = 0x40000000,
-    Oct = std::isize::MIN,
+//     Matrix = 0x2000000,
+//     Opacity = 0x4000000,
+//     Layout = 0x8000000,
+//     BorderRadius = 0x10000000,
+//     ByOverflow = 0x20000000,
+//     Filter = 0x40000000,
+//     Oct = std::isize::MIN,
+// }
+
+// // 枚举样式的类型
+// #[derive(Debug)]
+// pub enum StyleType1 {
+//     // Width = 1,
+//     // Height = 2,
+//     // Margin = 4,
+//     // Padding = 8,
+//     // Border = 0x10,
+//     // Position = 0x20,
+//     // MinWidth = 0x40,
+//     // MinHeight = 0x80,
+//     // MaxHeight = 0x100,
+//     // MaxWidth = 0x200,
+//     // FlexBasis = 0x400,
+//     // FlexShrink = 0x800,
+//     // FlexGrow = 0x1000,
+//     // PositionType = 0x2000,
+//     // FlexWrap = 0x4000,
+//     // FlexDirection = 0x8000,
+//     // AlignContent = 0x10000,
+//     // AlignItems = 0x20000,
+// 	ClipPath = 0x200,
+//     BackgroundRepeat = 0x400,
+//     Blur = 0x800,
+//     BorderImageTexture = 0x1000,
+//     ImageTexture = 0x2000,
+//     TransformOrigin = 0x4000,
+//     ContentBox = 0x8000,
+//     Direction = 0x10000,
+//     AspectRatio = 0x20000,
+//     Order = 0x40000,
+//     FlexBasis = 0x80000,
+
+//     Display = 0x100000,
+//     Visibility = 0x200000,
+//     Enable = 0x400000,
+//     ZIndex = 0x800000,
+//     Transform = 0x1000000,
+//     TransformWillChange = 0x2000000,
+//     Overflow = 0x4000000,
+
+//     Create = 0x8000000,
+//     Delete = 0x10000000,
+
+//     MaskImage = 0x20000000,
+//     MaskImageClip = 0x40000000,
+//     MaskTexture = std::isize::MIN,
+// }
+
+// // 布局属性标记
+// pub enum StyleType2 {
+//     Width = 1,
+//     Height = 2,
+
+//     MarginTop = 4,
+//     MarginRight = 8,
+//     MarginBottom = 0x10,
+//     MarginLeft = 0x20,
+
+//     PaddingTop = 0x40,
+//     PaddingRight = 0x80,
+//     PaddingBottom = 0x100,
+//     PaddingLeft = 0x200,
+
+//     BorderTop = 0x400,
+//     BorderRight = 0x800,
+//     BorderBottom = 0x1000,
+//     BorderLeft = 0x2000,
+
+//     PositionTop = 0x4000,
+//     PositionRight = 0x8000,
+//     PositionBottom = 0x10000,
+//     PositionLeft = 0x20000,
+
+//     MinWidth = 0x40000,
+//     MinHeight = 0x80000,
+//     MaxHeight = 0x100000,
+//     MaxWidth = 0x200000,
+//     JustifyContent = 0x400000,
+//     FlexShrink = 0x800000,
+//     FlexGrow = 0x1000000,
+//     PositionType = 0x2000000,
+//     FlexWrap = 0x4000000,
+//     FlexDirection = 0x8000000,
+//     AlignContent = 0x10000000,
+//     AlignItems = 0x20000000,
+//     AlignSelf = 0x40000000,
+//     BlendMode = std::isize::MIN,
+// }
+lazy_static! {
+	// margin标记
+	pub static ref LAYOUT_MARGIN_MARK: StyleBit =
+	style_bit().set_bit(StyleType::MarginTop as usize).set_bit(StyleType::MarginRight as usize).set_bit(StyleType::MarginBottom as usize).set_bit(StyleType::MarginLeft as usize);
+	// pading标记
+	pub static ref LAYOUT_PADDING_MARK: StyleBit =
+	style_bit().set_bit(StyleType::PaddingTop as usize).set_bit(StyleType::PaddingRight as usize).set_bit(StyleType::PaddingBottom as usize).set_bit(StyleType::PaddingLeft as usize);
+	// border标记
+	pub static ref LAYOUT_BORDER_MARK: StyleBit =
+	style_bit().set_bit(StyleType::BorderTop as usize).set_bit(StyleType::BorderRight as usize).set_bit(StyleType::BorderBottom as usize).set_bit(StyleType::BorderLeft as usize);
+	// border标记
+	pub static ref LAYOUT_POSITION_MARK: StyleBit =
+	style_bit().set_bit(StyleType::PositionTop as usize).set_bit(StyleType::PositionRight as usize).set_bit(StyleType::PositionBottom as usize).set_bit(StyleType::PositionLeft as usize);
+	// 矩形属性标记
+	pub static ref LAYOUT_RECT_MARK: StyleBit = style_bit().set_bit(StyleType::Width as usize).set_bit(StyleType::Height as usize) | &*LAYOUT_MARGIN_MARK;
 }
-
-// 枚举样式的类型
-#[derive(Debug)]
-pub enum StyleType1 {
-    // Width = 1,
-    // Height = 2,
-    // Margin = 4,
-    // Padding = 8,
-    // Border = 0x10,
-    // Position = 0x20,
-    // MinWidth = 0x40,
-    // MinHeight = 0x80,
-    // MaxHeight = 0x100,
-    // MaxWidth = 0x200,
-    // FlexBasis = 0x400,
-    // FlexShrink = 0x800,
-    // FlexGrow = 0x1000,
-    // PositionType = 0x2000,
-    // FlexWrap = 0x4000,
-    // FlexDirection = 0x8000,
-    // AlignContent = 0x10000,
-    // AlignItems = 0x20000,
-	ClipPath = 0x200,
-    BackgroundRepeat = 0x400,
-    Blur = 0x800,
-    BorderImageTexture = 0x1000,
-    ImageTexture = 0x2000,
-    TransformOrigin = 0x4000,
-    ContentBox = 0x8000,
-    Direction = 0x10000,
-    AspectRatio = 0x20000,
-    Order = 0x40000,
-    FlexBasis = 0x80000,
-
-    Display = 0x100000,
-    Visibility = 0x200000,
-    Enable = 0x400000,
-    ZIndex = 0x800000,
-    Transform = 0x1000000,
-    TransformWillChange = 0x2000000,
-    Overflow = 0x4000000,
-
-    Create = 0x8000000,
-    Delete = 0x10000000,
-
-    MaskImage = 0x20000000,
-    MaskImageClip = 0x40000000,
-    MaskTexture = std::isize::MIN,
-}
-
-// 布局属性标记
-pub enum StyleType2 {
-    Width = 1,
-    Height = 2,
-
-    MarginTop = 4,
-    MarginRight = 8,
-    MarginBottom = 0x10,
-    MarginLeft = 0x20,
-
-    PaddingTop = 0x40,
-    PaddingRight = 0x80,
-    PaddingBottom = 0x100,
-    PaddingLeft = 0x200,
-
-    BorderTop = 0x400,
-    BorderRight = 0x800,
-    BorderBottom = 0x1000,
-    BorderLeft = 0x2000,
-
-    PositionTop = 0x4000,
-    PositionRight = 0x8000,
-    PositionBottom = 0x10000,
-    PositionLeft = 0x20000,
-
-    MinWidth = 0x40000,
-    MinHeight = 0x80000,
-    MaxHeight = 0x100000,
-    MaxWidth = 0x200000,
-    JustifyContent = 0x400000,
-    FlexShrink = 0x800000,
-    FlexGrow = 0x1000000,
-    PositionType = 0x2000000,
-    FlexWrap = 0x4000000,
-    FlexDirection = 0x8000000,
-    AlignContent = 0x10000000,
-    AlignItems = 0x20000000,
-    AlignSelf = 0x40000000,
-    BlendMode = std::isize::MIN,
-}
-
-// margin标记
-pub const LAYOUT_MARGIN_MARK: usize =
-    StyleType2::MarginTop as usize | StyleType2::MarginRight as usize | StyleType2::MarginBottom as usize | StyleType2::MarginLeft as usize;
-// pading标记
-pub const LAYOUT_PADDING_MARK: usize =
-    StyleType2::PaddingTop as usize | StyleType2::PaddingRight as usize | StyleType2::PaddingBottom as usize | StyleType2::PaddingLeft as usize;
-// border标记
-pub const LAYOUT_BORDER_MARK: usize =
-    StyleType2::BorderTop as usize | StyleType2::BorderRight as usize | StyleType2::BorderBottom as usize | StyleType2::BorderLeft as usize;
-// border标记
-pub const LAYOUT_POSITION_MARK: usize =
-    StyleType2::PositionTop as usize | StyleType2::PositionRight as usize | StyleType2::PositionBottom as usize | StyleType2::PositionLeft as usize;
-// 矩形属性标记
-pub const LAYOUT_RECT_MARK: usize = StyleType2::Width as usize | StyleType2::Height as usize | LAYOUT_MARGIN_MARK;
 
 
 #[derive(Component, Clone)]
@@ -359,7 +363,7 @@ pub enum MaskTexture {
 // 图片使用纹理（可以是canvas，如果是canvas，不要再同时渲染一张图片，否则会冲突，他们的纹理是共用该组件）
 #[derive(Component, Clone)]
 pub enum ImageTexture {
-    All(Share<TextureRes>, usize/*url*/),
+    All(Share<TextureRes>, Atom/*url*/),
     Part(Share<TexturePartRes>),
 }
 
@@ -377,20 +381,137 @@ pub struct BorderImageTexture(pub Share<TextureRes>);
 // 	}
 // }
 
+pub enum CalcType {
+	// 兼容旧的gui
+	Matrix = 1,
+	Layout = 2,
+	ByOverflow = 3,
+	BorderImageTexture = 4,
+	BackgroundImageTexture = 5,
+	MaskImageTexture = 6,
+	Oct = 7,
+	ContentBox = 8,
+	Create = 9,
+	Delete = 10,
+}
+
+pub const GEO_DIRTY_TYPE: usize = CalcType::Matrix as usize
+    | CalcType::Layout as usize;
+
 // 样式标记
 #[derive(Component, Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct StyleMark {
-    pub dirty: usize,  // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
-    pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
-    pub dirty2: usize, // 脏， StyleType1值的组合， 如：StyleType1::Width as usize | StyleType2::Height as usize 表示Width和Height脏了
+    pub dirty: StyleBit,  // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
+    pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType::Width as usize | StyleType::Height as usize 表示Width和Height脏了
+	pub style: usize, // dirty1对应的属性
+    // pub dirty2: usize, // 脏， StyleType1值的组合， 如：StyleType::Width as usize | StyleType::Height as usize 表示Width和Height脏了
     pub dirty_other: usize, // 其它脏， 仅标记，不会记入脏列表
-    pub local_style: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub local_style2: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
-    pub class_style: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
-    pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
-    pub class_style2: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+    pub local_style: StyleBit, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+    // pub local_style1: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+    // pub local_style2: usize, // 本地样式， 表示节点样式中，哪些样式是由style设置的（而非class设置）
+    pub class_style: StyleBit, // class样式， 表示节点样式中，哪些样式是由class设置的
+    // pub class_style1: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
+    // pub class_style2: usize, // class样式， 表示节点样式中，哪些样式是由class设置的
 }
+
+#[derive(Debug, Deref, DerefMut, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, PartialOrd, Ord, Hash)]
+pub struct StyleBit(pub BitArray<[u32; 3]>);
+
+impl Default for StyleBit {
+    fn default() -> Self {
+		StyleBit(BitArray::new([0, 0, 0]))
+    }
+}
+
+// pub trait StyleBitSetting {
+// 	fn set_bit(self, index: usize) -> Self;
+// }
+
+impl StyleBit {
+	#[inline]
+    pub fn set_bit(mut self, index: usize) -> Self {
+        self.set(index, true);
+		self
+    }
+}
+
+impl BitAnd<&StyleBit> for StyleBit {
+    type Output = StyleBit;
+
+	#[inline]
+    fn bitand(self, rhs: &StyleBit) -> Self::Output {
+        StyleBit(self.0 & &rhs.0)
+    }
+}
+
+impl BitAnd<StyleBit> for StyleBit {
+    type Output = StyleBit;
+
+	#[inline]
+    fn bitand(self, rhs: StyleBit) -> Self::Output {
+        StyleBit(self.0 & &rhs.0)
+    }
+}
+
+impl BitOr<&StyleBit> for StyleBit {
+    type Output = StyleBit;
+
+	#[inline]
+    fn bitor(self, rhs: &StyleBit) -> Self::Output {
+        StyleBit(self.0 | &rhs.0)
+    }
+}
+
+impl BitOr<StyleBit> for StyleBit {
+    type Output = StyleBit;
+
+	#[inline]
+    fn bitor(self, rhs: StyleBit) -> Self::Output {
+        StyleBit(self.0 | &rhs.0)
+    }
+}
+
+impl BitOrAssign<StyleBit> for StyleBit {
+	#[inline]
+    fn bitor_assign(&mut self, rhs: StyleBit) {
+        *self = rhs | &*self;
+    }
+}
+ 
+impl BitAndAssign<StyleBit> for StyleBit {
+	#[inline]
+    fn bitand_assign(&mut self, rhs: StyleBit) {
+        *self = rhs & &*self;
+    }
+}
+
+impl Not for StyleBit {
+    type Output = StyleBit;
+
+	#[inline]
+    fn not(self) -> Self::Output {
+        StyleBit(!self.0)
+    }
+}
+
+impl BitXor for StyleBit {
+    type Output = StyleBit;
+
+    fn bitxor(self, rhs: Self) -> Self::Output {
+		StyleBit(self.0 & self.0)
+    }
+
+}
+
+
+
+
+#[inline]
+pub const fn style_bit() -> StyleBit {
+	StyleBit(BitArray::ZERO)
+}
+
+
 pub enum LayoutDirtyType {
     Rect = 1,        // 矩形区间发生改变时，设置脏
     SelfStyle = 2,   // 矩形区间发生改变时，设置脏
@@ -611,6 +732,128 @@ impl WorldMatrix {
             None => None,
         }
     }
+}
+
+impl WorldMatrix {
+	pub fn translate(&mut self, x: f32, y: f32, z: f32) -> &mut Self {
+        if self.1 {
+            let r = &*self * WorldMatrix(Matrix4::new_translation(&Vector3::new(x, y, z)), false);
+            *self = r;
+        } else {
+            let slice = self.0.as_mut_slice();
+            slice[12] += slice[0] * x;
+            slice[13] += slice[5] * y;
+            slice[14] += slice[10] * z;
+        }
+        self
+    }
+
+    pub fn form_transform_funcs(transformfuncs: &TransformFuncs, width: f32, height: f32) -> WorldMatrix {
+        if transformfuncs.len() > 0 {
+            let mut m = Self::get_matrix(&transformfuncs[0], width, height);
+            for i in 1..transformfuncs.len() {
+                m = m * Self::get_matrix(&transformfuncs[i], width, height);
+            }
+            m
+        } else {
+            WorldMatrix::default()
+        }
+    }
+	pub fn matrix(all_transform: &AllTransform, origin: &TransformOrigin, width: f32, height: f32, left_top: &Point2) -> WorldMatrix {
+		// M = T * R * S
+		// let mut m = cg::Matrix4::new(
+		//     1.0, 0.0, 0.0, 0.0,
+		//     0.0, 1.0, 0.0, 0.0,
+		//     0.0, 0.0, 1.0, 0.0,
+		//     0.0, 0.0, 0.0, 1.0,
+		// );
+		let value = origin.to_value(width, height);
+		let mut m = WorldMatrix(
+			Matrix4::new_translation(&Vector3::new(left_top.x + value.x, left_top.y + value.y, 0.0)),
+			false,
+		);
+	
+		if let Some(scale) = &all_transform.scale {
+			m = m * WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(scale[0], scale[1], 1.0)), false);
+		}
+	
+		if let Some(rotate) = &all_transform.rotate {
+			m = m * WorldMatrix(
+				Matrix4::new_rotation(Vector3::new(0.0, 0.0, *rotate / 180.0 * std::f32::consts::PI)),
+				true,
+			);
+		}
+	
+		if let Some(translate) = &all_transform.translate {
+			m.translate(translate[0].get_absolute_value(width), translate[1].get_absolute_value(height), 0.0);
+		}
+	
+		for func in all_transform.transform.iter() {
+			m = m * Self::get_matrix(func, width, height);
+		}
+		m
+	}
+
+	pub fn get_matrix(func: &TransformFunc, width: f32, height: f32) -> WorldMatrix {
+		match func {
+			TransformFunc::TranslateX(x) => WorldMatrix(Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), 0.0, 0.0)), false),
+			TransformFunc::TranslateY(y) => WorldMatrix(Matrix4::new_translation(&Vector3::new(0.0, y.get_absolute_value(height), 0.0)), false),
+			TransformFunc::Translate(x, y) => WorldMatrix(
+				Matrix4::new_translation(&Vector3::new(x.get_absolute_value(width), y.get_absolute_value(height), 0.0)),
+				false,
+			),
+	
+			TransformFunc::ScaleX(x) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, 1.0, 1.0)), false),
+			TransformFunc::ScaleY(y) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(1.0, *y, 1.0)), false),
+			TransformFunc::Scale(x, y) => WorldMatrix(Matrix4::new_nonuniform_scaling(&Vector3::new(*x, *y, 1.0)), false),
+	
+			TransformFunc::RotateZ(z) => WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, 0.0, *z / 180.0 * std::f32::consts::PI)), true),
+			TransformFunc::RotateX(x) => WorldMatrix(Matrix4::new_rotation(Vector3::new(*x / 180.0 * std::f32::consts::PI, 0.0, 0.0)), true),
+			TransformFunc::RotateY(y) => WorldMatrix(Matrix4::new_rotation(Vector3::new(0.0, *y / 180.0 * std::f32::consts::PI, 0.0)), true),
+			TransformFunc::SkewX(x) => WorldMatrix(
+				Matrix4::new(
+					1.0,
+					(*x / 180.0 * std::f32::consts::PI).tan(),
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+				),
+				true,
+			),
+			TransformFunc::SkewY(y) => WorldMatrix(
+				Matrix4::new(
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					(*y / 180.0 * std::f32::consts::PI).tan(),
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+					0.0,
+					0.0,
+					0.0,
+					0.0,
+					1.0,
+				),
+				true,
+			),
+		}
+	}
 }
 
 impl Default for Opacity {

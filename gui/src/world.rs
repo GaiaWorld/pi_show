@@ -1,14 +1,20 @@
 use std::cell::RefCell;
+use std::mem::forget;
 use std::sync::Arc;
 use std::{default::Default, marker::PhantomData};
 
-use atom::Atom;
+use pi_atom::Atom;
 use hal_core::*;
+use pi_null::Null;
+use pi_style::style_parse::{parse_class_map_from_string, ClassMap};
+use pi_style::style_type::ClassSheet;
 use render::blur::{BlurSys, CellBlurSys};
 use render::mask_texture::{CellMaskTextureSys, MaskTextureSys};
 
+use crate::component::user::serialize::{ConvertToComponent, StyleTypeReader};
 use crate::single::dyn_texture::DynAtlasSet;
 use crate::single::IdTree;
+use crate::single::fragment::{FragmentMap, Fragments, NodeTag};
 use crate::system::render::opacity::{CellOpacitySys, OpacitySys};
 use ecs::StdCell;
 use ecs::*;
@@ -29,6 +35,7 @@ use crate::single::*;
 use crate::system::util::constant::*;
 use crate::system::*;
 use crate::Z_MAX;
+use crate::component::calc:: Enable;
 
 lazy_static! {
     pub static ref RENDER_DISPATCH: Atom = Atom::from("render_dispatch");
@@ -94,7 +101,7 @@ pub fn create_world<C: HalContext + 'static>(
     mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
-    font_measure: Box<dyn Fn(usize, usize, char) -> f32>,
+    font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
     font_texture: Share<TextureRes>,
     cur_time: usize,
 
@@ -172,13 +179,13 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, TextContent>();
     world.register_multi::<Node, Font>();
     world.register_multi::<Node, BorderRadius>();
-    world.register_multi::<Node, Image>();
-    world.register_multi::<Node, ImageClip>();
+    world.register_multi::<Node, BackgroundImage>();
+    world.register_multi::<Node, BackgroundImageClip>();
     world.register_multi::<Node, MaskTexture>();
     world.register_multi::<Node, MaskImage>();
     world.register_multi::<Node, MaskImageClip>();
-    world.register_multi::<Node, BackgroundImageOption>();
-    world.register_multi::<Node, Filter>();
+    world.register_multi::<Node, BackgroundImageMod>();
+    world.register_multi::<Node, Hsi>();
     world.register_multi::<Node, ClassName>();
     world.register_multi::<Node, StyleMark>();
     world.register_multi::<Node, TransformWillChange>();
@@ -263,6 +270,40 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<DirtyList>(DirtyList::with_capacity(capacity));
     world.register_single::<SystemTime>(sys_time);
 	world.register_single::<VertType>(VertType::default());
+	world.register_single::<Share<StdCell<FragmentMap>>>(Share::new(StdCell::new(FragmentMap::default())));
+
+	// default style
+	world.register_single::<Transform>(Transform::default());
+	world.register_single::<user::ZIndex>(user::ZIndex::default());
+	world.register_single::<Overflow>(Overflow::default());
+	world.register_single::<Show>(Show::default());
+	world.register_single::<user::Opacity>(user::Opacity::default());
+	world.register_single::<BackgroundColor>(BackgroundColor::default());
+	world.register_single::<BoxShadow>(BoxShadow::default());
+	world.register_single::<BorderColor>(BorderColor::default());
+	world.register_single::<BorderImage>(BorderImage::default());
+	world.register_single::<BorderImageClip>(BorderImageClip::default());
+	world.register_single::<BorderImageSlice>(BorderImageSlice::default());
+	world.register_single::<BorderImageRepeat>(BorderImageRepeat::default());
+	world.register_single::<TextStyle>(TextStyle::default());
+	world.register_single::<TextContent>(TextContent::default());
+	world.register_single::<Font>(Font::default());
+	world.register_single::<BorderRadius>(BorderRadius::default());
+	world.register_single::<BackgroundImage>(BackgroundImage::default());
+	world.register_single::<BackgroundImageClip>(BackgroundImageClip::default());
+	world.register_single::<BackgroundImageMod>(BackgroundImageMod::default());
+	world.register_single::<Hsi>(Hsi::default());
+	world.register_single::<RectLayoutStyle>(RectLayoutStyle::default());
+	world.register_single::<OtherLayoutStyle>(OtherLayoutStyle::default());
+	world.register_single::<NodeState>(NodeState::default());
+	world.register_single::<ClassName>(ClassName::default());
+	world.register_single::<StyleMark>(StyleMark::default());
+	world.register_single::<TransformWillChange>(TransformWillChange::default());
+	world.register_single::<MaskImage>(MaskImage::default());
+	world.register_single::<MaskImageClip>(MaskImageClip::default());
+	world.register_single::<BlendMode>(BlendMode::default());
+	world.register_single::<Blur>(Blur::default());
+	world.register_single::<ClipPath>(ClipPath::default());
 
     world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
@@ -300,8 +341,9 @@ pub fn create_world<C: HalContext + 'static>(
     //     CellResReleaseSys::<C>::new(ResReleaseSys::new()),
     // );
     world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<C>::new(StyleMarkSys::new()));
-
-    world.register_system(CLASS_SETTING_N.clone(), CellClassSetting::<C>::new(ClassSetting::new()));
+	
+	let sys = CellClassSetting::<C>::new(ClassSetting::new(&mut world));
+    world.register_system(CLASS_SETTING_N.clone(), sys);
 
     world.register_system(MASK_IMAGE_N.clone(), CellMaskImageSys::<C>::new(MaskImageSys::new()));
 
@@ -339,7 +381,7 @@ pub fn create_world<C: HalContext + 'static>(
     world
 }
 
-pub struct GuiWorld<C: HalContext + 'static> {
+pub struct GuiWorldExt {
     pub node: Arc<CellEntity<Node>>,
     pub transform: Arc<CellMultiCase<Node, Transform>>,
     pub z_index: Arc<CellMultiCase<Node, user::ZIndex>>,
@@ -357,15 +399,14 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub text_content: Arc<CellMultiCase<Node, TextContent>>,
     pub font: Arc<CellMultiCase<Node, Font>>,
     pub border_radius: Arc<CellMultiCase<Node, BorderRadius>>,
-    pub image: Arc<CellMultiCase<Node, Image>>,
-    pub image_clip: Arc<CellMultiCase<Node, ImageClip>>,
-    pub object_fit: Arc<CellMultiCase<Node, BackgroundImageOption>>,
-    pub filter: Arc<CellMultiCase<Node, Filter>>,
+    pub background_image: Arc<CellMultiCase<Node, BackgroundImage>>,
+    pub background_image_clip: Arc<CellMultiCase<Node, BackgroundImageClip>>,
+    pub background_image_mod: Arc<CellMultiCase<Node, BackgroundImageMod>>,
+    pub filter: Arc<CellMultiCase<Node, Hsi>>,
     pub rect_layout_style: Arc<CellMultiCase<Node, RectLayoutStyle>>,
     pub other_layout_style: Arc<CellMultiCase<Node, OtherLayoutStyle>>,
     pub node_state: Arc<CellMultiCase<Node, NodeState>>,
     pub class_name: Arc<CellMultiCase<Node, ClassName>>,
-    pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
     pub transform_will_change: Arc<CellMultiCase<Node, TransformWillChange>>,
     pub mask_image: Arc<CellMultiCase<Node, MaskImage>>,
     pub mask_image_clip: Arc<CellMultiCase<Node, MaskImageClip>>,
@@ -373,9 +414,11 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub blur: Arc<CellMultiCase<Node, Blur>>,
 	pub clip_path: Arc<CellMultiCase<Node, ClipPath>>,
 
+	pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
+
     //calc
     pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
-    pub enable: Arc<CellMultiCase<Node, Enable>>,
+    pub enable: Arc<CellMultiCase<Node, crate::component::calc::Enable>>,
     pub visibility: Arc<CellMultiCase<Node, Visibility>>,
     pub world_matrix: Arc<CellMultiCase<Node, WorldMatrix>>,
     pub by_overflow: Arc<CellMultiCase<Node, ByOverflow>>,
@@ -389,7 +432,6 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub idtree: Arc<CellSingleCase<IdTree>>,
     pub oct: Arc<CellSingleCase<Oct>>,
     pub overflow_clip: Arc<CellSingleCase<OverflowClip>>,
-    pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub render_objs: Arc<CellSingleCase<RenderObjs>>,
     pub font_sheet: Arc<CellSingleCase<Share<StdCell<FontSheet>>>>,
     pub class_sheet: Arc<CellSingleCase<Share<StdCell<ClassSheet>>>>,
@@ -398,76 +440,318 @@ pub struct GuiWorld<C: HalContext + 'static> {
     pub system_time: Arc<CellSingleCase<SystemTime>>,
     pub dirty_view_rect: Arc<CellSingleCase<DirtyViewRect>>,
     pub dyn_atlas_set: Arc<CellSingleCase<Share<RefCell<DynAtlasSet>>>>,
+	pub fragment:  Arc<CellSingleCase<Share<StdCell<FragmentMap>>>>,
 
+
+	// DefaultComponent默认组件
+	pub default_components: DefaultComponent,
+
+    // pub world: World,
+}
+
+impl GuiWorldExt {
+	pub fn new(world: &mut World) -> Self {
+		Self {
+			node: world.fetch_entity::<Node>().unwrap(),
+			transform: world.fetch_multi::<Node, Transform>().unwrap(),
+			z_index: world.fetch_multi::<Node, user::ZIndex>().unwrap(),
+			overflow: world.fetch_multi::<Node, Overflow>().unwrap(),
+			show: world.fetch_multi::<Node, Show>().unwrap(),
+			opacity: world.fetch_multi::<Node, user::Opacity>().unwrap(),
+			background_color: world.fetch_multi::<Node, BackgroundColor>().unwrap(),
+			box_shadow: world.fetch_multi::<Node, BoxShadow>().unwrap(),
+			border_color: world.fetch_multi::<Node, BorderColor>().unwrap(),
+			border_image: world.fetch_multi::<Node, BorderImage>().unwrap(),
+			border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
+			border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
+			border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
+			text_content: world.fetch_multi::<Node, TextContent>().unwrap(),
+			text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
+			font: world.fetch_multi::<Node, Font>().unwrap(),
+			border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
+			background_image: world.fetch_multi::<Node, BackgroundImage>().unwrap(),
+			background_image_clip: world.fetch_multi::<Node, BackgroundImageClip>().unwrap(),
+			background_image_mod: world.fetch_multi::<Node, BackgroundImageMod>().unwrap(),
+			filter: world.fetch_multi::<Node, Hsi>().unwrap(),
+			rect_layout_style: world.fetch_multi::<Node, RectLayoutStyle>().unwrap(),
+			other_layout_style: world.fetch_multi::<Node, OtherLayoutStyle>().unwrap(),
+			node_state: world.fetch_multi::<Node, NodeState>().unwrap(),
+			class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
+			style_mark: world.fetch_multi::<Node, StyleMark>().unwrap(),
+			transform_will_change: world.fetch_multi::<Node, TransformWillChange>().unwrap(),
+			culling: world.fetch_multi::<Node, Culling>().unwrap(),
+			mask_image: world.fetch_multi::<Node, MaskImage>().unwrap(),
+			mask_image_clip: world.fetch_multi::<Node, MaskImageClip>().unwrap(),
+			blend_mode: world.fetch_multi::<Node, BlendMode>().unwrap(),
+			blur: world.fetch_multi::<Node, Blur>().unwrap(),
+			clip_path: world.fetch_multi::<Node, ClipPath>().unwrap(),
+
+			//calc
+			z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
+			enable: world.fetch_multi::<Node, Enable>().unwrap(),
+			visibility: world.fetch_multi::<Node, Visibility>().unwrap(),
+			world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
+			by_overflow: world.fetch_multi::<Node, ByOverflow>().unwrap(),
+			copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
+			layout: world.fetch_multi::<Node, LayoutR>().unwrap(),
+			hsv: world.fetch_multi::<Node, HSV>().unwrap(),
+			image_texture: world.fetch_multi::<Node, ImageTexture>().unwrap(),
+
+			//single
+			idtree: world.fetch_single::<IdTree>().unwrap(),
+			oct: world.fetch_single::<Oct>().unwrap(),
+			overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
+			render_objs: world.fetch_single::<RenderObjs>().unwrap(),
+			font_sheet: world.fetch_single::<Share<StdCell<FontSheet>>>().unwrap(),
+			class_sheet: world.fetch_single::<Share<StdCell<ClassSheet>>>().unwrap(),
+			image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
+			dirty_list: world.fetch_single::<DirtyList>().unwrap(),
+			system_time: world.fetch_single::<SystemTime>().unwrap(),
+			dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
+			dyn_atlas_set: world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap(),
+			fragment: world.fetch_single::<Share<StdCell<FragmentMap>>>().unwrap(),
+
+			default_components: DefaultComponent { 
+				transform: world.fetch_single::<Transform>().unwrap(),
+				z_index: world.fetch_single::<user::ZIndex>().unwrap(),
+				overflow: world.fetch_single::<Overflow>().unwrap(),
+				show: world.fetch_single::<Show>().unwrap(),
+				opacity: world.fetch_single::<user::Opacity>().unwrap(),
+				background_color: world.fetch_single::<BackgroundColor>().unwrap(),
+				box_shadow: world.fetch_single::<BoxShadow>().unwrap(),
+				border_color: world.fetch_single::<BorderColor>().unwrap(),
+				border_image: world.fetch_single::<BorderImage>().unwrap(),
+				border_image_clip: world.fetch_single::<BorderImageClip>().unwrap(),
+				border_image_slice: world.fetch_single::<BorderImageSlice>().unwrap(),
+				border_image_repeat: world.fetch_single::<BorderImageRepeat>().unwrap(),
+				text_style: world.fetch_single::<TextStyle>().unwrap(),
+				text_content: world.fetch_single::<TextContent>().unwrap(),
+				font: world.fetch_single::<Font>().unwrap(),
+				border_radius: world.fetch_single::<BorderRadius>().unwrap(),
+				background_image: world.fetch_single::<BackgroundImage>().unwrap(),
+				background_image_clip: world.fetch_single::<BackgroundImageClip>().unwrap(),
+				background_image_mod: world.fetch_single::<BackgroundImageMod>().unwrap(),
+				filter: world.fetch_single::<Hsi>().unwrap(),
+				rect_layout_style: world.fetch_single::<RectLayoutStyle>().unwrap(),
+				other_layout_style: world.fetch_single::<OtherLayoutStyle>().unwrap(),
+				node_state: world.fetch_single::<NodeState>().unwrap(),
+				class_name: world.fetch_single::<ClassName>().unwrap(),
+				style_mark: world.fetch_single::<StyleMark>().unwrap(),
+				transform_will_change: world.fetch_single::<TransformWillChange>().unwrap(),
+				mask_image: world.fetch_single::<MaskImage>().unwrap(),
+				mask_image_clip: world.fetch_single::<MaskImageClip>().unwrap(),
+				blend_mode: world.fetch_single::<BlendMode>().unwrap(),
+				blur: world.fetch_single::<Blur>().unwrap(),
+				clip_path: world.fetch_single::<ClipPath>().unwrap(),
+			},
+		}
+	}
+}
+
+impl<C: HalContext + 'static> GuiWorld<C> {
+	// 设置默认样式
+	pub fn set_default_style(&mut self, class: &str) {
+		let class_sheet = self.world_ext.class_sheet.lend_mut();
+		let mut class_sheet = class_sheet.borrow_mut();
+
+		let mut c = class;
+		let class_temp;
+		if !class.starts_with(".c0") {
+			class_temp = ".c0{".to_string() + class + "}";
+			c = class_temp.as_str();
+		}
+        match parse_class_map_from_string(c, 0) {
+            Ok(r) => {
+                r.to_class_sheet(&mut class_sheet);
+
+				if let Some(class) = class_sheet.class_map.get(&0) {
+					let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
+					while style_reader.write_to_default(&self.world_ext).is_some() {}
+				}
+            } // 触发DefaultStyle修改
+            Err(e) => {
+                log::error!("set_default_style_by_str fail, parse style err: {:?}", e);
+                return;
+            }
+        };
+	}
+
+	/// 设置样式
+	pub fn set_style<T: ConvertToComponent>(&mut self, entity: usize, value: T) {
+		let style_mark = self.world_ext.style_mark.lend_mut();
+		if let Some(style_mark) = style_mark.get_mut(entity){
+			<T as ConvertToComponent>::set(&mut style_mark.local_style, &value as *const T as usize as *const u8, &self.world_ext, entity, false);
+			let dirty_list = self.world_ext.dirty_list.lend_mut();
+			// 设脏
+			set_dirty(dirty_list, entity, T::get_type() as usize, style_mark);
+		}
+		forget(value);
+	}
+
+	// 创建class
+    pub fn create_class_by_bin(&mut self, bin: &[u8]) {
+        match postcard::from_bytes::<Vec<pi_style::style_parse::ClassMap>>(bin) {
+            Ok(r) => {
+				for item in r.into_iter() {
+					self.create_class(item);
+				}
+            }
+            Err(_e) => {
+                return;
+            }
+        }
+    }
+
+	pub fn create_class(&mut self, class: ClassMap) {
+       // 处理css
+		let class_sheet_single = self.world_ext.class_sheet.lend_mut();
+		let mut class_sheet_single = class_sheet_single.borrow_mut();
+		let mut class_sheet = pi_style::style_type::ClassSheet::default();
+		class.to_class_sheet(&mut class_sheet);
+		class_sheet_single.extend_from_class_sheet(class_sheet);
+    }
+
+
+	// 添加模版
+	pub fn add_fragment_by_bin(&mut self, value: Fragments) {
+		let fragment = self.world_ext.fragment.lend_mut();
+		fragment.borrow_mut().extend(value);
+	}
+
+	// 从模版创建节点, 返回创建的所有节点id
+	pub fn create_from_fragment(&mut self, key: u32) -> Vec<usize> {
+		let fragments = self.world_ext.fragment.lend();
+		let fragments = fragments.borrow();
+		let idtree = self.world_ext.idtree.lend_mut();
+		let text_content = self.world_ext.text_content.lend_mut();
+		let node_states = self.world_ext.node_state.lend_mut();
+
+		let t = match fragments.map.get(&key) {
+            Some(r) => r,
+            _ => {
+                return Vec::default();
+            }
+        };
+		let mut entitys = Vec::with_capacity(t.end - t.start);
+		for _ in t.start..t.end {
+			let e = self.world.create_entity::<Node>();
+			entitys.push(e);
+			idtree.create(e);
+		}
+
+
+        for i in t.clone() {
+            let n = &fragments.fragments[i];
+            let node = entitys[i - t.start];
+
+			// 初始化节点
+			if n.tag == NodeTag::Span {
+				text_content.insert(node, TextContent(pi_style::style::TextContent( "".to_string(), Atom::from(""))));
+			} else if n.tag == NodeTag::VNode {
+				node_states[node].0.set_vnode(true);
+			}
+			
+			// 设置本地样式
+            if n.style_meta.end > n.style_meta.start {
+				let style_mark = self.world_ext.style_mark.lend_mut();
+				let style_mark = &mut style_mark[node];
+
+				let mut style_reader = StyleTypeReader::new(&fragments.style_buffer, n.style_meta.start, n.style_meta.end);
+				while style_reader.write_to_component(&mut style_mark.local_style, node, &self.world_ext, true) {}
+
+				// 设脏
+				if style_mark.local_style.any() {
+					self.world_ext.dirty_list.lend_mut().0.push(node);
+				}
+			}
+			
+			// 设置class
+			if n.class.len() > 0 {
+				self.world_ext.class_name.lend_mut().insert(node, n.class.clone());
+			}
+        }
+
+		let idtree = self.world_ext.idtree.lend_mut();
+		// 组织节点的父子关系
+		for i in t.clone() {
+            let n = &fragments.fragments[i];
+            let node = entitys[i - t.start];
+            log::debug!(
+                "fragment_commands insertChild!!====================node={:?}, parent_index={:?}, parent_id={:?}",
+                node,
+                n.parent,
+				entitys.get(n.parent)
+            );
+            if !n.parent.is_null(){
+                // log::warn!("fragment_commands insertChild====================node：{:?}, parent {:?}", node, c.entitys[n.parent]);
+                idtree.insert_child(node, entitys[n.parent], std::usize::MAX);
+            }
+        }
+
+		entitys
+	}
+}
+
+
+#[inline]
+pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    if style_mark.dirty.not_any(){
+        dirty_list.0.push(id);
+    }
+
+    style_mark.dirty.set(ty, true);
+}
+
+pub struct DefaultComponent {
+	pub transform: Arc<CellSingleCase<Transform>>,
+    pub z_index: Arc<CellSingleCase<user::ZIndex>>,
+    pub overflow: Arc<CellSingleCase<Overflow>>,
+    pub show: Arc<CellSingleCase<Show>>,
+    pub opacity: Arc<CellSingleCase<user::Opacity>>,
+    pub background_color: Arc<CellSingleCase<BackgroundColor>>,
+    pub box_shadow: Arc<CellSingleCase<BoxShadow>>,
+    pub border_color: Arc<CellSingleCase<BorderColor>>,
+    pub border_image: Arc<CellSingleCase<BorderImage>>,
+    pub border_image_clip: Arc<CellSingleCase<BorderImageClip>>,
+    pub border_image_slice: Arc<CellSingleCase<BorderImageSlice>>,
+    pub border_image_repeat: Arc<CellSingleCase<BorderImageRepeat>>,
+    pub text_style: Arc<CellSingleCase<TextStyle>>,
+    pub text_content: Arc<CellSingleCase<TextContent>>,
+    pub font: Arc<CellSingleCase<Font>>,
+    pub border_radius: Arc<CellSingleCase<BorderRadius>>,
+    pub background_image: Arc<CellSingleCase<BackgroundImage>>,
+    pub background_image_clip: Arc<CellSingleCase<BackgroundImageClip>>,
+    pub background_image_mod: Arc<CellSingleCase<BackgroundImageMod>>,
+    pub filter: Arc<CellSingleCase<Hsi>>,
+    pub rect_layout_style: Arc<CellSingleCase<RectLayoutStyle>>,
+    pub other_layout_style: Arc<CellSingleCase<OtherLayoutStyle>>,
+    pub node_state: Arc<CellSingleCase<NodeState>>,
+    pub class_name: Arc<CellSingleCase<ClassName>>,
+    pub style_mark: Arc<CellSingleCase<StyleMark>>,
+    pub transform_will_change: Arc<CellSingleCase<TransformWillChange>>,
+    pub mask_image: Arc<CellSingleCase<MaskImage>>,
+    pub mask_image_clip: Arc<CellSingleCase<MaskImageClip>>,
+    pub blend_mode: Arc<CellSingleCase<BlendMode>>,
+    pub blur: Arc<CellSingleCase<Blur>>,
+	pub clip_path: Arc<CellSingleCase<ClipPath>>,
+}
+
+pub struct GuiWorld<C: HalContext + 'static> {
+
+	pub world_ext: GuiWorldExt,
+
+	pub engine: Arc<CellSingleCase<ShareEngine<C>>>,
     pub renderSys: Arc<CellRenderSys<C>>,
 
     pub world: World,
 }
 
 impl<C: HalContext + 'static> GuiWorld<C> {
-    pub fn new(world: World) -> GuiWorld<C> {
+    pub fn new(mut world: World) -> GuiWorld<C> {
         GuiWorld {
-            node: world.fetch_entity::<Node>().unwrap(),
-            transform: world.fetch_multi::<Node, Transform>().unwrap(),
-            z_index: world.fetch_multi::<Node, user::ZIndex>().unwrap(),
-            overflow: world.fetch_multi::<Node, Overflow>().unwrap(),
-            show: world.fetch_multi::<Node, Show>().unwrap(),
-            opacity: world.fetch_multi::<Node, user::Opacity>().unwrap(),
-            background_color: world.fetch_multi::<Node, BackgroundColor>().unwrap(),
-            box_shadow: world.fetch_multi::<Node, BoxShadow>().unwrap(),
-            border_color: world.fetch_multi::<Node, BorderColor>().unwrap(),
-            border_image: world.fetch_multi::<Node, BorderImage>().unwrap(),
-            border_image_clip: world.fetch_multi::<Node, BorderImageClip>().unwrap(),
-            border_image_slice: world.fetch_multi::<Node, BorderImageSlice>().unwrap(),
-            border_image_repeat: world.fetch_multi::<Node, BorderImageRepeat>().unwrap(),
-            text_content: world.fetch_multi::<Node, TextContent>().unwrap(),
-            text_style: world.fetch_multi::<Node, TextStyle>().unwrap(),
-            font: world.fetch_multi::<Node, Font>().unwrap(),
-            border_radius: world.fetch_multi::<Node, BorderRadius>().unwrap(),
-            image: world.fetch_multi::<Node, Image>().unwrap(),
-            image_clip: world.fetch_multi::<Node, ImageClip>().unwrap(),
-            object_fit: world.fetch_multi::<Node, BackgroundImageOption>().unwrap(),
-            filter: world.fetch_multi::<Node, Filter>().unwrap(),
-            rect_layout_style: world.fetch_multi::<Node, RectLayoutStyle>().unwrap(),
-            other_layout_style: world.fetch_multi::<Node, OtherLayoutStyle>().unwrap(),
-            node_state: world.fetch_multi::<Node, NodeState>().unwrap(),
-            class_name: world.fetch_multi::<Node, ClassName>().unwrap(),
-            style_mark: world.fetch_multi::<Node, StyleMark>().unwrap(),
-            transform_will_change: world.fetch_multi::<Node, TransformWillChange>().unwrap(),
-            culling: world.fetch_multi::<Node, Culling>().unwrap(),
-            mask_image: world.fetch_multi::<Node, MaskImage>().unwrap(),
-            mask_image_clip: world.fetch_multi::<Node, MaskImageClip>().unwrap(),
-            blend_mode: world.fetch_multi::<Node, BlendMode>().unwrap(),
-            blur: world.fetch_multi::<Node, Blur>().unwrap(),
-			clip_path: world.fetch_multi::<Node, ClipPath>().unwrap(),
-
-            //calc
-            z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
-            enable: world.fetch_multi::<Node, Enable>().unwrap(),
-            visibility: world.fetch_multi::<Node, Visibility>().unwrap(),
-            world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
-            by_overflow: world.fetch_multi::<Node, ByOverflow>().unwrap(),
-            copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
-            layout: world.fetch_multi::<Node, LayoutR>().unwrap(),
-            hsv: world.fetch_multi::<Node, HSV>().unwrap(),
-            image_texture: world.fetch_multi::<Node, ImageTexture>().unwrap(),
-
-            //single
-            idtree: world.fetch_single::<IdTree>().unwrap(),
-            oct: world.fetch_single::<Oct>().unwrap(),
-            overflow_clip: world.fetch_single::<OverflowClip>().unwrap(),
-            engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
-            render_objs: world.fetch_single::<RenderObjs>().unwrap(),
-            font_sheet: world.fetch_single::<Share<StdCell<FontSheet>>>().unwrap(),
-            class_sheet: world.fetch_single::<Share<StdCell<ClassSheet>>>().unwrap(),
-            image_wait_sheet: world.fetch_single::<ImageWaitSheet>().unwrap(),
-            dirty_list: world.fetch_single::<DirtyList>().unwrap(),
-            system_time: world.fetch_single::<SystemTime>().unwrap(),
-            dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
-            dyn_atlas_set: world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap(),
-
-            renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
-
+			world_ext: GuiWorldExt::new(&mut world),
+			engine: world.fetch_single::<ShareEngine<C>>().unwrap(),
+			renderSys: world.fetch_sys::<CellRenderSys<C>>(&RENDER_N).unwrap(),
             world: world,
         }
     }
@@ -513,7 +797,7 @@ fn test_insert11() -> std::time::Duration {
     let bg_color = world.fetch_multi::<Node, BackgroundColor>().unwrap();
 
     let t = std::time::Instant::now();
-    for i in 0..200 {
+    for _i in 0..200 {
         let entity = nodes.lend_mut().create();
         opacity.lend_mut().insert(entity, calc::Opacity::default());
         border_radius.lend_mut().insert(entity, BorderRadius::default());

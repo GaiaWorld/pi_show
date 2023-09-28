@@ -1,4 +1,5 @@
-#![feature(nll)] 
+ 
+#![feature(const_trait_impl)]
 #![feature(proc_macro_hygiene)]
 #![feature(core_intrinsics)]
 #![feature(type_ascription)]
@@ -30,23 +31,21 @@ extern crate serde;
 extern crate share;
 extern crate res;
 extern crate deque;
-extern crate cg2d;
+extern crate pi_cg2d;
 extern crate nalgebra;
-extern crate ncollide2d;
-extern crate spatialtree;
+extern crate pi_spatial ;
 extern crate slab;
 extern crate map;
 extern crate num_traits;
 extern crate heap;
 extern crate fnv;
-extern crate atom;
 extern crate ucd;
 extern crate data_view;
 extern crate dirty;
 extern crate color;
 extern crate util as lib_util;
 extern crate hal_core;
-extern crate polygon;
+extern crate pi_polygon;
 extern crate ordered_float;
 extern crate hash;
 extern crate densevec;

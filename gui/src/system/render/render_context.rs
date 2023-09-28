@@ -1,4 +1,4 @@
-use core::panic;
+
 use std::cell::RefCell;
 /// 处理渲染上下文（遮罩、半透明、裁剪、willchange都可以创建渲染上下文）
 /// 目前只支持了遮罩，
@@ -14,46 +14,42 @@ use std::cell::RefCell;
 
 use std::marker::PhantomData;
 
-use ecs::entity::Entity;
 use share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
-use hash::{DefaultHasher, XHashSet, XHashMap};
+use hash::{DefaultHasher, XHashSet};
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 
-use crate::component::calc::{LayoutR, MaskTexture};
+use crate::component::calc::LayoutR;
 use crate::component::calc::*;
-use crate::component::user::{ *, Opacity};
+use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::{Engine, ShareEngine};
 use crate::render::res::*;
-use crate::{single::*};
+use crate::single::*;
 use crate::single::dyn_texture::DynAtlasSet;
-use crate::single::{DirtyViewRect};
+use crate::single::DirtyViewRect;
 use crate::system::render::shaders::image::{ FBO_VS_SHADER_NAME, FBO_FS_SHADER_NAME};
 use crate::system::util::constant::*;
 use crate::system::util::{*, let_top_offset_matrix as let_top_offset_matrix1};
-use crate::Z_MAX;
 
 lazy_static! {
 	static ref UV: Atom = Atom::from("UV");
 	static ref POSITION: Atom = Atom::from("Position");
 	static ref INDEX: Atom = Atom::from("Index");
+	static ref DIRTY_TY: StyleBit = style_bit().set_bit(StyleType::Opacity as usize) .set_bit(StyleType::MaskImageClip as usize);
+
 }
 
-const DIRTY_TY: usize = StyleType::Matrix as usize
-	| StyleType::Opacity as usize
-	| StyleType::Layout as usize;
-
-const DIRTY_TY1: usize = StyleType1::MaskTexture as usize
-	| StyleType1::MaskImageClip as usize
-	| StyleType1::ContentBox as usize;
+const DIRTY_TY1: usize = CalcType::MaskImageTexture as usize
+		| CalcType::ContentBox as usize
+		| CalcType::Layout as usize;
 
 pub struct RenderContextSys<C> {
 	dirty: XHashSet<usize>,
@@ -129,8 +125,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			let dirty = style_mark.dirty;
 			let dirty1 = style_mark.dirty1;
 			
-			// log::info!("is dirty: {:?}",dirty & DIRTY_TY == 0 && dirty1 & DIRTY_TY1 == 0);
-			if dirty & DIRTY_TY == 0 && dirty1 & DIRTY_TY1 == 0 {
+			// log::info!("is dirty: {:?}",!(dirty & DIRTY_TY).any() && dirty1 & DIRTY_TY1 == 0);
+			if !(dirty & &*DIRTY_TY).any() && dirty1 & DIRTY_TY1 == 0 {
 				continue;
 			}
 			
@@ -179,7 +175,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			let transform = &transforms[*id];
 			let world_matrix = &world_matrixs[*id];
 
-			if dirty & DIRTY_TY != 0 || dirty1 & DIRTY_TY1 != 0 {
+			if (dirty & &*DIRTY_TY).any() || dirty1 & DIRTY_TY1 != 0 {
 
 				// 矩阵或布局发生改变， 需要更新fbo纹理，和uv
 				let mut aabb = content_boxs.get(*id).unwrap().0;
@@ -196,7 +192,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 				}
 				
 				// 应该树contentbox发生改变时，TODO
-				if is_create || dirty1 & StyleType1::ContentBox as usize != 0 {
+				if is_create || dirty1 & CalcType::ContentBox as usize != 0 {
 					// 目的： 将其下渲染的字节，以本节点左上为原点对齐
 					let (left_top_matrix, view_matrix) = let_top_offset_matrix(*id, 
 						layout, world_matrix,transform, idtree, willchange_matrixs, &aabb

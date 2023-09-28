@@ -2,9 +2,8 @@ use dirty::LayerDirty;
 /**
  * 监听transform和layout组件， 利用transform和layout递归计算节点的世界矩阵（worldmatrix组件）
  */
-use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
+use ecs::{CreateEvent, DeleteEvent, Event, ModifyEvent, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use map::Map;
-use map::vecmap::VecMap;
 
 use crate::single::IdTree;
 use crate::component::calc::{NodeState, LayoutR, WorldMatrix, WorldMatrixWrite};
@@ -51,7 +50,7 @@ impl WorldMatrixSys {
         layout: &MultiCaseImpl<Node, LayoutR>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
 		node_states: &MultiCaseImpl<Node, NodeState>,
-    ) {;
+    ) {
 		let time = cross_performance::now();
         let mut count = 0;
 		// let time = std::time::Instant::now();
@@ -176,7 +175,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
 fn get_lefttop_offset(layout: &LayoutR, parent_origin: &Point2, parent_layout: &LayoutR) -> Point2 {
     Point2::new(
         // 当设置宽高为auto时 可能存在bug
-        parent_layout.border.start + parent_layout.padding.start + layout.rect.start - parent_origin.x,
+        parent_layout.border.left + parent_layout.padding.left + layout.rect.left - parent_origin.x,
         parent_layout.border.top + parent_layout.padding.top + layout.rect.top - parent_origin.y,
     )
 }
@@ -213,23 +212,25 @@ fn recursive_cal_matrix(
         None => default_transform,
     };
 
-	let width = layout.rect.end - layout.rect.start;
+	let width = layout.rect.right - layout.rect.left;
 	let height = layout.rect.bottom - layout.rect.top;
     let matrix = if parent == 0 {
-        transform_value.matrix(
+        WorldMatrix::matrix(
+			&transform_value.all_transform,
+			&transform_value.origin,
             width,
             height,
-            &Point2::new(layout.rect.start, layout.rect.top),
+            &Point2::new(layout.rect.left, layout.rect.top),
         )
     } else {
         let parent_layout = &layouts[parent];
         let parent_world_matrix = &world_matrix[parent];
         let parent_transform_origin = parent_transform
             .origin
-            .to_value(parent_layout.rect.end - parent_layout.rect.start, parent_layout.rect.bottom - parent_layout.rect.top);
+            .to_value(parent_layout.rect.right - parent_layout.rect.left, parent_layout.rect.bottom - parent_layout.rect.top);
         let offset = get_lefttop_offset(&layout, &parent_transform_origin, &parent_layout);
         parent_world_matrix
-            * transform_value.matrix(width, height, &offset)
+            * WorldMatrix::matrix(&transform_value.all_transform, &transform_value.origin, width, height, &offset)
 	};
 
 	// world_matrix.insert(id, matrix);
@@ -270,7 +271,7 @@ impl_system! {
 }
 
 // #[cfg(test)]
-// use atom::Atom;
+// use pi_atom::Atom;
 // #[cfg(test)]
 // use component::calc::ZDepth;
 // #[cfg(test)]

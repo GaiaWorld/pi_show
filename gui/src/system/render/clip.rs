@@ -370,8 +370,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
             let by_overflow = by_overflows[*id].0;
             let obj_ids = &node_render_map[*id];
 
-            if (style_mark.dirty & StyleType::Matrix as usize != 0
-                || style_mark.dirty & StyleType::ByOverflow as usize != 0)
+            if (style_mark.dirty1 & CalcType::Matrix as usize != 0
+                || style_mark.dirty1 & CalcType::ByOverflow as usize != 0)
                 && by_overflow > 0
             {
                 if by_overflow != pre_by_overflow {
@@ -383,7 +383,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClipSys<C> {
                    
                     self.set_clip_uniform(*id, by_overflow, aabb, &notify, render_obj, engine);
                 }
-            } else if style_mark.dirty & StyleType::ByOverflow as usize != 0 && by_overflow == 0 {
+            } else if style_mark.dirty1 & CalcType::ByOverflow as usize != 0 && by_overflow == 0 {
                 // 裁剪剔除
                 unsafe {cullings.get_unchecked_write(*id)}.set_0(false);
                 for id in obj_ids.iter() {

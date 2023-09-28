@@ -3,18 +3,19 @@
 	*/
 use std::marker::PhantomData;
 
+use pi_style::style::ImageRepeatOption;
 use share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
 use hash::DefaultHasher;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::monitor::{Event, NotifyImpl};
 use ecs::{DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
-use polygon::*;
+use pi_polygon::*;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;
@@ -34,18 +35,19 @@ lazy_static! {
     static ref UV: Atom = Atom::from("UV");
     static ref POSITION: Atom = Atom::from("Position");
     static ref INDEX: Atom = Atom::from("Index");
+
+	static ref DIRTY_TY: StyleBit = style_bit().set_bit(StyleType::BorderRadius as usize)
+		.set_bit(StyleType::Opacity as usize)
+		.set_bit(StyleType::BackgroundImageClip as usize)
+		.set_bit(StyleType::ObjectFit as usize);
+
+	static ref GEO_DIRTY: StyleBit =
+		style_bit().set_bit(StyleType::BorderRadius as usize) .set_bit(StyleType::BackgroundImageClip as usize) .set_bit(StyleType::ObjectFit as usize);
 }
 
-const DIRTY_TY: usize = StyleType::BorderRadius as usize
-    | StyleType::Matrix as usize
-    | StyleType::Opacity as usize
-    | StyleType::Layout as usize
-    | StyleType::ImageClip as usize
-    | StyleType::ObjectFit as usize;
-const DIRTY_TY1: usize = StyleType1::ImageTexture as usize;
+const DIRTY_TY1: usize = CalcType::BackgroundImageTexture as usize;
 
-const GEO_DIRTY: usize =
-    StyleType::BorderRadius as usize | StyleType::Layout as usize | StyleType::ImageClip as usize | StyleType::ObjectFit as usize;
+
 
 pub struct ImageSys<C> {
     render_map: VecMap<usize>,
@@ -62,9 +64,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, BorderRadius>,
         &'a MultiCaseImpl<Node, ZDepth>,
         &'a MultiCaseImpl<Node, ImageTexture>,
-		&'a MultiCaseImpl<Node, Image>,
-        &'a MultiCaseImpl<Node, ImageClip>,
-        &'a MultiCaseImpl<Node, BackgroundImageOption>,
+		&'a MultiCaseImpl<Node, BackgroundImage>,
+        &'a MultiCaseImpl<Node, BackgroundImageClip>,
+        &'a MultiCaseImpl<Node, BackgroundImageMod>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
@@ -109,10 +111,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             };
 
             let mut dirty = style_mark.dirty;
-            let dirty1 = style_mark.dirty1;
+            let mut dirty1 = style_mark.dirty1;
 
             // 不存在Image关心的脏, 跳过
-            if (dirty & DIRTY_TY == 0) && (dirty1 & DIRTY_TY1 == 0) {
+            if (!(dirty & &*DIRTY_TY).any()) && (dirty1 & DIRTY_TY1 == 0) && (dirty1 & GEO_DIRTY_TYPE == 0) {
                 continue;
             }
 
@@ -126,7 +128,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             };
 			
 			if let ImageTexture::All(_, url ) = texture {
-				if (*url != 0) {// 
+				if url.as_str() != "" {// 
 					let image = match images.get(*id) {
 						Some(r) => r,
 						None => continue,
@@ -134,7 +136,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 					// 如果纹理和image的url不相等， 什么也不做，保持现在的渲染状态
 					// 新的图片可能处于未加载完成状态，首先，不应该删除原有的渲染对象， 如果是帧动画，会造成闪烁
 					// 另外，也不应更新当前设置的最新数据， 可能造成image_clip和image本身不匹配，计算出错误的uv，也会造成闪烁
-					if (image.url != *url) {
+					if image.0 != *url {
 						// if *url == 1196902338 || *url == 1483981615 {
 						// 	log::info!("!!!!!image==============={:?}, image_clip: {:?}, url: {:?}", images.get(*id), image_clips.get(*id), url);
 						// }
@@ -148,7 +150,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 			
 			let border_radius = border_radiuss.get(*id);
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
-                dirty |= DIRTY_TY; // Image脏， 所有属性重新设置
+                dirty |= DIRTY_TY.clone(); // Image脏， 所有属性重新设置
+				dirty1 |= GEO_DIRTY_TYPE;
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
                     None => {
@@ -180,10 +183,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             let world_matrix = &world_matrixs[*id];
             let object_fit = match object_fit {
                 Some(r) => r.clone(),
-                None => BackgroundImageOption::default(),
+                None => BackgroundImageMod::default(),
             };
 
-            if dirty & GEO_DIRTY != 0 {
+            if (dirty & &*GEO_DIRTY).any() || dirty1 & CalcType::Layout as usize != 0 {
                 // log::info!("uv1============{:?}", id);
                 let vert_type = update_geo(
                     render_obj,
@@ -203,17 +206,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 
                 notify.modify_event(render_index, "geometry", 0);
                 notify.modify_event(render_index, "ubo", 0);
-                dirty &= !(StyleType::Matrix as usize); // 已经计算了世界矩阵， 设置世界矩阵不脏
+                dirty1 &= !(CalcType::Matrix as usize); // 已经计算了世界矩阵， 设置世界矩阵不脏
             }
 
             // 世界矩阵脏， 设置世界矩阵ubo
-            if dirty & StyleType::Matrix as usize != 0 {
+            if dirty1 & CalcType::Matrix as usize != 0 {
                 modify_matrix(render_obj, layout, z_depth, world_matrix, transform, vert_type);
                 notify.modify_event(render_index, "ubo", 0);
             }
 
             // 不透明度脏或图片脏， 设置is_opacity
-            if dirty & StyleType::Opacity as usize != 0 || dirty1 & DIRTY_TY1 != 0 {
+            if dirty[StyleType::Opacity as usize] || dirty1 & DIRTY_TY1 != 0 {
                 // let opacity = opacitys[*id].0;
                 let dyn_texture_set;
                 let tex = match texture {
@@ -325,9 +328,9 @@ impl<C: HalContext + 'static> ImageSys<C> {
 }
 
 // 获得图片的4个点(逆时针)的坐标和uv的Aabb
-fn get_pos_uv(texture: &ImageTexture, clip: Option<&ImageClip>, fit: &BackgroundImageOption, layout: &LayoutR) -> (Aabb2, Aabb2, Vector2, bool) {
-    let mut p1 = Point2::new(layout.border.start + layout.padding.start, layout.border.top + layout.padding.top);
-    let width = layout.rect.end - layout.rect.start - layout.border.end - layout.border.start;
+fn get_pos_uv(texture: &ImageTexture, clip: Option<&BackgroundImageClip>, fit: &BackgroundImageMod, layout: &LayoutR) -> (Aabb2, Aabb2, Vector2, bool) {
+    let mut p1 = Point2::new(layout.border.left + layout.padding.left, layout.border.top + layout.padding.top);
+    let width = layout.rect.right - layout.rect.left - layout.border.right - layout.border.left;
     let height = layout.rect.bottom - layout.rect.top - layout.border.bottom - layout.border.top;
     let mut p2 = Point2::new(width, height);
 
@@ -336,11 +339,11 @@ fn get_pos_uv(texture: &ImageTexture, clip: Option<&ImageClip>, fit: &Background
             let (size, mut uv1, mut uv2) = match clip {
                 Some(c) => {
                     let size = Vector2::new(
-                        src.width as f32 * (c.maxs.x - c.mins.x).abs(),
-                        src.height as f32 * (c.maxs.y - c.mins.y).abs(),
+                        src.width as f32 * (c.right - c.left).abs(),
+                        src.height as f32 * (c.bottom - c.top).abs(),
                     );
                     // log::info!("size================={:?}");
-                    (size, c.mins.clone(), c.maxs.clone())
+                    (size, Point2::new(*c.left, *c.top), Point2::new(*c.right, *c.bottom))
                 }
                 _ => (
                     Vector2::new(src.width as f32, src.height as f32),
@@ -408,9 +411,9 @@ fn get_pos_uv(texture: &ImageTexture, clip: Option<&ImageClip>, fit: &Background
                         fill(&size, &mut p1, &mut p2, w, h);
                     }
                 }
-                FitType::Repeat => panic!("TODO"),  // TODO
-                FitType::RepeatX => panic!("TODO"), // TODO
-                FitType::RepeatY => panic!("TODO"), // TODO
+                // FitType::Repeat => panic!("TODO"),  // TODO
+                // FitType::RepeatX => panic!("TODO"), // TODO
+                // FitType::RepeatY => panic!("TODO"), // TODO
                 FitType::Fill => (), // 填充。 内容拉伸填满整个容器，不保证保持原有的比例
             };
             (Aabb2::new(p1, p2), Aabb2::new(uv1, uv2), size, false)
@@ -429,23 +432,23 @@ fn update_geo<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     layout: &LayoutR,
     texture: &ImageTexture,
-    image_clip: Option<&ImageClip>,
-    background_image_mod: &BackgroundImageOption,
+    image_clip: Option<&BackgroundImageClip>,
+    background_image_mod: &BackgroundImageMod,
     engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
 ) -> VertType {
     let (pos, uv, texture_size, is_part) = get_pos_uv(texture, image_clip, background_image_mod, layout);
 	if (background_image_mod.object_fit == FitType::Fill || background_image_mod.object_fit == FitType::Cover) 
-		&& background_image_mod.repeat.0 == BorderImageRepeatType::Stretch
-		&& layout.border.start == 0.0 
-		&& layout.border.end == 0.0
+		&& background_image_mod.repeat.x == ImageRepeatOption::Stretch
+		&& layout.border.left == 0.0 
+		&& layout.border.right == 0.0
 		&& layout.border.top == 0.0 
 		&& layout.border.bottom == 0.0
-		&& background_image_mod.repeat.1 == BorderImageRepeatType::Stretch {
+		&& background_image_mod.repeat.y == ImageRepeatOption::Stretch {
 		update_geo_quad(render_obj, &uv, image_clip, engine, unit_geo, is_part); // 单位四边形
 		VertType::ContentRect
 	} else {
-		let hash = calc_hash(&("image geo", background_image_mod), calc_float_hash(&[layout.rect.top, layout.rect.end, layout.rect.bottom, layout.rect.start], 0));
+		let hash = calc_hash(&("image geo", background_image_mod), calc_float_hash(&[layout.rect.top, layout.rect.right, layout.rect.bottom, layout.rect.left], 0));
 		match engine.geometry_res_map.get(&hash) {
 			Some(r) => render_obj.geometry = Some(r.clone()),
 			None => {
@@ -464,14 +467,14 @@ fn update_geo<C: HalContext + 'static>(
 	}
 }
 
-fn get_pos_uv_buffer(pos: &Aabb2, clip: &Aabb2, texture_size: Vector2, image_mod: &BackgroundImageOption) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
+fn get_pos_uv_buffer(pos: &Aabb2, clip: &Aabb2, texture_size: Vector2, image_mod: &BackgroundImageMod) -> (Vec<f32>, Vec<f32>, Vec<u16>) {
     let (p1, p2) = (&pos.mins, &pos.maxs);
 	let (uv1, uv2) = (&clip.mins, &clip.maxs);
 	let w = p2.x - p1.x;
 	let h = p2.y - p1.y;
 
-	let (uoffset, uspace, ustep) = calc_step(w, texture_size.x, image_mod.repeat.0);
-	let (voffset, vspace, vstep) = calc_step(h, texture_size.y, image_mod.repeat.1);
+	let (uoffset, uspace, ustep) = calc_step(w, texture_size.x, image_mod.repeat.x);
+	let (voffset, vspace, vstep) = calc_step(h, texture_size.y, image_mod.repeat.y);
 
 	let mut vert_arr = Vec::default();
 	let mut uv_arr = Vec::default();
@@ -542,7 +545,7 @@ fn get_pos_uv_buffer(pos: &Aabb2, clip: &Aabb2, texture_size: Vector2, image_mod
 fn update_geo_quad<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     uv: &Aabb2,
-    image_clip: Option<&ImageClip>,
+    image_clip: Option<&BackgroundImageClip>,
     engine: &mut Engine<C>,
     unit_geo: &Share<GeometryRes>,
     is_part: bool,
@@ -615,15 +618,15 @@ fn modify_matrix(
     vert_type: VertType,
 ) {
     if let VertType::ContentNone = vert_type {
-        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border.start, layout.border.top);
+        let arr = create_let_top_offset_matrix(layout, world_matrix, transform, layout.border.left, layout.border.top);
         render_obj
             .paramter
             .set_value("worldMatrix", Share::new(WorldMatrixUbo::new(UniformValue::MatrixV4(arr))));
     } else {
         let arr = create_unit_offset_matrix(
-            layout.rect.end - layout.rect.start - layout.border.start -  layout.border.end,
+            layout.rect.right - layout.rect.left - layout.border.left -  layout.border.right,
             layout.rect.bottom - layout.rect.top - layout.border.top -  layout.border.bottom,
-            layout.border.start,
+            layout.border.left,
             layout.border.top,
             layout,
             world_matrix,
@@ -637,11 +640,11 @@ fn modify_matrix(
 }
 
 fn use_layout_pos<C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2, layout: &LayoutR, radius: &Point2, engine: &mut Engine<C>) {
-    let width = layout.rect.end - layout.rect.start;
+    let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
-    let start_x = layout.border.start;
+    let start_x = layout.border.left;
     let start_y = layout.border.top;
-    let end_x = width - layout.border.end;
+    let end_x = width - layout.border.right;
     let end_y = height - layout.border.bottom;
     let (positions, indices) = if radius.x == 0.0 || width == 0.0 || height == 0.0 {
         (vec![start_x, start_y, start_x, end_y, end_x, end_y, end_x, start_y], vec![0, 1, 2, 3])
@@ -705,8 +708,8 @@ pub fn push_vertex(point_arr: &mut Vec<f32>, x: f32, y: f32, i: &mut u16) -> u16
     r
 }
 
-pub fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> (f32, f32, f32) {
-    if let BorderImageRepeatType::Stretch = rtype {
+pub fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, f32) {
+    if let ImageRepeatOption::Stretch = rtype {
         return (0.0, 0.0, csize);
     }
     if img_size == 0.0 {
@@ -720,9 +723,9 @@ pub fn calc_step(csize: f32, img_size: f32, rtype: BorderImageRepeatType) -> (f3
     }
 
     match rtype {
-        BorderImageRepeatType::Repeat => (csize % img_size, 0.0, img_size),
-        BorderImageRepeatType::Round => (0.0, 0.0, if c > 1.0 { csize / c.round() } else { csize }),
-        BorderImageRepeatType::Space => {
+        ImageRepeatOption::Repeat => (csize % img_size, 0.0, img_size),
+        ImageRepeatOption::Round => (0.0, 0.0, if c > 1.0 { csize / c.round() } else { csize }),
+        ImageRepeatOption::Space => {
             let space = csize % img_size; // 空白尺寸
             let pre_space = if c > 2.0 { space / (c.floor() - 1.0) } else { space };
             (0.0, pre_space, img_size)

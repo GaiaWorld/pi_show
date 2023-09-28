@@ -1,7 +1,7 @@
 /// 布局系统
 /// 1.负责处理布局属性的脏，根据不同的脏，设置flex_layout节点的脏类型
 /// 负责推动flex_layout节点进行布局
-use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, SingleCaseListener};
+use ecs::{CreateEvent, DeleteEvent, EntityListener, Event, MultiCaseImpl, Runner, SingleCaseImpl, SingleCaseListener};
 use flex_layout::*;
 use dirty::*;
 use map::vecmap::VecMap;
@@ -9,36 +9,41 @@ use map::vecmap::VecMap;
 use crate::util::vecmap_default::VecMapWithDefault;
 use crate::entity::Node;
 use crate::single::{IdTree, DirtyList};
-use crate::component::user::{OtherLayoutStyle, RectLayoutStyle, FontSize};
-use crate::component::calc::{LayoutR, StyleType1, StyleMark, NodeState, StyleType2, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK, StyleType};
+use crate::component::user::{OtherLayoutStyle, RectLayoutStyle};
+use crate::component::calc::{LayoutR, StyleMark, NodeState, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK, CalcType, StyleBit, style_bit};
+use crate::component::user::StyleType;
 
-// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
-pub const RECT_DIRTY: usize = StyleType2::Width as usize 
-							| StyleType2::Height as usize
-							| LAYOUT_POSITION_MARK
-							| LAYOUT_MARGIN_MARK;
+lazy_static! {
+	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
+	pub static ref RECT_DIRTY: StyleBit = style_bit().set_bit(StyleType::Width as usize)
+	.set_bit(StyleType::Height as usize)
+		| &*LAYOUT_POSITION_MARK
+		| &*LAYOUT_MARGIN_MARK;
 
-// 普通脏及子节点添加或移除， 设父child_dirty
-pub const NORMAL_DIRTY: usize = //StyleType2::FlexBasis as usize 
-							//| StyleType1::Order as usize
-							StyleType2::FlexShrink as usize
-							| StyleType2::FlexGrow as usize
-							| StyleType2::AlignSelf as usize
-							| StyleType2::PositionType as usize;
+	// 普通脏及子节点添加或移除， 设父child_dirty
+	pub static ref NORMAL_DIRTY: StyleBit = //StyleType::FlexBasis as usize 
+		//.set_bit(StyleType::Order as usize)
+		style_bit().set_bit(StyleType::FlexShrink as usize)
+		.set_bit(StyleType::FlexGrow as usize)
+		.set_bit(StyleType::AlignSelf as usize)
+		.set_bit(StyleType::PositionType as usize);
 
-// 自身脏， 仅设自身self_dirty
-pub const SELF_DIRTY: usize = LAYOUT_PADDING_MARK 
-							| LAYOUT_BORDER_MARK;
+	// 自身脏， 仅设自身self_dirty
+	pub static ref SELF_DIRTY: StyleBit = LAYOUT_PADDING_MARK.clone() 
+		| &*LAYOUT_BORDER_MARK;
 
-// 子节点脏， 仅设自身child_dirty
-pub const CHILD_DIRTY: usize = StyleType2::FlexDirection as usize
-							| StyleType2::FlexWrap as usize
-							| StyleType2::AlignItems as usize
-							| StyleType2::JustifyContent as usize
-							| StyleType2::AlignContent as usize;
+	// 子节点脏， 仅设自身child_dirty
+	pub static ref CHILD_DIRTY: StyleBit = style_bit().set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize);
 
 
-pub const DIRTY2: usize = RECT_DIRTY | NORMAL_DIRTY | SELF_DIRTY | CHILD_DIRTY;
+	pub static ref DIRTY2: StyleBit = style_bit().set_bit(StyleType::Display as usize).set_bit(StyleType::FlexBasis as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY | &*CHILD_DIRTY;
+
+}
+
 
 
 #[derive(Default)]
@@ -77,13 +82,13 @@ impl<'a> Runner<'a> for LayoutSys {
                 Some(r) => if r.layer() == 0 {continue},
                 None => continue,
             };
-			let dirty2 = style_mark.dirty2;
+			// let dirty2 = style_mark.dirty2;
 			let dirty1 = style_mark.dirty1;
 			let dirty = style_mark.dirty;
 			// log::info!("layout dirty============={}, {}, {}", dirty2, dirty1, dirty2 & RECT_DIRTY);
 
             // 不存在LayoutTree关心的脏, 跳过
-            if dirty2 & DIRTY2 == 0 && dirty1 & StyleType1::Display as usize == 0 && dirty1 & StyleType1::FlexBasis as usize == 0 && dirty1 & StyleType1::Create as usize == 0 && dirty & StyleType::FontSize as usize == 0 {
+            if !(dirty & DIRTY2.set_bit(StyleType::FontSize as usize)).any() && dirty1 & CalcType::Create as usize == 0 {
                 continue;
 			}
 
@@ -93,29 +98,29 @@ impl<'a> Runner<'a> for LayoutSys {
 			let rect_style = &flex_rect_styles[*id];
 			let other_style = &flex_other_styles[*id];
 
-			if dirty2 & RECT_DIRTY != 0 || dirty1 & StyleType1::Create as usize != 0 || dirty & StyleType::FontSize as usize != 0 {
+			if (dirty & &*RECT_DIRTY).any() || dirty1 & CalcType::Create as usize != 0 || dirty[StyleType::FontSize as usize] {
 				set_rect(tree, node_states, &mut self.dirty, *id, rect_style, other_style, true, true);
 			}
 
-			if dirty2 & NORMAL_DIRTY != 0 || dirty1 & StyleType1::FlexBasis as usize != 0 {
+			if (dirty & &*NORMAL_DIRTY).any() || dirty1 & StyleType::FlexBasis as usize != 0 {
 				// println!("dirty NORMAL_DIRTY======{:?}", id);
 				set_normal_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if dirty2 & SELF_DIRTY != 0 {
+			if (dirty & &*SELF_DIRTY).any() {
 				// println!("dirty SELF_DIRTY======{:?}", id);
 				set_self_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if dirty2 & CHILD_DIRTY as usize != 0 {
+			if (dirty & &*CHILD_DIRTY).any(){
 				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if dirty1 & StyleType1::Display as usize != 0 {
+			if dirty1 & StyleType::Display as usize != 0 {
 				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, rect_style, other_style);
 			}
-			style_mark.dirty2 &= !DIRTY2;
-			style_mark.dirty1 &= !(StyleType1::Display as usize | StyleType1::FlexBasis as usize | StyleType1::Create as usize);
+			style_mark.dirty &= !*DIRTY2;
+			style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
 		let count = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);

@@ -14,7 +14,7 @@ use ecs::{
 use hal_core::*;
 use share::Share;
 
-use crate::component::{calc::LayoutR, calc::*, user::Overflow, user::*};
+use crate::{component::{calc::LayoutR, calc::*, user::Overflow, user::*}, single::oct::OctKey};
 use crate::entity::Node;
 use crate::single::IdTree;
 use crate::single::{Clip, Oct, OverflowClip, ViewMatrix};
@@ -56,7 +56,7 @@ impl OverflowImpl {
             if i == 0 {
                 return;
             }
-            self.mark_dirty(id, StyleType1::Overflow as usize, node.layer(), &mut write.3);
+            self.mark_dirty(id, StyleType::Overflow as usize, node.layer(), &mut write.3);
             i = 1 << (i - 1);
             by = add_index(by, i);
             i
@@ -92,7 +92,7 @@ impl<'a> Runner<'a> for OverflowImpl {
             if read.0[*id].layer() != layer {
                 continue;
             }
-            if dirty_other & StyleType1::Overflow as usize != 0 {
+            if dirty_other & StyleType::Overflow as usize != 0 {
                 let by = by_overflows[*id].0;
                 let aabb = unsafe { &*(overflow_clip as *const SingleCaseImpl<OverflowClip>) }.clip_map.get(&by);
                 let parent_will_change_matrix = get_will_change_matrix(*id, &read.0, read.6);
@@ -302,7 +302,7 @@ impl OverflowImpl {
         {
             return;
         }
-        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer(), write);
+        self.mark_dirty(id, StyleType::Overflow as usize, node.layer(), write);
     }
 
     fn matrix_will_change_dirty(
@@ -318,7 +318,7 @@ impl OverflowImpl {
         if node.layer() == 0 {
             return;
         }
-        self.mark_dirty(id, StyleType1::Overflow as usize, node.layer(), write);
+        self.mark_dirty(id, StyleType::Overflow as usize, node.layer(), write);
     }
 
     // 递归调用，检查是否有overflow， 设置OverflowClip， 设置所有子元素的by_overflow
@@ -334,7 +334,7 @@ impl OverflowImpl {
             // 添加根上的overflow的裁剪矩形
             // let i = set_index(&mut *write.0, 0, id);
             let i = create_clip(id, write.0);
-            self.mark_dirty(id, StyleType1::Overflow as usize, read.0[id].layer(), &mut write.3);
+            self.mark_dirty(id, StyleType::Overflow as usize, read.0[id].layer(), &mut write.3);
             if i > 0 {
                 by = add_index(by, 1 << (i - 1));
             }
@@ -399,7 +399,7 @@ fn calc_clip<'a>(
                         unsafe {
                             cullings
                                 .get_unchecked_write(id)
-                                .set_0(!is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0)))
+                                .set_0(!is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(OctKey(id)) }.0)))
                         };
                     }
                 }
@@ -411,7 +411,7 @@ fn calc_clip<'a>(
 					// if !is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0) {
 					// 	log::warn!("cull=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &unsafe { read.5.get_unchecked(id) }.0);
 					// }
-					unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0))
+					unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(OctKey(id)) }.0))
 				},
             }
         }
@@ -443,7 +443,7 @@ fn calc_clip<'a>(
         }
     }
 
-    style_marks[id].dirty_other &= !(StyleType1::Overflow as usize);
+    style_marks[id].dirty_other &= !(StyleType::Overflow as usize);
 
 	if read.0.get(id).is_none() {
 		log::error!("!!!!======read.0 1 is none, {:?}", id);
@@ -496,7 +496,7 @@ fn set_clip(id: usize, i: usize, read: &Read, clip: &mut SingleCaseImpl<Overflow
         Some(r) => r.origin.clone(),
         None => TransformOrigin::Center,
     };
-    let origin = origin.to_value(layout.rect.end - layout.rect.start, layout.rect.bottom - layout.rect.top);
+    let origin = origin.to_value(layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top);
 	let c = &mut clip.clip[i];
     *c = Clip {
         view: calc_point(layout, world_matrix, &origin),
@@ -571,10 +571,10 @@ fn adjust(
 }
 // 计算内容区域矩形的4个点
 fn calc_point(layout: &LayoutR, m: &Matrix4, origin: &Point2) -> [Point2; 4] {
-    let width = layout.rect.end - layout.rect.start - layout.padding.start - layout.padding.end - layout.border.start - layout.border.end;
+    let width = layout.rect.right - layout.rect.left - layout.padding.left - layout.padding.right - layout.border.left - layout.border.right;
     let height = layout.rect.bottom - layout.rect.top - layout.padding.top - layout.padding.bottom - layout.border.top - layout.border.bottom;
     let start = (
-        layout.border.start + layout.padding.start - origin.x,
+        layout.border.left + layout.padding.left - origin.x,
         layout.border.top + layout.padding.top - origin.y,
     );
     let left_top = m * Vector4::new(start.0, start.1, 0.0, 1.0);

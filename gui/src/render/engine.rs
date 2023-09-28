@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::cell::RefCell;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::StdCell;
 use hash::{DefaultHasher, XHashMap};
 use res::{Res, ResMap, ResMgr};
@@ -286,12 +286,12 @@ impl<C: HalContext + 'static> Engine<C> {
 
     #[inline]
     pub fn create_u_color_ubo(&mut self, c: &CgColor) -> Share<UColorUbo> {
-        let h = f32_4_hash(c.r, c.g, c.b, c.a);
+        let h = f32_4_hash(c.x, c.y, c.z, c.w);
         match self.u_color_ubo_map.get(&h) {
             Some(r) => r,
             None => self.u_color_ubo_map.create(
                 h,
-                UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)),
+                UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
                 0,
                 0,
             ),

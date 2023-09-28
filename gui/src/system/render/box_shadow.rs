@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use cg2d::{Polygon as Polygon2d};
+use pi_cg2d::Polygon as Polygon2d;
 use nalgebra::Point2;
 use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
@@ -19,11 +19,12 @@ use crate::component::calc::*;
 use crate::component::user::*;
 use polygon2::difference;
 
-const DITY_TYPE: usize = StyleType::BoxShadow as usize
-            | StyleType::Matrix as usize
-            | StyleType::BorderRadius as usize
-            | StyleType::Opacity as usize
-			| StyleType::Layout as usize;
+lazy_static! {
+	static ref DITY_TYPE: StyleBit = style_bit().set_bit(StyleType::BoxShadow as usize)
+            .set_bit(StyleType::BorderRadius as usize)
+            .set_bit(StyleType::Opacity as usize);
+}
+
 			
 pub struct BoxShadowSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
@@ -102,9 +103,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             };
 
             let dirty = style_mark.dirty;
+			let dirty1 = style_mark.dirty1;
 
             // 不存在BoxShadow关心的脏, 跳过
-            if dirty & DITY_TYPE == 0 {
+            if !(dirty & &*DITY_TYPE).any() && dirty1 & GEO_DIRTY_TYPE == 0 {
                 continue;
 			}
 
@@ -117,10 +119,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
 			};
 
             // 阴影脏
-            let render_index = if dirty & StyleType::BoxShadow as usize != 0 {
+            let render_index = if dirty[StyleType::BoxShadow as usize] {
                 // 如果不存在BoxShadow本地样式和class样式， 删除渲染对象
-                if style_mark.local_style & StyleType::BoxShadow as usize == 0
-                    && style_mark.class_style & StyleType::BoxShadow as usize == 0
+                if !style_mark.local_style[StyleType::BoxShadow as usize]
+                    && !style_mark.class_style[StyleType::BoxShadow as usize]
                 {
                     self.remove_render_obj(*id, render_objs);
                     continue;
@@ -144,8 +146,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             let layout = &layouts[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
-            if dirty & StyleType::Opacity as usize != 0
-                || dirty & StyleType::BoxShadow as usize != 0
+            if dirty[StyleType::Opacity as usize]
+                || dirty[StyleType::BoxShadow as usize]
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
@@ -156,16 +158,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
                 modify_opacity(engine, render_obj, default_state);
             }
 
-            if style_mark.dirty & StyleType::BoxShadow as usize != 0 {
+            if style_mark.dirty[StyleType::BoxShadow as usize] {
                 render_obj
                     .paramter
                     .as_ref()
                     .set_value("uColor", engine.create_u_color_ubo(&shadow.color));
             }
             // 如果阴影脏，或者边框半径改变，则重新创建geometry
-            if style_mark.dirty & StyleType::BoxShadow as usize != 0
-                || style_mark.dirty & StyleType::BorderRadius as usize != 0
-                || style_mark.dirty & StyleType::Layout as usize != 0
+            if style_mark.dirty[StyleType::BoxShadow as usize]
+                || style_mark.dirty[StyleType::BorderRadius as usize]
+                || style_mark.dirty1 & CalcType::Layout as usize != 0
             {
                 // render_obj.program_dirty =  true;
                 // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
@@ -173,7 +175,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
             }
 
             // 矩阵脏，或者布局脏
-            if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
+            if dirty1 & GEO_DIRTY_TYPE != 0 {
                 let world_matrix = &world_matrixs[*id];
                 let transform = &transforms[*id];
                 // let depth = z_depths[*id].0;
@@ -249,7 +251,7 @@ fn modify_matrix(
 
 #[inline]
 fn color_is_opacity(opacity: f32, color: &CgColor, blur: f32) -> bool {
-    opacity == 1.0 && color.a == 1.0 && blur == 0.0
+    opacity == 1.0 && color.w == 1.0 && blur == 0.0
 }
 
 fn create_shadow_geo<C: HalContext + 'static>(
@@ -260,14 +262,14 @@ fn create_shadow_geo<C: HalContext + 'static>(
     border_radius: Option<&BorderRadius>,
 ) {
     let g_b = get_box_rect(layout);
-    if *(g_b.end) - *(g_b.start) == 0.0 || *(g_b.bottom) - *(g_b.top) == 0.0 {
+    if *(g_b.right) - *(g_b.left) == 0.0 || *(g_b.bottom) - *(g_b.top) == 0.0 {
 		render_obj.geometry = None;
 		return;
     }
 
-    let left = *(g_b.start) + shadow.h - shadow.spread - (shadow.blur/2.0);
+    let left = *(g_b.left) + shadow.h - shadow.spread - (shadow.blur/2.0);
     let top = *(g_b.top) + shadow.v - shadow.spread - (shadow.blur/2.0);
-    let right = *g_b.end + shadow.spread + shadow.blur;
+    let right = *g_b.right + shadow.spread + shadow.blur;
     let bottom = *g_b.bottom + shadow.spread + shadow.blur;
 
 	let hash = calc_hash(&"shadow geo", calc_float_hash(&[left, top, right, bottom, shadow.blur], 0));
@@ -276,10 +278,10 @@ fn create_shadow_geo<C: HalContext + 'static>(
 		Some(r) => render_obj.geometry = Some(r),
 		None => {
 			let bg = vec![
-				*g_b.start, *g_b.top,
-				*g_b.start, *g_b.bottom,
-				*g_b.end, *g_b.bottom,
-				*g_b.end, *g_b.top,
+				*g_b.left, *g_b.top,
+				*g_b.left, *g_b.bottom,
+				*g_b.right, *g_b.bottom,
+				*g_b.right, *g_b.top,
 			];
 			let shadow = vec![
 				left, top,
@@ -338,9 +340,9 @@ fn create_shadow_geo<C: HalContext + 'static>(
         render_obj.vs_defines.add("BOX_SHADOW_BLUR");
         render_obj.fs_defines.add("BOX_SHADOW_BLUR");
 
-        let x = g_b.start + shadow.h - shadow.spread;
+        let x = g_b.left + shadow.h - shadow.spread;
         let y = g_b.top + shadow.v - shadow.spread;
-        let w = g_b.end - g_b.start + 2.0 * shadow.spread;
+        let w = g_b.right - g_b.left + 2.0 * shadow.spread;
         let h = g_b.bottom - g_b.top + 2.0 * shadow.spread;
         render_obj
             .paramter

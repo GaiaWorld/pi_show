@@ -1,4 +1,4 @@
-use atom::Atom;
+use pi_atom::Atom;
 
 lazy_static! {
 

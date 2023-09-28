@@ -1,4 +1,4 @@
-use atom::Atom;
+use pi_atom::Atom;
 
 // 渲染文字
 lazy_static! {

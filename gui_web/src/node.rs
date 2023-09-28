@@ -4,17 +4,22 @@ use std::mem::transmute;
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
 use flex_layout::CharNode;
-use js_sys::{Math, Object};
+use gui::single::oct::OctKey;
+use js_sys::{Math, Object, Uint32Array};
+use pi_style::style::{BaseShape, Center};
+use pi_style::style_parse::{StyleParse, parse_transform, parse_mult, parse_len_or_percent, parse_number, parse_angle};
+use pi_style::style_type::{ClipPathType, TransformType, TranslateType, ScaleType, RotateType};
+use pi_style::style_type::AnimatableValue;
+use smallvec::SmallVec;
 use wasm_bindgen::prelude::*;
 use web_sys::{WebGlFramebuffer, WebGlTexture, HtmlImageElement};
 
-use atom::Atom;
-use cg2d::{include_quad2, InnOuter};
-use gui::single::{IdTree};
+use pi_atom::Atom;
+use pi_cg2d::{include_quad2, InnOuter};
+use gui::single::IdTree;
 use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
-use spatialtree::quad_helper::intersects;
 use share::Share;
 
 // use share::Share;
@@ -23,6 +28,7 @@ use gui::component::user::*;
 use gui::entity::Node;
 use gui::render::res::TexturePartRes;
 use gui::render::res::Opacity as ROpacity;
+use pi_spatial::quad_helper::intersects;
 use gui::single::*;
 use hal_core::*;
 // use gui::
@@ -36,7 +42,7 @@ use crate::index::cal_layout;
 use crate::world::GuiWorld;
 
 fn create(world: &GuiWorld) -> usize {
-    let gui = &world.gui;
+    let gui = &world.gui.world_ext;
     let idtree = gui.idtree.lend_mut();
 	let node = gui.node.lend_mut().create();
 	idtree.create(node);
@@ -46,7 +52,7 @@ fn create(world: &GuiWorld) -> usize {
 
 /// 创建容器节点， 容器节点可设置背景颜色
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let node = create(world);
@@ -57,12 +63,12 @@ pub fn create_node(world: u32) -> u32 {
 
 /// 创建虚拟节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_vnode(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let node = create(world);
 
-	let gui = &world.gui;
+	let gui = &world.gui.world_ext;
 	let node_states = gui.node_state.lend_mut();
 	node_states[node].0.set_vnode(true);
 
@@ -71,10 +77,10 @@ pub fn create_vnode(world: u32) -> u32 {
 
 /// 节点是否存在
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn node_is_exist(world: u32, node: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let node_states = &world.gui.node_state.lend_mut();
+	let node_states = &world.gui.world_ext.node_state.lend_mut();
 	return match node_states.get(node as usize) {
 		Some(r) => if r.0.is_rnode(){ 
 			true
@@ -86,10 +92,10 @@ pub fn node_is_exist(world: u32, node: u32) -> bool {
 }
 
 // 节点是否可见
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn node_is_visibility(world: u32, node: u32) -> bool {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let visibility = &world.gui.visibility.lend_mut();
+	let visibility = &world.gui.world_ext.visibility.lend_mut();
 	return match visibility.get(node as usize) {
 		Some(r) => r.0,
 		None => false,
@@ -98,21 +104,21 @@ pub fn node_is_visibility(world: u32, node: u32) -> bool {
 
 /// 创建文本节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_text_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
     world
-        .gui
+        .gui.world_ext
         .text_content
         .lend_mut()
-        .insert(node, TextContent("".to_string(), Atom::from("")));
+        .insert(node, TextContent(pi_style::style::TextContent( "".to_string(), Atom::from(""))));
     node as u32
 }
 
 /// 创建图片节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_image_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -121,7 +127,7 @@ pub fn create_image_node(world: u32) -> u32 {
 
 /// 创建图片节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn create_canvas_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
@@ -129,7 +135,7 @@ pub fn create_canvas_node(world: u32) -> u32 {
 }
 
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_webgl_texture(world: u32, texture: u32) -> WebGlTexture {
 	let texture = unsafe{&*( texture as usize as *mut TextureRes)};
 	
@@ -164,7 +170,7 @@ pub fn get_canvas_source(
  * @return __jsObj 纹理
 */
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_canvas_size(
     world: u32,
     node: u32,
@@ -179,9 +185,9 @@ pub fn set_canvas_size(
 ) -> i32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let engine = world.gui.engine.lend_mut();
-    let images = world.gui.image.lend_mut();
-    let image_clips = world.gui.image_clip.lend_mut();
-	let mut dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+    let images = world.gui.world_ext.background_image.lend_mut();
+    let image_clips = world.gui.world_ext.background_image_clip.lend_mut();
+	let mut dyn_atlas_set = world.gui.world_ext.dyn_atlas_set.lend_mut();
 	let dyn_atlas_set_new = dyn_atlas_set.clone();
 	
 	if width == 0 || height == 0 {
@@ -211,13 +217,13 @@ pub fn set_canvas_size(
 		
 		// // let res = 
 		// // let res = engine.texture_part_res_map.create(name as u64, texture, cost, 0);
-		world.gui.image_texture.lend_mut().insert(node as usize, ImageTexture::Part(texture));
+		world.gui.world_ext.image_texture.lend_mut().insert(node as usize, ImageTexture::Part(texture));
 		index as i32
 	}
 }
 
 /// 设置图片数据为一个fbo
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_data_image_fbo(
     world: u32,
     node: u32,
@@ -229,7 +235,7 @@ pub fn set_data_image_fbo(
 }
 
 /// 设置图片为一个内存图片
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn set_data_image_image(
     world_id: u32,
 	node: u32,
@@ -242,16 +248,16 @@ pub fn set_data_image_image(
 
 	let node_id = node as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 
-	world.image_texture.lend_mut().insert(node_id, ImageTexture::All(res, 0));
+	world.image_texture.lend_mut().insert(node_id, ImageTexture::All(res, Atom::from("")));
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_canvas_rect(world: u32, index: usize) -> JsValue {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let mut dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+	let mut dyn_atlas_set = world.gui.world_ext.dyn_atlas_set.lend_mut();
 	let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 	let rect = dyn_atlas_set.get_rect(index).unwrap();
 	let texture = dyn_atlas_set.get_texture(index).unwrap();
@@ -260,11 +266,11 @@ pub fn get_canvas_rect(world: u32, index: usize) -> JsValue {
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_canvas_target(world: u32, index: usize) -> Option<WebGlFramebuffer> {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 	let engine = world.gui.engine.lend_mut();
-	let dyn_atlas_set = world.gui.dyn_atlas_set.lend_mut();
+	let dyn_atlas_set = world.gui.world_ext.dyn_atlas_set.lend_mut();
 	let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 	let target = dyn_atlas_set.get_target(index).unwrap();
 	match engine.gl.rt_get_object_webgl(target) {
@@ -277,7 +283,7 @@ pub fn get_canvas_target(world: u32, index: usize) -> Option<WebGlFramebuffer> {
  * canvas内容发生改变时，应该调用此方法更新gui渲染
 */
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn update_canvas(world: u32, _node: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     // let engine = world.gui.engine.lend_mut();
@@ -303,26 +309,26 @@ pub fn update_canvas(world: u32, _node: u32) {
     // };
 
 	// 设置视口脏区域为全屏（优化TODO: 设置为改canvas所在的区域为脏区域）
-	let dirty_view_rect = world.gui.dirty_view_rect.lend_mut();
+	let dirty_view_rect = world.gui.world_ext.dirty_view_rect.lend_mut();
 	dirty_view_rect.4 = true;
     // 设置渲染脏
-    let render_objs = world.gui.render_objs.lend();
+    let render_objs = world.gui.world_ext.render_objs.lend();
     render_objs.get_notify_ref().modify_event(1, "", 0);
 }
 /// 在尾部插入子节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn append_child(world: u32, child: u32, parent: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let idtree = world.idtree.lend_mut();
+    let world_ext = &mut world.gui.world_ext;
+    let idtree = world_ext.idtree.lend_mut();
 
 	// 如果父节点不存在，则为根节点，根节点需要特殊处理
 	if parent == 0 {
-		let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
+		let root_indexs = world.gui.world.fetch_single::<RootIndexs>().unwrap();
 		let root_indexs = root_indexs.lend_mut();
 		root_indexs.mark(child as usize, idtree[1].layer());
-		let visibilitys = world.visibility.lend_mut();
+		let visibilitys = world_ext.visibility.lend_mut();
 		visibilitys.insert(child as usize, Visibility(true));
 	}
 
@@ -334,10 +340,10 @@ pub fn append_child(world: u32, child: u32, parent: u32) {
 
 /// 在某个节点之前插入节点，如果该节点已经存在父节点， 会移除原有父节点对本节点的引用
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn insert_before(world: u32, child: u32, brother: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     let idtree = world.idtree.lend_mut();
 	let notify = unsafe { &*(idtree.get_notify_ref() as * const NotifyImpl)};
     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
@@ -351,20 +357,20 @@ pub fn insert_before(world: u32, child: u32, brother: u32) {
 
 /// 移除节点， 但不会销毁， 如果节点树中存在图片资源， 将会释放其对纹理的引用， 如果节点树中overflow=hidden， 将会删除对应的裁剪平面，
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn remove_node(world: u32, node_id: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 	let idtree = world.idtree.lend_mut();
 	let notify = idtree.get_notify();
 	idtree.remove_with_notify(node_id as usize, &notify);
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn first_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 	let idtree = world.idtree.lend_mut();
 	let node_state = world.node_state.lend_mut();
 	let r = idtree[parent as usize].children().head;
@@ -375,10 +381,10 @@ pub fn first_child(world: u32, parent: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn last_child(world: u32, parent: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 	let idtree = world.idtree.lend_mut();
 	let node_state = world.node_state.lend_mut();
 	let r = idtree[parent as usize].children().tail;
@@ -389,10 +395,10 @@ pub fn last_child(world: u32, parent: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn next_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 	let idtree = world.idtree.lend_mut();
 	let node_state = world.node_state.lend_mut();
 	let r = idtree[node as usize].next();
@@ -403,10 +409,10 @@ pub fn next_sibling(world: u32, node: u32) -> usize{
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn previous_sibling(world: u32, node: u32) -> usize{
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 	let idtree = world.idtree.lend_mut();
 	let node_state = world.node_state.lend_mut();
 	let r = idtree[node as usize].prev();
@@ -422,7 +428,7 @@ pub fn previous_sibling(world: u32, node: u32) -> usize{
 // #[js_export]
 // // pub fn insert_after(world: u32, child: u32, brother: u32) {
 //     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-//     let world = &mut world.gui;
+//     let world = &mut world.gui.world_ext;
 //     let idtree = world.idtree.lend_mut();
 //     let notify = idtree.get_notify_ref();
 //     // 如果child在树上， 则会从树上移除节点， 但不会发出事件
@@ -437,10 +443,10 @@ pub fn previous_sibling(world: u32, node: u32) -> usize{
 
 /// 返回节点的层级（如果节点未添加在根上，返回0, 不存在节点，返回0）
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_layer(world: u32, node: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     let idtree = world.idtree.lend_mut();
     match idtree.get(node as usize) {
         Some(n) => n.layer() as u32,
@@ -448,12 +454,208 @@ pub fn get_layer(world: u32, node: u32) -> u32 {
     }
 }
 
+/// 取enable
+#[allow(unused_attributes)]
+#[wasm_bindgen]
+pub fn get_enable(world: u32, node: u32) -> bool {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+    let enables = world.gui.world_ext.enable.lend_mut();
+    match enables.get(node as usize) {
+        Some(r) => r.0,
+        None => false,
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct BaseShape1 (BaseShape);
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Transform1 (TransformFuncs);
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Scale1 ([f32;2]);
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Translate1 ([LengthUnit;2]);
+
+#[wasm_bindgen]
+#[derive(Debug)]
+pub struct Rotate1 (f32);
+
+/// 对clip属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_clip_path(value1: &BaseShape1, value2: &BaseShape1, process: f32) -> BaseShape1 {
+	BaseShape1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
+}
+
+/// 对transform属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_transform(value1: &Transform1, value2: &Transform1, process: f32) -> Transform1 {
+	Transform1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
+}
+
+/// 对transform属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_translate(value1: &Translate1, value2: &Translate1, process: f32) -> Translate1 {
+	Translate1([value1.0[0].scale(1.0 - process).add(&value2.0[0].scale(process)), value1.0[1].scale(1.0 - process).add(&value2.0[1].scale(process))])
+}
+
+/// 对transform属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_scale(value1: &Scale1, value2: &Scale1, process: f32) -> Scale1 {
+	Scale1([value1.0[0].scale(1.0 - process).add(&value2.0[0].scale(process)), value1.0[1].scale(1.0 - process).add(&value2.0[1].scale(process))])
+}
+
+/// 对transform属性进行插值
+#[wasm_bindgen]
+pub fn interpolation_rotate(value1: &Rotate1, value2: &Rotate1, process: f32) -> Rotate1 {
+	Rotate1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
+}
+
+
+/// 创建baseshape
+#[wasm_bindgen]
+pub fn create_base_shape(value: String) -> Option<BaseShape1> {
+	let mut input = cssparser::ParserInput::new(value.as_str());
+    let mut parse = cssparser::Parser::new(&mut input);
+	match BaseShape::parse(&mut parse) {
+		Ok(v) => Some(BaseShape1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+/// 创建transform
+#[wasm_bindgen]
+pub fn create_transform(value: String) -> Option<Transform1> {
+	let mut input = cssparser::ParserInput::new(value.as_str());
+    let mut parse = cssparser::Parser::new(&mut input);
+	match parse_transform(&mut parse) {
+		Ok(v) => Some(Transform1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+/// 创建scale
+#[wasm_bindgen]
+pub fn create_translate(value: String) -> Option<Translate1> {
+	let mut input = cssparser::ParserInput::new(value.as_str());
+    let mut parse = cssparser::Parser::new(&mut input);
+	match parse_mult(&mut parse, [LengthUnit::default(), LengthUnit::default()], parse_len_or_percent) {
+		Ok(v) => Some(Translate1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+/// 创建scale
+#[wasm_bindgen]
+pub fn create_scale(value: String) -> Option<Scale1> {
+	let mut input = cssparser::ParserInput::new(value.as_str());
+    let mut parse = cssparser::Parser::new(&mut input);
+	match parse_mult(&mut parse, [1.0, 1.0], parse_number) {
+		Ok(v) => Some(Scale1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+/// 创建rotate
+#[wasm_bindgen]
+pub fn create_rotate(value: String) -> Option<Rotate1> {
+	let mut input = cssparser::ParserInput::new(value.as_str());
+    let mut parse = cssparser::Parser::new(&mut input);
+	match parse_angle(&mut parse) {
+		Ok(v) => Some(Rotate1(v)),
+		Err(r) => {
+			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			None
+		}
+	}
+}
+
+#[wasm_bindgen]
+#[allow(unused_attributes)]
+pub fn set_clip_path(gui: u32, node_id: f64, value: &BaseShape1) {
+	let node_id = node_id as usize;
+	let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+	gui.gui
+		.set_style(
+			node_id,
+			ClipPathType(value.0.clone()),
+		);
+}
+
+#[wasm_bindgen]
+#[allow(unused_attributes)]
+pub fn set_transform1(gui: u32, node_id: f64, value: &Transform1) {
+	let node_id = node_id as usize;
+	let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+	gui.gui
+		.set_style(
+			node_id,
+			TransformType(value.0.clone()),
+		);
+}
+
+#[wasm_bindgen]
+#[allow(unused_attributes)]
+pub fn set_translate1(gui: u32, node_id: f64, value: &Translate1) {
+	let node_id = node_id as usize;
+	let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+	gui.gui
+		.set_style(
+			node_id,
+			TranslateType(value.0.clone()),
+		);
+}
+
+#[wasm_bindgen]
+#[allow(unused_attributes)]
+pub fn set_scale1(gui: u32, node_id: f64, value: &Scale1) {
+	let node_id = node_id as usize;
+	let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+	gui.gui
+		.set_style(
+			node_id,
+			ScaleType(value.0.clone()),
+		);
+}
+
+#[wasm_bindgen]
+#[allow(unused_attributes)]
+pub fn set_rotate1(gui: u32, node_id: f64, value: &Rotate1) {
+	let node_id = node_id as usize;
+	let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+	gui.gui
+		.set_style(
+			node_id,
+			RotateType(value.0.clone()),
+		);
+}
+
+
+
 /// 销毁节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn destroy_node(world: u32, node_id: u32) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     let idtree = world.idtree.lend_mut();
     let notify = idtree.get_notify();
     let nodes = world.node.lend_mut();
@@ -471,59 +673,45 @@ pub fn destroy_node(world: u32, node_id: u32) {
 	idtree.destroy(node_id as usize);
 }
 
-/// __jsObj: image_name(String)
-/// 设置图片的src
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_src(world: u32, node: u32, url: usize) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-
-    let images = world.gui.image.lend_mut();
-    images.insert(
-        node as usize,
-        Image {url},
-    );
-}
-
 /// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点到gui的上边界的距离
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn offset_top(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
+	let world = &mut world.gui.world_ext;
 	world.layout.lend()[node as usize].rect.top
 }
 
 /// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点到gui的左边界的距离
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn offset_left(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
-	world.layout.lend()[node as usize].rect.start
+	let world = &mut world.gui.world_ext;
+	world.layout.lend()[node as usize].rect.left
 }
 
 /// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点的布局宽度
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn offset_width(world: u32, node: u32) -> f32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
+	let world = &mut world.gui.world_ext;
 	let r = &world.layout.lend()[node as usize];
-	r.rect.end - r.rect.start
+	r.rect.right - r.rect.left
 }
 
 /// 返回值原类型为f32,这里之所以返回u32，是因为在iphonex以上的机型的浏览器上多次连续调用返回值为浮点数时，浏览器会自动刷新或白屏，原因未知
 /// 节点布局高度
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn offset_height(world: u32, node: u32) -> f32 {
 	// 10.0
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let world = &mut world.gui;
+	let world = &mut world.gui.world_ext;
 	let r = &world.layout.lend()[node as usize];
     r.rect.bottom - r.rect.top
 }
@@ -585,11 +773,11 @@ pub struct Size {
 
 /// 等同于html的getBoundingClientRect
 /// left top width height
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn offset_document(world: u32, node_id: u32) -> JsValue {
     let node_id = node_id as usize;
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     // let layouts = world.layout.lend();
     // let world_matrixs = world.world_matrix.lend();
     // let transforms = world.transform.lend();
@@ -632,19 +820,19 @@ pub fn offset_document(world: u32, node_id: u32) -> JsValue {
 
 /// content宽高的累加值
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn content_box(world: u32, node: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
     let layout = world.layout.lend();
     let idtree = world.idtree.borrow();
     let (mut left, mut right, mut top, mut bottom) = (FMAX, 0.0, FMAX, 0.0);
     for (id, _) in idtree.iter(idtree[node as usize].children().head) {
         let l = &layout[id];
-        let r = l.rect.end;
+        let r = l.rect.right;
         let b = l.rect.bottom;
-        if l.rect.start < left {
-            left = l.rect.start;
+        if l.rect.left < left {
+            left = l.rect.left;
         }
         if r > right {
             right = r;
@@ -664,10 +852,10 @@ pub fn content_box(world: u32, node: u32) -> JsValue {
 
 /// 用点命中一个节点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn query(world: u32, x: f32, y: f32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 
     let octree = world.oct.lend();
     let enables = world.enable.lend();
@@ -697,7 +885,7 @@ pub struct CharPos {
 }
 
 // 命中文字，返回文字索引
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn query_text(world: u32, node: u32, x: f32, y: f32) -> JsValue {
 	let r = query_text1(world, node, x, y);
 	match JsValue::from_serde(&r) {
@@ -709,13 +897,13 @@ pub fn query_text(world: u32, node: u32, x: f32, y: f32) -> JsValue {
 	}
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 	cal_layout(world);
 	// log::info!("get_text_pos====={}", index);
 
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 
 	let node_states = world.node_state.lend();
 	let mut char_pos = CharPos {
@@ -801,7 +989,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 
 fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 
 	let node_states = world.node_state.lend();
 	let world_matrixs = world.world_matrix.lend();
@@ -937,12 +1125,12 @@ fn calc_text_pos(char: &CharNode, text: &Vec<CharNode>) -> (f32, f32, f32, f32) 
 
 /// 判断点是否能命中点
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world_ext = &mut world.gui.world_ext;
 
-    let octree = world.oct.lend();
+    let octree = world_ext.oct.lend();
     match octree.get(node as usize) {
         Some((oct, _bind)) => !(x < oct.mins.x || x > oct.maxs.x || y < oct.mins.y || y > oct.maxs.y),
         None => false,
@@ -969,10 +1157,10 @@ pub fn is_intersect(world: u32, x: f32, y: f32, node: u32) -> bool {
 }
 
 #[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[wasm_bindgen]
 pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
+    let world = &mut world.gui.world_ext;
 
     let entitys = world.node.lend();
     let octree = world.oct.lend();
@@ -1001,89 +1189,104 @@ pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
                 return 0;
             }
         };
-        ab_query_func(&mut args, e, oct.0, &e);
+        ab_query_func(&mut args, OctKey(e), &oct.0, &e);
     }
     args.result as u32
 }
 
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
-    let node_id = node_id as usize;
-    let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    if index == 0 {
-        unsafe {
-            world
-                .gui
-                .class_name
-                .lend_mut()
-                .get_unchecked_mut(node_id as usize)
-        }
-        .one = key as usize;
-    } else if index == 1 {
-        unsafe {
-            world
-                .gui
-                .class_name
-                .lend_mut()
-                .get_unchecked_mut(node_id as usize)
-        }
-        .two = key as usize;
-    }
-    if index > 1 {
-        unsafe {
-            world
-                .gui
-                .class_name
-                .lend_mut()
-                .get_unchecked_mut(node_id as usize)
-        }
-        .other
-        .push(key as usize);
-    }
-}
+// #[allow(unused_attributes)]
+// #[wasm_bindgen]
+// pub fn add_class(world_id: u32, node_id: u32, key: u32, index: u32) {
+//     let node_id = node_id as usize;
+//     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
+//     if index == 0 {
+//         unsafe {
+//             world
+//                 .gui.world_ext
+//                 .class_name
+//                 .lend_mut()
+//                 .get_unchecked_mut(node_id as usize)
+//         }
+//         .one = key as usize;
+//     } else if index == 1 {
+//         unsafe {
+//             world
+//                 .gui.world_ext
+//                 .class_name
+//                 .lend_mut()
+//                 .get_unchecked_mut(node_id as usize)
+//         }
+//         .two = key as usize;
+//     }
+//     if index > 1 {
+//         unsafe {
+//             world
+//                 .gui.world_ext
+//                 .class_name
+//                 .lend_mut()
+//                 .get_unchecked_mut(node_id as usize)
+//         }
+//         .other
+//         .push(key as usize);
+//     }
+// }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn add_class_end(world: u32, node_id: u32, old: u32) {
+// #[wasm_bindgen]
+// pub fn add_class_end(world: u32, node_id: u32, old: u32) {
+// 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+//     world
+//         .gui.world_ext
+//         .class_name
+//         .lend_mut()
+//         .get_notify_ref()
+//         .modify_event(node_id as usize, "", old as usize);
+// }
+
+// #[wasm_bindgen]
+// pub fn add_class_start(world: u32, node_id: u32) -> u32 {
+//     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+//     // Box::into_raw(Box::new(
+//     //     world
+//     //         .gui
+//     //         .class_name
+//     //         .lend_mut()
+//     //         .insert_no_notify(node_id as usize, ClassName::default()),
+//     // )) as u32
+// 	world
+//             .gui.world_ext
+//             .class_name
+//             .lend_mut()
+//             .insert_no_notify(node_id as usize, ClassName::default());
+// 	0
+// }
+
+#[wasm_bindgen]
+pub fn set_class(world: u32, node_id: u32, class_names: &[usize]) {
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    world
-        .gui
-        .class_name
-        .lend_mut()
-        .get_notify_ref()
-        .modify_event(node_id as usize, "", old as usize);
+    let world = &mut world.gui.world_ext;
+
+	world.class_name.lend_mut().insert(node_id as usize, ClassName(SmallVec::from_slice(class_names)));
+	// let old = add_class_start(world_id, node_id);
+	// for i in 0..class_names.len() {
+	// 	add_class(world_id, node_id, class_names[i], i as u32);
+	// }
+	// add_class_end(world_id, node_id, old)
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn add_class_start(world: u32, node_id: u32) -> u32 {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    // Box::into_raw(Box::new(
-    //     world
-    //         .gui
-    //         .class_name
-    //         .lend_mut()
-    //         .insert_no_notify(node_id as usize, ClassName::default()),
-    // )) as u32
-	world
-            .gui
-            .class_name
-            .lend_mut()
-            .insert_no_notify(node_id as usize, ClassName::default());
-	0
-}
+#[wasm_bindgen]
+pub fn create_fragment(world: u32, mut arr: Uint32Array, count: u32, key: u32) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let world = &mut world.gui;
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_class(world_id: u32, node_id: u32, class_names: &[u32]) {
-	let old = add_class_start(world_id, node_id);
-	for i in 0..class_names.len() {
-		add_class(world_id, node_id, class_names[i], i as u32);
+	let r = world.create_from_fragment(key);
+	for i in 0..r.len() {
+		arr.set_index(i as u32, r[i] as u32);
 	}
-	add_class_end(world_id, node_id, old)
 }
 
 /// aabb的查询函数的参数
 struct AbQueryArgs<'a> {
-    enables: &'a MultiCaseImpl<Node, Enable>,
+    enables: &'a MultiCaseImpl<Node, gui::component::calc::Enable>,
     by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
     z_depths: &'a MultiCaseImpl<Node, ZDepth>,
     overflow_clip: &'a SingleCaseImpl<OverflowClip>,
@@ -1095,7 +1298,7 @@ struct AbQueryArgs<'a> {
 }
 impl<'a> AbQueryArgs<'a> {
     pub fn new(
-        enables: &'a MultiCaseImpl<Node, Enable>,
+        enables: &'a MultiCaseImpl<Node, gui::component::calc::Enable>,
         by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
         z_depths: &'a MultiCaseImpl<Node, ZDepth>,
         overflow_clip: &'a SingleCaseImpl<OverflowClip>,
@@ -1117,7 +1320,7 @@ impl<'a> AbQueryArgs<'a> {
     }
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
-fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb2, bind: &usize) {
+fn ab_query_func(arg: &mut AbQueryArgs, _id: OctKey, aabb: &Aabb2, bind: &usize) {
     match arg.id_tree.get(*bind) {
         Some(node) => {
             if node.layer() == 0 {
@@ -1213,3 +1416,5 @@ fn in_overflow(
 //   }
 //   return true
 // }
+
+

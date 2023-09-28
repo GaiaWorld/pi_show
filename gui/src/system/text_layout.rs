@@ -1,16 +1,15 @@
-use std::mem::transmute;
+
 // 文字布局及布局系统
 // 文本节点的布局算法： 文本节点本身所对应的yoga节点总是一个0大小的节点。文本节点的父节点才是进行文本布局的节点，称为P节点。P节点如果没有设置布局，则默认用flex布局模拟文档流布局。会将文本拆成每个字（英文为单词）的yoga节点加入P节点上。这样可以支持图文混排。P节点如果有flex布局，则遵循该布局。
 // 字节点，根据字符是否为单字决定是需要字符容器还是单字。
 // 文字根据样式，会处理：缩进，是否合并空白符，是否自动换行，是否允许换行符。来设置相应的flex布局。 换行符采用高度为0, 宽度100%的yoga节点来模拟。
 use std::{marker::PhantomData, result::Result};
-use ordered_float::OrderedFloat;
 
 use ecs::{Event, StdCell};
 use ecs::{
 	component::MultiCaseImpl,
 	entity::EntityImpl,
-    monitor::{ModifyEvent},
+    monitor::ModifyEvent,
     single::SingleCaseImpl,
 	system::{MultiCaseListener, Runner},
 };
@@ -22,24 +21,27 @@ use hal_core::*;
 use flex_layout::{Dimension, INodeStateType};
 use crate::component::{calc::*, user::*, calc::LayoutR};
 use crate::entity::Node;
-use crate::font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult, TexFont};
+use crate::font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult};
 use crate::single::*;
 use crate::render::engine::ShareEngine;
 
-const MARK_LAYOUT: usize = StyleType::LetterSpacing as usize
-    | StyleType::WordSpacing as usize
-    | StyleType::LineHeight as usize
-    | StyleType::Indent as usize
-    | StyleType::WhiteSpace as usize
-    | StyleType::TextAlign as usize
-    | StyleType::VerticalAlign as usize
-    | StyleType::Stroke as usize
-    | StyleType::FontStyle as usize
-    | StyleType::FontFamily as usize
-    | StyleType::FontSize as usize
-    | StyleType::FontWeight as usize;
+lazy_static! {
+	static ref MARK_LAYOUT: StyleBit = style_bit().set_bit(StyleType::LetterSpacing as usize)
+		.set_bit(StyleType::WordSpacing as usize)
+		.set_bit(StyleType::LineHeight as usize)
+		.set_bit(StyleType::TextIndent as usize)
+		.set_bit(StyleType::WhiteSpace as usize)
+		.set_bit(StyleType::TextAlign as usize)
+		.set_bit(StyleType::VerticalAlign as usize)
+		.set_bit(StyleType::TextStroke as usize)
+		.set_bit(StyleType::FontStyle as usize)
+		.set_bit(StyleType::FontFamily as usize)
+		.set_bit(StyleType::FontSize as usize)
+		.set_bit(StyleType::FontWeight as usize);
 
-const MARK: usize = MARK_LAYOUT | StyleType::Text as usize;
+	static ref MARK: StyleBit = style_bit().set_bit(StyleType::TextContent as usize) | &*MARK_LAYOUT ;
+}
+
 
 type Read<'a> = (
     &'a MultiCaseImpl<Node, TextContent>,
@@ -95,7 +97,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 					None => continue,
 				};
 	
-				if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
+				if (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
 					continue;
 				}
 	
@@ -201,11 +203,11 @@ impl<'a> Runner<'a> for LayoutImpl {
 			};
 
 			
-            if (r.dirty & MARK == 0) || read.0.get(*id).is_none(){
+            if (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
                 continue;
 			}
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
-            calc(*id, &read, &mut write, r.dirty & MARK_LAYOUT);
+            calc(*id, &read, &mut write, (r.dirty & &*MARK_LAYOUT).any());
 		}
 	}
 }
@@ -262,25 +264,25 @@ fn update_layout(
 		return
 	}
 	let mut rect = Rect{
-		start: std::f32::MAX,
-		end: 0.0,
+		left: std::f32::MAX,
+		right: 0.0,
 		top: std::f32::MAX,
 		bottom: 0.0,
 	};
 	for (id, _node) in idtree.recursive_iter(n.children().head) {
 		let char = &mut chars[node_states[id].char_index];
 		let l = &layout_rs[id].rect;
-		char.pos = (l.start, l.top);
+		char.pos = (l.left, l.top);
 
-		if l.start < rect.start {
-			rect.start = l.start;
+		if l.left < rect.left {
+			rect.left = l.left;
 		}
 		if l.top < rect.top {
 			rect.top = l.top;
 		}
 
-		if l.end > rect.end {
-			rect.end = l.end;
+		if l.right > rect.right {
+			rect.right = l.right;
 		}
 		if l.bottom > rect.bottom {
 			rect.bottom = l.bottom;
@@ -288,7 +290,7 @@ fn update_layout(
 	}
 	
 	// 设置文字虚拟节点的矩形
-	if rect.start <= rect.end {
+	if rect.left <= rect.right {
 		layout_rs[id].rect = rect;
 	}
 }
@@ -329,7 +331,7 @@ fn set_gylph<'a>(
             char_id = font_sheet.calc_gylph(
                 &tex_font,
                 font_size as usize,
-                sw as usize,
+                *sw as usize,
                 weight,
                 scale,
                 char_node.base_width,
@@ -372,9 +374,9 @@ struct Calc<'a> {
 impl<'a> Calc<'a> {
 	// 将文字样式用flex布局属性替换, 可以考虑不支持文字的布局属性？
 	fn fit_text_style(&mut self) {
-		let (local_style, class_style, local_style2, class_style2, text, other_layout_styles, id) = (self.style_mark.local_style, self.style_mark.class_style, self.style_mark.local_style2, self.style_mark.class_style2, &self.text_style.text, &mut self.other_layout_styles, self.id);
+		let (local_style, class_style, text, other_layout_styles, id) = (self.style_mark.local_style, self.style_mark.class_style, &self.text_style.text, &mut self.other_layout_styles, self.id);
 		// 兼容目前使用父节点的对齐属性来对齐文本， 如果项目将其修改正确， 应该去掉该段TODO
-		if local_style & StyleType::TextAlign as usize > 0 || class_style & StyleType::TextAlign as usize > 0 {
+		if local_style[StyleType::TextAlign as usize] || class_style[StyleType::TextAlign as usize] {
 			other_layout_styles[id].justify_content = match text.text_align {
 				TextAlign::Center => JustifyContent::Center,
 				TextAlign::Right => JustifyContent::FlexEnd,
@@ -383,7 +385,7 @@ impl<'a> Calc<'a> {
 			};
 		}
 		
-		if local_style & StyleType::VerticalAlign as usize > 0 || class_style & StyleType::VerticalAlign as usize > 0 {
+		if local_style[StyleType::VerticalAlign as usize] || class_style[StyleType::VerticalAlign as usize] {
 			let r= match text.vertical_align {
 				VerticalAlign::Middle => AlignItems::Center,
 				VerticalAlign::Bottom => AlignItems::FlexEnd,
@@ -397,18 +399,18 @@ impl<'a> Calc<'a> {
 			};
 			other_layout_styles[id].align_content = r;
 		
-		} else if local_style2 & StyleType2::AlignContent as usize == 0 && class_style2 & StyleType2::AlignContent as usize == 0 {
+		} else if !local_style[StyleType::AlignContent as usize] && !class_style[StyleType::AlignContent as usize] {
 			// 文字的容器默认align_content为FlexStart
 			other_layout_styles[id].align_content = AlignContent::FlexStart;
 		}
 	
-		if local_style & StyleType::WhiteSpace as usize > 0 || class_style & StyleType::WhiteSpace as usize > 0 {
+		if local_style[StyleType::WhiteSpace as usize] || class_style[StyleType::WhiteSpace as usize] {
 			other_layout_styles[id].flex_wrap = if text.white_space.allow_wrap() {
 				FlexWrap::Wrap
 			} else {
 				FlexWrap::NoWrap
 			}
-		} else if local_style2 & StyleType2::FlexWrap as usize == 0 && class_style2 & StyleType2::FlexWrap as usize == 0{
+		} else if !local_style[StyleType::FlexWrap as usize] && !class_style[StyleType::FlexWrap as usize]{
 			// 文字的容器默认flex_wrap为FlexWrap::Wrap
 			other_layout_styles[id].flex_wrap = FlexWrap::Wrap;
 		}
@@ -597,8 +599,8 @@ impl<'a> Calc<'a> {
 			id = self.nodes.create_but_no_notify();
 			self.rect_layout_styles.insert_no_notify(id, RectLayoutStyle {
 				margin: Rect{
-					start: Dimension::Points(margin),
-					end: Dimension::Points(0.0),
+					left: Dimension::Points(margin),
+					right: Dimension::Points(0.0),
 					top: Dimension::Points(0.0),
 					bottom: Dimension::Points(0.0),
 				},
@@ -614,7 +616,7 @@ impl<'a> Calc<'a> {
 			self.idtree.insert_child(id, parent, std::usize::MAX);
 		} else {
 			let mut style = &mut self.rect_layout_styles[id];
-			style.margin.start = Dimension::Points(margin);
+			style.margin.left = Dimension::Points(margin);
 			style.size = Size{
 				width: Dimension::Points(cn.size.0),
 				height: Dimension::Points(cn.size.1)
@@ -746,9 +748,9 @@ fn calc<'a>(
 	id: usize,
 	(text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
 	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
-	layout_dirty: usize,) {
+	layout_dirty: bool,) {
 	let font_sheet = &mut font_sheet.borrow_mut();
-	let defaultFamily = text_styles[0].font.family; // 0不存在text_style， 必然取到默认值
+	let defaultFamily = text_styles[0].font.family.clone(); // 0不存在text_style， 必然取到默认值
 	let text_style = &mut text_styles[id];
 	let tex_font = match font_sheet.get_font_info(&text_style.font.family) {
 		Some(r) => (r.0.clone(), r.1),
@@ -772,12 +774,12 @@ fn calc<'a>(
 	};
 	let font_size = get_size(tex_font.1, &text_style.font.size) as f32;
 	let font_height = font_sheet.get_font_height(&tex_font
-		.0, font_size as usize, text_style.text.stroke.width);
-	let sw = text_style.text.stroke.width;
+		.0, font_size as usize, *text_style.text.stroke.width);
+	let sw = *text_style.text.stroke.width;
 	let parent = idtree[id].parent();
 	let mut calc = Calc {
 		text: match text_content.get(id) {
-			Some(t) => t.0.as_ref(),
+			Some(t) => t.0.0.as_ref(),
 			_ => "",
 		},
 		style_mark: &style_marks[id],
@@ -785,7 +787,7 @@ fn calc<'a>(
 		font_size,
 		font_height,
 		line_height: get_line_height(font_height as usize, &text_style.text.line_height),
-		sw: text_style.text.stroke.width,
+		sw: *text_style.text.stroke.width,
 		char_margin: text_style.text.letter_spacing - sw,
 		word_margin: text_style.text.word_spacing - sw,
 		text_style: &mut text_styles[id],
@@ -804,7 +806,7 @@ fn calc<'a>(
 
 
 	calc.fit_text_style();
-	if layout_dirty > 0 {
+	if layout_dirty {
 		// 如果布局属性修改，清除CharNode
 		node_states[id].0.text.clear();
 	}

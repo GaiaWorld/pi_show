@@ -69,7 +69,7 @@
 // #[cfg(test)]
 // use ecs::{World, LendMut, SeqDispatcher, Dispatcher};
 // #[cfg(test)]
-// use atom::Atom;
+// use pi_atom::Atom;
 // #[cfg(test)]
 // use component::user::{TransformWrite, TransformFunc};
 // #[cfg(test)]

@@ -1,3 +1,4 @@
+use bitvec::prelude::BitArray;
 use flex_layout::Size;
 /**
  * 背景色渲染对象的构建及其属性设置
@@ -10,12 +11,12 @@ use hash::DefaultHasher;
 use map::vecmap::VecMap;
 use ordered_float::NotNan;
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::Event;
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
-use polygon::*;
+use pi_polygon::*;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;
@@ -29,13 +30,14 @@ use crate::system::util::*;
 
 lazy_static! {
     static ref GRADUAL: Atom = Atom::from("GRADUAL");
+	static ref DIRTY_TYPE: StyleBit = style_bit().set_bit(StyleType::BackgroundColor as usize)
+	.set_bit(StyleType::BorderRadius as usize)
+    .set_bit(StyleType::Opacity as usize);
+	static ref OPACITY_TYPE: StyleBit = style_bit().set_bit(StyleType::BackgroundColor as usize)
+		.set_bit(StyleType::Opacity as usize);
 }
 
-const DIRTY_TYPE: usize = StyleType::BackgroundColor as usize
-    | StyleType::Matrix as usize
-    | StyleType::BorderRadius as usize
-    | StyleType::Opacity as usize
-    | StyleType::Layout as usize;
+
 
 pub struct BackgroundColorSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
@@ -116,11 +118,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             };
 
             // 不存在BuckgroundColor关心的脏, 跳过
-            if style_mark.dirty & DIRTY_TYPE == 0 {
+            if !(style_mark.dirty & &*DIRTY_TYPE).any() && style_mark.dirty1 & GEO_DIRTY_TYPE == 0 {
                 continue;
             }
 
             let dirty = style_mark.dirty;
+			let dirty1 = style_mark.dirty1;
 			
 			let color = match background_colors.get(*id) {
 				Some(r) => r,
@@ -130,9 +133,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
 				}
 			};
             // 背景颜色脏， 如果不存在BacgroundColor的本地样式和class样式， 删除渲染对象
-            let render_index = if dirty & StyleType::BackgroundColor as usize != 0 {
-                if style_mark.local_style & StyleType::BackgroundColor as usize == 0
-                    && style_mark.class_style & StyleType::BackgroundColor as usize == 0
+            let render_index = if dirty[StyleType::BackgroundColor as usize] {
+                if !style_mark.local_style[StyleType::BackgroundColor as usize]
+                    && !style_mark.class_style[StyleType::BackgroundColor as usize]
                 {
                     self.remove_render_obj(*id, render_objs);
                     continue;
@@ -154,8 +157,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
             let layout = &layouts[*id];
 
             // 如果Color脏， 或Opacity脏， 计算is_opacity
-            if dirty & StyleType::BackgroundColor as usize != 0
-                || dirty & StyleType::Opacity as usize != 0
+            if dirty[StyleType::BackgroundColor as usize]
+                || dirty[StyleType::Opacity as usize]
             {
 				// let opacity = opacitys[*id].0;
 				let is_opacity_old = render_obj.is_opacity;
@@ -171,6 +174,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 color,
                 engine,
                 dirty,
+				dirty1,
                 layout,
                 &unit_quad.0,
             );
@@ -180,7 +184,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
 				single_vert_type.get_notify_ref().modify_event(render_index, "", 0);
 			}
             // 如果矩阵脏
-            if dirty & StyleType::Matrix as usize != 0 || dirty & StyleType::Layout as usize != 0 {
+            if dirty1 & GEO_DIRTY_TYPE != 0 {
                 let world_matrix = &world_matrixs[*id];
                 let transform = match transforms.get(*id) {
                     Some(r) => r,
@@ -286,13 +290,14 @@ fn modify_color<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
     engine: &mut Engine<C>,
-    dirty: usize,
+    dirty: StyleBit,
+	dirty1: usize,
     layout: &LayoutR,
     unit_quad: &Share<GeometryRes>,
 ) -> (bool, VertType) {
     let mut change = false;
 	let mut vert_type = render_obj.vert_type;
-	if dirty & StyleType::BackgroundColor as usize != 0 {
+	if dirty[StyleType::BackgroundColor as usize] {
 		match &background_color.0 {
 			Color::RGBA(c) => {
 				change = to_ucolor_defines(
@@ -315,10 +320,10 @@ fn modify_color<C: HalContext + 'static>(
 		};
 	}
 	
-	if change || dirty & StyleType::Layout as usize != 0 {
+	if change || dirty1 & CalcType::Layout as usize != 0 {
 		let mut hasher = DefaultHasher::default();
 		background_color.0.hash(&mut hasher);
-		radius_quad_hash(&mut hasher, 0.0, layout.rect.end - layout.rect.start - layout.border.start - layout.border.end, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
+		radius_quad_hash(&mut hasher, 0.0, layout.rect.right - layout.rect.left - layout.border.left - layout.border.right, layout.rect.bottom - layout.rect.top-layout.border.bottom - layout.border.top);
 		let hash = hasher.finish();
 
 		match engine.geometry_res_map.get(&hash) {
@@ -326,13 +331,13 @@ fn modify_color<C: HalContext + 'static>(
 			None => {
 				if let Color::LinearGradient(color) = &background_color.0 {
 					let rect = get_content_rect(layout);
-					let size = Size {width: rect.end - rect.start, height: rect.bottom - rect.top};
+					let size = Size {width: rect.right - rect.left, height: rect.bottom - rect.top};
 					let (positions, indices) = (
 						vec![
-							*rect.start, *rect.top, // left_top
-							*rect.start, *rect.bottom, // left_bootom
-							*rect.end, *rect.bottom, // right_bootom
-							*rect.end, *rect.top, // right_top
+							*rect.left, *rect.top, // left_top
+							*rect.left, *rect.bottom, // left_bootom
+							*rect.right, *rect.bottom, // right_bootom
+							*rect.right, *rect.top, // right_top
 						],
 						vec![0, 1, 2, 3],
 					);
@@ -361,7 +366,7 @@ pub fn linear_gradient_split(color: &LinearGradientColor, positions: Vec<f32>, i
 	let mut colors = Vec::with_capacity(color.list.len() * 4);
 	for v in color.list.iter() {
 		lg_pos.push(v.position);
-		colors.extend_from_slice(&[v.rgba.r, v.rgba.g, v.rgba.b, v.rgba.a]);
+		colors.extend_from_slice(&[v.rgba.x, v.rgba.y, v.rgba.z, v.rgba.w]);
 	}
 
 	//渐变端点

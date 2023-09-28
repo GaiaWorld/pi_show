@@ -20,7 +20,7 @@ use std::hash::{Hash, Hasher};
 // use ordered_float::NotNan;
 use hash::{DefaultHasher, XHashSet};
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
@@ -50,9 +50,9 @@ const DIRTY_TY: usize = StyleType::Matrix as usize
 	| StyleType::Opacity as usize
 	| StyleType::Layout as usize;
 
-const DIRTY_TY1: usize = StyleType1::MaskTexture as usize
-	| StyleType1::MaskImageClip as usize
-	| StyleType1::ContentBox as usize;
+const DIRTY_TY1: usize = StyleType::MaskTexture as usize
+	| StyleType::MaskImageClip as usize
+	| StyleType::ContentBox as usize;
 
 pub struct RenderContextSys<C> {
 	dirty: XHashSet<usize>,
@@ -136,7 +136,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			let dirty1 = style_mark.dirty1;
 
 			// if *id == 344 {
-			// 	log::info!("dirty1, {}, {}", dirty1 & DIRTY_TY1 != 0, dirty1 & StyleType1::MaskTexture as usize);
+			// 	log::info!("dirty1, {}, {}", dirty1 & DIRTY_TY1 != 0, dirty1 & StyleType::MaskTexture as usize);
 			// }
 			
 			// log::info!("is dirty: {:?}",dirty & DIRTY_TY == 0 && dirty1 & DIRTY_TY1 == 0);
@@ -187,7 +187,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			render_obj.is_opacity = false;
 
 			// 设置mask_image
-			if dirty1 & StyleType1::MaskTexture as usize != 0 {
+			if dirty1 & StyleType::MaskTexture as usize != 0 {
 				if let Some(mask_texture) = mask_texture {
 					let dyn_atlas_set = dyn_atlas_set.borrow_mut();
 					render_obj.fs_defines.add("MASK_IMAGE");
@@ -236,7 +236,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 				}
 				
 				// 应该树contentbox发生改变时，TODO
-				if is_create || dirty1 & StyleType1::ContentBox as usize != 0 {
+				if is_create || dirty1 & StyleType::ContentBox as usize != 0 {
 					// 目的： 将其下渲染的字节，以本节点左上为原点对齐
 					let (left_top_matrix, view_matrix) = let_top_offset_matrix(*id, 
 						layout, world_matrix,transform, idtree, willchange_matrixs, &aabb

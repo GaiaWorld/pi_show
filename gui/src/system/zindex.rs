@@ -690,12 +690,12 @@ impl_system!{
 // 	idtree.set_statistics_count(true);
 // 	world.register_single::<IdTree>(idtree);
 	
-// 	world.register_system(atom::Atom::from("z_index_sys"), CellZIndexImpl::new(ZIndexImpl::new()));
+// 	world.register_system(pi_atom::Atom::from("z_index_sys"), CellZIndexImpl::new(ZIndexImpl::new()));
 
 // 	let mut dispatch = SeqDispatcher::default();
 // 	dispatch.build("z_index_sys".to_string(), &world);
 
-// 	world.add_dispatcher(atom::Atom::from("z_index_sys"), dispatch);
+// 	world.add_dispatcher(pi_atom::Atom::from("z_index_sys"), dispatch);
 	
 // 	return world;
 // }
@@ -720,12 +720,12 @@ impl_system!{
 // #[cfg(test)]
 // fn test_world_zz(mgr: &mut World){
 //     let body_id = new_node(mgr, 0);
-//     // mgr.run(&atom::Atom::from("z_index_sys"));
+//     // mgr.run(&pi_atom::Atom::from("z_index_sys"));
 
 //     let root_id = new_node(mgr, body_id);
 //     let temp_id = new_node(mgr, root_id);
 //     let root_top_id = new_node(mgr, root_id);
-//     // mgr.run(&atom::Atom::from("z_index_sys"));
+//     // mgr.run(&pi_atom::Atom::from("z_index_sys"));
 
 //     let node_0 = new_node(mgr, root_top_id);
 //     let node_0_0 = new_node(mgr, node_0);
@@ -733,7 +733,7 @@ impl_system!{
 //     let node_0_1_0 = new_node(mgr, node_0_1);
 //     let node_0_1_0_0 = new_node(mgr, node_0_1_0);
  
-//     mgr.run(&atom::Atom::from("z_index_sys"));
+//     mgr.run(&pi_atom::Atom::from("z_index_sys"));
 //     debug_println!("modify run-----------------------------------------");
 
 //     print_node(mgr, body_id, 0);
@@ -752,7 +752,7 @@ impl_system!{
 //     // let node_1_1_0 = new_node(mgr, node_1_1);
 //     // let node_1_1_0_0 = new_node(mgr, node_1_1_0);
 
-//     mgr.run(&atom::Atom::from("z_index_sys"));
+//     mgr.run(&pi_atom::Atom::from("z_index_sys"));
 //     print_node(&mgr, body_id, 0);
 //     print_node(&mgr, root_id, 1);
 //     print_node(&mgr, temp_id, 2);
@@ -841,7 +841,7 @@ impl_system!{
 // 	let z_depths = mgr.fetch_multi::<Node, ZDepth>().unwrap();
 // 	let z_depths = z_depths.lend();
 // 	let node = &idtree[id];
-//     let zimpl = mgr.fetch_sys::<CellZIndexImpl>(&atom::Atom::from("z_index_sys")).unwrap();
+//     let zimpl = mgr.fetch_sys::<CellZIndexImpl>(&pi_atom::Atom::from("z_index_sys")).unwrap();
 //     let zi = &zimpl.owner.borrow().map[id];
 
 // 	let mut r = "".to_string();

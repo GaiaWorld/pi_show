@@ -12,7 +12,7 @@ use std::hash::{Hash, Hasher};
 
 use hash::{DefaultHasher, XHashSet};
 
-use atom::Atom;
+use pi_atom::Atom;
 use ecs::{CreateEvent, DeleteEvent, ModifyEvent, EntityListener, MultiCaseImpl, MultiCaseListener, Runner, SingleCaseImpl, SingleCaseListener};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
