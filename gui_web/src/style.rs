@@ -1,758 +1,2148 @@
-use std::mem::transmute;
-
-use gui::single::style_parse::StyleParse;
-use wasm_bindgen::prelude::*;
-// use stdweb::unstable::TryInto;
-// use stdweb::web::TypedArray;
-use cssparser::{ParserInput, Parser};
-
-use ecs::LendMut;
-use hash::XHashMap;
-
-use crate::world::GuiWorld;
-use flex_layout::Rect;
-use gui::component::user::{BlendMode as BlendMode1, *};
-#[cfg(feature = "create_class_by_str")]
-use gui::single::style_parse::parse_class_from_string;
-use gui::single::*;
-use gui::util::vecmap_default::VecMapWithDefault;
-
-#[macro_use()]
-macro_rules! insert_value {
-    ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
-        let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
-        let world = &mut world.gui;
-        world.$key.lend_mut().insert(node_id, $tt($value));
+pub mod style_macro {
+    //! 将设置布局属性的接口导出到js
+    use std::mem::transmute;
+    use gui::component::user::ClassName;
+    use ordered_float::NotNan;
+    use pi_flex_layout::prelude::*;
+    use hash::XHashMap;
+    use map::vecmap::VecMap;
+    use pi_style::style::*;
+    use pi_style::style_type::*;
+    use pi_style::style_parse::{
+        parse_comma_separated, parse_text_shadow, parse_as_image, StyleParse,
     };
-}
-
-#[macro_use()]
-macro_rules! insert_attr {
-    ($world:ident, $node_id:ident, $tt:ident, $value:expr, $key:ident) => {
-        let node_id = $node_id as usize;
-        let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
-        let world = &mut world.gui;
-        world.$key.lend_mut().insert(node_id, $value);
-    };
-}
-#[macro_use()]
-macro_rules! set_show {
-    ($world:ident, $node_id:ident, $name:ident, $value:expr, $field:expr) => {
-        let node_id = $node_id as usize;
-        let world = unsafe { &mut *($world as usize as *mut GuiWorld) };
-        let world = &mut world.gui;
-        let show = world.show.lend_mut();
-        let s = unsafe { show.get_unchecked_mut(node_id) };
-        let old = s.clone();
-        s.$name($value);
-        if old != *s {
-            show.get_notify_ref().modify_event(node_id, $field, 0);
-        }
-    };
-}
-
-/// 设置背景色的rgba
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_background_rgba_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
-    insert_value!(world, node, BackgroundColor, Color::RGBA(CgColor::new(r, g, b, a)), background_color);
-}
-
-// // 设置一个径向渐变的背景颜色
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_background_radial_gradient_color(world: u32, node: u32, center_x: f32, center_y: f32, shape: u8, size: u8,color_and_positions: &[f32] ){
-//     let value = Color::RadialGradient(to_radial_gradient_color(color_and_positions, center_x, center_y, shape, size));
-//     insert_value!(world, node, BackgroundColor, value);
-// }
-
-/// 设置一个线性渐变的背景颜色
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_background_linear_gradient_color(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
-    let value = Color::LinearGradient(to_linear_gradient_color(color_and_positions, direction));
-    insert_value!(world, node, BackgroundColor, value, background_color);
-}
-
-/// 设置边框颜色， 类型为rgba
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32) {
-    insert_value!(world, node, BorderColor, CgColor::new(r, g, b, a), border_color);
-}
-
-/// 设置边框圆角
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_radius(world: u32, node: u32, value: String) {
-	let mut input = ParserInput::new(value.as_str());
-    let mut parse = Parser::new(&mut input);
-	match BorderRadius::parse(&mut parse) {
-		Ok(v) => {
-			insert_attr!(
-				world,
-				node,
-				BorderRadius,
-				v,
-				border_radius
-			);
-		},
-		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}", value);
-		}
-	}
-}
-
-/// 设置clip_path
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_clip_path_str(world: u32, node: u32, value: String) {
-	let mut input = ParserInput::new(value.as_str());
-    let mut parse = Parser::new(&mut input);
-	match BaseShape::parse(&mut parse) {
-		Ok(v) => {
-			insert_attr!(
-				world,
-				node,
-				ClipPath,
-				ClipPath(v),
-				clip_path
-			);
-		},
-		Err(r) => {
-			log::error!("set_clip_path_str invalid, {:?}", value);
-		}
-	}
-}
-
-/// 设置clip_path
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_clip_path(world: u32, node: u32, value: &BaseShape1) {
-	insert_attr!(
-		world,
-		node,
-		ClipPath,
-		ClipPath(value.0.clone()),
-		clip_path
-	);
-}
-
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-#[derive(Debug)]
-pub struct BaseShape1 (BaseShape);
-
-/// 对clip属性进行插值
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn interpolation_clip_path(value1: &BaseShape1, value2: &BaseShape1, process: f32) -> BaseShape1 {
-	BaseShape1(value1.0.scale(1.0 - process).add(&value2.0.scale(process)))
-}
-
-/// 创建baseshape
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn create_base_shape(value: String) -> Option<BaseShape1> {
-	let mut input = ParserInput::new(value.as_str());
-    let mut parse = Parser::new(&mut input);
-	match BaseShape::parse(&mut parse) {
-		Ok(v) => Some(BaseShape1(v)),
-		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
-			None
-		}
-	}
-}
-
-pub trait AnimatableValue {
-    fn add(&self, rhs: &Self) -> Self;
-    fn scale(&self, other: f32) -> Self;
-}
-
-impl AnimatableValue for BaseShape {
-    fn add(&self, rhs: &Self) -> Self {
-        match (self, rhs) {
-            (BaseShape::Circle{radius: radius1, center: center1}, BaseShape::Circle {radius: radius2, center: center2}) => BaseShape::Circle {
-				radius: radius1.add(radius2),
-				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
-			},
-            (BaseShape::Ellipse{rx: rx1, ry: ry1, center: center1}, BaseShape::Ellipse{rx: rx2, ry: ry2, center: center2}) => BaseShape::Ellipse {
-				rx: rx1.add(rx2),
-				ry: ry1.add(ry2),
-				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
-			},
-			(BaseShape::Inset{rect_box: rect_box1, border_radius: border_radius1}, BaseShape::Inset {rect_box: rect_box2, border_radius: border_radius2}) => BaseShape::Inset {
-				rect_box: [
-					rect_box1[0].add(&rect_box2[0]), 
-					rect_box1[1].add(&rect_box2[1]), 
-					rect_box1[2].add(&rect_box2[2]), 
-					rect_box1[3].add(&rect_box2[3]),
-				],
-				border_radius: BorderRadius { 
-					x: [
-						border_radius1.x[0].add(&border_radius2.x[0]), 
-						border_radius1.x[1].add(&border_radius2.x[1]), 
-						border_radius1.x[2].add(&border_radius2.x[2]), 
-						border_radius1.x[3].add(&border_radius2.x[3]),
-					], 
-					y: [
-						border_radius1.y[0].add(&border_radius2.y[0]), 
-						border_radius1.y[1].add(&border_radius2.y[1]), 
-						border_radius1.y[2].add(&border_radius2.y[2]), 
-						border_radius1.y[3].add(&border_radius2.y[3]),
-					]
-				}
-			},
-			(BaseShape::Sector{angle: angle1, rotate: rotate1, radius: radius1,  center: center1}, BaseShape::Sector{angle: angle2, rotate: rotate2, radius: radius2, center: center2}) => BaseShape::Sector {
-				angle: angle1 + angle2,
-				rotate: rotate1 + rotate2,
-				radius: radius1.add(radius2),
-				center: Center {x:  center1.x.add(&center2.x), y: center1.y.add(&center2.y)}
-			},
-			(_, rhs) => rhs.clone()
-        }
+    use smallvec::SmallVec;
+    pub use crate::index::{OffsetDocument, Size, GuiWorld, Atom};
+    #[cfg(target_arch = "wasm32")]
+    use wasm_bindgen::prelude::wasm_bindgen;
+    pub enum Edge {
+        Left = 0,
+        Top = 1,
+        Right = 2,
+        Bottom = 3,
+        Start = 4,
+        End = 5,
+        Horizontal = 6,
+        Vertical = 7,
+        All = 8,
     }
-    #[inline]
-    fn scale(&self, other: f32) -> Self {
-		match self {
-			BaseShape::Circle { radius, center } => BaseShape::Circle { radius: radius.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
-			BaseShape::Ellipse { rx, ry, center } => BaseShape::Ellipse { rx: rx.scale(other), ry: ry.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
-			BaseShape::Inset { rect_box, border_radius } => BaseShape::Inset { rect_box: [
-				rect_box[0].scale(other), 
-				rect_box[1].scale(other), 
-				rect_box[2].scale(other), 
-				rect_box[3].scale(other),
-			], border_radius: BorderRadius {
-				x: [
-					border_radius.x[0].scale(other), 
-					border_radius.x[1].scale(other), 
-					border_radius.x[2].scale(other), 
-					border_radius.x[3].scale(other),
-				], 
-				y: [
-					border_radius.y[0].scale(other), 
-					border_radius.y[1].scale(other), 
-					border_radius.y[2].scale(other), 
-					border_radius.y[3].scale(other),
-				]
-			} } ,
-			BaseShape::Sector { angle, rotate, radius, center } => BaseShape::Sector { angle: angle * other, rotate: rotate * other, radius: radius.scale(other), center: Center {x:  center.x.scale(other), y: center.y.scale(other)} },
-		}
-        // match self {
-        //     LengthUnit::Pixel(r1) => LengthUnit::Pixel(r1 * other),
-        //     LengthUnit::Percent(r1) => LengthUnit::Percent(r1 * other),
-        // }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_align_content(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, AlignContentType(unsafe { transmute(v as u8) }));
     }
-}
-
-impl AnimatableValue for LengthUnit {
-    fn add(&self, rhs: &Self) -> Self {
-        match (self, rhs) {
-            (LengthUnit::Pixel(r1), LengthUnit::Pixel(r2)) => LengthUnit::Pixel(r1 + r2),
-            (LengthUnit::Pixel(r1), LengthUnit::Percent(_)) => LengthUnit::Pixel(*r1),
-            (LengthUnit::Percent(r1), LengthUnit::Pixel(_)) => LengthUnit::Percent(*r1),
-            (LengthUnit::Percent(r1), LengthUnit::Percent(r2)) => LengthUnit::Percent(r1 + r2),
-        }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_align_content(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetAlignContentType);
     }
-    #[inline]
-    fn scale(&self, other: f32) -> Self {
-        match self {
-            LengthUnit::Pixel(r1) => LengthUnit::Pixel(r1 * other),
-            LengthUnit::Percent(r1) => LengthUnit::Percent(r1 * other),
-        }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_align_items(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, AlignItemsType(unsafe { transmute(v as u8) }));
     }
-}
-
-
-// // 设置阴影颜色
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_box_shadow_color(world: u32, node: u32, r: f32, g: f32, b: f32, a: f32){
-//     let color = 0;
-//     set_attr!(world, node, BoxShadow, color, CgColor::new(r, g, b, a), box_shadow);
-// }
-
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_box_shadow_spread(world: u32, node: u32, value: f32){
-//     let spread = 0;
-//     set_attr!(world, node, BoxShadow, spread, value, box_shadow);
-// }
-
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_box_shadow_blur(world: u32, node: u32, value: f32){
-//     let blur = 0;
-//     set_attr!(world, node, BoxShadow, blur, value, box_shadow);
-// }
-
-// // 设置阴影h
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_box_shadow_h(world: u32, node: u32, value: f32){
-//     let h = 0;
-//     set_attr!(world, node, BoxShadow, h, value, box_shadow);
-// }
-
-// // 设置阴影v
-// #[allow(unused_attributes)]
-// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-// pub fn set_box_shadow_v(world: u32, node: u32, value: f32){
-//     let v = 0;
-//     set_attr!(world, node, BoxShadow, v, value, box_shadow);
-// }
-
-/// 设置阴影v
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_box_shadow(world: u32, node: u32, h: f32, v: f32, blur: f32, spread: f32, r: f32, g: f32, b: f32, a: f32) {
-    // let v = 0;
-    insert_attr!(
-        world,
-        node,
-        BoxShadow,
-        BoxShadow {
-            h: h,
-            v: v,
-            blur: blur,
-            spread: spread,
-            color: CgColor::new(r, g, b, a)
-        },
-        box_shadow
-    );
-}
-
-/// 设置object_fit
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_object_fit(world: u32, node: u32, value: u8) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let object_fits = world.gui.object_fit.lend_mut();
-    if let None = object_fits.get(node as usize) {
-        object_fits.insert_no_notify(node as usize, BackgroundImageOption::default());
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_align_items(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetAlignItemsType);
     }
-    object_fits[node as usize].object_fit = unsafe { transmute(value) };
-    object_fits.get_notify_ref().modify_event(node as usize, "", 0);
-}
-
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_background_repeat(world: u32, node: u32, x: u8, y: u8) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let object_fits = world.gui.object_fit.lend_mut();
-    if let None = object_fits.get(node as usize) {
-        object_fits.insert_no_notify(node as usize, BackgroundImageOption::default());
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_justify_content(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, JustifyContentType(unsafe { transmute(v as u8) }));
     }
-    object_fits[node as usize].repeat = (unsafe { transmute(x) }, unsafe { transmute(y) });
-    object_fits.get_notify_ref().modify_event(node as usize, "", 0);
-}
-
-// 设置图像裁剪
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
-    insert_value!(world, node, ImageClip, Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)), image_clip);
-}
-
-// 设置图像裁剪
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_mask_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
-    insert_value!(
-        world,
-        node,
-        MaskImageClip,
-        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
-        mask_image_clip
-    );
-}
-
-// 设置图像裁剪
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_image_clip(world: u32, node: u32, u1: f32, v1: f32, u2: f32, v2: f32) {
-    // println!("set_border_image_clip: {:?}, {}, {}, {}", u1, v1, u2, v2);
-    insert_value!(
-        world,
-        node,
-        BorderImageClip,
-        Aabb2::new(Point2::new(u1, v1), Point2::new(u2, v2)),
-        border_image_clip
-    );
-}
-/// 设置border_image_slice
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_image_slice(world: u32, node: u32, top: f32, right: f32, bottom: f32, left: f32, fill: bool) {
-    insert_attr!(
-        world,
-        node,
-        BorderImageSlice,
-        BorderImageSlice {
-            top,
-            right,
-            bottom,
-            left,
-            fill
-        },
-        border_image_slice
-    );
-}
-/// 设置border_image_slice
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_image_repeat(world: u32, node: u32, vertical: u8, horizontal: u8) {
-    insert_attr!(
-        world,
-        node,
-        BorderImageRepeat,
-        BorderImageRepeat(unsafe { transmute(vertical) }, unsafe { transmute(horizontal) }),
-        border_image_repeat
-    );
-}
-
-/// 设置overflow
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_overflow(world: u32, node: u32, value: bool) {
-    insert_value!(world, node, Overflow, value, overflow);
-}
-
-/// 设置不透明度
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_opacity(world: u32, node: u32, mut value: f32) {
-    if value > 1.0 {
-        value = 1.0;
-    } else if value < 0.0 {
-        value = 0.0;
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_justify_content(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetJustifyContentType);
     }
-    insert_value!(world, node, Opacity, value, opacity);
-}
-
-/// 设置display
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_display(world: u32, node: u32, value: u8) {
-    unsafe {
-        let layouts = (&mut *(world as usize as *mut GuiWorld)).gui.other_layout_style.lend_mut();
-        layouts[node as usize].display = transmute(value);
-        layouts.get_notify_ref().modify_event(node as usize, "display", 0);
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_direction(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexDirectionType(unsafe { transmute(v as u8) }));
     }
-
-    let value = unsafe { transmute(value) };
-    set_show!(world, node, set_display, value, "display");
-}
-
-/// 设置visibility, true: visible, false: hidden,	默认true
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_visibility(world: u32, node: u32, value: bool) {
-    set_show!(world, node, set_visibility, value, "visibility");
-}
-
-/// 设置enable
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_enable(world: u32, node: u32, value: u32) {
-    set_show!(world, node, set_enable, unsafe { transmute(value as u8) }, "enable");
-}
-
-/// 取enable
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn get_enable(world: u32, node: u32) -> bool {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-
-    let enables = world.gui.enable.lend_mut();
-    match enables.get(node as usize) {
-        Some(r) => r.0,
-        None => false,
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_direction(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexDirectionType);
     }
-}
-
-// let enable = arg.enables[*bind].0;
-
-/// 这只z_index
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_zindex(world: u32, node: u32, value: i32) {
-    let value = value as isize;
-    insert_value!(world, node, ZIndex, value, z_index);
-}
-
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_filter_blur(world: u32, node: u32, blur: f32) {
-    insert_value!(world, node, Blur, blur, blur);
-}
-
-/// hsi, 效果与ps一致,  h: -180 ~ 180, s: -100 ~ 100, i: -100 ~ 100
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_filter_hsi(world: u32, node: u32, mut h: f32, mut s: f32, mut i: f32) {
-    if h > 180.0 {
-        h = 180.0;
-    } else if h < -180.0 {
-        h = -180.0
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_wrap(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexWrapType(unsafe { transmute(v as u8) }));
     }
-    if s > 100.0 {
-        s = 100.0;
-    } else if s < -100.0 {
-        s = -100.0
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_wrap(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexWrapType);
     }
-    if i > 100.0 {
-        i = 100.0;
-    } else if i < -100.0 {
-        i = -100.0
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_align_self(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, AlignSelfType(unsafe { transmute(v as u8) }));
     }
-    let value = Filter {
-        hue_rotate: h / 360.0,
-        saturate: s / 100.0,
-        bright_ness: i / 100.0,
-    };
-    insert_attr!(world, node, Filter, value, filter);
-}
-
-/// __jsObj: image_name(String)
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_border_image(world: u32, node: u32, url: usize) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let border_images = world.gui.border_image.lend_mut();
-    border_images.insert(node as usize, BorderImage { url });
-}
-
-/// __jsObj: image_name(String)
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_mask_image(world: u32, node: u32, url: usize) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let mask_images = world.gui.mask_image.lend_mut();
-    mask_images.insert(node as usize, MaskImage::Path(url));
-}
-
-// 设置mask_image为渐变色
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_mask_image_linenear(world: u32, node: u32, direction: f32, color_and_positions: &[f32]) {
-    let value = to_linear_gradient_color(color_and_positions, direction);
-
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let mask_images = world.gui.mask_image.lend_mut();
-    // log::info!("set_mask_image_linenear========={}, {:?}", node, value);
-    mask_images.insert(node as usize, MaskImage::LinearGradient(value));
-}
-
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub enum BlendMode {
-    Normal,
-    AlphaAdd,
-    Subtract,
-    Multiply,
-    OneOne,
-}
-
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_blend_mode(world: u32, node: u32, blend_mode: u8) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let blend_modes = world.gui.blend_mode.lend_mut();
-    blend_modes.insert(node as usize, unsafe { transmute(blend_mode) });
-}
-
-/// 设置默认样式, 暂支持布局属性、 文本属性的设置
-/// __jsObj: class样式的二进制描述， 如".0{color:red}"生成的二进制， class名称必须是“0”
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_default_style_by_str(world: u32, value: &str) {
-	let default_style = match parse_class_from_string(value) {
-		Ok(r) => r,
-		Err(_e) => return,
-	};
-    // let mut map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
-    //     Ok(r) => r,
-    //     Err(e) => {
-    //         debug_println!("deserialize_class_map error: {:?}", e);
-    //         return;
-    //     }
-    // };
-
-    // let default_style = map.remove(&0).unwrap();
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    set_default_style1(world, default_style);
-}
-
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_default_style_by_bin(world: u32, bin: &[u8]) {
-    let mut map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
-        Ok(r) => r,
-        Err(e) => {
-            debug_println!("deserialize_class_map error: {:?}", e);
-            return;
-        }
-    };
-
-    let default_style = map.remove(&0).unwrap();
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    set_default_style1(world, default_style);
-}
-
-/// 设置默认样式, 暂支持布局属性、 文本属性的设置
-/// __jsObj: class样式的文本描述
-#[cfg(feature = "create_class_by_str")]
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_default_style(world: u32, css: &str) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let r = match parse_class_from_string(css) {
-        Ok(r) => r,
-        Err(e) => {
-            debug_println!("set_default_style error, {:?}", e);
-            return;
-        }
-    };
-    set_default_style1(world, r);
-    // world.default_layout_attr = r.1;
-}
-
-/// 设置transform_will_change
-#[allow(unused_attributes)]
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
-pub fn set_transform_will_change(world: u32, node_id: u32, value: u8) {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let node_id = node_id as usize;
-    let transforms = world.gui.transform.lend_mut();
-    let transform_will_changes = world.gui.transform_will_change.lend_mut();
-    if value == 0 {
-        if transform_will_changes.get(node_id).is_some() {
-            transforms.insert(node_id, transform_will_changes.delete(node_id).unwrap().0);
-        }
-    } else {
-        if transforms.get(node_id).is_some() {
-            transform_will_changes.insert(node_id, TransformWillChange(transforms.delete(node_id).unwrap()));
-        } else if transform_will_changes.get(node_id).is_none() {
-            transform_will_changes.insert(node_id, TransformWillChange(Transform::default()));
-        }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_align_self(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetAlignSelfType);
     }
-}
-
-fn set_default_style1(world: &mut GuiWorld, r: Class) {
-    let mut text_style = TextStyle::default();
-    let mut rect_layout_style = RectLayoutStyle::default();
-    let mut other_layout_style = OtherLayoutStyle::default();
-    // let mut border_color = BorderColor::default();
-    // let mut bg_color = BackgroundColor::default();
-    // let mut box_shadow = BoxShadow::default();
-
-    for attr in r.attrs1.into_iter() {
-        match attr {
-            // Attribute::BGColor(r) => bg_color = r,
-            Attribute1::TextAlign(r) => text_style.text.text_align = r,
-            Attribute1::WhiteSpace(r) => text_style.text.white_space = r,
-
-            Attribute1::PositionType(r) => other_layout_style.position_type = r,
-            Attribute1::FlexWrap(r) => other_layout_style.flex_wrap = r,
-            Attribute1::FlexDirection(r) => other_layout_style.flex_direction = r,
-            Attribute1::AlignContent(r) => other_layout_style.align_content = r,
-            Attribute1::AlignItems(r) => other_layout_style.align_items = r,
-            Attribute1::AlignSelf(r) => other_layout_style.align_self = r,
-            Attribute1::JustifyContent(r) => other_layout_style.justify_content = r,
-
-            // Attribute::BorderColor(r) => border_color = r,
-            _ => debug_println!("set_class error"),
-        }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_position_type(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, PositionTypeType(unsafe { transmute(v as u8) }));
     }
-
-    for attr in r.attrs2.into_iter() {
-        match attr {
-            Attribute2::LetterSpacing(r) => text_style.text.letter_spacing = r,
-            Attribute2::WordSpacing(r) => text_style.text.word_spacing = r,
-            Attribute2::LineHeight(r) => text_style.text.line_height = r,
-            Attribute2::TextIndent(r) => text_style.text.indent = r,
-
-            Attribute2::FontWeight(r) => text_style.font.weight = r as usize,
-            Attribute2::FontSize(r) => text_style.font.size = r,
-            Attribute2::FontFamily(r) => {
-                text_style.font.family = r;
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_position_type(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetPositionTypeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_grow(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexGrowType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_grow(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexGrowType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_shrink(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexGrowType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_shrink(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexGrowType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_basis_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexBasisType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_basis_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexBasisType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_basis(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexBasisType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_basis(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexBasisType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_flex_basis_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FlexBasisType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_flex_basis_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFlexBasisType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_width_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, WidthType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_width_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_width(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, WidthType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_width(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, WidthType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_height_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, HeightType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_height_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_height(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, HeightType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_height(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, HeightType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_width_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinWidthType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_width_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_width(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinWidthType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_width(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinWidthType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_height_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinHeightType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_height_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_height(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinHeightType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_height(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_min_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MinHeightType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_min_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMinHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_width_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxWidthType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_width_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_width(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxWidthType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_width(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxWidthType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_width_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxWidthType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_height_percent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxHeightType(Dimension::Percent(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_height_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_height(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxHeightType(Dimension::Points(v)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_height(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_max_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, MaxHeightType(Dimension::Auto));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_max_height_auto(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaxHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_padding_percent(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => {
+                gui.gui.set_style(node_id, PaddingTopType(Dimension::Percent(v)))
             }
-
-            Attribute2::Width(r) => rect_layout_style.size.width = r,
-            Attribute2::Height(r) => rect_layout_style.size.height = r,
-            Attribute2::MarginLeft(r) => rect_layout_style.margin.start = r,
-            Attribute2::MarginTop(r) => rect_layout_style.margin.top = r,
-            Attribute2::MarginBottom(r) => rect_layout_style.margin.bottom = r,
-            Attribute2::MarginRight(r) => rect_layout_style.margin.end = r,
-            Attribute2::Margin(r) => {
-                rect_layout_style.margin = Rect {
-                    start: r,
-                    end: r,
-                    bottom: r,
-                    top: r,
-                }
+            Edge::Right => {
+                gui.gui.set_style(node_id, PaddingRightType(Dimension::Percent(v)))
             }
-
-            Attribute2::FlexShrink(r) => other_layout_style.flex_shrink = r,
-            Attribute2::FlexGrow(r) => other_layout_style.flex_grow = r,
-            Attribute2::PaddingLeft(r) => other_layout_style.padding.start = r,
-            Attribute2::PaddingTop(r) => other_layout_style.padding.top = r,
-            Attribute2::PaddingBottom(r) => other_layout_style.padding.bottom = r,
-            Attribute2::PaddingRight(r) => other_layout_style.padding.end = r,
-            Attribute2::Padding(r) => {
-                other_layout_style.padding = Rect {
-                    start: r,
-                    end: r,
-                    bottom: r,
-                    top: r,
-                }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Percent(v)))
             }
-            Attribute2::BorderLeft(r) => other_layout_style.border.start = r,
-            Attribute2::BorderTop(r) => other_layout_style.border.top = r,
-            Attribute2::BorderBottom(r) => other_layout_style.border.bottom = r,
-            Attribute2::BorderRight(r) => other_layout_style.border.end = r,
-            Attribute2::Border(r) => {
-                other_layout_style.border = Rect {
-                    start: r,
-                    end: r,
-                    bottom: r,
-                    top: r,
-                }
+            Edge::Left => {
+                gui.gui.set_style(node_id, PaddingLeftType(Dimension::Percent(v)))
             }
-            Attribute2::MinWidth(r) => other_layout_style.min_size.width = r,
-            Attribute2::MinHeight(r) => other_layout_style.min_size.height = r,
-            Attribute2::MaxHeight(r) => other_layout_style.max_size.width = r,
-            Attribute2::MaxWidth(r) => other_layout_style.max_size.width = r,
-            Attribute2::FlexBasis(r) => other_layout_style.flex_basis = r,
-            Attribute2::PositionLeft(r) => other_layout_style.position.start = r,
-            Attribute2::PositionTop(r) => other_layout_style.position.top = r,
-            Attribute2::PositionRight(r) => other_layout_style.position.end = r,
-            Attribute2::PositionBottom(r) => other_layout_style.position.bottom = r,
-
-            // Attribute::BorderColor(r) => border_color = r,
-            _ => debug_println!("set_class error"),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_padding_percent(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPaddingTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPaddingRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPaddingBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPaddingLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_padding(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, PaddingTopType(Dimension::Points(v))),
+            Edge::Right => {
+                gui.gui.set_style(node_id, PaddingRightType(Dimension::Points(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Points(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, PaddingLeftType(Dimension::Points(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_padding(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPaddingTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPaddingRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPaddingBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPaddingLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_padding_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, PaddingTopType(Dimension::Auto)),
+            Edge::Right => gui.gui.set_style(node_id, PaddingRightType(Dimension::Auto)),
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Auto))
+            }
+            Edge::Left => gui.gui.set_style(node_id, PaddingLeftType(Dimension::Auto)),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_padding_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPaddingTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPaddingRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPaddingBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPaddingLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_margin_percent(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, MarginTopType(Dimension::Percent(v))),
+            Edge::Right => {
+                gui.gui.set_style(node_id, MarginRightType(Dimension::Percent(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, MarginBottomType(Dimension::Percent(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, MarginLeftType(Dimension::Percent(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_margin_percent(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetMarginTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetMarginRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetMarginBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetMarginLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_margin(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, MarginTopType(Dimension::Points(v))),
+            Edge::Right => {
+                gui.gui.set_style(node_id, MarginRightType(Dimension::Points(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, MarginBottomType(Dimension::Points(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, MarginLeftType(Dimension::Points(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_margin(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetMarginTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetMarginRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetMarginBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetMarginLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_margin_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, MarginTopType(Dimension::Auto)),
+            Edge::Right => gui.gui.set_style(node_id, MarginRightType(Dimension::Auto)),
+            Edge::Bottom => gui.gui.set_style(node_id, MarginBottomType(Dimension::Auto)),
+            Edge::Left => gui.gui.set_style(node_id, MarginLeftType(Dimension::Auto)),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_margin_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetMarginTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetMarginRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetMarginBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetMarginLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_percent(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, BorderTopType(Dimension::Percent(v))),
+            Edge::Right => {
+                gui.gui.set_style(node_id, BorderRightType(Dimension::Percent(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, BorderBottomType(Dimension::Percent(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, BorderLeftType(Dimension::Percent(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_percent(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetBorderTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetBorderRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetBorderBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetBorderLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, BorderTopType(Dimension::Points(v))),
+            Edge::Right => {
+                gui.gui.set_style(node_id, BorderRightType(Dimension::Points(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, BorderBottomType(Dimension::Points(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, BorderLeftType(Dimension::Points(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetBorderTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetBorderRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetBorderBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetBorderLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, BorderTopType(Dimension::Auto)),
+            Edge::Right => gui.gui.set_style(node_id, BorderRightType(Dimension::Auto)),
+            Edge::Bottom => gui.gui.set_style(node_id, BorderBottomType(Dimension::Auto)),
+            Edge::Left => gui.gui.set_style(node_id, BorderLeftType(Dimension::Auto)),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetBorderTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetBorderRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetBorderBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetBorderLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_position_percent(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => {
+                gui.gui.set_style(node_id, PositionTopType(Dimension::Percent(v)))
+            }
+            Edge::Right => {
+                gui.gui.set_style(node_id, PositionRightType(Dimension::Percent(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Percent(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, PositionLeftType(Dimension::Percent(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_position_percent(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPositionTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPositionRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPositionBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPositionLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_position(gui: u32, node_id: f64, edge: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => {
+                gui.gui.set_style(node_id, PositionTopType(Dimension::Points(v)))
+            }
+            Edge::Right => {
+                gui.gui.set_style(node_id, PositionRightType(Dimension::Points(v)))
+            }
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Points(v)))
+            }
+            Edge::Left => {
+                gui.gui.set_style(node_id, PositionLeftType(Dimension::Points(v)))
+            }
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_position(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPositionTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPositionRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPositionBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPositionLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_position_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, PositionTopType(Dimension::Auto)),
+            Edge::Right => gui.gui.set_style(node_id, PositionRightType(Dimension::Auto)),
+            Edge::Bottom => {
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Auto))
+            }
+            Edge::Left => gui.gui.set_style(node_id, PositionLeftType(Dimension::Auto)),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_position_auto(gui: u32, node_id: f64, edge: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        match unsafe { transmute(edge as u8) } {
+            Edge::Top => gui.gui.set_style(node_id, ResetPositionTopType),
+            Edge::Right => gui.gui.set_style(node_id, ResetPositionRightType),
+            Edge::Bottom => gui.gui.set_style(node_id, ResetPositionBottomType),
+            Edge::Left => gui.gui.set_style(node_id, ResetPositionLeftType),
+            _ => return,
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_background_rgba_color(
+        gui: u32,
+        node_id: f64,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BackgroundColorType(Color::RGBA(CgColor::new(r, g, b, a))),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_background_rgba_color(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBackgroundColorType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_background_linear_color(
+        gui: u32,
+        node_id: f64,
+        direction: f32,
+        color_and_positions: Vec<f32>,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BackgroundColorType(
+                    Color::LinearGradient(
+                        to_linear_gradient_color(
+                            color_and_positions.as_slice(),
+                            direction,
+                        ),
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_background_linear_color(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBackgroundColorType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_color(gui: u32, node_id: f64, r: f32, g: f32, b: f32, a: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, BorderColorType(CgColor::new(r, g, b, a)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_color(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderColorType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_radius(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BorderRadiusType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let border_radius = pi_style::style_parse::parse_border_radius(
+                        &mut parse,
+                    );
+                    if let Ok(value) = border_radius {
+                        value
+                    } else {
+                        Default::default()
+                    }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_radius(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderRadiusType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_box_shadow(
+        gui: u32,
+        node_id: f64,
+        h: f32,
+        v: f32,
+        blur: f32,
+        spread: f32,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BoxShadowType(BoxShadow {
+                    h: h,
+                    v: v,
+                    blur: blur,
+                    spread: spread,
+                    color: CgColor::new(r, g, b, a),
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_box_shadow(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBoxShadowType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_object_fit(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ObjectFitType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_object_fit(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetObjectFitType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_background_repeat(gui: u32, node_id: f64, x: u8, y: u8) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BackgroundRepeatType(ImageRepeat {
+                    x: unsafe { transmute(x as u8) },
+                    y: unsafe { transmute(y as u8) },
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_background_repeat(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBackgroundRepeatType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_mask_image_linear(
+        gui: u32,
+        node_id: f64,
+        direction: f32,
+        color_and_positions: Vec<f32>,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                MaskImageType(
+                    MaskImage::LinearGradient(
+                        to_linear_gradient_color(
+                            color_and_positions.as_slice(),
+                            direction,
+                        ),
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_mask_image_linear(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaskImageType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_image_clip(gui: u32, node_id: f64, u1: f32, v1: f32, u2: f32, v2: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BackgroundImageClipType(
+                    NotNanRect::new(
+                        unsafe { NotNan::new_unchecked(v1) },
+                        unsafe { NotNan::new_unchecked(u2) },
+                        unsafe { NotNan::new_unchecked(v2) },
+                        unsafe { NotNan::new_unchecked(u1) },
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_image_clip(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBackgroundImageClipType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_mask_image_clip(
+        gui: u32,
+        node_id: f64,
+        u1: f32,
+        v1: f32,
+        u2: f32,
+        v2: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                MaskImageClipType(
+                    NotNanRect::new(
+                        unsafe { NotNan::new_unchecked(v1) },
+                        unsafe { NotNan::new_unchecked(u2) },
+                        unsafe { NotNan::new_unchecked(v2) },
+                        unsafe { NotNan::new_unchecked(u1) },
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_mask_image_clip(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaskImageClipType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_image_clip(
+        gui: u32,
+        node_id: f64,
+        u1: f32,
+        v1: f32,
+        u2: f32,
+        v2: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BorderImageClipType(
+                    NotNanRect::new(
+                        unsafe { NotNan::new_unchecked(v1) },
+                        unsafe { NotNan::new_unchecked(u2) },
+                        unsafe { NotNan::new_unchecked(v2) },
+                        unsafe { NotNan::new_unchecked(u1) },
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_image_clip(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderImageClipType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_image_slice(
+        gui: u32,
+        node_id: f64,
+        top: f32,
+        right: f32,
+        bottom: f32,
+        left: f32,
+        fill: bool,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BorderImageSliceType(BorderImageSlice {
+                    top: unsafe { NotNan::new_unchecked(top) },
+                    right: unsafe { NotNan::new_unchecked(right) },
+                    bottom: unsafe { NotNan::new_unchecked(bottom) },
+                    left: unsafe { NotNan::new_unchecked(left) },
+                    fill,
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_image_slice(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderImageSliceType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_image_repeat(
+        gui: u32,
+        node_id: f64,
+        vertical: u8,
+        horizontal: u8,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                BorderImageRepeatType(ImageRepeat {
+                    x: unsafe { transmute(vertical as u8) },
+                    y: unsafe { transmute(horizontal as u8) },
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_image_repeat(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderImageRepeatType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_overflow(gui: u32, node_id: f64, v: bool) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, OverflowType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_overflow(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetOverflowType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_opacity(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, OpacityType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_opacity(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetOpacityType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_display(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, DisplayType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_display(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetDisplayType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_visibility(gui: u32, node_id: f64, v: bool) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, VisibilityType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_visibility(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetVisibilityType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_enable(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, EnableType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_enable(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetEnableType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_blend_mode(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, BlendModeType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_blend_mode(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBlendModeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_zindex(gui: u32, node_id: f64, v: i32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ZIndexType(v as isize));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_zindex(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetZIndexType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_filter_blur(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, BlurType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_filter_blur(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBlurType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_transform_will_change(gui: u32, node_id: f64, v: bool) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, TransformWillChangeType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_transform_will_change(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTransformWillChangeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_filter_hsi(gui: u32, node_id: f64, h: f32, s: f32, _i: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                HsiType({
+                    let (mut h, mut s, mut _i) = (h, s, _i);
+                    if h > 180.0 {
+                        h = 180.0;
+                    } else if h < -180.0 {
+                        h = -180.0
+                    }
+                    if s > 100.0 {
+                        s = 100.0;
+                    } else if s < -100.0 {
+                        s = -100.0
+                    }
+                    if _i > 100.0 {
+                        _i = 100.0;
+                    } else if _i < -100.0 {
+                        _i = -100.0
+                    }
+                    Hsi {
+                        hue_rotate: h / 360.0,
+                        saturate: s / 100.0,
+                        bright_ness: _i / 100.0,
+                    }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_filter_hsi(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetHsiType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_translate(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TranslateType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let translate = pi_style::style_parse::parse_mult(
+                        &mut parse,
+                        [LengthUnit::default(), LengthUnit::default()],
+                        pi_style::style_parse::parse_len_or_percent,
+                    );
+                    if let Ok(translate) = translate {
+                        translate
+                    } else {
+                        Default::default()
+                    }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_translate(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTranslateType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_scale(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                ScaleType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let scale = pi_style::style_parse::parse_mult(
+                        &mut parse,
+                        [1.0f32, 1.0f32],
+                        pi_style::style_parse::parse_number,
+                    );
+                    if let Ok(scale) = scale { scale } else { Default::default() }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_scale(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetScaleType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_rotate(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                RotateType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let rotate = pi_style::style_parse::parse_angle(&mut parse);
+                    if let Ok(rotate) = rotate { rotate } else { Default::default() }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_rotate(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetRotateType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_transform(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TransformType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let transform = pi_style::style_parse::parse_transform(&mut parse);
+                    if let Ok(transform) = transform {
+                        transform
+                    } else {
+                        Default::default()
+                    }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_transform(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTransformType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_transform_origin(
+        gui: u32,
+        node_id: f64,
+        x_ty: f64,
+        x: f32,
+        y_ty: f64,
+        y: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TransformOriginType({
+                    let x_ty = unsafe { transmute(x_ty as u8) };
+                    let y_ty = unsafe { transmute(y_ty as u8) };
+                    let x_value = match x_ty {
+                        LengthUnitType::Pixel => LengthUnit::Pixel(x),
+                        LengthUnitType::Percent => LengthUnit::Percent(x),
+                    };
+                    let y_value = match y_ty {
+                        LengthUnitType::Pixel => LengthUnit::Pixel(y),
+                        LengthUnitType::Percent => LengthUnit::Percent(y),
+                    };
+                    TransformOrigin::XY(x_value, y_value)
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_transform_origin(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTransformOriginType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_letter_spacing(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, LetterSpacingType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_letter_spacing(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetLetterSpacingType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_word_spacing(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, WordSpacingType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_word_spacing(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetWordSpacingType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_rgba_color(gui: u32, node_id: f64, r: f32, g: f32, b: f32, a: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ColorType(Color::RGBA(CgColor::new(r, g, b, a))));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_rgba_color(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetColorType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_linear_gradient_color(
+        gui: u32,
+        node_id: f64,
+        direction: f32,
+        color_and_positions: Vec<f32>,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                ColorType(
+                    Color::LinearGradient(
+                        to_linear_gradient_color(
+                            color_and_positions.as_slice(),
+                            direction,
+                        ),
+                    ),
+                ),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_linear_gradient_color(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetColorType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_line_height_normal(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, LineHeightType(LineHeight::Normal));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_line_height_normal(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetLineHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_line_height(gui: u32, node_id: f64, value: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, LineHeightType(LineHeight::Length(value)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_line_height(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetLineHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_line_height_percent(gui: u32, node_id: f64, value: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, LineHeightType(LineHeight::Percent(value)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_line_height_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetLineHeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_indent(gui: u32, node_id: f64, v: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, TextIndentType(v));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_indent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTextIndentType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_align(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        {
+            let v: TextAlign = unsafe { transmute(v as u8) };
+            gui.gui.set_style(node_id, TextAlignType(v));
+            gui.gui
+                .set_style(
+                    node_id,
+                    JustifyContentType(
+                        match v {
+                            TextAlign::Left => JustifyContent::FlexStart,
+                            TextAlign::Right => JustifyContent::FlexEnd,
+                            TextAlign::Center => JustifyContent::Center,
+                            TextAlign::Justify => JustifyContent::SpaceBetween,
+                        },
+                    ),
+                );
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_align(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        {
+            gui.gui.set_style(node_id, ResetTextAlignType);
+            gui.gui.set_style(node_id, ResetJustifyContentType);
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_vertical_align(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        {
+            let v: VerticalAlign = unsafe { transmute(v as u8) };
+            gui.gui.set_style(node_id, VerticalAlignType(v));
+            gui.gui
+                .set_style(
+                    node_id,
+                    AlignSelfType(
+                        match v {
+                            VerticalAlign::Top => AlignSelf::FlexStart,
+                            VerticalAlign::Bottom => AlignSelf::FlexEnd,
+                            VerticalAlign::Middle => AlignSelf::Center,
+                        },
+                    ),
+                );
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_vertical_align(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        {
+            gui.gui.set_style(node_id, ResetVerticalAlignType);
+            gui.gui.set_style(node_id, ResetAlignSelfType);
+        };
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_stroke(
+        gui: u32,
+        node_id: f64,
+        width: f32,
+        r: f32,
+        g: f32,
+        b: f32,
+        a: f32,
+    ) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TextStrokeType(Stroke {
+                    width: NotNan::new(width).expect("stroke width is nan"),
+                    color: CgColor::new(r, g, b, a),
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_stroke(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTextStrokeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_white_space(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, WhiteSpaceType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_white_space(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetWhiteSpaceType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_style(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontStyleType(unsafe { transmute(v as u8) }));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_style(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontStyleType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_weight(gui: u32, node_id: f64, v: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontWeightType(v as usize));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_weight(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontWeightType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_size_none(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontSizeType(FontSize::None));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_size_none(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontSizeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_size(gui: u32, node_id: f64, value: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontSizeType(FontSize::Length(value as usize)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_size(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontSizeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_size_percent(gui: u32, node_id: f64, value: f32) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontSizeType(FontSize::Percent(value)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_size_percent(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontSizeType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_content_utf8(gui: u32, node_id: f64, content: Vec<u8>) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TextContentType({
+                    let content = unsafe { String::from_utf8_unchecked(content) };
+                    TextContent(content, pi_atom::Atom::from(""))
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_content_utf8(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTextContentType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_clip_path_str(gui: u32, node_id: f64, value: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                ClipPathType({
+                    let mut input = cssparser::ParserInput::new(value);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    match BaseShape::parse(&mut parse) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            ();
+                            return;
+                        }
+                    }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_clip_path_str(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetClipPathType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_mask_image(gui: u32, node_id: f64, image_hash: &Atom) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(node_id, MaskImageType(MaskImage::Path((**image_hash).clone())));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_mask_image(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetMaskImageType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_background_image(gui: u32, node_id: f64, image_hash: &Atom) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, BackgroundImageType((**image_hash).clone()));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_background_image(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBackgroundImageType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_border_image(gui: u32, node_id: f64, image_hash: &Atom) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, BorderImageType((**image_hash).clone()));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_border_image(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetBorderImageType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_shadow(gui: u32, node_id: f64, s: &str) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TextShadowType({
+                    let mut input = cssparser::ParserInput::new(s);
+                    let mut parse = cssparser::Parser::new(&mut input);
+                    let shadows = parse_text_shadow(&mut parse);
+                    if let Ok(value) = shadows { value } else { Default::default() }
+                }),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_shadow(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTextShadowType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_font_family(gui: u32, node_id: f64, name: &Atom) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, FontFamilyType((**name).clone()));
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_font_family(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetFontFamilyType);
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn set_text_content(gui: u32, node_id: f64, content: String) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui
+            .set_style(
+                node_id,
+                TextContentType(TextContent(content, pi_atom::Atom::from(""))),
+            );
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[wasm_bindgen]
+    #[allow(unused_attributes)]
+    pub fn reset_text_content(gui: u32, node_id: f64) {
+        let node_id = node_id as usize;
+        let gui = unsafe { &mut *(gui as usize as *mut GuiWorld) };
+        gui.gui.set_style(node_id, ResetTextContentType);
+    }
+    pub enum LengthUnitType {
+        Pixel,
+        Percent,
+    }
+    pub fn to_linear_gradient_color(
+        color_and_positions: &[f32],
+        direction: f32,
+    ) -> LinearGradientColor {
+        let arr = color_and_positions;
+        let len = arr.len();
+        let count = len / 5;
+        let mut list = Vec::with_capacity(count);
+        for i in 0..count {
+            let start = i * 5;
+            let color_pos = ColorAndPosition {
+                rgba: CgColor::new(
+                    arr[start],
+                    arr[start + 1],
+                    arr[start + 2],
+                    arr[start + 3],
+                ),
+                position: arr[start + 4],
+            };
+            list.push(color_pos);
+        }
+        LinearGradientColor {
+            direction: direction,
+            list: list,
         }
     }
-
-    for attr in r.attrs3.into_iter() {
-        match attr {
-            Attribute3::Color(r) => text_style.text.color = r,
-            Attribute3::TextShadow(r) => text_style.shadow = r,
-            Attribute3::TextStroke(r) => text_style.text.stroke = r,
-            // Attribute::BorderColor(r) => border_color = r,
-            _ => debug_println!("set_class error"),
-        }
-    }
-
-    let text_styles = unsafe {
-        &mut *(world.gui.text_style.lend_mut().get_storage() as *const VecMapWithDefault<TextStyle> as usize as *mut VecMapWithDefault<TextStyle>)
-    };
-    let flex_rect_styles = unsafe {
-        &mut *(world.gui.rect_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize
-            as *mut VecMapWithDefault<RectLayoutStyle>)
-    };
-    let flex_other_styles = unsafe {
-        &mut *(world.gui.other_layout_style.lend_mut().get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize
-            as *mut VecMapWithDefault<OtherLayoutStyle>)
-    };
-
-    flex_rect_styles.set_default(rect_layout_style);
-    flex_other_styles.set_default(other_layout_style);
-    text_styles.set_default(text_style);
 }
+
+pub use self::style_macro::*;
