@@ -1,4 +1,4 @@
-use bitvec::prelude::BitArray;
+
 use flex_layout::Size;
 /**
  * 背景色渲染对象的构建及其属性设置
@@ -122,7 +122,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 continue;
             }
 
-            let dirty = style_mark.dirty;
+            let dirty = &style_mark.dirty;
 			let dirty1 = style_mark.dirty1;
 			
 			let color = match background_colors.get(*id) {
@@ -173,7 +173,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                 render_obj,
                 color,
                 engine,
-                dirty,
+                &dirty,
 				dirty1,
                 layout,
                 &unit_quad.0,
@@ -290,7 +290,7 @@ fn modify_color<C: HalContext + 'static>(
     render_obj: &mut RenderObj,
     background_color: &BackgroundColor,
     engine: &mut Engine<C>,
-    dirty: StyleBit,
+    dirty: &StyleBit,
 	dirty1: usize,
     layout: &LayoutR,
     unit_quad: &Share<GeometryRes>,

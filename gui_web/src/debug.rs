@@ -1445,18 +1445,15 @@ pub fn res_size(world: u32) -> JsValue {
 	let world = &mut world.gui.world_ext;
     let mut size = ResMgrSize::default();
 
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let engine = world.engine.lend();
-    let sys_time = world.system_time.lend_mut();
+    // let sys_time = world.system_time.lend_mut();
 
     let mut info = TexureInfo::default();
     let list = &mut info.list;
 
     let texture = engine.texture_res_map.all_res();
-    for i in texture.0.iter() {
-        list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
-    }
+    // for i in texture.0.iter() {
+    //     list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    // }
 
     for (key, v) in texture.2.iter() {
         if *v.get_id() > 0 {

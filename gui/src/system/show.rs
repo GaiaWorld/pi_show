@@ -183,7 +183,6 @@ fn modify_show(
     //     println!("c_visibility1-------------------{}, {}, {}, {}", c_visibility, **visibility_write.value, c_enable, **enable_write.value);
     //     return;
     // }
-	log::warn!("set_visibility=====id={}, c_visibility={}, parent_c_visibility={}, visibility_value={}, display_value={}", id, c_visibility, parent_c_visibility, visibility_value, display_value);
     visibility_write.set_0(c_visibility);
     enable_write.set_0(c_enable);
 
@@ -201,6 +200,14 @@ fn modify_show(
         );
     }
 }
+
+// fn a( q: Query<Option<&mut DrawObj>, ()>, command: Command) {
+// 	for drawObj in q.iter_mut() {
+// 		if let None = drawObj {
+// 			q.insert(DrawObj)
+// 		}
+// 	}
+// }
 
 impl_system! {
     ShowSys,

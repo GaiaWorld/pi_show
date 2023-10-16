@@ -137,7 +137,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 颜色修改， 设置ucolor ubo
-            if !dirty[StyleType::BorderColor as usize] {
+            if dirty[StyleType::BorderColor as usize] {
                 // to_ucolor_defines(render_obj.vs_defines.as_mut(), render_obj.fs_defines.as_mut());
                 render_obj
                     .paramter
@@ -146,7 +146,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
             }
 
             // 布局或圆角修改， 重新创建geometry
-            if !dirty[StyleType::BorderRadius as usize] || dirty1 & CalcType::Layout as usize != 0 {
+            if dirty[StyleType::BorderRadius as usize] || dirty1 & CalcType::Layout as usize != 0 {
 				let (radius_hash, border_radius) = match border_radius {
 					Some(r) => {
 						let border_radius = cal_border_radius(r, &layout.rect);

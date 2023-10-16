@@ -37,7 +37,8 @@ lazy_static! {
 		.set_bit(StyleType::FlexWrap as usize)
 		.set_bit(StyleType::AlignItems as usize)
 		.set_bit(StyleType::JustifyContent as usize)
-		.set_bit(StyleType::AlignContent as usize);
+		.set_bit(StyleType::AlignContent as usize)
+		.set_bit(StyleType::TextContent as usize);
 
 
 	pub static ref DIRTY2: StyleBit = style_bit().set_bit(StyleType::Display as usize).set_bit(StyleType::FlexBasis as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY | &*CHILD_DIRTY;

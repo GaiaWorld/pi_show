@@ -166,6 +166,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
     type WriteData = WriteData<'a, C>;
 
     fn run(&mut self, (class_names, class_sheet): Self::ReadData, write: Self::WriteData) {
+		let dirty_list = &mut **write.25;
         if self.dirtys.len() > 0 {
             for id in self.dirtys.iter() {
                 let id = *id;
@@ -191,10 +192,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
 								// 本地样式不存在，才会设置class样式
 								!local_style_mark[ty as usize]
 							};
-							while style_reader
-								.or_write_to_component(&mut new_class_style_mark, id, &mut self.ext, is_write)
-								.is_some()
-							{}
+							while let Some(ty) = style_reader
+								.or_write_to_component(&mut new_class_style_mark, id, &mut self.ext, is_write) 
+							{
+								if !local_style_mark[ty as usize] {
+									set_dirty(dirty_list, id, ty as usize, style_mark);
+								}
+							}
 							// new_class_style_mark |= class.class_style_mark;
 						}
 					}
@@ -206,6 +210,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
 					for i in invalid_style.iter_ones() {
 						// count.fetch_add(1, Ordering::Relaxed);
 						StyleAttr::reset(&mut cur_style_mark, i as u8, &buffer, 0, &mut self.ext, id);
+					}
+					if invalid_style.any() {
+						set_dirty_many(dirty_list, id, invalid_style, style_mark);
 					}
 
 					style_mark.class_style = new_class_style_mark;

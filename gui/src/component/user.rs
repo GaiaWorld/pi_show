@@ -1646,6 +1646,7 @@ pub mod serialize {
             match query.transform_will_change.lend_mut().get_mut(entity) {
                 Some(component) => {
                     component.0.transform.push(v);
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => {
                     // 不存在transform_willChange， 则设置在Transfrom上
@@ -1653,6 +1654,7 @@ pub mod serialize {
                         Some(component) => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform.transform.push(v);
+							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                         }
                         None => {
 							query.transform.lend_mut().insert(entity, Transform {
@@ -1737,6 +1739,7 @@ pub mod serialize {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     // component.set_changed();
                     component.0.transform = v;
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => {
                     // 不存在transform_willChange， 则设置在Transfrom上
@@ -1744,6 +1747,7 @@ pub mod serialize {
                         Some(component) => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform.transform = v;
+							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                         }
                         None => {
                             query.transform.lend_mut().insert(entity, Transform {
@@ -1784,10 +1788,12 @@ pub mod serialize {
             match query.transform_will_change.lend_mut().get_mut(entity) {
                 Some(component) => {
                     component.0.transform = Default::default();
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => match query.transform.lend_mut().get_mut(entity) {
                     Some(component) => {
                         component.all_transform.transform = Default::default();
+						query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                     }
                     None => (),
                 },
@@ -1835,6 +1841,7 @@ pub mod serialize {
                 Some(component) => {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.0.translate = Some(v);
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => {
                     // 不存在transform_willChange， 则设置在Transfrom上
@@ -1842,6 +1849,7 @@ pub mod serialize {
                         Some(component) => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform.translate = Some(v);
+							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                         }
                         None => {
                             query.transform.lend_mut().insert(entity, Transform {
@@ -1882,10 +1890,12 @@ pub mod serialize {
             match query.transform_will_change.lend_mut().get_mut(entity) {
                 Some(component) => {
                     component.0.translate = None;
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => match query.transform.lend_mut().get_mut(entity) {
                     Some(component) => {
                         component.all_transform.translate = None;
+						query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                     }
                     None => (),
                 },
@@ -1933,6 +1943,7 @@ pub mod serialize {
                 Some(component) => {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.0.scale = Some(v);
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => {
                     // 不存在transform_willChange， 则设置在Transfrom上
@@ -1940,6 +1951,7 @@ pub mod serialize {
                         Some(component) => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                             component.all_transform.scale = Some(v);
+							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                         }
                         None => {
                             query.transform.lend_mut().insert(entity, Transform {
@@ -1980,10 +1992,12 @@ pub mod serialize {
             match query.transform_will_change.lend_mut().get_mut(entity) {
                 Some(component) => {
                     component.0.scale = None;
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => match query.transform.lend_mut().get_mut(entity) {
                     Some( component) => {
                         component.all_transform.scale = None;
+						query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                     }
                     None => (),
                 },
@@ -2031,6 +2045,7 @@ pub mod serialize {
                 Some(component) => {
                     // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                     component.0.rotate = Some(v);
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => {
                     // 不存在transform_willChange， 则设置在Transfrom上
@@ -2038,6 +2053,7 @@ pub mod serialize {
                         Some(component) => {
                             // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
 							component.all_transform.rotate = Some(v);
+							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                         }
                         None => {
                             query.transform.lend_mut().insert(entity, Transform {
@@ -2078,10 +2094,12 @@ pub mod serialize {
             match query.transform_will_change.lend_mut().get_mut(entity) {
                 Some(component) => {
                     component.0.rotate = None;
+					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                 }
                 None => match query.transform.lend_mut().get_mut(entity) {
                     Some(component) => {
                         component.all_transform.rotate = None;
+						query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                     }
                     None => (),
                 },
@@ -2135,6 +2153,7 @@ pub mod serialize {
                             Some(component) => {
                                 // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                                 component.all_transform = c.0;
+								query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                             }
                             None => {
                                 query.transform.lend_mut().insert(entity, Transform {
@@ -2191,6 +2210,7 @@ pub mod serialize {
                     Some(component) => {
                         // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
                         component.all_transform = c.0;
+						query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                     }
                     None => {
                         query.transform.lend_mut().insert(entity, Transform {
