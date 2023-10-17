@@ -526,7 +526,7 @@ pub fn create_base_shape(value: String) -> Option<BaseShape1> {
 	match BaseShape::parse(&mut parse) {
 		Ok(v) => Some(BaseShape1(v)),
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			log::error!("create_base_shape invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
 	}
@@ -540,7 +540,7 @@ pub fn create_transform(value: String) -> Option<Transform1> {
 	match parse_transform(&mut parse) {
 		Ok(v) => Some(Transform1(v)),
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			log::error!("create_transform invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
 	}
@@ -554,7 +554,7 @@ pub fn create_translate(value: String) -> Option<Translate1> {
 	match parse_mult(&mut parse, [LengthUnit::default(), LengthUnit::default()], parse_len_or_percent) {
 		Ok(v) => Some(Translate1(v)),
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			log::error!("create_translate invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
 	}
@@ -568,7 +568,7 @@ pub fn create_scale(value: String) -> Option<Scale1> {
 	match parse_mult(&mut parse, [1.0, 1.0], parse_number) {
 		Ok(v) => Some(Scale1(v)),
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			log::error!("create_scale invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
 	}
@@ -582,7 +582,7 @@ pub fn create_rotate(value: String) -> Option<Rotate1> {
 	match parse_angle(&mut parse) {
 		Ok(v) => Some(Rotate1(v)),
 		Err(r) => {
-			log::error!("set_border_radius invalid, {:?}, reason: {:?}", value, r);
+			log::error!("create_rotate invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
 	}
