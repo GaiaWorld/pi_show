@@ -180,7 +180,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
                      // 设置class样式
 					for i in class.iter() {
 						if let Some(class) = class_sheet.class_map.get(i) {
-							// log::warn!("set class1==========={:?}, {:?}", node, i);
+							// log::warn!("set class1==========={:?}, {:?}", id, i);
 							let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
 							let is_write = |ty: StyleType| {
 								// if !local_style_mark[ty as usize] {
@@ -206,6 +206,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
 					// 旧的class_style中存在，但新的class_style和local_style中都不存在的样式，需要重置为默认值
 					let mut cur_style_mark = new_class_style_mark | local_style_mark;
 					let invalid_style = old_class_style_mark ^ cur_style_mark & old_class_style_mark;
+					// log::debug!("reset========id: {:?}, class: {:?}, invalid_style: \n{:?}, cur_style_mark: \n{:?}, old_class_style_mark: \n{:?}, new_class_style_mark: \n{:?}, local_style_mark: \n{:?}", id, class, invalid_style, &cur_style_mark, &old_class_style_mark, &new_class_style_mark, &local_style_mark);
 					let buffer = Vec::new();
 					for i in invalid_style.iter_ones() {
 						// count.fetch_add(1, Ordering::Relaxed);
@@ -375,7 +376,6 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageTexture, (Cre
         &'a mut MultiCaseImpl<Node, ImageTexture>,
     );
     fn listen(&mut self, event: &Event, _: Self::ReadData, write: Self::WriteData) {
-		log::warn!("ImageTexture change====={:?}", event.id, );
         let (style_marks, dirty_list, layout_styles, image_clips, image_textures) = write;
         let id = event.id;
         set_dirty1(dirty_list, id, CalcType::BackgroundImageTexture as usize, &mut style_marks[id]);
@@ -664,7 +664,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, CreateEvent> fo
     type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>);
     type WriteData = ImageTextureWrite<'a, C>;
     fn listen(&mut self, event: &Event, (idtree, node_states): Self::ReadData, mut write: Self::WriteData) {
-        idtree_create(event.id, &idtree, &node_states, &mut write);
+		idtree_create(event.id, &idtree, &node_states, &mut write);
     }
 }
 
@@ -682,16 +682,19 @@ fn idtree_create<C: HalContext + 'static>(
     if !node_state.0.is_rnode() {
         return;
     }
-
+	
     load_image(id, write);
-    set_local_dirty1(&mut write.3, id, CalcType::Create as usize, &mut write.2);
-    let mark = &mut write.2[id];
+	let style_mark = match write.2.get_mut(id) {
+        Some(r) => r,
+        None => return,
+    };
+    set_dirty1(&mut write.3, id, CalcType::Create as usize, style_mark);
     let (dirty, dirty1) = (
-        mark.local_style | mark.class_style,
-        mark.style,
+        style_mark.local_style | style_mark.class_style,
+        style_mark.style,
     );
-    mark.dirty |= dirty;
-    mark.dirty1 |= dirty1;
+    style_mark.dirty |= dirty;
+    style_mark.dirty1 |= dirty1;
 
     let head = idtree[id].children().head;
     for (id, _n) in idtree.iter(head) {
@@ -766,7 +769,6 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
                 if idtree.get(image_wait.id).is_none() {
                     continue;
                 }
-				log::warn!("image_wait success: {:?}, {:?}, {:?}", image_wait.id, &image_wait.ty, &wait.0);
                 // 判断等待类型， 设置对应的组件
                 match image_wait.ty {
                     ImageType::Image => {
@@ -2201,7 +2203,7 @@ fn set_image<C: HalContext + 'static>(
     image_textures: &mut MultiCaseImpl<Node, ImageTexture>,
     wait_ty: ImageType,
 ) {
-    match engine.texture_res_map.get(&image.0.get_hash()) {
+    match engine.texture_res_map.get(&image.0) {
         Some(texture) => {
             image_textures.insert(id, ImageTexture::All(texture, image.0.clone()));
         }
@@ -2219,7 +2221,7 @@ fn set_border_image<C: HalContext + 'static>(
     image_textures: &mut MultiCaseImpl<Node, BorderImageTexture>,
     wait_ty: ImageType,
 ) {
-    match engine.texture_res_map.get(&image.0.get_hash()) {
+    match engine.texture_res_map.get(&image.0) {
         Some(texture) => {
             image_textures.insert(id, BorderImageTexture(texture));
         }
@@ -2309,7 +2311,7 @@ fn set_mask_image<C: HalContext>(
 ) {
     if let pi_style::style::MaskImage::Path(url) = &image.0 {
         if texure.get(id).is_none() {
-            match engine.texture_res_map.get(&url.get_hash()) {
+            match engine.texture_res_map.get(url) {
                 Some(r) => {
                     texure.insert(id, MaskTexture::All(r.clone()));
                 }

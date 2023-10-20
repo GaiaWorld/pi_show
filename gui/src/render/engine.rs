@@ -170,7 +170,7 @@ impl<C: HalContext + 'static> Engine<C> {
 
     pub fn create_texture_res(
         &mut self,
-        key: usize,
+        key: Atom,
         texture_res: TextureRes,
         rtype: usize,
     ) -> Share<TextureRes> {

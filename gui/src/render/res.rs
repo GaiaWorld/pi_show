@@ -6,6 +6,7 @@ use std::ops::{Deref, DerefMut};
 
 use hal_core::*;
 
+use pi_atom::Atom;
 use res::Res;
 use share::Share;
 
@@ -167,7 +168,7 @@ impl TextureRes {
 }
 
 impl Res for TextureRes {
-    type Key = usize;
+    type Key = Atom;
 }
 
 unsafe impl Send for TextureRes {}

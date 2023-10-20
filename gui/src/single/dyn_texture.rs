@@ -247,7 +247,7 @@ impl DynAtlasSet {
 				self.texture_cur_index += 1;
 				let hash = hasher.finish() as usize;
 				
-				let texture = self.texture_res_map.create(hash, TextureRes::new(w as usize, h as usize,pformat, dformat,Opacity::Transparent, None, texture, Some((w * h * 4) as usize)), (w * h * 4) as usize, 0);
+				let texture = self.texture_res_map.create(Atom::from(hash.to_string()+ "_fbo"), TextureRes::new(w as usize, h as usize,pformat, dformat,Opacity::Transparent, None, texture, Some((w * h * 4) as usize)), (w * h * 4) as usize, 0);
 
 				let target = gl.rt_create(
 					w as u32,

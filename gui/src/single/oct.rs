@@ -1,3 +1,4 @@
+use pi_null::Null;
 /// 八叉树单例封装
 use pi_spatial::quad_helper::QuadTree;
 use pi_slotmap::{Key, KeyData};
@@ -17,9 +18,23 @@ impl Default for OctKey {
     }
 }
 
-unsafe impl Key for OctKey {
+impl Key for OctKey {
     fn data(&self) -> KeyData {
         KeyData::from_ffi((1 << 32) | self.0 as u64)
+    }
+
+    fn index(&self) -> usize {
+        self.0
+    }
+}
+
+impl Null for OctKey {
+    fn null() -> Self {
+        Self(usize::null())
+    }
+
+    fn is_null(&self) -> bool {
+        self.0.is_null()
     }
 }
 

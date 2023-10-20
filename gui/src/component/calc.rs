@@ -498,7 +498,7 @@ impl BitXor for StyleBit {
     type Output = StyleBit;
 
     fn bitxor(self, rhs: Self) -> Self::Output {
-		StyleBit(self.0 & self.0)
+		StyleBit(self.0 ^ rhs.0)
     }
 
 }

@@ -820,19 +820,6 @@ pub mod serialize {
         ($name: ident, $value_ty: ty) => {
 			set_fun!($value_ty, query, entity, v, query.$name.lend_mut().insert(entity, v));
         };
-        // // 表达式
-        // (@fun $name: ident, $value_ty: ty, $f: expr) => {
-		// 	set_fun!($value_ty, query, entity, v, $crate::paste::item! {
-		// 		let attr = query.$name.lend_mut();
-		// 		let r = &mut attr[entity];
-		// 		r.$feild = v;
-		// 	});
-
-        //     fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool) {
-        //         let v = get_value!($value_ty, ptr, is_clone);
-        //         set_style_attr(&mut query.world, entity, query.style.$name, query.style.default.$name, v, $f);
-        //     }
-        // };
 
         // 包装
         (@pack $name: ident, $pack_ty: ident, $value_ty: ty) => {
@@ -843,9 +830,17 @@ pub mod serialize {
         ($name: ident, $c_ty: ty, $feild: ident, $value_ty: ty) => {
 			set_fun!($value_ty, query, entity, v, $crate::paste::item! {
 				let attr = query.$name.lend_mut();
-				let r = &mut attr[entity];
-				r.$feild = v;
-				attr.get_notify_ref().modify_event(entity, "", 0);
+				match attr.get_mut(entity) {
+					Some(r) => {
+						r.$feild = v;
+						attr.get_notify_ref().modify_event(entity, "", 0);
+					},
+					None => {
+						let mut r = query.default_components.$name.lend_mut().clone();
+						r.$feild = v;
+						attr.insert(entity, r);
+					},
+				};
 			});
         };
 
@@ -853,9 +848,18 @@ pub mod serialize {
         ($name: ident, $c_ty: ty, $feild1: ident, $feild2: ident, $value_ty: ty) => {
 			set_fun!($value_ty, query, entity, v, $crate::paste::item! {
 				let attr = query.$name.lend_mut();
-				let r = &mut attr[entity];
-				r.$feild1.$feild2 = v;
-				attr.get_notify_ref().modify_event(entity, "", 0);
+				match attr.get_mut(entity) {
+					Some(r) => {
+						r.$feild1.$feild2 = v;
+						attr.get_notify_ref().modify_event(entity, "", 0);
+					},
+					None => {
+						let mut r = query.default_components.$name.lend_mut().clone();
+						r.$feild1.$feild2 = v;
+						attr.insert(entity, r);
+					},
+				};
+				
 			});
         };
 
@@ -863,41 +867,19 @@ pub mod serialize {
         (@func $name: ident, $c_ty: ty, $set_func: ident, $value_ty: ty) => {
 			set_fun!($value_ty, query, entity, v, $crate::paste::item! {
 				let attr = query.$name.lend_mut();
-				let r = &mut attr[entity];
-				r.$set_func(v);
-				attr.get_notify_ref().modify_event(entity, "", 0);
+				match attr.get_mut(entity) {
+					Some(r) => {
+						r.$set_func(v);
+						attr.get_notify_ref().modify_event(entity, "", 0);
+					},
+					None => {
+						let mut r = query.default_components.$name.lend_mut().clone();
+						r.$set_func(v);
+						attr.insert(entity, r);
+					},
+				};
 			});
         };
-
-        // // 盒模属性（上右下左）
-        // (@box_model $name: ident, $value_ty: ty) => {
-		// 	set_fun!($value_ty, query, entity, v, $crate::paste::item! {
-		// 		let attr = query.$name.lend_mut();
-		// 		attr.set_func(v);
-		// 	});
-
-        //     fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool) {
-        //         let v = ptr.cast::<$value_ty>();
-        //         let v = if is_clone {
-        //             clone_unaligned(v)
-        //         } else {
-        //             unsafe { v.read_unaligned() }
-        //         };
-
-        //         set_style_attr(
-        //             &mut query.world,
-        //             entity,
-        //             query.style.$name,
-        //             query.style.default.$name,
-        //             v,
-        //             |item: &mut $value_ty, v: $value_ty| {
-        //                 *item = v;
-        //             },
-        //         );
-
-        //         cur_style_mark.set(Self::get_type() as usize, true);
-        //     }
-        // };
     }
 
 	macro_rules! set_default_fun {
@@ -1362,245 +1344,14 @@ pub mod serialize {
     impl_style!(LineHeightType, text_style, TextStyle, text, line_height, LineHeight, LineHeight);
     impl_style!(TextIndentType, text_style, TextStyle, text, indent, TextIndent, f32);
     impl_style!(WhiteSpaceType, text_style, TextStyle, text, white_space, WhiteSpace, WhiteSpace);
-    // impl ConvertToComponent for WhiteSpaceType {
-    // 	// 设置white_space,需要同时设置flex_wrap
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-    // 		// 取不到说明实体已经销毁
-    // 		let white_space = query.style.default.text_style.white_space.clone();
-    // 		// let flex_wrap = query.style.default.text_style.flex_container.flex_wrap.clone();
 
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let v = unsafe { ptr.cast::<WhiteSpace>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
-
-    // 			cur_style_mark.set(Self::get_type() as usize, true);
-    // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
-
-    // 			text_style_item.white_space = white_space;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.flex_wrap = if v.allow_wrap() {
-    // 				FlexWrap::Wrap
-    // 			} else {
-    // 				FlexWrap::NoWrap
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-
-
-    // 	}
-
-    // 	set_default!(text_style, white_space, WhiteSpace);
-    // 	fn to_attr(ptr: *const u8) -> Attribute{
-    // 		Attribute::WhiteSpace(unsafe { WhiteSpaceType(ptr.cast::<WhiteSpace>().read_unaligned()) })
-    // 	}
-    // }
-
-    // impl ConvertToComponent for ResetWhiteSpaceType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let white_space = query.style.default.text_style.white_space.clone();
-    // 			text_style_item.white_space = white_space;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.flex_wrap = if white_space.allow_wrap() {
-    // 				FlexWrap::Wrap
-    // 			} else {
-    // 				FlexWrap::NoWrap
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-    // 	}
-
-    // 	set_default!(text_style, white_space, WhiteSpace);
-    // 	fn to_attr(_ptr: *const u8) -> Attribute{
-    // 		todo!()
-    // 		// Attribute::WhiteSpace(unsafe { WhiteSpaceType(ptr.cast::<WhiteSpace>().read_unaligned()) })
-    // 	}
-    // }
     impl_style!(TextAlignType, text_style, TextStyle, text, text_align, TextAlign, TextAlign);
 
     impl_style!(@pack TextContentType, text_content, TextContent, TextContent1);
-    // impl ConvertToComponent for TextContentType {
-    //     // 设置text_align,需要同时设置justify_content
-    //     fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
-    //     where
-    //         Self: Sized,
-    //     {
-    //         let v = ptr.cast::<TextContent1>();
-    //         let v = if is_clone {
-    //             clone_unaligned(v)
-    //         } else {
-    //             unsafe { v.read_unaligned() }
-    //         };
-    //         cur_style_mark.set(Self::get_type() as usize, true);
-    //         set_style_attr(
-    //             &mut query.world,
-    //             entity,
-    //             query.style.text_content,
-    //             query.style.default.text_content,
-    //             v,
-    //             |item: &mut TextContent, v| {
-    //                 item.0 = v;
-    //             },
-    //         );
-    //         // 发送事件
-    //         if let Some(component) = query.world.get_resource_mut_by_id(query.style.event.text_content) {
-    //             unsafe { component.into_inner().deref_mut::<Events<ComponentEvent<Changed<TextContent>>>>() }
-    //                 .send(ComponentEvent::<Changed<TextContent>>::new(entity));
-    //         };
 
-
-    //         // 插入默认的FlexContainer组件
-    //         if let None = query.world.get_mut_by_id(entity, query.style.flex_container) {
-    //             let default_value = query.world.get_resource_by_id(query.style.default.flex_container).unwrap();
-    //             let r = unsafe { default_value.deref::<DefaultComponent<FlexContainer>>() }.0.clone();
-    //             query.world.entity_mut(entity).insert(r);
-    //         };
-    //     }
-
-    //     set_default!(text_content, TextContent);
-    //     fn to_attr(ptr: *const u8) -> Attribute { 
-	// 		let r = Attribute::TextContent(TextContentType(clone_unaligned(ptr.cast::<TextContent1>())));
-	// 		r
-	// 	}
-    // }
-
-    // impl ConvertToComponent for ResetTextContentType {
-    //     reset!(text_content);
-    //     set_default!(text_content, TextContent);
-    //     fn to_attr(_ptr: *const u8) -> Attribute { Attribute::TextContent(TextContentType(Default::default())) }
-    // }
-
-    // impl ConvertToComponent for TextAlignType {
-    // 	// 设置text_align,需要同时设置justify_content
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-    // 		// 取不到说明实体已经销毁
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let v = unsafe { ptr.cast::<TextAlign>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
-
-    // 			cur_style_mark.set(Self::get_type() as usize, true);
-    // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
-
-    // 			text_style_item.text_align = v;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.justify_content = match v {
-    // 				TextAlign::Center => JustifyContent::Center,
-    // 				TextAlign::Right => JustifyContent::FlexEnd,
-    // 				TextAlign::Left => JustifyContent::FlexStart,
-    // 				TextAlign::Justify => JustifyContent::SpaceBetween,
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-
-
-    // 	}
-
-    // 	set_default!(text_style, text_align, TextAlign);
-    // 	fn to_attr(ptr: *const u8) -> Attribute{
-    // 		Attribute::TextAlign(unsafe { TextAlignType(ptr.cast::<TextAlign>().read_unaligned()) })
-    // 	}
-    // }
-
-    // impl ConvertToComponent for ResetTextAlignType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let v = query.style.default.text_style.text_align.clone();
-    // 			text_style_item.text_align = v;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.justify_content = match v {
-    // 				TextAlign::Center => JustifyContent::Center,
-    // 				TextAlign::Right => JustifyContent::FlexEnd,
-    // 				TextAlign::Left => JustifyContent::FlexStart,
-    // 				TextAlign::Justify => JustifyContent::SpaceBetween,
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-
-    // 	}
-
-    // 	set_default!(text_style, text_align, TextAlign);
-    // 	fn to_attr(_ptr: *const u8) -> Attribute{
-    // 		todo!()
-    // 	}
-    // }
 
     impl_style!(VerticalAlignType, text_style, TextStyle, text, vertical_align, VerticalAlign, VerticalAlign);
-    // impl ConvertToComponent for VerticalAlignType {
-    // 	// 设置vertical_align,需要同时设置jalign_items, align_content
-    // 	fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let v = unsafe { ptr.cast::<VerticalAlign>().read_unaligned() };
-    // 			log::info!("set_style, type: {:?}, value: {:?}, entity: {:?}", std::any::type_name::<Self>(), v, entity);
 
-    // 			cur_style_mark.set(Self::get_type() as usize, true);
-    // 			cur_style_mark.set(JustifyContentType::get_type() as usize, true);
-
-    // 			text_style_item.vertical_align = v;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.align_content = match v {
-    // 				VerticalAlign::Middle => AlignContent::Center,
-    // 				VerticalAlign::Bottom => AlignContent::FlexEnd,
-    // 				VerticalAlign::Top => AlignContent::FlexStart,
-    // 			};
-    // 			flex_container_item.align_items = match v {
-    // 				VerticalAlign::Middle => AlignItems::Center,
-    // 				VerticalAlign::Bottom => AlignItems::FlexEnd,
-    // 				VerticalAlign::Top => AlignItems::FlexStart,
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-    // 	}
-
-    // 	set_default!(text_style, vertical_align, VerticalAlign);
-    // 	fn to_attr(ptr: *const u8) -> Attribute{
-    // 		Attribute::VerticalAlign(unsafe { VerticalAlignType(ptr.cast::<VerticalAlign>().read_unaligned()) })
-    // 	}
-    // }
-
-    // impl ConvertToComponent for ResetVerticalAlignType {
-    // 	fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity)
-    // 		where
-    // 			Self: Sized {
-    // 		if let (Ok(mut text_style_item), Ok(mut flex_container_item)) = (query.style.text_style.get_mut(entity), query.style.flex_container.get_mut(entity)) {
-    // 			let v = query.style.default.text_style.vertical_align.clone();
-    // 			text_style_item.vertical_align = v;
-    // 			// text_style_item.notify_modify();
-
-    // 			flex_container_item.align_content = match v {
-    // 				VerticalAlign::Middle => AlignContent::Center,
-    // 				VerticalAlign::Bottom => AlignContent::FlexEnd,
-    // 				VerticalAlign::Top => AlignContent::FlexStart,
-    // 			};
-    // 			flex_container_item.align_items = match v {
-    // 				VerticalAlign::Middle => AlignItems::Center,
-    // 				VerticalAlign::Bottom => AlignItems::FlexEnd,
-    // 				VerticalAlign::Top => AlignItems::FlexStart,
-    // 			};
-    // 			// flex_container_item.notify_modify();
-    // 		}
-    // 	}
-
-    // 	set_default!(text_style, vertical_align, VerticalAlign);
-    // 	fn to_attr(_ptr: *const u8) -> Attribute{
-    // 		todo!()
-    // 	}
-    // }
 
     impl_style!(ColorType, text_style, TextStyle, text, color, Color, Color);
     impl_style!(TextStrokeType, text_style, TextStyle, text, stroke, TextStroke, Stroke);
