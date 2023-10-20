@@ -243,8 +243,9 @@ pub fn set_data_image_image(
     pformate: u8,
     data: HtmlImageElement,
 ) {
+	let name = Atom::from("image_data");
 	let (width, height) = (data.width(), data.height());
-    let (res, _name) = create_texture(world_id, unsafe {transmute(pformate)}, -1, 0, name, width, height, data.into(), width * height * 4);
+    let res = create_texture(world_id, unsafe {transmute(pformate)}, -1, 0, name, width, height, data.into(), width * height * 4, false);
 
 	let node_id = node as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
@@ -470,22 +471,55 @@ pub fn get_enable(world: u32, node: u32) -> bool {
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct BaseShape1 (BaseShape);
+#[wasm_bindgen]
+impl BaseShape1 {
+	pub fn clone(&self) -> Self {
+		BaseShape1(self.0.clone())
+	}
+}
 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct Transform1 (TransformFuncs);
 
 #[wasm_bindgen]
+impl Transform1 {
+	pub fn clone(&self) -> Self {
+		Transform1(self.0.clone())
+	}
+}
+
+#[wasm_bindgen]
 #[derive(Debug)]
 pub struct Scale1 ([f32;2]);
+
+#[wasm_bindgen]
+impl Scale1 {
+	pub fn clone(&self) -> Self {
+		Scale1(self.0.clone())
+	}
+}
 
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct Translate1 ([LengthUnit;2]);
 
 #[wasm_bindgen]
+impl Translate1 {
+	pub fn clone(&self) -> Self {
+		Translate1(self.0.clone())
+	}
+}
+
+#[wasm_bindgen]
 #[derive(Debug)]
 pub struct Rotate1 (f32);
+#[wasm_bindgen]
+impl Rotate1 {
+	pub fn clone(&self) -> Self {
+		Rotate1(self.0.clone())
+	}
+}
 
 /// 对clip属性进行插值
 #[wasm_bindgen]
@@ -543,6 +577,24 @@ pub fn create_transform(value: String) -> Option<Transform1> {
 			log::error!("create_transform invalid, {:?}, reason: {:?}", value, r);
 			None
 		}
+	}
+}
+
+/// 创建scale
+#[wasm_bindgen]
+pub fn parse_animation(value: &str) -> JsValue {
+	use pi_style::style_parse::parse_animation;
+	let mut input = cssparser::ParserInput::new(value);
+	let mut parse = cssparser::Parser::new(&mut input);
+	let mut animations = match parse_animation(&mut parse) {
+		Ok(r) => r,
+		Err(e) => {
+			return JsValue::null();
+		}
+	};
+	match JsValue::from_serde(&animations) {
+		Ok(r) => r,
+		_ => JsValue::null(),
 	}
 }
 

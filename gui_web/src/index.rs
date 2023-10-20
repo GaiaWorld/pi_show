@@ -47,7 +47,7 @@ impl TextureRes {
 }
 #[wasm_bindgen]
 pub struct NativeResRef {
-    inner: Share<dyn Res<Key = usize>>,
+    inner: Share<dyn Res<Key = Atom1>>,
 }
 
 #[wasm_bindgen]
@@ -62,6 +62,7 @@ impl TextureRes {
     /// 创建一个资源， 如果资源已经存在，旧的资源将被覆盖
     /// 如果创建的资源类型未注册，将崩溃
     pub fn create_res(self, mgr: &mut ResMgr, ty: usize, key: usize, cost: usize) -> NativeResRef {
+		let key = Atom1::get(key).unwrap();
         NativeResRef {
             inner: mgr.get_inner_mut().borrow_mut().create::<TextureResRaw>(key, ty, self.0, cost),
         }
@@ -69,6 +70,10 @@ impl TextureRes {
 
     /// 获取资源
     pub fn get_res(mgr: &ResMgr, ty: usize, key: usize) -> Option<NativeResRef> {
+		let key = match Atom1::get(key) {
+			Some(r) => r,
+			None => return None,
+		};
         // return None;
         match mgr.get_inner().borrow().get::<TextureResRaw>(&key, ty) {
             Some(r) => Some(NativeResRef { inner: r }),
@@ -205,7 +210,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
     log::info!("hash============{:?}", Atom1::from("__$text".to_string()).get_hash());
     let res = engine.create_texture_res(
-        Atom1::from("__$text".to_string()).get_hash(),
+        Atom1::from("__$text".to_string()),
         TextureResRaw::new(
             max_texture_size as usize,
             hh as usize,
@@ -308,10 +313,13 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                       height: u32,
                       data: Object,
                       cost: u32| {
-                    let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
+					let name = match Atom1::get(name as usize) {
+						Some(r) => r,
+						None => return,
+					};
+                    let res = create_texture(world_id, pformate, compress, r_type, name.clone(), width, height, data, cost, true);
                     let world = &mut *(world_id as usize as *mut GuiWorld);
                     let world = &mut world.gui;
-					let name = Atom1::get(name).unwrap();
 
                     let image_wait_sheet = world.world_ext.image_wait_sheet.lend_mut();
                     match image_wait_sheet.wait.remove(&name) {
@@ -356,7 +364,7 @@ pub fn get_text_texture_width(world: u32) -> u32 {
     let world = &mut world.gui;
 
     let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
-    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text").get_hash(), 0);
+    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text"), 0);
     if let Some(r) = res {
         r.width as u32
     } else {
@@ -372,7 +380,7 @@ pub fn get_text_texture_height(world: u32) -> u32 {
     let world = &mut world.gui;
 
     let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
-    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text").get_hash(), 0);
+    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text"), 0);
     if let Some(r) = res {
         r.height as u32
     } else {
@@ -696,10 +704,13 @@ pub fn load_image_success(
     data: Object,
     cost: u32,
 ) {
-    let (res, name) = create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost);
+	let name = match Atom1::get(name as usize) {
+		Some(r) => r,
+		None => return,
+	};
+    let res = create_texture(world_id, pformate, compress, r_type, name.clone(), width, height, data, cost, true);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui.world_ext;
-	let name = Atom1::get(name).unwrap();
 
     let image_wait_sheet = world.image_wait_sheet.lend_mut();
     match image_wait_sheet.wait.remove(&name) {
@@ -747,13 +758,13 @@ pub fn create_texture_res(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: u32,
+    name: String,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(create_texture(world_id, pformate, compress, r_type, name, width, height, data, cost).0) as u32
+    Share::into_raw(create_texture(world_id, pformate, compress, r_type, Atom1::from(name), width, height, data, cost, true)) as u32
 }
 
 // 释放纹理资源
@@ -765,29 +776,29 @@ pub fn create_texture(
     pformate: PixelFormat,
     compress: i32,
     mut r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: u32,
+    name: Atom1,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
-) -> (Share<TextureResRaw>, usize) {
+	is_from_catch: bool,
+) -> Share<TextureResRaw> {
     if r_type > 2 {
         r_type = 0;
     }
-    let name = name as usize;
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui;
 
     let engine = world.engine.lend_mut();
 
-	let r = if name > 0 { // name=0表示不缓存
+	let r = if !is_from_catch { // name=None表示不从缓存表中取
 		engine.texture_res_map.get(&name)
 	} else {
 		None
 	};
 
     let res = match r {
-        Some(r) => return (r, name),
+        Some(r) => return r,
         None => {
             let opacity = match pformate {
                 PixelFormat::ALPHA => ROpacity::Translucent,
@@ -846,7 +857,7 @@ pub fn create_texture(
             )
         }
     };
-    return (res, name);
+    return res;
 }
 
 /// 加载图片，调用高层接口，加载所有等待中的图片
@@ -884,6 +895,10 @@ fn load_image(world_id: u32) {
 #[wasm_bindgen]
 pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	let name = match Atom1::get(name) {
+		Some(r) => r,
+		None => return false,
+	};
 
     let engine = world.gui.engine.lend();
     match engine.res_mgr.borrow().get::<TextureResRaw>(&name, group_i) {
@@ -957,6 +972,10 @@ pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
 pub fn get_atom_hash(s: &Atom) -> u32 { s.0.get_hash() as u32 }
+
+#[wasm_bindgen]
+pub fn get_string_by_hash(s: usize) -> Option<String> { Atom1::get(s).map(|r| r.as_str().to_string()) }
+
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OffsetDocument {

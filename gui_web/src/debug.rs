@@ -1458,7 +1458,7 @@ pub fn res_size(world: u32) -> JsValue {
     for (key, v) in texture.2.iter() {
         if *v.get_id() > 0 {
             // 在lru中的资源
-            list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+            list.push((key.get_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
         }
     }
     info.min_capacity = engine.texture_res_map.cache.min_capacity();
@@ -1620,13 +1620,13 @@ pub fn list_texture(world: u32) -> JsValue {
 
     let texture = engine.texture_res_map.all_res();
     for i in texture.0.iter() {
-        list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+        list.push((i.0.get_key().get_hash(), i.1, true, sys_time.cur_time as usize));
     }
 
     for (key, v) in texture.2.iter() {
         if *v.get_id() > 0 {
             // 在lru中的资源
-            list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+            list.push((key.get_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
         }
     }
     info.min_capacity = engine.texture_res_map.cache.min_capacity();
