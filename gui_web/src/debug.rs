@@ -1482,10 +1482,6 @@ pub fn res_size(world: u32) -> JsValue {
     let world = &mut world.gui;
     let engine = world.engine.lend();
     let mut size = ResMgrSize::default();
-
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world = &mut world.gui;
-    let engine = world.engine.lend();
     let sys_time = world.system_time.lend_mut();
 
     let mut info = TexureInfo::default();

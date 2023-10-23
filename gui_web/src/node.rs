@@ -65,6 +65,7 @@ pub fn create_vnode(world: u32) -> u32 {
 	let gui = &world.gui;
 	let node_states = gui.node_state.lend_mut();
 	node_states[node].0.set_vnode(true);
+	gui.z_index.lend_mut().insert(node, ZIndex(-1)); // zindex为auto
 
     node as u32
 }
