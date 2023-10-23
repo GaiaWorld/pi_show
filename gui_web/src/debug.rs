@@ -1301,6 +1301,180 @@ pub fn overflow_clip(world: u32) -> JsValue {
 // 		gui_tool::close_performance_inspection(world);
 // 	}
 // }
+// #[derive(Serialize, Deserialize, Debug, Default)]
+// struct ResMgrSize1 {
+//     pub count_texture: usize, // 所有纹理的总数量
+//     pub using_texture: usize, // 正在使用的纹理尺寸
+// 	pub unuse_texture: usize, // 未使用的的纹理尺寸
+//     pub all: usize, // 所有gui资源的尺寸
+// }
+// // 纹理资源大小
+// #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+// pub fn tetxure_res_size(world: u32) -> JsValue {
+// 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+//     let world = &mut world.gui;
+//     let engine = world.engine.lend();
+//     let mut size = ResMgrSize::default();
+
+//     let texture = engine.texture_res_map.all_res();
+//     for i in texture.0.iter() {
+//         size.texture += i.1;
+//         size.count_texture += 1;
+//     }
+//     for i in texture.1.iter() {
+//         size.catch_texture += i.1.elem.cost;
+//         size.count_catch_texture += 1;
+//     }
+
+//     let geometry = engine.geometry_res_map.all_res();
+//     for i in geometry.0.iter() {
+//         size.geometry += i.1;
+//         size.count_geometry += 1;
+//     }
+//     for i in geometry.1.iter() {
+//         size.catch_geometry += i.1.elem.cost;
+//         size.count_catch_geometry += 1;
+//     }
+
+//     let buffer = engine.buffer_res_map.all_res();
+//     for i in buffer.0.iter() {
+//         size.buffer += i.1;
+//         size.count_buffer += 1;
+//     }
+//     for i in buffer.1.iter() {
+//         size.catch_buffer += i.1.elem.cost;
+//         size.count_catch_buffer += 1;
+//     }
+
+//     let rs = engine.rs_res_map.all_res();
+//     for i in rs.0.iter() {
+//         // i.0
+//         size.rs += i.1;
+//         size.count_rs += 1;
+//     }
+//     for i in rs.1.iter() {
+//         size.catch_rs += i.1.elem.cost;
+//         size.count_catch_rs += 1;
+//     }
+
+//     let bs = engine.bs_res_map.all_res();
+//     for i in bs.0.iter() {
+//         size.bs += i.1;
+//         size.count_bs += 1;
+//     }
+//     for i in bs.1.iter() {
+//         size.catch_bs += i.1.elem.cost;
+//         size.count_catch_bs += 1;
+//     }
+
+//     let ss = engine.ss_res_map.all_res();
+//     for i in ss.0.iter() {
+//         size.ss += i.1;
+//         size.count_ss += 1;
+//     }
+//     for i in ss.1.iter() {
+//         size.catch_ss += i.1.elem.cost;
+//         size.count_catch_ss += 1;
+//     }
+
+//     let ds = engine.ds_res_map.all_res();
+//     for i in ds.0.iter() {
+//         size.ds += i.1;
+//         size.count_ds += 1;
+//     }
+//     for i in ds.1.iter() {
+//         size.catch_ds += i.1.elem.cost;
+//         size.count_catch_ds += 1;
+//     }
+
+//     let sampler = engine.sampler_res_map.all_res();
+//     for i in sampler.0.iter() {
+//         size.sampler += i.1;
+//         size.count_sampler += 1;
+//     }
+//     for i in sampler.1.iter() {
+//         size.catch_sampler += i.1.elem.cost;
+//         size.count_catch_sampler += 1;
+//     }
+
+//     let res_mgr_ref = engine.res_mgr.borrow();
+//     let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
+//     let ucolor = ucolor.all_res();
+//     for i in ucolor.0.iter() {
+//         size.ucolor += i.1;
+//         size.count_ucolor += 1;
+//     }
+//     for i in ucolor.1.iter() {
+//         size.catch_ucolor += i.1.elem.cost;
+//         size.count_catch_ucolor += 1;
+//     }
+
+//     let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
+//     let hsv = hsv.all_res();
+//     for i in hsv.0.iter() {
+//         size.hsv += i.1;
+//         size.count_hsv += 1;
+//     }
+//     for i in hsv.1.iter() {
+//         size.catch_hsv += i.1.elem.cost;
+//         size.count_catch_hsv += 1;
+//     }
+
+//     let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
+//     let msdf_stroke = msdf_stroke.all_res();
+//     for i in msdf_stroke.0.iter() {
+//         size.msdf_stroke += i.1;
+//         size.count_msdf_stroke += 1;
+//     }
+//     for i in msdf_stroke.1.iter() {
+//         size.catch_msdf_stroke += i.1.elem.cost;
+//         size.count_catch_msdf_stroke += 1;
+//     }
+
+//     let canvas_stroke = res_mgr_ref.fetch_map::<CanvasTextStrokeColorUbo>(0).unwrap();
+//     let canvas_stroke = canvas_stroke.all_res();
+//     for i in canvas_stroke.0.iter() {
+//         size.canvas_stroke += i.1;
+//         size.count_canvas_stroke += 1;
+//     }
+//     for i in canvas_stroke.1.iter() {
+//         size.catch_canvas_stroke += i.1.elem.cost;
+//         size.count_catch_canvas_stroke += 1;
+//     }
+
+//     size.total_capacity = res_mgr_ref.total_capacity;
+
+//     size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
+
+// 	let res1 = ResMgrSize1 {
+// 		count_texture: size.count_texture + size.count_catch_texture,
+// 		using_texture: size.texture,
+// 		unuse_texture: size.catch_texture,
+// 		all: size.texture + size.catch_texture + 
+// 		size.geometry + size.catch_geometry + 
+// 		size.buffer + size.catch_buffer + 
+// 		size.sampler + size.catch_sampler + 
+// 		size.rs + size.catch_rs + 
+// 		size.bs + size.catch_bs + 
+// 		size.ss + size.catch_ss + 
+// 		size.texture + size.catch_texture + ,
+// 	};
+
+// 	pub texture: usize,
+//     pub geometry: usize,
+//     pub buffer: usize,
+//     pub sampler: usize,
+//     pub rs: usize,
+//     pub bs: usize,
+//     pub ss: usize,
+//     pub ds: usize,
+//     pub ucolor: usize,
+//     pub hsv: usize,
+//     pub msdf_stroke: usize,
+//     pub canvas_stroke: usize,
+
+//     return JsValue::from_serde(&size).unwrap();
+// }
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn res_size(world: u32) -> JsValue {
@@ -1308,6 +1482,29 @@ pub fn res_size(world: u32) -> JsValue {
     let world = &mut world.gui;
     let engine = world.engine.lend();
     let mut size = ResMgrSize::default();
+
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = &mut world.gui;
+    let engine = world.engine.lend();
+    let sys_time = world.system_time.lend_mut();
+
+    let mut info = TexureInfo::default();
+    let list = &mut info.list;
+
+    let texture = engine.texture_res_map.all_res();
+    for i in texture.0.iter() {
+        list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    }
+
+    for (key, v) in texture.2.iter() {
+        if *v.get_id() > 0 {
+            // 在lru中的资源
+            list.push((*key, texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+        }
+    }
+    info.min_capacity = engine.texture_res_map.cache.min_capacity();
+    info.max_capacity = engine.texture_res_map.cache.max_capacity();
+    info.cur_cost = engine.texture_res_map.cache.size();
 
     let texture = engine.texture_res_map.all_res();
     for i in texture.0.iter() {
