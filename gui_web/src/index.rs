@@ -175,7 +175,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
-	let hh = max_texture_size;
+	let hh = 256;
 	// log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
     //     .gl
@@ -204,7 +204,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let res = engine.create_texture_res(
         Atom1::from("__$text".to_string()).get_hash(),
         TextureResRaw::new(
-            max_texture_size as usize,
+            max_texture_size.min(1024) as usize,
             hh as usize,
             format,
             DataFormat::UnsignedByte,

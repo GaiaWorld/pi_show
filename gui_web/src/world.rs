@@ -111,6 +111,7 @@
 use std::collections::hash_map::Entry;
 use std::mem::transmute;
 
+use gui::render::res::TextureRes;
 use js_sys::{Uint32Array, Uint8Array, Float32Array};
 use js_sys::{Object, Function};
 use web_sys::{window, HtmlCanvasElement, CanvasRenderingContext2d};
@@ -244,7 +245,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 	let font_sheet = &mut single_font_sheet.borrow_mut();
 	font_sheet.tex_version += 1;
     let engine = world.engine.lend_mut();
-    let texture = font_sheet.get_font_tex();
+    let mut texture = font_sheet.get_font_tex();
 
     // 将在绘制在同一行的文字归类在一起， 以便一起绘制，一起更新
     let mut end_v = 0;
@@ -314,6 +315,32 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
             .gl
             .texture_extend(&texture.bind, texture.width as u32, end_v);
         texture.update_size(texture.width, end_v as usize);
+
+		// pub pformat: PixelFormat,
+		// pub dformat: DataFormat,
+		// pub opacity: Opacity,
+		// pub compress: Option<CompressedTexFormat>,
+		// pub cost: Option<usize>,
+		// pub bind: HalTexture,
+
+		// // draw_text
+		// // 替换掉资源管理器的资源
+		// let res = engine.create_texture_res(
+		// 	Atom::from("__$text".to_string()).get_hash(),
+		// 	TextureRes::new(
+		// 		texture.width,
+		// 		texture.height,
+		// 		texture.format,
+		// 		texture.dformat,
+		// 		unsafe { transmute(1 as u8) },
+		// 		None, //unsafe { transmute(0 as usize) },
+		// 		texture.bind.clone(),
+		// 		None,
+		// 	),
+		// 	0,
+		// );
+		// font_sheet.set_font_tex(res);
+		// texture = font_sheet.get_font_tex();
         single_font_sheet.get_notify_ref().modify_event(0, "", 0);
     }
 
