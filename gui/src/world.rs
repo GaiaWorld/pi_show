@@ -625,6 +625,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 		let idtree = self.world_ext.idtree.lend_mut();
 		let text_content = self.world_ext.text_content.lend_mut();
 		let node_states = self.world_ext.node_state.lend_mut();
+		let z_index = self.world_ext.z_index.lend_mut();
 
 		let t = match fragments.map.get(&key) {
             Some(r) => r,
@@ -649,6 +650,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 				text_content.insert(node, TextContent(pi_style::style::TextContent( "".to_string(), Atom::from(""))));
 			} else if n.tag == NodeTag::VNode {
 				node_states[node].0.set_vnode(true);
+				z_index.insert(node, ZIndex(-1));
 			}
 			
 			// 设置本地样式
