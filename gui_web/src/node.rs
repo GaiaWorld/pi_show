@@ -8,7 +8,7 @@ use gui::single::oct::OctKey;
 use js_sys::{Math, Object, Uint32Array};
 use pi_style::style::{BaseShape, Center};
 use pi_style::style_parse::{StyleParse, parse_transform, parse_mult, parse_len_or_percent, parse_number, parse_angle};
-use pi_style::style_type::{ClipPathType, TransformType, TranslateType, ScaleType, RotateType};
+use pi_style::style_type::{ClipPathType, TransformType, TranslateType, ScaleType, RotateType, ZIndexType};
 use pi_style::style_type::AnimatableValue;
 use smallvec::SmallVec;
 use wasm_bindgen::prelude::*;
@@ -71,6 +71,8 @@ pub fn create_vnode(world: u32) -> u32 {
 	let gui = &world.gui.world_ext;
 	let node_states = gui.node_state.lend_mut();
 	node_states[node].0.set_vnode(true);
+	// vnode的zindex为auto
+	world.gui.set_style(node, ZIndexType(-1));
 
     node as u32
 }
