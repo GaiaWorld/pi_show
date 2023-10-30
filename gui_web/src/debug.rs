@@ -59,7 +59,7 @@ struct Info {
     pub enable: bool,
     pub opacity: f32,
     pub blur: f32,
-    pub zindex: u32,
+    pub zindex: isize,
     pub zdepth: f32,
     pub layout: Layout1,
     pub border_box: Quad,
@@ -271,7 +271,7 @@ pub fn test_insert() {
     world.register_multi::<Node, RectLayoutStyle>();
     world.register_multi::<Node, OtherLayoutStyle>();
     world.register_multi::<Node, StyleMark>();
-    world.register_multi::<Node, ZDepth>();
+    world.register_multi::<Node, ZRange>();
     world.register_multi::<Node, gui::component::calc::Opacity>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, LayoutR>();
@@ -291,7 +291,7 @@ pub fn test_insert() {
     let node_state = world.fetch_multi::<Node, NodeState>().unwrap();
     let style_mark = world.fetch_multi::<Node, StyleMark>().unwrap();
     let culling = world.fetch_multi::<Node, Culling>().unwrap();
-    let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let z_depth = world.fetch_multi::<Node, ZRange>().unwrap();
     let enable = world.fetch_multi::<Node, Enable>().unwrap();
     let visibility = world.fetch_multi::<Node, Visibility>().unwrap();
     let world_matrix = world.fetch_multi::<Node, WorldMatrix>().unwrap();
@@ -310,7 +310,7 @@ pub fn test_insert() {
         node_state.lend_mut().insert(entity, NodeState::default());
         style_mark.lend_mut().insert(entity, StyleMark::default());
         culling.lend_mut().insert(entity, Culling::default());
-        z_depth.lend_mut().insert(entity, ZDepth::default());
+        z_depth.lend_mut().insert(entity, ZRange::default());
         enable.lend_mut().insert(entity, Enable::default());
         visibility.lend_mut().insert(entity, Visibility::default());
         world_matrix.lend_mut().insert(entity, WorldMatrix::default());
@@ -1157,8 +1157,8 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         },
         opacity: opacity,
         blur: world.blur.lend().get(node).unwrap_or(&Blur(0.0)).0,
-        zindex: world.z_index.lend()[node].0 as u32,
-        zdepth: world.z_depth.lend()[node].0,
+        zindex: world.z_index.lend()[node].0 as isize,
+        zdepth: world.z_depth.lend()[node].0.start as f32,
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,

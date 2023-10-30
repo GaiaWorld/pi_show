@@ -399,7 +399,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
     type ReadData = (
         &'a MultiCaseImpl<Node, Visibility>,
         &'a MultiCaseImpl<Node, HSV>,
-        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, ZRange>,
         &'a MultiCaseImpl<Node, Culling>,
 		&'a MultiCaseImpl<Node, Opacity>,
 		&'a MultiCaseImpl<Node, BlendMode>,
@@ -421,7 +421,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         // paramter.set_value("viewMatrix", self.view_matrix_ubo.clone().unwrap()); // VIEW_MATRIX
         // paramter.set_value("projectMatrix", self.project_matrix_ubo.clone().unwrap()); // PROJECT_MATRIX
 
-        let z_depth = z_depths[render_obj.context].0;
+        let z_depth = z_depths[render_obj.context].0.start as f32;
         // let opacity = opacitys[render_obj.context].0;
         // paramter.set_single_uniform("alpha", UniformValue::Float1(opacity)); // alpha
         // debug_println!("id: {}, alpha: {:?}", render_obj.context, opacity);
@@ -432,8 +432,8 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
         render_obj.visibility = visibility && !culling && opcaity > 0.0;
 
         render_obj.depth = z_depth + render_obj.depth_diff;
-		// let depth = -(render_obj.depth / (Z_MAX + 1.0) * 2.0 ) + 1.0;
-		let depth = -render_obj.depth / (Z_MAX + 1.0);
+		// let depth = -(render_obj.depth / (Z_MAX + 50.0) * 2.0 ) + 1.0;
+		let depth = -render_obj.depth / (Z_MAX + 50.0);
 		paramter.set_single_uniform("depth", UniformValue::Float1(depth));
 
         let hsv = &hsvs[render_obj.context];
@@ -491,10 +491,10 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, DeleteEvent
 }
 
 //深度变化， 修改renderobj的深度值
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEvent>
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZRange, ModifyEvent>
     for NodeAttrSys<C>
 {
-    type ReadData = &'a MultiCaseImpl<Node, ZDepth>;
+    type ReadData = &'a MultiCaseImpl<Node, ZRange>;
     type WriteData = (
         &'a mut SingleCaseImpl<RenderObjs>,
         &'a mut SingleCaseImpl<NodeRenderMap>,
@@ -502,14 +502,14 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEven
     fn listen(&mut self, event: &Event, z_depths: Self::ReadData, write: Self::WriteData) {
         let (render_objs, node_render_map) = write;
         let obj_ids = &node_render_map[event.id];
-        let z_depth = z_depths[event.id].0;
+        let z_depth = z_depths[event.id].0.start as f32;
 
 		if obj_ids.len() > 0 {
 			for id in obj_ids.iter() {
 				let render_obj = &mut render_objs[*id];
 				render_obj.depth = z_depth + render_obj.depth_diff;
-				// let depth = -(render_obj.depth / (Z_MAX + 1.0) * 2.0) + 1.0;
-				let depth = -render_obj.depth / (Z_MAX + 1.0);
+				// let depth = -(render_obj.depth / (Z_MAX + 50.0) * 2.0) + 1.0;
+				let depth = -render_obj.depth / (Z_MAX + 50.0);
 				render_obj.paramter.set_single_uniform("depth", UniformValue::Float1(depth));
 				render_objs.get_notify_ref().modify_event(*id, "depth", 0);
 			}
@@ -995,7 +995,7 @@ impl_system! {
         MultiCaseListener<Node, Culling, ModifyEvent>
 		MultiCaseListener<Node, Opacity, (CreateEvent, ModifyEvent)>
 		MultiCaseListener<Node, HSV, (CreateEvent, ModifyEvent)>
-        MultiCaseListener<Node, ZDepth, ModifyEvent>
+        MultiCaseListener<Node, ZRange, ModifyEvent>
         MultiCaseListener<Node, TransformWillChangeMatrix, (ModifyEvent, CreateEvent, DeleteEvent)>
 		MultiCaseListener<Node, BlendMode, (CreateEvent, ModifyEvent)>
     }

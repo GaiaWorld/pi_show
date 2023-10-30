@@ -38,6 +38,10 @@ use crate::{
 //     pub padding_bottom: f32,
 // }
 
+// ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
+#[derive(Default, Deref, DerefMut, Clone, PartialEq, Eq, Hash, Debug, Component, Serialize, Deserialize)]
+pub struct ZRange(pub std::ops::Range<usize>);
+
 /// 渲染上下文，一些具有特殊属性的节点，可以是一个新的渲染上下文，另外根节点也是一个渲染上下文，
 #[derive(Component)]
 // #[storage()]
@@ -150,10 +154,10 @@ impl Default for LayoutR {
     }
 }
 
-// ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
-#[derive(Component, Default, Deref, DerefMut, Clone, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct ZDepth(pub f32);
+// // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
+// #[derive(Component, Default, Deref, DerefMut, Clone, Debug)]
+// #[storage(VecMapWithDefault)]
+// pub struct ZDepth(pub f32);
 
 // gui支持最多32个裁剪面， 该值按位表示节点被哪些裁剪面裁剪， 等于0时， 表示不被任何裁剪面裁剪， 等于1时， 被第一个裁剪面裁剪， 等于2时，表示被第二个裁剪面裁剪， 等于3表示被第一个和第二个裁剪面共同裁剪。。。。。
 #[derive(Component, Clone, Default, Deref, DerefMut, Debug)]

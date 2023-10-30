@@ -60,7 +60,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, BorderRadius>,
-        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, ZRange>,
         &'a MultiCaseImpl<Node, ImageTexture>,
 		&'a MultiCaseImpl<Node, Image>,
         &'a MultiCaseImpl<Node, ImageClip>,
@@ -171,7 +171,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             let render_obj = &mut render_objs[render_index];
 			let vert_type = render_obj.vert_type;
 
-            let z_depth = z_depths[*id].0;
+            let z_depth = z_depths[*id].start as f32;
             let layout = &layouts[*id];
 
             let image_clip = image_clips.get(*id);
