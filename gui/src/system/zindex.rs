@@ -84,12 +84,14 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
     type WriteData = &'a mut MultiCaseImpl<Node, ZRange>;
 
     fn listen(&mut self, event: &Event, node_states: Self::ReadData, z_ranges: Self::WriteData) {
+		// log::warn!("node_create==========={:?}, is_rnode{:?}", event.id,  node_states.get(event.id).map(|r| {r.is_rnode()}));
 		match node_states.get(event.id) {
 			Some(r) if !r.is_rnode() => return,
 			None => return,
 			_ => ()
 		}
 
+		
 		z_ranges.insert(event.id, ZRange::default());
     }
 }
@@ -109,6 +111,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for ZIndexImpl {
     type WriteData = ();
 
     fn listen(&mut self, event: &Event, (idtree, node_states): Self::ReadData, _write: Self::WriteData) {
+		// log::warn!("IdTree crate==========={:?}, is_rnode{:?}", event.id, node_states.get(event.id).map(|r| {r.is_rnode()}));
 		match node_states.get(event.id) {
 			Some(r) if !r.is_rnode() => return,
 			None => return,
@@ -136,21 +139,27 @@ impl<'a> Runner<'a> for ZIndexImpl {
     }
     fn run(&mut self, (tree, zindexs, node_states): Self::ReadData, ranges: Self::WriteData) {
 		let mut vec: &mut Vec<ZSort> = &mut self.cache;
-		vec.clear();
-		for (id, _layer) in self.dirty.dirty.iter() {
+		for (id, layer) in self.dirty.dirty.iter() {
 			match tree.get(*id) {
 				Some(node) if node.parent() > 0 => {
+					if let Some(r) = self.dirty.dirty_mark_list.get(id) {
+						if r.layer != layer {
+							continue;
+						}
+					} else {
+						continue;
+					}
 					match node_states.get(*id) {
 						Some(r) if !r.is_rnode() => continue,
 						None => continue,
 						_ => ()
 					}
-					// log::warn!("calc_zindex======node: {:?}, parent: {:?}, layer: {:?} ", id, up.parent(), tree.get_layer(id));
 					let parent = node.parent();
 					// 找到能容纳所有子节点的父节点
 					// parent节点zindex为AUTO，需要递归向上找到一个不是AUTO的节点, 以该节点作为布局环境，进行z布局
 					// 如果parent节点无法容纳三倍子节点， 也需要向上递归，找到能容纳三倍子节点的节点作为布局环境进行z布局
 					let (parent1, children_count, zrange, local) = get_parent(zindexs, tree, ranges, parent);
+					// log::warn!("calc_zindex======node: {:?}, parent: {:?}, parent1: {:?}, layer: {:?} ", id, node.parent(), parent1, node.layer());
 					// 收集父节点排序环境下的子节点
 					collect(zindexs, &tree, vec, parent1, 0, node_states);
 					// 排序
@@ -174,11 +183,14 @@ impl<'a> Runner<'a> for ZIndexImpl {
 		}
 		self.dirty.dirty_mark_list.clear();
 		self.dirty.dirty.clear();
+		vec.clear();
     }
     fn dispose(&mut self, _read: Self::ReadData, _write: Self::WriteData) {
 
     }
 }
+
+// sys.es6.js?UYrzHvK7tB8BRAmJ3JrJZ6:4903 range_set========[(21, ZRange(5557..60992), 14632, 0, ZRange(5557..5558), 0, 0, 16), (20, ZRange(5558..60992), 14632, 0, ZRange(5558..5559), 0, 0, 16), (19, ZRange(5559..60992), 14632, 0, ZRange(5559..5560), 0, 0, 16), (18, ZRange(5560..60992), 14632, 0, ZRange(5560..5561), 0, 0, 16), (17, ZRange(5561..60992), 14632, 0, ZRange(5561..5639), 77, 0, 16), (16, ZRange(5639..60992), 14632, 0, ZRange(5639..5640), 0, 0, 16), (15, ZRange(5640..60992), 14632, 0, ZRange(5640..5641), 0, 0, 16), (14, ZRange(5641..60992), 14632, 0, ZRange(5641..20181), 14539, 0, 16), (13, ZRange(20181..60992), 14632, 0, ZRange(20181..20182), 0, 0, 16), (12, ZRange(20182..60992), 14632, 0, ZRange(20182..20183), 0, 0, 16), (11, ZRange(20183..60992), 14632, 0, ZRange(20183..20184), 0, 0, 16), (10, ZRange(20184..60992), 14632, 0, ZRange(20184..20185), 0, 0, 16), (9, ZRange(20185..60992), 14632, 0, ZRange(20185..20186), 0, 0, 16), (8, ZRange(20186..60992), 14632, 0, ZRange(20186..20187), 0, 0, 16), (7, ZRange(20187..60992), 14632, 0, ZRange(20187..20188), 0, 0, 16), (6, ZRange(20188..60992), 14632, 0, ZRange(20188..20189), 0, 0, 16)]
 
 
 /// 获得能装下全部子节点的父节点
@@ -203,8 +215,9 @@ fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCase
             _ => ZRange::default(),
         };
 
-        // log::error!("get_parent======node: {:?}, parent: {:?}, down: {:?}, layer: {:?}, z_index: {:?}, z_range: {:?} ", node, tree.up(node).parent(), tree.down(node), tree.get_layer(node), query.get(node), range);
-        if range.end - range.start > (children_count + 1) * Z_SELF {
+        // log::warn!("get_parent======node: {:?}, parent: {:?}, children_count: {:?}, layer: {:?}, z_index: {:?}, z_range: {:?} ", node, tree[node].parent(), children_count, tree[node].layer(), query.get(node), range);
+		if range.end - range.start >= children_count + 1 {
+        // if range.end - range.start >= (children_count + 1) * Z_SELF {
             return (node, children_count, range, local);
         }
         // println!("node range:{:?}, children_count:{}", range, children_count);
@@ -319,7 +332,7 @@ fn local_reset(
 
         // 获得当前节点的zrange
         let cur_range = get_or_default(ranges, id);
-        // log::warn!("local_reset====id: {:?}, zrange: {:?}, dirty: {:?}, range: {:?}, cur_count: {:?}, down: {:?}, i: {:?}, len: {:?}", id, zrange, dirty, range, cur_count, tree.get_down(*id), i, len);
+        // log::warn!("local_reset====id: {:?}, zrange: {:?}, dirty: {:?}, cur_range: {:?}, cur_count: {:?}, down: {:?}, i: {:?}, len: {:?}", id, zrange, dirty, cur_range, cur_count, tree[id].children(), i, len);
         // 判断当前节点右边（不包含当前节点）能否放下，如果不行，则继续（右边z范围不能容纳右边的所有子节点， 将当前节点卷入脏统计，并继续）
         if zrange.end - cur_range.end < (dirty.children_count - dirty.count - cur_count) * Z_SELF {
             dirty.count += cur_count;
@@ -419,19 +432,21 @@ fn range_set(
     // 获得间隔s
     let s = (zrange.end - zrange.start - children_count * Z_SELF) / (children_count * Z_SPLIT);
     zrange.start += s;
+	let mut arr = Vec::new();
     for i in begin..end {
         let count = vec[i].children_count;
         let node = vec[i].node;
-        func(mark, &node);
+        func(mark, &node); // 移除脏标记
         // 分配节点的range为: 自身空间(S+Z_SELF) + 子节点及间隔空间(Count*(S*Z_SPLIT+Z_SELF))
         let r = ZRange(Range {
             start: zrange.start,
             end: zrange.start + s + Z_SELF + count * (s * Z_SPLIT + Z_SELF),
         });
-        // log::warn!("range_set========zrange: {:?}, children_count: {:?}, s: {:?}, r{:?}, count: {:?}, begin: {}, end: {}", zrange, children_count, s, r, count, begin, end);
+		arr.push((node, zrange.clone(), children_count, s, r.clone(), count));
         zrange.start = r.end + s;
         set(query, tree, mark, ranges, node_states, vec, node, count, r);
     }
+	//  log::warn!("range_set========{:?}, {:?}, {:?}", begin, end, &arr);
 }
 /// 父节点下的子节点全部重置zrange
 fn reset(
