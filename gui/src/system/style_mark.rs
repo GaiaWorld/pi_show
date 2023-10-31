@@ -454,7 +454,30 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BackgroundImage, (
         if let Some(n) = idtree.get(id) {
             if n.layer() > 0 {
                 let image = &mut write.4[id];
-                set_image(id, write.2, write.3, image, write.7, ImageType::BorderImage);
+                set_image(id, write.2, write.3, image, write.7, ImageType::Image);
+            }
+        }
+    }
+}
+
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, MaskImage, (CreateEvent, ModifyEvent)> for StyleMarkSys<C> {
+    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type WriteData = (
+        &'a mut MultiCaseImpl<Node, StyleMark>,
+        &'a mut SingleCaseImpl<DirtyList>,
+        &'a mut SingleCaseImpl<ShareEngine<C>>,
+        &'a mut SingleCaseImpl<ImageWaitSheet>,
+        &'a mut MultiCaseImpl<Node, BackgroundImage>,
+        &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+        &'a mut MultiCaseImpl<Node, BackgroundImageClip>,
+        &'a mut MultiCaseImpl<Node, ImageTexture>,
+    );
+    fn listen(&mut self, event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
+        let id = event.id;
+        if let Some(n) = idtree.get(id) {
+            if n.layer() > 0 {
+                let image = &mut write.4[id];
+                set_image(id, write.2, write.3, image, write.7, ImageType::MaskImage);
             }
         }
     }
@@ -647,6 +670,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, Modif
         let (style_marks, dirty_list) = write;
         let style_mark = &mut style_marks[event.id];
         set_dirty1(dirty_list, event.id, CalcType::Matrix as usize, style_mark);
+		
     }
 }
 
@@ -2338,7 +2362,7 @@ impl_system! {
 
         // MultiCaseListener<Node, BlendMode, (CreateEvent, ModifyEvent)>
 
-        // MultiCaseListener<Node, MaskImage, (CreateEvent, ModifyEvent)>
+        MultiCaseListener<Node, MaskImage, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, MaskImage, DeleteEvent>
         // MultiCaseListener<Node, MaskImageClip, (CreateEvent, ModifyEvent)>
 

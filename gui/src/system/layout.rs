@@ -37,11 +37,17 @@ lazy_static! {
 		.set_bit(StyleType::FlexWrap as usize)
 		.set_bit(StyleType::AlignItems as usize)
 		.set_bit(StyleType::JustifyContent as usize)
-		.set_bit(StyleType::AlignContent as usize)
-		.set_bit(StyleType::TextContent as usize);
+		.set_bit(StyleType::AlignContent as usize);
 
 
-	pub static ref DIRTY2: StyleBit = style_bit().set_bit(StyleType::Display as usize).set_bit(StyleType::FlexBasis as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY | &*CHILD_DIRTY;
+	pub static ref DIRTY2: StyleBit = style_bit()
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::FlexBasis as usize)
+		.set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
 
 }
 
@@ -63,7 +69,7 @@ impl<'a> Runner<'a> for LayoutSys {
 		&'a mut MultiCaseImpl<Node, NodeState>,
 		&'a mut MultiCaseImpl<Node, StyleMark>, );
     fn run(&mut self, (rect_layout_styles, other_layout_styles, tree, dirty_list, ): Self::ReadData, (layouts, node_states, style_marks): Self::WriteData) {
-		let time = cross_performance::now();
+		// let time = cross_performance::now();
 		if dirty_list.0.len() == 0 {
             return;
 		}
@@ -90,7 +96,7 @@ impl<'a> Runner<'a> for LayoutSys {
 			// log::info!("layout dirty============={}, {}, {}", dirty2, dirty1, dirty2 & RECT_DIRTY);
 
             // 不存在LayoutTree关心的脏, 跳过
-            if !(dirty & DIRTY2.set_bit(StyleType::FontSize as usize)).any() && dirty1 & CalcType::Create as usize == 0 {
+            if !(dirty & DIRTY2.set_bit(StyleType::FontSize as usize)).set_bit(StyleType::TextContent as usize).any() && dirty1 & CalcType::Create as usize == 0 {
                 continue;
 			}
 
@@ -114,7 +120,7 @@ impl<'a> Runner<'a> for LayoutSys {
 				set_self_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if (dirty & &*CHILD_DIRTY).any(){
+			if (dirty & &CHILD_DIRTY.set_bit(StyleType::TextContent as usize)).any(){
 				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
@@ -124,7 +130,7 @@ impl<'a> Runner<'a> for LayoutSys {
 			style_mark.dirty &= !*DIRTY2;
 			style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
-		let count = self.dirty.count();
+		// let co: usizeunt = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
 		// if count > 0 {
 		// 	log::warn!("layout======={:?}", cross_performance::now() - time);
@@ -141,7 +147,7 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
 		&'a mut MultiCaseImpl<Node, OtherLayoutStyle>, 
 		&'a mut MultiCaseImpl<Node, LayoutR>, 
 		&'a mut MultiCaseImpl<Node, NodeState>);
-	fn listen(&mut self, event: &Event, _tree: Self::ReadData, (rect_layout_styles, other_layout_styles, layouts, node_states): Self::WriteData) {
+	fn listen(&mut self, event: &Event, _tree: Self::ReadData, (_rect_layout_styles, _other_layout_styles, layouts, node_states): Self::WriteData) {
 		// rect_layout_styles.insert(event.id, RectLayoutStyle::default());
 		// other_layout_styles.insert(event.id, OtherLayoutStyle::default());
 		layouts.insert(event.id, LayoutR::default());
