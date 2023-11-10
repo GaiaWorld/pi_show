@@ -505,7 +505,7 @@ impl FontSheet {
 					let p = line.alloc(ww);
 
 					// 超出最大纹理范围，需要清空所有文字，重新布局
-					if *(line.last_v) > line.tex_width {
+					if *(line.last_v) > self.font_tex.texture.height as f32 {
 						return 0; // 0表示异常情况，不能计算字形
 					}
 
