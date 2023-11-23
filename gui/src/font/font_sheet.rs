@@ -648,6 +648,11 @@ impl FontSheet {
         &self.font_tex.texture
     }
 
+	// 设置新的问题
+	pub fn set_font_tex(&mut self, value: Share<TextureRes>) {
+        self.font_tex.texture = value;
+    }
+
     pub fn get_glyph(&self, id: usize) -> Option<&(char, Glyph)> {
         self.char_slab.get(id)
     }

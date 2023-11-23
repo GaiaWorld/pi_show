@@ -13,6 +13,13 @@ pub struct VecMapWithDefault<T> {
 }
 
 impl<T> VecMapWithDefault<T> {
+	#[inline]
+	pub fn clear(&mut self) {
+		self.map.clear();
+	}
+}
+
+impl<T> VecMapWithDefault<T> {
 	pub fn set_default(&mut self, v: T) {
 		self.default_v = v;
 	}

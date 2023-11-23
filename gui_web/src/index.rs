@@ -183,7 +183,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
-	let hh = max_texture_size;
+	let mut hh = 256;
+	let ww = max_texture_size;
 	// log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
     //     .gl
@@ -191,28 +192,29 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     //     .unwrap();
 	let mut d: Vec<u8>;
 	let (format, data) = if is_sdf_font {
+		hh = max_texture_size;
 		(PixelFormat1::ALPHA, {
-			let l = max_texture_size * hh;
+			let l = ww * hh;
 			d = Vec::with_capacity(l as usize);
 			for _ in 0..l {
 				d.push(0);
 			}
-			Some(TextureData::U8(0, 0, max_texture_size, hh, d.as_slice()))
+			Some(TextureData::U8(0, 0, ww, hh, d.as_slice()))
 		})
 	} else {
 		(PixelFormat1::RGBA, None)
 	};
 	let texture = engine
 	.gl
-	.texture_create_2d(0, max_texture_size, hh, format, DataFormat::UnsignedByte, false, data)
+	.texture_create_2d(0, ww, hh, format, DataFormat::UnsignedByte, false, data)
 	.unwrap();
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
     // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
-    log::info!("hash============{:?}", Atom1::from("__$text".to_string()).get_hash());
+    // log::info!("hash============{:?}", Atom1::from("__$text".to_string()).get_hash());
     let res = engine.create_texture_res(
         Atom1::from("__$text".to_string()),
         TextureResRaw::new(
-            max_texture_size as usize,
+            ww as usize,
             hh as usize,
             format,
             DataFormat::UnsignedByte,

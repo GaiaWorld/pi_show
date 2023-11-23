@@ -60,7 +60,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BoxShadowSys<C> {
         &'a MultiCaseImpl<Node, BorderRadius>,
         // &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, ZRange>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,

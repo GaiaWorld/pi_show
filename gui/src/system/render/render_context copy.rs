@@ -68,7 +68,7 @@ pub struct RenderContextSys<C> {
 impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 	type ReadData = (
 		&'a MultiCaseImpl<Node, LayoutR>,
-		&'a MultiCaseImpl<Node, ZDepth>,
+		&'a MultiCaseImpl<Node, ZRange>,
 		&'a MultiCaseImpl<Node, Opacity>,
 		&'a MultiCaseImpl<Node, MaskTexture>,
 		&'a MultiCaseImpl<Node, MaskImageClip>,
@@ -206,7 +206,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			// 设置opacity
 			render_obj.paramter.set_single_uniform("alpha", UniformValue::Float1(opacity.0));
 
-			let z_depth = z_depths[*id].0;
+			let z_depth = z_depths[*id].start as f32;
 			let layout = &layouts[*id];
 
 			let transform = &transforms[*id];

@@ -67,7 +67,7 @@ impl<C: HalContext + 'static> BackgroundColorSys<C> {
 impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
     type ReadData = (
         &'a MultiCaseImpl<Node, LayoutR>,
-        &'a MultiCaseImpl<Node, ZDepth>,
+        &'a MultiCaseImpl<Node, ZRange>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
         // &'a MultiCaseImpl<Node, Opacity>,
@@ -190,7 +190,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
                     Some(r) => r,
                     None => &default_transform,
                 };
-                let depth = z_depths[*id].0;
+                let depth = z_depths[*id].start as f32;
 
                 match &color.0 {
                     Color::RGBA(_) => {

@@ -67,7 +67,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 	type ReadData = (
 		&'a MultiCaseImpl<Node, RenderContextMark>,
 		&'a MultiCaseImpl<Node, LayoutR>,
-		&'a MultiCaseImpl<Node, ZDepth>,
+		&'a MultiCaseImpl<Node, ZRange>,
 		&'a MultiCaseImpl<Node, WorldMatrix>,
 		&'a MultiCaseImpl<Node, Transform>,
 		&'a MultiCaseImpl<Node, StyleMark>,
@@ -169,7 +169,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			let render_obj = &mut render_objs[render_context.render_obj_index];
 			render_obj.is_opacity = false;
 
-			let z_depth = z_depths[*id].0;
+			let z_depth = z_depths[*id].start as f32;
 			let layout = &layouts[*id];
 
 			let transform = &transforms[*id];
