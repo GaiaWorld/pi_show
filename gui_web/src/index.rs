@@ -175,7 +175,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
-	let hh = 256;
+	let mut hh = 256;
 	let ww = max_texture_size;
 	// log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
@@ -184,6 +184,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     //     .unwrap();
 	let mut d: Vec<u8>;
 	let (format, data) = if is_sdf_font {
+		hh = max_texture_size;
 		(PixelFormat1::ALPHA, {
 			let l = ww * hh;
 			d = Vec::with_capacity(l as usize);
