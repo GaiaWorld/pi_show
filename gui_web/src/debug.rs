@@ -273,7 +273,7 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 //     world.register_multi::<Node, RectLayoutStyle>();
 //     world.register_multi::<Node, OtherLayoutStyle>();
 //     world.register_multi::<Node, StyleMark>();
-//     world.register_multi::<Node, ZDepth>();
+//     world.register_multi::<Node, ZRange>();
 //     world.register_multi::<Node, gui::component::calc::Opacity>();
 //     world.register_multi::<Node, HSV>();
 //     world.register_multi::<Node, LayoutR>();
@@ -293,7 +293,7 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 //     let node_state = world.fetch_multi::<Node, NodeState>().unwrap();
 //     let style_mark = world.fetch_multi::<Node, StyleMark>().unwrap();
 //     let culling = world.fetch_multi::<Node, Culling>().unwrap();
-//     let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
+//     let z_depth = world.fetch_multi::<Node, ZRange>().unwrap();
 //     let enable = world.fetch_multi::<Node, Enable>().unwrap();
 //     let visibility = world.fetch_multi::<Node, Visibility>().unwrap();
 //     let world_matrix = world.fetch_multi::<Node, WorldMatrix>().unwrap();
@@ -312,7 +312,7 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
 //         node_state.lend_mut().insert(entity, NodeState::default());
 //         style_mark.lend_mut().insert(entity, StyleMark::default());
 //         culling.lend_mut().insert(entity, Culling::default());
-//         z_depth.lend_mut().insert(entity, ZDepth::default());
+//         z_depth.lend_mut().insert(entity, ZRange::default());
 //         enable.lend_mut().insert(entity, Enable::default());
 //         visibility.lend_mut().insert(entity, Visibility::default());
 //         world_matrix.lend_mut().insert(entity, WorldMatrix::default());
@@ -1119,7 +1119,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         opacity: opacity,
         blur: world_ext.blur.lend().get(node).unwrap_or(&Blur(0.0)).0,
         zindex: world_ext.z_index.lend()[node].0 as u32,
-        zdepth: world_ext.z_depth.lend()[node].0,
+        zdepth: world_ext.z_depth.lend()[node].0.start as f32,
         layout: unsafe { transmute(layout.clone()) },
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
@@ -2448,7 +2448,7 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
 //         &'a ecs::MultiCaseImpl<Node, Visibility>,
 //         &'a ecs::MultiCaseImpl<Node, HSV>,
-//         &'a ecs::MultiCaseImpl<Node, ZDepth>,
+//         &'a ecs::MultiCaseImpl<Node, ZRange>,
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
@@ -2488,7 +2488,7 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
 //         &'a ecs::MultiCaseImpl<Node, Visibility>,
 //         &'a ecs::MultiCaseImpl<Node, HSV>,
-//         &'a ecs::MultiCaseImpl<Node, ZDepth>,
+//         &'a ecs::MultiCaseImpl<Node, ZRange>,
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
@@ -2512,7 +2512,7 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
 //         &'a ecs::MultiCaseImpl<Node, Visibility>,
 //         &'a ecs::MultiCaseImpl<Node, HSV>,
-//         &'a ecs::MultiCaseImpl<Node, ZDepth>,
+//         &'a ecs::MultiCaseImpl<Node, ZRange>,
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
@@ -2530,7 +2530,7 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
 //         &'a ecs::MultiCaseImpl<Node, Visibility>,
 //         &'a ecs::MultiCaseImpl<Node, HSV>,
-//         &'a ecs::MultiCaseImpl<Node, ZDepth>,
+//         &'a ecs::MultiCaseImpl<Node, ZRange>,
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
@@ -2548,7 +2548,7 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, gui::component::calc::Opacity>,
 //         &'a ecs::MultiCaseImpl<Node, Visibility>,
 //         &'a ecs::MultiCaseImpl<Node, HSV>,
-//         &'a ecs::MultiCaseImpl<Node, ZDepth>,
+//         &'a ecs::MultiCaseImpl<Node, ZRange>,
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),

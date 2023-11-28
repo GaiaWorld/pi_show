@@ -1342,7 +1342,7 @@ pub fn create_fragment(world: u32, mut arr: Uint32Array, count: u32, key: u32) {
 struct AbQueryArgs<'a> {
     enables: &'a MultiCaseImpl<Node, gui::component::calc::Enable>,
     by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
-    z_depths: &'a MultiCaseImpl<Node, ZDepth>,
+    z_depths: &'a MultiCaseImpl<Node, ZRange>,
     overflow_clip: &'a SingleCaseImpl<OverflowClip>,
     id_tree: &'a SingleCaseImpl<IdTree>,
     aabb: Aabb2,
@@ -1354,7 +1354,7 @@ impl<'a> AbQueryArgs<'a> {
     pub fn new(
         enables: &'a MultiCaseImpl<Node, gui::component::calc::Enable>,
         by_overflows: &'a MultiCaseImpl<Node, ByOverflow>,
-        z_depths: &'a MultiCaseImpl<Node, ZDepth>,
+        z_depths: &'a MultiCaseImpl<Node, ZRange>,
         overflow_clip: &'a SingleCaseImpl<OverflowClip>,
         id_tree: &'a SingleCaseImpl<IdTree>,
         aabb: Aabb2,
@@ -1385,7 +1385,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: OctKey, aabb: &Aabb2, bind: &usize)
     };
     if intersects(&arg.aabb, aabb) {
 		let enable = arg.enables[*bind].0;
-		let z_depth = arg.z_depths[*bind].0;
+		let z_depth = arg.z_depths[*bind].0.start as f32;
         // log::info!("enable----------id: {}, enable: {}, z_depth: {}, max_z: {}", bind, enable, z_depth,  arg.max_z);
         //如果enable true 表示不接收事件
         match enable {

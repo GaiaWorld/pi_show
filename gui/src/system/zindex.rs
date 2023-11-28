@@ -41,6 +41,7 @@ use crate::component::{
 	calc::NodeState,
 };
 use ecs::component::Component;
+use pi_null::Null;
 
 type Entity = usize;
 
@@ -91,7 +92,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for ZIndexImpl {
 			_ => ()
 		}
 
-		
 		z_ranges.insert(event.id, ZRange::default());
     }
 }
@@ -140,6 +140,8 @@ impl<'a> Runner<'a> for ZIndexImpl {
     fn run(&mut self, (tree, zindexs, node_states): Self::ReadData, ranges: Self::WriteData) {
 		let mut vec: &mut Vec<ZSort> = &mut self.cache;
 		for (id, layer) in self.dirty.dirty.iter() {
+			// log::warn!("id============{}, {}", id, layer);
+
 			match tree.get(*id) {
 				Some(node) if node.parent() > 0 => {
 					if let Some(r) = self.dirty.dirty_mark_list.get(id) {
@@ -155,6 +157,7 @@ impl<'a> Runner<'a> for ZIndexImpl {
 						_ => ()
 					}
 					let parent = node.parent();
+					// log::warn!("parent======{:?}", parent);
 					// 找到能容纳所有子节点的父节点
 					// parent节点zindex为AUTO，需要递归向上找到一个不是AUTO的节点, 以该节点作为布局环境，进行z布局
 					// 如果parent节点无法容纳三倍子节点， 也需要向上递归，找到能容纳三倍子节点的节点作为布局环境进行z布局
@@ -174,6 +177,7 @@ impl<'a> Runner<'a> for ZIndexImpl {
 					}
 				}
 				_ => {
+					// log::warn!("insert============{}, {}", id, Z_MAX);
 					// 根节点设置为最大值
 					let _ = ranges.get_mut(*id).map(|r| {
 						*r = ZRange(Range { start: 0, end: Z_MAX as usize });
@@ -196,7 +200,6 @@ impl<'a> Runner<'a> for ZIndexImpl {
 /// 获得能装下全部子节点的父节点
 fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCaseImpl<Node, ZRange>, mut node: Entity) -> (Entity, usize, ZRange, bool) {
     let mut local = true;
-    // println!("node:{:?}, ", &node);
     loop {
         if let Some(z) = query.get(node) {
             if z.0 == Z_AUTO {
@@ -208,7 +211,6 @@ fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCase
                 }
             }
         }
-
         let children_count = tree[node].count();
         let range = match ranges.get(node) {
             Some(r) => r.clone(),

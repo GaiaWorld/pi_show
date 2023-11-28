@@ -199,7 +199,7 @@ pub fn create_world<C: HalContext + 'static>(
     //calc
     world.register_multi::<Node, ImageTexture>();
     world.register_multi::<Node, BorderImageTexture>();
-    world.register_multi::<Node, ZDepth>();
+    world.register_multi::<Node, ZRange>();
     world.register_multi::<Node, Enable>();
     world.register_multi::<Node, Visibility>();
     world.register_multi::<Node, WorldMatrix>();
@@ -305,11 +305,12 @@ pub fn create_world<C: HalContext + 'static>(
 	world.register_single::<Blur>(Blur::default());
 	world.register_single::<ClipPath>(ClipPath::default());
 
-    world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
+	world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<C>::new(StyleMarkSys::new()));
     world.register_system(SHOW_N.clone(), CellShowSys::new(ShowSys::default()));
     world.register_system(FILTER_N.clone(), CellFilterSys::new(FilterSys::default()));
     // world.register_system(OPCITY_N.clone(), CellOpacitySys::new(OpacitySys::default()));
     world.register_system(LYOUT_N.clone(), CellLayoutSys::new(LayoutSys::default()));
+	world.register_system(ZINDEX_N.clone(), CellZIndexImpl::new(ZIndexImpl::with_capacity(capacity)));
     world.register_system(TEXT_LAYOUT_N.clone(), CellLayoutImpl::new(LayoutImpl::new()));
     world.register_system(WORLD_MATRIX_N.clone(), CellWorldMatrixSys::new(WorldMatrixSys::with_capacity(capacity)));
     world.register_system(OCT_N.clone(), CellOctSys::new(OctSys::default()));
@@ -340,7 +341,6 @@ pub fn create_world<C: HalContext + 'static>(
     //     RES_RELEASE_N.clone(),
     //     CellResReleaseSys::<C>::new(ResReleaseSys::new()),
     // );
-    world.register_system(STYLE_MARK_N.clone(), CellStyleMarkSys::<C>::new(StyleMarkSys::new()));
 	
 	let sys = CellClassSetting::<C>::new(ClassSetting::new(&mut world));
     world.register_system(CLASS_SETTING_N.clone(), sys);
@@ -417,7 +417,7 @@ pub struct GuiWorldExt {
 	pub style_mark: Arc<CellMultiCase<Node, StyleMark>>,
 
     //calc
-    pub z_depth: Arc<CellMultiCase<Node, ZDepth>>,
+    pub z_depth: Arc<CellMultiCase<Node, ZRange>>,
     pub enable: Arc<CellMultiCase<Node, crate::component::calc::Enable>>,
     pub visibility: Arc<CellMultiCase<Node, Visibility>>,
     pub world_matrix: Arc<CellMultiCase<Node, WorldMatrix>>,
@@ -487,7 +487,7 @@ impl GuiWorldExt {
 			clip_path: world.fetch_multi::<Node, ClipPath>().unwrap(),
 
 			//calc
-			z_depth: world.fetch_multi::<Node, ZDepth>().unwrap(),
+			z_depth: world.fetch_multi::<Node, ZRange>().unwrap(),
 			enable: world.fetch_multi::<Node, Enable>().unwrap(),
 			visibility: world.fetch_multi::<Node, Visibility>().unwrap(),
 			world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
@@ -769,7 +769,7 @@ fn test_insert11() -> std::time::Duration {
     world.register_multi::<Node, RectLayoutStyle>();
     world.register_multi::<Node, OtherLayoutStyle>();
     world.register_multi::<Node, StyleMark>();
-    world.register_multi::<Node, ZDepth>();
+    world.register_multi::<Node, ZRange>();
     world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, LayoutR>();
@@ -789,7 +789,7 @@ fn test_insert11() -> std::time::Duration {
     let node_state = world.fetch_multi::<Node, NodeState>().unwrap();
     let style_mark = world.fetch_multi::<Node, StyleMark>().unwrap();
     let culling = world.fetch_multi::<Node, Culling>().unwrap();
-    let z_depth = world.fetch_multi::<Node, ZDepth>().unwrap();
+    let z_depth = world.fetch_multi::<Node, ZRange>().unwrap();
     let enable = world.fetch_multi::<Node, Enable>().unwrap();
     let visibility = world.fetch_multi::<Node, Visibility>().unwrap();
     let world_matrix = world.fetch_multi::<Node, WorldMatrix>().unwrap();
@@ -808,7 +808,7 @@ fn test_insert11() -> std::time::Duration {
         node_state.lend_mut().insert(entity, NodeState::default());
         style_mark.lend_mut().insert(entity, StyleMark::default());
         culling.lend_mut().insert(entity, Culling::default());
-        z_depth.lend_mut().insert(entity, ZDepth::default());
+        z_depth.lend_mut().insert(entity, ZRange::default());
         enable.lend_mut().insert(entity, Enable::default());
         visibility.lend_mut().insert(entity, Visibility::default());
         world_matrix.lend_mut().insert(entity, WorldMatrix::default());

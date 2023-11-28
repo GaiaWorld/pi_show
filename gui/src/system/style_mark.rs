@@ -674,7 +674,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, WorldMatrix, Modif
     }
 }
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZDepth, ModifyEvent> for StyleMarkSys<C> {
+impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ZRange, ModifyEvent> for StyleMarkSys<C> {
     type ReadData = ();
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
@@ -2391,7 +2391,7 @@ impl_system! {
 		// MultiCaseListener<Node, ClipPath, (CreateEvent, ModifyEvent)>
 
         MultiCaseListener<Node, WorldMatrix, ModifyEvent>
-        MultiCaseListener<Node, ZDepth, ModifyEvent>
+        MultiCaseListener<Node, ZRange, ModifyEvent>
         // MultiCaseListener<Node, Opacity, ModifyEvent>
         // MultiCaseListener<Node, Blur, (CreateEvent, ModifyEvent)>
         MultiCaseListener<Node, LayoutR, ModifyEvent>

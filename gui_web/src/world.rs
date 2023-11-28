@@ -53,7 +53,7 @@
 //     world.register_multi::<Node, Filter>();
 
 //     //calc
-//     world.register_multi::<Node, ZDepth>();
+//     world.register_multi::<Node, ZRange>();
 //     world.register_multi::<Node, Enable>();
 //     world.register_multi::<Node, Visibility>();
 //     world.register_multi::<Node, WorldMatrix>();
