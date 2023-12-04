@@ -29,6 +29,8 @@ use crate::single::class::*;
 use crate::single::IdTree;
 use crate::single::*;
 
+use super::set_max_view;
+
 //文字样式脏
 const TEXT_DIRTY: usize = StyleType::LetterSpacing as usize
     | StyleType::WordSpacing as usize
@@ -993,7 +995,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyE
 
 // 监听图片等待列表的改变， 将已加载完成的图片设置到对应的组件上
 impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyEvent> for StyleMarkSys<C> {
-    type ReadData = &'a SingleCaseImpl<IdTree>;
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a SingleCaseImpl<RenderBegin>);
     type WriteData = (
         &'a mut EntityImpl<Node>,
         // &'a mut MultiCaseImpl<Node, RectLayoutStyle>,
@@ -1007,9 +1009,10 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
         // &'a mut MultiCaseImpl<Node, BorderImageClip>,
         // &'a mut MultiCaseImpl<Node, StyleMark>,
         &'a mut SingleCaseImpl<ImageWaitSheet>,
+		&'a mut SingleCaseImpl<DirtyViewRect>,
         // &'a mut SingleCaseImpl<DirtyList>,
     );
-    fn listen(&mut self, _event: &Event, idtree: Self::ReadData, write: Self::WriteData) {
+    fn listen(&mut self, _event: &Event, (idtree, render_begin): Self::ReadData, write: Self::WriteData) {
         let (
             entitys,
             // layout_nodes,
@@ -1023,6 +1026,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
             mask_textures,
             // style_marks,
             image_wait_sheet,
+			dirty_view_rect,
             // dirty_list,
         ) = write;
 
@@ -1041,8 +1045,13 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
                     ImageType::ImageLocal | ImageType::ImageClass => {
                         if let Some(image) = images.get_mut(image_wait.id) {
                             if image.url == wait.0 {
+								// 当曾经出现旧图片时，旧的图片可能跟新的图片尺寸不一致，
+								// 由于背景图system为了防止图片帧动画闪缩，在新的图片加载完成之前， 会保留旧的图片的渲染
+								// 新的图片加载完成后， 此时极有可能已经错过了旧图片的oct改变事件， 不能正确计算脏区域， 因此直接设置全屏脏
+								if image_textures.get(image_wait.id).is_some() {
+									set_max_view(render_begin, dirty_view_rect);
+								}
                                 image_textures.insert(image_wait.id, ImageTexture::All(wait.1.clone(), image.url));
-
                                 // set_image_size(
                                 //     &wait.1,
                                 //     &mut layout_nodes[image_wait.id],
