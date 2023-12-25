@@ -249,7 +249,7 @@ fn handler_modify_oct(
 }
 
 // 设置为最大视口
-fn set_max_view(
+pub fn set_max_view(
 	render_begin: &SingleCaseImpl<RenderBegin>,
 	dirty_view_rect: &mut SingleCaseImpl<DirtyViewRect>
 ) {
