@@ -51,22 +51,17 @@ impl WorldMatrixSys {
         layout: &MultiCaseImpl<Node, LayoutR>,
         world_matrix: &mut MultiCaseImpl<Node, WorldMatrix>,
 		node_states: &MultiCaseImpl<Node, NodeState>,
-    ) {;
-		let time = cross_performance::now();
+    ) {
         let mut count = 0;
 		// let time = std::time::Instant::now();
 		let default_transform = &transform[std::usize::MAX];
+		// if self.dirty.count() > 0 {
+		// 	log::warn!("dirty========{:?}", self.dirty);
+		// }
+		
         for (id, layer) in self.dirty.iter() {
             {
-				match node_states.get(*id) {
-					Some(node_state) => {
-						if !node_state.0.is_rnode() {
-							continue;
-						}
-					},
-					None => continue,
-				};
-                let dirty_mark = match self.dirty_mark_list.get_mut(id) {
+				let dirty_mark = match self.dirty_mark_list.get_mut(id) {
                     Some(r) => r,
                     None => continue, //panic!("dirty_mark_list err: {}", *id),
 				};
@@ -74,6 +69,19 @@ impl WorldMatrixSys {
                     continue;
                 }
                 *dirty_mark = 0;
+
+				match node_states.get(*id) {
+					Some(node_state) => {
+						if !node_state.0.is_rnode() {
+							// log::warn!("node_state err: {}, {:?}, {:?}", *id, idtree.get(*id), layout.get(*id));
+							continue;
+						}
+					},
+					None => {
+						// log::warn!("node_state1 err: {}, {:?}, {:?}", *id, idtree.get(*id), layout.get(*id));
+						continue
+					},
+				};
             }
 
             let parent_id = match idtree.get(*id) {
@@ -84,7 +92,9 @@ impl WorldMatrixSys {
                         continue;
                     }
                 }
-                None => continue, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
+                None => {
+					continue
+				}, //panic!("cal_matrix error, idtree is not exist, id: {}", *id),
 			};
             // let transform_value = get_or_default(parent_id, transform, default_table);
             let transform_value = match transform.get(parent_id) {
@@ -167,6 +177,7 @@ impl<'a> SingleCaseListener<'a, IdTree, CreateEvent> for WorldMatrixSys {
     type ReadData = &'a SingleCaseImpl<IdTree>;
     type WriteData = ();
     fn listen(&mut self, event: &Event, read: Self::ReadData, _write: Self::WriteData) {
+		// log::warn!("create==================={}", event.id);
         self.marked_dirty(event.id, read);
     }
 }
@@ -201,6 +212,7 @@ fn recursive_cal_matrix(
     // }
 	// 虚拟节点不存在WorlMatrix组件， 不需要计算
 	if !node_states[id].is_rnode() {
+		// log::warn!("node_state2 err: {}, {:?}, {:?}", id, idtree.get(id), layouts.get(id));
 		return;
 	}
 	// *count = 1 + *count;

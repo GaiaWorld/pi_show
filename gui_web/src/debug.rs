@@ -90,6 +90,7 @@ struct Info {
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<u32>,
     pub content_bound_box: Option<ContentBox>,
+	pub is_rnode: bool,
 
     text: Option<TextStyle>,
     text_content: Option<TextContent>,
@@ -1166,6 +1167,10 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         content_bound_box: match content_boxs.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
+        },
+		is_rnode: match world.node_state.lend().get(node) {
+            Some(r) => r.0.is_rnode(),
+            None => false,
         },
         culling: world.culling.lend()[node].0,
         text: match world.text_style.lend().get(node) {
