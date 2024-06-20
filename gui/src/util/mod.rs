@@ -56,16 +56,16 @@ impl Dirty {
 pub fn f32_4_hash(r: f32, g: f32, b: f32, a: f32) -> u64 {
     let mut hasher = DefaultHasher::default();
     if let Err(_r) = NotNan::new(r) {
-        log::info!("r=============={}", r);
+        log::info!("f32_4_hash r=============={}", r);
     }
     if let Err(g) = NotNan::new(g) {
-        log::info!("g=============={}", g);
+        log::info!("f32_4_hash g=============={}", g);
     }
     if let Err(r) = NotNan::new(b) {
-        log::info!("b=============={}", b);
+        log::info!("f32_4_hash b=============={}", b);
     }
     if let Err(r) = NotNan::new(a) {
-        log::info!("a=============={}", a);
+        log::info!("f32_4_hash a=============={}", a);
     }
     NotNan::new(r).unwrap().hash(&mut hasher);
     NotNan::new(g).unwrap().hash(&mut hasher);

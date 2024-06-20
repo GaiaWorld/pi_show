@@ -215,7 +215,7 @@ pub struct BackgroundImageOption {
 pub struct ImageClip(pub Aabb2);
 
 // 边框图片
-#[derive(Clone, Component)]
+#[derive(Clone, Component, Debug)]
 pub struct BorderImage {
     pub url: usize,
 }

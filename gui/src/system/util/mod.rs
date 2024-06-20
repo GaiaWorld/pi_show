@@ -203,16 +203,16 @@ pub fn radius_quad_hash(hasher: &mut DefaultHasher, radius: f32, width: f32, hei
 
 pub fn f32_4_hash_(r: f32, g: f32, b: f32, a: f32, hasher: &mut DefaultHasher) {
     if let Err(_r) = NotNan::new(r) {
-        log::info!("r=============={}", r);
+        log::info!("f32_4_hash r=============={}", r);
     }
     if let Err(g) = NotNan::new(g) {
-        log::info!("g=============={}", g);
+        log::info!("f32_4_hash g=============={}", g);
     }
     if let Err(r) = NotNan::new(b) {
-        log::info!("b=============={}", b);
+        log::info!("f32_4_hash b=============={}", b);
     }
     if let Err(r) = NotNan::new(a) {
-        log::info!("a=============={}", a);
+        log::info!("f32_4_hash a=============={}", a);
     }
     NotNan::new(r).unwrap().hash(hasher);
     NotNan::new(g).unwrap().hash(hasher);
