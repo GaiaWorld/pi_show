@@ -30,7 +30,7 @@ pub const FONT_SIZE: f32 = 32.0;
 /// 默认纹理宽度为2048，永远向下扩展
 pub const TEX_WIDTH: f32 = 2048.0;
 pub const INIT_TEX_HEIGHT: u32 = 256;
-pub const OFFSET_RANGE: f32 = (2 as u32).pow(14) as f32;
+pub const OFFSET_RANGE: f32 = (2 as u32).pow(15) as f32;
 
 // 小字体的大小， 小于该字体，默认勾1个px的边
 const SMALL_FONT: usize = 20;
