@@ -106,8 +106,13 @@ impl<T: Clone + Default> Map for HashMapWithDefault<T> {
         self.map.capacity()
     }
     #[inline]
-    fn mem_size(&self) -> usize {
-        self.map.capacity() * std::mem::size_of::<T>()
+    fn capacity_mem_size(&self) -> usize {
+        self.map.capacity_mem_size() * std::mem::size_of::<T>()
+    }
+
+    #[inline]
+    fn use_mem_size(&self) -> usize {
+        self.map.use_mem_size() * std::mem::size_of::<T>()
     }
 }
 

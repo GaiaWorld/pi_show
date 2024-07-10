@@ -1,11 +1,14 @@
 use std::mem::transmute;
 use std::ops::Deref;
 
+use fragment::FragmentMap;
 use gui::component::user::serialize::StyleTypeReader;
 use gui::entity::Node;
+use gui::font::font_sheet::FontSheet;
 use gui::single::dyn_texture::DebugRect;
 use gui::single::dyn_texture::DebugTexture;
 use pi_style::style_parse::Attribute;
+use pi_style::style_type::ClassSheet;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -14,7 +17,7 @@ use flex_layout::style::*;
 use hal_core::*;
 use hal_webgl::*;
 use hash::XHashMap;
-use res::ResDebug;
+// use res::ResDebug;
 use res_mgr_web::ResMgr;
 
 use ecs::{Lend, LendMut};
@@ -818,7 +821,7 @@ fn to_css_str(attr: Attribute) -> String {
         }
 
         Attribute::BorderRadius(_r) => "".to_string(),    // TODO
-        Attribute::TransformFunc(_r) => "".to_string(),   // TODO
+        // Attribute::TransformFunc(_r) => "".to_string(),   // TODO
         Attribute::TransformOrigin(_r) => "".to_string(), // TODO
         Attribute::Hsi(_r) => "".to_string(),
         Attribute::BorderImageRepeat(r) => "border-image-repeat:".to_string() + format!("{:?}", r.x).as_str() + " " + format!("{:?}", r.y).as_str(),
@@ -843,6 +846,12 @@ fn to_css_str(attr: Attribute) -> String {
         Attribute::AnimationDirection(r) => "".to_string(),      // TODO
         Attribute::AnimationFillMode(r) => "".to_string(),       // TODO
         Attribute::AnimationPlayState(r) => "".to_string(),      // TODO
+        Attribute::TextOverflow(_) | Attribute::OverflowWrap(_) => todo!(),
+        Attribute::TransitionProperty(_) => todo!(),
+        Attribute::TransitionDuration(_) => todo!(),
+        Attribute::TransitionTimingFunction(_) => todo!(),
+        Attribute::TransitionDelay(_) => todo!(),
+        Attribute::TextOuterGlow(_) => todo!(),
     }
 }
 
@@ -1032,7 +1041,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
                 program_dirty: v.program_dirty,
 
                 program: v.program.is_some(),
-                geometry: v.geometry.is_some(),
+                geometry: !v.geometry.is_none(),
                 state: State {
                     rs: unsafe { transmute(rs.clone()) },
                     bs: unsafe { transmute(bs.clone()) },
@@ -1440,160 +1449,162 @@ pub fn overflow_clip(world: u32) -> JsValue {
 
 #[wasm_bindgen]
 pub fn res_size(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let engine = world.gui.engine.lend();
-	let world = &mut world.gui.world_ext;
+    
+    // let mut info = TexureInfo::default();
+
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let engine = world.gui.engine.lend();
+	// let world = &mut world.gui.world_ext;
     let mut size = ResMgrSize::default();
 
-    // let sys_time = world.system_time.lend_mut();
+    // // let sys_time = world.system_time.lend_mut();
 
-    let mut info = TexureInfo::default();
-    let list = &mut info.list;
+    // let list = &mut info.list;
 
-    let texture = engine.texture_res_map.all_res();
+    // let texture = engine.texture_res_map.all_res();
+    // // for i in texture.0.iter() {
+    // //     list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    // // }
+
+    // for (key, v) in texture.2.iter() {
+    //     if *v.get_id() > 0 {
+    //         // 在lru中的资源
+    //         list.push((key.str_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+    //     }
+    // }
+    // // info.min_capacity = engine.texture_res_map.cache.min_capacity();
+    // // info.max_capacity = engine.texture_res_map.cache.max_capacity();
+    // // info.cur_cost = engine.texture_res_map.cache.size();
+
+    // let texture = engine.texture_res_map.all_res();
     // for i in texture.0.iter() {
-    //     list.push((*i.0.get_key(), i.1, true, sys_time.cur_time as usize));
+    //     size.texture += i.1;
+    //     size.count_texture += 1;
+    // }
+    // for i in texture.1.iter() {
+    //     size.catch_texture += i.1.elem.cost;
+    //     size.count_catch_texture += 1;
     // }
 
-    for (key, v) in texture.2.iter() {
-        if *v.get_id() > 0 {
-            // 在lru中的资源
-            list.push((key.get_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
-        }
-    }
-    info.min_capacity = engine.texture_res_map.cache.min_capacity();
-    info.max_capacity = engine.texture_res_map.cache.max_capacity();
-    info.cur_cost = engine.texture_res_map.cache.size();
+    // let geometry = engine.geometry_res_map.all_res();
+    // for i in geometry.0.iter() {
+    //     size.geometry += i.1;
+    //     size.count_geometry += 1;
+    // }
+    // for i in geometry.1.iter() {
+    //     size.catch_geometry += i.1.elem.cost;
+    //     size.count_catch_geometry += 1;
+    // }
 
-    let texture = engine.texture_res_map.all_res();
-    for i in texture.0.iter() {
-        size.texture += i.1;
-        size.count_texture += 1;
-    }
-    for i in texture.1.iter() {
-        size.catch_texture += i.1.elem.cost;
-        size.count_catch_texture += 1;
-    }
+    // let buffer = engine.buffer_res_map.all_res();
+    // for i in buffer.0.iter() {
+    //     size.buffer += i.1;
+    //     size.count_buffer += 1;
+    // }
+    // for i in buffer.1.iter() {
+    //     size.catch_buffer += i.1.elem.cost;
+    //     size.count_catch_buffer += 1;
+    // }
 
-    let geometry = engine.geometry_res_map.all_res();
-    for i in geometry.0.iter() {
-        size.geometry += i.1;
-        size.count_geometry += 1;
-    }
-    for i in geometry.1.iter() {
-        size.catch_geometry += i.1.elem.cost;
-        size.count_catch_geometry += 1;
-    }
+    // let rs = engine.rs_res_map.all_res();
+    // for i in rs.0.iter() {
+    //     // i.0
+    //     size.rs += i.1;
+    //     size.count_rs += 1;
+    // }
+    // for i in rs.1.iter() {
+    //     size.catch_rs += i.1.elem.cost;
+    //     size.count_catch_rs += 1;
+    // }
 
-    let buffer = engine.buffer_res_map.all_res();
-    for i in buffer.0.iter() {
-        size.buffer += i.1;
-        size.count_buffer += 1;
-    }
-    for i in buffer.1.iter() {
-        size.catch_buffer += i.1.elem.cost;
-        size.count_catch_buffer += 1;
-    }
+    // let bs = engine.bs_res_map.all_res();
+    // for i in bs.0.iter() {
+    //     size.bs += i.1;
+    //     size.count_bs += 1;
+    // }
+    // for i in bs.1.iter() {
+    //     size.catch_bs += i.1.elem.cost;
+    //     size.count_catch_bs += 1;
+    // }
 
-    let rs = engine.rs_res_map.all_res();
-    for i in rs.0.iter() {
-        // i.0
-        size.rs += i.1;
-        size.count_rs += 1;
-    }
-    for i in rs.1.iter() {
-        size.catch_rs += i.1.elem.cost;
-        size.count_catch_rs += 1;
-    }
+    // let ss = engine.ss_res_map.all_res();
+    // for i in ss.0.iter() {
+    //     size.ss += i.1;
+    //     size.count_ss += 1;
+    // }
+    // for i in ss.1.iter() {
+    //     size.catch_ss += i.1.elem.cost;
+    //     size.count_catch_ss += 1;
+    // }
 
-    let bs = engine.bs_res_map.all_res();
-    for i in bs.0.iter() {
-        size.bs += i.1;
-        size.count_bs += 1;
-    }
-    for i in bs.1.iter() {
-        size.catch_bs += i.1.elem.cost;
-        size.count_catch_bs += 1;
-    }
+    // let ds = engine.ds_res_map.all_res();
+    // for i in ds.0.iter() {
+    //     size.ds += i.1;
+    //     size.count_ds += 1;
+    // }
+    // for i in ds.1.iter() {
+    //     size.catch_ds += i.1.elem.cost;
+    //     size.count_catch_ds += 1;
+    // }
 
-    let ss = engine.ss_res_map.all_res();
-    for i in ss.0.iter() {
-        size.ss += i.1;
-        size.count_ss += 1;
-    }
-    for i in ss.1.iter() {
-        size.catch_ss += i.1.elem.cost;
-        size.count_catch_ss += 1;
-    }
+    // let sampler = engine.sampler_res_map.all_res();
+    // for i in sampler.0.iter() {
+    //     size.sampler += i.1;
+    //     size.count_sampler += 1;
+    // }
+    // for i in sampler.1.iter() {
+    //     size.catch_sampler += i.1.elem.cost;
+    //     size.count_catch_sampler += 1;
+    // }
 
-    let ds = engine.ds_res_map.all_res();
-    for i in ds.0.iter() {
-        size.ds += i.1;
-        size.count_ds += 1;
-    }
-    for i in ds.1.iter() {
-        size.catch_ds += i.1.elem.cost;
-        size.count_catch_ds += 1;
-    }
+    // let res_mgr_ref = engine.res_mgr.borrow();
+    // let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
+    // let ucolor = ucolor.all_res();
+    // for i in ucolor.0.iter() {
+    //     size.ucolor += i.1;
+    //     size.count_ucolor += 1;
+    // }
+    // for i in ucolor.1.iter() {
+    //     size.catch_ucolor += i.1.elem.cost;
+    //     size.count_catch_ucolor += 1;
+    // }
 
-    let sampler = engine.sampler_res_map.all_res();
-    for i in sampler.0.iter() {
-        size.sampler += i.1;
-        size.count_sampler += 1;
-    }
-    for i in sampler.1.iter() {
-        size.catch_sampler += i.1.elem.cost;
-        size.count_catch_sampler += 1;
-    }
+    // let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
+    // let hsv = hsv.all_res();
+    // for i in hsv.0.iter() {
+    //     size.hsv += i.1;
+    //     size.count_hsv += 1;
+    // }
+    // for i in hsv.1.iter() {
+    //     size.catch_hsv += i.1.elem.cost;
+    //     size.count_catch_hsv += 1;
+    // }
 
-    let res_mgr_ref = engine.res_mgr.borrow();
-    let ucolor = res_mgr_ref.fetch_map::<UColorUbo>(0).unwrap();
-    let ucolor = ucolor.all_res();
-    for i in ucolor.0.iter() {
-        size.ucolor += i.1;
-        size.count_ucolor += 1;
-    }
-    for i in ucolor.1.iter() {
-        size.catch_ucolor += i.1.elem.cost;
-        size.count_catch_ucolor += 1;
-    }
+    // let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
+    // let msdf_stroke = msdf_stroke.all_res();
+    // for i in msdf_stroke.0.iter() {
+    //     size.msdf_stroke += i.1;
+    //     size.count_msdf_stroke += 1;
+    // }
+    // for i in msdf_stroke.1.iter() {
+    //     size.catch_msdf_stroke += i.1.elem.cost;
+    //     size.count_catch_msdf_stroke += 1;
+    // }
 
-    let hsv = res_mgr_ref.fetch_map::<HsvUbo>(0).unwrap();
-    let hsv = hsv.all_res();
-    for i in hsv.0.iter() {
-        size.hsv += i.1;
-        size.count_hsv += 1;
-    }
-    for i in hsv.1.iter() {
-        size.catch_hsv += i.1.elem.cost;
-        size.count_catch_hsv += 1;
-    }
+    // let canvas_stroke = res_mgr_ref.fetch_map::<CanvasTextStrokeColorUbo>(0).unwrap();
+    // let canvas_stroke = canvas_stroke.all_res();
+    // for i in canvas_stroke.0.iter() {
+    //     size.canvas_stroke += i.1;
+    //     size.count_canvas_stroke += 1;
+    // }
+    // for i in canvas_stroke.1.iter() {
+    //     size.catch_canvas_stroke += i.1.elem.cost;
+    //     size.count_catch_canvas_stroke += 1;
+    // }
 
-    let msdf_stroke = res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap();
-    let msdf_stroke = msdf_stroke.all_res();
-    for i in msdf_stroke.0.iter() {
-        size.msdf_stroke += i.1;
-        size.count_msdf_stroke += 1;
-    }
-    for i in msdf_stroke.1.iter() {
-        size.catch_msdf_stroke += i.1.elem.cost;
-        size.count_catch_msdf_stroke += 1;
-    }
+    // size.total_capacity = res_mgr_ref.total_capacity;
 
-    let canvas_stroke = res_mgr_ref.fetch_map::<CanvasTextStrokeColorUbo>(0).unwrap();
-    let canvas_stroke = canvas_stroke.all_res();
-    for i in canvas_stroke.0.iter() {
-        size.canvas_stroke += i.1;
-        size.count_canvas_stroke += 1;
-    }
-    for i in canvas_stroke.1.iter() {
-        size.catch_canvas_stroke += i.1.elem.cost;
-        size.count_catch_canvas_stroke += 1;
-    }
-
-    size.total_capacity = res_mgr_ref.total_capacity;
-
-    size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
+    // size.texture_max_capacity = engine.texture_res_map.cache.max_capacity();
 
     return JsValue::from_serde(&size).unwrap();
 }
@@ -1609,29 +1620,29 @@ pub struct TexureInfo {
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 pub fn list_texture(world: u32) -> JsValue {
-    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let engine = world.gui.engine.lend();
-    let world = &mut world.gui.world_ext;
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+	// let engine = world.gui.engine.lend();
+    // let world = &mut world.gui.world_ext;
     
-    let sys_time = world.system_time.lend_mut();
+    // let sys_time = world.system_time.lend_mut();
 
     let mut info = TexureInfo::default();
-    let list = &mut info.list;
+    // let list = &mut info.list;
 
-    let texture = engine.texture_res_map.all_res();
-    for i in texture.0.iter() {
-        list.push((i.0.get_key().get_hash(), i.1, true, sys_time.cur_time as usize));
-    }
+    // let texture = engine.texture_res_map.all_res();
+    // for i in texture.0.iter() {
+    //     list.push((i.0.get_key().str_hash(), i.1, true, sys_time.cur_time as usize));
+    // }
 
-    for (key, v) in texture.2.iter() {
-        if *v.get_id() > 0 {
-            // 在lru中的资源
-            list.push((key.get_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
-        }
-    }
-    info.min_capacity = engine.texture_res_map.cache.min_capacity();
-    info.max_capacity = engine.texture_res_map.cache.max_capacity();
-    info.cur_cost = engine.texture_res_map.cache.size();
+    // for (key, v) in texture.2.iter() {
+    //     if *v.get_id() > 0 {
+    //         // 在lru中的资源
+    //         list.push((key.str_hash(), texture.1[*v.get_id()].elem.cost, false, texture.1[*v.get_id()].elem.timeout));
+    //     }
+    // }
+    // // info.min_capacity = engine.texture_res_map.cache.min_capacity();
+    // // info.max_capacity = engine.texture_res_map.cache.max_capacity();
+    // // info.cur_cost = engine.texture_res_map.cache.size();
     return JsValue::from_serde(&info).unwrap();
 }
 
@@ -1800,37 +1811,37 @@ pub struct MemStatistics {
 #[wasm_bindgen]
 pub fn mem_statistics(_world: u32) {}
 
-#[wasm_bindgen]
-pub fn res_debug(res_mgr: &ResMgr) -> JsValue {
-    let res_mgr = res_mgr.get_inner().clone();
-    let res_mgr = res_mgr.borrow_mut();
+// #[wasm_bindgen]
+// pub fn res_debug(res_mgr: &ResMgr) -> JsValue {
+//     let res_mgr = res_mgr.get_inner().clone();
+//     let res_mgr = res_mgr.borrow_mut();
 
-    let mut use_all = 0;
-    let mut lru_all = 0;
-    let mut res_list = ResDebugList {
-        un_use_total_cost: 0,
-        using_total_cost: 0,
-        details: Vec::new(),
-    };
-    for (k, i) in res_mgr.tables.iter() {
-        let list = i.res_map.debug();
+//     let mut use_all = 0;
+//     let mut lru_all = 0;
+//     let mut res_list = ResDebugList {
+//         un_use_total_cost: 0,
+//         using_total_cost: 0,
+//         details: Vec::new(),
+//     };
+//     for (k, i) in res_mgr.tables.iter() {
+//         let list = i.res_map.debug();
 
-        for (_g, l) in list.into_iter() {
-            res_list.un_use_total_cost += l.un_use_total_cost;
-            res_list.using_total_cost += l.using_total_cost;
-            res_list.details.push(l);
-        }
-    }
+//         for (_g, l) in list.into_iter() {
+//             res_list.un_use_total_cost += l.un_use_total_cost;
+//             res_list.using_total_cost += l.using_total_cost;
+//             res_list.details.push(l);
+//         }
+//     }
 
-    return JsValue::from_serde(&res_list).unwrap();
-}
+//     return JsValue::from_serde(&res_list).unwrap();
+// }
 
-#[derive(Serialize)]
-struct ResDebugList {
-    pub using_total_cost: usize,
-    pub un_use_total_cost: usize,
-    pub details: Vec<ResDebug>,
-}
+// #[derive(Serialize)]
+// struct ResDebugList {
+//     pub using_total_cost: usize,
+//     pub un_use_total_cost: usize,
+//     pub details: Vec<ResDebug>,
+// }
 
 #[wasm_bindgen]
 pub fn get_font_sheet_debug(world: u32) {
@@ -1855,195 +1866,171 @@ pub fn get_opcaity(world: u32) {
         }
     }
 }
-/// 打印内存情况
+
+#[derive(Debug, Default, Serialize)]
+pub struct Mem{
+    // 实体内存数量
+    pub entity: Vec<EcsMem>,
+    // 组件内存
+    pub components: Vec<EcsMem>,
+
+    // 其他内存
+    pub other: Vec<EcsMem>,
+
+    pub render_data_mem: RenderStat,
+
+    pub total_capacity_mem_size: usize,
+    pub total_use_mem_size: usize,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct EcsMem {
+    // 名称
+    pub name: &'static str,
+    // 节点数量
+    pub len: usize,
+    // 节点容量
+    pub capacity: usize,
+    // 容量占用内存
+    pub capacity_mem: usize,
+    // 实际使用内存
+    pub use_mem: usize,
+}
+
+impl EcsMem {
+    fn new(name: &'static str, len: usize, capacity: usize, capacity_mem: usize, use_mem: usize) -> Self {
+        EcsMem {
+            name, len, capacity, capacity_mem, use_mem
+        }
+    }
+}
+
+/// 统计内存情况
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn print_memory(world: u32) {
+pub fn account_wasm_mem(world: u32) -> String {
+    fn account_mem(r: &Vec<EcsMem>, total_capacity_mem_size: &mut usize, total_use_mem_size: &mut usize) {
+        for i in r.iter() {
+            *total_capacity_mem_size += i.capacity_mem;
+            *total_use_mem_size += i.use_mem;
+        }
+    }
+
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-    let world_ext = &mut world.gui.world_ext;
+    let world1 = &mut world.gui.world;
     log::info!("print_memory begin");
+
+    let mut mem = Mem::default();
 
     let mut total = 0;
 
-    let r = world_ext.node.lend().mem_size();
-    total += r;
-    log::info!("    world::node = {:?}", r);
-    let r = world_ext.transform.lend().mem_size();
-    total += r;
-    log::info!("    world::transform = {:?}", r);
-    let r = world_ext.z_index.lend().mem_size();
-    total += r;
-    log::info!("    world::z_index = {:?}", r);
-    let r = world_ext.overflow.lend().mem_size();
-    total += r;
-    log::info!("    world::overflow = {:?}", r);
-    let r = world_ext.show.lend().mem_size();
-    total += r;
-    log::info!("    world::show = {:?}", r);
-    let r = world_ext.opacity.lend().mem_size();
-    total += r;
-    log::info!("    world::opacity = {:?}", r);
-    let r = world_ext.background_color.lend().mem_size();
-    total += r;
-    log::info!("    world::background_color = {:?}", r);
-    let r = world_ext.box_shadow.lend().mem_size();
-    total += r;
-    log::info!("    world::box_shadow = {:?}", r);
-    let r = world_ext.border_color.lend().mem_size();
-    total += r;
-    log::info!("    world::border_color = {:?}", r);
-    let r = world_ext.border_image.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image = {:?}", r);
-    let r = world_ext.border_image_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_clip = {:?}", r);
-    let r = world_ext.border_image_slice.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_slice = {:?}", r);
-    let r = world_ext.border_image_repeat.lend().mem_size();
-    total += r;
-    log::info!("    world::border_image_repeat = {:?}", r);
-    let r = world_ext.text_style.lend().mem_size();
-    total += r;
-    log::info!("    world::text_style = {:?}", r);
-    let r = world_ext.text_content.lend().mem_size();
-    total += r;
-    log::info!("    world::text_content = {:?}", r);
-    let r = world_ext.font.lend().mem_size();
-    total += r;
-    log::info!("    world::font = {:?}", r);
-    let r = world_ext.border_radius.lend().mem_size();
-    total += r;
-    log::info!("    world::border_radius = {:?}", r);
-    let r = world_ext.background_image.lend().mem_size();
-    total += r;
-    log::info!("    world::image = {:?}", r);
-    let r = world_ext.background_image_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::image_clip = {:?}", r);
-    let r = world_ext.background_image_mod.lend().mem_size();
-    total += r;
-    log::info!("    world::object_fit = {:?}", r);
-    let r = world_ext.filter.lend().mem_size();
-    total += r;
-    log::info!("    world::filter = {:?}", r);
-    let r = world_ext.rect_layout_style.lend().mem_size();
-    total += r;
-    log::info!("    world::rect_layout_style = {:?}", r);
-    let r = world_ext.other_layout_style.lend().mem_size();
-    total += r;
-    log::info!("    world::other_layout_style = {:?}", r);
-    let r = world_ext.class_name.lend().mem_size();
-    total += r;
-    log::info!("    world::class_name = {:?}", r);
-    let r = world_ext.style_mark.lend().mem_size();
-    total += r;
-    log::info!("    world::style_mark = {:?}", r);
-    let r = world_ext.z_depth.lend().mem_size();
-    total += r;
-    log::info!("world::z_depth = {:?}", r);
-    let r = world_ext.enable.lend().mem_size();
-    total += r;
-    log::info!("    world::enable = {:?}", r);
-    let r = world_ext.visibility.lend().mem_size();
-    total += r;
-    log::info!("    world::visibility = {:?}", r);
-    let r = world_ext.world_matrix.lend().mem_size();
-    total += r;
-    log::info!("    world::world_matrix = {:?}", r);
-    let r = world_ext.by_overflow.lend().mem_size();
-    total += r;
-    log::info!("    world::by_overflow = {:?}", r);
-    let r = world_ext.copacity.lend().mem_size();
-    total += r;
-    log::info!("    world::copacity = {:?}", r);
-    let r = world_ext.layout.lend().mem_size();
-    total += r;
-    log::info!("    world::layout = {:?}", r);
-    let r = world_ext.hsv.lend().mem_size();
-    total += r;
-    log::info!("    world::hsv = {:?}", r);
-    let r = world_ext.culling.lend().mem_size();
-    total += r;
-    log::info!("    world::culling = {:?}", r);
-    // let r = world.idtree.lend().mem_size();
-    // total += r;
-    // log::info!("    world::idtree = {:?}", r);
-    // let r = world.oct.lend().mem_size();
-    // total += r;
-    log::info!("    world::oct = {:?}", r);
-    let r = world_ext.overflow_clip.lend().mem_size();
-    total += r;
-    log::info!("    world::overflow_clip = {:?}", r);
-    let r = world.gui.engine.lend().res_mgr.borrow().mem_size();
-    total += r;
-    log::info!("    world::engine.resMap = {:?}", r);
-    let r = world_ext.render_objs.lend().mem_size();
-    total += r;
-    {
-        let render_objs = world_ext.render_objs.lend();
-        let mut text: usize = 0;
-        let mut img: usize = 0;
-        let mut color: usize = 0;
-        let mut canvas: usize = 0;
-        let mut fbo: usize = 0;
-        let mut clip: usize = 0;
-        for (i, r) in render_objs.iter() {
-            if &*r.vs_name == &"color_vs" {
-                color += 1;
-            } else if &*r.vs_name == &"image_vs" {
-                img += 1;
-            } else if &*r.vs_name == &"canvas_text_vs" {
-                text += 1;
-            } else if &*r.vs_name == &"canvas_vs" {
-                canvas += 1;
-            } else if &*r.vs_name == &"fbo_vs" {
-                fbo += 1;
-            } else if &*r.vs_name == &"clip_vs" {
-                clip += 1;
-            }
-        }
-        log::info!(
-            "    world::render_objs = {:?}, {}, color:{}, img:{}, canvas_text:{}, canvas:{}, fbo:{}, clip:{}",
-            r,
-            world_ext.render_objs.lend().len(),
-            color,
-            img,
-            text,
-            canvas,
-            fbo,
-            clip
-        );
-    }
+    world1.components_mem_size(|name, len, capacity, capacity_mem, use_mem| {
+        mem.components.push(EcsMem::new(name, len, capacity, capacity_mem, use_mem));
+    });
+    world1.entity_mem_size(|name, len, capacity, capacity_mem, use_mem| {
+        mem.entity.push(EcsMem::new(name, len, capacity, capacity_mem, use_mem));
+    });
 
-    let r = world_ext.font_sheet.lend().borrow().mem_size();
-    total += r;
-    log::info!("    world::font_sheet = {:?}", r);
-    // let r = world_ext.class_sheet.lend().borrow().mem_size();
-    // total += r;
-    log::info!("    world::class_sheet = {:?}", r);
-    let r = world_ext.image_wait_sheet.lend().mem_size();
-    total += r;
-    log::info!("    world::image_wait_sheet = {:?}", r);
+    let class_sheet = world.gui.world_ext.class_sheet.lend().borrow();
+    mem.other.push(EcsMem::new(std::any::type_name::<ClassSheet>(), class_sheet.len(), class_sheet.capacity(), class_sheet.capacity_mem_size(), class_sheet.use_mem_size()));
+
+    let oct = world.gui.world_ext.oct.lend();
+    mem.other.push(EcsMem::new(std::any::type_name::<Oct>(), oct.len(), oct.capacity(), oct.capacity_mem_size(), oct.use_mem_size()));
+
+    let fragment = world.gui.world_ext.fragment.lend().borrow();
+    mem.other.push(EcsMem::new(std::any::type_name::<FragmentMap>(), 0, 0, fragment.capacity_mem_size(), fragment.use_mem_size()));
+
+    let overflow_clip = world.gui.world_ext.overflow_clip.lend();
+    mem.other.push(EcsMem::new(std::any::type_name::<OverflowClip>(), 0, 0, overflow_clip.capacity_mem_size(), overflow_clip.use_mem_size()));
+
+    let font_sheet = world.gui.world_ext.font_sheet.lend().borrow();
+    mem.other.push(EcsMem::new(std::any::type_name::<FontSheet>(), 0, 0, font_sheet.capacity_mem_size(), font_sheet.use_mem_size()));
+
+    let render_objs = world.gui.world_ext.render_objs.lend();
+    mem.other.push(EcsMem::new(std::any::type_name::<RenderObjs>(), 0, 0, render_objs.capacity_mem_size(), render_objs.use_mem_size()));
+
+    let image_wait_sheet = world.gui.world_ext.image_wait_sheet.lend();
+    mem.other.push(EcsMem::new(std::any::type_name::<ImageWaitSheet>(), 0, 0, image_wait_sheet.capacity_mem_size(), image_wait_sheet.use_mem_size()));
 
     let engine = world.gui.engine.lend_mut();
     let stat = engine.gl.render_get_stat();
+    mem.render_data_mem = stat.clone();
 
-    total += stat.slab_mem_size;
-    log::info!("    world::engine::slab_mem_size = {:?}", stat.slab_mem_size);
+    mem.total_use_mem_size += mem.render_data_mem.slab_use_mem_size;
+    mem.total_capacity_mem_size += mem.render_data_mem.slab_capacity_mem_size;
 
-    let total: f32 = total as f32;
-    log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
-    log::info!("");
+    account_mem(&mem.components,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
+    account_mem(&mem.entity,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
+    account_mem(&mem.other,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
+    serde_json::to_string(&mem).unwrap()
+    
+    // // world. entity_mem_size(|name, len, capacity, capacity_mem, use_mem| {
+    // //     mem.components.push(EcsMem::new(name, len, capacity, capacity_mem, use_mem));
+    // // });
+    
+    // {
+    //     let render_objs = world_ext.render_objs.lend();
+    //     let mut text: usize = 0;
+    //     let mut img: usize = 0;
+    //     let mut color: usize = 0;
+    //     let mut canvas: usize = 0;
+    //     let mut fbo: usize = 0;
+    //     let mut clip: usize = 0;
+    //     for (i, r) in render_objs.iter() {
+    //         if r.vs_name.as_str() == "color_vs" {
+    //             color += 1;
+    //         } else if r.vs_name.as_str() == "image_vs" {
+    //             img += 1;
+    //         } else if r.vs_name.as_str() == "canvas_text_vs" {
+    //             text += 1;
+    //         } else if r.vs_name.as_str() == "canvas_vs" {
+    //             canvas += 1;
+    //         } else if r.vs_name.as_str() == "fbo_vs" {
+    //             fbo += 1;
+    //         } else if r.vs_name.as_str() == "clip_vs" {
+    //             clip += 1;
+    //         }
+    //     }
+    //     log::info!(
+    //         "    world::render_objs = {:?}, {}, color:{}, img:{}, canvas_text:{}, canvas:{}, fbo:{}, clip:{}",
+    //         r,
+    //         world_ext.render_objs.lend().len(),
+    //         color,
+    //         img,
+    //         text,
+    //         canvas,
+    //         fbo,
+    //         clip
+    //     );
+    // }
 
-    log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
-    log::info!("    world::engine::texture_count = {:?}", stat.texture_count);
-    log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
-    log::info!("    world::engine::geometry_count = {:?}", stat.geometry_count);
-    log::info!("    world::engine::program_count = {:?}", stat.program_count);
+    // let r = world_ext.font_sheet.lend().borrow().mem_size();
+    // total += r;
+    // log::info!("    world::font_sheet = {:?}", r);
+    // // let r = world_ext.class_sheet.lend().borrow().mem_size();
+    // // total += r;
+    // log::info!("    world::class_sheet = {:?}", r);
+    // let r = world_ext.image_wait_sheet.lend().mem_size();
+    // total += r;
+    // log::info!("    world::image_wait_sheet = {:?}", r);
 
-    log::info!("print_memory end");
+    // let engine = world1.gui.engine.lend_mut();
+    // let stat = engine.gl.render_get_stat();
+
+    // total += stat.slab_mem_size;
+    // log::info!("    world::engine::slab_mem_size = {:?}", stat.slab_mem_size);
+
+    // let total: f32 = total as f32;
+    // log::info!(" slab total bytes = {:?} MB", total / 1024.0 / 1024.0);
+    // log::info!("");
+
+    // log::info!("    world::engine::rt_count = {:?}", stat.rt_count);
+    // log::info!("    world::engine::texture_count = {:?}", stat.texture_count);
+    // log::info!("    world::engine::buffer_count = {:?}", stat.buffer_count);
+    // log::info!("    world::engine::geometry_count = {:?}", stat.geometry_count);
+    // log::info!("    world::engine::program_count = {:?}", stat.program_count);
+
+    // log::info!("print_memory end");
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -2222,7 +2209,7 @@ pub struct Layout {
 // 	}
 // 	log::info!("create_render_obj7: {:?}", std::time::Instant::now() - time);
 
-// 	let p: share::Share<dyn hal_core::ProgramParamter> = share::Share::new(ImageParamter::default());
+// 	let p: pi_share::Share<dyn hal_core::ProgramParamter> = pi_share::Share::new(ImageParamter::default());
 // 	let time = std::time::Instant::now();
 // 	for i in 0..count {
 // 		create_render_obj13(&mut m, 2, render_objs, default_state, &p);
@@ -2233,8 +2220,8 @@ pub struct Layout {
 // 	let render_objs = world.world.fetch_single::<gui::single::RenderObjs>().unwrap();
 // 	let node_render_map = world.world.fetch_single::<gui::single::NodeRenderMap>().unwrap();
 // 	let write = (render_objs.lend_mut(), node_render_map.lend_mut());
-// 	let v:Option<share::Share<dyn UniformBuffer>> = Some(share::Share::new(gui::component::calc::ViewMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
-// 	let p:Option<share::Share<dyn UniformBuffer>> = Some(share::Share::new(gui::component::calc::ProjectMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
+// 	let v:Option<pi_share::Share<dyn UniformBuffer>> = Some(pi_share::Share::new(gui::component::calc::ViewMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
+// 	let p:Option<pi_share::Share<dyn UniformBuffer>> = Some(pi_share::Share::new(gui::component::calc::ProjectMatrixUbo::new(hal_core::UniformValue::MatrixV4(vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0,0.0, 0.0, 0.0, 0.0]))));
 
 // 	// let mut m = map::vecmap::VecMap::default();
 // 	let time = std::time::Instant::now();
@@ -2302,7 +2289,7 @@ pub struct Layout {
 // 	let notify = default_state.df_ds.clone();
 // 	let notify = default_state.df_ds.clone();
 // 	let notify = default_state.df_ds.clone();
-// 	gui::system::util::new_render_obj(1, 2.0, true, gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(), gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(), share::Share::new(gui::component::calc::ImageParamter::default()), state);
+// 	gui::system::util::new_render_obj(1, 2.0, true, gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(), gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(), pi_share::Share::new(gui::component::calc::ImageParamter::default()), state);
 // }
 
 // #[inline]
@@ -2342,7 +2329,7 @@ pub struct Layout {
 //     };
 //     let vs = gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone();
 // 	let fs = gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone();
-// 	let p = share::Share::new(gui::component::calc::ImageParamter::default());
+// 	let p = pi_share::Share::new(gui::component::calc::ImageParamter::default());
 
 // }
 
@@ -2356,7 +2343,7 @@ pub struct Layout {
 //         ss: default_state.df_ss.clone(),
 //         ds: default_state.df_ds.clone(),
 //     };
-// 	let p = share::Share::new(gui::component::calc::ImageParamter::default());
+// 	let p = pi_share::Share::new(gui::component::calc::ImageParamter::default());
 
 // }
 
@@ -2370,13 +2357,13 @@ pub struct Layout {
 //         ss: default_state.df_ss.clone(),
 //         ds: default_state.df_ds.clone(),
 //     };
-// 	share::Share::new(1);
-// 	share::Share::new(1);
-// 	share::Share::new(1);
-// 	share::Share::new(1);
-// 	share::Share::new(1);
-// 	share::Share::new(1);
-// 	share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
+// 	pi_share::Share::new(1);
 // }
 
 // #[inline]
@@ -2392,7 +2379,7 @@ pub struct Layout {
 // 		true,
 // 		gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(),
 // 		gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(),
-// 		share::Share::new(ImageParamter::default()),
+// 		pi_share::Share::new(ImageParamter::default()),
 // 		default_state, render_objs,
 // 		render_map
 // 	)
@@ -2411,7 +2398,7 @@ pub struct Layout {
 // 		true,
 // 		gui::system::render::shaders::image::IMAGE_VS_SHADER_NAME.clone(),
 // 		gui::system::render::shaders::image::IMAGE_FS_SHADER_NAME.clone(),
-// 		share::Share::new(ImageParamter::default()),
+// 		pi_share::Share::new(ImageParamter::default()),
 // 		default_state, render_objs,
 // 		render_map
 // 	)
@@ -2424,7 +2411,7 @@ pub struct Layout {
 //     is_opacity: bool,
 //     vs_name: atom::Atom,
 //     fs_name: atom::Atom,
-//     paramter: share::Share<dyn ProgramParamter>,
+//     paramter: pi_share::Share<dyn ProgramParamter>,
 //     default_state: &DefaultState,
 //     render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
 //     render_map: &mut map::vecmap::VecMap<usize>,
@@ -2452,8 +2439,8 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
-// 	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
-// 	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+// 	view_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
+// 	project_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
 // ) {
 // 	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
 // 	let (render_objs, node_render_map) = write;
@@ -2492,8 +2479,8 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
-// 	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
-// 	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+// 	view_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
+// 	project_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
 // ) {
 // 	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
 // 	let (render_objs, node_render_map) = write;
@@ -2516,8 +2503,8 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
-// 	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
-// 	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+// 	view_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
+// 	project_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
 // ) {
 // 	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
 // 	let (render_objs, node_render_map) = write;
@@ -2534,8 +2521,8 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
-// 	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
-// 	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+// 	view_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
+// 	project_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
 // ) {
 // 	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
 // 	let (render_objs, node_render_map) = write;
@@ -2552,8 +2539,8 @@ pub struct Layout {
 //         &'a ecs::MultiCaseImpl<Node, Culling>,
 //     ),
 // 	write: (&'a mut ecs::SingleCaseImpl<RenderObjs>, &'a mut ecs::SingleCaseImpl<NodeRenderMap>),
-// 	view_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
-// 	project_matrix_ubo: &Option<share::Share<dyn UniformBuffer>>,
+// 	view_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
+// 	project_matrix_ubo: &Option<pi_share::Share<dyn UniformBuffer>>,
 // ) {
 // 	let (opacitys, visibilitys, hsvs, z_depths, cullings) = read;
 // 	let (render_objs, node_render_map) = write;
@@ -2568,7 +2555,7 @@ pub struct Layout {
 // 	id: usize,
 // 	render_objs: &mut ecs::SingleCaseImpl<RenderObjs>,
 // 	default_state: &DefaultState,
-// 	p: &share::Share<dyn hal_core::ProgramParamter>
+// 	p: &pi_share::Share<dyn hal_core::ProgramParamter>
 // ) -> usize{
 // 	create_render_obj_(
 // 		id,

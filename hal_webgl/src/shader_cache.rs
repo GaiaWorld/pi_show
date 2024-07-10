@@ -5,7 +5,7 @@ use web_sys::{WebGlRenderingContext, WebGlShader};
 use js_sys::{Boolean, Number};
 
 
-use atom::Atom;
+use pi_atom::Atom;
 use convert::get_shader_type;
 use hal_core::*;
 
@@ -57,7 +57,7 @@ impl ShaderCache {
      * 设置shader代码
      */
     pub fn set_shader_code(&mut self, name: &str, code: &str) {
-        self.code_caches.insert(Atom::from(name), code.to_string());
+        self.code_caches.insert(pi_atom::Atom::from(name), code.to_string());
     }
 
     pub fn get_location_map(
@@ -72,18 +72,18 @@ impl ShaderCache {
             let mut uniforms = XHashMap::default();
             for (i, ubo) in layout.uniforms.iter().enumerate() {
                 for (j, u) in ubo.iter().enumerate() {
-                    uniforms.insert(Atom::from(*u), (i, j));
+                    uniforms.insert(pi_atom::Atom::from(*u), (i, j));
                 }
             }
 
             let mut single_uniforms = XHashMap::default();
             for (i, u) in layout.single_uniforms.iter().enumerate() {
-                single_uniforms.insert(Atom::from(*u), i);
+                single_uniforms.insert(pi_atom::Atom::from(*u), i);
             }
 
             let mut textures = XHashMap::default();
             for (i, u) in layout.textures.iter().enumerate() {
-                textures.insert(Atom::from(*u), i);
+                textures.insert(pi_atom::Atom::from(*u), i);
             }
 
             self.location_caches.insert(

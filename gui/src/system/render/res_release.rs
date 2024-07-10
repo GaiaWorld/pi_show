@@ -32,8 +32,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ResReleaseSys<C> {
     fn run(&mut self, read: Self::ReadData, engine: Self::WriteData) {
         if read.cur_time >= self.collect_time {
             self.collect_time += self.collect_interval;
-			let mut res_mgr_ref = engine.res_mgr.borrow_mut();
-            res_mgr_ref.collect(read.cur_time);
+			let mut res_mgr_ref = engine.share_allocator.borrow_mut();
+            res_mgr_ref.collect(read.cur_time as u64);
         }
 	}
 }

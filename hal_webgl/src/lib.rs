@@ -1,4 +1,5 @@
 // #![feature(weak_ptr_eq)]
+#![allow(invalid_reference_casting)]
 
 /**
  * 抽象硬件层HAL的WebGL实现
@@ -10,11 +11,11 @@ extern crate wasm_bindgen;
 extern crate web_sys;
 extern  crate js_sys;
 
-extern crate atom;
+extern crate pi_atom;
 extern crate deque;
 extern crate hash;
 extern crate ordered_float;
-extern crate share;
+extern crate pi_share;
 extern crate slab;
 extern  crate log;
 // #[macro_use]

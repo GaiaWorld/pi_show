@@ -3,8 +3,8 @@
  */
 use std::{marker::PhantomData, cell::RefCell};
 
-use crate::component::user::StyleType;
-use share::Share;
+use crate::{component::user::StyleType, render::{asset::ShareAssetMgr, engine::Engine}};
+use pi_share::Share;
 
 use pi_atom::Atom;
 use ecs::{
@@ -13,14 +13,13 @@ use ecs::{
 	monitor::{Event, NotifyImpl},
 };
 use hal_core::*;
-use res::{ResMap, ResMgr};
 use pi_style::style::BlendMode as BlendMode1;
 
 use crate::{component::{calc::*, calc::LayoutR, user::{Aabb2, BorderRadius}, calc::Visibility as CVisibility}, single::dyn_texture::DynAtlasSet};
 use crate::component::user::Opacity;
 use crate::component::user::BlendMode;
 use crate::entity::Node;
-use crate::render::engine::{ShareEngine, UnsafeMut};
+use crate::render::engine::ShareEngine;
 use crate::single::*;
 use crate::single::DirtyViewRect;
 use crate::single::oct::Oct;
@@ -38,17 +37,17 @@ pub struct NodeAttrSys<C: HalContext + 'static> {
     view_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     project_matrix_ubo: Option<Share<dyn UniformBuffer>>,
     transform_will_change_matrix_dirtys: Vec<usize>,
-    hsv_ubo_map: UnsafeMut<ResMap<HsvUbo>>,
+    hsv_ubo_map: ShareAssetMgr<ShareUbo<HsvUbo>>,
     marker: PhantomData<C>,
 }
 
 impl<C: HalContext + 'static> NodeAttrSys<C> {
-    pub fn new(res_mgr: &ResMgr) -> Self {
+    pub fn new(engine: &Engine<C>) -> Self {
         NodeAttrSys {
             view_matrix_ubo: None,
             project_matrix_ubo: None,
             transform_will_change_matrix_dirtys: Vec::default(),
-            hsv_ubo_map: UnsafeMut::new(res_mgr.fetch_map::<HsvUbo>(0).unwrap()),
+            hsv_ubo_map: engine.hsv_ubo_map.clone(),
             marker: PhantomData,
         }
     }
@@ -56,13 +55,17 @@ impl<C: HalContext + 'static> NodeAttrSys<C> {
     pub fn create_hsv_ubo(&mut self, hsv: &HSV) -> Share<dyn UniformBuffer> {
         let h = f32_3_hash(hsv.h, hsv.s, hsv.v);
         match self.hsv_ubo_map.get(&h) {
-            Some(r) => r,
-            None => self.hsv_ubo_map.create(
-                h,
-                HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v)),
-                0,
-                0,
-            ), // TODO cost
+            Some(r) => (**r).0.clone(),
+            None => {
+				let r = match self.hsv_ubo_map.insert(
+					h,
+					ShareUbo(Share::new(HsvUbo::new(UniformValue::Float3(hsv.h, hsv.s, hsv.v)))),
+				) {
+						Ok(r) => r,
+						Err(_) => panic!(),
+					};
+				(**r).0.clone()
+			}, // TODO cost
         }
 	}
 	

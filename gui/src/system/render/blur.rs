@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 use ecs::entity::Entity;
-use share::Share;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
@@ -168,11 +168,11 @@ impl<C: HalContext + 'static> BlurSys<C> {
 
 		let positions = engine
 			.buffer_res_map
-			.get(&(POSITIONUNIT.get_hash() as u64))
+			.get(&(POSITIONUNIT.str_hash() as u64))
 			.unwrap();
 		let indices = engine
 			.buffer_res_map
-			.get(&(INDEXUNIT.get_hash() as u64))
+			.get(&(INDEXUNIT.str_hash() as u64))
 			.unwrap();
 
 		let geo = engine.create_geometry();

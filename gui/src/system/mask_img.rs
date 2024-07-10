@@ -1,4 +1,5 @@
 
+use core::panic;
 use std::marker::PhantomData;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -13,8 +14,10 @@ use hal_core::*;
 use hash::DefaultHasher;
 use pi_atom::Atom;
 use ordered_float::NotNan;
-use share::Share;
+use pi_share::Share;
 
+use crate::render::engine::ResWrapper;
+use crate::render::engine::ResWrapper1;
 use crate::Z_MAX;
 use crate::component::calc::ViewMatrixUbo;
 use crate::component::calc::MaskTexture;
@@ -119,10 +122,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 
 							pre_render_list.push(PreRenderItem{index, obj});
 	
-							engine.texture_part_res_map.create(hash, texture, cost, 0)
+							match engine.texture_part_res_map.insert(hash, texture) {
+									Ok(r) => r,
+									Err(_) => panic!(),
+								}
 						}
 					};
-					mask_texture.insert(id, MaskTexture::Part(texture));
+					mask_texture.insert(id, MaskTexture::Part(ResWrapper1::Handle(texture)));
 				}
 			}
 		}
@@ -227,7 +233,7 @@ pub fn create_render_obj<C: HalContext + 'static>(
 	render_obj
 }
 
-fn create_linear_gradient_geo<C: HalContext + 'static>(rect: &Aabb2, color: &LinearGradientColor, engine: &mut ShareEngine<C>) -> Option<Share<GeometryRes>>{
+fn create_linear_gradient_geo<C: HalContext + 'static>(rect: &Aabb2, color: &LinearGradientColor, engine: &mut ShareEngine<C>) -> ResWrapper<GeometryRes>{
 	let size = Size {width: NotNan::new(rect.maxs.x - rect.mins.x).unwrap(), height: NotNan::new(rect.maxs.y - rect.mins.y).unwrap()};
 	let (positions, indices) = (
 		vec![
@@ -241,17 +247,17 @@ fn create_linear_gradient_geo<C: HalContext + 'static>(rect: &Aabb2, color: &Lin
 
 	let hash = calc_hash(&"linear_gradient geo", calc_hash(color, calc_float_hash(&positions.as_slice(), 0)));
 	match engine.geometry_res_map.get(&hash) {
-		Some(r) => Some(r),
+		Some(r) => ResWrapper::Handle(r),
 		None => {
 			let (positions, colors, indices) = linear_gradient_split(color, positions, indices, &size);
-			Some(engine.create_geo_res(
+			engine.create_geo_res(
 				hash,
 				indices.as_slice(),
 				&[
 					AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
 					AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
 				],
-			))
+			)
 		}
 	}
 }

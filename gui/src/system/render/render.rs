@@ -13,13 +13,14 @@ use ecs::monitor::{Event};
 use hal_core::*;
 use nalgebra::Orthographic3;
 use ordered_float::OrderedFloat;
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 use crate::Z_MAX;
 use crate::component::user::{Aabb2, Matrix4, Point2, Vector3, Opacity};
 use crate::component::calc::{WorldMatrix, RenderContext, ProjectMatrixUbo, FboParamter, Visibility};
 use crate::entity::Node;
 
-use crate::render::engine::{Engine, ShareEngine};
+use crate::render::engine::{Engine, ResWrapper, ResWrapper1, ShareEngine};
 use crate::render::res::{SamplerRes, GeometryRes, BufferRes};
 use crate::single::{PreRenderList, PostProcessContext, State, PostProcessObj};
 use crate::single::{DirtyViewRect, IdTree, NodeRenderMap, Oct, ProjectionMatrix, RenderBegin, RenderObj, RenderObjs, Statistics, dyn_texture::DynAtlasSet};
@@ -30,8 +31,8 @@ pub struct RenderSys<C: HalContext + 'static> {
     transparent_dirty: bool,
     opacity_dirty: bool,
     pub dirty: bool,
-	default_sampler: Share<SamplerRes>,
-	linner_sampler: Share<SamplerRes>,
+	default_sampler: Handle<SamplerRes>,
+	linner_sampler: Handle<SamplerRes>,
 	is_update_context_texture: bool,
 	pub view_matrix_ubo: Share<dyn UniformBuffer>,
 	pub projection_matrix_ubo: Share<dyn UniformBuffer>,
@@ -136,19 +137,20 @@ impl<C: HalContext + 'static> RenderSys<C> {
 		// 	}
 		// }
 		let geometry = match &obj.geometry {
-			None => return,
-			Some(g) => g,
+			ResWrapper::None => return,
+			ResWrapper::Share(g) => &**g,
+			ResWrapper::Handle(g) => &**g,
 		};
 
 		// log::warn!("context: {}", obj.context);
 		if let Err(e) = render1(gl, &geometry.geo, &obj.paramter, &obj.state, obj.program.as_ref().unwrap(), project_matrix, view_matrix) {
-			log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
-				obj.context,
-				id,
-				obj.vs_name,
-				obj.fs_name,
-				e,
-			);
+			// log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
+			// 	obj.context,
+			// 	id,
+			// 	obj.vs_name,
+			// 	obj.fs_name,
+			// 	e,
+			// );
 		}
 	}
 }
@@ -167,20 +169,25 @@ fn update_geo<C: HalContext + 'static>(
 	engine: &mut Engine<C>,
 	uv: &Aabb2,
 ) {
-	
-	if let Some(r) = &render_obj.geometry {
-		let uv_hash = cal_uv_hash(&uv.mins, &uv.maxs);
-		let uv_buffer = create_uv_buffer(uv_hash, &uv.mins, &uv.maxs, engine);
-		engine
-			.gl
-			.geometry_set_attribute(
-				r,
-				&AttributeName::UV0,
-				&uv_buffer,
-				2,
-			)
-			.unwrap();
-	}
+	let r = match &mut render_obj.geometry {
+		ResWrapper::None => return,
+		ResWrapper::Share(g) => &**g,
+		ResWrapper::Handle(g) => &**g,
+	};
+	let uv_hash = cal_uv_hash(&uv.mins, &uv.maxs);
+	let rr = engine.buffer_res_map.get(&uv_hash).is_some();
+
+	let uv_buffer = create_uv_buffer(uv_hash, &uv.mins, &uv.maxs, engine);
+	engine
+		.gl
+		.geometry_set_attribute(
+			r,
+			&AttributeName::UV0,
+			&uv_buffer,
+			2,
+		)
+		.unwrap();
+	render_obj.post_uv = Some(uv_buffer);
 }
 
 fn get_render_project_matrix(content_box: &Aabb2) -> WorldMatrix{
@@ -476,7 +483,11 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					.gl
 					.geometry_set_indices_short(&g, &i_buffer)
 					.unwrap();
-				obj.geometry = Some(Share::new(GeometryRes{geo: g, buffers:vec![Share::new(BufferRes(p_buffer)), Share::new(BufferRes(i_buffer))]}));
+				obj.geometry = ResWrapper::Share(Share::new(GeometryRes{
+					geo: g, 
+					buffers:vec![ResWrapper1::Share(Share::new(BufferRes{value: p_buffer, size: 25})), ResWrapper1::Share(Share::new(BufferRes{value: i_buffer, size: 25}))],
+					size: 50, // TODO
+				}));
 			}
 
 			let tt = dyn_atlas_set.get_target(index).unwrap();
@@ -503,8 +514,8 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 			if obj.program.is_none() || obj.program_dirty == true {
 				let program = engine.create_program(
-					obj.vs_name.get_hash() as u64,
-					obj.fs_name.get_hash() as u64,
+					obj.vs_name.str_hash() as u64,
+					obj.fs_name.str_hash() as u64,
 					&obj.vs_name,
 					&*obj.vs_defines,
 					&obj.fs_name,
@@ -527,20 +538,20 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			// log::info!("post render1======{}, vs:{:?}", obj.context, obj.vs_name);
 			if let Err(e) = render1(
 				&engine.gl,
-				&obj.geometry.as_ref().unwrap(),
+				&obj.geometry.unwrap_ref(),
 				&obj.paramter,
 				&obj.state,
 				obj.program.as_ref().unwrap(),
 				None,
 				None
 			) {
-				log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
-					obj.context,
-					"post_process1",
-					obj.vs_name,
-					obj.fs_name,
-					e,
-				);
+				// log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
+				// 	obj.context,
+				// 	"post_process1",
+				// 	obj.vs_name,
+				// 	obj.fs_name,
+				// 	e,
+				// );
 			}
 
 			/// 释放分配（后处理分配以一些临时纹理）
@@ -1035,8 +1046,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 					};
 
 					let program = engine.create_program(
-						render_obj.vs_name.get_hash() as u64,
-						render_obj.fs_name.get_hash() as u64,
+						render_obj.vs_name.str_hash() as u64,
+						render_obj.fs_name.str_hash() as u64,
 						&render_obj.vs_name,
 						&*render_obj.vs_defines,
 						&render_obj.fs_name,
@@ -1083,8 +1094,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
             };
 
             let program = engine.create_program(
-                render_obj.vs_name.get_hash() as u64,
-                render_obj.fs_name.get_hash() as u64,
+                render_obj.vs_name.str_hash() as u64,
+                render_obj.fs_name.str_hash() as u64,
                 &render_obj.vs_name,
                 &*render_obj.vs_defines,
                 &render_obj.fs_name,

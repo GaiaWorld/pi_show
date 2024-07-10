@@ -6,15 +6,20 @@ authors = ["wzjsun <530739162@qq.com>"]
 edition = "2018"
 
 [dependencies]
+derive-deref-rs = "0.1"
+pi_share = "0.4"
+pi_assets = "0.14"
+ahash = "=0.8.6"
 postcard = {version = "1.0", features = ["use-std"]}
 nalgebra = {version = "0.32", features = ["serde", "serde-serialize"]}
-pi_atom = { version="0.2", features = ["serde", "pointer_width_32"] }
+pi_atom = { version="0.5", features = ["serde", "lookup_by_hash"] }
+pi_link_list = "0.1"
 pi_null = "0.1"
 pi_hash = "0.1"
 pi_flex_layout = "0.2"
 pi_style = {version = "0.1", registry = "yn"}
 bitflags = "1.2"
-share = { path = "../../pi_lib/share"}
+# share = { path = "../../pi_lib/share"}
 idtree = { path = "../../pi_lib/idtree"}
 flex_layout = { path =  "../../pi_lib/flex_layout"}
 ecs = { path =  "../../pi_lib/ecs"}
@@ -33,7 +38,6 @@ data_view = { path =  "../../pi_lib/data_view"}
 debug_info = { path =  "../../pi_lib/debug_info"}
 dirty = { path =  "../../pi_lib/dirty"}
 densevec = { path =  "../../pi_lib/densevec"}
-res = { path =  "../../pi_lib/res"}
 cross_performance = { path =  "../../pi_lib/cross_performance"}
 rectangle-pack = "0.4.2"
 guillotiere = {version="*"}

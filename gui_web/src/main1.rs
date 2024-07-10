@@ -31,7 +31,6 @@ extern crate atom;
 extern crate bincode;
 extern crate pi_cg2d;
 extern crate data_view;
-extern crate gui_tool;
 extern crate hal_core;
 extern crate hal_webgl;
 extern crate hash;

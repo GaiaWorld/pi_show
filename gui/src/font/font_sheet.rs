@@ -11,8 +11,9 @@
 use std::{collections::hash_map::Entry, default::Default, str::Chars};
 
 use data_view::GetView;
+use pi_assets::asset::Handle;
 use pi_atom::Atom;
-use share::Share;
+use pi_share::Share;
 use slab::Slab;
 use ucd::Codepoint;
 use hash::XHashMap;
@@ -95,13 +96,13 @@ pub struct FontSheet {
 	pub font_tex: FontTex,
 	pub tex_version: usize,
 
-	pub msdf_font_texs: Vec<Share<TextureRes>>,
+	pub msdf_font_texs: Vec<Handle<TextureRes>>,
 	pub is_sdf_font: bool,
 }
 
 impl FontSheet {
     pub fn new(
-        texture: Share<TextureRes>,
+        texture: Handle<TextureRes>,
         measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
 		is_sdf_font: bool,
     ) -> Self {
@@ -136,7 +137,7 @@ impl FontSheet {
 		self.init();
 	}
 	
-    pub fn mem_size(&self) -> usize {
+    pub fn capacity_mem_size(&self) -> usize {
         self.src_map.capacity() * (std::mem::size_of::<usize>() + std::mem::size_of::<TexFont>())
             + self.face_map.capacity()
                 * (std::mem::size_of::<usize>() + std::mem::size_of::<FontFace>())
@@ -145,12 +146,29 @@ impl FontSheet {
                     + std::mem::size_of::<(f32, usize, f32, bool)>())
             + self.char_map.capacity()
                 * (std::mem::size_of::<(usize, usize, usize, char)>() + std::mem::size_of::<usize>())
-            + self.char_slab.mem_size()
+            + self.char_slab.capacity_mem_size()
             + self.wait_draw_list.capacity() * std::mem::size_of::<TextInfo>()
             + self.wait_draw_map.capacity()
                 * (std::mem::size_of::<(usize, usize, usize, usize)>()
                     + std::mem::size_of::<(usize, f32)>())
     }
+
+	pub fn use_mem_size(&self) -> usize {
+        self.src_map.len() * (std::mem::size_of::<usize>() + std::mem::size_of::<TexFont>())
+            + self.face_map.len()
+                * (std::mem::size_of::<usize>() + std::mem::size_of::<FontFace>())
+            + self.char_w_map.len()
+                * (std::mem::size_of::<(usize, char, bool)>()
+                    + std::mem::size_of::<(f32, usize, f32, bool)>())
+            + self.char_map.len()
+                * (std::mem::size_of::<(usize, usize, usize, char)>() + std::mem::size_of::<usize>())
+            + self.char_slab.use_mem_size()
+            + self.wait_draw_list.len() * std::mem::size_of::<TextInfo>()
+            + self.wait_draw_map.len()
+                * (std::mem::size_of::<(usize, usize, usize, usize)>()
+                    + std::mem::size_of::<(usize, f32)>())
+    }
+
     // 设置默认字号
     pub fn set_size(&mut self, size: f32) {
         self.size = size;
@@ -333,7 +351,7 @@ impl FontSheet {
 							w = w * BLOD_FACTOR;
 						}
 						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
-						r.insert((w, font.name.get_hash(), font.factor_t, font.factor_b, font.is_pixel));
+						r.insert((w, font.name.str_hash(), font.factor_t, font.factor_b, font.is_pixel));
 						// log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
 						(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
 					} else {
@@ -424,7 +442,7 @@ impl FontSheet {
 			// 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
 			let id = match self
 				.char_map
-				.entry((font.name.get_hash(), fs_scale, sw, draw_weight, c))
+				.entry((font.name.str_hash(), fs_scale, sw, draw_weight, c))
 			{
 				Entry::Occupied(e) => *e.get(),
 				Entry::Vacant(mut char_id) => {
@@ -444,7 +462,7 @@ impl FontSheet {
 										c = '□'; // 字符不存在， 默认显示该字符
 										match self
 											.char_map
-											.entry((font.name.get_hash(), fs_scale, sw, draw_weight, c)){
+											.entry((font.name.str_hash(), fs_scale, sw, draw_weight, c)){
 												Entry::Occupied(e) => return *e.get(),
 												Entry::Vacant(r1) => char_id = r1,
 										};
@@ -501,7 +519,7 @@ impl FontSheet {
 
 
 					let ww = glyph.width;
-					let mut line = self.font_tex.alloc_line(hh as usize, key.get_hash());
+					let mut line = self.font_tex.alloc_line(hh as usize, key.str_hash());
 					let p = line.alloc(ww);
 
 					// 超出最大纹理范围，需要清空所有文字，重新布局
@@ -644,12 +662,12 @@ impl FontSheet {
 	// 	return blocks;
     // }
 
-    pub fn get_font_tex(&self) -> &Share<TextureRes> {
+    pub fn get_font_tex(&self) -> &Handle<TextureRes> {
         &self.font_tex.texture
     }
 
 	// 设置新的问题
-	pub fn set_font_tex(&mut self, value: Share<TextureRes>) {
+	pub fn set_font_tex(&mut self, value: Handle<TextureRes>) {
         self.font_tex.texture = value;
     }
 
@@ -711,7 +729,7 @@ pub struct FontFace {
 
 pub fn get_size(size: usize, s: &FontSize) -> usize {
     match s {
-        &FontSize::None => {log::info!("get_size======={}", size); size},
+        &FontSize::None => {size},
         &FontSize::Length(r) => r,
         &FontSize::Percent(r) => (r * size as f32).round() as usize,
     }

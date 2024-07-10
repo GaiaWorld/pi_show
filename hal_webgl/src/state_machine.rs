@@ -1,6 +1,6 @@
 use deque::slab_deque::SlabDeque;
 use ordered_float::OrderedFloat;
-use share::Share;
+use pi_share::Share;
 use slab::Slab;
 // use stdweb::Object;
 
@@ -395,7 +395,7 @@ impl StateMachine {
             let should_set_ubo = ubo_loc
                 .last
                 .as_ref()
-                .map_or(true, |v| !Share::ptr_eq(v, &pp[ubo_loc.slot_ubo]));
+                .map_or(true, |v| !pi_share::Share::ptr_eq(v, &pp[ubo_loc.slot_ubo]));
             if should_set_ubo {
                 let uniforms = pp[ubo_loc.slot_ubo].get_values();
                 for u_loc in ubo_loc.values.iter_mut() {

@@ -7,7 +7,8 @@
 use std::cell::RefCell;
 use std::marker::PhantomData;
 
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::{DefaultHasher, XHashSet};
@@ -21,7 +22,7 @@ use crate::component::calc::MaskTexture;
 use crate::component::calc::*;
 use crate::component::user::{Point2, MaskImageClip, RenderContextMark, Aabb2};
 use crate::entity::Node;
-use crate::render::engine::{Engine, ShareEngine};
+use crate::render::engine::{Engine, ResWrapper1, ShareEngine};
 use crate::render::res::*;
 use crate::single::*;
 use crate::single::dyn_texture::DynAtlasSet;
@@ -37,7 +38,7 @@ lazy_static! {
 pub struct MaskTextureSys<C> {
 	render_mark_index: usize,
 	dirty: XHashSet<usize>,
-	uv1_sampler: Share<SamplerRes>,
+	uv1_sampler: Handle<SamplerRes>,
 	mark: PhantomData<C>,
 }
 
@@ -207,12 +208,12 @@ fn update_geo_quad_with_mask<C: HalContext + 'static>(
 	image_clip: Option<&MaskImageClip>,
 	engine: &mut Engine<C>,
 ) {
-	let geo = if let Some(r) = &render_obj.geometry {
-		r
-	} else {
+	let geo = if render_obj.geometry.is_none() {
 		return;
+	} else {
+		render_obj.geometry.unwrap_ref()
 	};
-	let geo = unsafe { &mut *(Share::as_ptr(geo) as usize as *mut GeometryRes) };
+	let geo = unsafe { &mut *(geo as *const GeometryRes as usize as *mut GeometryRes) };
 
 	// 存在maskuv,不需要添加uv
 	if geo.buffers.get(2).is_some() {
@@ -246,7 +247,7 @@ fn update_geo_quad_with_mask<C: HalContext + 'static>(
 		.gl
 		.geometry_set_attribute(geo, &AttributeName::UV1, &uv1_buffer, 2)
 		.unwrap();
-	geo.buffers.insert(2, uv1_buffer);
+	geo.buffers.insert(2, ResWrapper1::Handle(uv1_buffer));
 }
 
 #[inline]
@@ -262,7 +263,7 @@ fn create_uv_buffer<C: HalContext + 'static>(
 	uv1: &Point2,
 	uv2: &Point2,
 	engine: &mut Engine<C>,
-) -> Share<BufferRes> {
+) -> Handle<BufferRes> {
 	match engine.buffer_res_map.get(&uv_hash) {
 		Some(r) => r,
 		None => {

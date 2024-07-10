@@ -16,7 +16,7 @@ use ecs::component::Component;
 use flex_layout::*;
 use hash::XHashMap;
 use map::vecmap::VecMap;
-use share::Share;
+use pi_share::Share;
 
 use crate::component::calc::WorldMatrix;
 use crate::render::res::TextureRes;
@@ -168,7 +168,7 @@ pub struct BorderColor(pub CgColor);
 // // 图片路劲及纹理
 // #[derive(Clone, Component, Debug)]
 // pub struct Image {
-//     // pub src: Option<Share<TextureRes>>,
+//     // pub src: Option<Handle<TextureRes>>,
 //     pub url: usize,
 //     // canvas使用
 //     // pub width: Option<f32>,

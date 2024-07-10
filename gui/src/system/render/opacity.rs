@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 use ecs::entity::Entity;
-use share::Share;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::{DefaultHasher, XHashSet};

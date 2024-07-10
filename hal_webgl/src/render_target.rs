@@ -1,6 +1,6 @@
 use convert::*;
 use hal_core::{HalItem, HalRenderBuffer, HalTexture, PixelFormat};
-use share::Share;
+use pi_share::Share;
 use texture::WebGLTextureImpl;
 use web_sys::{WebGlRenderbuffer, WebGlRenderingContext, WebGlFramebuffer};
 
@@ -118,7 +118,7 @@ impl WebGLRenderTargetImpl {
         self.color = tex_wrap.map(|tex| {
             HalTexture {
                 item: HalItem {index: tex.item.index, use_count: tex.item.use_count },
-                destroy_func: Share::new(move |_index: u32, _use_count: u32| {
+                destroy_func: pi_share::Share::new(move |_index: u32, _use_count: u32| {
                 }),
             }
         });
@@ -166,7 +166,7 @@ impl WebGLRenderTargetImpl {
         self.depth = depth_wrap.map(|rb| {
             HalRenderBuffer {
                 item: HalItem {index: rb.item.index, use_count: rb.item.use_count },
-                destroy_func: Share::new(move |_index: u32, _use_count: u32| {
+                destroy_func: pi_share::Share::new(move |_index: u32, _use_count: u32| {
                 }),
             }
         });

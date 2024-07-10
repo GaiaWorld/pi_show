@@ -1,5 +1,5 @@
-use atom::Atom;
-use share::Share;
+use pi_atom::Atom;
+use pi_share::Share;
 use slab::Slab;
 use std::convert::TryFrom;
 // use stdweb::unstable::TryInto;
@@ -77,7 +77,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalBuffer {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.buffer_destroy(index, use_count);
                 }),
             }
@@ -106,7 +106,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalGeometry {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.geometry_destroy(index, use_count);
                 }),
             }
@@ -245,8 +245,8 @@ impl HalContext for WebglHalContext {
         fs_defines: &[Option<&str>],
         uniform_layout: &UniformLayout,
     ) -> Result<HalProgram, String> {
-        let vs_name = Atom::from(vs_name);
-        let fs_name = Atom::from(fs_name);
+        let vs_name = pi_atom::Atom::from(vs_name);
+        let fs_name = pi_atom::Atom::from(fs_name);
 
         let shader_cache = convert_to_mut(&self.0.shader_cache);
         WebGLProgramImpl::new_with_vs_fs(
@@ -269,7 +269,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalProgram {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.program_destroy(index, use_count);
                 }),
             }
@@ -299,7 +299,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalRenderTarget {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
 					// log::info!("destroy rt, index: {}, version: {}", index, use_count);
                     context_impl.rt_destroy(index, use_count);
                 }),
@@ -386,7 +386,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalRenderBuffer {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.rb_destroy(index, use_count);
                 }),
             }
@@ -430,7 +430,7 @@ impl HalContext for WebglHalContext {
             let context_impl = self.0.clone();
             HalTexture {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.texture_destroy(index, use_count);
                 }),
             }
@@ -469,7 +469,7 @@ impl HalContext for WebglHalContext {
 
             HalTexture {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.texture_destroy(index, use_count);
                 }),
             }
@@ -608,7 +608,7 @@ impl HalContext for WebglHalContext {
         let context_impl = self.0.clone();
         Ok(HalSampler {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.sampler_destroy(index, use_count);
             }),
         })
@@ -632,7 +632,7 @@ impl HalContext for WebglHalContext {
         let context_impl = self.0.clone();
         Ok(HalRasterState {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.rs_destroy(index, use_count);
             }),
         })
@@ -651,7 +651,7 @@ impl HalContext for WebglHalContext {
         let context_impl = self.0.clone();
         Ok(HalDepthState {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.ds_destroy(index, use_count);
             }),
         })
@@ -670,7 +670,7 @@ impl HalContext for WebglHalContext {
         let context_impl = self.0.clone();
         Ok(HalStencilState {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.ss_destroy(index, use_count);
             }),
         })
@@ -689,7 +689,7 @@ impl HalContext for WebglHalContext {
         let context_impl = self.0.clone();
         Ok(HalBlendState {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.bs_destroy(index, use_count);
             }),
         })
@@ -797,21 +797,35 @@ impl HalContext for WebglHalContext {
     }
 
     fn render_get_stat(&self) -> &RenderStat {
-        let mut r = 0;
-        r += self.0.buffer_slab.mem_size();
-        r += self.0.geometry_slab.mem_size();
-        r += self.0.texture_slab.mem_size();
-        r += self.0.sampler_slab.mem_size();
-        r += self.0.rt_slab.mem_size();
-        r += self.0.rb_slab.mem_size();
-        r += self.0.bs_slab.mem_size();
-        r += self.0.ds_slab.mem_size();
-        r += self.0.rs_slab.mem_size();
-        r += self.0.ss_slab.mem_size();
-        r += self.0.program_slab.mem_size();
+        let mut capacity_mem_size: usize = 0;
+        capacity_mem_size += self.0.buffer_slab.capacity_mem_size();
+        capacity_mem_size += self.0.geometry_slab.capacity_mem_size();
+        capacity_mem_size += self.0.texture_slab.capacity_mem_size();
+        capacity_mem_size += self.0.sampler_slab.capacity_mem_size();
+        capacity_mem_size += self.0.rt_slab.capacity_mem_size();
+        capacity_mem_size += self.0.rb_slab.capacity_mem_size();
+        capacity_mem_size += self.0.bs_slab.capacity_mem_size();
+        capacity_mem_size += self.0.ds_slab.capacity_mem_size();
+        capacity_mem_size += self.0.rs_slab.capacity_mem_size();
+        capacity_mem_size += self.0.ss_slab.capacity_mem_size();
+        capacity_mem_size += self.0.program_slab.capacity_mem_size();
+
+        let mut use_mem_size: usize = 0;
+        use_mem_size += self.0.buffer_slab.use_mem_size();
+        use_mem_size += self.0.geometry_slab.use_mem_size();
+        use_mem_size += self.0.texture_slab.use_mem_size();
+        use_mem_size += self.0.sampler_slab.use_mem_size();
+        use_mem_size += self.0.rt_slab.use_mem_size();
+        use_mem_size += self.0.rb_slab.use_mem_size();
+        use_mem_size += self.0.bs_slab.use_mem_size();
+        use_mem_size += self.0.ds_slab.use_mem_size();
+        use_mem_size += self.0.rs_slab.use_mem_size();
+        use_mem_size += self.0.ss_slab.use_mem_size();
+        use_mem_size += self.0.program_slab.use_mem_size();
 
         let context = convert_to_mut(self.0.as_ref());
-        context.stat.slab_mem_size = r;
+        context.stat.slab_capacity_mem_size = use_mem_size;
+        context.stat.slab_use_mem_size = use_mem_size;
 
         &self.0.stat
     }
@@ -1082,7 +1096,7 @@ impl WebglHalContext {
         let rt = WebGLRenderTargetImpl::new_default(None, 0, 0);
         let (index, use_count) = create_new_slot(&mut rt_slab, rt);
 
-        let context_impl = Share::new(WebglHalContextImpl {
+        let context_impl = pi_share::Share::new(WebglHalContextImpl {
             stat: RenderStat::new(),
             gl: gl,
             caps: caps,
@@ -1106,7 +1120,7 @@ impl WebglHalContext {
         let context_clone = context_impl.clone();
         let default_rt = HalRenderTarget {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_clone.rt_destroy(index, use_count)
             }),
         };
@@ -1178,7 +1192,7 @@ impl WebglHalContext {
             let context_impl = self.0.clone();
             HalTexture {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.texture_destroy(index, use_count);
                 }),
             }
@@ -1217,7 +1231,7 @@ impl WebglHalContext {
 
             HalTexture {
                 item: HalItem { index, use_count },
-                destroy_func: Share::new(move |index: u32, use_count: u32| {
+                destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                     context_impl.texture_destroy(index, use_count);
                 }),
             }
@@ -1254,7 +1268,7 @@ impl WebglHalContext {
         let context_impl = self.0.clone();
         HalRenderTarget {
             item: HalItem { index, use_count },
-            destroy_func: Share::new(move |index: u32, use_count: u32| {
+            destroy_func: pi_share::Share::new(move |index: u32, use_count: u32| {
                 context_impl.rt_destroy(index, use_count);
             }),
         }

@@ -12,7 +12,7 @@ use ecs::{
     Event, SingleCaseListener,
 };
 use hal_core::*;
-use share::Share;
+use pi_share::Share;
 
 use crate::{component::{calc::LayoutR, calc::*, user::Overflow, user::*}, single::oct::OctKey};
 use crate::entity::Node;

@@ -49,6 +49,9 @@ pub type ComponentId = usize;
 pub type Setting = GuiWorldExt;
 pub type Polygon = Vec<f32>;
 
+pub const STYLE_COUNT: u8 = 127;
+pub const SVG_COUNT: u8 = 50;
+
 #[derive(Clone, Debug, Component, Default, Deref, DerefMut, Serialize, Deserialize)]
 #[storage(VecMapWithDefault)]
 pub struct RenderContextMark(bitvec::prelude::BitArray);
@@ -329,6 +332,7 @@ impl Transform {
     pub fn add_func(&mut self, f: TransformFunc) { self.all_transform.transform.push(f); }
     pub fn set_origin(&mut self, o: TransformOrigin) { self.origin = o; }
 }
+
 // 背景色和class
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Deref, Component)]
 pub struct BackgroundColor(pub Color);
@@ -431,7 +435,7 @@ pub struct TextStyle {
 }
 
 
-#[derive(Component, Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Component, Debug, Clone, Serialize, Deserialize)]
 pub struct Font {
     pub style: FontStyle, //	规定字体样式。参阅：font-style 中可能的值。
     pub weight: usize,    //	规定字体粗细。参阅：font-weight 中可能的值。
@@ -439,6 +443,18 @@ pub struct Font {
     pub family: Atom,    //	规定字体系列。参阅：font-family 中可能的值。
 }
 
+
+
+impl Default for Font {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            weight: 500,
+            size: Default::default(),
+            family: Default::default(),
+        }
+    }
+}
 
 
 // impl Default for TextStyle {
@@ -653,7 +669,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized;
 
@@ -713,7 +729,7 @@ pub mod serialize {
                 StyleAttr::set_default(style_type, &self.buffer, self.cursor, world);
                 let size = StyleAttr::size(style_type);
                 self.cursor += size;
-                return Some(StyleAttr::get_type(style_type));
+                return Some(unsafe {transmute( StyleAttr::get_type(style_type))} );
             }
 
             None
@@ -724,7 +740,7 @@ pub mod serialize {
             let next_type = self.next_type();
             // log::info!("write_to_component ty: {:?}, cursor:{}, buffer_len:{}", next_type, self.cursor, self.buffer.len());
             if let Some(style_type) = next_type {
-                let r = if style_type <= 91 {
+                let r = if style_type <= STYLE_COUNT {
                     let r = StyleAttr::to_attr(style_type, &self.buffer, self.cursor);
                     StyleAttribute::Set(r)
                 } else {
@@ -751,7 +767,7 @@ pub mod serialize {
         ) -> Option<StyleType> {
             let next_type = self.next_type();
             if let Some(style_type) = next_type {
-                let ty = StyleAttr::get_type(style_type);
+                let ty: StyleType = unsafe {transmute( StyleAttr::get_type(style_type))};
                 if f(ty) {
                     StyleAttr::set(cur_style_mark, style_type, &self.buffer, self.cursor, query, entity, true);
                 }
@@ -795,7 +811,7 @@ pub mod serialize {
 
 	macro_rules! set_fun {
 		($value_ty: ty, $query: ident, $entity: ident, $v: ident, $set_expr: expr) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, $query: &Setting, $entity: Entity, is_clone: bool) {
+            fn set(ptr: *const u8, $query: &Setting, $entity: Entity, is_clone: bool) {
 				let v = ptr.cast::<$value_ty>();
 				let $v = if is_clone {
 					clone_unaligned(v)
@@ -804,12 +820,11 @@ pub mod serialize {
 				};
 
 				log::debug!("set_style, id: {:?}, type={:?}, value={:?}", $entity, std::any::type_name::<Self>(), $v);
-				set_fun!(@inner cur_style_mark, $set_expr);
+				set_fun!(@inner $set_expr);
             }
         };
 
-		(@inner $cur_style_mark: ident, $set_expr: expr) => {
-			$cur_style_mark.set(Self::get_type() as usize, true);
+		(@inner $set_expr: expr) => {
 			$set_expr;
         };
 	}
@@ -960,8 +975,7 @@ pub mod serialize {
 
 	macro_rules! reset_fun {
 		($query: ident, $entity: ident, $v: ident, $set_expr: expr) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, $query: &Setting, $entity: Entity, _is_clone: bool) {
-				cur_style_mark.set(Self::get_type() as usize, false);
+            fn set(_ptr: *const u8, $query: &Setting, $entity: Entity, _is_clone: bool) {
 				log::debug!("reset_style, id: {:?}, type={:?}", $entity, std::any::type_name::<Self>());
 				$set_expr;
             }
@@ -971,7 +985,7 @@ pub mod serialize {
     macro_rules! reset {
         // 空实现
         (@empty) => {
-            fn set(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, _query: &Setting, _entity: Entity, _is_clone: bool) {}
+            fn set(_ptr: *const u8, _query: &Setting, _entity: Entity, _is_clone: bool) {}
         };
         ($name: ident) => {
 			reset_fun!(query, entity, v, {
@@ -1018,29 +1032,15 @@ pub mod serialize {
         };
 
         (@box_model $name: ident, $ty: ident) => {
-            fn set(cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool) {
+            fn set(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool) {
 				reset_fun!(query, entity, v, {
 					let component = query.$name.lend_mut();
 					if let Some(component) = component.get_mut(entity) {
 						let attr = query.default_components.$name.lend_mut();
-						$crate::paste::item! {
-							if !cur_style_mark[StyleType::[<$ty Top>] as usize] {
-								is_changed = true;
-								item.top = v.top;
-							}
-							if !cur_style_mark[StyleType::[<$ty Right>] as usize] {
-								is_changed = true;
-								item.right = v.right;
-							}
-							if !cur_style_mark[StyleType::[<$ty Bottom>] as usize] {
-								is_changed = true;
-								item.bottom = v.bottom;
-							}
-							if !cur_style_mark[StyleType::[<$ty Left>] as usize] {
-								is_changed = true;
-								item.left = v.left;
-							}
-						}
+						item.top = v.top;
+                        item.right = v.right;
+                        item.bottom = v.bottom;
+                        item.left = v.left;
 						attr.get_notify_ref().modify_event(entity, "", 0);
 					}
 				});
@@ -1372,53 +1372,53 @@ pub mod serialize {
 
 	impl_style!(@pack_send BorderImageType, border_image, BorderImage, Atom);
 
-    impl ConvertToComponent for TransformFuncType {
+    // impl_style!(@func DisplayType, show, Show, set_display, get_display, Display, Display);
+
+    impl ConvertToComponent for DisplayType {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
-            let v = ptr.cast::<TransformFunc>();
+            let v = ptr.cast::<Display>();
             let v = if is_clone {
                 clone_unaligned(v)
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
-                std::any::type_name::<TransformFunc>(),
+                std::any::type_name::<Display>(),
                 v,
                 entity
             );
-            match query.transform_will_change.lend_mut().get_mut(entity) {
+            match query.other_layout_style.lend_mut().get_mut(entity) {
                 Some(component) => {
-                    component.0.transform.push(v);
-					query.transform_will_change.lend_mut().get_notify_ref().modify_event(entity, "", 0);
+                    component.display = v;
                 }
                 None => {
-                    // 不存在transform_willChange， 则设置在Transfrom上
-                    match query.transform.lend_mut().get_mut(entity) {
-                        Some(component) => {
-                            // 如果存在transform_willChange,则将Transform设置在TransformWillChange上
-                            component.all_transform.transform.push(v);
-							query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
-                        }
-                        None => {
-							query.transform.lend_mut().insert(entity, Transform {
-                                all_transform: AllTransform {
-                                    transform: vec![v],
-                                    ..Default::default()
-                                },
-                                ..Default::default()
-                            });
-                        }
-                    }
+                    let mut component: OtherLayoutStyle = Default::default();
+                    component.display = v;
+                    query.other_layout_style.lend_mut().insert(entity, component);
                 }
             };
+
+            match query.show.lend_mut().get_mut(entity) {
+                Some(component) => {
+                    component.set_display(v);
+
+                }
+                None => {
+                    let mut component: Show = Default::default();
+                    component.set_display(v);
+                    query.show.lend_mut().insert(entity, component);
+                }
+            };
+            query.other_layout_style.lend_mut().get_notify_ref().modify_event(entity, "", 0);
+            query.show.lend_mut().get_notify_ref().modify_event(entity, "", 0);
         }
 
         /// 为样式设置默认值
@@ -1428,23 +1428,37 @@ pub mod serialize {
         {
         }
 
-        fn to_attr(_ptr: *const u8) -> Attribute
+        fn to_attr(ptr: *const u8) -> Attribute
         where
             Self: Sized,
         {
-            todo!();
-            // Attribute::Transform(unsafe { TransformType(ptr.cast::<TransformFuncs>().read_unaligned()) })
+            Attribute::Display(DisplayType(clone_unaligned(ptr.cast::<Display>())))
         }
     }
-    impl ConvertToComponent for ResetTransformFuncType {
+    impl ConvertToComponent for ResetDisplayType {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, _query: &Setting, _entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
-            todo!()
+            match query.other_layout_style.lend_mut().get_mut(entity) {
+                Some(component) => {
+                    component.display = Default::default();
+
+                }
+                None => ()
+            };
+
+            match query.show.lend_mut().get_mut(entity) {
+                Some(component) => {
+                    component.set_display(Default::default());
+                }
+                None => ()
+            };
+            query.other_layout_style.lend_mut().get_notify_ref().modify_event(entity, "", 0);
+            query.show.lend_mut().get_notify_ref().modify_event(entity, "", 0);
         }
 
         /// 为样式设置默认值
@@ -1452,22 +1466,22 @@ pub mod serialize {
         where
             Self: Sized,
         {
-            todo!()
         }
 
-        fn to_attr(_ptr: *const u8) -> Attribute
+        fn to_attr(ptr: *const u8) -> Attribute
         where
             Self: Sized,
         {
-            todo!()
+            Attribute::Display(DisplayType(clone_unaligned(ptr.cast::<Display>())))
         }
     }
+
 
     impl ConvertToComponent for TransformType {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1477,7 +1491,6 @@ pub mod serialize {
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
@@ -1532,7 +1545,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -1570,7 +1583,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1580,7 +1593,6 @@ pub mod serialize {
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
@@ -1634,7 +1646,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -1672,7 +1684,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1682,7 +1694,6 @@ pub mod serialize {
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
@@ -1736,7 +1747,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -1774,7 +1785,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1784,7 +1795,6 @@ pub mod serialize {
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
@@ -1838,7 +1848,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -1876,7 +1886,7 @@ pub mod serialize {
         /// 将样式属性设置到组件上
         /// ptr为样式属性的指针
         /// 安全： entity必须存在
-        fn set<'w, 's>(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
+        fn set<'w, 's>(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool)
         where
             Self: Sized,
         {
@@ -1886,7 +1896,6 @@ pub mod serialize {
             } else {
                 unsafe { v.read_unaligned() }
             };
-            cur_style_mark.set(Self::get_type() as usize, true);
 
             log::debug!(
                 "set_style_attr, type: {:?}, value: {:?}, id: {:?}",
@@ -1948,7 +1957,7 @@ pub mod serialize {
         }
     }
     impl ConvertToComponent for ResetTransformWillChangeType {
-        fn set<'w, 's>(_cur_style_mark: &mut BitArray<[u32; 3]>, _ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
+        fn set<'w, 's>(_ptr: *const u8, query: &Setting, entity: Entity, _is_clone: bool)
         where
             Self: Sized,
         {
@@ -2012,7 +2021,7 @@ pub mod serialize {
     impl_style!(FlexBasisType, other_layout_style, OtherLayoutStyle, flex_basis, FlexBasis, Dimension);
 
 
-    impl_style!(@func DisplayType, show, Show, set_display, get_display, Display, Display);
+    // impl_style!(@func DisplayType, show, Show, set_display, get_display, Display, Display);
     impl_style!(@func VisibilityType, show, Show, set_visibility, get_visibility, Visibility, bool);
     impl_style!(@func EnableType, show, Show, set_enable, get_enable, Enable, Enable);
 
@@ -2133,15 +2142,28 @@ pub mod serialize {
     //     SmallVec<[AnimationPlayState; 1]>
     // );
 
+    pub struct ResetStyleFunc {
+		set: fn(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool),
+        // push_component_ops: fn (ids: &SettingComponentIds, arr: &mut Vec<(ComponentIndex, bool)>),
+	}
+
+	impl ResetStyleFunc {
+        const fn new<T: ConvertToComponent>() -> ResetStyleFunc {
+            ResetStyleFunc {
+                set: T::set,
+                // push_component_ops: T::push_component_ops,
+            }
+        }
+    }
 
     pub struct StyleFunc {
-        get_type: fn() -> StyleType,
+        get_type: fn() -> u8,
         // get_style_index: fn() -> u8,
         size: fn() -> usize,
         // /// 安全： entity必须存在
         // fn set(&self, cur_style_mark: &mut BitArray<[u32;3]>, buffer: &Vec<u8>, offset: usize, query: &Setting, entity: Entity);
         /// 安全： entity必须存在
-        set: fn(cur_style_mark: &mut BitArray<[u32; 3]>, ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool),
+        set: fn(ptr: *const u8, query: &Setting, entity: Entity, is_clone: bool),
 
         /// 设置默认值
         set_default: fn(buffer: &Vec<u8>, offset: usize, world: &Setting),
@@ -2163,257 +2185,258 @@ pub mod serialize {
         }
     }
 
+
+
     lazy_static::lazy_static! {
 
-        static ref STYLE_ATTR: [StyleFunc; 183] = [
-            StyleFunc::new::<EmptyType>(), // 0 empty 占位， 无实际作用
-            StyleFunc::new::<BackgroundRepeatType>(), // 1
-            StyleFunc::new::<FontStyleType>(), // 2
-            StyleFunc::new::<FontWeightType>(), // 3
-            StyleFunc::new::<FontSizeType>(), // 4
-            StyleFunc::new::<FontFamilyType>(), // 5
-            StyleFunc::new::<LetterSpacingType>(), // 6
-            StyleFunc::new::<WordSpacingType>(), // 7
-            StyleFunc::new::<LineHeightType>(), // 8
-            StyleFunc::new::<TextIndentType>(), // 9
-            StyleFunc::new::<WhiteSpaceType>(), // 10
+        static ref STYLE_ATTR: [StyleFunc; 97] = [
+            StyleFunc::new::<BackgroundRepeatType>(), // 0
+            StyleFunc::new::<FontStyleType>(), // 1
+            StyleFunc::new::<FontWeightType>(), // 2
+            StyleFunc::new::<FontSizeType>(), // 3
+            StyleFunc::new::<FontFamilyType>(), // 4
+            StyleFunc::new::<LetterSpacingType>(), // 5
+            StyleFunc::new::<WordSpacingType>(), // 6
+            StyleFunc::new::<LineHeightType>(), // 7
+            StyleFunc::new::<TextIndentType>(), // 8
+            StyleFunc::new::<WhiteSpaceType>(), // 9
 
-            StyleFunc::new::<TextAlignType>(), // 11
-            StyleFunc::new::<VerticalAlignType>(), // 12
-            StyleFunc::new::<ColorType>(), // 13
-            StyleFunc::new::<TextStrokeType>(), // 14
-            StyleFunc::new::<TextShadowType>(), // 15
+            StyleFunc::new::<TextAlignType>(), // 10
+            StyleFunc::new::<VerticalAlignType>(), // 11
+            StyleFunc::new::<ColorType>(), // 12
+            StyleFunc::new::<TextStrokeType>(), // 13
+            StyleFunc::new::<TextShadowType>(), // 14
 
-            StyleFunc::new::<BackgroundImageType>(), // 16
-            StyleFunc::new::<BackgroundImageClipType>(), // 17
-            StyleFunc::new::<ObjectFitType>(), // 18
-            StyleFunc::new::<BackgroundColorType>(), // 19
-            StyleFunc::new::<BoxShadowType>(), // 20
-            StyleFunc::new::<BorderImageType>(), // 21
-            StyleFunc::new::<BorderImageClipType>(), // 22
-            StyleFunc::new::<BorderImageSliceType>(), // 23
-            StyleFunc::new::<BorderImageRepeatType>(), // 24
+            StyleFunc::new::<BackgroundImageType>(), // 15
+            StyleFunc::new::<BackgroundImageClipType>(), // 16
+            StyleFunc::new::<ObjectFitType>(), // 17
+            StyleFunc::new::<BackgroundColorType>(), // 18
+            StyleFunc::new::<BoxShadowType>(), // 19
+            StyleFunc::new::<BorderImageType>(), // 20
+            StyleFunc::new::<BorderImageClipType>(), // 21
+            StyleFunc::new::<BorderImageSliceType>(), // 22
+            StyleFunc::new::<BorderImageRepeatType>(), // 23
 
-            StyleFunc::new::<BorderColorType>(), // 25
-
-
-            StyleFunc::new::<HsiType>(), // 26
-            StyleFunc::new::<BlurType>(), // 27
-            StyleFunc::new::<MaskImageType>(), // 28
-            StyleFunc::new::<MaskImageClipType>(), // 29
-            StyleFunc::new::<TransformType>(), // 30
-            StyleFunc::new::<TransformOriginType>(), // 31
-            StyleFunc::new::<TransformWillChangeType>(), // 32
-            StyleFunc::new::<BorderRadiusType>(), // 33
-            StyleFunc::new::<ZIndexType>(), // 34
-            StyleFunc::new::<OverflowType>(), // 35
+            StyleFunc::new::<BorderColorType>(), // 24
 
 
-            StyleFunc::new::<BlendModeType>(), // 36
-            StyleFunc::new::<DisplayType>(), // 37
-            StyleFunc::new::<VisibilityType>(), // 38
-            StyleFunc::new::<EnableType>(), // 30
+            StyleFunc::new::<HsiType>(), // 25
+            StyleFunc::new::<BlurType>(), // 26
+            StyleFunc::new::<MaskImageType>(), // 27
+            StyleFunc::new::<MaskImageClipType>(), // 28
+            StyleFunc::new::<TransformType>(), // 29
+            StyleFunc::new::<TransformOriginType>(), // 30
+            StyleFunc::new::<TransformWillChangeType>(), // 31
+            StyleFunc::new::<BorderRadiusType>(), // 32
+            StyleFunc::new::<ZIndexType>(), // 33
+            StyleFunc::new::<OverflowType>(), // 34
 
 
-            StyleFunc::new::<WidthType>(), // 40
-            StyleFunc::new::<HeightType>(), // 41
-
-            StyleFunc::new::<MarginTopType>(), // 42
-            StyleFunc::new::<MarginRightType>(), // 43
-            StyleFunc::new::<MarginBottomType>(), // 44
-            StyleFunc::new::<MarginLeftType>(), // 45
-
-            StyleFunc::new::<PaddingTopType>(), // 46
-            StyleFunc::new::<PaddingRightType>(), // 47
-            StyleFunc::new::<PaddingBottomType>(), // 48
-            StyleFunc::new::<PaddingLeftType>(), // 49
-
-            StyleFunc::new::<BorderTopType>(), // 50
-            StyleFunc::new::<BorderRightType>(), // 51
-            StyleFunc::new::<BorderBottomType>(), // 52
-            StyleFunc::new::<BorderLeftType>(), // 53
-
-            StyleFunc::new::<PositionTopType>(), // 54
-            StyleFunc::new::<PositionRightType>(), // 55
-            StyleFunc::new::<PositionBottomType>(), // 56
-            StyleFunc::new::<PositionLeftType>(), // 57
-
-            StyleFunc::new::<MinWidthType>(), // 58
-            StyleFunc::new::<MinHeightType>(), // 59
-            StyleFunc::new::<MaxHeightType>(), // 60
-            StyleFunc::new::<MaxWidthType>(), // 61
-            StyleFunc::new::<DirectionType>(), // 62
-            StyleFunc::new::<FlexDirectionType>(), // 63
-            StyleFunc::new::<FlexWrapType>(), // 64
-            StyleFunc::new::<JustifyContentType>(), // 65
-            StyleFunc::new::<AlignContentType>(), // 66
-            StyleFunc::new::<AlignItemsType>(), // 67
+            StyleFunc::new::<BlendModeType>(), // 35
+            StyleFunc::new::<DisplayType>(), // 36
+            StyleFunc::new::<VisibilityType>(), // 37
+            StyleFunc::new::<EnableType>(), // 38
 
 
-            StyleFunc::new::<PositionTypeType>(), // 68
-            StyleFunc::new::<AlignSelfType>(), // 69
-            StyleFunc::new::<FlexShrinkType>(), // 70
-            StyleFunc::new::<FlexGrowType>(), // 71
-            StyleFunc::new::<AspectRatioType>(), // 72
-            StyleFunc::new::<OrderType>(), // 73
-            StyleFunc::new::<FlexBasisType>(), // 74
-            StyleFunc::new::<OpacityType>(), // 75
+            StyleFunc::new::<WidthType>(), // 39
+            StyleFunc::new::<HeightType>(), // 40
 
-            StyleFunc::new::<TextContentType>(), // 76
+            StyleFunc::new::<MarginTopType>(), // 41
+            StyleFunc::new::<MarginRightType>(), // 42
+            StyleFunc::new::<MarginBottomType>(), // 43
+            StyleFunc::new::<MarginLeftType>(), // 44
 
-            StyleFunc::new::<VNodeType>(), // 77
+            StyleFunc::new::<PaddingTopType>(), // 45
+            StyleFunc::new::<PaddingRightType>(), // 46
+            StyleFunc::new::<PaddingBottomType>(), // 47
+            StyleFunc::new::<PaddingLeftType>(), // 48
 
-            StyleFunc::new::<TransformFuncType>(), // 78
+            StyleFunc::new::<BorderTopType>(), // 49
+            StyleFunc::new::<BorderRightType>(), // 50
+            StyleFunc::new::<BorderBottomType>(), // 51
+            StyleFunc::new::<BorderLeftType>(), // 52
 
-			StyleFunc::new::<EmptyType>(), // 79
+            StyleFunc::new::<PositionTopType>(), // 53
+            StyleFunc::new::<PositionRightType>(), // 54
+            StyleFunc::new::<PositionBottomType>(), // 55
+            StyleFunc::new::<PositionLeftType>(), // 56
+
+            StyleFunc::new::<MinWidthType>(), // 57
+            StyleFunc::new::<MinHeightType>(), // 58
+            StyleFunc::new::<MaxHeightType>(), // 59
+            StyleFunc::new::<MaxWidthType>(), // 60
+            StyleFunc::new::<DirectionType>(), // 61
+            StyleFunc::new::<FlexDirectionType>(), // 62
+            StyleFunc::new::<FlexWrapType>(), // 63
+            StyleFunc::new::<JustifyContentType>(), // 64
+            StyleFunc::new::<AlignContentType>(), // 65
+            StyleFunc::new::<AlignItemsType>(), // 66
+
+
+            StyleFunc::new::<PositionTypeType>(), // 67
+            StyleFunc::new::<AlignSelfType>(), // 68
+            StyleFunc::new::<FlexShrinkType>(), // 79
+            StyleFunc::new::<FlexGrowType>(), // 70
+            StyleFunc::new::<AspectRatioType>(), // 71
+            StyleFunc::new::<OrderType>(), // 72
+            StyleFunc::new::<FlexBasisType>(), // 73
+            StyleFunc::new::<OpacityType>(), // 74
+
+            StyleFunc::new::<TextContentType>(), // 75
+
+            StyleFunc::new::<VNodeType>(), // 76
+
+            StyleFunc::new::<EmptyType>(), // 77
+            StyleFunc::new::<EmptyType>(), // 78
+            StyleFunc::new::<EmptyType>(), // 79
             StyleFunc::new::<EmptyType>(), // 80
             StyleFunc::new::<EmptyType>(), // 81
             StyleFunc::new::<EmptyType>(), // 82
             StyleFunc::new::<EmptyType>(), // 83
             StyleFunc::new::<EmptyType>(), // 84
-            StyleFunc::new::<EmptyType>(), // 85
-            StyleFunc::new::<EmptyType>(), // 86
-
-            // StyleFunc::new::<AnimationNameType>(), // 79
-            // StyleFunc::new::<AnimationDurationType>(), // 80
-            // StyleFunc::new::<AnimationTimingFunctionType>(), // 81
-            // StyleFunc::new::<AnimationDelayType>(), // 82
-            // StyleFunc::new::<AnimationIterationCountType>(), // 83
-            // StyleFunc::new::<AnimationDirectionType>(), // 84
-            // StyleFunc::new::<AnimationFillModeType>(), // 85
-            // StyleFunc::new::<AnimationPlayStateType>(), // 86
-            StyleFunc::new::<ClipPathType>(), // 87
-            StyleFunc::new::<TranslateType>(), // 88
-            StyleFunc::new::<ScaleType>(), // 89
-            StyleFunc::new::<RotateType>(), // 90
+            StyleFunc::new::<ClipPathType>(), // 85
+            StyleFunc::new::<TranslateType>(), // 86
+            StyleFunc::new::<ScaleType>(), // 87
+            StyleFunc::new::<RotateType>(), // 88
+            StyleFunc::new::<EmptyType>(), // 89
+			StyleFunc::new::<EmptyType>(), // 90
 			StyleFunc::new::<EmptyType>(), // 91
-            // StyleFunc::new::<AsImageType>(), // 91
+
+			StyleFunc::new::<EmptyType>(), // 92
+			StyleFunc::new::<EmptyType>(), // 93
+			StyleFunc::new::<EmptyType>(), // 94
+			StyleFunc::new::<EmptyType>(), // 95
+
+            StyleFunc::new::<EmptyType>(), // 96
+        ];
 
         /******************************* reset ******************************************************/
-            StyleFunc::new::<ResetBackgroundRepeatType>(), // 1 text
-            StyleFunc::new::<ResetFontStyleType>(), // 2
-            StyleFunc::new::<ResetFontWeightType>(), // 3
-            StyleFunc::new::<ResetFontSizeType>(), // 4
-            StyleFunc::new::<FontFamilyType>(), // 5
-            StyleFunc::new::<LetterSpacingType>(), // 6
-            StyleFunc::new::<WordSpacingType>(), // 7
-            StyleFunc::new::<ResetLineHeightType>(), // 8
-            StyleFunc::new::<TextIndentType>(), // 9
-            StyleFunc::new::<ResetWhiteSpaceType>(), // 10
+    static ref RESET_STYLE_ATTR: [ResetStyleFunc; 97] = [
+        /******************************* reset ******************************************************/
+            ResetStyleFunc::new::<ResetBackgroundRepeatType>(), // 0
+            ResetStyleFunc::new::<ResetFontStyleType>(), // 1
+            ResetStyleFunc::new::<ResetFontWeightType>(), // 2
+            ResetStyleFunc::new::<ResetFontSizeType>(), // 3
+            ResetStyleFunc::new::<FontFamilyType>(), // 4
+            ResetStyleFunc::new::<LetterSpacingType>(), // 5
+            ResetStyleFunc::new::<WordSpacingType>(), // 6
+            ResetStyleFunc::new::<ResetLineHeightType>(), // 7
+            ResetStyleFunc::new::<TextIndentType>(), // 8
+            ResetStyleFunc::new::<ResetWhiteSpaceType>(), // 9
 
-            StyleFunc::new::<ResetTextAlignType>(), // 11
-            StyleFunc::new::<ResetVerticalAlignType>(), // 12
-            StyleFunc::new::<ResetColorType>(), // 13
-            StyleFunc::new::<ResetTextStrokeType>(), // 14
-            StyleFunc::new::<ResetTextShadowType>(), // 15
+            ResetStyleFunc::new::<ResetTextAlignType>(), // 10
+            ResetStyleFunc::new::<ResetVerticalAlignType>(), // 11
+            ResetStyleFunc::new::<ResetColorType>(), // 12
+            ResetStyleFunc::new::<ResetTextStrokeType>(), // 13
+            ResetStyleFunc::new::<ResetTextShadowType>(), // 14
 
-            StyleFunc::new::<ResetBackgroundImageType>(), // 16
-            StyleFunc::new::<ResetBackgroundImageClipType>(), // 17
-            StyleFunc::new::<ResetObjectFitType>(), // 18
-            StyleFunc::new::<ResetBackgroundColorType>(), // 19
-            StyleFunc::new::<ResetBoxShadowType>(), // 20
-            StyleFunc::new::<ResetBorderImageType>(), // 21
-            StyleFunc::new::<ResetBorderImageClipType>(), // 22
-            StyleFunc::new::<ResetBorderImageSliceType>(), // 23
-            StyleFunc::new::<ResetBorderImageRepeatType>(), // 24
+            ResetStyleFunc::new::<ResetBackgroundImageType>(), // 15
+            ResetStyleFunc::new::<ResetBackgroundImageClipType>(), // 16
+            ResetStyleFunc::new::<ResetObjectFitType>(), // 17
+            ResetStyleFunc::new::<ResetBackgroundColorType>(), // 18
+            ResetStyleFunc::new::<ResetBoxShadowType>(), // 19
+            ResetStyleFunc::new::<ResetBorderImageType>(), // 20
+            ResetStyleFunc::new::<ResetBorderImageClipType>(), // 21
+            ResetStyleFunc::new::<ResetBorderImageSliceType>(), // 22
+            ResetStyleFunc::new::<ResetBorderImageRepeatType>(), // 23
 
-            StyleFunc::new::<ResetBorderColorType>(), // 25
-
-
-            StyleFunc::new::<ResetHsiType>(), // 26
-            StyleFunc::new::<ResetBlurType>(), // 27
-            StyleFunc::new::<ResetMaskImageType>(), // 28
-            StyleFunc::new::<ResetMaskImageClipType>(), // 29
-            StyleFunc::new::<ResetTransformType>(), // 30
-            StyleFunc::new::<ResetTransformOriginType>(), // 31
-            StyleFunc::new::<ResetTransformWillChangeType>(), // 32
-            StyleFunc::new::<ResetBorderRadiusType>(), // 33
-            StyleFunc::new::<ResetZIndexType>(), // 34
-            StyleFunc::new::<ResetOverflowType>(), // 35
+            ResetStyleFunc::new::<ResetBorderColorType>(), // 24
 
 
-            StyleFunc::new::<ResetBlendModeType>(), // 36
-            StyleFunc::new::<ResetDisplayType>(), // 37
-            StyleFunc::new::<ResetVisibilityType>(), // 38
-            StyleFunc::new::<ResetEnableType>(), // 39
+            ResetStyleFunc::new::<ResetHsiType>(), // 25
+            ResetStyleFunc::new::<ResetBlurType>(), // 26
+            ResetStyleFunc::new::<ResetMaskImageType>(), // 27
+            ResetStyleFunc::new::<ResetMaskImageClipType>(), // 28
+            ResetStyleFunc::new::<ResetTransformType>(), // 29
+            ResetStyleFunc::new::<ResetTransformOriginType>(), // 30
+            ResetStyleFunc::new::<ResetTransformWillChangeType>(), // 31
+            ResetStyleFunc::new::<ResetBorderRadiusType>(), // 32
+            ResetStyleFunc::new::<ResetZIndexType>(), // 32
+            ResetStyleFunc::new::<ResetOverflowType>(), // 34
 
 
-            StyleFunc::new::<ResetWidthType>(), // 40
-            StyleFunc::new::<ResetHeightType>(), // 41
-
-            StyleFunc::new::<ResetMarginTopType>(), // 42
-            StyleFunc::new::<ResetMarginRightType>(), // 43
-            StyleFunc::new::<ResetMarginBottomType>(), // 44
-            StyleFunc::new::<ResetMarginLeftType>(), // 45
-
-            StyleFunc::new::<ResetPaddingTopType>(), // 46
-            StyleFunc::new::<ResetPaddingRightType>(), // 47
-            StyleFunc::new::<ResetPaddingBottomType>(), // 48
-            StyleFunc::new::<ResetPaddingLeftType>(), // 49
-
-            StyleFunc::new::<ResetBorderTopType>(), // 50
-            StyleFunc::new::<ResetBorderRightType>(), // 51
-            StyleFunc::new::<ResetBorderBottomType>(), // 52
-            StyleFunc::new::<ResetBorderLeftType>(), // 53
-
-            StyleFunc::new::<ResetPositionTopType>(), // 54
-            StyleFunc::new::<ResetPositionRightType>(), // 55
-            StyleFunc::new::<ResetPositionBottomType>(), // 56
-            StyleFunc::new::<ResetPositionLeftType>(), // 57
-
-            StyleFunc::new::<ResetMinWidthType>(), // 58
-            StyleFunc::new::<ResetMinHeightType>(), // 59
-            StyleFunc::new::<ResetMaxHeightType>(), // 60
-            StyleFunc::new::<ResetMaxWidthType>(), // 61
-            StyleFunc::new::<ResetDirectionType>(), // 62
-            StyleFunc::new::<ResetFlexDirectionType>(), // 63
-            StyleFunc::new::<ResetFlexWrapType>(), // 64
-            StyleFunc::new::<ResetJustifyContentType>(), // 65
-            StyleFunc::new::<ResetAlignContentType>(), // 66
-            StyleFunc::new::<ResetAlignItemsType>(), // 67
+            ResetStyleFunc::new::<ResetBlendModeType>(), // 35
+            ResetStyleFunc::new::<ResetDisplayType>(), // 36
+            ResetStyleFunc::new::<ResetVisibilityType>(), // 37
+            ResetStyleFunc::new::<ResetEnableType>(), // 38
 
 
-            StyleFunc::new::<ResetPositionTypeType>(), // 68
-            StyleFunc::new::<ResetAlignSelfType>(), // 69
-            StyleFunc::new::<FlexShrinkType>(), // 70
-            StyleFunc::new::<FlexGrowType>(), // 71
-            StyleFunc::new::<ResetAspectRatioType>(), // 72
-            StyleFunc::new::<ResetOrderType>(), // 73
-            StyleFunc::new::<ResetFlexBasisType>(), // 74
-            StyleFunc::new::<ResetOpacityType>(), // 75
+            ResetStyleFunc::new::<ResetWidthType>(), // 39
+            ResetStyleFunc::new::<ResetHeightType>(), // 40
 
-            StyleFunc::new::<ResetTextContentType>(), // 76
+            ResetStyleFunc::new::<ResetMarginTopType>(), // 41
+            ResetStyleFunc::new::<ResetMarginRightType>(), // 42
+            ResetStyleFunc::new::<ResetMarginBottomType>(), // 43
+            ResetStyleFunc::new::<ResetMarginLeftType>(), // 44
 
-            StyleFunc::new::<ResetVNodeType>(), // 77
+            ResetStyleFunc::new::<ResetPaddingTopType>(), // 45
+            ResetStyleFunc::new::<ResetPaddingRightType>(), // 46
+            ResetStyleFunc::new::<ResetPaddingBottomType>(), // 47
+            ResetStyleFunc::new::<ResetPaddingLeftType>(), // 48
 
-            StyleFunc::new::<ResetTransformFuncType>(), // 78
+            ResetStyleFunc::new::<ResetBorderTopType>(), // 49
+            ResetStyleFunc::new::<ResetBorderRightType>(), // 50
+            ResetStyleFunc::new::<ResetBorderBottomType>(), // 51
+            ResetStyleFunc::new::<ResetBorderLeftType>(), // 52
 
-			StyleFunc::new::<EmptyType>(), // 79
-            StyleFunc::new::<EmptyType>(), // 80
-            StyleFunc::new::<EmptyType>(), // 81
-            StyleFunc::new::<EmptyType>(), // 82
-            StyleFunc::new::<EmptyType>(), // 83
-            StyleFunc::new::<EmptyType>(), // 84
-            StyleFunc::new::<EmptyType>(), // 85
-            StyleFunc::new::<EmptyType>(), // 86
-            // StyleFunc::new::<ResetAnimationNameType>(), // 79
-            // StyleFunc::new::<ResetAnimationDurationType>(), // 80
-            // StyleFunc::new::<ResetAnimationTimingFunctionType>(), // 81
-            // StyleFunc::new::<ResetAnimationDelayType>(), // 82
-            // StyleFunc::new::<ResetAnimationIterationCountType>(), // 83
-            // StyleFunc::new::<ResetAnimationDirectionType>(), // 84
-            // StyleFunc::new::<ResetAnimationFillModeType>(), // 85
-            // StyleFunc::new::<ResetAnimationPlayStateType>(), // 86
+            ResetStyleFunc::new::<ResetPositionTopType>(), // 53
+            ResetStyleFunc::new::<ResetPositionRightType>(), // 54
+            ResetStyleFunc::new::<ResetPositionBottomType>(), // 55
+            ResetStyleFunc::new::<ResetPositionLeftType>(), // 56
 
-            StyleFunc::new::<ResetClipPathType>(), // 87
-            StyleFunc::new::<ResetTranslateType>(), // 88
-            StyleFunc::new::<ResetScaleType>(), // 89
-            StyleFunc::new::<ResetRotateType>(), // 90
-			StyleFunc::new::<EmptyType>(), // 91
-            // StyleFunc::new::<ResetAsImageType>(), // 91
+            ResetStyleFunc::new::<ResetMinWidthType>(), // 57
+            ResetStyleFunc::new::<ResetMinHeightType>(), // 58
+            ResetStyleFunc::new::<ResetMaxHeightType>(), // 59
+            ResetStyleFunc::new::<ResetMaxWidthType>(), // 60
+            ResetStyleFunc::new::<ResetDirectionType>(), // 61
+            ResetStyleFunc::new::<ResetFlexDirectionType>(), // 62
+            ResetStyleFunc::new::<ResetFlexWrapType>(), // 63
+            ResetStyleFunc::new::<ResetJustifyContentType>(), // 64
+            ResetStyleFunc::new::<ResetAlignContentType>(), // 65
+            ResetStyleFunc::new::<ResetAlignItemsType>(), // 66
+
+
+            ResetStyleFunc::new::<ResetPositionTypeType>(), // 67
+            ResetStyleFunc::new::<ResetAlignSelfType>(), // 68
+            ResetStyleFunc::new::<FlexShrinkType>(), // 69
+            ResetStyleFunc::new::<FlexGrowType>(), // 70
+            ResetStyleFunc::new::<ResetAspectRatioType>(), // 71
+            ResetStyleFunc::new::<ResetOrderType>(), // 72
+            ResetStyleFunc::new::<ResetFlexBasisType>(), // 73
+            ResetStyleFunc::new::<ResetOpacityType>(), // 74
+
+            ResetStyleFunc::new::<ResetTextContentType>(), // 75
+
+            ResetStyleFunc::new::<ResetVNodeType>(), // 76
+
+            ResetStyleFunc::new::<EmptyType>(), // 77
+            ResetStyleFunc::new::<EmptyType>(), // 78
+            ResetStyleFunc::new::<EmptyType>(), // 79
+            ResetStyleFunc::new::<EmptyType>(), // 80
+            ResetStyleFunc::new::<EmptyType>(), // 81
+            ResetStyleFunc::new::<EmptyType>(), // 82
+            ResetStyleFunc::new::<EmptyType>(), // 83
+            ResetStyleFunc::new::<EmptyType>(), // 84
+
+            ResetStyleFunc::new::<ResetClipPathType>(), // 85
+            ResetStyleFunc::new::<ResetTranslateType>(), // 86
+            ResetStyleFunc::new::<ResetScaleType>(), // 87
+            ResetStyleFunc::new::<ResetRotateType>(), // 88
+            ResetStyleFunc::new::<EmptyType>(), // 89
+			ResetStyleFunc::new::<EmptyType>(), // 90
+			ResetStyleFunc::new::<EmptyType>(), // 91
+
+			ResetStyleFunc::new::<EmptyType>(), // 92
+			ResetStyleFunc::new::<EmptyType>(), // 93
+			ResetStyleFunc::new::<EmptyType>(), // 94
+			ResetStyleFunc::new::<EmptyType>(), // 95
+
+            ResetStyleFunc::new::<EmptyType>(), // 96
 
         ];
     }
+
+    
 
     // pub struct Setting<'w> {
     //     pub style: &'w StyleQuery,
@@ -2438,7 +2461,7 @@ pub mod serialize {
 
     impl StyleAttr {
         #[inline]
-        pub fn get_type(style_type: u8) -> StyleType { (STYLE_ATTR[style_type as usize].get_type)() }
+        pub fn get_type(style_type: u8) -> u8 { (STYLE_ATTR[style_type as usize].get_type)() }
 
         #[inline]
         pub unsafe fn write<T: Attr>(value: T, buffer: &mut Vec<u8>) {
@@ -2456,7 +2479,12 @@ pub mod serialize {
             entity: Entity,
             is_clone: bool,
         ) {
-            (STYLE_ATTR[style_index as usize].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
+            if style_index > STYLE_COUNT {
+                (STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone)
+            } else if style_index < STYLE_COUNT * 2  {
+				(STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, is_clone);
+                cur_style_mark.set(style_index as usize, true);
+			}
         }
 
         #[inline]
@@ -2465,11 +2493,18 @@ pub mod serialize {
         }
 
         #[inline]
-        pub fn size(style_index: u8) -> usize { (STYLE_ATTR[style_index as usize].size)() }
+        pub fn size(style_index: u8) -> usize { 
+            if style_index < STYLE_COUNT {
+                (STYLE_ATTR[style_index as usize].size)()
+				
+			} else {
+				0
+			}
+        }
 
         #[inline]
-        pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &Setting, entity: Entity) {
-            (STYLE_ATTR[style_index as usize + 91].set)(cur_style_mark, unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
+        pub fn reset(cur_style_mark: &mut BitArray<[u32; 3]>, style_index: u8, buffer: &Vec<u8>, offset: usize, query: &mut Setting, entity: Entity) {
+            (RESET_STYLE_ATTR[style_index as usize].set)(unsafe { buffer.as_ptr().add(offset) }, query, entity, false);
         }
 
         #[inline]

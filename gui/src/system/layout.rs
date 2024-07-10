@@ -49,6 +49,9 @@ lazy_static! {
 		.set_bit(StyleType::JustifyContent as usize)
 		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY;
 
+	pub static ref DISPLAY: StyleBit = style_bit()
+		.set_bit(StyleType::Display as usize);
+
 }
 
 
@@ -124,7 +127,7 @@ impl<'a> Runner<'a> for LayoutSys {
 				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if dirty1 & StyleType::Display as usize != 0 {
+			if dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) {
 				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, rect_style, other_style);
 			}
 			style_mark.dirty &= !*DIRTY2;

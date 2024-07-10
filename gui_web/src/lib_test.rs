@@ -35,7 +35,6 @@ pub fn offset_height(a: u32, b: u32) -> f32 {
 // extern crate bincode;
 // extern crate cg2d;
 // extern crate data_view;
-// extern crate gui_tool;
 // extern crate hal_core;
 // extern crate hal_webgl;
 // extern crate hash;

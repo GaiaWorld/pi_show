@@ -3,6 +3,9 @@ use std::mem::forget;
 use std::sync::Arc;
 use std::{default::Default, marker::PhantomData};
 
+use dyn_texture::UnuseTexture;
+use pi_assets::allocator::Allocator;
+use pi_assets::asset::{GarbageEmpty, Handle};
 use pi_atom::Atom;
 use hal_core::*;
 use pi_null::Null;
@@ -10,6 +13,8 @@ use pi_style::style_parse::{parse_class_map_from_string, ClassMap};
 use pi_style::style_type::ClassSheet;
 use render::blur::{BlurSys, CellBlurSys};
 use render::mask_texture::{CellMaskTextureSys, MaskTextureSys};
+use crate::render::asset::{AssetConfig, AssetDesc, ShareAssetMgr, ShareHomogeneousMgr};
+use crate::system::util::calc_hash;
 
 use crate::component::user::serialize::{ConvertToComponent, StyleTypeReader};
 use crate::single::dyn_texture::DynAtlasSet;
@@ -18,8 +23,7 @@ use crate::single::fragment::{FragmentMap, Fragments, NodeTag};
 use crate::system::render::opacity::{CellOpacitySys, OpacitySys};
 use ecs::StdCell;
 use ecs::*;
-use res::ResMgr;
-use share::Share;
+use pi_share::Share;
 
 use crate::component::calc;
 use crate::component::user;
@@ -28,7 +32,7 @@ use crate::component::user::*;
 use crate::component::{calc::LayoutR, calc::*};
 use crate::entity::Node;
 use crate::font::font_sheet::FontSheet;
-use crate::render::engine::ShareEngine;
+use crate::render::engine::{ResWrapper1, ShareEngine};
 use crate::render::res::*;
 use crate::single::DirtyViewRect;
 use crate::single::*;
@@ -77,32 +81,239 @@ lazy_static! {
 	
 }
 
-/// 设置资源管理器
-pub fn seting_res_mgr(res_mgr: &mut ResMgr) {
-    res_mgr.register::<TextureRes>(10 * 1024 * 1024, 50 * 1024 * 1024, 5 * 60, 0, "TextureRes".to_string());
-    res_mgr.register::<RenderBufferRes>(16 * 1024 * 1024, 32 * 1024 * 1024, 5 * 60, 0, "RenderBufferRes".to_string());
-    res_mgr.register::<TexturePartRes>(10 * 1024 * 1024, 50 * 1024 * 1024, 5 * 60, 0, "TexturePartRes".to_string());
-    res_mgr.register::<GeometryRes>(20 * 1024, 100 * 1024, 5 * 60, 0, "GeometryRes".to_string());
-    res_mgr.register::<BufferRes>(20 * 1024, 100 * 1024, 5 * 60, 0, "BufferRes".to_string());
+// pub struct ResMgr {
+//     pub texture_res_map: ShareAssetMgr<TextureRes>,
+// 	pub texture_part_res_map: ShareAssetMgr<TexturePartRes>,
+// 	pub renderbuffer_res_map: ShareAssetMgr<RenderBufferRes>,
+//     pub unuse_texture_map: ShareHomogeneousMgr<UnuseTexture>,
+//     pub geometry_res_map: ShareAssetMgr<GeometryRes>,
+//     pub buffer_res_map: ShareAssetMgr<BufferRes>,
 
-    res_mgr.register::<SamplerRes>(512, 1024, 60 * 60, 0, "SamplerRes".to_string());
-    res_mgr.register::<RasterStateRes>(512, 1024, 60 * 60, 0, "RasterStateRes".to_string());
-    res_mgr.register::<BlendStateRes>(512, 1024, 60 * 60, 0, "BlendStateRes".to_string());
-    res_mgr.register::<StencilStateRes>(512, 1024, 60 * 60, 0, "StencilStateRes".to_string());
-    res_mgr.register::<DepthStateRes>(512, 1024, 60 * 60, 0, "DepthStateRes".to_string());
+//     pub rs_res_map: ShareAssetMgr<RasterStateRes>,
+//     pub bs_res_map: ShareAssetMgr<BlendStateRes>,
+//     pub ss_res_map: ShareAssetMgr<StencilStateRes>,
+//     pub ds_res_map: ShareAssetMgr<DepthStateRes>,
+//     pub sampler_res_map: ShareAssetMgr<SamplerRes>,
 
-    res_mgr.register::<UColorUbo>(4 * 1024, 8 * 1024, 60 * 60, 0, "UColorUbo".to_string());
-    res_mgr.register::<HsvUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "HsvUbo".to_string());
-    res_mgr.register::<MsdfStrokeUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "MsdfStrokeUbo".to_string());
-    res_mgr.register::<CanvasTextStrokeColorUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "CanvasTextStrokeColorUbo".to_string());
-}
+//     pub u_color_ubo_map: ShareAssetMgr<ShareUbo<UColorUbo>>,
+//     pub msdf_stroke_ubo_map: ShareAssetMgr<ShareUbo<MsdfStrokeUbo>>,
+//     pub canvas_stroke_ubo_map: ShareAssetMgr<ShareUbo<CanvasTextStrokeColorUbo>>,
+//     pub hsv_ubo_map: ShareAssetMgr<ShareUbo<HsvUbo>>,
+// }
+
+// /// 设置资源管理器
+// pub fn seting_res_mgr(share_allocator: &Share<RefCell<Allocator>>, asset_config: &AssetConfig) ->  ResMgr {
+//     let mut allocator = share_allocator.borrow_mut();
+//     ResMgr {
+//         texture_res_map: ShareAssetMgr::<TextureRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 30 * 1024 * 1024,
+//                 max: 600 * 1024 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 50,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+    
+//         texture_part_res_map: ShareAssetMgr::<TexturePartRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 1 * 1024 * 1024,
+//                 max: 2 * 1024 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 5,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+    
+//         renderbuffer_res_map: ShareAssetMgr::<RenderBufferRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 2 * 1024 * 1024,
+//                 max: 5 * 1024 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 5,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         geometry_res_map: ShareAssetMgr::<GeometryRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 2 * 1024 * 1024,
+//                 max: 5 * 1024 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 5,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         buffer_res_map: ShareAssetMgr::<BufferRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 2 * 1024 * 1024,
+//                 max: 5 * 1024 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 5,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         rs_res_map: ShareAssetMgr::<RasterStateRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 200 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         bs_res_map: ShareAssetMgr::<BlendStateRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 100 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         ss_res_map: ShareAssetMgr::<StencilStateRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 100 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         ds_res_map: ShareAssetMgr::<DepthStateRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 100 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         sampler_res_map: ShareAssetMgr::<SamplerRes>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 100 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         u_color_ubo_map: ShareAssetMgr::<ShareUbo<UColorUbo>>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 100 * 1024,
+//                 max: 500 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         msdf_stroke_ubo_map: ShareAssetMgr::<ShareUbo<MsdfStrokeUbo>>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 1000 * 1024,
+//                 max: 5000 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         canvas_stroke_ubo_map: ShareAssetMgr::<ShareUbo<CanvasTextStrokeColorUbo>>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 1000 * 1024,
+//                 max: 5000 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         hsv_ubo_map: ShareAssetMgr::<ShareUbo<HsvUbo>>::new_with_config(
+//             GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 min: 1000 * 1024,
+//                 max: 5000 * 1024,
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             asset_config,
+//             &mut allocator,
+//         ),
+//         unuse_texture_map: ShareHomogeneousMgr::<UnuseTexture>::new_with_config(
+//             pi_assets::homogeneous::GarbageEmpty(),
+//             &AssetDesc {
+//                 ref_garbage: false,
+//                 // 至少缓存五张， 最多缓存10张
+//                 min: 5 * std::mem::size_of::<UnuseTexture>(),
+//                 max: 20 * std::mem::size_of::<UnuseTexture>(),
+//                 timeout: 10 * 60 * 1000,
+//                 weight: 1,
+//             },
+//             &asset_config,
+//             &mut allocator,
+//         ),
+//     }
+    
+//     // res_mgr.register::<TextureRes>(10 * 1024 * 1024, 50 * 1024 * 1024, 5 * 60, 0, "TextureRes".to_string());
+//     // res_mgr.register::<RenderBufferRes>(16 * 1024 * 1024, 32 * 1024 * 1024, 5 * 60, 0, "RenderBufferRes".to_string());
+//     // res_mgr.register::<TexturePartRes>(10 * 1024 * 1024, 50 * 1024 * 1024, 5 * 60, 0, "TexturePartRes".to_string());
+//     // res_mgr.register::<GeometryRes>(20 * 1024, 100 * 1024, 5 * 60, 0, "GeometryRes".to_string());
+//     // res_mgr.register::<BufferRes>(20 * 1024, 100 * 1024, 5 * 60, 0, "BufferRes".to_string());
+
+//     // res_mgr.register::<SamplerRes>(512, 1024, 60 * 60, 0, "SamplerRes".to_string());
+//     // res_mgr.register::<RasterStateRes>(512, 1024, 60 * 60, 0, "RasterStateRes".to_string());
+//     // res_mgr.register::<BlendStateRes>(512, 1024, 60 * 60, 0, "BlendStateRes".to_string());
+//     // res_mgr.register::<StencilStateRes>(512, 1024, 60 * 60, 0, "StencilStateRes".to_string());
+//     // res_mgr.register::<DepthStateRes>(512, 1024, 60 * 60, 0, "DepthStateRes".to_string());
+
+//     // res_mgr.register::<UColorUbo>(4 * 1024, 8 * 1024, 60 * 60, 0, "UColorUbo".to_string());
+//     // res_mgr.register::<HsvUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "HsvUbo".to_string());
+//     // res_mgr.register::<MsdfStrokeUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "MsdfStrokeUbo".to_string());
+//     // res_mgr.register::<CanvasTextStrokeColorUbo>(1 * 1024, 2 * 1024, 60 * 60, 0, "CanvasTextStrokeColorUbo".to_string());
+// }
 
 pub fn create_world<C: HalContext + 'static>(
     mut engine: ShareEngine<C>,
     width: f32,
     height: f32,
     font_measure: Box<dyn Fn(&Atom, usize, char) -> f32>,
-    font_texture: Share<TextureRes>,
+    font_texture: Handle<TextureRes>,
     cur_time: usize,
 
     share_class_sheet: Option<Share<StdCell<ClassSheet>>>,
@@ -115,7 +326,7 @@ pub fn create_world<C: HalContext + 'static>(
     let project_matrix = ProjectionMatrix::new(width, height, -Z_MAX - 1.0, Z_MAX + 1.0);
 
     let positions = engine.create_buffer_res(
-        POSITIONUNIT.get_hash() as u64,
+        POSITIONUNIT.str_hash() as u64,
         BufferType::Attribute,
         8,
         Some(BufferData::Float(&[0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0])),
@@ -123,7 +334,7 @@ pub fn create_world<C: HalContext + 'static>(
     );
 
     let indices = engine.create_buffer_res(
-        INDEXUNIT.get_hash() as u64,
+        INDEXUNIT.str_hash() as u64,
         BufferType::Indices,
         6,
         Some(BufferData::Short(&[0, 1, 2, 0, 2, 3])),
@@ -133,13 +344,18 @@ pub fn create_world<C: HalContext + 'static>(
     let geo = engine.create_geometry();
     engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
     engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
-    let unit_quad = UnitQuad(Share::new(GeometryRes {
+    let k = calc_hash(&"gloabal unit_quad", 0);
+    let unit_quad = UnitQuad(match engine.geometry_res_map.insert(k, GeometryRes {
         geo: geo,
-        buffers: vec![indices, positions],
-    }));
+        buffers: vec![ResWrapper1::Handle(indices), ResWrapper1::Handle(positions)],
+        size: std::mem::size_of::<GeometryRes>()
+    }) {
+        Ok(r) => r,
+        Err(_) => engine.geometry_res_map.get(&k).unwrap(),
+    });
 
-    let default_state = DefaultState(CommonState::new(&engine.gl));
-    let premulti_state = PremultiState::from_common(&default_state, &engine.gl);
+    let default_state = DefaultState(CommonState::new(&mut engine));
+    let premulti_state = PremultiState::from_common(&default_state, &mut engine);
 
     let charblock_sys = CellCharBlockSys::<C>::new(CharBlockSys::with_capacity(
         &mut engine,
@@ -147,7 +363,7 @@ pub fn create_world<C: HalContext + 'static>(
         capacity,
     ));
     let border_image_sys = BorderImageSys::<C>::with_capacity(&mut engine, capacity);
-    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&engine.res_mgr.borrow()));
+    let node_attr_sys = CellNodeAttrSys::<C>::new(NodeAttrSys::new(&mut engine));
 
     let clip_sys = ClipSys::<C>::new();
     let image_sys = CellImageSys::new(ImageSys::with_capacity(&mut engine, capacity));
@@ -217,6 +433,8 @@ pub fn create_world<C: HalContext + 'static>(
     let mut idtree = IdTree::with_capacity(capacity);
     idtree.set_statistics_count(true);
     //single
+    world.register_single(ResLife((Null::null(), false)));
+    world.register_single(DebugNode(std::usize::MAX));
     world.register_single::<PreRenderList>(PreRenderList(Vec::new()));
     world.register_single::<Statistics>(Statistics::default());
     world.register_single::<IdTree>(idtree);
@@ -226,7 +444,9 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<PixelRatio>(PixelRatio(1.0));
     world.register_single::<RootIndexs>(RootIndexs::default());
     world.register_single::<Share<RefCell<DynAtlasSet>>>(Share::new(RefCell::new(DynAtlasSet::new(
-        engine.res_mgr.clone(),
+        engine.texture_res_map.clone(),
+        engine.renderbuffer_res_map.clone(),
+        engine.unuse_texture_map.0.clone(),
         width as usize,
         height as usize,
     ))));
@@ -441,6 +661,7 @@ pub struct GuiWorldExt {
     pub dirty_view_rect: Arc<CellSingleCase<DirtyViewRect>>,
     pub dyn_atlas_set: Arc<CellSingleCase<Share<RefCell<DynAtlasSet>>>>,
 	pub fragment:  Arc<CellSingleCase<Share<StdCell<FragmentMap>>>>,
+    pub res_life: Arc<CellSingleCase<ResLife>>,
 
 
 	// DefaultComponent默认组件
@@ -510,6 +731,7 @@ impl GuiWorldExt {
 			dirty_view_rect: world.fetch_single::<DirtyViewRect>().unwrap(),
 			dyn_atlas_set: world.fetch_single::<Share<RefCell<DynAtlasSet>>>().unwrap(),
 			fragment: world.fetch_single::<Share<StdCell<FragmentMap>>>().unwrap(),
+            res_life: world.fetch_single::<ResLife>().unwrap(),
 
 			default_components: DefaultComponent { 
 				transform: world.fetch_single::<Transform>().unwrap(),
@@ -580,7 +802,14 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 	pub fn set_style<T: ConvertToComponent>(&mut self, entity: usize, value: T) {
 		let style_mark = self.world_ext.style_mark.lend_mut();
 		if let Some(style_mark) = style_mark.get_mut(entity){
-			<T as ConvertToComponent>::set(&mut style_mark.local_style, &value as *const T as usize as *const u8, &self.world_ext, entity, false);
+			<T as ConvertToComponent>::set( &value as *const T as usize as *const u8, &self.world_ext, entity, false);
+            // pi_print_any::out_any!(log::error, "set_style: {:?}", (entity, T::get_type() as usize, &value));
+            if T::get_style_index() > STYLE_COUNT {
+                style_mark.local_style.set(T::get_type() as usize, false);
+            } else {
+                style_mark.local_style.set(T::get_type() as usize, true);
+            }
+
 			let dirty_list = self.world_ext.dirty_list.lend_mut();
 			// 设脏
 			set_dirty(dirty_list, entity, T::get_type() as usize, style_mark);
@@ -597,6 +826,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 				}
             }
             Err(_e) => {
+                log::error!("create_class_by_bin fail, parse style err: {:?}", _e);
                 return;
             }
         }
@@ -630,6 +860,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 		let t = match fragments.map.get(&key) {
             Some(r) => r,
             _ => {
+                log::error!("create_from_fragment fail, fragment is not exist, key: {:?}", key);
                 return Vec::default();
             }
         };

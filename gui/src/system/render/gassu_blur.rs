@@ -2,7 +2,7 @@
 
 use flex_layout::Size;
 use hal_core::{ProgramParamter, UniformValue, HalContext};
-use share::Share;
+use pi_share::Share;
 
 use crate::{single::{PostProcess, CommonState, PostProcessContext, PostProcessObj}, component::{calc::GaussBlurParamter, user::Aabb2}, render::engine::Engine, system::util::new_render_obj1};
 

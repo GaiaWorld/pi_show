@@ -303,7 +303,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 				}
 	
 				// 找高层绘制， 绘制完成后， 应该调用全局方法回调回来(这里应该异步绘制，否则纹理尺寸可能不满足)
-				drawSdf(world_id, text_info.font.get_hash() as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
+				drawSdf(world_id, text_info.font.str_hash() as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
 			}
 			// engine
             // .gl
@@ -365,7 +365,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 					ctx, 
 					text_info.weight as u32, 
 					text_info.font_size as u32, 
-					text_info.font.get_hash() as u32, 
+					text_info.font.str_hash() as u32, 
 					text_info.stroke_width as u8);
 			};
             if text_info.stroke_width > 0 {

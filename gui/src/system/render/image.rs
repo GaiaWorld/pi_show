@@ -3,8 +3,9 @@
 	*/
 use std::marker::PhantomData;
 
+use pi_assets::asset::Handle;
 use pi_style::style::ImageRepeatOption;
-use share::Share;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
@@ -21,7 +22,7 @@ use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
-use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ResWrapper1, ShareEngine};
 use crate::render::res::Opacity as ROpacity;
 use crate::render::res::*;
 use crate::single::*;
@@ -51,8 +52,8 @@ const DIRTY_TY1: usize = CalcType::BackgroundImageTexture as usize;
 
 pub struct ImageSys<C> {
     render_map: VecMap<usize>,
-    default_sampler: Share<SamplerRes>,
-    unit_geo: Share<GeometryRes>, // 含uv， index， pos
+    default_sampler: Handle<SamplerRes>,
+    unit_geo: Handle<GeometryRes>, // 含uv， index， pos
     default_paramter: ImageParamter,
     marker: PhantomData<C>,
 }
@@ -273,21 +274,27 @@ impl<C: HalContext + 'static> ImageSys<C> {
 
         let default_sampler = engine.create_sampler_res(sm);
 
-        let positions = engine.buffer_res_map.get(&(POSITIONUNIT.get_hash() as u64)).unwrap();
-        let indices = engine.buffer_res_map.get(&(INDEXUNIT.get_hash() as u64)).unwrap();
+        let positions = engine.buffer_res_map.get(&(POSITIONUNIT.str_hash() as u64)).unwrap();
+        let indices = engine.buffer_res_map.get(&(INDEXUNIT.str_hash() as u64)).unwrap();
 
         let geo = engine.create_geometry();
         engine.gl.geometry_set_attribute(&geo, &AttributeName::Position, &positions, 2).unwrap();
         engine.gl.geometry_set_attribute(&geo, &AttributeName::UV0, &positions, 2).unwrap();
         engine.gl.geometry_set_indices_short(&geo, &indices).unwrap();
 
+        let hash = calc_hash(&"ImageSys unit_geo", 0);
+
         ImageSys {
             render_map: VecMap::with_capacity(capacity),
             default_sampler: default_sampler,
-            unit_geo: Share::new(GeometryRes {
+            unit_geo: match engine.geometry_res_map.insert(hash, GeometryRes {
                 geo: geo,
-                buffers: vec![indices, positions.clone(), positions],
-            }),
+                buffers: vec![ResWrapper1::Handle(indices), ResWrapper1::Handle(positions.clone()), ResWrapper1::Handle(positions)],
+                size: std::mem::size_of::<GeometryRes>()
+            }) {
+                Ok(r) => r,
+                _ => panic!(),
+            },
             default_paramter: ImageParamter::default(),
             marker: PhantomData,
         }
@@ -435,7 +442,7 @@ fn update_geo<C: HalContext + 'static>(
     image_clip: Option<&BackgroundImageClip>,
     background_image_mod: &BackgroundImageMod,
     engine: &mut Engine<C>,
-    unit_geo: &Share<GeometryRes>,
+    unit_geo: &Handle<GeometryRes>,
 ) -> VertType {
     let (pos, uv, texture_size, is_part) = get_pos_uv(texture, image_clip, background_image_mod, layout);
 	if (background_image_mod.object_fit == FitType::Fill || background_image_mod.object_fit == FitType::Cover) 
@@ -450,17 +457,17 @@ fn update_geo<C: HalContext + 'static>(
 	} else {
 		let hash = calc_hash(&("image geo", background_image_mod), calc_float_hash(&[layout.rect.top, layout.rect.right, layout.rect.bottom, layout.rect.left], 0));
 		match engine.geometry_res_map.get(&hash) {
-			Some(r) => render_obj.geometry = Some(r.clone()),
+			Some(r) => render_obj.geometry = ResWrapper::Handle(r),
 			None => {
 				let (positions, uvs, indices) = get_pos_uv_buffer(&pos, &uv, texture_size, background_image_mod);
-				render_obj.geometry = Some(engine.create_geo_res(
+				render_obj.geometry = engine.create_geo_res(
 					0,
 					indices.as_slice(),
 					&[
 						AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
 						AttributeDecs::new(AttributeName::UV0, uvs.as_slice(), 2),
 					],
-				));
+				);
 			}
 		}
 		VertType::ContentNone
@@ -547,18 +554,20 @@ fn update_geo_quad<C: HalContext + 'static>(
     uv: &Aabb2,
     image_clip: Option<&BackgroundImageClip>,
     engine: &mut Engine<C>,
-    unit_geo: &Share<GeometryRes>,
+    unit_geo: &Handle<GeometryRes>,
     is_part: bool,
 ) {
     match (image_clip, is_part) {
-        (None, false) => render_obj.geometry = Some(unit_geo.clone()),
+        (None, false) => render_obj.geometry = ResWrapper::Handle(unit_geo.clone()),
         _ => {
             let (uv1, uv2) = (uv.mins, uv.maxs);
             // log::info!("clip===={:?}, {:?}, {:?}, {:?}", _clip, &uv1, &uv2, flip_y);
             let uv_hash = cal_uv_hash(&uv1, &uv2);
             let geo_hash = unit_geo_hash(&uv_hash);
             match engine.geometry_res_map.get(&geo_hash) {
-                Some(r) => render_obj.geometry = Some(r),
+                Some(r) => {
+                    render_obj.geometry = ResWrapper::Handle(r);
+                },
                 None => {
                     let uv_buffer = create_uv_buffer(uv_hash, &uv1, &uv2, engine);
                     let geo = engine.create_geometry();
@@ -570,9 +579,13 @@ fn update_geo_quad<C: HalContext + 'static>(
                     engine.gl.geometry_set_indices_short(&geo, &unit_geo.buffers[0]).unwrap();
                     let geo_res = GeometryRes {
                         geo: geo,
-                        buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), uv_buffer],
+                        buffers: vec![unit_geo.buffers[0].clone(), unit_geo.buffers[1].clone(), ResWrapper1::Handle(uv_buffer)],
+                        size: std::mem::size_of::<GeometryRes>()
                     };
-                    render_obj.geometry = Some(engine.geometry_res_map.create(geo_hash, geo_res, 0, 0));
+                    render_obj.geometry =  match engine.geometry_res_map.insert(geo_hash, geo_res) {
+                        Ok(r) => ResWrapper::Handle(r),
+                        Err(_) => panic!(),
+                    };
                 }
             };
         }
@@ -589,7 +602,7 @@ fn cal_uv_hash(uv1: &Point2, uv2: &Point2) -> u64 {
     hasher.finish()
 }
 
-fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv1: &Point2, uv2: &Point2, engine: &mut Engine<C>) -> Share<BufferRes> {
+fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv1: &Point2, uv2: &Point2, engine: &mut Engine<C>) -> Handle<BufferRes> {
     match engine.buffer_res_map.get(&uv_hash) {
         Some(r) => r,
         None => {
@@ -689,14 +702,14 @@ fn use_layout_pos<C: HalContext + 'static>(render_obj: &mut RenderObj, uv: Aabb2
         uvs.push(v[0][i]);
     }
 
-    render_obj.geometry = Some(engine.create_geo_res(
+    render_obj.geometry = engine.create_geo_res(
         0,
         indices.as_slice(),
         &[
             AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
             AttributeDecs::new(AttributeName::UV0, uvs.as_slice(), 2),
         ],
-    ));
+    );
 }
 
 

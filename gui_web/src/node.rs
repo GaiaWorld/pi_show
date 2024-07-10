@@ -4,6 +4,7 @@ use std::mem::transmute;
 use std::{f32::INFINITY as FMAX, usize::MAX as UMAX};
 
 use flex_layout::CharNode;
+use gui::render::engine::ResWrapper1;
 use gui::single::oct::OctKey;
 use js_sys::{Math, Object, Uint32Array};
 use pi_style::style::{BaseShape, Center};
@@ -20,9 +21,9 @@ use gui::single::IdTree;
 use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
-use share::Share;
+use pi_share::Share;
 
-// use share::Share;
+// use pi_share::Share;
 use gui::component::calc::*;
 use gui::component::user::*;
 use gui::entity::Node;
@@ -201,19 +202,22 @@ pub fn set_canvas_size(
 			None
 		};
 		let texture = match texture {
-			Some(r) => r,
+			Some(r) => ResWrapper1::Handle(r),
 			None => {
 				let index = dyn_atlas_set.borrow_mut().update_or_add_rect(0, 0, width as f32, height as f32, PixelFormat::RGBA, DataFormat::UnsignedByte, need_depth, 3, 3, &mut engine.gl);
 				let texture = TexturePartRes::new(index, dyn_atlas_set_new);
 				let cost = texture.cost();
-				if soruce>0 {
-					Share::new(texture) // 不放入资源管理器， canvas不共享
+				if soruce==0 {
+					ResWrapper1::Share(Share::new(texture)) // 不放入资源管理器， canvas不共享
 				} else {
-					engine.texture_part_res_map.create(soruce as u64, texture, cost, 0)
+					match engine.texture_part_res_map.insert(soruce as u64, texture) {
+						Ok(r) => ResWrapper1::Handle(r),
+						_ => panic!(),
+					}
 				}
 			},
 		};
-		// // let name = Atom::from(format!("canvas{}", Math::random())).get_hash();
+		// // let name = Atom::from(format!("canvas{}", Math::random())).str_hash();
 		let index = texture.index();
 		// // let cost = texture.cost();
 		
@@ -1246,6 +1250,25 @@ pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
         ab_query_func(&mut args, OctKey(e), &oct.0, &e);
     }
     args.result as u32
+}
+
+#[wasm_bindgen]
+pub fn set_debug_node(world: u32, node: usize) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+    match world.gui.world.fetch_single::<DebugNode>() {
+		Some(r) => r.lend_mut().0 = node,
+		None => world.gui.world.register_single(DebugNode(node)),
+	};
+}
+
+#[wasm_bindgen]
+pub fn set_res_life(world: u32, node: usize, life: bool) {
+	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+
+    let r = world.gui.world_ext.res_life.lend_mut();
+	r.0 = (node, life);
+	r.get_notify_ref().modify_event(0, "", 0);
 }
 
 // #[allow(unused_attributes)]

@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 
 use ecs::entity::Entity;
-use share::Share;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
@@ -57,8 +57,8 @@ const DIRTY_TY1: usize = StyleType::MaskTexture as usize
 pub struct RenderContextSys<C> {
 	dirty: XHashSet<usize>,
 	render_map: VecMap<usize>,
-	default_sampler: Share<SamplerRes>,
-	uv1_sampler: Share<SamplerRes>,
+	default_sampler: Handle<SamplerRes>,
+	uv1_sampler: Handle<SamplerRes>,
 	unit_geo: Share<GeometryRes>, // 含uv， index， pos
 	default_paramter: FboParamter,
 	marker: PhantomData<C>,
@@ -485,11 +485,11 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 
 		let positions = engine
 			.buffer_res_map
-			.get(&(POSITIONUNIT.get_hash() as u64))
+			.get(&(POSITIONUNIT.str_hash() as u64))
 			.unwrap();
 		let indices = engine
 			.buffer_res_map
-			.get(&(INDEXUNIT.get_hash() as u64))
+			.get(&(INDEXUNIT.str_hash() as u64))
 			.unwrap();
 
 		let geo = engine.create_geometry();
@@ -678,7 +678,7 @@ fn create_uv_buffer<C: HalContext + 'static>(
 	uv1: &Point2,
 	uv2: &Point2,
 	engine: &mut Engine<C>,
-) -> Share<BufferRes> {
+) -> Handle<BufferRes> {
 	match engine.buffer_res_map.get(&uv_hash) {
 		Some(r) => r,
 		None => {

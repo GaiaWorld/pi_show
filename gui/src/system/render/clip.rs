@@ -11,7 +11,8 @@ use ecs::monitor::{Event, NotifyImpl};
 use ecs::{ModifyEvent, MultiCaseImpl, Runner, SingleCaseImpl, SingleCaseListener};
 use hal_core::*;
 use map::vecmap::VecMap;
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 
 use crate::component::calc::*;
 use crate::component::user::Aabb2;
@@ -33,12 +34,12 @@ pub struct ClipSys<C> {
 
 struct ClipTextureRender {
     clip_size_ubo: Share<ClipTextureSize>,
-	sampler: Share<SamplerRes>,
+	sampler: Handle<SamplerRes>,
 
-    rs: Share<RasterStateRes>,
-    bs: Share<BlendStateRes>,
-    ss: Share<StencilStateRes>,
-    ds: Share<DepthStateRes>,
+    rs: Handle<RasterStateRes>,
+    bs: Handle<BlendStateRes>,
+    ss: Handle<StencilStateRes>,
+    ds: Handle<DepthStateRes>,
     render_target: HalRenderTarget,
     program: Share<HalProgram>,
 	geometry: HalGeometry,
@@ -71,8 +72,8 @@ impl<C: HalContext + 'static> ClipSys<C> {
         let geo = engine.create_geometry();
 
         let program = engine.create_program(
-            CLIP_VS_SHADER_NAME.get_hash() as u64,
-            CLIP_FS_SHADER_NAME.get_hash() as u64,
+            CLIP_VS_SHADER_NAME.str_hash() as u64,
+            CLIP_FS_SHADER_NAME.str_hash() as u64,
             CLIP_VS_SHADER_NAME.as_ref(),
             &VsDefines::default(),
             CLIP_FS_SHADER_NAME.as_ref(),

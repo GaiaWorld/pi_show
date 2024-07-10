@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 /**
  * 样式标记
 * StyleMarkSys系统会在Node实体创建时， 自动为Node创建一个StyleMark组件， 该组件用于标记了各种样式脏、是否为本地样式
@@ -13,10 +14,13 @@ use ecs::{
     SingleCaseListener, StdCell, World,
 };
 use flex_layout::*;
+use guillotiere::Change;
 use hal_core::*;
 use hash::XHashSet;
+use pi_assets::asset::Handle;
+use pi_null::Null;
 use pi_style::style_type::ClassSheet;
-use share::Share;
+use pi_share::Share;
 
 use crate::component::calc::*;
 use crate::component::calc::{LayoutR, Opacity as COpacity};
@@ -178,18 +182,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ClassSetting<C> {
 					let mut new_class_style_mark: StyleBit = StyleBit::default();
                     style_mark.class_style = StyleBit::default();
 
+                    let class_sheet = &****class_sheet;
 					let class_sheet = class_sheet.borrow();
                      // 设置class样式
 					for i in class.iter() {
 						if let Some(class) = class_sheet.class_map.get(i) {
-							// log::warn!("set class1==========={:?}, {:?}", id, i);
 							let mut style_reader = StyleTypeReader::new(&class_sheet.style_buffer, class.start, class.end);
 							let is_write = |ty: StyleType| {
 								// if !local_style_mark[ty as usize] {
 								// 	count.fetch_add(1, Ordering::Relaxed);
 								// }
 								// if local_style_mark[ty as usize] {
-								// 	log::warn!("!==========={:?}", ty);
 								// }
 								// 本地样式不存在，才会设置class样式
 								!local_style_mark[ty as usize]
@@ -742,6 +745,30 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, IdTree, DeleteEvent> fo
     }
 }
 
+impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ResLife, ModifyEvent> for StyleMarkSys<C> {
+    type ReadData = (&'a SingleCaseImpl<IdTree>, &'a MultiCaseImpl<Node, NodeState>, &'a SingleCaseImpl<ResLife>);
+    type WriteData = ImageTextureWrite<'a, C>;
+    fn listen(&mut self, event: &Event, (idtree, node_states, res_life): Self::ReadData, mut write: Self::WriteData) {
+        if res_life.0.0.is_null() {
+            return;
+        }
+
+        if res_life.0.1 == true {
+            // 创建资源
+            idtree_create(res_life.0.0, &idtree, &node_states, &mut write);
+        } else {
+            // 释放资源
+            release_image(res_life.0.0, &mut write);
+
+            let node = &idtree[res_life.0.0];
+            for (id, _n) in idtree.recursive_iter(node.children().head) {
+                release_image(id, &mut write);
+            }
+        }
+        
+    }
+}
+
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ClassName, ModifyEvent> for ClassSetting<C> {
     type ReadData = ();
@@ -848,7 +875,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
     }
 }
 
-fn set_image_size(src: &Share<TextureRes>, layout_style: &mut RectLayoutStyle, image_clip: Option<&BackgroundImageClip>, style_mark: &mut StyleMark) {
+fn set_image_size(src: &Handle<TextureRes>, layout_style: &mut RectLayoutStyle, image_clip: Option<&BackgroundImageClip>, style_mark: &mut StyleMark) {
     let img_clip;
     let image_clip = match image_clip {
         Some(r) => {
@@ -2194,13 +2221,15 @@ fn load_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>
 
 // 从树上删除节点， 删除节点对图片资源的引用
 fn release_image<'a, C: HalContext>(id: usize, write: &mut ImageTextureWrite<'a, C>) {
-    if let Some(_r) = write.11.get(id) {
+    if let Some(r) = write.11.get(id) {
         write.11.delete(id);
     }
-    if let Some(_r) = write.12.get(id) {
-        write.12.delete(id);
+    if let Some(r) = write.12.get(id) {
+        if let ImageTexture::All(_, _) = r {
+            write.12.delete(id);
+        }
     }
-    if let Some(_r) = write.13.get(id) {
+    if let Some(r) = write.13.get(id) {
         write.13.delete(id);
     }
 
@@ -2418,6 +2447,8 @@ impl_system! {
         SingleCaseListener<RenderObjs, CreateEvent>
         SingleCaseListener<IdTree, CreateEvent>
         SingleCaseListener<IdTree, DeleteEvent>
+
+        SingleCaseListener<ResLife, ModifyEvent>
     }
 }
 

@@ -14,7 +14,7 @@ use ecs::{
 	system::{MultiCaseListener, Runner},
 };
 
-use share::Share;
+use pi_share::Share;
 
 use flex_layout::*;
 use hal_core::*;
@@ -59,6 +59,7 @@ type Write<'a> = (
 	&'a mut SingleCaseImpl<Share<StdCell<FontSheet>>>,
 	&'a mut SingleCaseImpl<IdTree>,
 	&'a mut EntityImpl<Node>,
+	&'a mut MultiCaseImpl<Node, StyleMark>,
 );
 
 pub struct LayoutImpl {
@@ -73,7 +74,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 		&'a MultiCaseImpl<Node, TextContent>,
 		&'a MultiCaseImpl<Node, ClassName>,
 		&'a MultiCaseImpl<Node, WorldMatrix>,
-		&'a MultiCaseImpl<Node, StyleMark>,
 		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<ShareEngine<C>>,
 		&'a SingleCaseImpl<RenderBegin>
@@ -83,6 +83,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		let mut flag = true;
 		let mut count = 0;
+		let mut dirty_list = &(read.3).0;
+		let mut dirty_list1 = Vec::new();
 		while flag {
 			flag = false;
 			count += 1;
@@ -90,70 +92,35 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 				log::debug!("TextGlphySys dead loop, the current texture size cannot cache existing text");
 				panic!("TextGlphySys dead loop");
 			}
-
-			for id in (read.4).0.iter() {
-				let r = match read.3.get(*id) {
+			for id in dirty_list.iter() {
+				let r = match write.8.get(*id) {
 					Some(r) => r,
 					None => continue,
 				};
 	
-				if (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
+				if count == 1 && (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
 					continue;
 				}
 	
-				match set_gylph(*id, &(read.0, read.1, read.2, read.3, read.4), &mut write) {
+				match set_gylph(*id, read.2, &mut write) {
 					Result::Err(_message) => {	
 						log::info!("textTexture flow, reset textTexture, ${:?}", _message);
 						// panic!("err:{:?}", message);
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
-
-						// // // 纹理清空为玫红 （不清理，已经处理了采样溢出边界问题，因此可以不用清理，使用sdf时，用的是alpha通道纹理，也没法通过绘制的方式清理纹理）
-						// let (width, height) = (font_sheet.font_tex.texture.width, font_sheet.font_tex.texture.height);
-						// // let mut vec = Vec::with_capacity(width * height * 4);
-						// // for _a in 0..width * height {
-						// // 	vec.push(0);
-						// // 	vec.push(0);
-						// // 	vec.push(1);
-						// // 	vec.push(1);
-						// // }
-						// // read.5.gl.texture_update(&font_sheet.font_tex.texture.bind, 0, &TextureData::U8(0, 0, width as u32, height as u32, vec.as_slice()));
-
-						// let target = read.5.gl.rt_create(
-						// 	width as u32,
-						// 	height as u32,
-						// )
-						// .unwrap();
-						// // let texture = read.5.gl.texture_create_2d(
-						// // 	0, 
-						// // 	width as u32,
-						// // 	height as u32,
-						// // 		PixelFormat::RGBA,
-						// // 		DataFormat::UnsignedByte,
-						// // 	false, 
-						// // 	None
-						// // ).unwrap();
-						// read.5.gl.rt_set_color(&target, Some(&font_sheet.font_tex.texture.bind));
-						
-						// read.5.gl.render_begin(Some(&target), &RenderBeginDesc{
-						// 	viewport: (0,0,width as i32,height as i32),
-						// 	scissor: (0,0,width as i32,height as i32),
-						// 	clear_color: Some((OrderedFloat(1.0), OrderedFloat(0.0), OrderedFloat(1.0), OrderedFloat(1.0))),
-						// 	clear_depth: read.6.0.clear_depth.clone(),
-						// 	clear_stencil: read.6.0.clear_stencil.clone(),
-						// }, true);
-
-						// read.5.gl.render_end();
 						
 						// 对界面上的文字全部重新计算字形
 						let idtree = &write.6;
 						let root = &idtree[1];
 						let notify = read.0.get_notify_ref();
+						dirty_list1.clear();
 						for (id, _node) in idtree.recursive_iter(root.children().head) {
 							if read.0.get(id).is_some() { // 文字节点，发送修改事件
-								notify.modify_event(id, "", 0)
+								notify.modify_event(id, "", 0);
+								dirty_list1.push(id);
 							}
 						}
+						dirty_list = &dirty_list1;
 						flag = true; // 重新迭代
 						break;
 					},
@@ -298,8 +265,9 @@ fn update_layout(
 // 设置字形的id
 fn set_gylph<'a>(
 	id: usize, 
-	(_text_contents, _class_names, world_matrixs, _style_marks, _dirty_list): &Read, 
-	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes): &mut Write) -> Result<(), String> {
+	
+	world_matrixs: &'a MultiCaseImpl<Node, WorldMatrix>,
+	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes, _text_style): &mut Write) -> Result<(), String> {
 	let scale = Vector4::from(world_matrixs[id].fixed_columns(1));
 	let scale = scale.dot(&scale).sqrt();
 	if scale < 0.000001 {
@@ -342,6 +310,9 @@ fn set_gylph<'a>(
 				return Result::Err(String::from(format!("异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}", char_node.ch, text_style.font.family, id) ));
 			}
 			char_node.ch_id_or_count = char_id;
+			if char_node.ch == '祭' {
+				log::warn!("char_id: {:?}", (id, char_node.ch, char_id));
+			}
         }
     }
 	return Ok(())
@@ -747,7 +718,7 @@ impl<'a> Calc<'a> {
 fn calc<'a>(
 	id: usize,
 	(text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
-	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes):&mut Write,
+	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes, _style_mark):&mut Write,
 	layout_dirty: bool,) {
 	let font_sheet = &mut font_sheet.borrow_mut();
 	let defaultFamily = text_styles[0].font.family.clone(); // 0不存在text_style， 必然取到默认值

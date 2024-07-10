@@ -1,7 +1,8 @@
 pub mod constant;
 
 use num_traits::Float;
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::DefaultHasher;
@@ -19,7 +20,7 @@ use pi_style::style::BorderRadius;
 use crate::component::user::*;
 use crate::component::{calc::LayoutR, calc::*};
 use crate::entity::Node;
-use crate::render::engine::Engine;
+use crate::render::engine::{Engine, ResWrapper};
 use crate::render::res::BufferRes;
 use crate::single::*;
 use crate::system::util::constant::*;
@@ -243,7 +244,7 @@ pub fn cal_uv_hash(uv1: &Point2, uv2: &Point2) -> u64 {
     hasher.finish()
 }
 
-pub fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv1: &Point2, uv2: &Point2, engine: &mut Engine<C>) -> Share<BufferRes> {
+pub fn create_uv_buffer<C: HalContext + 'static>(uv_hash: u64, uv1: &Point2, uv2: &Point2, engine: &mut Engine<C>) -> Handle<BufferRes> {
     match engine.buffer_res_map.get(&uv_hash) {
         Some(r) => r,
         None => {
@@ -453,7 +454,7 @@ pub fn new_render_obj(
         vs_defines: Box::new(VsDefines::default()),
         fs_defines: Box::new(FsDefines::default()),
         program: None,
-        geometry: None,
+        geometry: ResWrapper::None,
         depth_diff,
         is_opacity,
         vs_name,
@@ -463,6 +464,7 @@ pub fn new_render_obj(
         context,
         post_process: None,
 		vert_type: VertType::Border,
+        post_uv: None,
     }
 }
 

@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
 
-use atom::Atom;
+use pi_atom::Atom;
 use hal_core::*;
 use hash::XHashMap;
-use share::Share;
+use pi_share::Share;
 use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlUniformLocation};
 use js_sys::{Boolean, Number};
 
@@ -327,7 +327,7 @@ impl WebGLProgramImpl {
                 true
             });
 
-            let name = Atom::from(name);
+            let name = pi_atom::Atom::from(name);
             let loc = gl.get_uniform_location(program, &uniform.name()).unwrap();
 
             match uniform.type_() {

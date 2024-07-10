@@ -1,11 +1,11 @@
-use share::{Share};
+use pi_assets::asset::Handle;
 use hash::XHashMap;
 
 use crate::render::res::{TextureRes};
 use crate::component::user::{Point2};
 
 pub struct FontTex{
-    pub texture: Share<TextureRes>,
+    pub texture: Handle<TextureRes>,
     line_map: XHashMap<(usize, usize), (Point2, usize)>,
     pub last_v: f32,
 }
@@ -16,7 +16,7 @@ impl FontTex {
 		self.last_v = 0.0;
 	}
 
-    pub fn new(texture: Share<TextureRes>) -> Self {
+    pub fn new(texture: Handle<TextureRes>) -> Self {
         // let tex = ctx.create_texture_2d(TEX_WIDTH as u32, INIT_TEX_HEIGHT, 0, &PixelFormat::RGBA, &DataFormat::UnsignedByte, false, &TextureData::None).unwrap();
         // texture: Share::new(TextureRes::new(usize::from("FontTex"), TEX_WIDTH as usize, INIT_TEX_HEIGHT as usize, Opacity::Translucent, Compress::None, tex)),
         FontTex {

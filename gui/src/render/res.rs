@@ -6,13 +6,14 @@ use std::ops::{Deref, DerefMut};
 
 use hal_core::*;
 
+use pi_assets::asset::{Asset, Size};
 use pi_atom::Atom;
-use res::Res;
-use share::Share;
+use pi_share::Share;
 
-use crate::{single::dyn_texture::DynAtlasSet};
+use crate::single::dyn_texture::DynAtlasSet;
 use crate::component::user::Aabb2;
-use crate::render::engine::UnsafeMut;
+
+use super::engine::ResWrapper1;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Opacity {
@@ -81,7 +82,7 @@ impl TexturePartRes {
 
 	pub fn size(&self) -> (usize, usize) {
 		let set = self.dyn_texture_set.borrow_mut();
-		let texture = set.get_texture(self.index).unwrap();
+		let texture = set.get_target_size(self.index).unwrap();
 		return (texture.width, texture.height)
 	}
 
@@ -107,24 +108,44 @@ impl Drop for TexturePartRes {
 // 	}
 // }
 
-impl Res for TexturePartRes {
-    type Key = u64;
+// impl Res for TexturePartRes {
+//     type Key = u64;
+// }
+
+impl Asset for TexturePartRes {
+	type Key = u64;
 }
+
+impl Size for TexturePartRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+
 
 unsafe impl Send for TexturePartRes {}
 unsafe impl Sync for TexturePartRes {}
 
-#[derive(Deref)]
-pub struct RenderBufferRes(HalRenderBuffer);
+pub struct RenderBufferRes{pub value: HalRenderBuffer, pub size: usize}
 
 impl RenderBufferRes {
-	pub fn new(res: HalRenderBuffer) -> RenderBufferRes{
-		return RenderBufferRes(res);
+	pub fn new(res: HalRenderBuffer, size: usize) -> RenderBufferRes{
+		return RenderBufferRes{ value: res, size };
 	}
 }
 
-impl Res for RenderBufferRes {
-    type Key = u64;
+// impl Res for RenderBufferRes {
+//     type Key = u64;
+// }
+
+impl Asset for RenderBufferRes {
+	type Key = u64;
+}
+
+impl Size for RenderBufferRes {
+	fn size(&self) -> usize {
+		self.size
+	}
 }
 
 unsafe impl Send for RenderBufferRes {}
@@ -167,8 +188,23 @@ impl TextureRes {
     }
 }
 
-impl Res for TextureRes {
-    type Key = Atom;
+// impl Res for TextureRes {
+//     type Key = Atom;
+// }
+
+impl Asset for TextureRes {
+	type Key = Atom;
+}
+
+impl Size for TextureRes {
+	fn size(&self) -> usize {
+        match self.cost {
+			Some(r) => r,
+			None => self.width
+            * self.height
+            * pixe_size(self.pformat, self.dformat),
+		}
+	}
 }
 
 unsafe impl Send for TextureRes {}
@@ -192,12 +228,29 @@ pub struct StencilStateRes(pub HalStencilState);
 #[derive(Deref, DerefMut)]
 pub struct DepthStateRes(pub HalDepthState);
 
-#[derive(Deref, DerefMut)]
-pub struct BufferRes(pub HalBuffer);
+
+pub struct BufferRes{
+    pub value: HalBuffer, 
+    pub size: usize,
+}
+
+impl Deref for BufferRes {
+    type Target = HalBuffer;
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl DerefMut for BufferRes {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
 
 pub struct GeometryRes {
     pub geo: HalGeometry,
-    pub buffers: Vec<Share<BufferRes>>,
+    pub buffers: Vec<ResWrapper1<BufferRes>>,
+    pub size: usize,
 }
 
 impl Deref for GeometryRes {
@@ -213,44 +266,112 @@ impl DerefMut for GeometryRes {
     }
 }
 
-impl Res for SamplerRes {
-    type Key = u64;
+impl Asset for SamplerRes {
+	type Key = u64;
 }
+
+impl Size for SamplerRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+
+// impl Res for SamplerRes {
+//     type Key = u64;
+// }
 unsafe impl Send for SamplerRes {}
 unsafe impl Sync for SamplerRes {}
 
-impl Res for GeometryRes {
-    type Key = u64;
+impl Asset for GeometryRes {
+	type Key = u64;
 }
+
+impl Size for GeometryRes {
+	fn size(&self) -> usize {
+		self.size
+	}
+}
+// impl Res for GeometryRes {
+//     type Key = u64;
+// }
 unsafe impl Send for GeometryRes {}
 unsafe impl Sync for GeometryRes {}
 
-impl Res for RasterStateRes {
-    type Key = u64;
+impl Asset for RasterStateRes {
+	type Key = u64;
 }
+
+impl Size for RasterStateRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+
+// impl Res for RasterStateRes {
+//     type Key = u64;
+// }
 unsafe impl Send for RasterStateRes {}
 unsafe impl Sync for RasterStateRes {}
 
-impl Res for BlendStateRes {
-    type Key = u64;
+impl Asset for BlendStateRes {
+	type Key = u64;
 }
+
+impl Size for BlendStateRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+// impl Res for BlendStateRes {
+//     type Key = u64;
+// }
 unsafe impl Send for BlendStateRes {}
 unsafe impl Sync for BlendStateRes {}
 
-impl Res for StencilStateRes {
-    type Key = u64;
+
+impl Asset for StencilStateRes {
+	type Key = u64;
 }
+
+impl Size for StencilStateRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+// impl Res for StencilStateRes {
+//     type Key = u64;
+// }
 unsafe impl Send for StencilStateRes {}
 unsafe impl Sync for StencilStateRes {}
 
-impl Res for DepthStateRes {
-    type Key = u64;
+
+impl Asset for DepthStateRes {
+	type Key = u64;
 }
+
+impl Size for DepthStateRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+// impl Res for DepthStateRes {
+//     type Key = u64;
+// }
 unsafe impl Send for DepthStateRes {}
 unsafe impl Sync for DepthStateRes {}
 
-impl Res for BufferRes {
-    type Key = u64;
+
+impl Asset for BufferRes {
+	type Key = u64;
 }
+
+impl Size for BufferRes {
+	fn size(&self) -> usize {
+		std::mem::size_of::<Self>()
+	}
+}
+// impl Res for BufferRes {
+//     type Key = u64;
+// }
 unsafe impl Send for BufferRes {}
 unsafe impl Sync for BufferRes {}

@@ -6,10 +6,12 @@ pub mod oct;
 // pub mod style_parse;
 pub mod dyn_texture;
 pub mod fragment;
+// pub mod target_alloc;
 
 use dirty::LayerDirty;
 use flex_layout::Size;
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 use std::any::{Any, TypeId};
 use std::default::Default;
 use std::ops::{Index, IndexMut};
@@ -26,9 +28,17 @@ use slab::Slab;
 
 use crate::component::calc::{ClipBox, WorldMatrix, ImageTexture};
 use crate::component::user::*;
+use crate::render::engine::{Engine, ResWrapper};
 use crate::render::res::*;
 // pub use crate::single::class::*;
 pub use crate::single::oct::Oct;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
+pub struct DebugNode(pub usize);
+
+// （实体， true表示加载资源， false表示释放资源）
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Deref)]
+pub struct ResLife(pub (usize, bool));
 
 pub struct OverflowClip {
     pub id_map: XHashMap<usize, usize>,
@@ -47,13 +57,22 @@ pub struct Clip {
 }
 
 impl OverflowClip {
-    pub fn mem_size(&self) -> usize {
+    pub fn capacity_mem_size(&self) -> usize {
         2 * self.id_map.capacity() * std::mem::size_of::<usize>()
-            + self.clip.mem_size()
+            + self.clip.capacity_mem_size()
             + self.clip_map.capacity()
                 * (std::mem::size_of::<usize>()
                     + std::mem::size_of::<(Aabb2, Share<dyn UniformBuffer>)>())
     }
+
+    pub fn use_mem_size(&self) -> usize {
+        2 * self.id_map.len() * std::mem::size_of::<usize>()
+            + self.clip.use_mem_size()
+            + self.clip_map.len()
+                * (std::mem::size_of::<usize>()
+                    + std::mem::size_of::<(Aabb2, Share<dyn UniformBuffer>)>())
+    }
+
     pub fn insert_aabb(
         &mut self,
         key: usize,
@@ -123,13 +142,13 @@ pub struct RenderRect {
 #[derive(Default)]
 pub struct ImageWaitSheet {
     pub wait: XHashMap<Atom, Vec<ImageWait>>,
-    pub finish: Vec<(Atom, Share<TextureRes>, Vec<ImageWait>)>,
+    pub finish: Vec<(Atom, Handle<TextureRes>, Vec<ImageWait>)>,
     pub loads: Vec<Atom>,
 }
 
 
 impl ImageWaitSheet {
-    pub fn mem_size(&self) -> usize {
+    pub fn capacity_mem_size(&self) -> usize {
         let mut r = 0;
         for (_, v) in self.wait.iter() {
             r += v.capacity() * std::mem::size_of::<ImageWait>();
@@ -139,6 +158,20 @@ impl ImageWaitSheet {
         }
 
         r += self.loads.capacity() * std::mem::size_of::<Atom>();
+
+        r
+    }
+
+    pub fn use_mem_size(&self) -> usize {
+        let mut r = 0;
+        for (_, v) in self.wait.iter() {
+            r += v.len() * std::mem::size_of::<ImageWait>();
+        }
+        for v in self.finish.iter() {
+            r += v.2.len() * std::mem::size_of::<ImageWait>();
+        }
+
+        r += self.loads.len() * std::mem::size_of::<Atom>();
 
         r
     }
@@ -176,7 +209,7 @@ pub struct ImageWait {
     pub id: usize,
 }
 
-pub struct UnitQuad(pub Share<GeometryRes>);
+pub struct UnitQuad(pub Handle<GeometryRes>);
 
 #[derive(Default)]
 pub struct DirtyList(pub Vec<usize>);
@@ -192,7 +225,7 @@ impl DirtyList {
 pub struct PremultiState(pub CommonState);
 
 impl PremultiState {
-	pub fn from_common<C: HalContext + 'static>(common: &CommonState, gl: &C) -> Self {
+	pub fn from_common<C: HalContext + 'static>(common: &CommonState, engine: &mut Engine<C>) -> Self {
         let mut df_bs = BlendStateDesc::default();
         let mut df_ds = DepthStateDesc::default();
 
@@ -205,13 +238,13 @@ impl PremultiState {
 		Self(CommonState{
 			df_rs: common.df_rs.clone(),
 			df_ss: common.df_ss.clone(),
-			df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
-            df_ds: Share::new(DepthStateRes(gl.ds_create(df_ds).unwrap())),
+			df_bs: engine.create_bs_res(df_bs),
+            df_ds: engine.create_ds_res(df_ds),
             alpha_add_bs: common.alpha_add_bs.clone(),
 			multiply_bs: common.multiply_bs.clone(),
 			subtract_bs: common.subtract_bs.clone(),
 			one_one_bs: common.one_one_bs.clone(),
-            tarns_ds: Share::new(DepthStateRes(gl.ds_create(tarns_ds).unwrap())),
+            tarns_ds: engine.create_ds_res(tarns_ds),
 		})
 	}
 }
@@ -238,21 +271,21 @@ impl std::ops::DerefMut for RootIndexs {
 #[derive(Deref, DerefMut)]
 pub struct DefaultState(pub CommonState);
 pub struct CommonState {
-    pub df_rs: Share<RasterStateRes>,
-    pub df_bs: Share<BlendStateRes>,
-    pub df_ss: Share<StencilStateRes>,
-    pub df_ds: Share<DepthStateRes>,
+    pub df_rs: Handle<RasterStateRes>,
+    pub df_bs: Handle<BlendStateRes>,
+    pub df_ss: Handle<StencilStateRes>,
+    pub df_ds: Handle<DepthStateRes>,
 
-    pub tarns_ds: Share<DepthStateRes>,
+    pub tarns_ds: Handle<DepthStateRes>,
 
-	pub alpha_add_bs: Share<BlendStateRes>,
-	pub multiply_bs: Share<BlendStateRes>,
-	pub subtract_bs: Share<BlendStateRes>,
-	pub one_one_bs: Share<BlendStateRes>,
+	pub alpha_add_bs: Handle<BlendStateRes>,
+	pub multiply_bs: Handle<BlendStateRes>,
+	pub subtract_bs: Handle<BlendStateRes>,
+	pub one_one_bs: Handle<BlendStateRes>,
 }
 
 impl CommonState {
-    pub fn new<C: HalContext + 'static>(gl: &C) -> Self {
+    pub fn new<C: HalContext + 'static>(engine: &mut Engine<C>) -> Self {
         let df_rs = RasterStateDesc::default();
         let mut df_bs = BlendStateDesc::default();
         let df_ss = StencilStateDesc::default();
@@ -283,15 +316,15 @@ impl CommonState {
         // tarns_ds.set_write_enable(false);
 
         Self {
-            df_rs: Share::new(RasterStateRes(gl.rs_create(df_rs).unwrap())),
-            df_ss: Share::new(StencilStateRes(gl.ss_create(df_ss).unwrap())),
-			df_bs: Share::new(BlendStateRes(gl.bs_create(df_bs).unwrap())),
-            df_ds: Share::new(DepthStateRes(gl.ds_create(df_ds).unwrap())),
-            tarns_ds: Share::new(DepthStateRes(gl.ds_create(tarns_ds).unwrap())),
-			alpha_add_bs: Share::new(BlendStateRes(gl.bs_create(alpha_add_bs).unwrap())),
-			subtract_bs: Share::new(BlendStateRes(gl.bs_create(subtract_bs).unwrap())),
-			one_one_bs: Share::new(BlendStateRes(gl.bs_create(one_one_bs).unwrap())),
-			multiply_bs: Share::new(BlendStateRes(gl.bs_create(multiply_bs).unwrap())),
+            df_rs: engine.create_rs_res(df_rs),
+            df_ss: engine.create_ss_res(df_ss),
+			df_bs: engine.create_bs_res(df_bs),
+            df_ds: engine.create_ds_res(df_ds),
+            tarns_ds: engine.create_ds_res(tarns_ds),
+			alpha_add_bs: engine.create_bs_res(alpha_add_bs),
+			subtract_bs: engine.create_bs_res(subtract_bs),
+			one_one_bs: engine.create_bs_res(one_one_bs),
+			multiply_bs: engine.create_bs_res(multiply_bs),
         }
     }
 }
@@ -365,10 +398,10 @@ pub struct RenderContextAttrCount(usize);
 
 #[derive(Clone)]
 pub struct State {
-    pub rs: Share<RasterStateRes>,
-    pub bs: Share<BlendStateRes>,
-    pub ss: Share<StencilStateRes>,
-    pub ds: Share<DepthStateRes>,
+    pub rs: Handle<RasterStateRes>,
+    pub bs: Handle<BlendStateRes>,
+    pub ss: Handle<StencilStateRes>,
+    pub ds: Handle<DepthStateRes>,
 }
 
 // 预渲染内容
@@ -394,7 +427,7 @@ pub struct RenderObj {
     pub program_dirty: bool,
 
     pub program: Option<Share<HalProgram>>,
-    pub geometry: Option<Share<GeometryRes>>,
+    pub geometry: ResWrapper<GeometryRes>,
     pub state: State,
 
     pub context: usize,
@@ -402,6 +435,7 @@ pub struct RenderObj {
 	pub post_process: Option<Box<PostProcessContext>>,
 
 	pub vert_type: VertType,
+    pub post_uv: Option<Handle<BufferRes>>
 }
 
 /// 是否使用单位四边形渲染
@@ -468,8 +502,12 @@ impl RenderObjs {
 	pub fn with_capacity(capacity: usize) -> Self {
         Self(Slab::with_capacity(capacity))
     }
-    pub fn mem_size(&self) -> usize {
-        self.0.mem_size()
+    pub fn capacity_mem_size(&self) -> usize {
+        self.0.capacity_mem_size()
+    }
+
+    pub fn use_mem_size(&self) -> usize {
+        self.0.use_mem_size()
     }
     pub fn insert(&mut self, value: RenderObj, notify: Option<&NotifyImpl>) -> usize {
         let id = self.0.insert(value);

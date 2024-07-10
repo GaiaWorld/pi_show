@@ -14,7 +14,8 @@ use std::cell::RefCell;
 
 use std::marker::PhantomData;
 
-use share::Share;
+use pi_assets::asset::Handle;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 // use ordered_float::NotNan;
@@ -30,7 +31,7 @@ use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
-use crate::render::engine::{Engine, ShareEngine};
+use crate::render::engine::{Engine, ResWrapper, ResWrapper1, ShareEngine};
 use crate::render::res::*;
 use crate::single::*;
 use crate::single::dyn_texture::DynAtlasSet;
@@ -54,9 +55,9 @@ const DIRTY_TY1: usize = CalcType::MaskImageTexture as usize
 pub struct RenderContextSys<C> {
 	dirty: XHashSet<usize>,
 	render_map: VecMap<usize>,
-	default_sampler: Share<SamplerRes>,
-	uv1_sampler: Share<SamplerRes>,
-	unit_geo: Share<GeometryRes>, // 含uv， index， pos
+	default_sampler: Handle<SamplerRes>,
+	uv1_sampler: Handle<SamplerRes>,
+	unit_geo: Handle<GeometryRes>, // 含uv， index， pos
 	default_paramter: FboParamter,
 
 	marker: PhantomData<C>,
@@ -77,6 +78,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 		&'a SingleCaseImpl<IdTree>,
 		&'a SingleCaseImpl<Oct>,
 		&'a SingleCaseImpl<RenderBegin>,
+		&'a MultiCaseImpl<Node, RectLayoutStyle>,
+		&'a MultiCaseImpl<Node, NodeState>,
 	);
 	type WriteData = (
 		&'a mut MultiCaseImpl<Node, RenderContext>,
@@ -98,6 +101,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			idtree,
 			octree,
 			render_begin,
+			rect,
+			node_states,
 		) = read;
 		if self.dirty.len() == 0 {
 			return;
@@ -146,7 +151,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 				None => {
 					let (state, vs, fs) = (&***premulti_state, FBO_VS_SHADER_NAME.clone(), FBO_FS_SHADER_NAME.clone());
 					let render_obj_index = self.create_render_obj(*id, render_objs, state, vs, fs);
-
+					
 					let aabb = content_boxs.get(*id).unwrap().0;
 					
 					render_contexts.insert(*id,
@@ -426,11 +431,11 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 
 		let positions = engine
 			.buffer_res_map
-			.get(&(POSITIONUNIT.get_hash() as u64))
+			.get(&(POSITIONUNIT.str_hash() as u64))
 			.unwrap();
 		let indices = engine
 			.buffer_res_map
-			.get(&(INDEXUNIT.get_hash() as u64))
+			.get(&(INDEXUNIT.str_hash() as u64))
 			.unwrap();
 
 		let geo = engine.create_geometry();
@@ -446,16 +451,20 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 			.gl
 			.geometry_set_indices_short(&geo, &indices)
 			.unwrap();
-
+		let hash = calc_hash(&"RenderContextSys unit_geo", 0);
 		RenderContextSys {
 			dirty: XHashSet::default(),
 			render_map: VecMap::with_capacity(capacity),
 			default_sampler: default_sampler,
 			uv1_sampler: default_sampler1,
-			unit_geo: Share::new(GeometryRes {
-				geo: geo,
-				buffers: vec![indices, positions.clone(), positions],
-			}),
+			unit_geo: match engine.geometry_res_map.insert(hash, GeometryRes {
+                geo: geo,
+                buffers: vec![ResWrapper1::Handle(indices), ResWrapper1::Handle(positions.clone()), ResWrapper1::Handle(positions)],
+				size: std::mem::size_of::<GeometryRes>()
+            }) {
+                Ok(r) => r,
+                _ => panic!(),
+            },
 			default_paramter: FboParamter::default(),
 			marker: PhantomData,
 		}
@@ -505,7 +514,7 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 fn update_geo_quad<C: HalContext + 'static>(
 	render_obj: &mut RenderObj,
 	engine: &mut Engine<C>,
-	unit_geo: &Share<GeometryRes>,
+	unit_geo: &Handle<GeometryRes>,
 	// uv: &Aabb2,
 ) {
 	// let uv_hash = cal_uv_hash(&uv.mins, &uv.maxs);
@@ -534,8 +543,9 @@ fn update_geo_quad<C: HalContext + 'static>(
 			unit_geo.buffers[1].clone(),
 			// uv_buffer,
 		],
+		size: std::mem::size_of::<GeometryRes>(),
 	};
-	render_obj.geometry = Some(Share::new(geo_res));
+	render_obj.geometry = ResWrapper::Share(Share::new(geo_res));
 }
 
 #[inline]

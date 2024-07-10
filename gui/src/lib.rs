@@ -8,6 +8,7 @@
 #![allow(dead_code)]
 #![feature(rustc_private)]
 #![allow(non_snake_case)]
+#![allow(invalid_reference_casting)]
 
 #[macro_use]
 extern crate ecs;
@@ -28,8 +29,7 @@ pub extern crate paste;
 #[macro_use]
 extern crate serde;
 
-extern crate share;
-extern crate res;
+extern crate pi_share;
 extern crate deque;
 extern crate pi_cg2d;
 extern crate nalgebra;

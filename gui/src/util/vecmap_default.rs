@@ -127,8 +127,13 @@ impl<T: Clone+ Default> Map for VecMapWithDefault<T> {
         self.map.capacity()
     }
     #[inline]
-    fn mem_size(&self) -> usize {
+    fn capacity_mem_size(&self) -> usize {
         self.map.capacity() * std::mem::size_of::<T>()
+    }
+
+    #[inline]
+    fn use_mem_size(&self) -> usize {
+        self.map.len() * std::mem::size_of::<T>()
     }
 }
 

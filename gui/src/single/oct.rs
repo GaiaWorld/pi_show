@@ -1,6 +1,6 @@
 use pi_null::Null;
 /// 八叉树单例封装
-use pi_spatial::quad_helper::QuadTree;
+use pi_spatial::{quad_helper::{QuadHelper, QuadTree}, tree::{AbNode, BranchNode, Helper}};
 use pi_slotmap::{Key, KeyData};
 
 use ecs::monitor::NotifyImpl;
@@ -26,6 +26,10 @@ impl Key for OctKey {
     fn index(&self) -> usize {
         self.0
     }
+    
+    fn with(idx: usize) -> Self {
+        Self(idx)
+    }
 }
 
 impl Null for OctKey {
@@ -50,6 +54,30 @@ pub struct Oct(QuadTree<OctKey, usize>);
 
 
 impl Oct {
+    pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+    pub fn capacity(&self) -> usize {
+		self.0.ab_map.capacity()
+	}
+
+    pub fn capacity_mem_size(&self) -> usize {
+        let r = self.0.ab_map.capacity() * std::mem::size_of::<pi_link_list::Node<OctKey, AbNode<<QuadHelper as Helper<4>>::Aabb, usize>>>() +
+        self.0.slab.capacity() * std::mem::size_of::<BranchNode<OctKey, QuadHelper, usize, 4>>();
+
+        r
+        
+        // pub outer: List<K, H, T, N>, // 和根空间不包含（相交或在外）的ab节点列表，及节点数量。 该AbNode的parent为Null
+        // pub dirty: (Vec<Vec<BranchKey>>, DirtyState), // 脏的BranchNode节点, 及脏节点状态
+	}
+
+    pub fn use_mem_size(&self) -> usize {
+		let r = self.0.ab_map.len() * std::mem::size_of::<pi_link_list::Node<OctKey, AbNode<<QuadHelper as Helper<4>>::Aabb, usize>>>() +
+        self.0.slab.len() * std::mem::size_of::<BranchNode<OctKey, QuadHelper, usize, 4>>();
+        r
+	}
+
     pub fn new() -> Self {
 		let max = Vector2::new(1024f32, 1024f32);
     	let min = Vector2::new(16f32, 16f32);

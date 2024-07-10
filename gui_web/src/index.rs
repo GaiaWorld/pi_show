@@ -4,7 +4,10 @@ use std::ptr::write;
 use std::panic;
 
 use derive_deref::{DerefMut, Deref};
+use gui::render::asset::{AssetConfig, AssetDesc};
 use js_sys::{Date, Function, Object, Uint8Array};
+use pi_assets::asset::Handle;
+use pi_hash::XHashMap;
 use pi_style::style_type::{ClassSheet, VisibilityType, WidthType, HeightType, PositionTypeType, PositionLeftType, PositionRightType, PositionTopType, PositionBottomType, MarginLeftType, MarginRightType, MarginTopType, MarginBottomType};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -13,7 +16,7 @@ use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContex
 use flex_layout::{Dimension, PositionType, Rect, Size as Size1};
 use ordered_float::OrderedFloat;
 
-use pi_atom::Atom as Atom1;
+use pi_atom::{get_by_hash, Atom as Atom1};
 use ecs::{Lend, LendMut, StdCell};
 use gui::component::calc::Visibility;
 use gui::component::user::*;
@@ -25,13 +28,12 @@ use gui::single::RootIndexs;
 use gui::single::{PixelRatio, RenderBegin};
 use gui::world::GuiWorld as GuiWorld1;
 
-use gui::world::{create_world, seting_res_mgr, CALC_DISPATCH, CALC_GEO_DISPATCH, LAYOUT_DISPATCH, RENDER_DISPATCH};
+use gui::world::{create_world, CALC_DISPATCH, CALC_GEO_DISPATCH, LAYOUT_DISPATCH, RENDER_DISPATCH};
 use gui::Z_MAX;
 use hal_core::{PixelFormat as PixelFormat1, *};
 use hal_webgl::*;
-use res::Res;
-use res_mgr_web::ResMgr;
-use share::Share;
+use res_mgr_web::{ResAllocator, ResMgr};
+use pi_share::Share;
 
 use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, setSdfSuccessCallback};
 pub use crate::world::GuiWorld;
@@ -45,47 +47,47 @@ pub struct TextureRes(TextureResRaw);
 impl TextureRes {
     pub fn new(res: usize) -> TextureRes { TextureRes(*unsafe { Box::from_raw(res as *mut TextureResRaw) }) }
 }
-#[wasm_bindgen]
-pub struct NativeResRef {
-    inner: Share<dyn Res<Key = Atom1>>,
-}
+// #[wasm_bindgen]
+// pub struct NativeResRef {
+//     inner: Share<dyn Res<Key = Atom1>>,
+// }
 
-#[wasm_bindgen]
-impl TextureRes {
-    /// 创建一个资源， 如果资源已经存在，则会修改资源的配置
-    pub fn register_to_resmgr(mgr: &mut ResMgr, ty: usize, min_capacity: usize, max_capacity: usize, time_out: usize) {
-        mgr.get_inner_mut()
-            .borrow_mut()
-            .register::<TextureResRaw>(min_capacity, max_capacity, time_out, ty, "".to_string());
-    }
+// #[wasm_bindgen]
+// impl TextureRes {
+//     /// 创建一个资源， 如果资源已经存在，则会修改资源的配置
+//     pub fn register_to_resmgr(mgr: &mut ResMgr, ty: usize, min_capacity: usize, max_capacity: usize, time_out: usize) {
+//         mgr.get_inner_mut()
+//             .borrow_mut()
+//             .register::<TextureResRaw>(min_capacity, max_capacity, time_out, ty, "".to_string());
+//     }
 
-    /// 创建一个资源， 如果资源已经存在，旧的资源将被覆盖
-    /// 如果创建的资源类型未注册，将崩溃
-    pub fn create_res(self, mgr: &mut ResMgr, ty: usize, key: usize, cost: usize) -> NativeResRef {
-		let key = Atom1::get(key).unwrap();
-        NativeResRef {
-            inner: mgr.get_inner_mut().borrow_mut().create::<TextureResRaw>(key, ty, self.0, cost),
-        }
-    }
+//     /// 创建一个资源， 如果资源已经存在，旧的资源将被覆盖
+//     /// 如果创建的资源类型未注册，将崩溃
+//     pub fn create_res(self, mgr: &mut ResMgr, ty: usize, key: usize, cost: usize) -> NativeResRef {
+// 		let key = get_by_hash(key).unwrap();
+//         NativeResRef {
+//             inner: mgr.get_inner_mut().borrow_mut().create::<TextureResRaw>(key, ty, self.0, cost),
+//         }
+//     }
 
-    /// 获取资源
-    pub fn get_res(mgr: &ResMgr, ty: usize, key: usize) -> Option<NativeResRef> {
-		let key = match Atom1::get(key) {
-			Some(r) => r,
-			None => return None,
-		};
-        // return None;
-        match mgr.get_inner().borrow().get::<TextureResRaw>(&key, ty) {
-            Some(r) => Some(NativeResRef { inner: r }),
-            None => None,
-        }
-    }
-}
+//     /// 获取资源
+//     pub fn get_res(mgr: &ResMgr, ty: usize, key: usize) -> Option<NativeResRef> {
+// 		let key = match get_by_hash(key) {
+// 			Some(r) => r,
+// 			None => return None,
+// 		};
+//         // return None;
+//         match mgr.get_inner().borrow().get::<TextureResRaw>(&key, ty) {
+//             Some(r) => Some(NativeResRef { inner: r }),
+//             None => None,
+//         }
+//     }
+// }
 
 /// total_capacity: 资源管理器总容量, 如果为0， 将使用默认的容量设置
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
-pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
+pub fn create_engine(gl: WebGlRenderingContext, allotor: &ResAllocator, asset_config: &str) -> u32 {
 	let r: Box<dyn FnMut(u32, u32, u32, u32,u32,Uint8Array)> = Box::new(load_sdf_success);
 	let r = Closure::wrap(r);
 	setSdfSuccessCallback(r.as_ref().unchecked_ref());
@@ -95,9 +97,8 @@ pub fn create_engine(gl: WebGlRenderingContext, res_mgr: &ResMgr) -> u32 {
     // let use_vao = false;
     // let gl = WebglHalContext::new(gl, fbo, false);
     let gl = WebglHalContext::new(gl, use_vao);
-    let res_mgr = res_mgr.get_inner().clone();
-    seting_res_mgr(&mut res_mgr.borrow_mut());
-    let engine = Engine::new(gl, res_mgr);
+    let res_mgr = allotor.get_inner().clone();
+    let engine = Engine::new(gl, res_mgr, &parse_asset_config(asset_config));
     let r = Box::into_raw(Box::new(UnsafeMut::new(Share::new(engine)))) as u32;
     r
 }
@@ -179,11 +180,11 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 
     let ctx = draw_text_sys.ctx.clone();
     let f = Box::new(move |name: &Atom1, font_size: usize, ch: char| -> f32 {
-        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name.get_hash() as u32) };
+        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name.str_hash() as u32) };
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
-	let mut hh = 256;
+	let mut hh = max_texture_size;
 	let ww = max_texture_size;
 	// log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
@@ -209,8 +210,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	.texture_create_2d(0, ww, hh, format, DataFormat::UnsignedByte, false, data)
 	.unwrap();
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
-    // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).get_hash() as u32))};
-    // log::info!("hash============{:?}", Atom1::from("__$text".to_string()).get_hash());
+    // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).str_hash() as u32))};
+    // log::info!("hash============{:?}", Atom1::from("__$text".to_string()).str_hash());
     let res = engine.create_texture_res(
         Atom1::from("__$text".to_string()),
         TextureResRaw::new(
@@ -223,7 +224,6 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             texture,
             None,
         ),
-        0,
     );
     let cur_time: usize = (Date::now() as u64 / 1000) as usize;
     let mut class_sheet_option = None;
@@ -315,7 +315,8 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                       height: u32,
                       data: Object,
                       cost: u32| {
-					let name = match Atom1::get(name as usize) {
+                    let name = name as usize;
+					let name = match get_by_hash(name as usize) {
 						Some(r) => r,
 						None => return,
 					};
@@ -366,7 +367,7 @@ pub fn get_text_texture_width(world: u32) -> u32 {
     let world = &mut world.gui;
 
     let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
-    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text"), 0);
+    let res = engine.borrow().texture_res_map.get(&Atom1::from("_$text"));
     if let Some(r) = res {
         r.width as u32
     } else {
@@ -382,7 +383,7 @@ pub fn get_text_texture_height(world: u32) -> u32 {
     let world = &mut world.gui;
 
     let engine = world.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
-    let res = engine.borrow().res_mgr.borrow().get::<TextureResRaw>(&Atom1::from("_$text"), 0);
+    let res = engine.borrow().texture_res_map.get(&Atom1::from("_$text"));
     if let Some(r) = res {
         r.height as u32
     } else {
@@ -706,7 +707,7 @@ pub fn load_image_success(
     data: Object,
     cost: u32,
 ) {
-	let name = match Atom1::get(name as usize) {
+	let name = match get_by_hash(name as usize) {
 		Some(r) => r,
 		None => return,
 	};
@@ -760,18 +761,20 @@ pub fn create_texture_res(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: String,
+    name: usize,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(create_texture(world_id, pformate, compress, r_type, Atom1::from(name), width, height, data, cost, true)) as u32
+    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(name).unwrap(), width, height, data, cost, true))) as u32
 }
 
 // 释放纹理资源
 #[wasm_bindgen]
-pub fn destroy_texture_res(texture: u32) { unsafe { Share::from_raw(texture as usize as *const (Share<TextureResRaw>, usize)) }; }
+pub fn destroy_texture_res(texture: u32) { 
+    unsafe { Share::from_raw(texture as usize as *const Handle<TextureResRaw>) }; 
+}
 
 pub fn create_texture(
     world_id: u32,
@@ -784,7 +787,7 @@ pub fn create_texture(
     data: Object,
     cost: u32,
 	is_from_catch: bool,
-) -> Share<TextureResRaw> {
+) -> Handle<TextureResRaw> {
     if r_type > 2 {
         r_type = 0;
     }
@@ -855,7 +858,6 @@ pub fn create_texture(
                     texture,
                     Some(cost as usize),
                 ),
-                r_type as usize,
             )
         }
     };
@@ -869,7 +871,7 @@ fn load_image(world_id: u32) {
 
     let image_wait_sheet = &mut world.gui.world_ext.image_wait_sheet.lend_mut();
     for img_name in image_wait_sheet.loads.iter() {
-        (world.load_image)(img_name.get_hash() as u32, world.load_image_success.as_ref().unchecked_ref());
+        (world.load_image)(img_name.str_hash() as u32, world.load_image_success.as_ref().unchecked_ref());
         //  load_image(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
         // unsafe{loadImage(img_name.as_ref().to_string(),
         // 	world.load_image_success.as_ref().unchecked_ref()
@@ -897,13 +899,13 @@ fn load_image(world_id: u32) {
 #[wasm_bindgen]
 pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let name = match Atom1::get(name) {
+	let name = match get_by_hash(name) {
 		Some(r) => r,
 		None => return false,
 	};
 
     let engine = world.gui.engine.lend();
-    match engine.res_mgr.borrow().get::<TextureResRaw>(&name, group_i) {
+    match engine.texture_res_map.get(&name) {
         Some(_) => true,
         None => false,
     }
@@ -960,23 +962,23 @@ impl Atom {
 	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
 
 	pub fn get_string_by_hash(value: u32) -> Option<String> { 
-		match pi_atom::Atom::get(value as usize) {
+		match get_by_hash(value as usize) {
 			Some(r) => Some(r.as_ref().to_string()),
 			None => None,
 		} 
 	}
 
-	pub fn get_hash(&self) -> u32 { self.0.get_hash() as u32 }
+	pub fn get_hash(&self) -> u32 { self.0.str_hash() as u32 }
 }
 
 #[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
-pub fn get_atom_hash(s: &Atom) -> u32 { s.0.get_hash() as u32 }
+pub fn get_atom_hash(s: &Atom) -> u32 { s.0.str_hash() as u32 }
 
 #[wasm_bindgen]
-pub fn get_string_by_hash(s: usize) -> Option<String> { Atom1::get(s).map(|r| r.as_str().to_string()) }
+pub fn get_string_by_hash(s: usize) -> Option<String> { get_by_hash(s).map(|r| r.as_str().to_string()) }
 
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -991,6 +993,30 @@ pub struct OffsetDocument {
 pub struct Size {
     pub width: f32,
     pub height: f32,
+}
+
+pub fn parse_asset_config(asset_config: &str) -> AssetConfig {
+	let map: XHashMap<String, AssetDesc> = match serde_json::from_str(asset_config) {
+		Ok(r) => r,
+		_ => {
+			log::error!("asset_config is invalid,  {:?}", asset_config);
+			XHashMap::default()
+		}
+	};
+	let mut asset_config = AssetConfig::default();
+	for (key, desc) in map.into_iter() {
+		match key.as_str() {
+			"TEXTURE_RES" => asset_config.insert::<TextureResRaw>(desc),
+			// "buffer" => asset_config.insert::<RenderRes<Buffer>>(desc),
+			// "sampler" => asset_config.insert::<SamplerRes>(desc),
+			// "bind_group" => asset_config.insert::<RenderRes<BindGroup>>(desc),
+			// "texture" => asset_config.insert::<TextureRes>(desc),
+			// "render_pipeline" => asset_config.insert::<RenderRes<RenderPipeline>>(desc),
+			
+			_ => {},
+		}
+	}
+	asset_config
 }
 
 

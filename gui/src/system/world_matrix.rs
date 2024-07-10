@@ -108,6 +108,7 @@ impl WorldMatrixSys {
 		// 	log::info!("worldmatrix======={:?}, {:?}", self.dirty.count(), count);
 		// }
         self.dirty.clear();
+        self.dirty_mark_list.clear();
     }
 }
 

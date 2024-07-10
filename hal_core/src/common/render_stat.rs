@@ -1,7 +1,8 @@
 // 渲染统计情况
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct RenderStat {
-    pub slab_mem_size: usize,
+    pub slab_capacity_mem_size: usize,
+    pub slab_use_mem_size: usize,
 
     pub rt_count: i32,
     pub texture_count: i32,
@@ -20,7 +21,8 @@ pub struct RenderStat {
 impl RenderStat {
     pub fn new() -> Self {
         Self {
-            slab_mem_size: 0,
+            slab_capacity_mem_size: 0,
+            slab_use_mem_size: 0,
             rt_count: 0,
             texture_count: 0,
             buffer_count: 0,

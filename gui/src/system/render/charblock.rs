@@ -15,17 +15,18 @@ use ecs::{
 use idtree::NodeList;
 use hal_core::*;
 use map::vecmap::VecMap;
+use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
-use res::ResMap;
-use share::Share;
+use pi_share::Share;
 use smallvec::SmallVec;
 
 use crate::component::{calc::*, calc::LayoutR};
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::font::font_sheet::*;
-use crate::render::engine::{buffer_size, create_hash_res, Engine, ShareEngine, UnsafeMut};
+use crate::render::asset::ShareAssetMgr;
+use crate::render::engine::{buffer_size, create_hash_res, Engine, ResWrapper, ResWrapper1, ShareEngine};
 use crate::render::res::*;
 use crate::single::*;
 use crate::system::render::shaders::canvas_text::{
@@ -90,22 +91,19 @@ struct RenderCatch {
 
 pub struct CharBlockSys<C: HalContext + 'static> {
     render_map: VecMap<I>,
-    canvas_bs: Share<BlendStateRes>,
-    msdf_bs: Share<BlendStateRes>,
-    default_sampler: Share<SamplerRes>, // 默认采样方式
-    point_sampler: Share<SamplerRes>, // 点采样， canvas着色器渲染时， 如果字体大小与纹理默认字体大小一致， 将采用点采样
+    canvas_bs: Handle<BlendStateRes>,
+    msdf_bs: Handle<BlendStateRes>,
+    default_sampler: Handle<SamplerRes>, // 默认采样方式
+    point_sampler: Handle<SamplerRes>, // 点采样， canvas着色器渲染时， 如果字体大小与纹理默认字体大小一致， 将采用点采样
     canvas_default_stroke_color: Share<CanvasTextStrokeColorUbo>,
     class_ubos: VecMap<RenderCatch>,
     default_ubos: RenderCatch,
-    index_buffer: Share<BufferRes>, // 索引 buffer， 长度： 600
+    index_buffer: Handle<BufferRes>, // 索引 buffer， 长度： 600
     index_len: usize,
     texture_size_ubo: Share<TextTextureSize>,
 	msdf_texture_size_ubo: XHashMap<usize, Share<TextTextureSize>>,
 	
 	old_texture_tex_version: usize,
-
-    msdf_stroke_ubo_map: UnsafeMut<ResMap<MsdfStrokeUbo>>,
-    canvas_stroke_ubo_map: UnsafeMut<ResMap<CanvasTextStrokeColorUbo>>,
 
     msdf_default_paramter: MsdfParamter,
     canvas_default_paramter: CanvasTextParamter,
@@ -223,6 +221,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             if !(dirty & &*TEXT_STYLE_DIRTY).any() && dirty1 & GEO_DIRTY_TYPE == 0 {
                 continue;
 			}
+			// if node_states[*id].0.text.len() != 0 && node_states[*id].0.text[0].ch == '祭' {
+			// 	log::warn!("node_states======{:?}, ", (id, &node_states[*id].text));
+			// }
 
 			let tex_font;
             // 如果FontFamily脏， 并需要删除原来的renderobj， 重新创建新的
@@ -316,8 +317,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
                         &notify,
                         tex_font,//charblock.is_pixel,
                         &class_ubo,
-                        &mut *self.canvas_stroke_ubo_map,
-                        &mut *self.msdf_stroke_ubo_map,
+                        &engine.canvas_stroke_ubo_map,
+                        &engine.msdf_stroke_ubo_map,
                     );
             }
 			if !tex_font.is_pixel {
@@ -363,6 +364,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
             // 文字属性流改变， 重新生成geometry
             if geometry_change {
                 let l = &mut self.index_len;
+				// if node_states[*id].0.text.len() != 0 && node_states[*id].0.text[0].ch == '祭' {
+				// 	match &render_obj.geometry {
+				// 		Some(r) => log::warn!("create_geo0======{:?}, {:p}", (id, text.0.0 == String::new()), &**r),
+				// 		None => log::warn!("create_geo0======{:?} None",(id, text.0.0 == String::new())),
+				// 	};	
+				// }
                 render_obj.geometry = create_geo(
                     dirty,
 					dirty1,
@@ -382,6 +389,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 					is_pixel,
 					font_height,
                 );
+
+				// if node_states[*id].0.text.len() != 0 && node_states[*id].0.text[0].ch == '祭' {
+				// 	match &render_obj.geometry {
+				// 		Some(r) => {
+				// 			let r = &**r;
+				// 			log::warn!("create_geo======{:?}, {:p}", id, r);
+				// 		},
+				// 		None => log::warn!("create_geo======{:?} None",id),
+				// 	};	
+				// }
                 render_objs
                     .get_notify_ref()
                     .modify_event(index.text, "geometry", 0);
@@ -433,8 +450,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 								engine,
 								tex_font, // charblock.is_pixel,
 								&class_ubo,
-								&mut *self.canvas_stroke_ubo_map,
-								&mut *self.msdf_stroke_ubo_map,
 							);
 						}
 						if dirty[StyleType::TextShadow as usize] || dirty1 & (CalcType::Matrix as usize) != 0 {
@@ -574,6 +589,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 							);
 		
 							let geo = engine.create_geometry();
+
 							engine
 								.gl
 								.geometry_set_attribute(
@@ -590,9 +606,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 							let geo_res = GeometryRes {
 								geo: geo,
 								buffers: vec![],
+								size: unit_quad.0.buffers[0].size + unit_quad.0.buffers[1].size,
 							};
 							rr.geometry =
-								Some(Share::new(geo_res));
+								ResWrapper::Share(Share::new(geo_res));
 							notify.modify_event(copy_index, "", 0);
 						}
 		
@@ -647,15 +664,6 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
 
         let index_data = create_index_buffer(100);
 
-		let res_mgr_ref = engine.res_mgr.borrow();
-        let mut msdf_stroke_ubo_map =
-            UnsafeMut::new(res_mgr_ref.fetch_map::<MsdfStrokeUbo>(0).unwrap());
-        let mut canvas_stroke_ubo_map = UnsafeMut::new(
-            res_mgr_ref
-                .fetch_map::<CanvasTextStrokeColorUbo>(0)
-                .unwrap(),
-        );
-
         Self {
             render_map: VecMap::with_capacity(capacity),
             canvas_bs: canvas_bs,
@@ -669,25 +677,28 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
             default_ubos: RenderCatch {
                 fill_color_ubo: default_color_ubo.clone(),
                 shadow_color_ubo: default_color_ubo,
-                stroke_ubo: create_hash_res(
-                    MsdfStrokeUbo::new(
+                stroke_ubo: (**create_hash_res(
+                    ShareUbo(Share::new(MsdfStrokeUbo::new(
                         UniformValue::Float1(0.0),
                         UniformValue::Float4(0.0, 0.0, 0.0, 0.0),
-                    ),
-                    &mut *msdf_stroke_ubo_map,
-                ),
-                stroke_color_ubo: create_hash_res(
-                    CanvasTextStrokeColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 0.0)),
-                    &mut *canvas_stroke_ubo_map,
-                ),
+                    ))),
+                    &mut engine.msdf_stroke_ubo_map,
+                )).0.clone(),
+                stroke_color_ubo: (**create_hash_res(
+                    ShareUbo(Share::new(CanvasTextStrokeColorUbo::new(UniformValue::Float4(0.0, 0.0, 0.0, 0.0)))),
+                    &mut engine.canvas_stroke_ubo_map,
+                )).0.clone(),
                 layout_hash: 0,
             },
-            index_buffer: Share::new(BufferRes(engine.create_buffer(
+            index_buffer: match engine.buffer_res_map.insert(index_data.len() as u64, BufferRes{value: engine.create_buffer(
                 BufferType::Indices,
                 600,
                 Some(BufferData::Short(index_data.as_slice())),
                 true,
-            ))),
+            ), size: index_data.len() * 2}) {
+				Ok(r) => r,
+				_ => panic!("create index buffer error"),
+			},
             index_len: 100,
             texture_size_ubo: Share::new(TextTextureSize::new(UniformValue::Float2(
                 texture_size.0 as f32,
@@ -696,8 +707,6 @@ impl<C: HalContext + 'static> CharBlockSys<C> {
 			msdf_texture_size_ubo: XHashMap::default(),
 			old_texture_tex_version: 0,
 
-            msdf_stroke_ubo_map,
-            canvas_stroke_ubo_map,
             msdf_default_paramter: MsdfParamter::default(),
             canvas_default_paramter: CanvasTextParamter::default(),
             mark: PhantomData,
@@ -818,8 +827,8 @@ fn modify_stroke(
     notify: &NotifyImpl,
     tex_font: &TexFont,
     class_ubo: &RenderCatch,
-    canvas_stroke_ubo_map: &mut ResMap<CanvasTextStrokeColorUbo>,
-    msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
+    canvas_stroke_ubo_map: &ShareAssetMgr<ShareUbo<CanvasTextStrokeColorUbo>>,
+    msdf_stroke_ubo_map: &ShareAssetMgr<ShareUbo<MsdfStrokeUbo>>,
 ) -> bool {
     notify.modify_event(index, "", 0);
 	if text_stroke.width == 0.0 {
@@ -830,10 +839,10 @@ fn modify_stroke(
 		}
 	} else {
 		let color = &text_stroke.color;
-		let ubo = create_hash_res(
-			CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.x, color.y, color.z, color.w)),
+		let ubo = (**create_hash_res(
+			ShareUbo(Share::new(CanvasTextStrokeColorUbo::new(UniformValue::Float4(color.x, color.y, color.z, color.w)))),
 			canvas_stroke_ubo_map,
-		);
+		)).0.clone();
 		render_obj.paramter.set_value("strokeColor", ubo);
 
 		match render_obj.fs_defines.add("STROKE") {
@@ -898,10 +907,10 @@ fn modify_color<C: HalContext + 'static>(
 ) -> bool {
     let change = match color {
         Color::RGBA(c) => {
-            let ubo = create_hash_res(
-                UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
-                &mut *engine.u_color_ubo_map,
-            );
+            let ubo = (**create_hash_res(
+                ShareUbo(Share::new(UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)))),
+                &mut engine.u_color_ubo_map,
+            )).0.clone();
             render_obj.paramter.set_value("uColor", ubo);
             notify.modify_event(index, "", 0);
 
@@ -929,8 +938,8 @@ fn modify_font(
     tex_font: &TexFont,
     font_sheet: &FontSheet,
     notify: &NotifyImpl,
-    default_sampler: &Share<SamplerRes>,
-    point_sampler: &Share<SamplerRes>, // 点采样sampler
+    default_sampler: &Handle<SamplerRes>,
+    point_sampler: &Handle<SamplerRes>, // 点采样sampler
 ) {
     notify.modify_event(index, "ubo", 0);
     // 如果是canvas 字体绘制类型， 并且绘制fontsize 与字体本身fontsize一致， 应该使用点采样
@@ -958,14 +967,12 @@ fn modify_shadow_color<C: HalContext + 'static>(
     engine: &mut Engine<C>,
     tex_font: &TexFont,
     _class_ubo: &RenderCatch,
-    canvas_stroke_ubo_map: &mut ResMap<CanvasTextStrokeColorUbo>,
-	msdf_stroke_ubo_map: &mut ResMap<MsdfStrokeUbo>,
 ) {
 	if *text_style.text.stroke.width > 0.0 {
-		let ubo = create_hash_res(
-			CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
-			canvas_stroke_ubo_map,
-		);
+		let ubo = (**create_hash_res(
+			ShareUbo(Share::new(CanvasTextStrokeColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)))),
+			&mut engine.canvas_stroke_ubo_map,
+		)).0.clone();
 		render_obj.paramter.set_value("strokeColor", ubo);
 	}
 
@@ -987,10 +994,10 @@ fn modify_shadow_color<C: HalContext + 'static>(
     // } else {
     //     create_hash_res(engine,  UColorUbo::new(UniformValue::Float4(c.r, c.g, c.b, c.a)) )
     // };
-    let ubo = create_hash_res(
-        UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)),
-        &mut *engine.u_color_ubo_map,
-    );
+    let ubo = (**create_hash_res(
+        ShareUbo(Share::new(UColorUbo::new(UniformValue::Float4(c.x, c.y, c.z, c.w)))),
+        &mut engine.u_color_ubo_map,
+    )).0.clone();
     render_obj.paramter.set_value("uColor", ubo);
     render_obj.fs_defines.add("UCOLOR");
     notify.modify_event(index, "ubo", 0);
@@ -1227,15 +1234,15 @@ fn create_geo<C: HalContext + 'static>(
     text_style: &TextStyle,
     font_sheet: &FontSheet,
     share_data: &RenderCatch,
-    share_index_buffer: &Share<BufferRes>,
+    share_index_buffer: &Handle<BufferRes>,
     index_buffer_max_len: &mut usize,
 	engine: &mut Engine<C>,
 	scale: f32,
 	is_pixel: bool,
-	font_height: f32
-) -> Option<Share<GeometryRes>> {
-    // 是共享文字
+	font_height: f32,
+) -> ResWrapper<GeometryRes> {
     if text.0.0 == String::new() {
+    // 是共享文字
         let mut hasher = DefaultHasher::default();
         text.1.hash(&mut hasher);
         // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
@@ -1255,7 +1262,7 @@ fn create_geo<C: HalContext + 'static>(
         let hash = hasher.finish();
         // 从缓存中找到geo， 直接返回
         if let Some(geo) = engine.geometry_res_map.get(&hash) {
-            return Some(geo);
+            return ResWrapper::Handle(geo);
         }
 
         // 缓存中不存在 对应的geo， 创建geo并缓存
@@ -1349,13 +1356,13 @@ fn get_geo_flow<C: HalContext + 'static>(
     font_sheet: &FontSheet,
     engine: &mut Engine<C>,
     hash: Option<u64>,
-    index_buffer: &Share<BufferRes>,
+    index_buffer: &Handle<BufferRes>,
 	index_buffer_max_len: &mut usize,
 	scale: f32,
 	text_style: &TextStyle,
 	is_pixel: bool,
 	mut font_height: f32,
-) -> Option<Share<GeometryRes>> {
+) -> ResWrapper<GeometryRes> {
     let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
     // let font_height = char_block.font_height;
@@ -1368,6 +1375,7 @@ fn get_geo_flow<C: HalContext + 'static>(
     let mut geo_res = GeometryRes {
         geo: geo,
         buffers: Vec::with_capacity(3),
+		size
 	};
 	
 	let rect = &layout.rect;
@@ -1399,11 +1407,16 @@ fn get_geo_flow<C: HalContext + 'static>(
 				if c.ch <= ' ' {
 					continue;
 				}
-
+				// if node_state.0.text.len() != 0 && node_state.0.text[0].ch == '祭' {
+				// 	log::warn!("chars1======{:?}", (c.ch, c.ch_id_or_count));
+				// }
 				let glyph = match font_sheet.get_glyph(c.ch_id_or_count) {
 					Some(r) => r.1.clone(),
 					None => continue,
 				};
+				// if node_state.0.text.len() != 0 && node_state.0.text[0].ch == '祭' {
+				// 	log::warn!("chars2======{:?}", c.ch);
+				// }
 				// log::info!("glyph=============, id:{}, c:{}, glyph: {:?}", c.ch_id_or_count, c.ch , glyph);
 
 				let mut debug_info = DebugInfo {
@@ -1453,9 +1466,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 				debug_infos.chars.push(debug_info);
 			}
 
-			if debug_infos.chars.len() != 0 {
-				// log::info!("chars======{:?}", debug_infos);
-			}
+			// if debug_infos.chars.len() != 0 && debug_infos.chars[0].ch == '祭' {
+			// 	log::warn!("chars======{:?}", debug_infos);
+			// }
 			
 			// 更新buffer
 			let l = positions.len() / 8;
@@ -1626,10 +1639,12 @@ fn get_geo_flow<C: HalContext + 'static>(
 				.gl
 				.geometry_set_indices_short(&geo_res.geo, &i_buffer)
 				.unwrap();
-			geo_res.buffers.push(Share::new(BufferRes(i_buffer)));
-			geo_res.buffers.push(Share::new(BufferRes(color_buffer)));
-			size += buffer_size(indices.len(), BufferType::Indices);
-			size += buffer_size(colors.len(), BufferType::Attribute);
+			let index_size = buffer_size(indices.len(), BufferType::Indices);
+			let color_size = buffer_size(colors.len(), BufferType::Attribute);
+			geo_res.buffers.push(ResWrapper1::Share(Share::new(BufferRes{value: i_buffer, size: index_size})));
+			geo_res.buffers.push(ResWrapper1::Share(Share::new(BufferRes{ value: color_buffer, size: color_size})));
+			size += index_size;
+			size += color_size;
 		}
 	}
 
@@ -1653,17 +1668,23 @@ fn get_geo_flow<C: HalContext + 'static>(
 		.gl
 		.geometry_set_attribute(&geo_res.geo, &AttributeName::UV0, &uv_buffer, 2)
 		.unwrap();
-	geo_res.buffers.push(Share::new(BufferRes(uv_buffer)));
-	geo_res.buffers.push(Share::new(BufferRes(position_buffer)));
-	size += buffer_size(positions.len(), BufferType::Attribute);
-	size += buffer_size(uvs.len(), BufferType::Attribute);
+	let position_size = buffer_size(positions.len(), BufferType::Attribute);
+	let uv_size = buffer_size(uvs.len(), BufferType::Attribute);
+	geo_res.buffers.push(ResWrapper1::Share(Share::new(BufferRes{ value: uv_buffer, size: uv_size})));
+	geo_res.buffers.push(ResWrapper1::Share(Share::new(BufferRes{ value: position_buffer, size: position_size})));
+	size += position_size;
+	size += uv_size;
 
-	Some(match hash {
+	geo_res.size = size;
+	match hash {
 		Some(hash) => {
-			engine.geometry_res_map.create(hash, geo_res, size, 0)
+			ResWrapper::Handle(match engine.geometry_res_map.insert(hash, geo_res) {
+				Ok(r) => r,
+				_ => engine.geometry_res_map.get(&hash).unwrap()
+			}) 
 		},
-		None => Share::new(geo_res),
-	})
+		None => ResWrapper::Share(Share::new(geo_res)),
+	}
 }
 
 #[derive(Debug)]

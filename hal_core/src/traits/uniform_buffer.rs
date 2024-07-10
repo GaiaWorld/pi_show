@@ -1,5 +1,5 @@
 use common::UniformValue;
-use share::Share;
+use pi_share::Share;
 use traits::context::{HalItem, HalSampler, HalTexture};
 
 /**

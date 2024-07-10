@@ -2,15 +2,20 @@
 name = "res_mgr_web"
 version = "0.1.0"
 authors = ["sun <sun@yineng.com>"]
+edition = "2021"
 
 # [lib]
 # crate-type = ["cdylib", "rlib", "dylib"]
 
 [dependencies]
-res = { path = "../../pi_lib/res"}
-share = { path = "../../pi_lib/share"}
+pi_assets = "0.14"
+pi_share = "0.4"
+serde = "1.0"
+serde_json = "1.0"
+pi_time = "0.3"
 
 wasm-bindgen = "*"
+js-sys = "0.3"
 
 
 # [features]
@@ -24,3 +29,8 @@ wasm-bindgen = "*"
 # no_debug = []
 # no_define_js = []
 # create_class_by_str = []
+
+
+[patch.crates-io]
+pi_share = {path = "../../pi_share"}
+pi_assets = {path = "../../pi_assets"}

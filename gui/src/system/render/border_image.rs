@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 
 use hash::DefaultHasher;
 
+use pi_assets::asset::Handle;
 use pi_atom::Atom;
 use ecs::monitor::{Event, NotifyImpl};
 use ecs::{DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl};
@@ -13,13 +14,13 @@ use ecs::{DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
 use pi_style::style::ImageRepeatOption;
-use share::Share;
+use pi_share::Share;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
-use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ShareEngine};
 use crate::render::res::{GeometryRes, Opacity as ROpacity, SamplerRes};
 use crate::single::*;
 use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
@@ -44,7 +45,7 @@ const DIRTY_TY1: usize = CalcType::BorderImageTexture as usize | GEO_DIRTY_TYPE;
 
 pub struct BorderImageSys<C: HalContext + 'static> {
     render_map: VecMap<usize>,
-    default_sampler: Share<SamplerRes>,
+    default_sampler: Handle<SamplerRes>,
     default_paramter: ImageParamter,
     marker: PhantomData<C>,
 }
@@ -258,20 +259,20 @@ fn create_geo<C: HalContext + 'static>(
     repeat: Option<&BorderImageRepeat>,
     layout: &LayoutR,
     engine: &mut Engine<C>,
-) -> Option<Share<GeometryRes>> {
+) -> ResWrapper<GeometryRes> {
     let h = geo_hash(img, clip, slice, repeat, layout);
     match engine.geometry_res_map.get(&h) {
-        Some(r) => Some(r.clone()),
+        Some(r) => ResWrapper::Handle(r),
         None => {
             let (positions, uvs, indices) = get_border_image_stream(texture, clip, slice, repeat, layout, Vec::new(), Vec::new(), Vec::new());
-            Some(engine.create_geo_res(
+            engine.create_geo_res(
                 h,
                 indices.as_slice(),
                 &[
                     AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
                     AttributeDecs::new(AttributeName::UV0, uvs.as_slice(), 2),
                 ],
-            ))
+            )
         }
     }
 }

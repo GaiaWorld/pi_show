@@ -7,12 +7,12 @@ use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
-use share::Share;
+use pi_share::Share;
 
 use crate::single::*;
 use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
 use crate::system::util::*;
-use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ShareEngine};
 use crate::entity::Node;
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;
@@ -263,7 +263,7 @@ fn create_shadow_geo<C: HalContext + 'static>(
 ) {
     let g_b = get_box_rect(layout);
     if *(g_b.right) - *(g_b.left) == 0.0 || *(g_b.bottom) - *(g_b.top) == 0.0 {
-		render_obj.geometry = None;
+		render_obj.geometry = ResWrapper::None;
 		return;
     }
 
@@ -275,7 +275,7 @@ fn create_shadow_geo<C: HalContext + 'static>(
 	let hash = calc_hash(&"shadow geo", calc_float_hash(&[left, top, right, bottom, shadow.blur], 0));
 
 	match engine.geometry_res_map.get(&hash) {
-		Some(r) => render_obj.geometry = Some(r),
+		Some(r) => render_obj.geometry = ResWrapper::Handle(r),
 		None => {
 			let bg = vec![
 				*g_b.left, *g_b.top,
@@ -315,10 +315,10 @@ fn create_shadow_geo<C: HalContext + 'static>(
 			}
 
 			if positions.len() == 0 {
-				render_obj.geometry = None;
+				render_obj.geometry = ResWrapper::None;
 				return;
 			} else {
-				render_obj.geometry = Some(engine.create_geo_res(
+				render_obj.geometry = engine.create_geo_res(
 					0,
 					indices.as_slice(),
 					&[AttributeDecs::new(
@@ -326,7 +326,7 @@ fn create_shadow_geo<C: HalContext + 'static>(
 						positions.as_slice(),
 						2,
 					)],
-				));
+				);
 			}
 		}
 	};

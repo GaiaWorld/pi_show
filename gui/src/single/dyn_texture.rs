@@ -1,17 +1,15 @@
 use std::hash::{Hash, Hasher};
-use std::cell::RefCell;
-
+use pi_assets::asset::Handle;
+use pi_assets::homogeneous::HomogeneousMgr;
 use pi_atom::Atom;
-use flex_layout::Rect;
 use guillotiere::*;
 use slab::Slab;
 use hal_core::*;
-use res::{ResMap, ResMgr};
-use share::{Share, ShareWeak};
-use hash::{DefaultHasher, XHashMap};
+use pi_share::Share;
+use hash::DefaultHasher;
 
 use crate::component::user::*;
-use crate::render::engine::UnsafeMut;
+use crate::render::asset::ShareAssetMgr;
 use crate::render::res::{Opacity, TextureRes, RenderBufferRes};
 
 lazy_static! {
@@ -37,22 +35,31 @@ pub struct DynAtlas {
 	allocator : AtlasAllocator,
 	// allocator_index: usize, // debug
 	target: HalRenderTarget,
-	texture: Share<TextureRes>,
+	texture: Handle<TextureRes>,
 	count: usize,
 	pformat: PixelFormat,
 	dformat: DataFormat,
 	need_depth: bool,
 	ty: usize,
 	hash: usize,
+	size: usize,
+}
+
+impl DynAtlas {
+	pub fn size(&self) -> usize {
+		self.size
+
+	}
 }
 
 pub struct DynAtlasSet {
 	dyn_atlas : Slab<DynAtlas>,
 	rects: Slab<RectIndex>,
-	texture_res_map: UnsafeMut<ResMap<TextureRes>>,
-	render_buffer_res_map: UnsafeMut<ResMap<RenderBufferRes>>,
+	texture_res_map: ShareAssetMgr<TextureRes>,
+	render_buffer_res_map: ShareAssetMgr<RenderBufferRes>,
 	texture_cur_index: usize,
-	unuse_texture: Vec<UnuseTexture>,
+	// unuse_texture: Vec<UnuseTexture>,
+	unuse_textures: Share<HomogeneousMgr<UnuseTexture>>,
 
 	// 创建的fbo的默认尺寸
 	default_size: Size,
@@ -103,8 +110,8 @@ pub struct DynAtlasSet {
 // 		}
 // 	}
 // }
-struct UnuseTexture {
-	weak: ShareWeak<TextureRes>,
+pub struct UnuseTexture {
+	texture: Handle<TextureRes>,
 	pformat: PixelFormat,
 	dformat: DataFormat,
 	width: u32,
@@ -112,6 +119,17 @@ struct UnuseTexture {
 	ty: usize,
 	hash: usize,
 	target: HalRenderTarget,
+	size: usize
+}
+
+impl pi_assets::asset::Asset for UnuseTexture {
+	type Key = u64;
+}
+
+impl pi_assets::asset::Size for UnuseTexture {
+	fn size(&self) -> usize {
+        std::mem::size_of::<UnuseTexture>()
+	}
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -124,17 +142,20 @@ const PADDING: i32 = 1;
 const DOUBLE_PADDING: usize = 2;
 
 impl DynAtlasSet {
-	pub fn new(res_mgr: Share<RefCell<ResMgr>>, default_width: usize, default_height: usize) -> DynAtlasSet {
-		let res_mgr_ref = res_mgr.borrow();
-		let texture_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<TextureRes>(0).unwrap());
-		let render_buffer_res_map = UnsafeMut::new(res_mgr_ref.fetch_map::<RenderBufferRes>(0).unwrap());
+	pub fn new(
+		texture_res_map: ShareAssetMgr<TextureRes>, 
+		render_buffer_res_map: ShareAssetMgr<RenderBufferRes>, 
+		unuse_textures: Share<HomogeneousMgr<UnuseTexture>>, 
+		default_width: usize, 
+		default_height: usize
+	) -> DynAtlasSet {
 		DynAtlasSet {
 			dyn_atlas: Slab::new(),
 			rects: Slab::new(),
 			texture_res_map,
 			render_buffer_res_map,
+			unuse_textures,
 			texture_cur_index: 0,
-			unuse_texture: Vec::new(),
 			default_size: Size{width: default_width, height: default_height},
 			// debugList: Vec::new(),
 			// cur_allocator_index: 0,
@@ -199,32 +220,55 @@ impl DynAtlasSet {
 			h = 100.max(height as i32 * 3);
 		}
 
-		// 从缓冲上取到纹理
-		let mut catch_texture = None;
-		if self.unuse_texture.len() > 0 {
-			let mut i = 0;
-			while i < self.unuse_texture.len() {
-				let t = &self.unuse_texture[i];
-				if t.pformat == pformat && t.dformat == dformat && t.width >= width as u32 && t.height >= height as u32 && t.ty == ty {
-					let unuse_texture = self.unuse_texture.swap_remove(i);
-					match unuse_texture.weak.upgrade() {
-						Some(r) => {
-							w = unuse_texture.width as i32;
-							h = unuse_texture.height as i32;
-							catch_texture = Some((unuse_texture.hash, r, unuse_texture.target));
-							break;
-						},
-						None => {
-							continue
-						},
-					};
-				} else {
-					i += 1;
-				}
+		let unuse =  self.unuse_textures.pop_by_filter(|t| {
+			if t.pformat == pformat && t.dformat == dformat && t.width >= width as u32 && t.height >= height as u32 && t.ty == ty {
+				return true;
 			}
-		}
-		let (texture_hash, texture_res, target) = match catch_texture {
-			Some(r) => r,
+			// if t.hash == hash && 
+			// 	(( // 只需要一张纹理，则只要该纹理的大小大于等于要求的大小即可
+			// 		len == 1 &&
+			// 		t.width >= width &&
+			// 		t.height >= height) ||
+			// 	( // 需要多张纹理，该纹理的大小必须等于要求的大小（如果大于等于就可以，后续如果找不到缓冲的纹理，则需要创建比要求的大小更大的纹理）
+			// 		len > 1 && 
+			// 		t.width == width &&
+			// 		t.height == height)) {
+			// 	return true;
+			// }
+			return false;
+		});
+		// if let Some(r) = unuse {
+		// 	return (r.texture.clone(), r.width, r.height);
+		// }
+
+		// if self.unuse_texture.len() > 0 {
+		// 	let mut i = 0;
+		// 	while i < self.unuse_texture.len() {
+		// 		let t = &self.unuse_texture[i];
+		// 		if t.pformat == pformat && t.dformat == dformat && t.width >= width as u32 && t.height >= height as u32 && t.ty == ty {
+		// 			let unuse_texture = self.unuse_texture.swap_remove(i);
+		// 			match unuse_texture.weak.upgrade() {
+		// 				Some(r) => {
+		// 					w = unuse_texture.width as i32;
+		// 					h = unuse_texture.height as i32;
+		// 					catch_texture = Some((unuse_texture.hash, r, unuse_texture.target));
+		// 					break;
+		// 				},
+		// 				None => {
+		// 					continue
+		// 				},
+		// 			};
+		// 		} else {
+		// 			i += 1;
+		// 		}
+		// 	}
+		// }
+		let (texture_hash, texture_res, target) = match unuse {
+			Some(r) => {
+				w = r.width as i32;
+				h = r.height as i32;
+				(r.hash, r.texture, r.target)
+			},
 			None => {
 				// 如果缓冲上不存在纹理，则重新创建纹理
 				let texture = gl.texture_create_2d(
@@ -246,8 +290,12 @@ impl DynAtlasSet {
 				h.hash(&mut hasher);
 				self.texture_cur_index += 1;
 				let hash = hasher.finish() as usize;
+				let key = Atom::from(hash.to_string()+ "_fbo");
 				
-				let texture = self.texture_res_map.create(Atom::from(hash.to_string()+ "_fbo"), TextureRes::new(w as usize, h as usize,pformat, dformat,Opacity::Transparent, None, texture, Some((w * h * 4) as usize)), (w * h * 4) as usize, 0);
+				let texture = match self.texture_res_map.insert(key.clone(), TextureRes::new(w as usize, h as usize,pformat, dformat,Opacity::Transparent, None, texture, Some((w * h * 4) as usize))) {
+					Ok(r) => r,
+					Err(_) => self.texture_res_map.get(&key).unwrap(),
+				};
 
 				let target = gl.rt_create(
 					w as u32,
@@ -273,11 +321,14 @@ impl DynAtlasSet {
 						h as u32,
 						PixelFormat::DEPTH16
 					).unwrap();
-					self.render_buffer_res_map.create(hash, RenderBufferRes::new(rb), (w * h * 3) as usize, 0)
+					match self.render_buffer_res_map.insert(hash, RenderBufferRes{ value: rb, size: (w * h * 3) as usize} ) {
+						Ok(r) => r,
+						_ => panic!(),
+					}
 				}
 			};
 
-			gl.rt_set_depth(&target, Some(&rb));
+			gl.rt_set_depth(&target, Some(&rb.value));
 		} else {
 			gl.rt_set_depth(&target, None);
 		}
@@ -287,6 +338,7 @@ impl DynAtlasSet {
 		// self.debugList.push(Cmd::Allocate(self.cur_allocator_index, width as i32 , height as i32));
 		let allocation= atlas_allocator.allocate(guillotiere::Size::new(width as i32, height as i32)).unwrap();
 
+		let size = pi_assets::asset::Size::size(&**texture_res);
 		let dyn_atlas_index = self.dyn_atlas.insert(DynAtlas{
 			allocator: atlas_allocator,
 			target,
@@ -296,7 +348,8 @@ impl DynAtlasSet {
 			dformat,
 			need_depth,
 			ty: ty,
-			hash: texture_hash
+			hash: texture_hash,
+			size,
 			// allocator_index: self.cur_allocator_index,
 		});
 		let rectangle = &allocation.rectangle;
@@ -343,17 +396,19 @@ impl DynAtlasSet {
 			let dyn_atlas = &mut self.dyn_atlas[allocation_index];
 			if dyn_atlas.count == 0 {
 				let dyn_atla = self.dyn_atlas.remove(allocation_index);
-				let (pformat, dformat, width, height, ty, target, hash) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash);
-				self.unuse_texture.push(UnuseTexture{
+				let (pformat, dformat, width, height, ty, target, hash, size) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash, dyn_atla.size);
+				self.unuse_textures.create(UnuseTexture { 
 					pformat,
 					dformat,
 					width: width as u32,
 					height: height as u32,
-					weak: Share::downgrade(&dyn_atla.texture),
+					texture: dyn_atla.texture,
 					target: target,
 					ty,
 					hash,
+					size
 				});
+
 			}
 		}
 
@@ -377,16 +432,17 @@ impl DynAtlasSet {
 		// 将纹理缓冲起来
 		if dyn_atlas.count == 0 && self.dyn_atlas.len() > 1 {
 			let dyn_atla = self.dyn_atlas.remove(r.allocation_index);
-			let (pformat, dformat, width, height, ty, target,hash) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash);
-			self.unuse_texture.push(UnuseTexture{
+			let (pformat, dformat, width, height, ty, target, hash, size) = (dyn_atla.texture.pformat, dyn_atla.texture.dformat, dyn_atla.texture.width, dyn_atla.texture.height, dyn_atla.ty, dyn_atla.target, dyn_atla.hash, dyn_atla.size);
+			self.unuse_textures.create(UnuseTexture { 
 				pformat,
 				dformat,
 				width: width as u32,
 				height: height as u32,
+				texture: dyn_atla.texture,
 				target: target,
-				weak: Share::downgrade(&dyn_atla.texture),
 				ty,
 				hash,
+				size,
 			});
 		}
 		let r = &r.rect;
@@ -404,15 +460,15 @@ impl DynAtlasSet {
 		match self.rects.get(index) {
 			Some(r) => {
 				Some(Size {
-					width: self.dyn_atlas[r.allocation_index].texture.width,
-					height: self.dyn_atlas[r.allocation_index].texture.height,
+					width: self.dyn_atlas[r.allocation_index].allocator.size().width as usize,
+					height: self.dyn_atlas[r.allocation_index].allocator.size().height as usize,
 				})
 			},
 			None => None,
 		}
 	}
 
-	pub fn get_texture(&self, index: usize) -> Option<&Share<TextureRes>> {
+	pub fn get_texture(&self, index: usize) -> Option<&Handle<TextureRes>> {
 		match self.rects.get(index) {
 			Some(r) => Some(&self.dyn_atlas[r.allocation_index].texture),
 			None => None,
@@ -485,6 +541,8 @@ impl DynAtlasSet {
 		}
 		l
 	}
+
+	
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

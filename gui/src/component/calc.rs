@@ -6,17 +6,18 @@ use densevec::DenseVecMap;
 use ecs::component::Component;
 use map::vecmap::VecMap;
 use nalgebra::Matrix4;
+use pi_assets::asset::{Asset, Handle};
 use pi_atom::Atom;
 use pi_style::style::AllTransform;
-use share::Share;
+use pi_share::Share;
 
 use hal_core::*;
 
 use super::user::*;
 // use layout::FlexNode;
 use flex_layout::*;
-use res::Res;
 
+use crate::render::engine::{ResWrapper, ResWrapper1};
 use crate::render::res::TextureRes;
 use crate::{
     render::res::TexturePartRes,
@@ -360,23 +361,23 @@ lazy_static! {
 
 #[derive(Component, Clone)]
 pub enum MaskTexture {
-    All(Share<TextureRes>),
-    Part(Share<TexturePartRes>),
+    All(Handle<TextureRes>),
+    Part(ResWrapper1<TexturePartRes>),
 }
 
 // 图片使用纹理（可以是canvas，如果是canvas，不要再同时渲染一张图片，否则会冲突，他们的纹理是共用该组件）
 #[derive(Component, Clone)]
 pub enum ImageTexture {
-    All(Share<TextureRes>, Atom/*url*/),
-    Part(Share<TexturePartRes>),
+    All(Handle<TextureRes>, Atom/*url*/),
+    Part(ResWrapper1<TexturePartRes>),
 }
 
 // 边框图片使用纹理
 #[derive(Component, Clone)]
-pub struct BorderImageTexture(pub Share<TextureRes>);
+pub struct BorderImageTexture(pub Handle<TextureRes>);
 
 // impl Deref for MaskTexture {
-// 	type Target = Share<TextureRes>;
+// 	type Target = Handle<TextureRes>;
 // 	fn deref(&self) -> &Self::Target {
 // 		match self {
 // 			MaskTexture::All(r) => &r.bind,
@@ -913,8 +914,20 @@ uniform_buffer! {
         uColor: UniformValue,
     }
 }
-impl Res for UColorUbo {
-    type Key = u64;
+
+#[derive(Debug, Hash)]
+pub struct ShareUbo<T: 'static>(pub Share<T>);
+// impl Res for UColorUbo {
+//     type Key = u64;
+// }
+impl Asset for ShareUbo<UColorUbo> {
+	type Key = u64;
+}
+
+impl pi_assets::asset::Size for ShareUbo<UColorUbo> {
+	fn size(&self) -> usize {
+		std::mem::size_of::<UColorUbo>()
+	}
 }
 
 uniform_buffer! {
@@ -923,8 +936,18 @@ uniform_buffer! {
         hsvValue: UniformValue,
     }
 }
-impl Res for HsvUbo {
-    type Key = u64;
+// impl Res for HsvUbo {
+//     type Key = u64;
+// }
+
+impl Asset for ShareUbo<HsvUbo> {
+	type Key = u64;
+}
+
+impl pi_assets::asset::Size for ShareUbo<HsvUbo> {
+	fn size(&self) -> usize {
+		std::mem::size_of::<HsvUbo>()
+	}
 }
 
 defines! {
@@ -969,8 +992,18 @@ uniform_buffer! {
         strokeColor: UniformValue,
     }
 }
-impl Res for MsdfStrokeUbo {
-    type Key = u64;
+// impl Res for MsdfStrokeUbo {
+//     type Key = u64;
+// }
+
+impl Asset for ShareUbo<MsdfStrokeUbo> {
+	type Key = u64;
+}
+
+impl pi_assets::asset::Size for ShareUbo<MsdfStrokeUbo> {
+	fn size(&self) -> usize {
+		std::mem::size_of::<MsdfStrokeUbo>()
+	}
 }
 
 program_paramter! {
@@ -1002,8 +1035,18 @@ uniform_buffer! {
         strokeColor: UniformValue,
     }
 }
-impl Res for CanvasTextStrokeColorUbo {
-    type Key = u64;
+// impl Res for CanvasTextStrokeColorUbo {
+//     type Key = u64;
+// }
+
+impl Asset for ShareUbo<CanvasTextStrokeColorUbo>  {
+	type Key = u64;
+}
+
+impl pi_assets::asset::Size for ShareUbo<CanvasTextStrokeColorUbo> {
+	fn size(&self) -> usize {
+		std::mem::size_of::<CanvasTextStrokeColorUbo>()
+	}
 }
 
 program_paramter! {

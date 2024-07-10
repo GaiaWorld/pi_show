@@ -1,9 +1,10 @@
 
 use flex_layout::Size;
+use pi_assets::asset::Handle;
 /**
  * 背景色渲染对象的构建及其属性设置
 */
-use share::Share;
+use pi_share::Share;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
@@ -293,7 +294,7 @@ fn modify_color<C: HalContext + 'static>(
     dirty: &StyleBit,
 	dirty1: usize,
     layout: &LayoutR,
-    unit_quad: &Share<GeometryRes>,
+    unit_quad: &Handle<GeometryRes>,
 ) -> (bool, VertType) {
     let mut change = false;
 	let mut vert_type = render_obj.vert_type;
@@ -327,7 +328,7 @@ fn modify_color<C: HalContext + 'static>(
 		let hash = hasher.finish();
 
 		match engine.geometry_res_map.get(&hash) {
-			Some(r) => render_obj.geometry = Some(r.clone()),
+			Some(r) => render_obj.geometry = ResWrapper::Handle(r),
 			None => {
 				if let Color::LinearGradient(color) = &background_color.0 {
 					let rect = get_content_rect(layout);
@@ -344,16 +345,16 @@ fn modify_color<C: HalContext + 'static>(
 					
 					let (positions, colors, indices) = linear_gradient_split(color, positions, indices, &size);
 	
-					render_obj.geometry = Some(engine.create_geo_res(
+					render_obj.geometry = engine.create_geo_res(
 						hash,
 						indices.as_slice(),
 						&[
 							AttributeDecs::new(AttributeName::Position, positions.as_slice(), 2),
 							AttributeDecs::new(AttributeName::Color, colors.as_slice(), 4),
 						],
-					))
+					)
 				} else {
-					render_obj.geometry = Some(unit_quad.clone());
+					render_obj.geometry = ResWrapper::Handle(unit_quad.clone());
 				}
 			}
 		}

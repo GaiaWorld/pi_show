@@ -40,6 +40,20 @@ impl FragmentMap {
 
         self.map.extend(value.map.into_iter().map(|(k, v)| (k, v.start + index..v.end + index)));
     }
+
+    pub fn capacity_mem_size(&self) -> usize {
+        let r = self.style_buffer.capacity() +
+        self.fragments.capacity() * std::mem::size_of::<NodeFragmentCmd>() +
+        self.map.capacity() * std::mem::size_of::<Range<usize>>();
+        r
+	}
+
+    pub fn use_mem_size(&self) -> usize {
+		let r = self.style_buffer.len() +
+        self.fragments.len() * std::mem::size_of::<NodeFragmentCmd>() +
+        self.map.len() * std::mem::size_of::<Range<usize>>();
+        r
+	}
 }
 
 /// 每节点的模板指令

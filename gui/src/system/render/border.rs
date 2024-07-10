@@ -1,4 +1,4 @@
-use share::Share;
+use pi_share::Share;
 /**
  *  边框颜色渲染对象的构建及其属性设置
  */
@@ -13,7 +13,7 @@ use crate::component::calc::LayoutR;
 use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
-use crate::render::engine::{AttributeDecs, Engine, ShareEngine};
+use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ShareEngine};
 use crate::render::res::GeometryRes;
 use crate::single::*;
 use crate::system::render::shaders::color::{COLOR_FS_SHADER_NAME, COLOR_VS_SHADER_NAME};
@@ -171,7 +171,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderColorSys<C> {
 						(0, None)
 					}
 				};
-                render_obj.geometry = Some(create_geo(&border_radius, layout, engine));
+                render_obj.geometry = create_geo(&border_radius, layout, engine);
             }
 
             // 如果矩阵脏， 更新worldMatrix ubo
@@ -282,7 +282,7 @@ fn create_geo<C: HalContext + 'static>(
     radius: &Option<BorderRadiusPixel>,
     layout: &LayoutR,
     engine: &mut Engine<C>,
-) -> Share<GeometryRes> {
+) -> ResWrapper<GeometryRes> {
     let buffer = get_geo_flow(radius, layout);
     engine.create_geo_res(
         0,

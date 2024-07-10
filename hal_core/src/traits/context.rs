@@ -1,4 +1,4 @@
-use share::Share;
+use pi_share::Share;
 
 use common::*;
 use traits::uniform_buffer::ProgramParamter;

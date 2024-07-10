@@ -1,9 +1,9 @@
 /**
  * 抽象硬件层HAL 的 核心Trait
  */
-extern crate atom;
+extern crate pi_atom;
 extern crate ordered_float;
-extern crate share;
+extern crate pi_share;
 #[cfg(feature = "serde")]
 #[macro_use]
 extern crate serde;
