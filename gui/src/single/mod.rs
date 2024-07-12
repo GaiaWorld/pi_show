@@ -212,11 +212,11 @@ pub struct ImageWait {
 pub struct UnitQuad(pub Handle<GeometryRes>);
 
 #[derive(Default)]
-pub struct DirtyList(pub Vec<usize>);
+pub struct DirtyList(pub Vec<usize>, pub u64 /*版本*/);
 
 impl DirtyList {
 	pub fn with_capacity(capacity: usize) -> DirtyList{
-        Self(Vec::with_capacity(capacity))
+        Self(Vec::with_capacity(capacity), 0)
     }
 }
 

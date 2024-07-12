@@ -59,6 +59,8 @@ lazy_static! {
 #[derive(Default)]
 pub struct LayoutSys{
 	dirty: LayerDirty<usize>,
+	pre_dirty_version: u64,
+	pre_index: usize,
 }
 
 impl<'a> Runner<'a> for LayoutSys {
@@ -83,7 +85,12 @@ impl<'a> Runner<'a> for LayoutSys {
 		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
 		
 		// log::info!("dirty_list============={:?}", dirty_list.0);
-		for id in dirty_list.0.iter() {
+		let len = dirty_list.0.len();
+		if self.pre_dirty_version != dirty_list.1 {
+		    self.pre_index = 0;
+			self.pre_dirty_version = dirty_list.1;
+		}
+		for id in dirty_list.0[self.pre_index..len].iter() {
 			let style_mark = match style_marks.get_mut(*id) {
                 Some(r) => r,
                 None => continue,
@@ -130,8 +137,8 @@ impl<'a> Runner<'a> for LayoutSys {
 			if dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) {
 				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, rect_style, other_style);
 			}
-			style_mark.dirty &= !*DIRTY2;
-			style_mark.dirty1 &= !(CalcType::Create as usize);
+			// style_mark.dirty &= !*DIRTY2;
+			// style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
 		// let co: usizeunt = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);

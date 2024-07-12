@@ -317,6 +317,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for StyleMarkSys<C> {
             }
         }
         dirty_list.0.clear();
+        // 清理后， 版本加1
+        dirty_list.1 += 1;
     }
 }
 
