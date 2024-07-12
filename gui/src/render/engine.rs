@@ -178,7 +178,7 @@ impl<C: HalContext + 'static> Engine<C> {
                 GarbageEmpty(),
                 &AssetDesc {
                     ref_garbage: false,
-                    min: 2 * 1024 * 1024,
+                    min: 10 * 1024 * 1024,
                     timeout: 10 * 60 * 1000,
                     weight: 0,
                 },

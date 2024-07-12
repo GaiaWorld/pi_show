@@ -90,6 +90,7 @@ impl<'a> Runner<'a> for LayoutSys {
 		    self.pre_index = 0;
 			self.pre_dirty_version = dirty_list.1;
 		}
+		// log::error!("layout dirty=============range:{:?}, version: {:?}", self.pre_index..len, self.pre_dirty_version);
 		for id in dirty_list.0[self.pre_index..len].iter() {
 			let style_mark = match style_marks.get_mut(*id) {
                 Some(r) => r,
@@ -140,6 +141,7 @@ impl<'a> Runner<'a> for LayoutSys {
 			// style_mark.dirty &= !*DIRTY2;
 			// style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
+		self.pre_index = len;
 		// let co: usizeunt = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
 		// if count > 0 {
