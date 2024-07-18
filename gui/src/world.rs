@@ -59,6 +59,8 @@ lazy_static! {
     pub static ref OPACITY_N: Atom = Atom::from("opacity_sys");
     pub static ref OVERFLOW_N: Atom = Atom::from("overflow_sys");
     pub static ref RENDER_N: Atom = Atom::from("render_sys");
+    pub static ref STYLE_VERSON: Atom = Atom::from("style_version_sys");
+    pub static ref DIRTY_COUNT: Atom = Atom::from("dirty_count_sys");
     pub static ref BG_COLOR_N: Atom = Atom::from("background_color_sys");
     pub static ref BOX_SHADOW_N: Atom = Atom::from("box_shadow_sys");
     pub static ref BR_COLOR_N: Atom = Atom::from("border_color_sys");
@@ -539,7 +541,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_system(IMAGE_N.clone(), image_sys);
     world.register_system(RENDER_CONTEXT_N.clone(), render_context_sys);
     world.register_system(CHAR_BLOCK_N.clone(), charblock_sys);
-    world.register_system(TEXT_GLPHY_N.clone(), CellTextGlphySys::<C>::new(TextGlphySys(PhantomData)));
+    world.register_system(TEXT_GLPHY_N.clone(), CellTextGlphySys::<C>::new(TextGlphySys::new()));
     world.register_system(
         TRANSFORM_WILL_CHANGE_N.clone(),
         CellTransformWillChangeSys::new(TransformWillChangeSys::default()),
@@ -575,9 +577,12 @@ pub fn create_world<C: HalContext + 'static>(
 
     world.register_system(OPACITY_N.clone(), opacity_sys);
 	world.register_system(CLIP_PATH_N.clone(), CellClipPathSys::<C>::new(ClipPathSys::default()));
+    world.register_system(STYLE_VERSON.clone(), crate::system::style_version::CellStyleVersion::new(crate::system::style_version::StyleVersion::default()));
+    world.register_system(DIRTY_COUNT.clone(), crate::system::style_version::CellDirtyCount::new(crate::system::style_version::DirtyCount::default()));
+    
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys,  clip_sys, node_attr_sys, render_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("style_version_sys, class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys,  clip_sys, node_attr_sys, render_sys, style_mark_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -586,17 +591,17 @@ pub fn create_world<C: HalContext + 'static>(
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build(
-        "class_setting_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, oct_sys".to_string(),
+        "style_version_sys, class_setting_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, oct_sys, dirty_count_sys".to_string(),
         &world,
     );
     world.add_dispatcher(CALC_GEO_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, text_layout_sys, layout_sys".to_string(), &world);
+    dispatch.build("style_version_sys, class_setting_sys, text_layout_sys, layout_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys, clip_sys, mask_image_sys, node_attr_sys, style_mark_sys".to_string(), &world);
+    dispatch.build("style_version_sys, class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }
@@ -925,15 +930,6 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 	}
 }
 
-
-#[inline]
-pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
-    if style_mark.dirty.not_any(){
-        dirty_list.0.push(id);
-    }
-
-    style_mark.dirty.set(ty, true);
-}
 
 pub struct DefaultComponent {
 	pub transform: Arc<CellSingleCase<Transform>>,

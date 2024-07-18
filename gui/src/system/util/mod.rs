@@ -151,6 +151,12 @@ pub fn calc_float_hash<T: Float + FloatCore>(v: &[T], cur: u64) -> u64 {
     hasher.finish()
 }
 
+pub fn calc_float_hash1<T: Float + FloatCore>(v: &[T], hasher: &mut DefaultHasher) {
+    for i in v.iter() {
+        unsafe { NotNan::new_unchecked(*i) }.hash( hasher);
+    }
+}
+
 #[inline]
 pub fn get_content_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {
     Rect {

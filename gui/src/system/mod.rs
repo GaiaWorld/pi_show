@@ -13,6 +13,7 @@ pub mod style_mark;
 mod transform_will_change;
 mod content_box;
 mod mask_img;
+pub mod style_version;
 
 pub use crate::system::transform_will_change::*;
 pub use crate::system::style_mark::*;

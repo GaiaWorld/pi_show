@@ -408,6 +408,7 @@ pub const GEO_DIRTY_TYPE: usize = CalcType::Matrix as usize
 pub struct StyleMark {
     pub dirty: StyleBit,  // 脏， StyleType值的组合， 如：StyleType::TextShadow as usize | StyleType::Image as usize 表示TextShadow和Image脏了
     pub dirty1: usize, // 脏， StyleType1值的组合， 如：StyleType::Width as usize | StyleType::Height as usize 表示Width和Height脏了
+    pub dirty_version: u32, // 脏版本， 每次更新样式，该值+1
 	pub style: usize, // dirty1对应的属性
     // pub dirty2: usize, // 脏， StyleType1值的组合， 如：StyleType::Width as usize | StyleType::Height as usize 表示Width和Height脏了
     pub dirty_other: usize, // 其它脏， 仅标记，不会记入脏列表
@@ -437,6 +438,12 @@ impl StyleBit {
     pub fn set_bit(mut self, index: usize) -> Self {
         self.set(index, true);
 		self
+    }
+
+    pub fn has_any(&self, other: &Self) -> bool {
+        (self.data[0] & other.data[0]).trailing_zeros() != 32 || 
+        (self.data[1] & other.data[1]).trailing_zeros() != 32 || 
+        (self.data[2] & other.data[2]).trailing_zeros() != 32
     }
 }
 

@@ -109,6 +109,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BackgroundColorSys<C> {
 		let default_transform = Transform::default();
 		let notify = unsafe { &* (render_objs.get_notify_ref() as *const NotifyImpl)} ;
 		let time = cross_performance::now();
+        // if dirty_list.0.len() > 0 {
+        //     log::error!("dirty_list.0======={:?}", dirty_list.0.len());
+        // }
+
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,

@@ -10,3 +10,4 @@ pi_share = "0.4"
 pi_atom = "0.5"
 ordered-float = "3.0"
 serde = { version = "1.0", features = ["derive"], optional = true }
+log = "0.4"

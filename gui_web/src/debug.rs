@@ -1868,7 +1868,7 @@ pub fn get_opcaity(world: u32) {
 }
 
 #[derive(Debug, Default, Serialize)]
-pub struct Mem{
+pub struct Mem {
     // 实体内存数量
     pub entity: Vec<EcsMem>,
     // 组件内存
@@ -1881,6 +1881,8 @@ pub struct Mem{
 
     pub total_capacity_mem_size: usize,
     pub total_use_mem_size: usize,
+
+    pub render_state: RenderStat,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -1962,6 +1964,10 @@ pub fn account_wasm_mem(world: u32) -> String {
     account_mem(&mem.components,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
     account_mem(&mem.entity,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
     account_mem(&mem.other,  &mut mem.total_capacity_mem_size, &mut mem.total_use_mem_size);
+
+    let stat = engine.gl.render_get_stat();
+    mem.render_state = stat.clone();
+
     serde_json::to_string(&mem).unwrap()
     
     // // world. entity_mem_size(|name, len, capacity, capacity_mem, use_mem| {
@@ -2015,8 +2021,7 @@ pub fn account_wasm_mem(world: u32) -> String {
     // log::info!("    world::image_wait_sheet = {:?}", r);
 
     // let engine = world1.gui.engine.lend_mut();
-    // let stat = engine.gl.render_get_stat();
-
+    
     // total += stat.slab_mem_size;
     // log::info!("    world::engine::slab_mem_size = {:?}", stat.slab_mem_size);
 

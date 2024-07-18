@@ -1932,6 +1932,9 @@ pub mod serialize {
                             Some(component) => {
                                 let c = component.clone();
                                 query.transform_will_change.lend_mut().insert(entity, TransformWillChange(c.all_transform));
+                                // 设置为默认值
+                                *component = Default::default();
+                                query.transform.lend_mut().get_notify_ref().modify_event(entity, "", 0);
                             }
                             None => {
                                 query.transform_will_change.lend_mut().insert(entity, TransformWillChange::default());

@@ -1250,8 +1250,7 @@ fn create_geo<C: HalContext + 'static>(
             share_data.layout_hash.hash(&mut hasher);
         } else {
             //在style中使用了文字布局属性, 重新计算文字布局属性的hash
-            let layout_hash = text_layout_hash(&text_style.text, &text_style.font);
-            layout_hash.hash(&mut hasher);
+            let layout_hash = text_layout_hash(&text_style.text, &text_style.font, &mut hasher);
         }
 
         // 如果是渐变色， 计算渐变色的hash
@@ -1283,6 +1282,31 @@ fn create_geo<C: HalContext + 'static>(
 			font_height,
         )
     } else {
+		// 是共享文字
+        let mut hasher = DefaultHasher::default();
+        text.0.0.hash(&mut hasher);
+		calc_float_hash1([layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top].as_slice(), &mut hasher);
+		for i in node_state.text.iter() {
+			calc_float_hash1([i.pos.0, i.pos.1].as_slice(), &mut hasher);
+		}
+        // // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
+        // if !(dirty & &*TEXT_LAYOUT_DIRTY).any() && dirty1 & CalcType::Layout as usize == 0 {
+        //     share_data.layout_hash.hash(&mut hasher);
+        // } else {
+            //在style中使用了文字布局属性, 重新计算文字布局属性的hash
+            text_layout_hash(&text_style.text, &text_style.font, &mut hasher);
+        // }
+
+        // 如果是渐变色， 计算渐变色的hash
+        if let Color::LinearGradient(ref blur) = color {
+            blur.hash(&mut hasher);
+        }
+
+        let hash = hasher.finish();
+        // 从缓存中找到geo， 直接返回
+        if let Some(geo) = engine.geometry_res_map.get(&hash) {
+            return ResWrapper::Handle(geo);
+        }
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
         get_geo_flow(
 			children,
@@ -1292,7 +1316,7 @@ fn create_geo<C: HalContext + 'static>(
             color,
             font_sheet,
             engine,
-            None,
+            Some(hash),
             share_index_buffer,
 			index_buffer_max_len,
 			scale,
@@ -1303,9 +1327,7 @@ fn create_geo<C: HalContext + 'static>(
     }
 }
 
-fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
-    let mut hasher = DefaultHasher::default();
-    let hasher = &mut hasher;
+fn text_layout_hash(text_style: &Text, font: &Font, hasher: &mut DefaultHasher) {
     NotNan::new(text_style.letter_spacing).unwrap().hash(hasher);
     NotNan::new(text_style.indent).unwrap().hash(hasher);
     NotNan::new(text_style.word_spacing).unwrap().hash(hasher);
@@ -1342,7 +1364,6 @@ fn text_layout_hash(text_style: &Text, font: &Font) -> u64 {
     };
     font.style.hash(hasher);
     font.family.hash(hasher);
-    hasher.finish()
 }
 
 // 返回position， uv， color， index

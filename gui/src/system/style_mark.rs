@@ -270,7 +270,10 @@ fn set_local_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark
 
 #[inline]
 pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
-    if style_mark.dirty.not_any(){
+    if dirty_list.2 != style_mark.dirty_version {
+        dirty_list.0.push(id);
+        style_mark.dirty_version = dirty_list.2;
+    } else if style_mark.dirty.not_any() {
         dirty_list.0.push(id);
     }
 
@@ -278,7 +281,10 @@ pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &
 }
 #[inline]
 pub fn set_dirty_many(dirty_list: &mut DirtyList, id: usize, ty: StyleBit, style_mark: &mut StyleMark) {
-    if style_mark.dirty.not_any(){
+    if dirty_list.2 != style_mark.dirty_version {
+        dirty_list.0.push(id);
+        style_mark.dirty_version = dirty_list.2;
+    } else if style_mark.dirty.not_any() {
         dirty_list.0.push(id);
     }
 
@@ -287,7 +293,21 @@ pub fn set_dirty_many(dirty_list: &mut DirtyList, id: usize, ty: StyleBit, style
 
 #[inline]
 pub fn set_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    if dirty_list.2 != style_mark.dirty_version {
+        style_mark.dirty_version = dirty_list.2;
+    } 
     if style_mark.dirty.not_any() && style_mark.dirty1 == 0 {
+        dirty_list.0.push(id);
+    }
+    style_mark.dirty1 |= ty;
+}
+
+#[inline]
+pub fn set_dirty2(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    if dirty_list.2 != style_mark.dirty_version {
+        dirty_list.0.push(id);
+        style_mark.dirty_version = dirty_list.2;
+    } else if style_mark.dirty.not_any() && style_mark.dirty1 == 0 {
         dirty_list.0.push(id);
     }
     style_mark.dirty1 |= ty;
@@ -318,7 +338,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for StyleMarkSys<C> {
         }
         dirty_list.0.clear();
         // 清理后， 版本加1
-        dirty_list.1 += 1;
+        dirty_list.1 = dirty_list.1.wrapping_add(1);
+        dirty_list.2 = 0;
+        dirty_list.3 = 0;
     }
 }
 
@@ -340,7 +362,7 @@ impl<'a, C: HalContext + 'static> EntityListener<'a, Node, ModifyEvent> for Styl
 
     fn listen(&mut self, event: &Event, _read: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
         if let Some(r) = style_marks.get_mut(event.id) {
-            set_dirty1(dirty_list, event.id, CalcType::Delete as usize, r);
+            set_dirty2(dirty_list, event.id, CalcType::Delete as usize, r);
         }
     }
 }
@@ -719,7 +741,7 @@ fn idtree_create<C: HalContext + 'static>(
         Some(r) => r,
         None => return,
     };
-    set_dirty1(&mut write.3, id, CalcType::Create as usize, style_mark);
+    set_dirty2(&mut write.3, id, CalcType::Create as usize, style_mark);
     let (dirty, dirty1) = (
         style_mark.local_style | style_mark.class_style,
         style_mark.style,
@@ -2385,6 +2407,7 @@ fn set_mask_image<C: HalContext>(
     }
 }
 
+
 impl_system! {
     StyleMarkSys<C> where [C: HalContext + 'static],
     true,
@@ -2469,3 +2492,6 @@ impl_system! {
         MultiCaseListener<Node, ClassName, ModifyEvent>
     }
 }
+
+
+

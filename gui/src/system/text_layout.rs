@@ -26,7 +26,7 @@ use crate::single::*;
 use crate::render::engine::ShareEngine;
 
 lazy_static! {
-	static ref MARK_LAYOUT: StyleBit = style_bit().set_bit(StyleType::LetterSpacing as usize)
+	pub static ref MARK_LAYOUT: StyleBit = style_bit().set_bit(StyleType::LetterSpacing as usize)
 		.set_bit(StyleType::WordSpacing as usize)
 		.set_bit(StyleType::LineHeight as usize)
 		.set_bit(StyleType::TextIndent as usize)
@@ -39,7 +39,7 @@ lazy_static! {
 		.set_bit(StyleType::FontSize as usize)
 		.set_bit(StyleType::FontWeight as usize);
 
-	static ref MARK: StyleBit = style_bit().set_bit(StyleType::TextContent as usize) | &*MARK_LAYOUT ;
+	pub static ref MARK: StyleBit = style_bit().set_bit(StyleType::TextContent as usize) | &*MARK_LAYOUT ;
 }
 
 
@@ -65,9 +65,26 @@ type Write<'a> = (
 pub struct LayoutImpl {
     read: usize,
     write: usize,
+
+	pre_dirty_version: u32,
+	pre_index: usize,
 }
 
-pub struct TextGlphySys<C: HalContext + 'static>(pub PhantomData<C>);
+pub struct TextGlphySys<C: HalContext + 'static>{
+	pub mark:  PhantomData<C>,
+	pre_dirty_version: u32,
+	pre_index: usize,
+}
+
+impl <C: HalContext + 'static> TextGlphySys<C> {
+    pub fn new() -> Self {
+        Self {
+			mark: PhantomData,
+			pre_dirty_version: 0,
+			pre_index: 0,
+		}
+    }
+}
 
 impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
     type ReadData = (
@@ -83,8 +100,17 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		let mut flag = true;
 		let mut count = 0;
-		let mut dirty_list = &(read.3).0;
+		let mut dirty_list2 = &read.3;
 		let mut dirty_list1 = Vec::new();
+
+		let mut len = dirty_list2.0.len();
+		if self.pre_dirty_version != dirty_list2.1 {
+		    self.pre_index = 0;
+			self.pre_dirty_version = dirty_list2.1;
+		}
+		let mut pre_index = self.pre_index;
+
+		let mut dirty_list = &(read.3).0;
 		while flag {
 			flag = false;
 			count += 1;
@@ -92,7 +118,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 				log::debug!("TextGlphySys dead loop, the current texture size cannot cache existing text");
 				panic!("TextGlphySys dead loop");
 			}
-			for id in dirty_list.iter() {
+			for id in dirty_list[pre_index..len].iter() {
 				let r = match write.8.get(*id) {
 					Some(r) => r,
 					None => continue,
@@ -121,6 +147,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 							}
 						}
 						dirty_list = &dirty_list1;
+						len = dirty_list.len();
+						pre_index = 0;
 						flag = true; // 重新迭代
 						break;
 					},
@@ -128,6 +156,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 				};
 			}
 		}
+		self.pre_index = dirty_list2.0.len();
     }
 }
 
@@ -136,6 +165,8 @@ impl<'a> LayoutImpl {
         LayoutImpl {
             read: 0,
             write: 0,
+			pre_dirty_version: 0,
+			pre_index: 0,
         }
     }
 }
@@ -161,8 +192,16 @@ impl<'a> Runner<'a> for LayoutImpl {
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		
 		// 暂时拷贝， TODO
-		let dirty_list = (read.4).0.clone();
+		let dirty_list = read.4;
 		// let time = std::time::Instant::now();
+		let len = dirty_list.0.len();
+		if self.pre_dirty_version != dirty_list.1 {
+		    self.pre_index = 0;
+			self.pre_dirty_version = dirty_list.1;
+		}
+
+		let mut dirty_list = Vec::new();
+		dirty_list.extend_from_slice(&(read.4).0[self.pre_index..len]);
         for id in dirty_list.iter() {
             let r = match read.3.get(*id) {
                 Some(r) => r,
@@ -173,9 +212,14 @@ impl<'a> Runner<'a> for LayoutImpl {
             if (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
                 continue;
 			}
+
+			// if *id == 682 {
+			// 	log::error!("text split==========={:?}", ((read.4).1, (read.4).2, self.pre_index, self.pre_dirty_version ));
+			// }
 			// println!("text dirty===================textContent dirty{:?}, layout_dirty:{}, dirty:{}, id:{}", r.dirty & StyleType::Text as usize, r.dirty & MARK_LAYOUT, r.dirty, id);
             calc(*id, &read, &mut write, (r.dirty & &*MARK_LAYOUT).any());
 		}
+		self.pre_index = (read.4).0.len();
 	}
 }
 
@@ -784,6 +828,7 @@ fn calc<'a>(
 	
 	let size = &calc.rect_layout_styles[id].size;
 	let position_type = calc.other_layout_styles[id].position_type;
+
 	// 如果父节点没有其它子节点，或者，自身定义了宽度或高度，则可使用简单布局
 	if parent > 0 && calc.idtree[parent].children().len == 1 {
 		// if size.width == Dimension::Undefined {

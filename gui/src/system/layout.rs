@@ -12,13 +12,15 @@ use crate::single::{IdTree, DirtyList};
 use crate::component::user::{OtherLayoutStyle, RectLayoutStyle};
 use crate::component::calc::{LayoutR, StyleMark, NodeState, LAYOUT_MARGIN_MARK, LAYOUT_POSITION_MARK, LAYOUT_BORDER_MARK, LAYOUT_PADDING_MARK, CalcType, StyleBit, style_bit};
 use crate::component::user::StyleType;
+use crate::system::text_layout::MARK as TEXT_LAYOUT_MARK;
 
 lazy_static! {
 	// 矩形区域脏，绝对定位下，设自身self_dirty，相对定位下，设自身self_dirty后，还要设父child_dirty
 	pub static ref RECT_DIRTY: StyleBit = style_bit().set_bit(StyleType::Width as usize)
 	.set_bit(StyleType::Height as usize)
 		| &*LAYOUT_POSITION_MARK
-		| &*LAYOUT_MARGIN_MARK;
+		| &*LAYOUT_MARGIN_MARK
+		| &*TEXT_LAYOUT_MARK;
 
 	// 普通脏及子节点添加或移除， 设父child_dirty
 	pub static ref NORMAL_DIRTY: StyleBit = //StyleType::FlexBasis as usize 
@@ -37,10 +39,18 @@ lazy_static! {
 		.set_bit(StyleType::FlexWrap as usize)
 		.set_bit(StyleType::AlignItems as usize)
 		.set_bit(StyleType::JustifyContent as usize)
-		.set_bit(StyleType::AlignContent as usize);
+		.set_bit(StyleType::AlignContent as usize) | &*TEXT_LAYOUT_MARK;
 
 
 	pub static ref DIRTY2: StyleBit = style_bit()
+		.set_bit(StyleType::Display as usize)
+		.set_bit(StyleType::FlexBasis as usize)
+		.set_bit(StyleType::FlexDirection as usize)
+		.set_bit(StyleType::FlexWrap as usize)
+		.set_bit(StyleType::AlignItems as usize)
+		.set_bit(StyleType::JustifyContent as usize)
+		.set_bit(StyleType::AlignContent as usize) | &*RECT_DIRTY | &*NORMAL_DIRTY | &*SELF_DIRTY | &*TEXT_LAYOUT_MARK;
+	pub static ref DIRTY: StyleBit = style_bit()
 		.set_bit(StyleType::Display as usize)
 		.set_bit(StyleType::FlexBasis as usize)
 		.set_bit(StyleType::FlexDirection as usize)
@@ -57,9 +67,9 @@ lazy_static! {
 
 
 #[derive(Default)]
-pub struct LayoutSys{
+pub struct LayoutSys {
 	dirty: LayerDirty<usize>,
-	pre_dirty_version: u64,
+	pre_dirty_version: u32,
 	pre_index: usize,
 }
 
@@ -90,6 +100,9 @@ impl<'a> Runner<'a> for LayoutSys {
 		    self.pre_index = 0;
 			self.pre_dirty_version = dirty_list.1;
 		}
+		// if dirty_list.0.len() > 0 {
+        //     log::error!("dirty_list.0!!!!!!======={:?}", dirty_list.0.len());
+        // }
 		// log::error!("layout dirty=============range:{:?}, version: {:?}", self.pre_index..len, self.pre_dirty_version);
 		for id in dirty_list.0[self.pre_index..len].iter() {
 			let style_mark = match style_marks.get_mut(*id) {
@@ -104,10 +117,11 @@ impl<'a> Runner<'a> for LayoutSys {
 			// let dirty2 = style_mark.dirty2;
 			let dirty1 = style_mark.dirty1;
 			let dirty = style_mark.dirty;
-			// log::info!("layout dirty============={}, {}, {}", dirty2, dirty1, dirty2 & RECT_DIRTY);
+			
+			
 
             // 不存在LayoutTree关心的脏, 跳过
-            if !(dirty & DIRTY2.set_bit(StyleType::FontSize as usize)).set_bit(StyleType::TextContent as usize).any() && dirty1 & CalcType::Create as usize == 0 {
+            if !dirty.has_any(&*DIRTY2) && dirty1 & CalcType::Create as usize == 0 {
                 continue;
 			}
 
@@ -117,33 +131,49 @@ impl<'a> Runner<'a> for LayoutSys {
 			let rect_style = &flex_rect_styles[*id];
 			let other_style = &flex_other_styles[*id];
 
-			if (dirty & &*RECT_DIRTY).any() || dirty1 & CalcType::Create as usize != 0 || dirty[StyleType::FontSize as usize] {
+			// if *id == 265 {
+			// 	log::error!("dirty RECT_DIRTY======{:?}", (id, (dirty & &*RECT_DIRTY).any() || dirty1 & CalcType::Create as usize != 0 || dirty[StyleType::FontSize as usize])
+			// );
+			// }
+			
+			// if *id == 380 {
+			// 	log::error!("layout dirty============={:?}", (id, dirty_list.1, dirty_list.2, self.pre_index, (
+			// 		(dirty & &*RECT_DIRTY).any() || dirty1 & CalcType::Create as usize != 0 || dirty[StyleType::FontSize as usize],
+			// 		(dirty & &*NORMAL_DIRTY).any() || dirty1 & StyleType::FlexBasis as usize != 0,
+			// 		(dirty & &*SELF_DIRTY).any(),
+			// 		(dirty & &CHILD_DIRTY.set_bit(StyleType::TextContent as usize)).any() || dirty1 & CalcType::Create as usize != 0,
+			// 		dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) || dirty1 & CalcType::Create as usize != 0,
+
+			// 	)));
+			// }
+
+			if dirty.has_any(&*RECT_DIRTY) || dirty1 & CalcType::Create as usize != 0 {
 				set_rect(tree, node_states, &mut self.dirty, *id, rect_style, other_style, true, true);
 			}
 
-			if (dirty & &*NORMAL_DIRTY).any() || dirty1 & StyleType::FlexBasis as usize != 0 {
+			if dirty.has_any(&*NORMAL_DIRTY) || dirty1 & StyleType::FlexBasis as usize != 0 {
 				// println!("dirty NORMAL_DIRTY======{:?}", id);
 				set_normal_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if (dirty & &*SELF_DIRTY).any() {
+			if dirty.has_any(&*SELF_DIRTY) {
 				// println!("dirty SELF_DIRTY======{:?}", id);
 				set_self_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if (dirty & &CHILD_DIRTY.set_bit(StyleType::TextContent as usize)).any(){
+			if dirty.has_any(&*CHILD_DIRTY) || dirty1 & CalcType::Create as usize != 0{
 				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
 
-			if dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) {
+			if dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) || dirty1 & CalcType::Create as usize != 0 {
 				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, rect_style, other_style);
 			}
-			// style_mark.dirty &= !*DIRTY2;
+			// style_mark.dirty &= !*DIRTY;
 			// style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
-		self.pre_index = len;
 		// let co: usizeunt = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
+		self.pre_index = dirty_list.0.len();
 		// if count > 0 {
 		// 	log::warn!("layout======={:?}", cross_performance::now() - time);
 		// }
