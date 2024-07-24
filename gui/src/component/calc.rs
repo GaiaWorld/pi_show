@@ -126,37 +126,38 @@ impl PostProcessObj for RenderContext {
 // #[derive(Debug, Default, Deserialize, Serialize,Clone)]
 // pub struct DirtyViewRect(pub f32, pub f32, pub f32, pub f32, pub bool/*是否与最大视口相等（RenderBeginDesc中的视口）*/);
 
-#[derive(Clone, Debug, Component, PartialEq, Deserialize, Serialize)]
-pub struct LayoutR {
-    pub rect: Rect<f32>,
-    pub border: Rect<f32>,
-    pub padding: Rect<f32>,
-}
+pub type LayoutR = flex_layout::LayoutR;
+// #[derive(Clone, Debug, Component, PartialEq, Deserialize, Serialize)]
+// pub struct LayoutR {
+//     pub rect: Rect<f32>,
+//     pub border: Rect<f32>,
+//     pub padding: Rect<f32>,
+// }
 
-impl Default for LayoutR {
-    fn default() -> LayoutR {
-        LayoutR {
-            rect: Rect {
-                left: 0.0,
-                right: 0.0,
-                top: 0.0,
-                bottom: 0.0,
-            },
-            border: Rect {
-                left: 0.0,
-                right: 0.0,
-                top: 0.0,
-                bottom: 0.0,
-            },
-            padding: Rect {
-                left: 0.0,
-                right: 0.0,
-                top: 0.0,
-                bottom: 0.0,
-            },
-        }
-    }
-}
+// impl Default for LayoutR {
+//     fn default() -> LayoutR {
+//         LayoutR {
+//             rect: Rect {
+//                 left: 0.0,
+//                 right: 0.0,
+//                 top: 0.0,
+//                 bottom: 0.0,
+//             },
+//             border: Rect {
+//                 left: 0.0,
+//                 right: 0.0,
+//                 top: 0.0,
+//                 bottom: 0.0,
+//             },
+//             padding: Rect {
+//                 left: 0.0,
+//                 right: 0.0,
+//                 top: 0.0,
+//                 bottom: 0.0,
+//             },
+//         }
+//     }
+// }
 
 // // ZIndex计算结果， 按照节点的ZIndex分配的一个全局唯一的深度表示
 // #[derive(Component, Default, Deref, DerefMut, Clone, Debug)]

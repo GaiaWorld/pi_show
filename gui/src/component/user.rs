@@ -92,83 +92,86 @@ pub trait NeedMark {
 //     }
 // }
 
-#[derive(Clone, Component, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct RectLayoutStyle {
-    pub margin: Rect<Dimension>,
-    pub size: Size<Dimension>,
-}
+// #[derive(Clone, Component, Serialize, Deserialize, Debug)]
+// #[storage(VecMapWithDefault)]
+// pub struct RectLayoutStyle {
+//     pub margin: Rect<Dimension>,
+//     pub size: Size<Dimension>,
+// }
 
-impl Default for RectLayoutStyle {
-    fn default() -> RectLayoutStyle {
-        RectLayoutStyle {
-            margin: Default::default(),
-            size: Default::default(),
-        }
-    }
-}
+// impl Default for RectLayoutStyle {
+//     fn default() -> RectLayoutStyle {
+//         RectLayoutStyle {
+//             margin: Default::default(),
+//             size: Default::default(),
+//         }
+//     }
+// }
 
-#[derive(Clone, Component, Serialize, Deserialize, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct OtherLayoutStyle {
-    pub display: Display,
-    pub position_type: PositionType,
-    pub direction: Direction,
+pub type RectLayoutStyle = flex_layout::RectStyle;
+pub type OtherLayoutStyle = flex_layout::OtherStyle;
 
-    pub flex_direction: FlexDirection,
-    pub flex_wrap: FlexWrap,
-    pub justify_content: JustifyContent,
-    pub align_items: AlignItems,
-    pub align_content: AlignContent,
+// #[derive(Clone, Component, Serialize, Deserialize, Debug)]
+// #[storage(VecMapWithDefault)]
+// pub struct OtherLayoutStyle {
+//     pub display: Display,
+//     pub position_type: PositionType,
+//     pub direction: Direction,
 
-    pub order: isize,
-    pub flex_basis: Dimension,
-    pub flex_grow: f32,
-    pub flex_shrink: f32,
-    pub align_self: AlignSelf,
+//     pub flex_direction: FlexDirection,
+//     pub flex_wrap: FlexWrap,
+//     pub justify_content: JustifyContent,
+//     pub align_items: AlignItems,
+//     pub align_content: AlignContent,
 
-    // pub overflow: Overflow,
-    pub position: Rect<Dimension>,
-    pub padding: Rect<Dimension>,
-    pub border: Rect<Dimension>,
-    pub min_size: Size<Dimension>,
-    pub max_size: Size<Dimension>,
-    pub aspect_ratio: Number,
-}
+//     pub order: isize,
+//     pub flex_basis: Dimension,
+//     pub flex_grow: f32,
+//     pub flex_shrink: f32,
+//     pub align_self: AlignSelf,
 
-impl Default for OtherLayoutStyle {
-    fn default() -> OtherLayoutStyle {
-        OtherLayoutStyle {
-            display: Default::default(),
-            position_type: Default::default(),
-            direction: Default::default(),
-            flex_direction: Default::default(),
-            flex_wrap: Default::default(),
-            // overflow: Default::default(),
-            align_items: Default::default(),
-            align_self: Default::default(),
-            // align_content: Default::default(),
-            align_content: AlignContent::FlexStart,
-            justify_content: Default::default(),
-            position: Rect {
-                left: Dimension::Undefined,
-                right: Dimension::Undefined,
-                top: Dimension::Undefined,
-                bottom: Dimension::Undefined,
-            },
-            // position:Default::default(),
-            padding: Default::default(),
-            border: Default::default(),
-            flex_grow: 0.0,
-            flex_shrink: 0.0,
-            order: 0,
-            flex_basis: Dimension::Auto,
-            min_size: Default::default(),
-            max_size: Default::default(),
-            aspect_ratio: Default::default(),
-        }
-    }
-}
+//     // pub overflow: Overflow,
+//     pub position: Rect<Dimension>,
+//     pub padding: Rect<Dimension>,
+//     pub border: Rect<Dimension>,
+//     pub min_size: Size<Dimension>,
+//     pub max_size: Size<Dimension>,
+//     pub aspect_ratio: Number,
+// }
+
+// impl Default for OtherLayoutStyle {
+//     fn default() -> OtherLayoutStyle {
+//         OtherLayoutStyle {
+//             display: Default::default(),
+//             position_type: Default::default(),
+//             direction: Default::default(),
+//             flex_direction: Default::default(),
+//             flex_wrap: Default::default(),
+//             // overflow: Default::default(),
+//             align_items: Default::default(),
+//             align_self: Default::default(),
+//             // align_content: Default::default(),
+//             align_content: AlignContent::FlexStart,
+//             justify_content: Default::default(),
+//             position: Rect {
+//                 left: Dimension::Undefined,
+//                 right: Dimension::Undefined,
+//                 top: Dimension::Undefined,
+//                 bottom: Dimension::Undefined,
+//             },
+//             // position:Default::default(),
+//             padding: Default::default(),
+//             border: Default::default(),
+//             flex_grow: 0.0,
+//             flex_shrink: 0.0,
+//             order: 0,
+//             flex_basis: Dimension::Auto,
+//             min_size: Default::default(),
+//             max_size: Default::default(),
+//             aspect_ratio: Default::default(),
+//         }
+//     }
+// }
 
 #[derive(Deref, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize, Debug, Component)]
 #[storage(VecMapWithDefault)]

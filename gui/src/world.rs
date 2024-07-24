@@ -582,7 +582,7 @@ pub fn create_world<C: HalContext + 'static>(
     
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("style_version_sys, class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys,  clip_sys, node_attr_sys, render_sys, style_mark_sys, dirty_count_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, transform_will_change_sys, oct_sys, content_box_sys, overflow_sys, background_color_sys, box_shadow_sys, border_color_sys, image_sys, border_image_sys, charblock_sys, mask_image_sys, render_context_sys, blur_sys, opacity_sys, mask_texture_sys, clip_path_sys,  clip_sys, node_attr_sys, render_sys, style_mark_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(RENDER_DISPATCH.clone(), dispatch);
 
     // let mut dispatch = SeqDispatcher::default();
@@ -591,17 +591,17 @@ pub fn create_world<C: HalContext + 'static>(
 
     let mut dispatch = SeqDispatcher::default();
     dispatch.build(
-        "style_version_sys, class_setting_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, oct_sys, dirty_count_sys".to_string(),
+        "class_setting_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, oct_sys, dirty_count_sys".to_string(),
         &world,
     );
     world.add_dispatcher(CALC_GEO_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("style_version_sys, class_setting_sys, text_layout_sys, layout_sys, dirty_count_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, text_layout_sys, layout_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(LAYOUT_DISPATCH.clone(), dispatch);
 
     let mut dispatch = SeqDispatcher::default();
-    dispatch.build("style_version_sys, class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, dirty_count_sys".to_string(), &world);
+    dispatch.build("class_setting_sys, z_index_sys, show_sys, filter_sys, text_layout_sys, layout_sys, text_layout_update_sys, world_matrix_sys, text_glphy_sys, dirty_count_sys".to_string(), &world);
     world.add_dispatcher(CALC_DISPATCH.clone(), dispatch);
     world
 }

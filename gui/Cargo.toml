@@ -132,4 +132,5 @@ statistics = []
 pi_atom = {path = "D://0_rust/pi_atom"}
 pi_share = {path = "../../pi_share"}
 pi_assets = {path = "../../pi_assets"}
+pi_flex_layout = {path = "D://0_rust/pi_flex_layout"}
 

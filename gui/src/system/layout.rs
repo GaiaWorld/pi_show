@@ -75,22 +75,22 @@ pub struct LayoutSys {
 
 impl<'a> Runner<'a> for LayoutSys {
 	type ReadData = ( 
-		&'a MultiCaseImpl<Node, RectLayoutStyle>,
-		&'a MultiCaseImpl<Node, OtherLayoutStyle>,
 		&'a SingleCaseImpl<IdTree>, 
 		&'a SingleCaseImpl<DirtyList>);
 	type WriteData = (
+		&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+		&'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
 		&'a mut MultiCaseImpl<Node, LayoutR>,
 		&'a mut MultiCaseImpl<Node, NodeState>,
 		&'a mut MultiCaseImpl<Node, StyleMark>, );
-    fn run(&mut self, (rect_layout_styles, other_layout_styles, tree, dirty_list, ): Self::ReadData, (layouts, node_states, style_marks): Self::WriteData) {
+    fn run(&mut self, ( tree, dirty_list, ): Self::ReadData, (rect_layout_styles, other_layout_styles, layouts, node_states, style_marks): Self::WriteData) {
 		// let time = cross_performance::now();
 		if dirty_list.0.len() == 0 {
             return;
 		}
 		
-		let flex_rect_styles = unsafe {&mut *(rect_layout_styles.get_storage() as *const VecMapWithDefault<RectLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::RectStyle>)};
-		let flex_other_styles = unsafe {&mut *(other_layout_styles.get_storage() as *const VecMapWithDefault<OtherLayoutStyle> as usize as *mut VecMapWithDefault<flex_layout::OtherStyle>)};
+		let flex_rect_styles = rect_layout_styles.get_storage_mut();
+		let flex_other_styles = other_layout_styles.get_storage_mut();
 		let flex_layouts = unsafe {&mut *(layouts.get_storage() as *const VecMap<LayoutR> as usize as *mut VecMap<flex_layout::LayoutR>)};
 		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
 		
@@ -104,7 +104,10 @@ impl<'a> Runner<'a> for LayoutSys {
         //     log::error!("dirty_list.0!!!!!!======={:?}", dirty_list.0.len());
         // }
 		// log::error!("layout dirty=============range:{:?}, version: {:?}", self.pre_index..len, self.pre_dirty_version);
+		let mut i = 0;
+		let mut log_len = std::usize::MAX;
 		for id in dirty_list.0[self.pre_index..len].iter() {
+			i += 1;
 			let style_mark = match style_marks.get_mut(*id) {
                 Some(r) => r,
                 None => continue,
@@ -146,16 +149,13 @@ impl<'a> Runner<'a> for LayoutSys {
 
 			// 	)));
 			// }
-
 			if dirty.has_any(&*RECT_DIRTY) || dirty1 & CalcType::Create as usize != 0 {
 				set_rect(tree, node_states, &mut self.dirty, *id, rect_style, other_style, true, true);
 			}
-
 			if dirty.has_any(&*NORMAL_DIRTY) || dirty1 & StyleType::FlexBasis as usize != 0 {
 				// println!("dirty NORMAL_DIRTY======{:?}", id);
 				set_normal_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
-
 			if dirty.has_any(&*SELF_DIRTY) {
 				// println!("dirty SELF_DIRTY======{:?}", id);
 				set_self_style(tree, node_states, &mut self.dirty, *id, other_style);
@@ -164,7 +164,6 @@ impl<'a> Runner<'a> for LayoutSys {
 			if dirty.has_any(&*CHILD_DIRTY) || dirty1 & CalcType::Create as usize != 0{
 				set_children_style(tree, node_states, &mut self.dirty, *id, other_style);
 			}
-
 			if dirty.get(StyleType::Display as usize).map_or(false, |display| {*display == true}) || dirty1 & CalcType::Create as usize != 0 {
 				set_display(*id, other_style.display, &mut self.dirty, tree, node_states, rect_style, other_style);
 			}
@@ -174,9 +173,6 @@ impl<'a> Runner<'a> for LayoutSys {
 		// let co: usizeunt = self.dirty.count();
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
 		self.pre_index = dirty_list.0.len();
-		// if count > 0 {
-		// 	log::warn!("layout======={:?}", cross_performance::now() - time);
-		// }
 	}
 }
 
@@ -198,9 +194,6 @@ impl<'a> EntityListener<'a, Node, CreateEvent> for LayoutSys {
 }
 
 
-pub fn aa() {
-	Vec::new().push(1);
-}
 // impl<'a> SingleCaseListener<'a, IdTree, ModifyEvent> for LayoutSys {
 //     type ReadData = &'a SingleCaseImpl<IdTree>;
 //     type WriteData = (&'a mut  MultiCaseImpl<Node, NodeState>, &'a mut  MultiCaseImpl<Node, RectLayoutStyle>, &'a mut  MultiCaseImpl<Node, OtherLayoutStyle>);
@@ -231,6 +224,15 @@ pub fn aa() {
 // 		let node_states = unsafe {&mut *(node_states.get_storage() as *const VecMap<NodeState> as usize as *mut VecMap<flex_layout::INode>)};
 // 		set_normal_style(tree, node_states, &mut self.dirty, event.id, &flex_other_styles[event.id]);
 //     }
+// }
+
+// pub fn aa(a: &mut [f64;64]) {
+// 	println!("aaaa==========={}", a[0]);
+// 	a[0] += 1.0;
+
+// 	let mut b = [0.0; 64]; // 每次512字节
+// 	b[0] = a[0];
+// 	aa(&mut b);
 // }
 
 impl<'a> SingleCaseListener<'a, IdTree, DeleteEvent> for LayoutSys {

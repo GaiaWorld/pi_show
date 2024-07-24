@@ -22,6 +22,7 @@ impl<'a> Runner<'a> for DirtyCount {
     type WriteData = &'a mut SingleCaseImpl<DirtyList>;
     fn run(&mut self, _read: Self::ReadData, mut dirty_list: Self::WriteData) {
         dirty_list.3 = dirty_list.0.len();
+        dirty_list.2 += 1;
     }
 }
 
