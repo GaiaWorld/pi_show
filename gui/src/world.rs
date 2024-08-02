@@ -9,8 +9,9 @@ use pi_assets::asset::{GarbageEmpty, Handle};
 use pi_atom::Atom;
 use hal_core::*;
 use pi_null::Null;
+use pi_print_any::out_any;
 use pi_style::style_parse::{parse_class_map_from_string, ClassMap};
-use pi_style::style_type::ClassSheet;
+use pi_style::style_type::{Attr, ClassSheet, TextContentType};
 use render::blur::{BlurSys, CellBlurSys};
 use render::mask_texture::{CellMaskTextureSys, MaskTextureSys};
 use crate::render::asset::{AssetConfig, AssetDesc, ShareAssetMgr, ShareHomogeneousMgr};
@@ -816,10 +817,43 @@ impl<C: HalContext + 'static> GuiWorld<C> {
             }
 
 			let dirty_list = self.world_ext.dirty_list.lend_mut();
+            // if entity == 536 {
+            //     out_any!(log::error, "536 set_style=============={:?}", &value);
+            // }
 			// 设脏
 			set_dirty(dirty_list, entity, T::get_type() as usize, style_mark);
 		}
 		forget(value);
+	}
+
+    /// 设置样式
+	pub fn force_update_text(&mut self, entity: usize) {
+        let idtree: &SingleCaseImpl<IdTree> = self.world_ext.idtree.lend();
+        let text_contents = self.world_ext.text_content.lend();
+        let node = match idtree.get(entity as usize) {
+            Some(r) => r,
+            None => return,
+        };
+        let style_mark = self.world_ext.style_mark.lend_mut();
+        let dirty_list = self.world_ext.dirty_list.lend_mut();
+
+        if let Some(_r) = text_contents.get(entity as usize) {
+            Self::set_text_dirty(entity, style_mark.get_mut(entity), dirty_list);
+        }
+
+        for (id, _n) in idtree.recursive_iter(node.children().head) {
+            if let Some(_r) = text_contents.get(id) {
+                Self::set_text_dirty(id, style_mark.get_mut(id), dirty_list);
+            }
+        }
+	}
+
+    /// 设置样式
+	fn set_text_dirty(entity: usize, style_mark: Option<&mut StyleMark>, dirty_list: &mut DirtyList) {
+		if let Some(style_mark) = style_mark{
+			// 设脏
+			set_dirty(dirty_list, entity, <TextContentType as Attr>::get_type() as usize, style_mark);
+		}
 	}
 
 	// 创建class

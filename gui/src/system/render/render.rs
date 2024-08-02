@@ -712,6 +712,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				let clear_rect = basemut.dyn_atlas_set.get_rect_with_border(render_target).unwrap();
 				render_context.render_rect = rect.clone();
 				render_context.clear_rect = clear_rect.clone();
+				// log::error!("change================={:?}", (id, clear_rect));
 				if rect.maxs.x - rect.mins.x <= 0.0 || rect.maxs.y - rect.mins.y <= 0.0 {
 					return;
 				}
@@ -755,7 +756,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			// 		(intersect_rect.maxs.y - intersect_rect.mins.y) as i32,
 			// 	), viewport, dirty_rect, content_box);
 			// }
-			// log::info!("content_box====={:?}, {}, {:?}", content_box, id, rect);
+			// log::error!("content_box====={:?}, {}, {:?}", content_box, id, intersect_rect);
 			(
 				viewport.0 + (intersect_rect.mins.x - content_box.mins.x) as i32,
 				viewport.1 - (intersect_rect.maxs.y - content_box.maxs.y)as i32,
@@ -768,9 +769,10 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			// } else {
 			// 	log::info!("scissor1: {:?}, {:?}, {:?}, {:?}, {:?}", id, (rect.mins.x as i32, rect.mins.y as i32, (rect.maxs.x- rect.mins.x) as i32, (rect.maxs.y - rect.mins.y) as i32), viewport, dirty_rect, content_box);
 			// }
+			
 			(clear_rect.mins.x as i32, clear_rect.mins.y as i32, (clear_rect.maxs.x- clear_rect.mins.x) as i32, (clear_rect.maxs.y - clear_rect.mins.y) as i32)
 		};
-		// log::info!("scissor====={:?}, {}, {:?}, {:?}", scissor, id, viewport, dirty_rect);
+		// log::error!("scissor====={:?}, {}, {:?}, {:?}, {:?}", scissor, id, viewport, is_reset == false && !render_target_change, &base.dirty_rect);
 
 		let oct = match octree.get(id) {
 			Some(r) => &r.0,
@@ -1123,6 +1125,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		let mut dirty_rect = Aabb2::new(
 			Point2::new(dirty_view_rect.0 as f32, dirty_view_rect.1 as f32), Point2::new(dirty_view_rect.2 as f32, dirty_view_rect.3 as f32)
 		);
+		
 		let is_reset = dirty_view_rect.4; // 是否全部重新渲染
 		if !is_reset {
 			dirty_rect.mins.x = dirty_rect.mins.x.floor();
@@ -1138,7 +1141,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 		// }
 		let render_begin_desc = &render_begin.0;
 		let render_contexts1 = unsafe{ &mut *(render_contexts as *const MultiCaseImpl<Node, RenderContext> as usize as *mut MultiCaseImpl<Node, RenderContext>) };
-
+		
 		let root = 1;
 
 		
@@ -1161,7 +1164,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			engine,
 		};
 		// let mut dyn_atlas_set = dyn_atlas_set.borrow_mut();
-		
+		// log::error!("dirty_rect===={:?}", (root, dirty_rect, &render_context_root.clear_rect));
 		self.render_context(&base, &mut basemut, 1,  0, render_context_root);
 		
 		if self.render_count > 0 { // 如果进行了一些渲染，则需要重置状态

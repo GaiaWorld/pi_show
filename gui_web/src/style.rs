@@ -525,6 +525,12 @@ pub mod style_macro {
             Edge::Left => {
                 gui.gui.set_style(node_id, PaddingLeftType(Dimension::Percent(v)))
             }
+            Edge::All => {
+                gui.gui.set_style(node_id, PaddingTopType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PaddingRightType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PaddingLeftType(Dimension::Percent(v)));
+            }
             _ => return,
         };
     }
@@ -559,6 +565,12 @@ pub mod style_macro {
             Edge::Left => {
                 gui.gui.set_style(node_id, PaddingLeftType(Dimension::Points(v)))
             }
+            Edge::All => {
+                gui.gui.set_style(node_id, PaddingTopType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PaddingRightType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PaddingLeftType(Dimension::Points(v)));
+            }
             _ => return,
         };
     }
@@ -589,6 +601,12 @@ pub mod style_macro {
                 gui.gui.set_style(node_id, PaddingBottomType(Dimension::Auto))
             }
             Edge::Left => gui.gui.set_style(node_id, PaddingLeftType(Dimension::Auto)),
+            Edge::All => {
+                gui.gui.set_style(node_id, PaddingTopType(Dimension::Auto));
+                gui.gui.set_style(node_id, PaddingRightType(Dimension::Auto));
+                gui.gui.set_style(node_id, PaddingBottomType(Dimension::Auto));
+                gui.gui.set_style(node_id, PaddingLeftType(Dimension::Auto));
+            }
             _ => return,
         };
     }
@@ -622,6 +640,12 @@ pub mod style_macro {
             }
             Edge::Left => {
                 gui.gui.set_style(node_id, MarginLeftType(Dimension::Percent(v)))
+            }
+            Edge::All => {
+                gui.gui.set_style(node_id, MarginTopType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, MarginRightType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, MarginBottomType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, MarginLeftType(Dimension::Percent(v)));
             }
             _ => return,
         };
@@ -657,6 +681,12 @@ pub mod style_macro {
             Edge::Left => {
                 gui.gui.set_style(node_id, MarginLeftType(Dimension::Points(v)))
             }
+            Edge::All => {
+                gui.gui.set_style(node_id, MarginTopType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, MarginRightType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, MarginBottomType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, MarginLeftType(Dimension::Points(v)));
+            }
             _ => return,
         };
     }
@@ -685,6 +715,12 @@ pub mod style_macro {
             Edge::Right => gui.gui.set_style(node_id, MarginRightType(Dimension::Auto)),
             Edge::Bottom => gui.gui.set_style(node_id, MarginBottomType(Dimension::Auto)),
             Edge::Left => gui.gui.set_style(node_id, MarginLeftType(Dimension::Auto)),
+            Edge::All => {
+                gui.gui.set_style(node_id, MarginTopType(Dimension::Auto));
+                gui.gui.set_style(node_id, MarginRightType(Dimension::Auto));
+                gui.gui.set_style(node_id, MarginBottomType(Dimension::Auto));
+                gui.gui.set_style(node_id, MarginLeftType(Dimension::Auto));
+            }
             _ => return,
         };
     }
@@ -718,6 +754,12 @@ pub mod style_macro {
             }
             Edge::Left => {
                 gui.gui.set_style(node_id, BorderLeftType(Dimension::Percent(v)))
+            }
+            Edge::All => {
+                gui.gui.set_style(node_id, BorderTopType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, BorderRightType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, BorderBottomType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, BorderLeftType(Dimension::Percent(v)));
             }
             _ => return,
         };
@@ -753,6 +795,12 @@ pub mod style_macro {
             Edge::Left => {
                 gui.gui.set_style(node_id, BorderLeftType(Dimension::Points(v)))
             }
+            Edge::All => {
+                gui.gui.set_style(node_id, BorderTopType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, BorderRightType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, BorderBottomType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, BorderLeftType(Dimension::Points(v)));
+            }
             _ => return,
         };
     }
@@ -781,6 +829,12 @@ pub mod style_macro {
             Edge::Right => gui.gui.set_style(node_id, BorderRightType(Dimension::Auto)),
             Edge::Bottom => gui.gui.set_style(node_id, BorderBottomType(Dimension::Auto)),
             Edge::Left => gui.gui.set_style(node_id, BorderLeftType(Dimension::Auto)),
+            Edge::All => {
+                gui.gui.set_style(node_id, BorderTopType(Dimension::Auto));
+                gui.gui.set_style(node_id, BorderRightType(Dimension::Auto));
+                gui.gui.set_style(node_id, BorderBottomType(Dimension::Auto));
+                gui.gui.set_style(node_id, BorderLeftType(Dimension::Auto));
+            }
             _ => return,
         };
     }
@@ -816,6 +870,12 @@ pub mod style_macro {
             }
             Edge::Left => {
                 gui.gui.set_style(node_id, PositionLeftType(Dimension::Percent(v)))
+            }
+            Edge::All => {
+                gui.gui.set_style(node_id, PositionTopType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PositionRightType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Percent(v)));
+                gui.gui.set_style(node_id, PositionLeftType(Dimension::Percent(v)));
             }
             _ => return,
         };
@@ -853,6 +913,12 @@ pub mod style_macro {
             Edge::Left => {
                 gui.gui.set_style(node_id, PositionLeftType(Dimension::Points(v)))
             }
+            Edge::All => {
+                gui.gui.set_style(node_id, PositionTopType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PositionRightType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Points(v)));
+                gui.gui.set_style(node_id, PositionLeftType(Dimension::Points(v)));
+            }
             _ => return,
         };
     }
@@ -883,6 +949,12 @@ pub mod style_macro {
                 gui.gui.set_style(node_id, PositionBottomType(Dimension::Auto))
             }
             Edge::Left => gui.gui.set_style(node_id, PositionLeftType(Dimension::Auto)),
+            Edge::All => {
+                gui.gui.set_style(node_id, PositionTopType(Dimension::Auto));
+                gui.gui.set_style(node_id, PositionRightType(Dimension::Auto));
+                gui.gui.set_style(node_id, PositionBottomType(Dimension::Auto));
+                gui.gui.set_style(node_id, PositionLeftType(Dimension::Auto));
+            }
             _ => return,
         };
     }

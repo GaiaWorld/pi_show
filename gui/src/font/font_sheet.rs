@@ -95,6 +95,7 @@ pub struct FontSheet {
     measure_char: Box<dyn Fn(&Atom/*font-family */ ,usize, char) -> f32>,
 	pub font_tex: FontTex,
 	pub tex_version: usize,
+	pub reset_version: usize,
 
 	pub msdf_font_texs: Vec<Handle<TextureRes>>,
 	pub is_sdf_font: bool,
@@ -122,6 +123,7 @@ impl FontSheet {
 			msdf_font_texs: Vec::default(),
 			tex_version: 0,
 			is_sdf_font,
+			reset_version: 0,
         };
 		r.init();
 		r
@@ -135,6 +137,7 @@ impl FontSheet {
 		self.char_slab.clear();
 		self.font_tex.clear();
 		self.init();
+		self.reset_version += 1;
 	}
 	
     pub fn capacity_mem_size(&self) -> usize {

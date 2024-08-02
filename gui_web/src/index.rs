@@ -449,6 +449,7 @@ pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     let rb_decs = world.gui.world.fetch_single::<gui::single::RenderBegin>().unwrap();
     let rb_decs = rb_decs.lend_mut();
     rb_decs.0.scissor = (x, y, width, height);
+    rb_decs.get_notify_ref().modify_event(0, "", 0);
 }
 
 /// 设置投影变换
@@ -516,23 +517,7 @@ pub fn set_project_transfrom(world_id: u32, scale_x: f32, scale_y: f32, translat
 #[wasm_bindgen]
 pub fn force_update_text(world_id: u32, node_id: u32) {
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
-    let idtree = world.gui.world_ext.idtree.lend();
-    let text_contents = world.gui.world_ext.text_content.lend();
-    let node = match idtree.get(node_id as usize) {
-        Some(r) => r,
-        None => return,
-    };
-
-    let notify = text_contents.get_notify_ref();
-    if let Some(_r) = text_contents.get(node_id as usize) {
-        notify.modify_event(node_id as usize, "", 0);
-    }
-
-    for (id, _n) in idtree.recursive_iter(node.children().head) {
-        if let Some(_r) = text_contents.get(id) {
-            notify.modify_event(id, "", 0);
-        }
-    }
+    world.gui.force_update_text(node_id as usize);
 }
 
 

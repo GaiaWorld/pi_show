@@ -270,6 +270,15 @@ fn set_local_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark
 
 #[inline]
 pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    // if id == 536 {
+    //     log::error!("536 set_dirty=============={:?}", (
+    //             dirty_list.2 != style_mark.dirty_version,
+    //             style_mark.dirty.not_any(),
+    //             dirty_list.2,
+    //             style_mark.dirty_version,
+
+    //     ));
+    // }
     if dirty_list.2 != style_mark.dirty_version {
         dirty_list.0.push(id);
         style_mark.dirty_version = dirty_list.2;
@@ -281,6 +290,15 @@ pub fn set_dirty(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &
 }
 #[inline]
 pub fn set_dirty_many(dirty_list: &mut DirtyList, id: usize, ty: StyleBit, style_mark: &mut StyleMark) {
+    // if id == 536 {
+    //     log::error!("536 set_dirty_many=============={:?}", (
+    //             dirty_list.2 != style_mark.dirty_version,
+    //             style_mark.dirty.not_any(),
+    //             dirty_list.2,
+    //             style_mark.dirty_version,
+
+    //     ));
+    // }
     if dirty_list.2 != style_mark.dirty_version {
         dirty_list.0.push(id);
         style_mark.dirty_version = dirty_list.2;
@@ -293,6 +311,15 @@ pub fn set_dirty_many(dirty_list: &mut DirtyList, id: usize, ty: StyleBit, style
 
 #[inline]
 pub fn set_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    // if id == 536 {
+    //     log::error!("536 set_dirty1=============={:?}", (
+    //             dirty_list.2 != style_mark.dirty_version,
+    //             style_mark.dirty.not_any(),
+    //             dirty_list.2,
+    //             style_mark.dirty_version,
+
+    //     ));
+    // }
     if dirty_list.2 != style_mark.dirty_version {
         style_mark.dirty_version = dirty_list.2;
     } 
@@ -304,6 +331,15 @@ pub fn set_dirty1(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: 
 
 #[inline]
 pub fn set_dirty2(dirty_list: &mut DirtyList, id: usize, ty: usize, style_mark: &mut StyleMark) {
+    // if id == 536 {
+    //     log::error!("536 set_dirty2=============={:?}", (
+    //             dirty_list.2 != style_mark.dirty_version,
+    //             style_mark.dirty.not_any(),
+    //             dirty_list.2,
+    //             style_mark.dirty_version,
+
+    //     ));
+    // }
     if dirty_list.2 != style_mark.dirty_version {
         dirty_list.0.push(id);
         style_mark.dirty_version = dirty_list.2;

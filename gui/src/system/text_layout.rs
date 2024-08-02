@@ -24,6 +24,7 @@ use crate::entity::Node;
 use crate::font::font_sheet::{get_line_height, get_size, split, FontSheet, SplitResult};
 use crate::single::*;
 use crate::render::engine::ShareEngine;
+use crate::system::set_dirty;
 
 lazy_static! {
 	pub static ref MARK_LAYOUT: StyleBit = style_bit().set_bit(StyleType::LetterSpacing as usize)
@@ -48,7 +49,6 @@ type Read<'a> = (
     &'a MultiCaseImpl<Node, ClassName>,
     &'a MultiCaseImpl<Node, WorldMatrix>,
     &'a MultiCaseImpl<Node, StyleMark>,
-    &'a SingleCaseImpl<DirtyList>,
 );
 type Write<'a> = (
     &'a mut MultiCaseImpl<Node, NodeState>, // TODO
@@ -60,6 +60,7 @@ type Write<'a> = (
 	&'a mut SingleCaseImpl<IdTree>,
 	&'a mut EntityImpl<Node>,
 	&'a mut MultiCaseImpl<Node, StyleMark>,
+	&'a mut SingleCaseImpl<DirtyList>,
 );
 
 pub struct LayoutImpl {
@@ -91,7 +92,6 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 		&'a MultiCaseImpl<Node, TextContent>,
 		&'a MultiCaseImpl<Node, ClassName>,
 		&'a MultiCaseImpl<Node, WorldMatrix>,
-		&'a SingleCaseImpl<DirtyList>,
 		&'a SingleCaseImpl<ShareEngine<C>>,
 		&'a SingleCaseImpl<RenderBegin>
 	);
@@ -100,7 +100,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		let mut flag = true;
 		let mut count = 0;
-		let mut dirty_list2 = &read.3;
+		let mut dirty_list2 = write.9;
 		let mut dirty_list1 = Vec::new();
 
 		let mut len = dirty_list2.0.len();
@@ -110,13 +110,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 		}
 		let mut pre_index = self.pre_index;
 
-		let mut dirty_list = &(read.3).0;
+		let mut dirty_list;
 		while flag {
 			flag = false;
 			count += 1;
 			if count > 2 { // 迭代了两次以上，则可能进入了死循环，报错
 				log::debug!("TextGlphySys dead loop, the current texture size cannot cache existing text");
 				panic!("TextGlphySys dead loop");
+			} else if count == 1 {
+				dirty_list = &mut dirty_list2.0;
+			} else {
+				dirty_list = &mut dirty_list1;
+				len = dirty_list.len();
+				pre_index = 0;
 			}
 			for id in dirty_list[pre_index..len].iter() {
 				let r = match write.8.get(*id) {
@@ -128,9 +134,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 					continue;
 				}
 	
-				match set_gylph(*id, read.2, &mut write) {
+				match set_gylph(*id, read.2, &mut write.0, &mut write.4, &mut write.5) {
 					Result::Err(_message) => {	
-						log::info!("textTexture flow, reset textTexture, ${:?}", _message);
+						log::warn!("textTexture flow, reset textTexture, ${:?}", _message);
 						// panic!("err:{:?}", message);
 						let mut font_sheet = write.5.borrow_mut();
 						font_sheet.clear_gylph();
@@ -142,13 +148,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for TextGlphySys<C> {
 						dirty_list1.clear();
 						for (id, _node) in idtree.recursive_iter(root.children().head) {
 							if read.0.get(id).is_some() { // 文字节点，发送修改事件
-								notify.modify_event(id, "", 0);
 								dirty_list1.push(id);
+								set_dirty(dirty_list2, id, StyleType::TextContent as usize, write.8.get_mut(id).unwrap());
 							}
 						}
-						dirty_list = &dirty_list1;
-						len = dirty_list.len();
-						pre_index = 0;
 						flag = true; // 重新迭代
 						break;
 					},
@@ -185,9 +188,30 @@ impl<'a> LayoutImpl {
 // 	}
 // }
 
+type Write1<'a> = (
+	&'a mut MultiCaseImpl<Node, NodeState>, // TODO
+	&'a mut MultiCaseImpl<Node, LayoutR>,
+	&'a mut MultiCaseImpl<Node, RectLayoutStyle>,
+	&'a mut MultiCaseImpl<Node, OtherLayoutStyle>,
+	&'a mut MultiCaseImpl<Node, TextStyle>,
+	&'a mut SingleCaseImpl<Share<StdCell<FontSheet>>>,
+	&'a mut SingleCaseImpl<IdTree>,
+	&'a mut EntityImpl<Node>,
+	&'a mut MultiCaseImpl<Node, StyleMark>,
+	
+);
+
+type Read1<'a> = (
+	&'a MultiCaseImpl<Node, TextContent>,
+	&'a MultiCaseImpl<Node, ClassName>,
+	&'a MultiCaseImpl<Node, WorldMatrix>,
+	&'a MultiCaseImpl<Node, StyleMark>,
+	&'a SingleCaseImpl<DirtyList>
+);
+
 impl<'a> Runner<'a> for LayoutImpl {
-    type ReadData = Read<'a>;
-    type WriteData = Write<'a>;
+    type ReadData = Read1<'a>;
+    type WriteData = Write1<'a>;
 	
     fn run(&mut self, read: Self::ReadData, mut write: Self::WriteData) {
 		
@@ -203,12 +227,19 @@ impl<'a> Runner<'a> for LayoutImpl {
 		let mut dirty_list = Vec::new();
 		dirty_list.extend_from_slice(&(read.4).0[self.pre_index..len]);
         for id in dirty_list.iter() {
+			
             let r = match read.3.get(*id) {
                 Some(r) => r,
                 None => continue,
 			};
 
-			
+			// if *id == 536 {
+			// 	log::error!("536=============={:?}", (
+			// 			(!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(),
+			// 			read.0.get(*id),
+
+			// 	));
+			// }
             if (!(r.dirty & &*MARK).any()) || read.0.get(*id).is_none(){
                 continue;
 			}
@@ -311,7 +342,10 @@ fn set_gylph<'a>(
 	id: usize, 
 	
 	world_matrixs: &'a MultiCaseImpl<Node, WorldMatrix>,
-	(node_states, _layout_rs, _rect_layout_styles, _other_layout_styles, text_styles, font_sheet, _idtree, _nodes, _text_style): &mut Write) -> Result<(), String> {
+	node_states: &'a mut MultiCaseImpl<Node, NodeState>,
+	text_styles: &'a mut MultiCaseImpl<Node, TextStyle>,
+	font_sheet: &'a mut SingleCaseImpl<Share<StdCell<FontSheet>>>
+) -> Result<(), String> {
 	let scale = Vector4::from(world_matrixs[id].fixed_columns(1));
 	let scale = scale.dot(&scale).sqrt();
 	if scale < 0.000001 {
@@ -354,9 +388,9 @@ fn set_gylph<'a>(
 				return Result::Err(String::from(format!("异常，无法计算字形,char:{:?}, family:{:?}, id:{:?}", char_node.ch, text_style.font.family, id) ));
 			}
 			char_node.ch_id_or_count = char_id;
-			if char_node.ch == '祭' {
-				log::warn!("char_id: {:?}", (id, char_node.ch, char_id));
-			}
+			// if char_node.ch == '祭' {
+			// 	log::warn!("char_id: {:?}", (id, char_node.ch, char_id));
+			// }
         }
     }
 	return Ok(())
@@ -761,8 +795,8 @@ impl<'a> Calc<'a> {
 
 fn calc<'a>(
 	id: usize,
-	(text_content, _class_names, _world_matrixs, style_marks, _dirty_list): &Read,
-	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes, _style_mark):&mut Write,
+	(text_content, _class_names, _world_matrixs, style_marks, _): &Read1,
+	(node_states, layout_rs, rect_layout_styles, other_layout_styles, text_styles, font_sheet, idtree, nodes, _style_mark):&mut Write1,
 	layout_dirty: bool,) {
 	let font_sheet = &mut font_sheet.borrow_mut();
 	let defaultFamily = text_styles[0].font.family.clone(); // 0不存在text_style， 必然取到默认值

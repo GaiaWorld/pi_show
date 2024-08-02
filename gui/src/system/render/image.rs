@@ -2,8 +2,11 @@
  * 图片渲染对象的构建及其属性设置
 	*/
 use std::marker::PhantomData;
+use std::time;
 
+use map::hashmap::HashMap;
 use pi_assets::asset::Handle;
+use pi_hash::XHashMap;
 use pi_style::style::ImageRepeatOption;
 use pi_share::Share;
 use std::hash::{Hash, Hasher};
@@ -102,6 +105,15 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         let (render_objs, engine) = write;
         let notify = unsafe { &*(render_objs.get_notify_ref() as *const NotifyImpl) };
 
+        // let mut m = XHashMap::default();
+        // let mut count = 0;
+        // for i in dirty_list.0.iter() {
+        //     if m.get(i).is_none() {
+        //         m.insert(*i, ());
+        //         count += 1;
+        //     }
+        // }
+        // log::error!("dirty list=========={:?}", (dirty_list.0.len(), count));
         for id in dirty_list.0.iter() {
             let style_mark = match style_marks.get(*id) {
                 Some(r) => r,

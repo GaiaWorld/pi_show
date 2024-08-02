@@ -118,6 +118,12 @@ macro_rules! style_out_export {
 					Edge::Right => gui.gui.set_style(node_id, [<$last_ty RightType>]($expr)),
 					Edge::Bottom => gui.gui.set_style(node_id, [<$last_ty BottomType>]($expr)),
 					Edge::Left => gui.gui.set_style(node_id, [<$last_ty LeftType>]($expr)),
+					Edge::All => {
+						gui.gui.set_style(node_id, [<$last_ty TopType>]($expr));
+						gui.gui.set_style(node_id, [<$last_ty RightType>]($expr));
+						gui.gui.set_style(node_id, [<$last_ty BottomType>]($expr));
+						gui.gui.set_style(node_id, [<$last_ty LeftType>]($expr));
+					},
 					_ => return
 				};
 			}

@@ -1244,6 +1244,8 @@ fn create_geo<C: HalContext + 'static>(
     if text.0.0 == String::new() {
     // 是共享文字
         let mut hasher = DefaultHasher::default();
+		font_sheet.reset_version.hash(&mut hasher);
+		calc_float_hash1(&[node_state.0.scale], &mut hasher);
         text.1.hash(&mut hasher);
         // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
         if !(dirty & &*TEXT_LAYOUT_DIRTY).any() && dirty1 & CalcType::Layout as usize == 0 {
@@ -1282,8 +1284,10 @@ fn create_geo<C: HalContext + 'static>(
 			font_height,
         )
     } else {
-		// 是共享文字
         let mut hasher = DefaultHasher::default();
+		font_sheet.reset_version.hash(&mut hasher);
+		calc_float_hash1(&[node_state.0.scale], &mut hasher);
+		
         text.0.0.hash(&mut hasher);
 		calc_float_hash1([layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top].as_slice(), &mut hasher);
 		for i in node_state.text.iter() {
