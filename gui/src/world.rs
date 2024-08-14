@@ -11,7 +11,7 @@ use hal_core::*;
 use pi_null::Null;
 use pi_print_any::out_any;
 use pi_style::style_parse::{parse_class_map_from_string, ClassMap};
-use pi_style::style_type::{Attr, ClassSheet, TextContentType};
+use pi_style::style_type::{Attr, ClassSheet, TextContentType, STYLE_COUNT};
 use render::blur::{BlurSys, CellBlurSys};
 use render::mask_texture::{CellMaskTextureSys, MaskTextureSys};
 use crate::render::asset::{AssetConfig, AssetDesc, ShareAssetMgr, ShareHomogeneousMgr};

@@ -28,7 +28,7 @@ use pi_style::{
         BoxShadow as BoxShadow1, Hsi as Hsi1, MaskImage as MaskImage1, TextContent as TextContent1,
     },
     style_parse::Attribute,
-    style_type::ClassMeta,
+    style_type::{ClassMeta, STYLE_COUNT},
 };
 
 // use super::calc::{EntityKey};
@@ -49,7 +49,6 @@ pub type ComponentId = usize;
 pub type Setting = GuiWorldExt;
 pub type Polygon = Vec<f32>;
 
-pub const STYLE_COUNT: u8 = 127;
 pub const SVG_COUNT: u8 = 50;
 
 #[derive(Clone, Debug, Component, Default, Deref, DerefMut, Serialize, Deserialize)]
