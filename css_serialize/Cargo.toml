@@ -33,3 +33,12 @@ lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅�
 opt-level = "z" # 性能优先
 panic = 'abort'
 codegen-units = 1
+
+[patch.crates-io]
+pi_atom = {path = "D://0_rust/pi_atom"}
+pi_share = {path = "../../pi_share"}
+pi_assets = {path = "../../pi_assets"}
+pi_flex_layout = {path = "D://0_rust/pi_flex_layout"}
+
+[patch.yn]
+pi_style = {path = "D://0_rust/pi_style"}

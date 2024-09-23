@@ -375,7 +375,7 @@ pub enum ImageTexture {
 
 // 边框图片使用纹理
 #[derive(Component, Clone)]
-pub struct BorderImageTexture(pub Handle<TextureRes>);
+pub struct BorderImageTexture(pub Handle<TextureRes>, pub Atom/*url*/);
 
 // impl Deref for MaskTexture {
 // 	type Target = Handle<TextureRes>;

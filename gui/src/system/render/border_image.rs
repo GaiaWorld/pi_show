@@ -116,6 +116,22 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                     continue;
                 }
             };
+
+            if texture.1.as_str() != "" {// 
+                let image = match border_images.get(*id) {
+                    Some(r) => r,
+                    None => continue,
+                };
+                // 如果纹理和image的url不相等， 什么也不做，保持现在的渲染状态
+                // 新的图片可能处于未加载完成状态，首先，不应该删除原有的渲染对象， 如果是帧动画，会造成闪烁
+                // 另外，也不应更新当前设置的最新数据， 可能造成image_clip和image本身不匹配，计算出错误的uv，也会造成闪烁
+                if image.0 != texture.1 {
+                    // if *url == 1196902338 || *url == 1483981615 {
+                    // 	log::info!("!!!!!image==============={:?}, image_clip: {:?}, url: {:?}", images.get(*id), image_clips.get(*id), url);
+                    // }
+                    continue;
+                }
+            }
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
                 dirty |= DIRTY_TY.clone();

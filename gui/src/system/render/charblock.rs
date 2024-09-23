@@ -388,6 +388,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 					node_states[*id].0.scale,
 					is_pixel,
 					font_height,
+					*id,
                 );
 
 				// if node_states[*id].0.text.len() != 0 && node_states[*id].0.text[0].ch == '祭' {
@@ -521,7 +522,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 										node_states[*id].0.scale,
 										is_pixel,
 										font_height,
-										
+										*id,
 									)
 								}
 							}
@@ -1240,6 +1241,7 @@ fn create_geo<C: HalContext + 'static>(
 	scale: f32,
 	is_pixel: bool,
 	font_height: f32,
+	id: usize,
 ) -> ResWrapper<GeometryRes> {
     if text.0.0 == String::new() {
     // 是共享文字
@@ -1282,6 +1284,7 @@ fn create_geo<C: HalContext + 'static>(
 			text_style,
 			is_pixel,
 			font_height,
+			id,
         )
     } else {
         let mut hasher = DefaultHasher::default();
@@ -1307,6 +1310,10 @@ fn create_geo<C: HalContext + 'static>(
         }
 
         let hash = hasher.finish();
+
+		if id == 482 {
+			log::warn!("hash======{:?}, {:?}", hash, &text);
+		}
         // 从缓存中找到geo， 直接返回
         if let Some(geo) = engine.geometry_res_map.get(&hash) {
             return ResWrapper::Handle(geo);
@@ -1327,6 +1334,7 @@ fn create_geo<C: HalContext + 'static>(
 			text_style,
 			is_pixel,
 			font_height,
+			id,
         )
     }
 }
@@ -1387,6 +1395,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 	text_style: &TextStyle,
 	is_pixel: bool,
 	mut font_height: f32,
+	id: usize,
 ) -> ResWrapper<GeometryRes> {
     let mut positions: Vec<f32> = Vec::with_capacity(8 * children.len);
     let mut uvs: Vec<f32> = Vec::with_capacity(8 * children.len);
@@ -1494,7 +1503,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 			// if debug_infos.chars.len() != 0 && debug_infos.chars[0].ch == '祭' {
 			// 	log::warn!("chars======{:?}", debug_infos);
 			// }
-			
+			if id == 482 {
+				log::warn!("chars======{:?}", debug_infos);
+			}
 			// 更新buffer
 			let l = positions.len() / 8;
 			if l > *index_buffer_max_len {

@@ -915,7 +915,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, ImageWaitSheet, ModifyE
                     ImageType::BorderImage => {
                         if let Some(image) = border_images.get_mut(image_wait.id) {
                             if image.0 == wait.0 {
-                                border_image_textures.insert(image_wait.id, BorderImageTexture(wait.1.clone()));
+                                border_image_textures.insert(image_wait.id, BorderImageTexture(wait.1.clone(), wait.0.clone()));
                             }
                         }
                     }
@@ -2343,7 +2343,7 @@ fn set_border_image<C: HalContext + 'static>(
 ) {
     match engine.texture_res_map.get(&image.0) {
         Some(texture) => {
-            image_textures.insert(id, BorderImageTexture(texture));
+            image_textures.insert(id, BorderImageTexture(texture, image.0.clone()));
         }
         None => {
             image_wait_sheet.add(image.0.clone(), ImageWait { id, ty: wait_ty });
