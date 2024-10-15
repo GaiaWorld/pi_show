@@ -705,7 +705,7 @@ pub struct FontFace {
 
 pub fn get_size(size: usize, s: &FontSize) -> usize {
     match s {
-        &FontSize::None => {log::info!("get_size======={}", size); size},
+        &FontSize::None => {size},
         &FontSize::Length(r) => r.round() as usize,
         &FontSize::Percent(r) => (r * size as f32).round() as usize,
     }
