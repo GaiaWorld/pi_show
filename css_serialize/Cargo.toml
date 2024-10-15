@@ -16,6 +16,7 @@ wasm-bindgen= {version="*", features=["serde-serialize"]}
 serde = { version = "1.0", features = ["derive"] }
 js-sys = "*"
 serde_json = "1.0"
+spade = "=2.2.0"
 
 # log
 log = "0.4.14"
@@ -33,3 +34,6 @@ lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅�
 opt-level = "z" # 性能优先
 panic = 'abort'
 codegen-units = 1
+
+[patch.crates-io]
+pi_share = {path = "../../pi_share"}

@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::slice;
 
-use cg2d::{Polygon as Polygon2d};
+use pi_cg2d::{Polygon as Polygon2d};
 use nalgebra::Point2;
 use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::{Event, NotifyImpl};

@@ -45,9 +45,15 @@ guillotiere = {version="*"}
 # vConsole.js:3 time: 3412.57000004407
 # vConsole.js:3 now: 3412.914999993518
 # vConsole.js:3 timediff: 0.6799999391660094
-polygon = { path = "../../pi_math/polygon"}
-cg2d = { path = "../../pi_math/cg2d"}
-spatialtree = { path = "../../pi_math/spatialtree"}
+# polygon = { path = "../../pi_math/polygon"}
+# cg2d = { path = "../../pi_math/cg2d"}
+# spatialtree = { path = "../../pi_math/spatialtree"}
+pi_spatial = "0.5"
+pi_slotmap = "0.1"
+pi_null = "0.1"
+pi_link_list = "0.1"
+
+
 color = { path = "../../pi_math/color", features = ["serde"]}
 bincode = { path = "../../pi_lib/bincode"}
 # cgmath = { path = "../../pi_math/cgmath", features = ["serde"] }
@@ -72,13 +78,15 @@ serde = { version = "1.0", features = ["derive"] }
 ordered-float = { version = "1.0", default-features = false }
 fxhash = "0.2.1"
 wasm-bindgen = "*"
-nalgebra = {version = "0.24.0", features = ["serde", "serde-serialize"]}
-ncollide2d = {version = "0.27.0", features = ["serde"]}
+nalgebra = {version = "0.32", features = ["serde", "serde-serialize"]}
+parry2d = {version = "0.13", features = ["serde-serialize"]}
 log="*"
 smallvec={version = "1.8", features = ["serde"]}
 getset="0.1"
 bitvec={version = "1.0", features = ["serde"]}
 polygon2 = "0.3"
+pi_polygon = "0.1"
+pi_cg2d = "0.3"
 cssparser = "0.29"
 pi_print_any="0.1"
 

@@ -9,7 +9,7 @@ use ecs::monitor::{NotifyImpl, Event};
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
-use polygon::*;
+use pi_polygon::*;
 
 use crate::component::calc::{Opacity, LayoutR};
 use crate::component::calc::*;

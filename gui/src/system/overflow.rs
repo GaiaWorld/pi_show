@@ -17,7 +17,7 @@ use share::Share;
 use crate::component::{calc::LayoutR, calc::*, user::Overflow, user::*};
 use crate::entity::Node;
 use crate::single::IdTree;
-use crate::single::{Clip, Oct, OverflowClip, ViewMatrix};
+use crate::single::{Clip, Oct, OverflowClip, ViewMatrix, oct::OctKey};
 
 type Read<'a> = (
     &'a SingleCaseImpl<IdTree>,
@@ -399,7 +399,7 @@ fn calc_clip<'a>(
                         unsafe {
                             cullings
                                 .get_unchecked_write(id)
-                                .set_0(!is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(id) }.0)))
+                                .set_0(!is_intersect(&item.0, &matrix_mul_aabb(&m.0, &unsafe { read.5.get_unchecked(OctKey(id)) }.0)))
                         };
                     }
                 }
@@ -411,7 +411,7 @@ fn calc_clip<'a>(
 					// if !is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0) {
 					// 	log::warn!("cull=======id:{:?}, by:{}, clip:{:?}, aabb:{:?}", id, by, &item.0, &unsafe { read.5.get_unchecked(id) }.0);
 					// }
-					unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(id) }.0))
+					unsafe { cullings.get_unchecked_write(id) }.set_0(!is_intersect(&item.0, &unsafe { read.5.get_unchecked(OctKey(id)) }.0))
 				},
             }
         }

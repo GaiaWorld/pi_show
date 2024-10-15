@@ -89,7 +89,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for MaskImageSys<C> {
 	
 				if let MaskImage::LinearGradient(color) = mask_image {
 					let oct = octree.get(id).unwrap();
-					let size = calc_size(oct.0, color) as u32;
+					let size = calc_size(&oct.0, color) as u32;
 					let mut hasher = DefaultHasher::default();
 					MASK_IMAGE_TEXTURE.hash(&mut hasher);
 					color.hash(&mut hasher);

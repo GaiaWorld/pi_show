@@ -15,7 +15,7 @@ use ecs::{DeleteEvent, MultiCaseImpl, EntityListener, Runner, SingleCaseImpl};
 use ecs::monitor::Event;
 use ecs::monitor::NotifyImpl;
 use hal_core::*;
-use polygon::*;
+use pi_polygon::*;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;

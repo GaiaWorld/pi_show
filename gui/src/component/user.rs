@@ -30,7 +30,7 @@ pub type Vector3 = nalgebra::Vector3<f32>;
 pub type Vector4 = nalgebra::Vector4<f32>;
 pub type CgColor = color::Color<f32>;
 // pub type Aabb3 = ncollide2d::bounding_volume::AABB <f32>;
-pub type Aabb2 = ncollide2d::bounding_volume::AABB<f32>;
+pub type Aabb2 = parry2d::bounding_volume::Aabb;
 
 #[derive(Clone, Component, Serialize, Deserialize, Debug)]
 #[storage(VecMapWithDefault)]

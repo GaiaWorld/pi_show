@@ -18,7 +18,7 @@ use idtree::NodeList;
 use hal_core::*;
 use map::vecmap::VecMap;
 use map::Map;
-use polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
+use pi_polygon::{find_lg_endp, interp_mult_by_lg, mult_to_triangle, split_by_lg, LgCfg};
 use res::ResMap;
 use share::Share;
 use smallvec::SmallVec;

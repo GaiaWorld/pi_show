@@ -14,7 +14,7 @@ use ecs::monitor::{Event, NotifyImpl};
 use ecs::{DeleteEvent, EntityListener, MultiCaseImpl, Runner, SingleCaseImpl};
 use hal_core::*;
 use map::vecmap::VecMap;
-use polygon::*;
+use pi_polygon::*;
 
 use crate::component::calc::LayoutR;
 use crate::component::calc::*;

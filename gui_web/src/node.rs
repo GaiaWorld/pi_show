@@ -9,13 +9,14 @@ use wasm_bindgen::prelude::*;
 use web_sys::{WebGlFramebuffer, WebGlTexture, HtmlImageElement};
 
 use atom::Atom;
-use cg2d::{include_quad2, InnOuter};
+use pi_cg2d::{include_quad2, InnOuter};
 use gui::single::{IdTree};
 use idtree::InsertType;
 use ecs::{Lend, LendMut, MultiCaseImpl, SingleCaseImpl};
 use ecs::monitor::NotifyImpl;
-use spatialtree::quad_helper::intersects;
+use pi_spatial::quad_helper::intersects;
 use share::Share;
+use gui::single::oct::OctKey;
 
 // use share::Share;
 use gui::component::calc::*;
@@ -1002,7 +1003,7 @@ pub fn iter_query(world: u32, x: f32, y: f32) -> u32 {
                 return 0;
             }
         };
-        ab_query_func(&mut args, e, oct.0, &e);
+        ab_query_func(&mut args, OctKey(e), &oct.0, &e);
     }
     args.result as u32
 }
@@ -1118,7 +1119,7 @@ impl<'a> AbQueryArgs<'a> {
     }
 }
 /// aabb的ab查询函数, aabb的oct查询函数应该使用intersects
-fn ab_query_func(arg: &mut AbQueryArgs, _id: usize, aabb: &Aabb2, bind: &usize) {
+fn ab_query_func(arg: &mut AbQueryArgs, _id: OctKey, aabb: &Aabb2, bind: &usize) {
     match arg.id_tree.get(*bind) {
         Some(node) => {
             if node.layer() == 0 {

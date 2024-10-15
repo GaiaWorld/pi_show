@@ -12,6 +12,7 @@ use crate::entity::Node;
 use crate::single::oct::Oct;
 use crate::single::*;
 use crate::single::IdTree;
+use crate::single::oct::OctKey;
 use crate::Z_MAX;
 
 #[derive(Default)]
@@ -186,12 +187,12 @@ fn recursive_calc_aabb<'a>(
 		parent_will_change_matrix = Some(r);
 	}
 	if id == 804 {
-		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(id) }.0);
+		println!("id: {:?}, parent_will_change_matrix: {:?}, oct: {:?}", id, parent_will_change_matrix, unsafe { octree.get_unchecked(OctKey(id)) }.0);
 	}
 	
 
 	// 此时，一定存在一个原来的包围盒
-	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(id) }.0);
+	let aabb = matrix_mul_aabb(&parent_will_change_matrix.unwrap().0, &unsafe { octree.get_unchecked(OctKey(id)) }.0);
 	if id == 804 {
 		println!("id: {:?}, aabb: {:?}", id, aabb);
 	}
