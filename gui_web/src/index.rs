@@ -180,7 +180,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 
     let ctx = draw_text_sys.ctx.clone();
     let f = Box::new(move |name: &Atom1, font_size: usize, ch: char| -> f32 {
-        return unsafe { measureText(&ctx, ch as u32, font_size as u32, name.str_hash() as u32) };
+        return unsafe { measureText(&ctx, ch as u32, font_size as u32, transmute(name.str_hash())) };
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
@@ -210,7 +210,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 	.texture_create_2d(0, ww, hh, format, DataFormat::UnsignedByte, false, data)
 	.unwrap();
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
-    // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).str_hash() as u32))};
+    // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).str_hash()))};
     // log::info!("hash============{:?}", Atom1::from("__$text".to_string()).str_hash());
     let res = engine.create_texture_res(
         Atom1::from("__$text".to_string()),
@@ -310,13 +310,12 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                 move |pformate: PixelFormat,
                       compress: i32,
                       r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-                      name: u32,
+                      name: f64,
                       width: u32,
                       height: u32,
                       data: Object,
                       cost: u32| {
-                    let name = name as usize;
-					let name = match get_by_hash(name as usize) {
+					let name = match get_by_hash(unsafe { transmute(name) }) {
 						Some(r) => r,
 						None => return,
 					};
@@ -342,7 +341,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             write(
                 &mut world.load_image,
                 Box::new(move |image_name, callback: &Function| {
-                    r.call2(&JsValue::from(None::<u8>), &JsValue::from(image_name), callback)
+                    r.call2(&JsValue::from(None::<u8>), &JsValue::from(unsafe { transmute::<_, f64>(image_name)}), callback)
                         .expect("call load_image fail!!!");
                 }),
             )
@@ -351,7 +350,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             write(
                 &mut world.load_image,
                 Box::new(|image_name, callback: &Function| {
-                    loadImage(image_name, callback);
+                    loadImage(unsafe { transmute(image_name)}, callback);
                 }),
             )
         },
@@ -686,13 +685,13 @@ pub fn load_image_success(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: u32,
+    name: f64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) {
-	let name = match get_by_hash(name as usize) {
+	let name = match get_by_hash(unsafe { transmute(name) }) {
 		Some(r) => r,
 		None => return,
 	};
@@ -746,13 +745,13 @@ pub fn create_texture_res(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: usize,
+    name: f64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(name).unwrap(), width, height, data, cost, true))) as u32
+    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(unsafe { transmute(name) }).unwrap(), width, height, data, cost, true))) as u32
 }
 
 // 释放纹理资源
@@ -856,7 +855,7 @@ fn load_image(world_id: u32) {
 
     let image_wait_sheet = &mut world.gui.world_ext.image_wait_sheet.lend_mut();
     for img_name in image_wait_sheet.loads.iter() {
-        (world.load_image)(img_name.str_hash() as u32, world.load_image_success.as_ref().unchecked_ref());
+        (world.load_image)(img_name.str_hash(), world.load_image_success.as_ref().unchecked_ref());
         //  load_image(img_name.as_ref().to_string(), world.load_image_success.as_ref().unchecked_ref());
         // unsafe{loadImage(img_name.as_ref().to_string(),
         // 	world.load_image_success.as_ref().unchecked_ref()
@@ -882,9 +881,9 @@ fn load_image(world_id: u32) {
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn texture_is_exist(world: u32, group_i: usize, name: usize) -> bool {
+pub fn texture_is_exist(world: u32, group_i: usize, name: f64) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let name = match get_by_hash(name) {
+	let name = match get_by_hash(unsafe { transmute(name) }) {
 		Some(r) => r,
 		None => return false,
 	};
@@ -946,24 +945,24 @@ impl Atom {
 impl Atom {
 	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
 
-	pub fn get_string_by_hash(value: u32) -> Option<String> { 
-		match get_by_hash(value as usize) {
+	pub fn get_string_by_hash(name: f64) -> Option<String> { 
+		match get_by_hash(unsafe { transmute(name) }) {
 			Some(r) => Some(r.as_ref().to_string()),
 			None => None,
 		} 
 	}
 
-	pub fn get_hash(&self) -> u32 { self.0.str_hash() as u32 }
+	pub fn get_hash(&self) -> f64 { unsafe { transmute(self.0.str_hash()) }}
 }
 
 #[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
-pub fn get_atom_hash(s: &Atom) -> u32 { s.0.str_hash() as u32 }
+pub fn get_atom_hash(s: &Atom) -> f64 { unsafe {transmute(s.0.str_hash())}  }
 
 #[wasm_bindgen]
-pub fn get_string_by_hash(s: usize) -> Option<String> { get_by_hash(s).map(|r| r.as_str().to_string()) }
+pub fn get_string_by_hash(s: f64) -> Option<String> { get_by_hash(unsafe{ transmute(s) }).map(|r| r.as_str().to_string()) }
 
 
 #[derive(Debug, Serialize, Deserialize)]

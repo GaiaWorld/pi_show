@@ -64,7 +64,7 @@ pub struct FontSheet {
         (Atom/*font-family */, char, bool /*是否为加粗字体*/),
         (
             f32,
-            /* char width */ usize,
+            /* char width */ Atom,
             /* font */ f32,
 			/* factor_t */ f32,
 			/* factor_b */
@@ -73,7 +73,7 @@ pub struct FontSheet {
     >,
     pub char_map: XHashMap<
         (
-            usize, /*font-family */
+            Atom, /*font-family */
             usize,
             /* font_size */ usize,
             /* stroke_width */ usize,
@@ -354,7 +354,7 @@ impl FontSheet {
 							w = w * BLOD_FACTOR;
 						}
 						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
-						r.insert((w, font.name.str_hash(), font.factor_t, font.factor_b, font.is_pixel));
+						r.insert((w, font.name.clone(), font.factor_t, font.factor_b, font.is_pixel));
 						// log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
 						(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
 					} else {
@@ -445,7 +445,7 @@ impl FontSheet {
 			// 根据缩放后的字体及勾边大小来查找Glyth, 返回的w需要除以scale
 			let id = match self
 				.char_map
-				.entry((font.name.str_hash(), fs_scale, sw, draw_weight, c))
+				.entry((font.name.clone(), fs_scale, sw, draw_weight, c))
 			{
 				Entry::Occupied(e) => *e.get(),
 				Entry::Vacant(mut char_id) => {
@@ -465,9 +465,9 @@ impl FontSheet {
 										c = '□'; // 字符不存在， 默认显示该字符
 										match self
 											.char_map
-											.entry((font.name.str_hash(), fs_scale, sw, draw_weight, c)){
+											.entry((font.name.clone(), fs_scale, sw, draw_weight, c)){
 												Entry::Occupied(e) => return *e.get(),
-												Entry::Vacant(r1) => char_id = r1,
+												Entry::Vacant(r1) => (),
 										};
 										r
 									},
@@ -522,7 +522,7 @@ impl FontSheet {
 
 
 					let ww = glyph.width;
-					let mut line = self.font_tex.alloc_line(hh as usize, key.str_hash());
+					let mut line = self.font_tex.alloc_line(hh as usize, key);
 					let p = line.alloc(ww);
 
 					// 超出最大纹理范围，需要清空所有文字，重新布局
@@ -605,7 +605,7 @@ impl FontSheet {
 						}
 					}
 					
-					char_id.insert(id);
+					self.char_map.insert((font.name.clone(), fs_scale, sw, draw_weight, c), id);
 					id
 				}
 			};

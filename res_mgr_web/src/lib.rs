@@ -4,8 +4,9 @@ use pi_assets::{allocator::Allocator, asset::{Asset, Handle, Size}, mgr::AssetMg
 use pi_share::Share;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 use js_sys::Function;
+use std::mem::transmute;
 
-pub static mut DESTROY_RES: Option<Arc<dyn Fn(u32) + Send + Sync>> = None;
+pub static mut DESTROY_RES: Option<Arc<dyn Fn(u64) + Send + Sync>> = None;
 pub struct CanSyncFunction(Function);
 unsafe impl Sync for CanSyncFunction {}
 unsafe impl Send for CanSyncFunction {}
@@ -17,8 +18,8 @@ impl CanSyncFunction {
 #[wasm_bindgen]
 pub fn set_destroy_callback(f: Function) {
 	let f1 = CanSyncFunction(f);
-	unsafe {DESTROY_RES = Some(Arc::new(move |value: u32| {
-		f1.call(&JsValue::from_f64(0.0), &value.into());
+	unsafe {DESTROY_RES = Some(Arc::new(move |value: u64| {
+		f1.call(&JsValue::from_f64(0.0), &transmute::<_, f64>(value).into());
 	}))};
 }
 
@@ -42,8 +43,8 @@ impl ResMgr {
 	/// 创建一个资源， 如果资源已经存在，旧的资源将被覆盖
 	/// 如果创建的资源类型未注册，将崩溃
 	
-	pub fn create_res(&mut self, key: u32, cost: u32) -> ResRef {
-		match self.inner.insert(key, JsRes {key, cost: cost as usize}) {
+	pub fn create_res(&mut self, key: f64, cost: u32) -> ResRef {
+		match self.inner.insert(unsafe { transmute(key) }, JsRes {key: unsafe { transmute(key) }, cost: cost as usize}) {
 			Ok(r) => ResRef(r),
 			_ => unreachable!()
 		}
@@ -51,8 +52,8 @@ impl ResMgr {
 
 	/// 获取资源
 	
-	pub fn get_res(&mut self, key: u32) -> Option<ResRef> {
-		match self.inner.get(&key) {
+	pub fn get_res(&mut self, key: f64) -> Option<ResRef> {
+		match self.inner.get(&unsafe { transmute(key) }) {
 			Some(r) => Some(ResRef(r)),
 			None => None
 		}
@@ -131,12 +132,12 @@ impl ResAllocator {
 
 /// 资源包装
 pub struct JsRes {
-	key: u32,
+	key: u64,
 	cost: usize,
 }
 
 impl Asset for JsRes {
-    type Key = u32;
+    type Key = u64;
 }
 
 impl Size for JsRes {

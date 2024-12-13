@@ -3,10 +3,11 @@ use hash::XHashMap;
 
 use crate::render::res::{TextureRes};
 use crate::component::user::{Point2};
+use pi_atom::Atom;
 
 pub struct FontTex{
     pub texture: Handle<TextureRes>,
-    line_map: XHashMap<(usize, usize), (Point2, usize)>,
+    line_map: XHashMap<(usize, Atom), (Point2, usize)>,
     pub last_v: f32,
 }
 
@@ -26,7 +27,7 @@ impl FontTex {
         }
     }
     // 分配行
-    pub fn alloc_line(&mut self, mut line_height: usize, key: usize) -> TexLine {
+    pub fn alloc_line(&mut self, mut line_height: usize, key: Atom) -> TexLine {
         // 将奇数的行高向上变成偶数，这样单行容纳2种字号，提高利用率
         if line_height %2 != 0 {
             line_height += 1;

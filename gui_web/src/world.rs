@@ -136,18 +136,18 @@ extern "C" {
 	// #[wasm_bindgen]
 	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
 	// #[wasm_bindgen]
-    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: u32, strokeWidth: u8);
+    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: f64, strokeWidth: u8);
 	// #[wasm_bindgen]
 	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	// #[wasm_bindgen]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	
-	fn drawSdf(world: u32, font: u32, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
+	fn drawSdf(world: u32, font: f64, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
 	pub fn setSdfSuccessCallback(callback: &Function);
 	// #[wasm_bindgen]
-	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: u32) -> f32;
+	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: f64) -> f32;
 	// #[wasm_bindgen]
-	pub fn loadImage(image_name: u32, callback: &Function);
+	pub fn loadImage(image_name: f64, callback: &Function);
 	// #[wasm_bindgen]
 	pub fn useVao() -> bool;
 }
@@ -166,12 +166,12 @@ pub struct GuiWorld {
 		PixelFormat,
 		i32,
 		u8, /* 缓存类型，支持0， 1， 2三种类型 */
-		u32,
+		f64,
 		u32,
 		u32,
 		Object,
 		u32,)>,
-	pub(crate) load_image: Box<dyn Fn(u32, &Function)>,
+	pub(crate) load_image: Box<dyn Fn(u64, &Function)>,
 	pub(crate) draw_text: Closure<dyn FnMut(JsValue)>,
 	pub(crate) old_texture_tex_version: usize, // 上次run时的文字纹理版本
 }
@@ -303,7 +303,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 				}
 	
 				// 找高层绘制， 绘制完成后， 应该调用全局方法回调回来(这里应该异步绘制，否则纹理尺寸可能不满足)
-				drawSdf(world_id, text_info.font.str_hash() as u32, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
+				drawSdf(world_id, unsafe { transmute(text_info.font.str_hash())}, Uint32Array::from(sdf_wait_bin.as_slice()), Uint32Array::from(sdf_offset_bin.as_slice()), x, y, text_info.size.x as u32, text_info.size.y as u32);
 			}
 			// engine
             // .gl
@@ -365,7 +365,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
 					ctx, 
 					text_info.weight as u32, 
 					text_info.font_size as u32, 
-					text_info.font.str_hash() as u32, 
+					unsafe { transmute(text_info.font.str_hash())}, 
 					text_info.stroke_width as u8);
 			};
             if text_info.stroke_width > 0 {
