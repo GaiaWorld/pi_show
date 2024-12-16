@@ -374,7 +374,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
                     let x = char_info.x + hal_stroke_width as u32 - start.0 as u32;
 					unsafe {
 						//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-						drawCharWithStroke(ctx, ch_code, x, text_info.top as u32);
+						drawCharWithStroke(ctx, ch_code, x, text_info.top as u32 + hal_stroke_width as u32);
 					}
 					// unsafe {useVao111(1);}
                 }
