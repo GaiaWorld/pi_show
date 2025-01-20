@@ -348,9 +348,9 @@ fn set_gylph<'a>(
 ) -> Result<(), String> {
 	let scale = Vector4::from(world_matrixs[id].fixed_columns(1));
 	let scale = scale.dot(&scale).sqrt();
-	if id == 482 {
-		log::warn!("scale========{:?}", scale);
-	}
+	// if id == 482 {
+	// 	log::warn!("scale========{:?}", scale);
+	// }
 	
 	if scale < 0.000001 {
 		node_states[id].0.scale = 0.0;

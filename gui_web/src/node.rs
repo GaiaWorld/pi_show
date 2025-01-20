@@ -1431,7 +1431,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: OctKey, aabb: &Aabb2, bind: &usize)
                     arg.aabb.mins.y,
                 )
             {
-                // log::info!("in_overflow------------------by: {}, bind: {}, ", by_overflow, bind);
+                // log::warn!("in_overflow------------------by: {}, bind: {}, arg.aabb: {:?}, aabb: {:?}", by_overflow, bind, &arg.aabb, aabb);
                 arg.result = *bind;
                 arg.max_z = z_depth;
             }
@@ -1449,6 +1449,7 @@ fn ab_query_func(arg: &mut AbQueryArgs, _id: OctKey, aabb: &Aabb2, bind: &usize)
         // }
     }
 }
+
 
 /// 检查坐标是否在裁剪范围内， 直接在裁剪面上检查
 fn in_overflow(

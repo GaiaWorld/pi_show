@@ -1311,9 +1311,9 @@ fn create_geo<C: HalContext + 'static>(
 
         let hash = hasher.finish();
 
-		if id == 482 {
-			log::warn!("hash======{:?}, {:?}", hash, &text);
-		}
+		// if id == 482 {
+		// 	log::warn!("hash======{:?}, {:?}", hash, &text);
+		// }
         // 从缓存中找到geo， 直接返回
         if let Some(geo) = engine.geometry_res_map.get(&hash) {
             return ResWrapper::Handle(geo);
@@ -1503,9 +1503,9 @@ fn get_geo_flow<C: HalContext + 'static>(
 			// if debug_infos.chars.len() != 0 && debug_infos.chars[0].ch == '祭' {
 			// 	log::warn!("chars======{:?}", debug_infos);
 			// }
-			if id == 482 {
-				log::warn!("chars======{:?}", debug_infos);
-			}
+			// if id == 482 {
+			// 	log::warn!("chars======{:?}", debug_infos);
+			// }
 			// 更新buffer
 			let l = positions.len() / 8;
 			if l > *index_buffer_max_len {

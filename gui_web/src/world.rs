@@ -138,7 +138,7 @@ extern "C" {
 	// #[wasm_bindgen]
     fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: f64, strokeWidth: u8);
 	// #[wasm_bindgen]
-	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
+	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: f32, y: f32);
 	// #[wasm_bindgen]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	
@@ -358,7 +358,7 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
                 start.0 = first.x as i32;
                 start.1 = first.y as i32;
             }
-            let hal_stroke_width = text_info.stroke_width / 2;
+            let hal_stroke_width = text_info.stroke_width as f32 / 2.0 * 1.42;
             // let bottom = text_info.size.y as u32 - hal_stroke_width as u32;
 			unsafe{
 				setFont(
@@ -371,10 +371,10 @@ pub fn draw_canvas_text(world_id: u32, data: u32){
             if text_info.stroke_width > 0 {
                 for char_info in text_info.chars.iter() {
                     let ch_code: u32 = unsafe { transmute(char_info.ch) };
-                    let x = char_info.x + hal_stroke_width as u32 - start.0 as u32;
+                    let x = char_info.x as f32 + hal_stroke_width - start.0 as f32;
 					unsafe {
 						//fillText 和 strokeText 的顺序对最终效果会有影响， 为了与css text-stroke保持一致， 应该fillText在前
-						drawCharWithStroke(ctx, ch_code, x, text_info.top as u32 + hal_stroke_width as u32);
+						drawCharWithStroke(ctx, ch_code, x, text_info.top as f32 + hal_stroke_width);
 					}
 					// unsafe {useVao111(1);}
                 }

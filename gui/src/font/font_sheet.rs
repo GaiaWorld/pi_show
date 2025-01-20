@@ -497,10 +497,10 @@ impl FontSheet {
 						)
 					} else {
 						// 在指定字体及字号下，查找该字符的宽度
-						let w = (base_width as f32 * font_size as f32 / font.metrics.font_size + stroke_width as f32) * scale;
+						let w = (base_width as f32 * font_size as f32 / font.metrics.font_size) * scale + sw as f32;
 						// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
-						let height= (font_size as f32 * (font.factor_t + font.factor_b + 1.0) + stroke_width as f32) * scale;
-						let (ww, hh) = (w.ceil(), height.ceil());
+						let height= (font_size as f32 * (font.factor_t + font.factor_b + 1.0)) * scale + sw as f32;
+						let (ww, hh) = ((w + sw as f32 * 0.42).ceil(), height.ceil());
 						(
 							Glyph {
 								x: 0.0,

@@ -31,13 +31,13 @@ pub fn add_sdf_font(world_id: u32, name: &crate::index::Atom, cfgs: &[u8]) {
 	let font_sheet = world.font_sheet.lend_mut();
 	let font_sheet = &mut font_sheet.borrow_mut();
 
-	let msdf_width_map: FontCfg = match bincode::deserialize(cfgs) {
-        Ok(r) => r,
-        Err(e) => {
-            log::error!("deserialize_class_map error: {:?}", e);
-            return;
-        }
-    };
+    let msdf_width_map: FontCfg = match postcard::from_bytes::<FontCfg>(cfgs) {
+		Ok(r) => r,
+		Err(e) => {
+			log::warn!("deserialize_sdf error: {:?}", e);
+			return;
+		}
+	};
 
 	// log::info!("name==================={}, ascender: {}, descender: {}, len: {}，glyphs: {:?} ", name, msdf_width_map.metrics.ascender, msdf_width_map.metrics.descender, msdf_width_map.glyphs.len(), msdf_width_map.glyphs.get(&'风'));
 	font_sheet.set_src(name.inner().clone(), Some(msdf_width_map.glyphs), 0.0, 0.0,msdf_width_map.metrics);
