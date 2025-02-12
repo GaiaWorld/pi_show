@@ -1111,31 +1111,36 @@ fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 		let center_y = (pos.1 + pos.3)/2.0;
 
 		// log::info!("p: {}, {}, char_pos:{:?}, char_size: {:?}, index:{:?}, char_i:{}, context_id:{}, pos:{:?}, cur:{:?}", p.x, p.y, char.pos, char.size, cur, char.char_i, char.context_id, pos, cur);
-		if pos.0 > p.x {
+		if pos.0 > p.x { // 点击在当前字符的左边
 			if pos.3 >= p.y {
 				end = cur;
 			} else {
 				start = cur + 1;
 			}
-		} else if pos.2 < p.x{
+		} else if pos.2 < p.x{ // 点击在当前字符的右边
 			if pos.1 <= p.y {
 				start = cur + 1;
 			} else {
 				end = cur;
 			}
 			
-		} else {
-			if pos.1 > p.y {
+		} else {// 在x上，命中了字符
+			if pos.1 > p.y {// 点击在当前字符的上面
 				end = cur;
-			} else if pos.3 < p.y {
+			} else if pos.3 < p.y { // 点击在当前字符的下面
 				start = cur + 1;
-			} else if center_x > p.x {
+			} else if center_x > p.x { // 在y中上命中了字符， 此时， 点击在当前字符中心点的左边， 则索引为当前字符
 				start = cur;
 				break;
-			} else {
+			} else {// 
 				start = cur + 1;
 			}
 		}
+
+        if start == end && start < text.len() {
+            // 如果start与end相等，无法进行下一次循环， 需要重新取到pos
+            pos = calc_text_pos(text[start], text);
+        }
 	}
 
 	// log::info!("start: {}, pos:{:?}", start, pos);
