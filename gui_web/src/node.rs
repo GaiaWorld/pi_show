@@ -713,7 +713,7 @@ pub fn query_text(world: u32, node: u32, x: f32, y: f32) -> JsValue {
 #[cfg_attr(target_arch="wasm32", wasm_bindgen)]
 pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 	cal_layout(world);
-	// log::info!("get_text_pos====={}", index);
+	log::debug!("get_text_pos====={}", index);
 
 	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
@@ -742,7 +742,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 	}
 	let mut char = &text[i];
 
-	// log::info!("get_text_pos start=====i: {}, char_i:{}, len:{}", i, char.char_i, len);
+	log::debug!("get_text_pos start=====i: {}, char_i:{}, len:{}", i, char.char_i, len);
 
 	// 跳过char_i为-1的节点
 	while char.char_i == -1 && i < len-1 {
@@ -757,7 +757,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 		return JsValue::from_serde(&char_pos).unwrap()
 	}
 
-	// log::info!("get_text_pos start i====={}, {}, {:?}", i, char.char_i, text);
+	log::debug!("get_text_pos start i====={}, {}, {:?}", i, char.char_i, text);
 
 	if char.char_i != index as isize {
 		let diff;
@@ -767,7 +767,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 			diff = -1;
 		}
 		while char.char_i != index as isize {
-			// log::info!("get_text_pos loop i====={}, {}, {}", i, index, char.char_i);
+			log::debug!("get_text_pos loop i====={}, {}, {}", i, index, char.char_i);
 			let r = i as isize + diff;
 			if r < 0 {
 				i = 0;
@@ -782,7 +782,7 @@ pub fn get_text_pos(world: u32, node: u32, index: usize) -> JsValue {
 		}
 	}
 
-	// log::info!("get_text_pos end i====={}, {}, {}", i, index, char.char_i);
+	log::debug!("get_text_pos end i====={}, {}, {}", i, index, char.char_i);
 	if char.char_i == -1 {
 		return JsValue::from_serde(&char_pos).unwrap()
 	}
@@ -843,13 +843,13 @@ fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 	let text = &node_state.text;
 	// log::info!("world_matrix======{:?}", world_matrix);
 	let invert = matrix.invert().unwrap();
-	// log::info!("invert======{:?}", invert);
 	let p = invert.0 * Vector4::new(x, y, 1.0, 1.0);
+    log::debug!("invert======xy: {:?}, p: {:?} \ninvert: {:?}, \nmatrix: {:?}, \nlayout: {:?}, \nworld_matrix: {:?}", (x, y), &p, invert, matrix, layout, world_matrix);
 	let mut pos = (0.0, 0.0,0.0,0.0);
 	while start < end {
 		let diff = (end - start)/2 + 1;
 		let mut cur = end - diff;
-		// log::info!("text======{:?}, {}, {}", cur, start, end);
+		log::debug!("text======{:?}, {}, {}", cur, start, end);
 		let mut char = &text[cur];
 		// 跳过没有意义的字符
 		while char.char_i == -1 && cur > start {
@@ -865,7 +865,7 @@ fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 		let center_x = (pos.0 + pos.2)/2.0;
 		let center_y = (pos.1 + pos.3)/2.0;
 
-		// log::info!("p: {}, {}, char_pos:{:?}, char_size: {:?}, index:{:?}, char_i:{}, context_id:{}, pos:{:?}, cur:{:?}", p.x, p.y, char.pos, char.size, cur, char.char_i, char.context_id, pos, cur);
+		log::debug!("p: {}, {}, char_pos:{:?}, char_size: {:?}, index:{:?}, char_i:{}, context_id:{}, pos:{:?}, cur:{:?}", p.x, p.y, char.pos, char.size, cur, char.char_i, char.context_id, pos, cur);
 		if pos.0 > p.x {
 			if pos.3 >= p.y {
 				end = cur;
@@ -891,6 +891,11 @@ fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 				start = cur + 1;
 			}
 		}
+
+        if start == end && start < text.len() {
+            // 如果start与end相等，无法进行下一次循环， 需要重新取到pos
+            pos = calc_text_pos(&text[start], text);
+        }
 	}
 
 	// log::info!("start: {}, pos:{:?}", start, pos);
