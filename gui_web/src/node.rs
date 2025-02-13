@@ -1139,7 +1139,7 @@ fn query_text1(world: u32, node: u32, x: f32, y: f32) -> CharPos {
 
         if start == end && start < text.len() {
             // 如果start与end相等，无法进行下一次循环， 需要重新取到pos
-            pos = calc_text_pos(text[start], text);
+            pos = calc_text_pos(&text[start], text);
         }
 	}
 

@@ -310,12 +310,12 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                 move |pformate: PixelFormat,
                       compress: i32,
                       r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-                      name: f64,
+                      name: u64,
                       width: u32,
                       height: u32,
                       data: Object,
                       cost: u32| {
-					let name = match get_by_hash(unsafe { transmute(name) }) {
+					let name = match get_by_hash(name) {
 						Some(r) => r,
 						None => return,
 					};
@@ -685,13 +685,13 @@ pub fn load_image_success(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: f64,
+    name: u64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) {
-	let name = match get_by_hash(unsafe { transmute(name) }) {
+	let name = match get_by_hash(name) {
 		Some(r) => r,
 		None => return,
 	};
@@ -745,13 +745,13 @@ pub fn create_texture_res(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: f64,
+    name: u64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(unsafe { transmute(name) }).unwrap(), width, height, data, cost, true))) as u32
+    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(name).unwrap(), width, height, data, cost, true))) as u32
 }
 
 // 释放纹理资源
@@ -881,9 +881,9 @@ fn load_image(world_id: u32) {
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn texture_is_exist(world: u32, group_i: usize, name: f64) -> bool {
+pub fn texture_is_exist(world: u32, group_i: usize, name: u64) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let name = match get_by_hash(unsafe { transmute(name) }) {
+	let name = match get_by_hash(name) {
 		Some(r) => r,
 		None => return false,
 	};
@@ -945,24 +945,24 @@ impl Atom {
 impl Atom {
 	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
 
-	pub fn get_string_by_hash(name: f64) -> Option<String> { 
-		match get_by_hash(unsafe { transmute(name) }) {
+	pub fn get_string_by_hash(name: u64) -> Option<String> { 
+		match get_by_hash(name) {
 			Some(r) => Some(r.as_ref().to_string()),
 			None => None,
 		} 
 	}
 
-	pub fn get_hash(&self) -> f64 { unsafe { transmute(self.0.str_hash()) }}
+	pub fn get_hash(&self) -> u64 { self.0.str_hash() }
 }
 
 #[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
-pub fn get_atom_hash(s: &Atom) -> f64 { unsafe {transmute(s.0.str_hash())}  }
+pub fn get_atom_hash(s: &Atom) -> u64 { s.0.str_hash()  }
 
 #[wasm_bindgen]
-pub fn get_string_by_hash(s: f64) -> Option<String> { get_by_hash(unsafe{ transmute(s) }).map(|r| r.as_str().to_string()) }
+pub fn get_string_by_hash(s: u64) -> Option<String> { get_by_hash(s).map(|r| r.as_str().to_string()) }
 
 
 #[derive(Debug, Serialize, Deserialize)]

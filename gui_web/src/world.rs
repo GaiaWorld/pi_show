@@ -136,18 +136,18 @@ extern "C" {
 	// #[wasm_bindgen]
 	fn fillBackGround(canvas: &HtmlCanvasElement, ctx: &CanvasRenderingContext2d, x: u32, y: u32);
 	// #[wasm_bindgen]
-    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: f64, strokeWidth: u8);
+    fn setFont(ctx: &CanvasRenderingContext2d, weight: u32, fontSize: u32, font: u64, strokeWidth: u8);
 	// #[wasm_bindgen]
 	fn drawCharWithStroke(ctx: &CanvasRenderingContext2d, ch_code: u32, x: f32, y: f32);
 	// #[wasm_bindgen]
 	fn drawChar(ctx: &CanvasRenderingContext2d, ch_code: u32, x: u32, y: u32);
 	
-	fn drawSdf(world: u32, font: f64, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
+	fn drawSdf(world: u32, font: u64, chars: Uint32Array, info: Uint32Array, x: u32, y: u32, w: u32, h: u32);
 	pub fn setSdfSuccessCallback(callback: &Function);
 	// #[wasm_bindgen]
-	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: f64) -> f32;
+	pub fn measureText(ctx: &CanvasRenderingContext2d, ch: u32, font_size: u32, name: u64) -> f32;
 	// #[wasm_bindgen]
-	pub fn loadImage(image_name: f64, callback: &Function);
+	pub fn loadImage(image_name: u64, callback: &Function);
 	// #[wasm_bindgen]
 	pub fn useVao() -> bool;
 }
@@ -166,7 +166,7 @@ pub struct GuiWorld {
 		PixelFormat,
 		i32,
 		u8, /* 缓存类型，支持0， 1， 2三种类型 */
-		f64,
+		u64,
 		u32,
 		u32,
 		Object,
