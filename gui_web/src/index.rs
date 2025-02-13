@@ -160,6 +160,31 @@ pub fn clone_engine(engine: u32) -> u32 {
     Box::into_raw(Box::new(engine)) as u32
 }
 
+pub fn u64_to_f64(mut v: u64) -> f64 {
+    // 检查高位第二位是否为1, 如果是， 修改为0， 避免NaN
+    v &= !(1 << 62);
+
+    // 将u64内存强制转换为f64
+    unsafe {
+        std::mem::transmute::<u64, f64>(v)
+    }
+}
+
+pub fn get_by_f64_hash(v: f64) -> Option<pi_atom::Atom> {
+    let mut h = unsafe {
+        std::mem::transmute::<f64, u64>(v)
+    };
+    let r = get_by_hash(h);
+    if let None = r {
+        let h1 = h | (1 << 62);
+        if h1 != h {
+            return get_by_hash(h1)
+        } else {
+            return None
+        }
+    }
+    r
+}
 /// 创建gui实例
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
@@ -180,7 +205,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
 
     let ctx = draw_text_sys.ctx.clone();
     let f = Box::new(move |name: &Atom1, font_size: usize, ch: char| -> f32 {
-        return unsafe { measureText(&ctx, ch as u32, font_size as u32, transmute(name.str_hash())) };
+        return unsafe { measureText(&ctx, ch as u32, font_size as u32, u64_to_f64(name.str_hash())) };
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
     
@@ -310,12 +335,12 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                 move |pformate: PixelFormat,
                       compress: i32,
                       r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-                      name: u64,
+                      name: f64,
                       width: u32,
                       height: u32,
                       data: Object,
                       cost: u32| {
-					let name = match get_by_hash(name) {
+					let name = match get_by_f64_hash(name) {
 						Some(r) => r,
 						None => return,
 					};
@@ -341,7 +366,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             write(
                 &mut world.load_image,
                 Box::new(move |image_name, callback: &Function| {
-                    r.call2(&JsValue::from(None::<u8>), &JsValue::from(unsafe { transmute::<_, f64>(image_name)}), callback)
+                    r.call2(&JsValue::from(None::<u8>), &JsValue::from(u64_to_f64(image_name)), callback)
                         .expect("call load_image fail!!!");
                 }),
             )
@@ -350,7 +375,7 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
             write(
                 &mut world.load_image,
                 Box::new(|image_name, callback: &Function| {
-                    loadImage(unsafe { transmute(image_name)}, callback);
+                    loadImage(u64_to_f64(image_name), callback);
                 }),
             )
         },
@@ -685,13 +710,13 @@ pub fn load_image_success(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: u64,
+    name: f64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) {
-	let name = match get_by_hash(name) {
+	let name = match get_by_f64_hash(name) {
 		Some(r) => r,
 		None => return,
 	};
@@ -745,13 +770,13 @@ pub fn create_texture_res(
     pformate: PixelFormat,
     compress: i32,
     r_type: u8, /* 缓存类型，支持0， 1， 2三种类型 */
-    name: u64,
+    name: f64,
     width: u32,
     height: u32,
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_hash(name).unwrap(), width, height, data, cost, true))) as u32
+    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_f64_hash(name).unwrap(), width, height, data, cost, true))) as u32
 }
 
 // 释放纹理资源
@@ -881,9 +906,9 @@ fn load_image(world_id: u32) {
 /// 纹理是否存在, 返回0表示不存在
 #[allow(unused_attributes)]
 #[wasm_bindgen]
-pub fn texture_is_exist(world: u32, group_i: usize, name: u64) -> bool {
+pub fn texture_is_exist(world: u32, group_i: usize, name: f64) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let name = match get_by_hash(name) {
+	let name = match get_by_f64_hash(name) {
 		Some(r) => r,
 		None => return false,
 	};
@@ -945,24 +970,24 @@ impl Atom {
 impl Atom {
 	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
 
-	pub fn get_string_by_hash(name: u64) -> Option<String> { 
-		match get_by_hash(name) {
+	pub fn get_string_by_hash(name: f64) -> Option<String> { 
+		match get_by_f64_hash(name) {
 			Some(r) => Some(r.as_ref().to_string()),
 			None => None,
 		} 
 	}
 
-	pub fn get_hash(&self) -> u64 { self.0.str_hash() }
+	pub fn get_hash(&self) -> f64 {u64_to_f64(self.0.str_hash())}
 }
 
 #[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
-pub fn get_atom_hash(s: &Atom) -> u64 { s.0.str_hash()  }
+pub fn get_atom_hash(s: &Atom) -> f64 { u64_to_f64(s.0.str_hash())  }
 
 #[wasm_bindgen]
-pub fn get_string_by_hash(s: u64) -> Option<String> { get_by_hash(s).map(|r| r.as_str().to_string()) }
+pub fn get_string_by_hash(s: f64) -> Option<String> { get_by_f64_hash(s).map(|r| r.as_str().to_string()) }
 
 
 #[derive(Debug, Serialize, Deserialize)]
