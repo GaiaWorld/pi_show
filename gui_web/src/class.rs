@@ -23,7 +23,7 @@ pub fn create_class(world: u32, class_id: u32, css: &str) {
     let r = match parse_class_from_string(css) {
         Ok(r) => r,
         Err(e) => {
-            debug_println!("{:?}", e);
+            log::error!("{:?}", e);
             return;
         }
     };
@@ -39,10 +39,12 @@ pub fn create_class_by_bin(world: u32, bin: &[u8]) {
     let map: XHashMap<usize, Class> = match bincode::deserialize(bin) {
         Ok(r) => r,
         Err(e) => {
-            debug_println!("deserialize_class_map error: {:?}", e);
+            log::error!("deserialize_class_map error: {:?}", e);
             return;
         }
     };
+
+    // log::warn!("deserialize_class_map success: {:?}, {:?}", map.len(), map);
 
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
