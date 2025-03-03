@@ -426,7 +426,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, MaskTexture, (Crea
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &Event, _: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
         if let Some(r) = style_marks.get_mut(event.id) {
-            set_dirty1(dirty_list, event.id, CalcType::MaskImageTexture as usize, r);
+            set_dirty2(dirty_list, event.id, CalcType::MaskImageTexture as usize, r);
         }
     }
 }
@@ -443,7 +443,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageTexture, (Cre
     fn listen(&mut self, event: &Event, _: Self::ReadData, write: Self::WriteData) {
         let (style_marks, dirty_list, layout_styles, image_clips, image_textures) = write;
         let id = event.id;
-        set_dirty1(dirty_list, id, CalcType::BackgroundImageTexture as usize, &mut style_marks[id]);
+        set_dirty2(dirty_list, id, CalcType::BackgroundImageTexture as usize, &mut style_marks[id]);
 
         if let Some(texture) = image_textures.get(id) {
             if let ImageTexture::All(texture, _url) = texture {
@@ -463,7 +463,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ImageTexture, Dele
         if let Some(r) = idtree.get(id) {
             if r.layer() > 0 {
                 if let Some(style_mark) = style_marks.get_mut(id) {
-                    set_dirty1(dirty_list, id, CalcType::BackgroundImageTexture as usize, style_mark);
+                    set_dirty2(dirty_list, id, CalcType::BackgroundImageTexture as usize, style_mark);
                 }
             }
         }
@@ -475,7 +475,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, BorderImageTexture
     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
     fn listen(&mut self, event: &Event, _: Self::ReadData, (style_marks, dirty_list): Self::WriteData) {
         if let Some(r) = style_marks.get_mut(event.id) {
-            set_dirty1(dirty_list, event.id, CalcType::BorderImageTexture as usize, r);
+            set_dirty2(dirty_list, event.id, CalcType::BorderImageTexture as usize, r);
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::mem::transmute;
 use std::ops::Deref;
 
@@ -238,6 +239,10 @@ pub fn get_layout(world: u32, node: u32) -> JsValue {
             Some(r) => Some(r.clone()),
             None => None,
         },
+        node_state_ptr: match world.node_state.lend().get(node) {
+            Some(r) => format!("{:p}", r),
+            None => "".to_string(),
+        }
     })
     .unwrap()
 }
@@ -2144,6 +2149,7 @@ pub struct Layout {
     pub other: Option<OtherLayoutStyle>,
     pub node_state: Option<NodeState>,
     pub layoutRet: Option<Layout2>,
+    pub node_state_ptr: String,
 }
 
 // #[derive(Serialize, Deserialize, Debug)]
