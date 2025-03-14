@@ -809,9 +809,9 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 		let style_mark = self.world_ext.style_mark.lend_mut();
 		if let Some(style_mark) = style_mark.get_mut(entity){
 			<T as ConvertToComponent>::set( &value as *const T as usize as *const u8, &self.world_ext, entity, false);
-            if T::get_type() == 5 {
-                pi_print_any::out_any!(log::error, "set_style: {:?}", (entity, T::get_type() as usize, &value));
-            }
+            // if T::get_type() == 5 {
+            //     pi_print_any::out_any!(log::error, "set_style: {:?}", (entity, T::get_type() as usize, &value));
+            // }
             if T::get_style_index() > STYLE_COUNT {
                 style_mark.local_style.set(T::get_type() as usize, false);
             } else {

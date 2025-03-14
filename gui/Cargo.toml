@@ -17,7 +17,7 @@ pi_link_list = "0.1"
 pi_null = "0.1"
 pi_hash = "0.1"
 pi_flex_layout = "0.2"
-pi_style = {version = "0.1", registry = "yn"}
+pi_style = {version = "=0.1.15", registry = "yn"}
 bitflags = "1.2"
 # share = { path = "../../pi_lib/share"}
 idtree = { path = "../../pi_lib/idtree"}
@@ -118,7 +118,7 @@ features = [
 [patch.yn]
 # pi_curves  = {path="../pi_curves"}
 # pi_animation = { path="../pi_animation"}
-pi_style = {path = "D://0_rust/pi_style"}
+# pi_style = {path = "D://0_rust/pi_style"}
 
 [features]
 default = ["warning"]
