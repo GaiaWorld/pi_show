@@ -383,7 +383,7 @@ pub fn get_class(world: u32, class_name: u32) -> JsValue {
 
 fn to_css_str(attr: Attribute) -> String {
     match attr {
-        Attribute::ClipPath(_) => todo!(),
+        Attribute::ClipPath(_) => "clip-path:todo".to_string(),
 		Attribute::AsImage(r) => match r.0 {
 			pi_style::style::AsImage::None => "as-image:none".to_string(),
 			pi_style::style::AsImage::Advise => "as-image:advise".to_string(),
