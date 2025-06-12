@@ -1753,6 +1753,17 @@ pub fn common_statistics(world: u32) -> JsValue {
 }
 
 #[wasm_bindgen]
+pub fn drawcall_times(world: u32) -> f32 {
+    0.0
+    // let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    // let world = &mut world.gui.world;
+
+    // let context = world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
+    // let context = context.lend_mut();
+    // context.gl.stat.draw_call_count as f32
+}
+
+#[wasm_bindgen]
 pub fn is_dirty(world: u32) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     if world.gui.world_ext.dirty_list.lend().0.len() > 0 {

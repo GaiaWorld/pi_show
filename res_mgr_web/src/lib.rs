@@ -75,7 +75,11 @@ impl HomogeneousMgr {
 
 	/// 弹出资产
 	pub fn pop(&mut self) -> Option<f64> {
-		self.inner.pop().map(|r| {r.key})
+		self.inner.pop().map(|r| {
+			let r1 = r.key;
+			// 避免调用drop方法
+			std::mem::forget(r);
+			r1})
 	}
 }
 
