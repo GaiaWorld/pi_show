@@ -89,6 +89,7 @@ impl TryFrom<&str> for NodeTag {
             "canvas" => NodeTag::Canvas,
             "span" => NodeTag::Span,
             "image" => NodeTag::Image,
+            "img" => NodeTag::Image,
             "template" => NodeTag::VNode,
             _ => return Err(TagErr::InvaildName(value.to_string())),
         };

@@ -26,7 +26,7 @@ use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ResWrapper1, ShareEngine};
-use crate::render::res::Opacity as ROpacity;
+use crate::render::res::OpacityType as ROpacity;
 use crate::render::res::*;
 use crate::single::*;
 use crate::system::render::shaders::image::{CANVAS_FS_SHADER_NAME, CANVAS_VS_SHADER_NAME, IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
@@ -74,6 +74,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
         &'a MultiCaseImpl<Node, StyleMark>,
+        &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, IsLeaf>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
         &'a SingleCaseImpl<PremultiState>,
@@ -93,6 +95,8 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             world_matrixs,
             transforms,
             style_marks,
+            opacitys,
+            is_leaf,
             dirty_list,
             default_state,
             premulti_state,
@@ -160,6 +164,11 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
 				// 	log::info!("image==============={:?}, image_clip: {:?}, url: {:?}", images.get(*id), image_clips.get(*id), url);
 				// }
 			}
+            let alpha = if is_leaf[*id].0 {
+                opacitys[*id].0
+            } else {
+                1.0
+            };
 			
 			let border_radius = border_radiuss.get(*id);
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
@@ -174,7 +183,9 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
                                 ImageTexture::All(_r, _) => (&***default_state, IMAGE_VS_SHADER_NAME.clone(), IMAGE_FS_SHADER_NAME.clone()),
                             }
                         };
-                        self.create_render_obj(*id, render_objs, state, vs, fs)
+
+                        let r = self.create_render_obj(*id, render_objs, state, vs, fs, alpha); 
+                        r
                     }
                 }
             } else {
@@ -226,6 +237,13 @@ impl<'a, C: HalContext + 'static> Runner<'a> for ImageSys<C> {
             if dirty1 & CalcType::Matrix as usize != 0 {
                 modify_matrix(render_obj, layout, z_depth, world_matrix, transform, vert_type);
                 notify.modify_event(render_index, "ubo", 0);
+            }
+
+            if dirty[StyleType::Opacity as usize] {
+                if is_leaf[*id].0 {
+                    render_obj.paramter.set_single_uniform("alpha", UniformValue::Float1(alpha));
+                    notify.modify_event(render_index, "ubo", 0);
+                }
             }
 
             // 不透明度脏或图片脏， 设置is_opacity
@@ -331,8 +349,9 @@ impl<C: HalContext + 'static> ImageSys<C> {
         default_state: &CommonState,
         vs: Atom,
         fs: Atom,
+        alpha: f32,
     ) -> usize {
-        create_render_obj(
+        let index = create_render_obj(
             id,
             -0.1,
             true,
@@ -342,7 +361,9 @@ impl<C: HalContext + 'static> ImageSys<C> {
             default_state,
             render_objs,
             &mut self.render_map,
-        )
+        );
+        render_objs[index].paramter.set_single_uniform("alpha", UniformValue::Float1(alpha));
+        index
     }
 }
 

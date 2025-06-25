@@ -131,18 +131,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderContextSys<C> {
 			let dirty1 = style_mark.dirty1;
 			
 			// log::info!("is dirty: {:?}",!(dirty & DIRTY_TY).any() && dirty1 & DIRTY_TY1 == 0);
-			if !(dirty & &*DIRTY_TY).any() && dirty1 & DIRTY_TY1 == 0 {
-				continue;
-			}
 			
 			// 无渲染上下文的标记，则删除RenderContext
 			let render_context_mark = match render_context_marks.get(*id) {
-				Some(mark) if !mark.is_empty() => mark,
+				Some(mark) if mark.any() => mark,
 				_ => {
 					self.unbind_context(*id, render_contexts, &mut render_target_change);
 					continue;
 				}
 			};
+
+			if !(dirty & &*DIRTY_TY).any() && dirty1 & DIRTY_TY1 == 0 {
+				continue;
+			}
 
 			render_target_change = true;
 
@@ -269,7 +270,7 @@ impl<'a, C> MultiCaseListener<'a, Node, ContentBox, (CreateEvent, ModifyEvent)> 
 
 		// 如果该节点存在一个上下文，则设脏
 		if let Some(mark) = render_context_mark.get(event.id) {
-			if !mark.is_empty() {
+			if mark.any() {
 				self.dirty.insert(event.id);
 			}
 		}
@@ -404,7 +405,7 @@ impl<'a, C: HalContext + 'static> SingleCaseListener <'a, IdTree, CreateEvent> f
 
 		for (id, _node) in idtree.recursive_iter(node.children().head) {
 			if let Some(mark) = render_context_marks.get(id) {
-				if !mark.is_empty() {
+				if mark.any() {
 					self.dirty.insert(id);
 				}
 			}
@@ -472,6 +473,9 @@ impl<C: HalContext + 'static> RenderContextSys<C> {
 
 	#[inline]
 	fn unbind_context(&mut self, id: usize, render_ctxs: &mut MultiCaseImpl<Node, RenderContext>, render_target_change: &mut bool) -> bool {
+		if id == 412 {
+			log::warn!("unbind_context=========={:?}", id);
+		}
 		match render_ctxs.get_mut(id) {
 			Some(_ctx) => {
 				render_ctxs.delete(id);

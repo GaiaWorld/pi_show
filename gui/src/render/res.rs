@@ -16,7 +16,7 @@ use crate::component::user::Aabb2;
 use super::engine::ResWrapper1;
 
 #[derive(Debug, Clone, Copy)]
-pub enum Opacity {
+pub enum OpacityType {
     Opaque,
     Translucent,
     Transparent,
@@ -45,10 +45,25 @@ pub struct TextureRes {
     pub height: usize,
     pub pformat: PixelFormat,
     pub dformat: DataFormat,
-    pub opacity: Opacity,
+    pub opacity: OpacityType,
     pub compress: Option<CompressedTexFormat>,
 	pub cost: Option<usize>,
     pub bind: HalTexture,
+}
+
+pub struct FboRes {
+    pub texture: TextureRes,
+    pub bind: HalRenderTarget,
+}
+
+impl Asset for FboRes {
+	type Key = Atom;
+}
+
+impl Size for FboRes {
+	fn size(&self) -> usize {
+		self.texture.size()
+	}
 }
 
 // 纹理的部分资源
@@ -164,7 +179,7 @@ impl TextureRes {
         height: usize,
         pformat: PixelFormat,
         dformat: DataFormat,
-        opacity: Opacity,
+        opacity: OpacityType,
         compress: Option<CompressedTexFormat>,
         bind: HalTexture,
 		cost: Option<usize>,

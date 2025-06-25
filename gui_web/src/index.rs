@@ -22,8 +22,8 @@ use gui::component::calc::Visibility;
 use gui::component::user::*;
 use gui::font::font_sheet::FontSheet;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
-use gui::render::res::Opacity as ROpacity;
-use gui::render::res::TextureRes as TextureResRaw;
+use gui::render::res::OpacityType;
+use gui::render::res::{TextureRes as TextureResRaw, FboRes};
 use gui::single::RootIndexs;
 use gui::single::{PixelRatio, RenderBegin};
 use gui::world::GuiWorld as GuiWorld1;
@@ -815,10 +815,10 @@ pub fn create_texture(
         Some(r) => return r,
         None => {
             let opacity = match pformate {
-                PixelFormat::ALPHA => ROpacity::Translucent,
-                PixelFormat::RGB => ROpacity::Opaque,
-                PixelFormat::RGBA => ROpacity::Translucent,
-                _ => ROpacity::Translucent,
+                PixelFormat::ALPHA => OpacityType::Translucent,
+                PixelFormat::RGB => OpacityType::Opaque,
+                PixelFormat::RGBA => OpacityType::Translucent,
+                _ => OpacityType::Translucent,
             };
             let pformate = unsafe { transmute(pformate) };
 
@@ -1016,6 +1016,7 @@ pub fn parse_asset_config(asset_config: &str) -> AssetConfig {
 	for (key, desc) in map.into_iter() {
 		match key.as_str() {
 			"TEXTURE_RES" => asset_config.insert::<TextureResRaw>(desc),
+            "FBO_RES" => asset_config.insert::<FboRes>(desc),
 			// "buffer" => asset_config.insert::<RenderRes<Buffer>>(desc),
 			// "sampler" => asset_config.insert::<SamplerRes>(desc),
 			// "bind_group" => asset_config.insert::<RenderRes<BindGroup>>(desc),

@@ -21,7 +21,7 @@ use crate::component::calc::*;
 use crate::component::user::*;
 use crate::entity::Node;
 use crate::render::engine::{AttributeDecs, Engine, ResWrapper, ShareEngine};
-use crate::render::res::{GeometryRes, Opacity as ROpacity, SamplerRes};
+use crate::render::res::{GeometryRes, OpacityType as ROpacity, SamplerRes};
 use crate::single::*;
 use crate::system::render::shaders::image::{IMAGE_FS_SHADER_NAME, IMAGE_VS_SHADER_NAME};
 use crate::system::util::*;
@@ -61,15 +61,16 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
         &'a MultiCaseImpl<Node, LayoutR>,
         &'a MultiCaseImpl<Node, WorldMatrix>,
         &'a MultiCaseImpl<Node, Transform>,
-        // &'a MultiCaseImpl<Node, Opacity>,
+        &'a MultiCaseImpl<Node, Opacity>,
         &'a MultiCaseImpl<Node, StyleMark>,
         &'a SingleCaseImpl<DirtyList>,
         &'a SingleCaseImpl<DefaultState>,
 		&'a MultiCaseImpl<Node, BorderRadius>,
+        &'a MultiCaseImpl<Node, IsLeaf>,
     );
     type WriteData = (&'a mut SingleCaseImpl<RenderObjs>, &'a mut SingleCaseImpl<ShareEngine<C>>);
     fn run(&mut self, read: Self::ReadData, write: Self::WriteData) {
-        if (read.9).0.len() == 0 {
+        if (read.10).0.len() == 0 {
             return;
         }
 
@@ -82,11 +83,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             layouts,
             world_matrixs,
             transforms,
-            // opacitys,
+            opacitys,
             style_marks,
             dirty_list,
             default_state,
 			border_radiuses,
+            is_leaf,
         ) = read;
         let (render_objs, mut engine) = write;
 
@@ -132,13 +134,19 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
                     continue;
                 }
             }
+             let alpha = if is_leaf[*id].0 {
+                opacitys[*id].0
+            } else {
+                1.0
+            };
+			
             // BorderImage脏， 如果不存在BorderImage的本地样式和class样式， 删除渲染对象
             let render_index = if dirty1 & DIRTY_TY1 != 0 {
                 dirty |= DIRTY_TY.clone();
 				dirty1 |= DIRTY_TY1;
                 match self.render_map.get_mut(*id) {
                     Some(r) => *r,
-                    None => self.create_render_obj(*id, render_objs, default_state),
+                    None => self.create_render_obj(*id, render_objs, default_state, alpha),
                 }
             } else {
                 match self.render_map.get_mut(*id) {
@@ -189,6 +197,12 @@ impl<'a, C: HalContext + 'static> Runner<'a> for BorderImageSys<C> {
             }
 			let border_radius = border_radiuses.get(*id);
 
+            if dirty[StyleType::Opacity as usize] {
+                if is_leaf[*id].0 {
+                    render_obj.paramter.set_single_uniform("alpha", UniformValue::Float1(alpha));
+                    notify.modify_event(render_index, "ubo", 0);
+                }
+            }
             // 不透明度脏或图片脏， 设置is_opacity
             if dirty[StyleType::Opacity as usize] || dirty1 & CalcType::BorderImageTexture as usize != 0 {
                 // let opacity = opacitys[*id].0;
@@ -252,8 +266,8 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
     }
 
     #[inline]
-    fn create_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>, default_state: &DefaultState) -> usize {
-        create_render_obj(
+    fn create_render_obj(&mut self, id: usize, render_objs: &mut SingleCaseImpl<RenderObjs>, default_state: &DefaultState, alpha: f32) -> usize {
+        let index = create_render_obj(
             id,
             -0.1,
             true,
@@ -263,7 +277,9 @@ impl<C: HalContext + 'static> BorderImageSys<C> {
             default_state,
             render_objs,
             &mut self.render_map,
-        )
+        );
+        render_objs[index].paramter.set_single_uniform("alpha", UniformValue::Float1(alpha));
+        index
     }
 }
 

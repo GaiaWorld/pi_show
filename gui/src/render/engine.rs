@@ -7,6 +7,7 @@ use std::cell::RefCell;
 
 use pi_assets::allocator::Allocator;
 use pi_assets::asset::{Asset, GarbageEmpty, Handle};
+use pi_assets::mgr::AssetMgr;
 use pi_atom::Atom;
 use hash::{DefaultHasher, XHashMap};
 use pi_share::Share;
@@ -16,7 +17,7 @@ use crate::component::calc::*;
 use crate::component::user::CgColor;
 use crate::render::res::*;
 use crate::single::dyn_texture::UnuseTexture;
-use crate::util::f32_4_hash;
+use crate::util::{f32_4_hash, f32_hash};
 
 use super::asset::{AssetConfig, AssetDesc, ShareAssetMgr, ShareHomogeneousMgr};
 
@@ -89,6 +90,7 @@ pub struct Engine<C: HalContext + 'static> {
     pub share_allocator: Share<RefCell<Allocator>>,
     pub programs: XHashMap<u64, Share<HalProgram>>,
     pub texture_res_map: ShareAssetMgr<TextureRes>,
+    pub fbo_res_map: ShareAssetMgr<FboRes>,
 	pub texture_part_res_map: ShareAssetMgr<TexturePartRes>,
 	pub renderbuffer_res_map: ShareAssetMgr<RenderBufferRes>,
     pub unuse_texture_map: ShareHomogeneousMgr<UnuseTexture>,
@@ -125,6 +127,7 @@ impl<C: HalContext + 'static> Engine<C> {
         let canvas_text_ubo_map;
         let hsv_ubo_map;
         let unuse_texture_map;
+        let fbo_res_map;
 
 		{
             let mut allocator = share_allocator.borrow_mut();
@@ -139,6 +142,19 @@ impl<C: HalContext + 'static> Engine<C> {
                 asset_config,
                 &mut allocator,
             );
+            
+            // fbo资产管理器
+            fbo_res_map = ShareAssetMgr::<FboRes>::new_with_config(
+                GarbageEmpty(),
+                &AssetDesc {
+                    ref_garbage: false,
+                    min: 10 * 1024 * 1024,
+                    timeout: 2 * 1000,
+                    weight: 5,
+                },
+                asset_config,
+                &mut allocator,
+            );;
 
 			texture_part_res_map = ShareAssetMgr::<TexturePartRes>::new_with_config(
                 GarbageEmpty(),
@@ -302,6 +318,7 @@ impl<C: HalContext + 'static> Engine<C> {
         Engine {
             gl: gl,
             texture_res_map,
+            fbo_res_map,
 			texture_part_res_map,
 			renderbuffer_res_map,
             unuse_texture_map,
@@ -549,6 +566,7 @@ impl<C: HalContext + 'static> Engine<C> {
             }
         }
     }
+
 
     #[inline]
     pub fn create_buffer(

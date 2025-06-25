@@ -57,6 +57,7 @@ pub struct Rect<T> {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Info {
+    pub clip: Option<ClipPath>,
     pub overflow: bool,
     pub by_overflow: usize,
     pub visibility: bool,
@@ -65,7 +66,8 @@ struct Info {
     pub blur: f32,
     pub zindex: u32,
     pub zdepth: f32,
-    pub layout: Layout1,
+    pub layout: Layout,
+    pub world_matrix: WorldMatrix,
     pub border_box: Quad,
     pub padding_box: Quad,
     pub content_box: Quad,
@@ -94,6 +96,7 @@ struct Info {
     pub transform_will_change: Option<TransformWillChange>,
     pub parent_id: Option<u32>,
     pub content_bound_box: Option<ContentBox>,
+    pub is_leaf: bool,
 
     text: Option<TextStyle>,
     text_content: Option<TextContent>,
@@ -896,6 +899,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
 	let show = world_ext.show.lend();
 
     let world_matrix1 = cal_matrix(node, world_matrix, transform, layout, &Transform::default());
+    let matrix = world_matrix[node].clone();
     let layout = &layout[node];
 
     let width = layout.rect.right - layout.rect.left;
@@ -975,6 +979,7 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let map = map.lend();
     let render_objs = world.gui.world.fetch_single::<RenderObjs>().unwrap();
     let content_boxs = world.gui.world.fetch_multi::<Node, ContentBox>().unwrap();
+    let is_leaf = world.gui.world.fetch_multi::<Node, IsLeaf>().unwrap();
     let render_objs = render_objs.lend();
     let engine = world.gui.world.fetch_single::<ShareEngine<WebglHalContext>>().unwrap();
     let engine = engine.lend();
@@ -1108,7 +1113,36 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
     let render_contexts = world.gui.world.fetch_multi::<Node, RenderContext>().unwrap();
     let render_contexts = render_contexts.lend();
 
+
+    let rect_layout_style = world_ext.rect_layout_style.lend();
+    let other_layout_style = world_ext.other_layout_style.lend();
+    let layouts = world_ext.layout.lend();
+
+    let layout = Layout {
+        rect: match rect_layout_style.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        other: match other_layout_style.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        layoutRet: match layouts.get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        node_state: match world_ext.node_state.lend().get(node) {
+            Some(r) => Some(r.clone()),
+            None => None,
+        },
+        node_state_ptr: match world_ext.node_state.lend().get(node) {
+            Some(r) => format!("{:p}", r),
+            None => "".to_string(),
+        }
+    };
+
     let info = Info {
+        clip:  world_ext.clip_path.lend().get(node).map(|r| r.clone()),
         // char_block: char_block,
         overflow: world_ext.overflow.lend()[node].0,
         by_overflow: by_overflow,
@@ -1134,13 +1168,18 @@ pub fn node_info(world: u32, node: u32) -> JsValue {
         blur: world_ext.blur.lend().get(node).unwrap_or(&Blur(0.0)).0,
         zindex: world_ext.z_index.lend()[node].0 as u32,
         zdepth: world_ext.z_depth.lend()[node].0.start as f32,
-        layout: unsafe { transmute(layout.clone()) },
+        layout,
+        world_matrix: matrix,
         border_box: absolute_b_box,
         padding_box: absolute_p_box,
         content_box: absolute_c_box,
         content_bound_box: match content_boxs.lend().get(node) {
             Some(r) => Some(r.clone()),
             None => None,
+        },
+        is_leaf:  match is_leaf.lend().get(node) {
+            Some(r) => r.0,
+            None => false,
         },
         culling: world_ext.culling.lend()[node].0,
         text: match world_ext.text_style.lend().get(node) {

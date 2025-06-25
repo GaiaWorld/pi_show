@@ -23,7 +23,7 @@ use pi_style::style_type::ClassSheet;
 use pi_share::Share;
 
 use crate::component::calc::*;
-use crate::component::calc::{LayoutR, Opacity as COpacity};
+use crate::component::calc::LayoutR;
 use crate::component::user::*;
 use crate::component::user::serialize::{StyleTypeReader, StyleAttr};
 use crate::component::user::{Opacity, Overflow};
@@ -678,15 +678,15 @@ impl<'a, C: HalContext + 'static> SingleCaseListener<'a, RenderObjs, CreateEvent
 }
 
 
-impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, COpacity, ModifyEvent> for StyleMarkSys<C> {
-    type ReadData = ();
-    type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
-    fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
-        let (style_marks, dirty_list) = write;
-        let style_mark = &mut style_marks[event.id];
-        set_dirty(dirty_list, event.id, StyleType::Opacity as usize, style_mark);
-    }
-}
+// impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, ModifyEvent> for StyleMarkSys<C> {
+//     type ReadData = ();
+//     type WriteData = (&'a mut MultiCaseImpl<Node, StyleMark>, &'a mut SingleCaseImpl<DirtyList>);
+//     fn listen(&mut self, event: &Event, _read: Self::ReadData, write: Self::WriteData) {
+//         let (style_marks, dirty_list) = write;
+//         let style_mark = &mut style_marks[event.id];
+//         set_dirty(dirty_list, event.id, StyleType::Opacity as usize, style_mark);
+//     }
+// }
 
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, LayoutR, ModifyEvent> for StyleMarkSys<C> {
     type ReadData = ();
@@ -2500,7 +2500,7 @@ impl_system! {
         SingleCaseListener<Oct, CreateEvent>
         // SingleCaseListener<Oct, DeleteEvent>
 
-        MultiCaseListener<Node, COpacity, ModifyEvent>
+        // MultiCaseListener<Node, COpacity, ModifyEvent>
 
         // MultiCaseListener<Node, Show, ModifyEvent>
 

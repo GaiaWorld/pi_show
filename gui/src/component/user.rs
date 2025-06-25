@@ -176,6 +176,11 @@ pub type OtherLayoutStyle = flex_layout::OtherStyle;
 #[storage(VecMapWithDefault)]
 pub struct ZIndex(pub isize);
 
+// 是否为叶子节点
+#[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
+#[storage(VecMapWithDefault)]
+pub struct IsLeaf(pub bool);
+
 #[derive(Clone, Default, Deref, Debug, Serialize, Deserialize, Component)]
 pub struct BoxShadow(pub BoxShadow1);
 

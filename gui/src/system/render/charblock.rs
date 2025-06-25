@@ -565,7 +565,10 @@ impl<'a, C: HalContext + 'static> Runner<'a> for CharBlockSys<C> {
 									},
 								);
 								
-				
+								copy.paramter.set_single_uniform(
+									"alpha",
+									UniformValue::Float1(1.0),
+								);
 								let notify = render_objs.get_notify();
 								let copy = render_objs.insert(copy, Some(&notify));
 								// log::warn!("create copy================={}, {}, {}, {}",id, shadow_index, render_objs[shadow_index].post_process.as_deref_mut().unwrap().copy, copy);

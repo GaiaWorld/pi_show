@@ -28,7 +28,6 @@ use gui::component::calc::*;
 use gui::component::user::*;
 use gui::entity::Node;
 use gui::render::res::TexturePartRes;
-use gui::render::res::Opacity as ROpacity;
 use pi_spatial::quad_helper::intersects;
 use gui::single::*;
 use hal_core::*;
@@ -125,6 +124,8 @@ pub fn create_text_node(world: u32) -> u32 {
 pub fn create_image_node(world: u32) -> u32 {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let node = create(world);
+	let is_leaf = world.gui.world_ext.is_leaf.lend_mut();
+	is_leaf.insert(node, IsLeaf(true));
     node as u32
 }
 

@@ -392,6 +392,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, BorderImageClip>();
     world.register_multi::<Node, BorderImageSlice>();
     world.register_multi::<Node, BorderImageRepeat>();
+    world.register_multi::<Node, IsLeaf>();
 
     // world.register_multi::<Node, CharBlock<L>>();
     world.register_multi::<Node, TextStyle>();
@@ -423,12 +424,12 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_multi::<Node, Visibility>();
     world.register_multi::<Node, WorldMatrix>();
     world.register_multi::<Node, ByOverflow>();
-    world.register_multi::<Node, calc::Opacity>();
+    // world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, LayoutR>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, Culling>();
     world.register_multi::<Node, TransformWillChangeMatrix>();
-    world.register_multi::<Node, RenderContext>();
+    world.register_multi::<Node, RenderContext>(); 
     // world.register_multi::<Node, ContextIndex>();
     world.register_multi::<Node, Blur>();
     world.register_multi::<Node, RenderContextMark>();
@@ -447,7 +448,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<PixelRatio>(PixelRatio(1.0));
     world.register_single::<RootIndexs>(RootIndexs::default());
     world.register_single::<Share<RefCell<DynAtlasSet>>>(Share::new(RefCell::new(DynAtlasSet::new(
-        engine.texture_res_map.clone(),
+        engine.fbo_res_map.clone(),
         engine.renderbuffer_res_map.clone(),
         engine.unuse_texture_map.0.clone(),
         width as usize,
@@ -494,6 +495,7 @@ pub fn create_world<C: HalContext + 'static>(
     world.register_single::<SystemTime>(sys_time);
 	world.register_single::<VertType>(VertType::default());
 	world.register_single::<Share<StdCell<FragmentMap>>>(Share::new(StdCell::new(FragmentMap::default())));
+    world.register_single::<IsLeaf>(IsLeaf::default());
 
 	// default style
 	world.register_single::<Transform>(Transform::default());
@@ -614,6 +616,7 @@ pub struct GuiWorldExt {
     pub overflow: Arc<CellMultiCase<Node, Overflow>>,
     pub show: Arc<CellMultiCase<Node, Show>>,
     pub opacity: Arc<CellMultiCase<Node, user::Opacity>>,
+    pub is_leaf: Arc<CellMultiCase<Node, user::IsLeaf>>,
     pub background_color: Arc<CellMultiCase<Node, BackgroundColor>>,
     pub box_shadow: Arc<CellMultiCase<Node, BoxShadow>>,
     pub border_color: Arc<CellMultiCase<Node, BorderColor>>,
@@ -648,7 +651,7 @@ pub struct GuiWorldExt {
     pub visibility: Arc<CellMultiCase<Node, Visibility>>,
     pub world_matrix: Arc<CellMultiCase<Node, WorldMatrix>>,
     pub by_overflow: Arc<CellMultiCase<Node, ByOverflow>>,
-    pub copacity: Arc<CellMultiCase<Node, calc::Opacity>>,
+    // pub copacity: Arc<CellMultiCase<Node, calc::Opacity>>,
     pub layout: Arc<CellMultiCase<Node, LayoutR>>,
     pub hsv: Arc<CellMultiCase<Node, HSV>>,
     pub culling: Arc<CellMultiCase<Node, Culling>>,
@@ -680,6 +683,7 @@ impl GuiWorldExt {
 	pub fn new(world: &mut World) -> Self {
 		Self {
 			node: world.fetch_entity::<Node>().unwrap(),
+            is_leaf: world.fetch_multi::<Node, IsLeaf>().unwrap(),
 			transform: world.fetch_multi::<Node, Transform>().unwrap(),
 			z_index: world.fetch_multi::<Node, user::ZIndex>().unwrap(),
 			overflow: world.fetch_multi::<Node, Overflow>().unwrap(),
@@ -719,7 +723,7 @@ impl GuiWorldExt {
 			visibility: world.fetch_multi::<Node, Visibility>().unwrap(),
 			world_matrix: world.fetch_multi::<Node, WorldMatrix>().unwrap(),
 			by_overflow: world.fetch_multi::<Node, ByOverflow>().unwrap(),
-			copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
+			// copacity: world.fetch_multi::<Node, calc::Opacity>().unwrap(),
 			layout: world.fetch_multi::<Node, LayoutR>().unwrap(),
 			hsv: world.fetch_multi::<Node, HSV>().unwrap(),
 			image_texture: world.fetch_multi::<Node, ImageTexture>().unwrap(),
@@ -895,6 +899,7 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 		let fragments = fragments.borrow();
 		let idtree = self.world_ext.idtree.lend_mut();
 		let text_content = self.world_ext.text_content.lend_mut();
+        let is_leaf = self.world_ext.is_leaf.lend_mut();
 		let node_states = self.world_ext.node_state.lend_mut();
 		let z_index = self.world_ext.z_index.lend_mut();
 
@@ -923,6 +928,8 @@ impl<C: HalContext + 'static> GuiWorld<C> {
 			} else if n.tag == NodeTag::VNode {
 				node_states[node].0.set_vnode(true);
 				z_index.insert(node, ZIndex(-1));
+			} else if n.tag == NodeTag::Image {
+				is_leaf.insert(node, IsLeaf(true));
 			}
 			
 			// 设置本地样式
@@ -1033,7 +1040,7 @@ fn test_insert11() -> std::time::Duration {
     world.register_multi::<Node, OtherLayoutStyle>();
     world.register_multi::<Node, StyleMark>();
     world.register_multi::<Node, ZRange>();
-    world.register_multi::<Node, calc::Opacity>();
+    // world.register_multi::<Node, calc::Opacity>();
     world.register_multi::<Node, HSV>();
     world.register_multi::<Node, LayoutR>();
     world.register_multi::<Node, WorldMatrix>();
@@ -1042,10 +1049,11 @@ fn test_insert11() -> std::time::Duration {
     world.register_multi::<Node, ByOverflow>();
     world.register_multi::<Node, Culling>();
     world.register_multi::<Node, BackgroundColor>();
+    world.register_multi::<Node, IsLeaf>();
 
     let nodes = world.fetch_entity::<Node>().unwrap();
 
-    let opacity = world.fetch_multi::<Node, calc::Opacity>().unwrap();
+    // let opacity = world.fetch_multi::<Node, calc::Opacity>().unwrap();
     let border_radius = world.fetch_multi::<Node, BorderRadius>().unwrap();
     let rect_layout_style = world.fetch_multi::<Node, RectLayoutStyle>().unwrap();
     let other_layout_style = world.fetch_multi::<Node, OtherLayoutStyle>().unwrap();
@@ -1064,7 +1072,7 @@ fn test_insert11() -> std::time::Duration {
     let t = std::time::Instant::now();
     for _i in 0..200 {
         let entity = nodes.lend_mut().create();
-        opacity.lend_mut().insert(entity, calc::Opacity::default());
+        // opacity.lend_mut().insert(entity, calc::Opacity::default());
         border_radius.lend_mut().insert(entity, BorderRadius::default());
         rect_layout_style.lend_mut().insert(entity, RectLayoutStyle::default());
         other_layout_style.lend_mut().insert(entity, OtherLayoutStyle::default());

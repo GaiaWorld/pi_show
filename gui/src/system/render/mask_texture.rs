@@ -153,7 +153,6 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, MaskTexture, (Crea
 	type WriteData = &'a mut MultiCaseImpl<Node, RenderContextMark>;
 	fn listen(&mut self, event: &Event, _: Self::ReadData, marks: Self::WriteData) {
 		self.dirty.insert(event.id); // 插入到脏列表中
-
 		// 存在遮罩纹理，则标记在上下文标记中设置纹理为true，否则设置为false
 		match marks.get(event.id) {
 			Some(_r) => marks[event.id].set(self.render_mark_index, true),

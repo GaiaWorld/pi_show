@@ -191,10 +191,10 @@ pub struct Visibility(pub bool);
 #[storage(VecMapWithDefault)]
 pub struct Culling(pub bool);
 
-//不透明度
-#[derive(Deref, DerefMut, Component, Clone, Debug)]
-#[storage(VecMapWithDefault)]
-pub struct Opacity(pub f32);
+// //不透明度
+// #[derive(Deref, DerefMut, Component, Clone, Debug)]
+// #[storage(VecMapWithDefault)]
+// pub struct Opacity(pub f32);
 
 //是否响应事件
 #[derive(Deref, DerefMut, Component, Clone, Debug)]
@@ -869,9 +869,9 @@ impl WorldMatrix {
 	}
 }
 
-impl Default for Opacity {
-    fn default() -> Opacity { Opacity(1.0) }
-}
+// impl Default for Opacity {
+//     fn default() -> Opacity { Opacity(1.0) }
+// }
 
 // 渲染--------------------------------------------------------------------------------------------------------------------------
 uniform_buffer! {

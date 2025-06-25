@@ -106,17 +106,21 @@ impl<'a, C: HalContext + 'static> Runner<'a> for OpacitySys<C> {
 
 // 监听创建和修改事件，对其进行标记
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, (CreateEvent, ModifyEvent)> for OpacitySys<C> {
-	type ReadData = &'a MultiCaseImpl<Node, Opacity>;
+	type ReadData = (&'a MultiCaseImpl<Node, Opacity>, &'a MultiCaseImpl<Node, IsLeaf>);
 	type WriteData = &'a mut MultiCaseImpl<Node, RenderContextMark>;
-	fn listen(&mut self, event: &Event, opacitys: Self::ReadData, marks: Self::WriteData) {
+	fn listen(&mut self, event: &Event, (opacitys, is_leaf): Self::ReadData, marks: Self::WriteData) {
 		self.dirty.insert(event.id); // 插入到脏列表中
 		
+		if is_leaf[event.id].0 {
+			return; // 叶子节点， 不设置渲染上下文标识
+		}
+
 		// opacity小于1.0,添加标记
 		if (opacitys[event.id].0 < 1.0) {
-			marks[event.id].set(self.render_mark_index, true);
+			marks[event.id].set(self.render_mark_index, true);	
 		} else {
 			// 否则取消标记
-			marks[event.id].set(self.render_mark_index, false);
+			marks[event.id].set(self.render_mark_index, false);		
 		}
 		marks.get_notify().modify_event(event.id, "", 0);
 	}
@@ -124,11 +128,16 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, (CreateEv
 
 // 监听删除事件，取消标记
 impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, Opacity, DeleteEvent> for OpacitySys<C> {
-	type ReadData = ();
+	type ReadData = &'a MultiCaseImpl<Node, IsLeaf>;
 	type WriteData = &'a mut MultiCaseImpl<Node, RenderContextMark>;
-	fn listen(&mut self, event: &Event, _: Self::ReadData, marks: Self::WriteData) {
+	fn listen(&mut self, event: &Event, is_leaf: Self::ReadData, marks: Self::WriteData) {
 		self.dirty.insert(event.id); // 插入到脏列表中
 
+		if let Some(is_leaf) = is_leaf.get(event.id) {
+			if is_leaf.0 {
+				return; // 叶子节点， 不设置渲染上下文标识
+			}
+		}
 		// 取消上下标记
 		marks[event.id].set(self.render_mark_index, false);
 		marks.get_notify().modify_event(event.id, "", 0);
