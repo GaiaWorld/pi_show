@@ -264,7 +264,7 @@ impl<'a, C: HalContext + 'static> MultiCaseListener<'a, Node, ContentBox, (Creat
 		self.dirty.insert(event.id); // 插入到脏列表中
 
 		// 取消上下标记
-		marks[event.id].set(self.render_mark_index, false);
+		marks[event.id].set(self.render_mark_index, true);
 		marks.get_notify().modify_event(event.id, "", 0);
 	}
 }
