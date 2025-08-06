@@ -307,7 +307,7 @@ impl HalContext for WebglHalContext {
         })
     }
 
-    fn rt_set_color(&self, rt: &HalRenderTarget, texture_wrap: Option<&HalTexture>) -> Result<(), String> {
+     fn rt_set_color(&self, rt: &HalRenderTarget, texture_wrap: Option<&HalTexture>) -> Result<(), String> {
         
         let texture_impl = match texture_wrap {
             None => None,
@@ -319,8 +319,21 @@ impl HalContext for WebglHalContext {
                 )
             },
         };
+        let context_impl = self.0.as_ref();
 
-        let context = convert_to_mut(self.0.as_ref());
+        let default_rt_impl = match get_ref(
+            &context_impl.rt_slab,
+            self.1.item.index,
+            self.1.item.use_count,
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("new, rt param not found");
+				panic!();
+			}
+		};
+
+        let context = convert_to_mut(context_impl);
         
         match get_mut_ref(&mut context.rt_slab, rt.item.index, rt.item.use_count) {
             None => {
@@ -329,7 +342,10 @@ impl HalContext for WebglHalContext {
                 Ok(())
             },
             Some(rt) => {
-                rt.set_color(&context.gl, texture_wrap, texture_impl)
+                let r = rt.set_color(&context.gl, texture_wrap, texture_impl);
+                // 将target状态设置为null
+                context.state_machine.set_render_target(&context_impl.gl, &self.1, &default_rt_impl);
+                r
             }
         }
     }
@@ -345,8 +361,21 @@ impl HalContext for WebglHalContext {
                 )
             },
         };
+        let context_impl = self.0.as_ref();
 
-        let context = convert_to_mut(self.0.as_ref());
+        let default_rt_impl = match get_ref(
+            &context_impl.rt_slab,
+            self.1.item.index,
+            self.1.item.use_count,
+        ) {
+			Some(r) => r,
+			None => {
+				log::error!("new, rt param not found");
+				panic!();
+			}
+		};
+
+        let context = convert_to_mut(context_impl);
         
         match get_mut_ref(&mut context.rt_slab, rt.item.index, rt.item.use_count) {
             None => {
@@ -355,10 +384,14 @@ impl HalContext for WebglHalContext {
                 Ok(())
             },
             Some(rt) => {
-                rt.set_depth(&context.gl, depth_wrap, depth_impl)
+                let r = rt.set_depth(&context.gl, depth_wrap, depth_impl);
+                // 将target状态设置为null
+                context.state_machine.set_render_target(&context_impl.gl, &self.1, &default_rt_impl);
+                r
             }
         }
     }
+
 
     fn rt_get_size(&self, rt: &HalRenderTarget) -> (u32, u32) {
         get_ref(&self.0.rt_slab, rt.item.index, rt.item.use_count)
