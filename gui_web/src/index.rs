@@ -429,6 +429,7 @@ pub fn set_scissor(world_id: u32, x: i32, y: i32, width: i32, height: i32) {
     let rb_decs = world.gui.world.fetch_single::<gui::single::RenderBegin>().unwrap();
     let rb_decs = rb_decs.lend_mut();
     rb_decs.0.scissor = (x, y, width, height);
+    rb_decs.get_notify_ref().modify_event(0, "", 0);
 }
 
 /// 设置投影变换
