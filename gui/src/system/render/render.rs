@@ -140,7 +140,7 @@ impl<C: HalContext + 'static> RenderSys<C> {
 			Some(g) => g,
 		};
 
-		// log::warn!("context: {}", obj.context);
+		// log::debug!("context: {}", obj.context);
 		if let Err(e) = render1(gl, &geometry.geo, &obj.paramter, &obj.state, obj.program.as_ref().unwrap(), project_matrix, view_matrix) {
 			log::error!("render err, context:{:?}, render_obj:{:?}, vs: {:?}, fs: {:?}， error： {:?}", 
 				obj.context,
@@ -212,7 +212,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			let oct = match octree.get(id) {
 				Some(r) => &r.0,
 				None => {
-					// log::warn!("render list fail, oct is not exist, id: {}", id);
+					// log::debug!("render list fail, oct is not exist, id: {}", id);
 					return;
 				}
 			};
@@ -229,6 +229,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 
 					if r.render_count > 0 && is_render {
 						// render_post_process1
+						// log::debug!("list1 context===============node:{:?}, render_obj:{:?}, context:{:?}", id, r.render_obj_index, basemut.render_objs[r.render_obj_index].context );
 						let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
 						let target = r.render_target.clone();
 						let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
@@ -281,7 +282,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 				};
 				if r.render_count > 0 && is_render {
 					// render_post_process1
-					// log::info!("list===obj==============={:?}, {:?}, {}", id, r.render_obj_index, basemut.render_objs[r.render_obj_index].context );
+					// log::debug!("list context===============node:{:?}, render_obj:{:?}, context:{:?}", id, r.render_obj_index, basemut.render_objs[r.render_obj_index].context );
 					let out = self.list_render_obj(base, basemut, render_context, r.render_obj_index, r.render_target.unwrap_or(0));
 					let target = r.render_target.clone();
 					let (render_index,sampler) = if let Some(post) = r.get_post_mut() {
@@ -367,7 +368,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let mut clear_rect = dyn_atlas_set.get_rect_with_border(render_target).unwrap();
 		let cur_render_begin = self.calc_render_begin(&render_rect, &clear_rect, render_begin);
 
-		// log::warn!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
+		// log::debug!("render_post_process1======================target, is_some: {:?}, {:?}, {:?}", rende_target, render_rect, &cur_render_begin. scissor);
 		if cur_render_begin.viewport.2 == 0 || cur_render_begin.viewport.3 == 0 {
 			// log::info!("render_post_process fail, scissor is zero, node:{}", render_obj.context);
 			return 0;
@@ -384,7 +385,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let view_ubo: Share<dyn UniformBuffer> = Share::new(ProjectMatrixUbo::new(
 			UniformValue::MatrixV4(vec![1.0,0.0,0.0,0.0, 0.0,1.0,0.0,0.0, 0.0,0.0,1.0,0.0, 0.0,0.0,0.0,1.0]),
 		));
-		// log::warn!("get_projection_matrix======context={:?}, render_rect={:?}, content_box={:?}", render_obj.context, render_rect, content_box);
+		// log::debug!("get_projection_matrix======context={:?}, render_rect={:?}, content_box={:?}", render_obj.context, render_rect, content_box);
 		let project_ubo = self.get_projection_matrix(&render_rect, content_box);
 		// log::info!("post render======{}, vs:{:?}", obj.context, obj.vs_name);
 		self.render(&engine.gl, render_obj, Some(&project_ubo), Some(&view_ubo), render_index);
@@ -428,10 +429,10 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let mut clear_rect = dyn_atlas_set.get_rect_with_border(render_target).unwrap();
 		let mut index = render_target;
 		let mut target;
-		
+		// log::debug!("render_post_process1, node: {:?}, target_index: {:?}, rect: {:?}, post_len:{:?}", render_objs[obj_index].context, index, dyn_atlas_set.get_rect(index).unwrap(), post_process_context.post_processes.len());
 		/// 对目标对象进行后处理
 		for post_processe in post_process_context.post_processes.iter_mut() {
-			// log::warn!("post_processe======================post_processe, {}, {}", post_processe.render_size.width, post_processe.render_size.height);
+			// log::debug!("post_processe======================post_processe, {}, {}", post_processe.render_size.width, post_processe.render_size.height);
 			let uv = dyn_atlas_set.get_uv(index).unwrap();
 			let target_index = dyn_atlas_set.update_or_add_rect(
 				0,
@@ -524,7 +525,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 					}
 			);
 			// uvRegion
-			// log::info!("post render1======{}, vs:{:?}", obj.context, obj.vs_name);
+			// log::debug!("post, node:{}, vs:{:?}, render_obj: {:?}, target_index: {:?}, rect: {:?}", obj.context, obj.vs_name, post_process_context.copy, target_index, dyn_atlas_set.get_rect(index).unwrap());
 			if let Err(e) = render1(
 				&engine.gl,
 				&obj.geometry.as_ref().unwrap(),
@@ -557,7 +558,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 			}
 		}
 		let uv = dyn_atlas_set.get_uv(index).unwrap();
-		// log::warn!("render_post_process======================end");
+		// log::debug!("render_post_process======================end");
 
 		/// 修改渲染结果的目标索引， 修改前释放旧的
 		if let Some(r) = post_process_context.result {
@@ -592,6 +593,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let t = basemut.engine.gl
 					.rt_get_color(target, 0).unwrap();
 		copy.paramter.set_texture("texture", (t, sampler));
+		// log::debug!("set_render_result, render_obj: {:?}, target_index: {:?}, rect: {:?}", target_obj_index, texture_index, basemut.dyn_atlas_set.get_rect(texture_index).unwrap());
 		update_geo(copy, basemut.engine, &uv);
 	}
 
@@ -764,7 +766,7 @@ impl<'a, C: HalContext + 'static>  RenderSys<C> {
 		let oct = match octree.get(id) {
 			Some(r) => &r.0,
 			None => {
-				// log::warn!("render list fail, oct is not exist, id: {}", id);
+				// log::debug!("render list fail, oct is not exist, id: {}", id);
 				return;
 			}
 		};
@@ -1150,7 +1152,7 @@ impl<'a, C: HalContext + 'static> Runner<'a> for RenderSys<C> {
 			engine,
 		};
 		// let mut dyn_atlas_set = dyn_atlas_set.borrow_mut();
-		
+		// log::debug!("run==============pre_render_list_len:{:?}, dirty_rect: {:?}", pre_render_list.len(), &dirty_rect);
 		self.render_context(&base, &mut basemut, 1,  0, render_context_root);
 		
 		if self.render_count > 0 { // 如果进行了一些渲染，则需要重置状态
