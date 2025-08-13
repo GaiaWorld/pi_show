@@ -1,0 +1,39 @@
+[package]
+name = "pi_export_task_pool"
+version = "0.1.0"
+authors = ["suncy <suncy@gmail.com>"]
+edition = "2021"
+
+# system_graph = [] # 提供接口，返回system的日程图
+
+# [lib]
+# crate-type = ["cdylib", "rlib", "dylib"]
+
+[dependencies]
+pi_slot_wheel = "*"
+pi_weight_task = "*"
+slotmap = "1.0"
+bitvec = "1.0"
+
+wasm-bindgen = "*"
+log = "*"
+
+
+[features]
+# default = ["wasm_bindgen"]
+wasm_bindgen = []
+# # default = ["no_debug", "no_define_js"]
+# # default = ["create_class_by_str"]
+# # default = ["no_debug", "share/rc"]
+# default = ["debug"]
+# # default = ["share/rc", "ecs/runtime"]
+# # default = ["debug", "no_debug"]
+# debug = ["share/rc", "ecs/runtime"]
+# no_debug = []
+# no_define_js = []
+# create_class_by_str = []
+
+
+# [patch.crates-io]
+# pi_share = {path = "../../pi_share"}
+# pi_assets = {path = "../../pi_assets"}
