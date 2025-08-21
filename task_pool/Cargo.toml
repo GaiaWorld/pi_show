@@ -10,8 +10,8 @@ edition = "2021"
 # crate-type = ["cdylib", "rlib", "dylib"]
 
 [dependencies]
-pi_slot_wheel = "*"
-pi_weight_task = "*"
+pi_slot_wheel = "0.3"
+pi_weight_task = "0.3"
 slotmap = "1.0"
 bitvec = "1.0"
 

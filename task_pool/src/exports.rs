@@ -128,6 +128,16 @@ impl TaskPool {
 		to_f64(key)
 	}
 
+	/// 判断指定时间是否存在任务
+	pub fn has_cancel_timer(&self, mut timeout: f64) -> Option<bool> {
+		self.pool.get_cancel_timer().is_null(timeout as u64)
+	}
+
+	/// 判断指定时间内是否存在任务 
+	pub fn is_cancel_timer_ok(&mut self, mut timeout: f64) -> bool {
+		self.pool.get_cancel_timer_mut().is_ok(timeout as u64)
+	}
+
 	/// 取到可取消定时器的滚动次数
 	pub fn roll_count(&mut self) -> f64 {
 		self.pool.get_cancel_timer_mut().roll_count() as f64
@@ -142,6 +152,8 @@ impl TaskPool {
 		}
 	}
 
+	
+
 	/// push一个不可取消的定时任务
 	pub fn push_timer(&mut self, mut timeout: f64) -> f64 {
 		if timeout < 0.0 {
@@ -151,6 +163,8 @@ impl TaskPool {
 		self.pool.get_timer_mut().push_time(timeout as u64, key);
 		to_f64(key)
 	}
+
+	
 
 	/// 弹出一个任务
 	pub fn pop(&mut self, now: u32) -> Option<u32> {
@@ -180,7 +194,7 @@ impl TaskPool {
 #[inline]
 fn to_f64(r: DequeKey) -> f64 {
 	let data = r.data();
-	unsafe { transmute(data.as_ffi()) }
+	unsafe {transmute(data.as_ffi())}
 }
 
 #[inline]
@@ -191,7 +205,7 @@ fn to_index(r: DequeKey) -> u32 {
 
 #[inline]
 fn to_key(r: f64) -> DequeKey {
-	DequeKey::from(KeyData::from_ffi(unsafe { transmute::<_, u64>(r) }))
+	DequeKey::from(KeyData::from_ffi(unsafe {transmute(r )}))
 }
 
 #[inline]
