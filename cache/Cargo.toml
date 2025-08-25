@@ -1,0 +1,39 @@
+[package]
+name = "pi_export_cache"
+version = "0.1.0"
+authors = ["suncy <suncy@gmail.com>"]
+edition = "2021"
+
+# system_graph = [] # 提供接口，返回system的日程图
+
+# [lib]
+# crate-type = ["cdylib", "rlib", "dylib"]
+
+[dependencies]
+pi_cache = "*"
+bincode = { path = "../../pi_lib/bincode" }
+wasm-bindgen = { version = "*", features = ["serde-serialize"] }
+serde = { version = "1.0", features = ["derive"] }
+log = "*"
+minicbor = "0.21"
+
+[features]
+# default = ["wasm_bindgen"]
+wasm_bindgen = []
+# # default = ["no_debug", "no_define_js"]
+# # default = ["create_class_by_str"]
+# # default = ["no_debug", "share/rc"]
+# default = ["debug"]
+# # default = ["share/rc", "ecs/runtime"]
+# # default = ["debug", "no_debug"]
+# debug = ["share/rc", "ecs/runtime"]
+# no_debug = []
+# no_define_js = []
+# create_class_by_str = []
+
+
+[patch.crates-io]
+pi_cache = { path = "../../pi_cache" }
+pi_share = { path = "../../pi_share" }
+pi_key_alloter = { path = "../../pi_key_alloter" }
+# pi_assets = {path = "../../pi_assets"}
