@@ -7,27 +7,27 @@ edition = "2018"
 
 [dependencies]
 bitflags = "1.2"
-share = { path = "../../pi_lib/share"}
-idtree = { path = "../../pi_lib/idtree"}
-flex_layout = { path =  "../../pi_lib/flex_layout"}
-ecs = { path =  "../../pi_lib/ecs"}
-ecs_derive = { path =  "../../pi_lib/ecs_derive"}
-enum_default_macro = { path =  "../../pi_lib/enum_default_macro"}
-deque = { path =  "../../pi_lib/deque"}
-slab = { path =  "../../pi_lib/slab"}
-util = { path =  "../../pi_lib/util"}
-map = { path =  "../../pi_lib/map"}
-atom = { path =  "../../pi_lib/atom", features = ["serde"]}
-hash = { path =  "../../pi_lib/hash"}
-heap = { path =  "../../pi_lib/heap"}
-pointer = { path =  "../../pi_lib/pointer"}
-ucd = { path =  "../../pi_lib/ucd"}
-data_view = { path =  "../../pi_lib/data_view"}
-debug_info = { path =  "../../pi_lib/debug_info"}
-dirty = { path =  "../../pi_lib/dirty"}
-densevec = { path =  "../../pi_lib/densevec"}
-res = { path =  "../../pi_lib/res"}
-cross_performance = { path =  "../../pi_lib/cross_performance"}
+share = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+idtree = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+flex_layout = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+ecs = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+ecs_derive = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+enum_default_macro = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+deque = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+slab = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+util = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+map = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+atom = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master", features = ["serde"]}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+heap = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+pointer = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+ucd = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+data_view = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+dirty = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+densevec = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+res = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+cross_performance = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
 rectangle-pack = "0.4.2"
 guillotiere = {version="*"}
 # time: 3407.7350000152364
@@ -45,20 +45,14 @@ guillotiere = {version="*"}
 # vConsole.js:3 time: 3412.57000004407
 # vConsole.js:3 now: 3412.914999993518
 # vConsole.js:3 timediff: 0.6799999391660094
-# polygon = { path = "../../pi_math/polygon"}
-# cg2d = { path = "../../pi_math/cg2d"}
-# spatialtree = { path = "../../pi_math/spatialtree"}
 pi_spatial = "0.5"
 pi_slotmap = "0.1"
 pi_null = "0.1"
 pi_link_list = "0.1"
 
 
-color = { path = "../../pi_math/color", features = ["serde"]}
-bincode = { path = "../../pi_lib/bincode"}
-# cgmath = { path = "../../pi_math/cgmath", features = ["serde"] }
-# collision = { path = "../../pi_math/collision", features = ["serde"]}
-# octree = { path = "../../pi_math/octree"}
+color = { git = "https://github.com/GaiaWorld/pi_math.git", branch="master", features = ["serde"]}
+bincode = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
 
 
 # polygon = { git = "https://github.com/GaiaWorld/pi_math.git"}

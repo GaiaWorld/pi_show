@@ -9,9 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 gui = {path="../gui"}
-bincode = { path = "../../pi_lib/bincode"}
-fx_hashmap = { path = "../../pi_lib/fx_hashmap"}
-hash = { path = "../../pi_lib/hash"}
+bincode = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+fx_hashmap = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
 wasm-bindgen= {version="*", features=["serde-serialize"]}
 serde = { version = "1.0", features = ["derive"] }
 js-sys = "*"

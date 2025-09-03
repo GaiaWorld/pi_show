@@ -10,8 +10,8 @@ edition = "2018"
 [dependencies]
 gui_web = {path= "../gui_web"}
 gui = {path= "../gui"}
-ecs = { path =  "../../pi_lib/ecs"}
-hal = { path =  "../../pi_lib/ecs"}
+ecs = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
+hal = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="master"}
 
 [profile.release]
 lto = true #这为LLVM提供了更多内联和修剪功能的机会。它不仅使.wasm尺寸更小，而且在运行时也更快！缺点是编译将花费更长的时间
