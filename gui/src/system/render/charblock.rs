@@ -1939,6 +1939,7 @@ fn push_pos_uv_canvas(
 	height: f32,
 	scale: f32,
 ) {
+	
 	let font_ratio = width/glyph.advance;
 	let w = glyph.width*font_ratio;
 	let h = glyph.height*font_ratio;

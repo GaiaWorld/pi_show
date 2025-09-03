@@ -10,10 +10,10 @@ authors = ["moyy <moyy@yineng.com>"]
 [dependencies]
 pi_atom = "0.5"
 pi_share = "0.4"
-slab = { path = "../../pi_lib/slab"}
-deque = { path = "../../pi_lib/deque"}
-hash = { path = "../../pi_lib/hash"}
-debug_info = { path = "../../pi_lib/debug_info"}
+slab = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="new_gui_interface"}
+deque = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="new_gui_interface"}
+hash = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="new_gui_interface"}
+debug_info = { git = "https://github.com/GaiaWorld/pi_lib.git", branch="new_gui_interface"}
 
 hal_core = { path = "../hal_core"}
 

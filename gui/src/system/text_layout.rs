@@ -842,8 +842,8 @@ fn calc<'a>(
 		font_height,
 		line_height: get_line_height(font_height as usize, &text_style.text.line_height),
 		sw: *text_style.text.stroke.width,
-		char_margin: text_style.text.letter_spacing - sw,
-		word_margin: text_style.text.word_spacing - sw,
+		char_margin: text_style.text.letter_spacing,
+		word_margin: text_style.text.word_spacing,
 		text_style: &mut text_styles[id],
 		parent: parent,
 
