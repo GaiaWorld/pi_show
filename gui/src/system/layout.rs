@@ -171,6 +171,7 @@ impl<'a> Runner<'a> for LayoutSys {
 			// style_mark.dirty1 &= !(CalcType::Create as usize);
 		}
 		// let co: usizeunt = self.dirty.count();
+		log::error!("=========== compute: ");
 		compute(&mut self.dirty, tree, node_states, flex_rect_styles, flex_other_styles, flex_layouts, notify, layouts);
 		self.pre_index = dirty_list.0.len();
 	}
