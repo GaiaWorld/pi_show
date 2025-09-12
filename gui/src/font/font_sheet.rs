@@ -325,7 +325,7 @@ impl FontSheet {
 				Entry::Occupied(e) => {
 					let r = e.get();
 					(
-						r.0 * font_size as f32 / font.metrics.font_size,
+						r.0 * font_size as f32 / font.metrics.font_size + sw as f32,
 						r.0,
 					)
 				}
@@ -356,7 +356,7 @@ impl FontSheet {
 						// log::info!("measure==============ch: {:?}, fontfamily: {:?}, font_size: {:?}, BLOD_FACTOR:{:?}, is_blod: {}, hash: {}, size:{}, result: {}, FONT_SIZE: {} ", c, font.name, font_size, BLOD_FACTOR, is_blod, calc_xhash(&(font.name, c, is_blod)), w, w * font_size as f32 / FONT_SIZE + sw as f32, FONT_SIZE );
 						r.insert((w, font.name.clone(), font.factor_t, font.factor_b, font.is_pixel));
 						// log::info!("measure===font_size: {:?}, char: {:?}, w: {:?}", font_size, c, w);
-						(w * font_size as f32 / font.metrics.font_size, w)
+						(w * font_size as f32 / font.metrics.font_size + sw as f32, w)
 					} else {
 						(0.0, 0.0)
 					}
@@ -498,10 +498,10 @@ impl FontSheet {
 						)
 					} else {
 						// 在指定字体及字号下，查找该字符的宽度
-						let w = (base_width as f32 * font_size as f32 / font.metrics.font_size) * scale;
+						let w = (base_width as f32 * font_size as f32 / font.metrics.font_size) * scale + sw as f32;
 						// 将缩放后的实际字号乘字体的修正系数，得到实际能容纳下的行高
 						let height= (font_size as f32 * (font.factor_t + font.factor_b + 1.0)) * scale + sw as f32;
-						let (ww, hh) = ((w  + sw as f32 + sw as f32 * 0.42).ceil(), height.ceil());
+						let (ww, hh) = ((w   + sw as f32 * 0.42).ceil(), height.ceil());
 						(
 							Glyph {
 								x: 0.0,
@@ -710,7 +710,7 @@ impl FontSheet {
 // msdf 需要修正字形信息
 pub fn fix_box(is_pixel: bool, width: f32, weight: usize, sw: f32) -> (f32, f32) {
 	if !is_pixel {
-		let mut w = width;
+		let mut w = width - sw;
 		if weight >= BLOD_WEIGHT {
 			w = w / BLOD_FACTOR;
 		}
