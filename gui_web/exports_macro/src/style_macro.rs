@@ -515,6 +515,7 @@ style_out_export!(@expr font_size, FontSizeType, FontSize::Length(value as usize
 style_out_export!(@expr font_size_percent, FontSizeType, FontSize::Percent(value),; value: f32,);
 style_out_export!(@expr text_content_utf8, TextContentType, {
 	let content = unsafe{String::from_utf8_unchecked(content)};
+	let content = content.replace("​", "");
 	TextContent(content, pi_atom::Atom::from(""))
 },; content: Vec<u8>,);
 style_out_export!(@expr clip_path_str, ClipPathType, {
@@ -558,7 +559,7 @@ style_out_export!(@expr text_shadow, TextShadowType, {
 	}
 }, s: &str,;);
 style_out_export!(@atom font_family, FontFamilyType, (**name).clone(), name: &Atom,;);
-style_out_export!(@expr text_content, TextContentType,  TextContent(content, pi_atom::Atom::from("")), ;content: String,);
+style_out_export!(@expr text_content, TextContentType,  TextContent(content.replace("​", ""), pi_atom::Atom::from("")), ;content: String,);
 
 
 pub enum LengthUnitType {
