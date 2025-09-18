@@ -2033,6 +2033,7 @@ pub mod style_macro {
                 node_id,
                 TextContentType({
                     let content = unsafe { String::from_utf8_unchecked(content) };
+                    let content = content.replace("​", "");
                     TextContent(content, pi_atom::Atom::from(""))
                 }),
             );
@@ -2174,7 +2175,9 @@ pub mod style_macro {
         gui.gui
             .set_style(
                 node_id,
-                TextContentType(TextContent(content, pi_atom::Atom::from(""))),
+                TextContentType(
+                    TextContent(content.replace("​", ""), pi_atom::Atom::from("")),
+                ),
             );
     }
     #[cfg(target_arch = "wasm32")]
