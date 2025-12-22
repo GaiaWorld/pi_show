@@ -1,4 +1,4 @@
-extern crate bincode;
+// extern crate bincode;
 #[macro_use]
 extern crate serde;
 

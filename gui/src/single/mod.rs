@@ -308,7 +308,7 @@ impl CommonState {
 		one_one_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
 		let mut multiply_bs = BlendStateDesc::default();
-		multiply_bs.set_rgb_factor(BlendFactor::SrcAlpha, BlendFactor::One);
+		multiply_bs.set_rgb_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 		multiply_bs.set_alpha_factor(BlendFactor::One, BlendFactor::OneMinusSrcAlpha);
 
         // let mut tarns_ds = DepthStateDesc::default();

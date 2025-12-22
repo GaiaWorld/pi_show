@@ -161,8 +161,8 @@ impl<'a> Runner<'a> for ZIndexImpl {
 					// 找到能容纳所有子节点的父节点
 					// parent节点zindex为AUTO，需要递归向上找到一个不是AUTO的节点, 以该节点作为布局环境，进行z布局
 					// 如果parent节点无法容纳三倍子节点， 也需要向上递归，找到能容纳三倍子节点的节点作为布局环境进行z布局
-					let (parent1, children_count, zrange, local) = get_parent(zindexs, tree, ranges, parent);
-					// log::warn!("calc_zindex======node: {:?}, parent: {:?}, parent1: {:?}, layer: {:?} ", id, node.parent(), parent1, node.layer());
+					if let Some((parent1, children_count, zrange, local)) = get_parent(zindexs, tree, ranges, parent){
+                    // log::warn!("calc_zindex======node: {:?}, parent: {:?}, parent1: {:?}, layer: {:?} ", id, node.parent(), parent1, node.layer());
 					// 收集父节点排序环境下的子节点
 					collect(zindexs, &tree, vec, parent1, 0, node_states);
 					// 排序
@@ -175,6 +175,12 @@ impl<'a> Runner<'a> for ZIndexImpl {
 						// 否则父节点重新设置zrange
 						reset(zindexs, tree, &mut self.dirty.dirty_mark_list, ranges, node_states, &mut vec, 0, children_count, zrange);
 					}
+                    }else{
+                        let _ = ranges.get_mut(*id).map(|r| {
+                            *r = ZRange(Range { start: 0, end: Z_MAX as usize });
+                        });
+                    }
+					
 				}
 				_ => {
 					// log::warn!("insert============{}, {}", id, Z_MAX);
@@ -198,7 +204,7 @@ impl<'a> Runner<'a> for ZIndexImpl {
 
 
 /// 获得能装下全部子节点的父节点
-fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCaseImpl<Node, ZRange>, mut node: Entity) -> (Entity, usize, ZRange, bool) {
+fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCaseImpl<Node, ZRange>, mut node: Entity) -> Option<(Entity, usize, ZRange, bool)> {
     let mut local = true;
     loop {
         if let Some(z) = query.get(node) {
@@ -211,6 +217,9 @@ fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCase
                 }
             }
         }
+        if node == 0 {
+            return None;
+        }
         let children_count = tree[node].count();
         let range = match ranges.get(node) {
             Some(r) => r.clone(),
@@ -220,7 +229,7 @@ fn get_parent(query: &MultiCaseImpl<Node, ZI>, tree: &IdTree, ranges: &MultiCase
         // log::warn!("get_parent======node: {:?}, parent: {:?}, children_count: {:?}, layer: {:?}, z_index: {:?}, z_range: {:?} ", node, tree[node].parent(), children_count, tree[node].layer(), query.get(node), range);
 		if range.end - range.start >= children_count + 1 {
         // if range.end - range.start >= (children_count + 1) * Z_SELF {
-            return (node, children_count, range, local);
+            return Some((node, children_count, range, local));
         }
         // println!("node range:{:?}, children_count:{}", range, children_count);
         // 节点的范围应该包含自身和递归子节点的z范围
