@@ -1,14 +1,17 @@
 // use std::cell::RefCell;
-use std::mem::{transmute, MaybeUninit, forget};
-use std::ptr::write;
+use std::mem::{forget, transmute, MaybeUninit};
 use std::panic;
+use std::ptr::write;
 
-use derive_deref::{DerefMut, Deref};
+use derive_deref::{Deref, DerefMut};
 use gui::render::asset::{AssetConfig, AssetDesc};
 use js_sys::{Date, Function, Object, Uint8Array};
 use pi_assets::asset::Handle;
 use pi_hash::XHashMap;
-use pi_style::style_type::{ClassSheet, VisibilityType, WidthType, HeightType, PositionTypeType, PositionLeftType, PositionRightType, PositionTopType, PositionBottomType, MarginLeftType, MarginRightType, MarginTopType, MarginBottomType};
+use pi_style::style_type::{
+    ClassSheet, HeightType, MarginBottomType, MarginLeftType, MarginRightType, MarginTopType, PositionBottomType, PositionLeftType,
+    PositionRightType, PositionTopType, PositionTypeType, VisibilityType, WidthType,
+};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContext};
@@ -16,27 +19,28 @@ use web_sys::{WebGlFramebuffer, WebGlRenderingContext as RawWebGlRenderingContex
 use flex_layout::{Dimension, PositionType, Rect, Size as Size1};
 use ordered_float::OrderedFloat;
 
-use pi_atom::{get_by_hash, Atom as Atom1};
 use ecs::{Lend, LendMut, StdCell};
 use gui::component::calc::Visibility;
 use gui::component::user::*;
 use gui::font::font_sheet::FontSheet;
 use gui::render::engine::{Engine, ShareEngine, UnsafeMut};
 use gui::render::res::OpacityType;
-use gui::render::res::{TextureRes as TextureResRaw, FboRes};
+use gui::render::res::{FboRes, TextureRes as TextureResRaw};
+use gui::single::fragment::{FragmentMap, Fragments, NodeTag};
 use gui::single::RootIndexs;
 use gui::single::{PixelRatio, RenderBegin};
 use gui::world::GuiWorld as GuiWorld1;
+use pi_atom::{get_by_hash, Atom as Atom1};
 
 use gui::world::{create_world, CALC_DISPATCH, CALC_GEO_DISPATCH, LAYOUT_DISPATCH, RENDER_DISPATCH};
 use gui::Z_MAX;
 use hal_core::{PixelFormat as PixelFormat1, *};
 use hal_webgl::*;
-use res_mgr_web::{ResAllocator, ResMgr};
 use pi_share::Share;
+use res_mgr_web::{ResAllocator, ResMgr};
 
-use crate::world::{loadImage, measureText, set_render_dirty, useVao, DrawTextSys, setSdfSuccessCallback};
 pub use crate::world::GuiWorld;
+use crate::world::{loadImage, measureText, setSdfSuccessCallback, set_render_dirty, useVao, DrawTextSys};
 
 
 #[wasm_bindgen]
@@ -88,11 +92,11 @@ impl TextureRes {
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
 pub fn create_engine(gl: WebGlRenderingContext, allotor: &ResAllocator, asset_config: &str) -> u32 {
-	let r: Box<dyn FnMut(u32, u32, u32, u32,u32,Uint8Array)> = Box::new(load_sdf_success);
-	let r = Closure::wrap(r);
-	setSdfSuccessCallback(r.as_ref().unchecked_ref());
-	forget(r);
-	panic::set_hook(Box::new(console_error_panic_hook::hook));
+    let r: Box<dyn FnMut(u32, u32, u32, u32, u32, Uint8Array)> = Box::new(load_sdf_success);
+    let r = Closure::wrap(r);
+    setSdfSuccessCallback(r.as_ref().unchecked_ref());
+    forget(r);
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
     let use_vao = unsafe { useVao() };
     // let use_vao = false;
     // let gl = WebglHalContext::new(gl, fbo, false);
@@ -117,6 +121,13 @@ pub fn get_class_sheet(world: u32) -> u32 {
     Box::into_raw(Box::new(class_sheet)) as u32
 }
 
+
+#[wasm_bindgen]
+pub fn get_fragment_sheet(world: u32) -> u32 {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let fragment_sheet = (*world.gui.world_ext.fragment.lend()).clone();
+    Box::into_raw(Box::new(fragment_sheet)) as u32
+}
 /// 创建渲染目标， 返回渲染目标的指针， 必须要高层调用destroy_render_target接口， 该渲染目标才能得到释放
 #[allow(unused_attributes)]
 #[wasm_bindgen]
@@ -165,22 +176,18 @@ pub fn u64_to_f64(mut v: u64) -> f64 {
     v &= !(1 << 62);
 
     // 将u64内存强制转换为f64
-    unsafe {
-        std::mem::transmute::<u64, f64>(v)
-    }
+    unsafe { std::mem::transmute::<u64, f64>(v) }
 }
 
 pub fn get_by_f64_hash(v: f64) -> Option<pi_atom::Atom> {
-    let mut h = unsafe {
-        std::mem::transmute::<f64, u64>(v)
-    };
+    let mut h = unsafe { std::mem::transmute::<f64, u64>(v) };
     let r = get_by_hash(h);
     if let None = r {
         let h1 = h | (1 << 62);
         if h1 != h {
-            return get_by_hash(h1)
+            return get_by_hash(h1);
         } else {
-            return None
+            return None;
         }
     }
     r
@@ -189,11 +196,20 @@ pub fn get_by_f64_hash(v: f64) -> Option<pi_atom::Atom> {
 #[allow(unused_attributes)]
 #[allow(unused_unsafe)]
 #[wasm_bindgen]
-pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<Function>, class_sheet: u32, font_sheet: u32, is_sdf_font: bool) -> u32 {
+pub fn create_gui(
+    engine: u32,
+    width: f32,
+    height: f32,
+    load_image_fun: Option<Function>,
+    class_sheet: u32,
+    font_sheet: u32,
+    fragment_sheet: u32,
+    is_sdf_font: bool,
+) -> u32 {
     // unsafe{ console::log_1(&JsValue::from("create_gui0================================="))};
     // println!("create_gui 1============================");
     let mut engine = *unsafe { Box::from_raw(engine as usize as *mut ShareEngine<WebglHalContext>) };
-	let mut max_texture_size = match engine.gl.get_raw_gl().get_parameter(RawWebGlRenderingContext::MAX_TEXTURE_SIZE) {
+    let mut max_texture_size = match engine.gl.get_raw_gl().get_parameter(RawWebGlRenderingContext::MAX_TEXTURE_SIZE) {
         Ok(r) => r.as_f64().unwrap() as u32,
         Err(_r) => 1024,
     };
@@ -201,39 +217,39 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     if max_texture_size > 4096 {
         max_texture_size = 4096;
     }
-	let draw_text_sys = DrawTextSys::new(max_texture_size);
+    let draw_text_sys = DrawTextSys::new(max_texture_size);
 
     let ctx = draw_text_sys.ctx.clone();
     let f = Box::new(move |name: &Atom1, font_size: usize, ch: char| -> f32 {
         return unsafe { measureText(&ctx, ch as u32, font_size as u32, u64_to_f64(name.str_hash())) };
     });
     // unsafe{ console::log_1(&JsValue::from("create_gui01================================="))};
-    
-	let mut hh = max_texture_size;
-	let ww = max_texture_size;
-	// log::info!("text texture=============={:?}", max_texture_size);
+
+    let mut hh = max_texture_size;
+    let ww = max_texture_size;
+    // log::info!("text texture=============={:?}", max_texture_size);
     // let texture = engine
     //     .gl
     //     .texture_create_2d(0, max_texture_size, 32, PixelFormat1::RGBA, DataFormat::UnsignedByte, false, None)
     //     .unwrap();
-	let mut d: Vec<u8>;
-	let (format, data) = if is_sdf_font {
-		hh = max_texture_size;
-		(PixelFormat1::ALPHA, {
-			let l = ww * hh;
-			d = Vec::with_capacity(l as usize);
-			for _ in 0..l {
-				d.push(0);
-			}
-			Some(TextureData::U8(0, 0, ww, hh, d.as_slice()))
-		})
-	} else {
-		(PixelFormat1::RGBA, None)
-	};
-	let texture = engine
-	.gl
-	.texture_create_2d(0, ww, hh, format, DataFormat::UnsignedByte, false, data)
-	.unwrap();
+    let mut d: Vec<u8>;
+    let (format, data) = if is_sdf_font {
+        hh = max_texture_size;
+        (PixelFormat1::ALPHA, {
+            let l = ww * hh;
+            d = Vec::with_capacity(l as usize);
+            for _ in 0..l {
+                d.push(0);
+            }
+            Some(TextureData::U8(0, 0, ww, hh, d.as_slice()))
+        })
+    } else {
+        (PixelFormat1::RGBA, None)
+    };
+    let texture = engine
+        .gl
+        .texture_create_2d(0, ww, hh, format, DataFormat::UnsignedByte, false, data)
+        .unwrap();
     // unsafe{ console::log_1(&JsValue::from("create_gui2================================="))};
     // unsafe{ console::log_1(&JsValue::from(Atom::from("__$text".to_string()).str_hash()))};
     // log::info!("hash============{:?}", Atom1::from("__$text".to_string()).str_hash());
@@ -253,35 +269,51 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     let cur_time: usize = (Date::now() as u64 / 1000) as usize;
     let mut class_sheet_option = None;
     let mut font_sheet_option = None;
+    let mut fragment_sheet_option = None;
     if class_sheet > 0 {
         class_sheet_option = Some(*unsafe { Box::from_raw(class_sheet as usize as *mut Share<StdCell<ClassSheet>>) });
     }
     if font_sheet > 0 {
         font_sheet_option = Some(*unsafe { Box::from_raw(font_sheet as usize as *mut Share<StdCell<FontSheet>>) });
     }
+
+    if fragment_sheet > 0 {
+        fragment_sheet_option = Some(*unsafe { Box::from_raw(fragment_sheet as usize as *mut Share<StdCell<FragmentMap>>) });
+    }
     // unsafe{ console::log_1(&JsValue::from("create_gui3================================="))};
-    let world = create_world::<WebglHalContext>(engine, width, height, f, res, cur_time, class_sheet_option, font_sheet_option, is_sdf_font);
+    let world = create_world::<WebglHalContext>(
+        engine,
+        width,
+        height,
+        f,
+        res,
+        cur_time,
+        class_sheet_option,
+        font_sheet_option,
+        fragment_sheet_option,
+        is_sdf_font,
+    );
     // unsafe{ console::log_1(&JsValue::from("create_gui4================================="))};
     let mut world = GuiWorld1::<WebglHalContext>::new(world);
 
-	let node = world.world_ext.node.lend_mut().create();
+    let node = world.world_ext.node.lend_mut().create();
 
     // unsafe{ console::log_1(&JsValue::from("create_gui5================================="))};
 
-	world.set_style(node, VisibilityType(true));
-	world.set_style(node, WidthType(Dimension::Points(width)));
-	world.set_style(node, HeightType(Dimension::Points(height)));
+    world.set_style(node, VisibilityType(true));
+    world.set_style(node, WidthType(Dimension::Points(width)));
+    world.set_style(node, HeightType(Dimension::Points(height)));
 
-	world.set_style(node, PositionTypeType(PositionType::Absolute));
-	world.set_style(node, PositionLeftType(Dimension::Points(0.0)));
-	world.set_style(node, PositionRightType(Dimension::Points(0.0)));
-	world.set_style(node, PositionTopType(Dimension::Points(0.0)));
-	world.set_style(node, PositionBottomType(Dimension::Points(0.0)));
-	world.set_style(node, MarginLeftType(Dimension::Points(0.0)));
-	world.set_style(node, MarginRightType(Dimension::Points(0.0)));
-	world.set_style(node, MarginTopType(Dimension::Points(0.0)));
-	world.set_style(node, MarginBottomType(Dimension::Points(0.0)));
-	
+    world.set_style(node, PositionTypeType(PositionType::Absolute));
+    world.set_style(node, PositionLeftType(Dimension::Points(0.0)));
+    world.set_style(node, PositionRightType(Dimension::Points(0.0)));
+    world.set_style(node, PositionTopType(Dimension::Points(0.0)));
+    world.set_style(node, PositionBottomType(Dimension::Points(0.0)));
+    world.set_style(node, MarginLeftType(Dimension::Points(0.0)));
+    world.set_style(node, MarginRightType(Dimension::Points(0.0)));
+    world.set_style(node, MarginTopType(Dimension::Points(0.0)));
+    world.set_style(node, MarginBottomType(Dimension::Points(0.0)));
+
 
     // rect_layout_styles.get_notify_ref().modify_event(node, "width", 0);
     // other_layout_styles.get_notify_ref().modify_event(node, "position_type", 0);
@@ -295,12 +327,12 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
     // config.set_point_scale_factor(0.0);
     // let ygnode1 = YgNode::new_with_config(config);
     // let ygnode1 = YgNode::default();
-    
+
     // ygnode.align_items = AlignItems::FlexStart;
     // ygnode.set_align_items(AlignItems::FlexStart);
     // *ygnode = ygnode1;
 
-	let idtree = world.world_ext.idtree.lend_mut();
+    let idtree = world.world_ext.idtree.lend_mut();
     idtree.create(node);
     let root_indexs = world.world.fetch_single::<RootIndexs>().unwrap();
     let root_indexs = root_indexs.lend_mut();
@@ -340,10 +372,10 @@ pub fn create_gui(engine: u32, width: f32, height: f32, load_image_fun: Option<F
                       height: u32,
                       data: Object,
                       cost: u32| {
-					let name = match get_by_f64_hash(name) {
-						Some(r) => r,
-						None => return,
-					};
+                    let name = match get_by_f64_hash(name) {
+                        Some(r) => r,
+                        None => return,
+                    };
                     let res = create_texture(world_id, pformate, compress, r_type, name.clone(), width, height, data, cost, true);
                     let world = &mut *(world_id as usize as *mut GuiWorld);
                     let world = &mut world.gui;
@@ -519,17 +551,16 @@ pub fn set_project_transfrom(world_id: u32, scale_x: f32, scale_y: f32, translat
     // layout.rect.bottom = height as f32;
     rect_layout_style1.get_notify_ref().modify_event(1, "width", 0);
 
-	if scale_y != 0.0 && scale_x != 0.0 {
-		let render_rect = world.gui.world.fetch_single::<gui::single::RenderRect>().unwrap();
-		let render_rect = render_rect.lend_mut();
-		if scale_x > scale_y {
-			render_rect.flex = (1.0, scale_y/scale_x);
-		} else {
-			render_rect.flex = (scale_x/scale_y, 1.0);
-			
-		}
-	}
-	
+    if scale_y != 0.0 && scale_x != 0.0 {
+        let render_rect = world.gui.world.fetch_single::<gui::single::RenderRect>().unwrap();
+        let render_rect = render_rect.lend_mut();
+        if scale_x > scale_y {
+            render_rect.flex = (1.0, scale_y / scale_x);
+        } else {
+            render_rect.flex = (scale_x / scale_y, 1.0);
+        }
+    }
+
     // debug_println!("layout change, width: {}, height:{}", width, height);
 }
 
@@ -554,7 +585,7 @@ pub fn render(world_id: u32) -> js_sys::Promise {
     // let time = std::time::Instant::now();
 
     let r = js_sys::Promise::resolve(&world_id.into()).then(&gui_world.draw_text);
-	// let r = js_sys::Promise::resolve(&world_id.into());
+    // let r = js_sys::Promise::resolve(&world_id.into());
     {
         // 纹理更新了, 设置脏
         let font_sheet = gui_world.gui.world_ext.font_sheet.lend_mut();
@@ -716,10 +747,10 @@ pub fn load_image_success(
     data: Object,
     cost: u32,
 ) {
-	let name = match get_by_f64_hash(name) {
-		Some(r) => r,
-		None => return,
-	};
+    let name = match get_by_f64_hash(name) {
+        Some(r) => r,
+        None => return,
+    };
     let res = create_texture(world_id, pformate, compress, r_type, name.clone(), width, height, data, cost, true);
     let world = unsafe { &mut *(world_id as usize as *mut GuiWorld) };
     let world = &mut world.gui.world_ext;
@@ -739,27 +770,20 @@ pub fn load_image_success(
 // callback(x, y, boxs, buffer, 0);
 
 #[wasm_bindgen]
-pub fn load_sdf_success(
-	world: u32,
-	x: u32,
-	y: u32,
-	w: u32,
-	h: u32,
-	data: Uint8Array,
-) {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+pub fn load_sdf_success(world: u32, x: u32, y: u32, w: u32, h: u32, data: Uint8Array) {
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let world = &mut world.gui;
-	let single_font_sheet = &mut world.world_ext.font_sheet.lend_mut();
-	let font_sheet = &mut single_font_sheet.borrow_mut();
-	font_sheet.tex_version += 1;
+    let single_font_sheet = &mut world.world_ext.font_sheet.lend_mut();
+    let font_sheet = &mut single_font_sheet.borrow_mut();
+    font_sheet.tex_version += 1;
 
     let engine = world.engine.lend_mut();
     let texture = font_sheet.get_font_tex();
 
-	// log::info!("load_sdf_success================{:?}, {:?}, {}, {}, {}", x, y, w, h, data.length());
-	engine
-            .gl
-            .texture_update(&texture.bind, 0, &TextureData::U8(x, y, w, h, data.to_vec().as_slice()));
+    // log::info!("load_sdf_success================{:?}, {:?}, {}, {}, {}", x, y, w, h, data.length());
+    engine
+        .gl
+        .texture_update(&texture.bind, 0, &TextureData::U8(x, y, w, h, data.to_vec().as_slice()));
 }
 
 /// 创建纹理资源
@@ -776,14 +800,23 @@ pub fn create_texture_res(
     data: Object,
     cost: u32,
 ) -> u32 {
-    Share::into_raw(Share::new(create_texture(world_id, pformate, compress, r_type, get_by_f64_hash(name).unwrap(), width, height, data, cost, true))) as u32
+    Share::into_raw(Share::new(create_texture(
+        world_id,
+        pformate,
+        compress,
+        r_type,
+        get_by_f64_hash(name).unwrap(),
+        width,
+        height,
+        data,
+        cost,
+        true,
+    ))) as u32
 }
 
 // 释放纹理资源
 #[wasm_bindgen]
-pub fn destroy_texture_res(texture: u32) { 
-    unsafe { Share::from_raw(texture as usize as *const Handle<TextureResRaw>) }; 
-}
+pub fn destroy_texture_res(texture: u32) { unsafe { Share::from_raw(texture as usize as *const Handle<TextureResRaw>) }; }
 
 pub fn create_texture(
     world_id: u32,
@@ -795,7 +828,7 @@ pub fn create_texture(
     height: u32,
     data: Object,
     cost: u32,
-	is_from_catch: bool,
+    is_from_catch: bool,
 ) -> Handle<TextureResRaw> {
     if r_type > 2 {
         r_type = 0;
@@ -805,11 +838,12 @@ pub fn create_texture(
 
     let engine = world.engine.lend_mut();
 
-	let r = if !is_from_catch { // name=None表示不从缓存表中取
-		engine.texture_res_map.get(&name)
-	} else {
-		None
-	};
+    let r = if !is_from_catch {
+        // name=None表示不从缓存表中取
+        engine.texture_res_map.get(&name)
+    } else {
+        None
+    };
 
     let res = match r {
         Some(r) => return r,
@@ -908,10 +942,10 @@ fn load_image(world_id: u32) {
 #[wasm_bindgen]
 pub fn texture_is_exist(world: u32, group_i: usize, name: f64) -> bool {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	let name = match get_by_f64_hash(name) {
-		Some(r) => r,
-		None => return false,
-	};
+    let name = match get_by_f64_hash(name) {
+        Some(r) => r,
+        None => return false,
+    };
 
     let engine = world.gui.engine.lend();
     match engine.texture_res_map.get(&name) {
@@ -919,23 +953,23 @@ pub fn texture_is_exist(world: u32, group_i: usize, name: f64) -> bool {
         None => false,
     }
 }
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub fn create_fragment_by_bin(world: u32, bin: &[u8]) {
-	let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
+    let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
 
-	match postcard::from_bytes::<gui::single::fragment::Fragments>(bin) {
-		Ok(r) => {
-			world.gui.add_fragment_by_bin(r);
-		}
-		Err(e) => {
-			log::warn!("deserialize_fragment error: {:?}", e);
-			return;
-		}
-	}
+    match postcard::from_bytes::<gui::single::fragment::Fragments>(bin) {
+        Ok(r) => {
+            world.gui.add_fragment_by_bin(r);
+        }
+        Err(e) => {
+            log::warn!("deserialize_fragment error: {:?}", e);
+            return;
+        }
+    }
 }
 
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 pub enum BlendMode {
     Normal,
     AlphaAdd,
@@ -951,7 +985,7 @@ pub enum BlendMode {
 #[wasm_bindgen]
 pub fn set_default_style(world: u32, css: &str) {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
-	world.gui.set_default_style(css);
+    world.gui.set_default_style(css);
     // set_default_style1(world, r);
     // world.default_layout_attr = r.1;
 }
@@ -961,30 +995,28 @@ pub fn set_default_style(world: u32, css: &str) {
 pub struct Atom(Atom1);
 
 impl Atom {
-	pub fn inner(&self) -> &Atom1 {
-		&self.0
-	}
+    pub fn inner(&self) -> &Atom1 { &self.0 }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl Atom {
-	pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
+    pub fn from_string(value: String) -> Self { Atom(pi_atom::Atom::from(value)) }
 
-	pub fn get_string_by_hash(name: f64) -> Option<String> { 
-		match get_by_f64_hash(name) {
-			Some(r) => Some(r.as_ref().to_string()),
-			None => None,
-		} 
-	}
+    pub fn get_string_by_hash(name: f64) -> Option<String> {
+        match get_by_f64_hash(name) {
+            Some(r) => Some(r.as_ref().to_string()),
+            None => None,
+        }
+    }
 
-	pub fn get_hash(&self) -> f64 {u64_to_f64(self.0.str_hash())}
+    pub fn get_hash(&self) -> f64 { u64_to_f64(self.0.str_hash()) }
 }
 
 #[wasm_bindgen]
 pub fn get_atom(s: &str) -> Atom { Atom(Atom1::from(s)) }
 
 #[wasm_bindgen]
-pub fn get_atom_hash(s: &Atom) -> f64 { u64_to_f64(s.0.str_hash())  }
+pub fn get_atom_hash(s: &Atom) -> f64 { u64_to_f64(s.0.str_hash()) }
 
 #[wasm_bindgen]
 pub fn get_string_by_hash(s: f64) -> Option<String> { get_by_f64_hash(s).map(|r| r.as_str().to_string()) }
@@ -1005,28 +1037,25 @@ pub struct Size {
 }
 
 pub fn parse_asset_config(asset_config: &str) -> AssetConfig {
-	let map: XHashMap<String, AssetDesc> = match serde_json::from_str(asset_config) {
-		Ok(r) => r,
-		_ => {
-			log::error!("asset_config is invalid,  {:?}", asset_config);
-			XHashMap::default()
-		}
-	};
-	let mut asset_config = AssetConfig::default();
-	for (key, desc) in map.into_iter() {
-		match key.as_str() {
-			"TEXTURE_RES" => asset_config.insert::<TextureResRaw>(desc),
+    let map: XHashMap<String, AssetDesc> = match serde_json::from_str(asset_config) {
+        Ok(r) => r,
+        _ => {
+            log::error!("asset_config is invalid,  {:?}", asset_config);
+            XHashMap::default()
+        }
+    };
+    let mut asset_config = AssetConfig::default();
+    for (key, desc) in map.into_iter() {
+        match key.as_str() {
+            "TEXTURE_RES" => asset_config.insert::<TextureResRaw>(desc),
             "FBO_RES" => asset_config.insert::<FboRes>(desc),
-			// "buffer" => asset_config.insert::<RenderRes<Buffer>>(desc),
-			// "sampler" => asset_config.insert::<SamplerRes>(desc),
-			// "bind_group" => asset_config.insert::<RenderRes<BindGroup>>(desc),
-			// "texture" => asset_config.insert::<TextureRes>(desc),
-			// "render_pipeline" => asset_config.insert::<RenderRes<RenderPipeline>>(desc),
-			
-			_ => {},
-		}
-	}
-	asset_config
+            // "buffer" => asset_config.insert::<RenderRes<Buffer>>(desc),
+            // "sampler" => asset_config.insert::<SamplerRes>(desc),
+            // "bind_group" => asset_config.insert::<RenderRes<BindGroup>>(desc),
+            // "texture" => asset_config.insert::<TextureRes>(desc),
+            // "render_pipeline" => asset_config.insert::<RenderRes<RenderPipeline>>(desc),
+            _ => {}
+        }
+    }
+    asset_config
 }
-
-

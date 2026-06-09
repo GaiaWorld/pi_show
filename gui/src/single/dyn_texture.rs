@@ -518,8 +518,8 @@ impl DynAtlasSet {
 				let size = self.dyn_atlas[r.allocation_index].allocator.size();
 				let rectangle = &r.rect;
 				Some(Aabb2::new(
-					Point2::new(rectangle.mins.x as f32 / size.width as f32, rectangle.maxs.y as f32 / size.height as f32),
-						Point2::new((rectangle.maxs.x as f32) / size.width as f32, rectangle.mins.y as f32 / size.height as f32)
+					Point2::new((rectangle.mins.x as f32 + 0.5 ) / size.width as f32, (rectangle.maxs.y as f32 - 0.5) / size.height as f32),
+						Point2::new((rectangle.maxs.x as f32 - 0.5) / size.width as f32, (rectangle.mins.y as f32 + 0.5) / size.height as f32)
 					))
 			},
 			None => None,

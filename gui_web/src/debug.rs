@@ -1899,10 +1899,12 @@ pub fn mem_statistics(_world: u32) {}
 // }
 
 #[wasm_bindgen]
-pub fn get_font_sheet_debug(world: u32) {
+pub fn get_font_sheet_debug(world: u32) -> JsValue {
     let world = unsafe { &mut *(world as usize as *mut GuiWorld) };
     let font_sheet = world.gui.world_ext.font_sheet.lend();
-    log::info!("char_slab: {:?}", font_sheet.borrow().char_slab);
+    let font_sheet = font_sheet.borrow();
+    let char_slab = font_sheet.char_slab.iter().collect::<Vec<_>>();
+    return JsValue::from_serde(&(char_slab, &font_sheet.char_map)).unwrap();
 }
 
 

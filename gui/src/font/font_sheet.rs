@@ -780,7 +780,7 @@ impl TexFont {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Glyph {
     pub x: f32,
     pub y: f32,

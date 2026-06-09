@@ -1,13 +1,14 @@
 pub mod constant;
 
-use num_traits::Float;
 use pi_assets::asset::Handle;
 use pi_share::Share;
 use std::hash::{Hash, Hasher};
 
 use hash::DefaultHasher;
+use fxhash::FxHasher64;
 use ordered_float::NotNan;
 use num_traits::float::FloatCore;
+use num_traits::Float;
 
 use pi_atom::Atom;
 use ecs::monitor::NotifyImpl;
@@ -156,6 +157,13 @@ pub fn calc_float_hash1<T: Float + FloatCore>(v: &[T], hasher: &mut DefaultHashe
         unsafe { NotNan::new_unchecked(*i) }.hash( hasher);
     }
 }
+
+pub fn calc_float_hash2<T: Float + FloatCore>(v: &[T], hasher: &mut FxHasher64) {
+    for i in v.iter() {
+        unsafe { NotNan::new_unchecked(*i) }.hash( hasher);
+    }
+}
+
 
 #[inline]
 pub fn get_content_rect(layout: &LayoutR) -> Rect<NotNan<f32>> {

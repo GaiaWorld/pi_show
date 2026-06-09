@@ -4,7 +4,8 @@ use std::hash::{Hash, Hasher};
  */
 use std::marker::PhantomData;
 
-use hash::{DefaultHasher, XHashMap};
+use hash::{XHashMap};
+use fxhash::FxHasher64 as DefaultHasher;
 use ordered_float::NotNan;
 
 use ecs::monitor::{Event, NotifyImpl};
@@ -1250,7 +1251,7 @@ fn create_geo<C: HalContext + 'static>(
     // 是共享文字
         let mut hasher = DefaultHasher::default();
 		font_sheet.reset_version.hash(&mut hasher);
-		calc_float_hash1(&[node_state.0.scale], &mut hasher);
+		calc_float_hash2(&[node_state.0.scale], &mut hasher);
         text.1.hash(&mut hasher);
         // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
         if !(dirty & &*TEXT_LAYOUT_DIRTY).any() && dirty1 & CalcType::Layout as usize == 0 {
@@ -1292,12 +1293,12 @@ fn create_geo<C: HalContext + 'static>(
     } else {
         let mut hasher = DefaultHasher::default();
 		font_sheet.reset_version.hash(&mut hasher);
-		calc_float_hash1(&[node_state.0.scale], &mut hasher);
+		calc_float_hash2(&[node_state.0.scale], &mut hasher);
 		
         text.0.0.hash(&mut hasher);
-		calc_float_hash1([layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top].as_slice(), &mut hasher);
+		calc_float_hash2([layout.rect.right - layout.rect.left, layout.rect.bottom - layout.rect.top].as_slice(), &mut hasher);
 		for i in node_state.text.iter() {
-			calc_float_hash1([i.pos.0, i.pos.1].as_slice(), &mut hasher);
+			calc_float_hash2([i.pos.0, i.pos.1].as_slice(), &mut hasher);
 		}
         // // 对于布局信息， 如果没有在style中设置， 可以直接使用class中的布局hash
         // if !(dirty & &*TEXT_LAYOUT_DIRTY).any() && dirty1 & CalcType::Layout as usize == 0 {
@@ -1315,10 +1316,11 @@ fn create_geo<C: HalContext + 'static>(
         let hash = hasher.finish();
 
 		// if id == 482 {
-		// 	log::warn!("hash======{:?}, {:?}", hash, &text);
+			// log::warn!("hash======{:?}, {:?}", hash, &text);
 		// }
         // 从缓存中找到geo， 直接返回
         if let Some(geo) = engine.geometry_res_map.get(&hash) {
+			// log::warn!("hash======{:?}, {:?}", hash, &text);
             return ResWrapper::Handle(geo);
         }
         // 如果文字不共享， 重新创建geo， 并且不缓存geo
@@ -1454,7 +1456,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 				// if node_state.0.text.len() != 0 && node_state.0.text[0].ch == '祭' {
 				// 	log::warn!("chars2======{:?}", c.ch);
 				// }
-				// log::info!("glyph=============, id:{}, c:{}, glyph: {:?}", c.ch_id_or_count, c.ch , glyph);
+				// log::warn!("glyph=============, id:{}, c:{}, glyph: {:?}", c.ch_id_or_count, c.ch , glyph);
 
 				let mut debug_info = DebugInfo {
 					ch: c.ch,
@@ -1507,7 +1509,7 @@ fn get_geo_flow<C: HalContext + 'static>(
 			// 	log::warn!("chars======{:?}", debug_infos);
 			// }
 			// if id == 482 {
-			// 	log::warn!("chars======{:?}", debug_infos);
+				// log::warn!("chars======{:?}", debug_infos);
 			// }
 			// 更新buffer
 			let l = positions.len() / 8;
