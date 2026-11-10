@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>border-image 九宫格诊断</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.5 ui-monospace,Consolas,monospace;background:#0f1420;color:#d7dce5}
+  #app{display:flex;height:100vh}
+  #panel{width:390px;flex:0 0 390px;overflow:auto;padding:14px;border-right:1px solid #263042;background:#141a28}
+  #main{flex:1;display:flex;flex-direction:column;gap:10px;padding:14px;overflow:auto}
+  h1{font-size:15px;margin:0 0 8px}
+  h2{font-size:12px;margin:14px 0 6px;color:#8fa3c0;text-transform:uppercase;letter-spacing:.08em}
+  .row{display:flex;gap:8px;align-items:center;margin:4px 0}
+  .row label{width:96px;color:#9fb0c8}
+  input[type=number],select{width:96px;background:#0d1220;color:#e6ecf5;border:1px solid #2c3a50;border-radius:4px;padding:3px 6px}
+  select{width:120px}
+  button{background:#22304a;color:#dbe6f7;border:1px solid #38507a;border-radius:5px;padding:5px 9px;cursor:pointer;margin:3px 4px 3px 0}
+  button:hover{background:#2c4064}
+  #canvasWrap{position:relative;align-self:flex-start;border:1px solid #2c3a50;border-radius:6px;overflow:hidden;
+    background-image:repeating-conic-gradient(#1a2233 0% 25%,#111827 0% 50%);background-size:16px 16px}
+  canvas{display:block;max-width:100%;height:auto}
+  #dbg{white-space:pre-wrap;background:#0b1020;border:1px solid #233049;border-radius:6px;padding:10px;margin-top:10px}
+  .bad{color:#ff6b6b;font-weight:bold}
+  .ok{color:#5bd67a;font-weight:bold}
+  .tag{display:inline-block;padding:0 6px;border-radius:4px;margin:2px;font-size:11px}
+  .tag.on{background:#1f5133;color:#8ef0b0}
+  .tag.off{background:#4a1f24;color:#ff9aa6}
+  .hint{color:#8090a8;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+<aside id="panel">
+  <h1>border-image 九宫格诊断</h1>
+  <div class="hint">本页把 <b>gui/src/system/render/border_image.rs</b> 的<br/>get_border_image_stream 已同步最新修复版，<br/>用真实图片 + WebGL 渲染，可对比修复效果。</div>
+  <h2>预设</h2>
+  <button data-preset="origxy">原始场景 xy 都平铺</button>
+  <button data-preset="fail">修复前丢中心：x=Repeat, y=Stretch</button>
+  <button data-preset="work">正常：x=Stretch, y=Stretch</button>
+  <button data-preset="space">全丢：x=Space, y=Space</button>
+  <button data-preset="xy">xy 都平铺</button>
+  <button data-preset="xy0">xy 都平铺（上下 slice=0）</button>
+  <button data-preset="xy0b">xy 都平铺（border 上下=0，slice 上下=0）</button>
+  <h2>节点 / 边框</h2>
+  <div class="row"><label>宽 W</label><input id="W" type="number" value="920"></div>
+  <div class="row"><label>高 H</label><input id="H" type="number" value="203"></div>
+  <div class="row"><label>border 左</label><input id="BL" type="number" value="60"></div>
+  <div class="row"><label>border 右</label><input id="BR" type="number" value="560"></div>
+  <div class="row"><label>border 上</label><input id="BT" type="number" value="0"></div>
+  <div class="row"><label>border 下</label><input id="BB" type="number" value="0"></div>
+  <h2>slice（图片像素，632x208）</h2>
+  <div class="row"><label>top</label><input id="ST" type="number" value="0"></div>
+  <div class="row"><label>right</label><input id="SR" type="number" value="560"></div>
+  <div class="row"><label>bottom</label><input id="SB" type="number" value="0"></div>
+  <div class="row"><label>left</label><input id="SL" type="number" value="60"></div>
+  <div class="row"><label>fill</label><input id="FILL" type="checkbox" checked></div>
+  <h2>repeat</h2>
+  <div class="row"><label>repeat.x</label><select id="RX"><option>Stretch</option><option>Repeat</option><option>Round</option><option>Space</option></select></div>
+  <div class="row"><label>repeat.y</label><select id="RY"><option>Stretch</option><option>Repeat</option><option>Round</option><option>Space</option></select></div>
+  <div class="row"><label>wireframe</label><input id="WIRE" type="checkbox" checked></div>
+  <div id="dbg"></div>
+</aside>
+<main id="main">
+  <div id="canvasWrap"><canvas id="gl"></canvas></div>
+  <div class="hint">棋盘格 = 没有画到的区域；品红线 = 实际生成的三角形边界。</div>
+</main>
+</div>
+<script>
+(function(){
+var EPS = 1.1920929e-7 * 10240;
+var IMG_W = 632, IMG_H = 208;
+var S = { W:920,H:203,L:60,R:560,T:0,B:0, ST:0,SR:560,SB:0,SL:60, fill:true, rx:"Repeat", ry:"Stretch", wire:true };
+function calcStep(csize, img, rt){
+  rt = rt.toLowerCase();
+  if(rt==="stretch") return [0,0,csize];
+  if(!(img>0)||!(csize>0)) return [0,0,0];
+  var c = csize/img, f = Math.round(c);
+  var eq = function(a,b){ return a===b || Math.abs(b-a)<=EPS; };
+  if(eq(f,c)) return [0,0,img];
+  if(rt==="repeat") return [-(csize%img)/2,0,img];
+  if(rt==="round") return [0,0, f>0?csize/f:csize];
+  var space = csize%img, pre = space/(Math.floor(c)+1);
+  return [0,pre, c>=1?img:0];
+}
+function buildGeometry(){
+  var pts=[], quads=[], pi=0;
+  function add(x,y,u,v){pts.push({x:x,y:y,u:u,v:v}); return pi++;}
+  function quad(a,b,c,d,tag){quads.push({tag:tag,a:a,b:b,c:c,d:d});}
+  var W=S.W,H=S.H,L=S.L,R=S.R,T=S.T,B=S.B, width=W, height=H;
+  var st=S.ST/IMG_H, sr=S.SR/IMG_W, sb=S.SB/IMG_H, sl=S.SL/IMG_W;
+  var uv1x=0,uv1y=0,uv2x=1,uv2y=1, uvw=1, uvh=1;
+  var uvL=uv1x+sl*uvw, uvR=uv2x-sr*uvw, uvT=uv1y+st*uvh, uvB=uv2y-sb*uvh;
+  var left=L, right=W-R, top=T, bottom=H-B;
+  var p1y1=add(0,0,uv1x,uv1y),p1top=add(0,top,uv1x,uvT),pLT=add(left,top,uvL,uvT),pLy1=add(left,0,uvL,uv1y); quad(p1y1,p1top,pLT,pLy1,"TL");
+  var p1bot=add(0,bottom,uv1x,uvB),p1y2=add(0,height,uv1x,uv2y),pLy2=add(left,height,uvL,uv2y),pLB=add(left,bottom,uvL,uvB); quad(p1bot,p1y2,pLy2,pLB,"BL");
+  var pRB=add(right,bottom,uvR,uvB),pRy2=add(right,height,uvR,uv2y),p2y2=add(width,height,uv2x,uv2y),p2bot=add(width,bottom,uv2x,uvB); quad(pRB,pRy2,p2y2,p2bot,"BR");
+  var pRy1=add(right,0,uvR,uv1y),pRT=add(right,top,uvR,uvT),p2top=add(width,top,uv2x,uvT),p2y1=add(width,0,uv2x,uv1y); quad(pRy1,pRT,p2top,p2y1,"TR");
+  var texLW=IMG_W*(uvL-uv1x), texRW=IMG_W*(uv2x-uvR), texTH=IMG_H*(uvT-uv1y), texBH=IMG_H*(uv2y-uvB), texCW=IMG_W*(uvR-uvL), texCH=IMG_H*(uvB-uvT);
+  var scaleCenter=function(b,tb,tc){return tb>0?b/tb*tc:0;};
+  var topStep=calcStep(right-left, scaleCenter(T,texTH,texCW), S.rx);
+  var leftStep=calcStep(bottom-top, scaleCenter(L,texLW,texCH), S.ry);
+  var stepTop=topStep[2], stepLeft=leftStep[2];
+  function pushU(p1,p2,p3,p4,u1,v1,u2,v2,step,offset,space,tag){
+    var y1=pts[p1].y,y2=pts[p2].y; var cur=pts[p1].x, max=pts[p3].x;
+    if(offset!==0){var ud=offset/step*(u2-u1);p1=add(cur,y1,u1-ud,v1);p2=add(cur,y2,u1-ud,v2);p3=add(max,y2,u2+ud,v2);p4=add(max,y1,u2+ud,v1);cur+=offset;}
+    if(space!==0){max-=space;cur+=space;p1=add(cur,y1,u1,v1);p2=add(cur,y2,u1,v2);p3=add(max,y2,u2,v2);p4=add(max,y1,u2,v1);}
+    cur+=step;var pt1=p1,pt2=p2,guard=0;
+    while(cur<max&&guard++<200){var i3=add(cur,y2,u2,v2),i4=add(cur,y1,u2,v1);quad(pt1,pt2,i3,i4,tag);cur+=space;pt1=add(cur,y1,u1,v1);pt2=add(cur,y2,u1,v2);cur+=step;}
+    quad(pt1,pt2,p3,p4,tag);
+  }
+  function pushVBox(p1,p2,p3,p4,u1,v1,u2,v2,step,offset,space){
+    var x1=pts[p1].x,x2=pts[p4].x;var cur=pts[p1].y,max=pts[p3].y;
+    if(offset!==0){var vd=offset/step*(v2-v1);p1=add(x1,cur,u1,v1-vd);p2=add(x1,max,u1,v2+vd);p3=add(x2,max,u2,v2+vd);p4=add(x2,cur,u2,v1-vd);cur+=offset;}
+    if(space!==0){cur+=space;max-=space;p1=add(x1,cur,u1,v1);p2=add(x1,max,u1,v2);p3=add(x2,max,u2,v2);p4=add(x2,cur,u2,v1);}
+    return {p1:p1,p2:p2,p3:p3,p4:p4,cur:cur,max:max};
+  }
+  function pushV(p1,p2,p3,p4,u1,v1,u2,v2,step,offset,space,tag){
+    var x1=pts[p1].x,x2=pts[p4].x;
+    var r=pushVBox(p1,p2,p3,p4,u1,v1,u2,v2,step,offset,space);p1=r.p1;p2=r.p2;p3=r.p3;p4=r.p4;
+    var cur=r.cur+step;var max=r.max;var pt1=p1,pt4=p4,guard=0;
+    while(cur<max&&guard++<200){var i2=add(x1,cur,u1,v2),i3=add(x2,cur,u2,v2);quad(pt1,i2,i3,pt4,tag);cur+=space;pt1=add(x1,cur,u1,v1);pt4=add(x2,cur,u2,v1);cur+=step;}
+    quad(pt1,p2,p3,pt4,tag);
+  }
+  if(stepTop>0) pushU(pLy1,pLT,pRT,pRy1,uvL,uv1y,uvR,uvT,stepTop,0,0,"top");
+  if(stepTop>0) pushU(pLB,pLy2,pRy2,pRB,uvL,uvB,uvR,uv2y,stepTop,0,0,"bottom");
+  if(stepLeft>0) pushV(p1top,p1bot,pLB,pLT,uv1x,uvT,uvL,uvB,stepLeft,0,0,"left");
+  if(stepLeft>0) pushV(pRT,pRB,p2bot,p2top,uvR,uvT,uv2x,uvB,stepLeft,0,0,"right");
+  function centerTile(b1,tb1,b2,tb2,tc){
+    var s=scaleCenter(b1,tb1,tc); if(s>0) return s;
+    s=scaleCenter(b2,tb2,tc); if(s>0) return s;
+    return tc;
+  }
+  function centerAxis(lo,hi,tile,rt,uLo,uHi){
+    var out=[],region=hi-lo;
+    if(!(region>0)||!(tile>0)) return out;
+    rt=rt.toLowerCase();
+    if(rt==="stretch"){out.push([lo,hi,uLo,uHi]);return out;}
+    if(rt==="repeat"){
+      var count=Math.ceil(region/tile); if(count<=0) return out;
+      var total=count*tile,start=lo-(total-region)/2;
+      for(var i=0;i<count;i++){var p0=start+i*tile,p1=p0+tile,cs=Math.max(p0,lo),ce=Math.min(p1,hi);if(ce<=cs)continue;var u0=uLo+(cs-p0)/tile*(uHi-uLo),u1=uLo+(ce-p0)/tile*(uHi-uLo);out.push([cs,ce,u0,u1]);}
+      return out;
+    }
+    if(rt==="round"){var c=Math.max(Math.round(region/tile),1),st=region/c;for(var i=0;i<c;i++){var p0=lo+i*st;out.push([p0,p0+st,uLo,uHi]);}return out;}
+    var f=Math.floor(region/tile); if(f<1) return out; var sp=(region-f*tile)/(f+1);
+    for(var i=0;i<f;i++){var p0=lo+sp+i*(tile+sp);out.push([p0,p0+tile,uLo,uHi]);}
+    return out;
+  }
+  // 中心区独立于四条边，按 repeat 真正平铺
+  if(S.fill){
+    var cw=centerTile(T,texTH,B,texBH,texCW), ch=centerTile(L,texLW,R,texRW,texCH);
+    var xs=centerAxis(left,right,cw,S.rx,uvL,uvR), ys=centerAxis(top,bottom,ch,S.ry,uvT,uvB);
+    for(var yi=0;yi<ys.length;yi++){var ysg=ys[yi];
+      for(var xi=0;xi<xs.length;xi++){var xsg=xs[xi];
+        var a=add(xsg[0],ysg[0],xsg[2],ysg[2]),b=add(xsg[0],ysg[1],xsg[2],ysg[3]),c=add(xsg[1],ysg[1],xsg[3],ysg[3]),d=add(xsg[1],ysg[0],xsg[3],ysg[2]);
+        quad(a,b,c,d,"center");
+      }}
+  }
+  return {pts:pts,quads:quads,info:{left:left,right:right,top:top,bottom:bottom,uvL:uvL,uvR:uvR,uvT:uvT,uvB:uvB,texLW:texLW,texRW:texRW,texTH:texTH,texBH:texBH,texCW:texCW,texCH:texCH,stepTop:stepTop,stepLeft:stepLeft,rawTop:topStep,rawLeft:leftStep}};
+}
+var canvas=document.getElementById("gl");
+var gl=canvas.getContext("webgl",{alpha:true,premultipliedAlpha:false,antialias:true});
+function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
+function prog(vs,fs){var p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
+var VSH=["attribute vec2 aPos;attribute vec2 aUV;uniform vec2 uRes;varying vec2 vUV;","void main(){vUV=aUV;float x=aPos.x/uRes.x*2.0-1.0;float y=1.0-aPos.y/uRes.y*2.0;gl_Position=vec4(x,y,0.0,1.0);}"].join("\n");
+var FSH=["precision mediump float;uniform sampler2D uTex;varying vec2 vUV;","void main(){vec4 c=texture2D(uTex,vUV);gl_FragColor=vec4(c.rgb*c.a,c.a);}"].join("\n");
+var LSH=["precision mediump float;uniform vec4 uColor;","void main(){gl_FragColor=uColor;}"].join("\n");
+var texProg=prog(VSH,FSH), lineProg=prog(VSH,LSH);
+var texLoc={pos:gl.getAttribLocation(texProg,"aPos"),uv:gl.getAttribLocation(texProg,"aUV"),res:gl.getUniformLocation(texProg,"uRes"),tex:gl.getUniformLocation(texProg,"uTex")};
+var lineLoc={pos:gl.getAttribLocation(lineProg,"aPos"),uv:gl.getAttribLocation(lineProg,"aUV"),res:gl.getUniformLocation(lineProg,"uRes"),color:gl.getUniformLocation(lineProg,"uColor")};
+var posBuf=gl.createBuffer(), uvBuf=gl.createBuffer(), idxBuf=gl.createBuffer(), lineBuf=gl.createBuffer();
+var texture=null, imageReady=false;
+var img=new Image();
+img.onload=function(){
+  texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+  imageReady=true;render();
+};
+img.src="border.png";
+function area(g,q){
+  function P(i){return g.pts[i];} var a=P(q.a),b=P(q.b),c=P(q.c),d=P(q.d);
+  function ar(p1,p2,p3){return Math.abs((p2.x-p1.x)*(p3.y-p1.y)-(p3.x-p1.x)*(p2.y-p1.y))/2;}
+  return ar(a,b,c)+ar(a,c,d);
+}
+function fmt(x){ if(typeof x!=="number") return String(x); if(isNaN(x)) return "NaN"; if(!isFinite(x)) return x>0?"Infinity":"-Infinity"; return (Math.round(x*1000)/1000).toString(); }
+function render(){
+  var g=buildGeometry(), W=S.W, H=S.H;
+  canvas.width=Math.max(1,W); canvas.height=Math.max(1,H);
+  gl.viewport(0,0,canvas.width,canvas.height);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  var positions=new Float32Array(g.pts.length*2), uvs=new Float32Array(g.pts.length*2);
+  for(var i=0;i<g.pts.length;i++){positions[i*2]=g.pts[i].x;positions[i*2+1]=g.pts[i].y;uvs[i*2]=g.pts[i].u;uvs[i*2+1]=g.pts[i].v;}
+  var idx=new Uint16Array(g.quads.length*6);
+  for(var i=0;i<g.quads.length;i++){var q=g.quads[i],o=i*6;idx[o]=q.a;idx[o+1]=q.b;idx[o+2]=q.c;idx[o+3]=q.a;idx[o+4]=q.c;idx[o+5]=q.d;}
+  if(imageReady){
+    gl.useProgram(texProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);gl.bufferData(gl.ARRAY_BUFFER,positions,gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(texLoc.pos);gl.vertexAttribPointer(texLoc.pos,2,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,uvBuf);gl.bufferData(gl.ARRAY_BUFFER,uvs,gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(texLoc.uv);gl.vertexAttribPointer(texLoc.uv,2,gl.FLOAT,false,0,0);
+    gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(texLoc.tex,0);
+    gl.uniform2f(texLoc.res,W,H);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,idxBuf);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,idx,gl.DYNAMIC_DRAW);
+    gl.drawElements(gl.TRIANGLES,idx.length,gl.UNSIGNED_SHORT,0);
+  }
+  if(S.wire && g.quads.length){
+    var lines=new Uint16Array(g.quads.length*6);
+    for(var i=0;i<g.quads.length;i++){var q=g.quads[i],o=i*6;lines[o]=q.a;lines[o+1]=q.b;lines[o+2]=q.b;lines[o+3]=q.c;lines[o+4]=q.c;lines[o+5]=q.d;}
+    gl.useProgram(lineProg);
+    gl.bindBuffer(gl.ARRAY_BUFFER,posBuf);
+    gl.enableVertexAttribArray(lineLoc.pos);gl.vertexAttribPointer(lineLoc.pos,2,gl.FLOAT,false,0,0);
+    gl.uniform2f(lineLoc.res,W,H);gl.uniform4f(lineLoc.color,1.0,0.2,0.9,0.95);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lineBuf);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,lines,gl.DYNAMIC_DRAW);
+    gl.drawElements(gl.LINES,lines.length,gl.UNSIGNED_SHORT,0);
+  }
+  updateDebug(g);
+}
+function updateDebug(g){
+  var i=g.info;
+  var regions={TL:0,BL:0,BR:0,TR:0,top:0,bottom:0,left:0,right:0,center:0};
+  for(var n=0;n<g.quads.length;n++){var q=g.quads[n];var k=q.tag.split("#")[0];regions[k]=(regions[k]||0)+area(g,q);}
+  var names=["TL","top","TR","left","center","right","BL","bottom","BR"];
+  var tagHtml="";
+  for(var n=0;n<names.length;n++){var nm=names[n];var on=regions[nm]>0.5;tagHtml+="<span class=\"tag "+(on?"on":"off")+"\">"+nm+":"+(on?"画":"无")+"</span>";}
+  var diag="";
+  var centerDrawn = S.fill && i.right>i.left && i.bottom>i.top;
+  if(isNaN(i.stepTop)){ diag+="<span class=bad>stepTop = NaN（修复后不应出现）</span>\n"; }
+  else if(i.stepTop<=0){ diag+="<span class=hint>stepTop = "+fmt(i.stepTop)+" (<=0)：上/下边跳过（通常是没有上/下 border）</span>\n"; }
+  if(isNaN(i.stepLeft)){ diag+="<span class=bad>stepLeft = NaN（修复后不应出现）</span>\n"; }
+  else if(i.stepLeft<=0){ diag+="<span class=hint>stepLeft = "+fmt(i.stepLeft)+" (<=0)：左/右边跳过</span>\n"; }
+  diag += centerDrawn ? "<span class=ok>中心：按 repeat 平铺绘制（独立于四条边，不受 step 影响）</span>\n" : "<span class=hint>中心：未绘制（fill 关闭或内区域为空）</span>\n";
+  var dbg=document.getElementById("dbg");
+  dbg.innerHTML = "<b>几何输出</b>\n"+tagHtml+"\n\n"
+    +"left="+fmt(i.left)+"  right="+fmt(i.right)+"  top="+fmt(i.top)+"  bottom="+fmt(i.bottom)+"\n"
+    +"uvL="+fmt(i.uvL)+"  uvR="+fmt(i.uvR)+"  uvT="+fmt(i.uvT)+"  uvB="+fmt(i.uvB)+"\n"
+    +"texture 左/右/上/下/中宽高: "+fmt(i.texLW)+" / "+fmt(i.texRW)+" / "+fmt(i.texTH)+" / "+fmt(i.texBH)+" / "+fmt(i.texCW)+" / "+fmt(i.texCH)+"\n"
+    +"stepTop="+fmt(i.stepTop)+"  stepLeft="+fmt(i.stepLeft)+"  (quads="+g.quads.length+")\n\n"+diag;
+}
+function readState(){
+  S.W=+document.getElementById("W").value; S.H=+document.getElementById("H").value;
+  S.L=+document.getElementById("BL").value; S.R=+document.getElementById("BR").value;
+  S.T=+document.getElementById("BT").value; S.B=+document.getElementById("BB").value;
+  S.ST=+document.getElementById("ST").value; S.SR=+document.getElementById("SR").value;
+  S.SB=+document.getElementById("SB").value; S.SL=+document.getElementById("SL").value;
+  S.fill=document.getElementById("FILL").checked;
+  S.rx=document.getElementById("RX").value; S.ry=document.getElementById("RY").value;
+  S.wire=document.getElementById("WIRE").checked;
+  render();
+}
+function setPreset(kind){
+  if(kind==="origxy"){S.W=920;S.H=203;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  if(kind==="fail"){S.rx="Repeat";S.ry="Stretch";}
+  if(kind==="work"){S.rx="Stretch";S.ry="Stretch";}
+  if(kind==="space"){S.rx="Space";S.ry="Space";}
+  if(kind==="xy"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=40;S.B=40;S.ST=40;S.SR=560;S.SB=40;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  if(kind==="xy0"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  if(kind==="xy0b"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  document.getElementById("W").value=S.W; document.getElementById("H").value=S.H;
+  document.getElementById("BL").value=S.L; document.getElementById("BR").value=S.R;
+  document.getElementById("BT").value=S.T; document.getElementById("BB").value=S.B;
+  document.getElementById("ST").value=S.ST; document.getElementById("SR").value=S.SR;
+  document.getElementById("SB").value=S.SB; document.getElementById("SL").value=S.SL;
+  document.getElementById("FILL").checked=S.fill;
+  document.getElementById("RX").value=S.rx; document.getElementById("RY").value=S.ry;
+  document.getElementById("WIRE").checked=S.wire;
+  render();
+}
+var els=document.querySelectorAll("#panel input,#panel select");
+for(var i=0;i<els.length;i++){els[i].addEventListener("input",readState);els[i].addEventListener("change",readState);}
+var bs=document.querySelectorAll("button[data-preset]");
+for(var i=0;i<bs.length;i++){(function(b){b.addEventListener("click",function(){setPreset(b.getAttribute("data-preset"));});})(bs[i]);}
+readState();
+window.__diag=function(){var g=buildGeometry();var reg={};for(var i=0;i<g.quads.length;i++){var q=g.quads[i];var k=q.tag.split("#")[0];reg[k]=(reg[k]||0)+area(g,q);}return {steps:{top:fmt(g.info.stepTop),left:fmt(g.info.stepLeft)},regions:reg};};
+window.__setPreset=setPreset;
+})();
+</script>
+</body>
+</html>

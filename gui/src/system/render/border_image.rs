@@ -292,7 +292,7 @@ fn create_geo<C: HalContext + 'static>(
     layout: &LayoutR,
     engine: &mut Engine<C>,
 ) -> ResWrapper<GeometryRes> {
-    let h = geo_hash(img, clip, slice, repeat, layout);
+    let h = geo_hash(img, texture, clip, slice, repeat, layout);
     match engine.geometry_res_map.get(&h) {
         Some(r) => ResWrapper::Handle(r),
         None => {
@@ -313,6 +313,7 @@ fn create_geo<C: HalContext + 'static>(
 #[inline]
 fn geo_hash(
     img: &BorderImage,
+    texture: &BorderImageTexture,
     clip: Option<&BorderImageClip>,
     slice: Option<&BorderImageSlice>,
     repeat: Option<&BorderImageRepeat>,
@@ -322,11 +323,14 @@ fn geo_hash(
     BORDER_IMAGE.hash(&mut hasher);
     img.0.hash(&mut hasher);
     clip.hash(&mut hasher);
-	slice.hash(&mut hasher);
-   	repeat.hash(&mut hasher);
+    slice.hash(&mut hasher);
+    repeat.hash(&mut hasher);
     let width = layout.rect.right - layout.rect.left;
     let height = layout.rect.bottom - layout.rect.top;
     f32_3_hash_(width, height, layout.border.left, &mut hasher);
+    // 四条边框都参与几何计算，必须全部纳入 hash，避免缓存复用错误几何
+    f32_3_hash_(layout.border.right, layout.border.top, layout.border.bottom, &mut hasher);
+    f32_3_hash_(texture.0.width as f32, texture.0.height as f32, 0.0, &mut hasher);
     hasher.finish()
 }
 
@@ -374,7 +378,7 @@ fn get_border_image_stream(
     // 左上的4个点
     let p_x1_y1 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p1.y, uv1.x, uv1.y, &mut pi);
     let p_x1_top = push_vertex(&mut point_arr, &mut uv_arr, p1.x, top, uv1.x, uv_top, &mut pi);
-    let mut p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, uv_left, uv_top, &mut pi);
+    let p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, top, uv_left, uv_top, &mut pi);
     let p_left_y1 = push_vertex(&mut point_arr, &mut uv_arr, left, p1.y, uv_left, uv1.y, &mut pi);
     push_quad(&mut index_arr, p_x1_y1, p_x1_top, p_left_top, p_left_y1);
 
@@ -382,11 +386,11 @@ fn get_border_image_stream(
     let p_x1_bottom = push_vertex(&mut point_arr, &mut uv_arr, p1.x, bottom, uv1.x, uv_bottom, &mut pi);
     let p_x1_y2 = push_vertex(&mut point_arr, &mut uv_arr, p1.x, p2.y, uv1.x, uv2.y, &mut pi);
     let p_left_y2 = push_vertex(&mut point_arr, &mut uv_arr, left, p2.y, uv_left, uv2.y, &mut pi);
-    let mut p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, uv_left, uv_bottom, &mut pi);
+    let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, bottom, uv_left, uv_bottom, &mut pi);
     push_quad(&mut index_arr, p_x1_bottom, p_x1_y2, p_left_y2, p_left_bottom);
 
     // 右下的4个点
-    let mut p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, uv_right, uv_bottom, &mut pi);
+    let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, bottom, uv_right, uv_bottom, &mut pi);
     let p_right_y2 = push_vertex(&mut point_arr, &mut uv_arr, right, p2.y, uv_right, uv2.y, &mut pi);
     let p_x2_y2 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p2.y, uv2.x, uv2.y, &mut pi);
     let p_x2_bottom = push_vertex(&mut point_arr, &mut uv_arr, p2.x, bottom, uv2.x, uv_bottom, &mut pi);
@@ -394,7 +398,7 @@ fn get_border_image_stream(
 
     // 右上的4个点
     let p_right_y1 = push_vertex(&mut point_arr, &mut uv_arr, right, p1.y, uv_right, uv1.y, &mut pi);
-    let mut p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, uv_right, uv_top, &mut pi);
+    let p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, top, uv_right, uv_top, &mut pi);
     let p_x2_top = push_vertex(&mut point_arr, &mut uv_arr, p2.x, top, uv2.x, uv_top, &mut pi);
     let p_x2_y1 = push_vertex(&mut point_arr, &mut uv_arr, p2.x, p1.y, uv2.x, uv1.y, &mut pi);
     push_quad(&mut index_arr, p_right_y1, p_right_top, p_x2_top, p_x2_y1);
@@ -414,19 +418,19 @@ fn get_border_image_stream(
         None => BorderImageRepeat::default(),
     };
     let (
-        (offset_top, space_top, mut step_top),
+        (offset_top, space_top, step_top),
         (offset_bottom, space_bottom, step_bottom),
-        (offset_left, space_left, mut step_left),
+        (offset_left, space_left, step_left),
         (offset_right, space_right, step_right),
     ) = (
-        calc_step(right - left, layout.border.top / texture_top_height * texture_center_width, repeat.x),
+        calc_step(right - left, scaled_center_size(layout.border.top, texture_top_height, texture_center_width), repeat.x),
         calc_step(
             right - left,
-            layout.border.bottom / texture_bottom_height * texture_center_width,
+            scaled_center_size(layout.border.bottom, texture_bottom_height, texture_center_width),
             repeat.x,
         ),
-        calc_step(bottom - top, layout.border.left / texture_left_width * texture_center_height, repeat.y),
-        calc_step(bottom - top, layout.border.right / texture_right_width * texture_center_height, repeat.y),
+        calc_step(bottom - top, scaled_center_size(layout.border.left, texture_left_width, texture_center_height), repeat.y),
+        calc_step(bottom - top, scaled_center_size(layout.border.right, texture_right_width, texture_center_height), repeat.y),
     );
 
     if step_top > 0.0 {
@@ -507,85 +511,30 @@ fn get_border_image_stream(
         ); // 右边
     }
 
-    // 处理中间
+    // 处理中间：中间区域独立于四条边，按 repeat 真正平铺；不再复用边的 step，避免 slice 为 0 时 0/0 产生 NaN
     if let Some(slice) = slice {
-
-		if repeat.x == ImageRepeatOption::Stretch {
-			step_top = right - left;
-		}
-		if repeat.y == ImageRepeatOption::Stretch {
-			step_left = bottom - top;
-		}
-
-        if slice.fill && step_top > 0.0 && step_left > 0.0 {
-            // push_quad(&mut index_arr, p_left_top, p_left_bottom, p_right_bottom, p_right_top);
-            let mut cur_y = top;
-            let mut y_end = bottom;
-            push_v_box(
-                &mut point_arr,
-                &mut uv_arr,
-                &mut p_left_top,
-                &mut p_left_bottom,
-                &mut p_right_bottom,
-                &mut p_right_top,
-                &mut cur_y,
-                &mut y_end,
-                uv_left,
-                uv_top,
-                uv_right,
-                uv_bottom,
-                step_left,
-                offset_left,
-                space_left,
-                &mut pi, // point_arr, index_arr, &mut p1, &mut p2, &mut p3, &mut p4, &mut cur, &mut max, u1, v1, u2, u2, step, offset, i,
+        if slice.fill {
+            let center_w = center_tile_size(
+                layout.border.top, texture_top_height,
+                layout.border.bottom, texture_bottom_height,
+                texture_center_width,
             );
-            let (mut v1, v2) = (uv_arr[(p_left_top * 2 + 1) as usize], uv_arr[(p_right_bottom * 2 + 1) as usize]);
-            cur_y += step_left;
-
-            while !(cur_y > y_end || eq_f32(cur_y, y_end)) {
-                let p_left_bottom = push_vertex(&mut point_arr, &mut uv_arr, left, cur_y, uv_left, uv_bottom, &mut pi);
-                let p_right_bottom = push_vertex(&mut point_arr, &mut uv_arr, right, cur_y, uv_right, uv_bottom, &mut pi);
-
-                push_u_arr(
-                    &mut point_arr,
-                    &mut uv_arr,
-                    &mut index_arr,
-                    p_left_top,
-                    p_left_bottom,
-                    p_right_bottom,
-                    p_right_top,
-                    uv_left,
-                    v1,
-                    uv_right,
-                    uv_bottom,
-                    step_top,
-                    offset_top,
-                    space_top,
-                    &mut pi,
-                );
-                cur_y += space_left;
-                p_left_top = push_vertex(&mut point_arr, &mut uv_arr, left, cur_y, uv_left, uv_top, &mut pi);
-                p_right_top = push_vertex(&mut point_arr, &mut uv_arr, right, cur_y, uv_right, uv_top, &mut pi);
-                v1 = uv_top;
-                cur_y += step_left;
+            let center_h = center_tile_size(
+                layout.border.left, texture_left_width,
+                layout.border.right, texture_right_width,
+                texture_center_height,
+            );
+            let xs = center_axis(left, right, center_w, repeat.x, uv_left, uv_right);
+            let ys = center_axis(top, bottom, center_h, repeat.y, uv_top, uv_bottom);
+            for &(y0, y1, v0, v1) in ys.iter() {
+                for &(x0, x1, u0, u1) in xs.iter() {
+                    let a = push_vertex(&mut point_arr, &mut uv_arr, x0, y0, u0, v0, &mut pi);
+                    let b = push_vertex(&mut point_arr, &mut uv_arr, x0, y1, u0, v1, &mut pi);
+                    let c = push_vertex(&mut point_arr, &mut uv_arr, x1, y1, u1, v1, &mut pi);
+                    let d = push_vertex(&mut point_arr, &mut uv_arr, x1, y0, u1, v0, &mut pi);
+                    push_quad(&mut index_arr, a, b, c, d);
+                }
             }
-            push_u_arr(
-                &mut point_arr,
-                &mut uv_arr,
-                &mut index_arr,
-                p_left_top,
-                p_left_bottom,
-                p_right_bottom,
-                p_right_top,
-                uv_left,
-                uv_top,
-                uv_right,
-                v2,
-                step_top,
-                offset_top,
-                space_top,
-                &mut pi,
-            );
         }
     }
 
@@ -617,12 +566,97 @@ pub fn push_quad(index_arr: &mut Vec<u16>, p1: u16, p2: u16, p3: u16, p4: u16) {
 // }
 
 
-// 根据参数计算uv的step
+// 计算边框切片缩放后的中间图尺寸；分母为 0 时返回 0，避免 0/0 产生 NaN
+#[inline]
+fn scaled_center_size(border: f32, texture_border: f32, texture_center: f32) -> f32 {
+    if texture_border > 0.0 {
+        border / texture_border * texture_center
+    } else {
+        0.0
+    }
+}
+
+// 计算中心图在某一方向上的平铺单元尺寸：优先用边框缩放，缩放无效时退回图片中心区域原始尺寸
+#[inline]
+fn center_tile_size(
+    border1: f32, texture_border1: f32,
+    border2: f32, texture_border2: f32,
+    texture_center: f32,
+) -> f32 {
+    let scaled = scaled_center_size(border1, texture_border1, texture_center);
+    if scaled > 0.0 {
+        return scaled;
+    }
+    let scaled = scaled_center_size(border2, texture_border2, texture_center);
+    if scaled > 0.0 {
+        return scaled;
+    }
+    texture_center
+}
+
+// 按 repeat 规则把一个方向切成若干段，返回 (布局起点, 布局终点, uv 起点, uv 终点)
+fn center_axis(
+    lo: f32, hi: f32, tile: f32, rtype: ImageRepeatOption, uv_lo: f32, uv_hi: f32,
+) -> Vec<(f32, f32, f32, f32)> {
+    let mut out = Vec::new();
+    let region = hi - lo;
+    if !(region > 0.0) || !(tile > 0.0) {
+        return out;
+    }
+    match rtype {
+        ImageRepeatOption::Stretch => out.push((lo, hi, uv_lo, uv_hi)),
+        ImageRepeatOption::Repeat => {
+            let count = (region / tile).ceil();
+            if count <= 0.0 {
+                return out;
+            }
+            let total = count * tile;
+            let start = lo - (total - region) / 2.0;
+            let n = count as i32;
+            for i in 0..n {
+                let p0 = start + i as f32 * tile;
+                let p1 = p0 + tile;
+                let cs = p0.max(lo);
+                let ce = p1.min(hi);
+                if ce <= cs {
+                    continue;
+                }
+                let u0 = uv_lo + (cs - p0) / tile * (uv_hi - uv_lo);
+                let u1 = uv_lo + (ce - p0) / tile * (uv_hi - uv_lo);
+                out.push((cs, ce, u0, u1));
+            }
+        }
+        ImageRepeatOption::Round => {
+            let count = (region / tile).round().max(1.0);
+            let step = region / count;
+            let n = count as i32;
+            for i in 0..n {
+                let p0 = lo + i as f32 * step;
+                out.push((p0, p0 + step, uv_lo, uv_hi));
+            }
+        }
+        ImageRepeatOption::Space => {
+            let count = (region / tile).floor();
+            if count < 1.0 {
+                return out;
+            }
+            let space = (region - count * tile) / (count + 1.0);
+            let n = count as i32;
+            for i in 0..n {
+                let p0 = lo + space + i as f32 * (tile + space);
+                out.push((p0, p0 + tile, uv_lo, uv_hi));
+            }
+        }
+    }
+    out
+}
+
 fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, f32) {
     if let ImageRepeatOption::Stretch = rtype {
         return (0.0, 0.0, csize);
     }
-    if img_size == 0.0 {
+    // img_size 或可绘制区域为 0（含 NaN）时直接返回 0，避免 0/0 产生 NaN 污染后续边/中心判断
+    if !(img_size > 0.0) || !(csize > 0.0) {
         return (0.0, 0.0, 0.0);
     }
     let c = csize / img_size;
