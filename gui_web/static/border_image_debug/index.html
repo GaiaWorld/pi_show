@@ -122,10 +122,16 @@ function buildGeometry(){
     while(cur<max&&guard++<200){var i2=add(x1,cur,u1,v2),i3=add(x2,cur,u2,v2);quad(pt1,i2,i3,pt4,tag);cur+=space;pt1=add(x1,cur,u1,v1);pt4=add(x2,cur,u2,v1);cur+=step;}
     quad(pt1,p2,p3,pt4,tag);
   }
-  if(stepTop>0) pushU(pLy1,pLT,pRT,pRy1,uvL,uv1y,uvR,uvT,stepTop,0,0,"top");
-  if(stepTop>0) pushU(pLB,pLy2,pRy2,pRB,uvL,uvB,uvR,uv2y,stepTop,0,0,"bottom");
-  if(stepLeft>0) pushV(p1top,p1bot,pLB,pLT,uv1x,uvT,uvL,uvB,stepLeft,0,0,"left");
-  if(stepLeft>0) pushV(pRT,pRB,p2bot,p2top,uvR,uvT,uv2x,uvB,stepLeft,0,0,"right");
+  var topTile=scaleCenter(T,texTH,texCW), bottomTile=scaleCenter(B,texBH,texCW);
+  var leftTile=scaleCenter(L,texLW,texCH), rightTile=scaleCenter(R,texRW,texCH);
+  var xsT=centerAxis(left,right,topTile,S.rx,uvL,uvR);
+  for(var ei=0;ei<xsT.length;ei++){var s=xsT[ei];quad(add(s[0],0,s[2],uv1y),add(s[0],top,s[2],uvT),add(s[1],top,s[3],uvT),add(s[1],0,s[3],uv1y),"top");}
+  var xsB=centerAxis(left,right,bottomTile,S.rx,uvL,uvR);
+  for(var ei=0;ei<xsB.length;ei++){var s=xsB[ei];quad(add(s[0],bottom,s[2],uvB),add(s[0],height,s[2],uv2y),add(s[1],height,s[3],uv2y),add(s[1],bottom,s[3],uvB),"bottom");}
+  var ysL=centerAxis(top,bottom,leftTile,S.ry,uvT,uvB);
+  for(var ei=0;ei<ysL.length;ei++){var s=ysL[ei];quad(add(0,s[0],uv1x,s[2]),add(0,s[1],uv1x,s[3]),add(left,s[1],uvL,s[3]),add(left,s[0],uvL,s[2]),"left");}
+  var ysR=centerAxis(top,bottom,rightTile,S.ry,uvT,uvB);
+  for(var ei=0;ei<ysR.length;ei++){var s=ysR[ei];quad(add(right,s[0],uvR,s[2]),add(right,s[1],uvR,s[3]),add(width,s[1],uv2x,s[3]),add(width,s[0],uv2x,s[2]),"right");}
   function centerTile(b1,tb1,b2,tb2,tc){
     var s=scaleCenter(b1,tb1,tc); if(s>0) return s;
     s=scaleCenter(b2,tb2,tc); if(s>0) return s;
@@ -278,6 +284,7 @@ for(var i=0;i<bs.length;i++){(function(b){b.addEventListener("click",function(){
 readState();
 window.__diag=function(){var g=buildGeometry();var reg={};for(var i=0;i<g.quads.length;i++){var q=g.quads[i];var k=q.tag.split("#")[0];reg[k]=(reg[k]||0)+area(g,q);}return {steps:{top:fmt(g.info.stepTop),left:fmt(g.info.stepLeft)},regions:reg};};
 window.__setPreset=setPreset;
+window.__dump=function(){var g=buildGeometry();var out=[];for(var i=0;i<g.quads.length;i++){var q=g.quads[i],ids=[q.a,q.b,q.c,q.d],vmin=1e9,vmax=-1e9,ymin=1e9,ymax=-1e9,xmin=1e9,xmax=-1e9;for(var k=0;k<4;k++){var pt=g.pts[ids[k]];vmin=Math.min(vmin,pt.v);vmax=Math.max(vmax,pt.v);ymin=Math.min(ymin,pt.y);ymax=Math.max(ymax,pt.y);xmin=Math.min(xmin,pt.x);xmax=Math.max(xmax,pt.x);}out.push({tag:q.tag.split("#")[0],x:[xmin,xmax],y:[ymin,ymax],v:[+vmin.toFixed(4),+vmax.toFixed(4)]});}return out;};
 })();
 </script>
 </body>

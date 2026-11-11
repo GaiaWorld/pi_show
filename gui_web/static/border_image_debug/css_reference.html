@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<title>原生 CSS border-image 对照</title>
+<style>
+  html,body{margin:0;background:#0f1420;color:#d7dce5;font:13px/1.5 ui-monospace,Consolas,monospace}
+  .page{padding:18px;display:flex;flex-direction:column;gap:22px}
+  h1{font-size:15px;margin:0 0 6px}
+  .hint{color:#8090a8}
+  .row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .case{background:#141a28;border:1px solid #263042;border-radius:8px;padding:12px}
+  .case h2{font-size:12px;margin:0 0 8px;color:#8fa3c0;letter-spacing:.06em;text-transform:uppercase}
+  .stage{background-image:repeating-conic-gradient(#1a2233 0% 25%,#111827 0% 50%);background-size:16px 16px;border:1px solid #2c3a50;border-radius:6px;overflow:auto;padding:0}
+  /*
+    关键：box-sizing:border-box + width/height = 节点尺寸(920x203)
+    border-width = 0 560px 0 60px  (上 右 下 左)
+    border-image-slice = 0 560 0 60 fill   (无单位 = 源图像像素; 图片 632x208)
+    border-image-width 默认 1 => 1 x border-width
+  */
+  .bi{
+    box-sizing:border-box;
+    width:920px;height:203px;
+    border-style:solid;
+    border-color:transparent;
+    border-width:0 560px 0 60px;
+    border-image-source:url("border.png");
+    border-image-slice:0 560 0 60 fill;
+  }
+  .bi-repeat{border-image-repeat:repeat repeat;}
+  .bi-stretch{border-image-repeat:stretch stretch;}
+  code{color:#9fe0b0}
+  .legend{margin-top:8px;color:#8090a8}
+</style>
+</head>
+<body>
+<div class="page">
+  <div>
+    <h1>原生 CSS border-image 对照</h1>
+    <div class="hint">
+      div: <code>box-sizing:border-box; width:920px; height:203px; border-width:0 560px 0 60px</code><br/>
+      <code>border-image-slice:0 560 0 60 fill; border-image-repeat: ...</code>（无单位 slice = 源图像像素，图片 632×208）
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="case">
+      <h2>repeat repeat（xy 都平铺）</h2>
+      <div class="stage"><div class="bi bi-repeat"></div></div>
+      <div class="legend">预期：左/右各 1 块居中裁切；中间 12px 切片横向 25 块、纵向 1 块（203&lt;208）</div>
+    </div>
+
+    <div class="case">
+      <h2>stretch stretch（xy 都拉伸）</h2>
+      <div class="stage"><div class="bi bi-stretch"></div></div>
+      <div class="legend">预期：各区域单块拉满</div>
+    </div>
+  </div>
+
+  <div class="legend">我们的 WebGL 实现对照：<a href="index.html" style="color:#7db4ff">index.html</a>（点「原始场景 xy 都平铺」）</div>
+</div>
+</body>
+</html>

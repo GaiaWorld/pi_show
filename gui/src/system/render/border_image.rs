@@ -417,98 +417,40 @@ fn get_border_image_stream(
         Some(r) => r.clone(),
         None => BorderImageRepeat::default(),
     };
-    let (
-        (offset_top, space_top, step_top),
-        (offset_bottom, space_bottom, step_bottom),
-        (offset_left, space_left, step_left),
-        (offset_right, space_right, step_right),
-    ) = (
-        calc_step(right - left, scaled_center_size(layout.border.top, texture_top_height, texture_center_width), repeat.x),
-        calc_step(
-            right - left,
-            scaled_center_size(layout.border.bottom, texture_bottom_height, texture_center_width),
-            repeat.x,
-        ),
-        calc_step(bottom - top, scaled_center_size(layout.border.left, texture_left_width, texture_center_height), repeat.y),
-        calc_step(bottom - top, scaled_center_size(layout.border.right, texture_right_width, texture_center_height), repeat.y),
-    );
+    // 四条边按 CSS 规范沿边分段平铺（与中心区同一套 center_axis，正确处理 tile > 区域时的居中裁切）
+    // tile 尺寸 = 对应边的缩放因子 * 中心源尺寸；slice 为 0 时 tile 为 0，边自然跳过
+    let top_tile = scaled_center_size(layout.border.top, texture_top_height, texture_center_width);
+    let bottom_tile = scaled_center_size(layout.border.bottom, texture_bottom_height, texture_center_width);
+    let left_tile = scaled_center_size(layout.border.left, texture_left_width, texture_center_height);
+    let right_tile = scaled_center_size(layout.border.right, texture_right_width, texture_center_height);
 
-    if step_top > 0.0 {
-        push_u_arr(
-            &mut point_arr,
-            &mut uv_arr,
-            &mut index_arr,
-            p_left_y1,
-            p_left_top,
-            p_right_top,
-            p_right_y1,
-            uv_left,
-            uv1.y,
-            uv_right,
-            uv_top,
-            step_top,
-            offset_top,
-            space_top,
-            &mut pi,
-        ); // 上边
+    for &(x0, x1, u0, u1) in center_axis(left, right, top_tile, repeat.x, uv_left, uv_right).iter() {
+        let a = push_vertex(&mut point_arr, &mut uv_arr, x0, p1.y, u0, uv1.y, &mut pi);
+        let b = push_vertex(&mut point_arr, &mut uv_arr, x0, top, u0, uv_top, &mut pi);
+        let c = push_vertex(&mut point_arr, &mut uv_arr, x1, top, u1, uv_top, &mut pi);
+        let d = push_vertex(&mut point_arr, &mut uv_arr, x1, p1.y, u1, uv1.y, &mut pi);
+        push_quad(&mut index_arr, a, b, c, d);
     }
-    if step_bottom > 0.0 {
-        push_u_arr(
-            &mut point_arr,
-            &mut uv_arr,
-            &mut index_arr,
-            p_left_bottom,
-            p_left_y2,
-            p_right_y2,
-            p_right_bottom,
-            uv_left,
-            uv_bottom,
-            uv_right,
-            uv2.y,
-            step_bottom,
-            offset_bottom,
-            space_bottom,
-            &mut pi,
-        ); // 下边
+    for &(x0, x1, u0, u1) in center_axis(left, right, bottom_tile, repeat.x, uv_left, uv_right).iter() {
+        let a = push_vertex(&mut point_arr, &mut uv_arr, x0, bottom, u0, uv_bottom, &mut pi);
+        let b = push_vertex(&mut point_arr, &mut uv_arr, x0, p2.y, u0, uv2.y, &mut pi);
+        let c = push_vertex(&mut point_arr, &mut uv_arr, x1, p2.y, u1, uv2.y, &mut pi);
+        let d = push_vertex(&mut point_arr, &mut uv_arr, x1, bottom, u1, uv_bottom, &mut pi);
+        push_quad(&mut index_arr, a, b, c, d);
     }
-
-    if step_left > 0.0 {
-        push_v_arr(
-            &mut point_arr,
-            &mut uv_arr,
-            &mut index_arr,
-            p_x1_top,
-            p_x1_bottom,
-            p_left_bottom,
-            p_left_top,
-            uv1.x,
-            uv_top,
-            uv_left,
-            uv_bottom,
-            step_left,
-            offset_left,
-            space_left,
-            &mut pi,
-        ); // 左边
+    for &(y0, y1, v0, v1) in center_axis(top, bottom, left_tile, repeat.y, uv_top, uv_bottom).iter() {
+        let a = push_vertex(&mut point_arr, &mut uv_arr, p1.x, y0, uv1.x, v0, &mut pi);
+        let b = push_vertex(&mut point_arr, &mut uv_arr, p1.x, y1, uv1.x, v1, &mut pi);
+        let c = push_vertex(&mut point_arr, &mut uv_arr, left, y1, uv_left, v1, &mut pi);
+        let d = push_vertex(&mut point_arr, &mut uv_arr, left, y0, uv_left, v0, &mut pi);
+        push_quad(&mut index_arr, a, b, c, d);
     }
-    if step_right > 0.0 {
-        push_v_arr(
-            &mut point_arr,
-            &mut uv_arr,
-            &mut index_arr,
-            p_right_top,
-            p_right_bottom,
-            p_x2_bottom,
-            p_x2_top,
-            uv_right,
-            uv_top,
-            uv2.x,
-            uv_bottom,
-            step_right,
-            offset_right,
-            space_right,
-            &mut pi,
-        ); // 右边
+    for &(y0, y1, v0, v1) in center_axis(top, bottom, right_tile, repeat.y, uv_top, uv_bottom).iter() {
+        let a = push_vertex(&mut point_arr, &mut uv_arr, right, y0, uv_right, v0, &mut pi);
+        let b = push_vertex(&mut point_arr, &mut uv_arr, right, y1, uv_right, v1, &mut pi);
+        let c = push_vertex(&mut point_arr, &mut uv_arr, p2.x, y1, uv2.x, v1, &mut pi);
+        let d = push_vertex(&mut point_arr, &mut uv_arr, p2.x, y0, uv2.x, v0, &mut pi);
+        push_quad(&mut index_arr, a, b, c, d);
     }
 
     // 处理中间：中间区域独立于四条边，按 repeat 真正平铺；不再复用边的 step，避免 slice 为 0 时 0/0 产生 NaN
@@ -651,6 +593,7 @@ fn center_axis(
     out
 }
 
+#[allow(dead_code)]
 fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, f32) {
     if let ImageRepeatOption::Stretch = rtype {
         return (0.0, 0.0, csize);
@@ -679,6 +622,7 @@ fn calc_step(csize: f32, img_size: f32, rtype: ImageRepeatOption) -> (f32, f32, 
 }
 
 // 将指定区域按u切开
+#[allow(dead_code)]
 fn push_u_arr(
     point_arr: &mut Polygon,
     uv_arr: &mut Polygon,
@@ -737,6 +681,7 @@ fn push_u_arr(
     push_quad(index_arr, pt1, pt2, p3, p4);
 }
 // 将指定区域按v切开
+#[allow(dead_code)]
 fn push_v_arr(
     point_arr: &mut Polygon,
     uv_arr: &mut Polygon,
@@ -781,6 +726,7 @@ fn push_v_arr(
 
 
 #[inline]
+#[allow(dead_code)]
 pub fn push_v_box(
     point_arr: &mut Polygon,
     uv_arr: &mut Polygon,
