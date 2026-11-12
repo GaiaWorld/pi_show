@@ -17,9 +17,14 @@
   select{width:120px}
   button{background:#22304a;color:#dbe6f7;border:1px solid #38507a;border-radius:5px;padding:5px 9px;cursor:pointer;margin:3px 4px 3px 0}
   button:hover{background:#2c4064}
-  #canvasWrap{position:relative;align-self:flex-start;border:1px solid #2c3a50;border-radius:6px;overflow:hidden;
+  #canvasWrap{position:relative;align-self:flex-start;flex:0 0 auto;border:1px solid #2c3a50;border-radius:6px;overflow:hidden;
     background-image:repeating-conic-gradient(#1a2233 0% 25%,#111827 0% 50%);background-size:16px 16px}
-  canvas{display:block;max-width:100%;height:auto}
+  canvas{display:block;max-width:100%;max-height:calc(100vh - 90px);width:auto;height:auto}
+  .cap{font-size:12px;color:#8fa3c0;margin:0 0 4px}
+  #cssWrap{align-self:flex-start;flex:0 0 auto}
+  #ov{position:absolute;left:0;top:0;width:1px;height:1px;pointer-events:none}
+  #cssBox{box-sizing:content-box;border-style:solid;border-color:transparent;
+    background-image:repeating-conic-gradient(#1a2233 0% 25%,#111827 0% 50%);background-size:16px 16px}
   #dbg{white-space:pre-wrap;background:#0b1020;border:1px solid #233049;border-radius:6px;padding:10px;margin-top:10px}
   .bad{color:#ff6b6b;font-weight:bold}
   .ok{color:#5bd67a;font-weight:bold}
@@ -42,6 +47,13 @@
   <button data-preset="xy">xy 都平铺</button>
   <button data-preset="xy0">xy 都平铺（上下 slice=0）</button>
   <button data-preset="xy0b">xy 都平铺（border 上下=0，slice 上下=0）</button>
+  <button data-preset="case2">case2：836×839，slice 770 0 35 0 repeat</button>
+  <button data-preset="case2w">case2 复现整体劈：归一化=全部÷宽</button>
+  <button data-preset="case2real">case2 实际值：top=0.9178 bottom=0.0417（按轴）</button>
+  <h2>图片 / 复现</h2>
+  <div class="row"><label>image</label><select id="IMG"><option value="border.png">border.png 632x208</option><option value="case2.png">case2.png 836x839</option></select></div>
+  <div class="row"><label>容差取整</label><input id="TOL" type="checkbox"> <span class="hint">修复预览</span></div>
+  <div class="row"><label>slice 归一化</label><select id="NORM"><option value="axis">按轴：上/下÷高，左/右÷宽</option><option value="w">全部÷宽</option><option value="h">全部÷高</option></select></div>
   <h2>节点 / 边框</h2>
   <div class="row"><label>宽 W</label><input id="W" type="number" value="920"></div>
   <div class="row"><label>高 H</label><input id="H" type="number" value="203"></div>
@@ -49,7 +61,7 @@
   <div class="row"><label>border 右</label><input id="BR" type="number" value="560"></div>
   <div class="row"><label>border 上</label><input id="BT" type="number" value="0"></div>
   <div class="row"><label>border 下</label><input id="BB" type="number" value="0"></div>
-  <h2>slice（图片像素，632x208）</h2>
+  <h2 id="sliceHint">slice（图片像素，632x208）</h2>
   <div class="row"><label>top</label><input id="ST" type="number" value="0"></div>
   <div class="row"><label>right</label><input id="SR" type="number" value="560"></div>
   <div class="row"><label>bottom</label><input id="SB" type="number" value="0"></div>
@@ -62,15 +74,16 @@
   <div id="dbg"></div>
 </aside>
 <main id="main">
-  <div id="canvasWrap"><canvas id="gl"></canvas></div>
+  <div id="canvasWrap"><canvas id="gl"></canvas><canvas id="ov"></canvas></div>
   <div class="hint">棋盘格 = 没有画到的区域；品红线 = 实际生成的三角形边界。</div>
+  <div id="cssWrap"><div class="cap">原生 CSS border-image（期望效果）</div><div id="cssBox"></div></div>
 </main>
 </div>
 <script>
 (function(){
 var EPS = 1.1920929e-7 * 10240;
 var IMG_W = 632, IMG_H = 208;
-var S = { W:920,H:203,L:60,R:560,T:0,B:0, ST:0,SR:560,SB:0,SL:60, fill:true, rx:"Repeat", ry:"Stretch", wire:true };
+var S = { W:920,H:203,L:60,R:560,T:0,B:0, ST:0,SR:560,SB:0,SL:60, fill:true, rx:"Repeat", ry:"Stretch", tol:false, norm:"axis", wire:true };
 function calcStep(csize, img, rt){
   rt = rt.toLowerCase();
   if(rt==="stretch") return [0,0,csize];
@@ -88,16 +101,19 @@ function buildGeometry(){
   function add(x,y,u,v){pts.push({x:x,y:y,u:u,v:v}); return pi++;}
   function quad(a,b,c,d,tag){quads.push({tag:tag,a:a,b:b,c:c,d:d});}
   var W=S.W,H=S.H,L=S.L,R=S.R,T=S.T,B=S.B, width=W, height=H;
-  var st=S.ST/IMG_H, sr=S.SR/IMG_W, sb=S.SB/IMG_H, sl=S.SL/IMG_W;
+  var F=Math.fround;
+  var denomTB = S.norm==="w" ? IMG_W : IMG_H;
+  var denomLR = S.norm==="h" ? IMG_H : IMG_W;
+  var st=F(S.ST/denomTB), sr=F(S.SR/denomLR), sb=F(S.SB/denomTB), sl=F(S.SL/denomLR);
   var uv1x=0,uv1y=0,uv2x=1,uv2y=1, uvw=1, uvh=1;
-  var uvL=uv1x+sl*uvw, uvR=uv2x-sr*uvw, uvT=uv1y+st*uvh, uvB=uv2y-sb*uvh;
+  var uvL=F(uv1x+sl*uvw), uvR=F(uv2x-sr*uvw), uvT=F(uv1y+st*uvh), uvB=F(uv2y-sb*uvh);
   var left=L, right=W-R, top=T, bottom=H-B;
   var p1y1=add(0,0,uv1x,uv1y),p1top=add(0,top,uv1x,uvT),pLT=add(left,top,uvL,uvT),pLy1=add(left,0,uvL,uv1y); quad(p1y1,p1top,pLT,pLy1,"TL");
   var p1bot=add(0,bottom,uv1x,uvB),p1y2=add(0,height,uv1x,uv2y),pLy2=add(left,height,uvL,uv2y),pLB=add(left,bottom,uvL,uvB); quad(p1bot,p1y2,pLy2,pLB,"BL");
   var pRB=add(right,bottom,uvR,uvB),pRy2=add(right,height,uvR,uv2y),p2y2=add(width,height,uv2x,uv2y),p2bot=add(width,bottom,uv2x,uvB); quad(pRB,pRy2,p2y2,p2bot,"BR");
   var pRy1=add(right,0,uvR,uv1y),pRT=add(right,top,uvR,uvT),p2top=add(width,top,uv2x,uvT),p2y1=add(width,0,uv2x,uv1y); quad(pRy1,pRT,p2top,p2y1,"TR");
-  var texLW=IMG_W*(uvL-uv1x), texRW=IMG_W*(uv2x-uvR), texTH=IMG_H*(uvT-uv1y), texBH=IMG_H*(uv2y-uvB), texCW=IMG_W*(uvR-uvL), texCH=IMG_H*(uvB-uvT);
-  var scaleCenter=function(b,tb,tc){return tb>0?b/tb*tc:0;};
+  var texLW=F(F(uvL-uv1x)*IMG_W), texRW=F(F(uv2x-uvR)*IMG_W), texTH=F(F(uvT-uv1y)*IMG_H), texBH=F(F(uv2y-uvB)*IMG_H), texCW=F(F(uvR-uvL)*IMG_W), texCH=F(F(uvB-uvT)*IMG_H);
+  var scaleCenter=function(b,tb,tc){return tb>0?F(F(b/tb)*tc):0;};
   var topStep=calcStep(right-left, scaleCenter(T,texTH,texCW), S.rx);
   var leftStep=calcStep(bottom-top, scaleCenter(L,texLW,texCH), S.ry);
   var stepTop=topStep[2], stepLeft=leftStep[2];
@@ -143,7 +159,16 @@ function buildGeometry(){
     rt=rt.toLowerCase();
     if(rt==="stretch"){out.push([lo,hi,uLo,uHi]);return out;}
     if(rt==="repeat"){
-      var count=Math.ceil(region/tile); if(count<=0) return out;
+      var ratio=Math.fround(region/tile);
+      if(S.tol){
+        var nr=Math.round(ratio), diffPx=Math.abs(ratio-nr)*region;
+        if(nr>=1&&diffPx<=0.5){
+          var step=region/nr;
+          for(var i=0;i<nr;i++){var p0=lo+i*step,p1=(i===nr-1)?hi:p0+step;out.push([p0,p1,uLo,uHi]);}
+          return out;
+        }
+      }
+      var count=Math.ceil(ratio); if(count<=0) return out;
       var total=count*tile,start=lo-(total-region)/2;
       for(var i=0;i<count;i++){var p0=start+i*tile,p1=p0+tile,cs=Math.max(p0,lo),ce=Math.min(p1,hi);if(ce<=cs)continue;var u0=uLo+(cs-p0)/tile*(uHi-uLo),u1=uLo+(ce-p0)/tile*(uHi-uLo);out.push([cs,ce,u0,u1]);}
       return out;
@@ -163,10 +188,10 @@ function buildGeometry(){
         quad(a,b,c,d,"center");
       }}
   }
-  return {pts:pts,quads:quads,info:{left:left,right:right,top:top,bottom:bottom,uvL:uvL,uvR:uvR,uvT:uvT,uvB:uvB,texLW:texLW,texRW:texRW,texTH:texTH,texBH:texBH,texCW:texCW,texCH:texCH,stepTop:stepTop,stepLeft:stepLeft,rawTop:topStep,rawLeft:leftStep}};
+  return {pts:pts,quads:quads,info:{left:left,right:right,top:top,bottom:bottom,uvL:uvL,uvR:uvR,uvT:uvT,uvB:uvB,texLW:texLW,texRW:texRW,texTH:texTH,texBH:texBH,texCW:texCW,texCH:texCH,stepTop:stepTop,stepLeft:stepLeft,rawTop:topStep,rawLeft:leftStep,topTile:topTile,bottomTile:bottomTile,leftTile:leftTile,rightTile:rightTile,centerW:cw,centerH:ch}};
 }
 var canvas=document.getElementById("gl");
-var gl=canvas.getContext("webgl",{alpha:true,premultipliedAlpha:false,antialias:true});
+var gl=canvas.getContext("webgl",{alpha:true,premultipliedAlpha:false,antialias:true,preserveDrawingBuffer:true});
 function sh(type,src){var s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;}
 function prog(vs,fs){var p=gl.createProgram();gl.attachShader(p,sh(gl.VERTEX_SHADER,vs));gl.attachShader(p,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p));return p;}
 var VSH=["attribute vec2 aPos;attribute vec2 aUV;uniform vec2 uRes;varying vec2 vUV;","void main(){vUV=aUV;float x=aPos.x/uRes.x*2.0-1.0;float y=1.0-aPos.y/uRes.y*2.0;gl_Position=vec4(x,y,0.0,1.0);}"].join("\n");
@@ -177,16 +202,26 @@ var texLoc={pos:gl.getAttribLocation(texProg,"aPos"),uv:gl.getAttribLocation(tex
 var lineLoc={pos:gl.getAttribLocation(lineProg,"aPos"),uv:gl.getAttribLocation(lineProg,"aUV"),res:gl.getUniformLocation(lineProg,"uRes"),color:gl.getUniformLocation(lineProg,"uColor")};
 var posBuf=gl.createBuffer(), uvBuf=gl.createBuffer(), idxBuf=gl.createBuffer(), lineBuf=gl.createBuffer();
 var texture=null, imageReady=false;
+var IMG_SIZES={"border.png":[632,208],"case2.png":[836,839]};
 var img=new Image();
-img.onload=function(){
+function uploadTexture(){
   texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
-  imageReady=true;render();
+}
+img.onload=function(){
+  IMG_W=img.naturalWidth; IMG_H=img.naturalHeight;
+  var h=document.getElementById("sliceHint"); if(h) h.textContent="slice（图片像素，"+IMG_W+"x"+IMG_H+"）";
+  uploadTexture(); imageReady=true; render();
 };
+function setImage(src){
+  var sel=document.getElementById("IMG"); if(sel&&sel.value!==src) sel.value=src;
+  if(img.getAttribute("data-src")!==src){ img.setAttribute("data-src",src); img.src=src; }
+}
+img.setAttribute("data-src","border.png");
 img.src="border.png";
 function area(g,q){
   function P(i){return g.pts[i];} var a=P(q.a),b=P(q.b),c=P(q.c),d=P(q.d);
@@ -225,12 +260,16 @@ function render(){
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,lineBuf);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,lines,gl.DYNAMIC_DRAW);
     gl.drawElements(gl.LINES,lines.length,gl.UNSIGNED_SHORT,0);
   }
+  drawOverlay(g);
   updateDebug(g);
+  updateCss();
 }
 function updateDebug(g){
   var i=g.info;
   var regions={TL:0,BL:0,BR:0,TR:0,top:0,bottom:0,left:0,right:0,center:0};
   for(var n=0;n<g.quads.length;n++){var q=g.quads[n];var k=q.tag.split("#")[0];regions[k]=(regions[k]||0)+area(g,q);}
+  var counts={};
+  for(var n=0;n<g.quads.length;n++){var q0=g.quads[n];var k0=q0.tag.split("#")[0];counts[k0]=(counts[k0]||0)+1;}
   var names=["TL","top","TR","left","center","right","BL","bottom","BR"];
   var tagHtml="";
   for(var n=0;n<names.length;n++){var nm=names[n];var on=regions[nm]>0.5;tagHtml+="<span class=\"tag "+(on?"on":"off")+"\">"+nm+":"+(on?"画":"无")+"</span>";}
@@ -241,12 +280,65 @@ function updateDebug(g){
   if(isNaN(i.stepLeft)){ diag+="<span class=bad>stepLeft = NaN（修复后不应出现）</span>\n"; }
   else if(i.stepLeft<=0){ diag+="<span class=hint>stepLeft = "+fmt(i.stepLeft)+" (<=0)：左/右边跳过</span>\n"; }
   diag += centerDrawn ? "<span class=ok>中心：按 repeat 平铺绘制（独立于四条边，不受 step 影响）</span>\n" : "<span class=hint>中心：未绘制（fill 关闭或内区域为空）</span>\n";
+  if(S.norm!=="axis"){ diag += "<span class=bad>⚠ slice 归一化不是按轴：上/下应按图高 "+IMG_H+" 归一化，不是宽/高混用</span>\n"; }
+  var splitTags=[];
+  for(var nm2 in counts){ if((nm2==="top"||nm2==="bottom"||nm2==="left"||nm2==="right"||nm2==="center")&&counts[nm2]>1) splitTags.push(nm2+"="+counts[nm2]); }
+  if(splitTags.length){ diag += "<span class=bad>⚠ 已劈开："+splitTags.join(" ")+"（红色线=分界）</span>\n"; }
+  else { diag += "<span class=ok>✅ 未劈开</span>\n"; }
   var dbg=document.getElementById("dbg");
   dbg.innerHTML = "<b>几何输出</b>\n"+tagHtml+"\n\n"
     +"left="+fmt(i.left)+"  right="+fmt(i.right)+"  top="+fmt(i.top)+"  bottom="+fmt(i.bottom)+"\n"
-    +"uvL="+fmt(i.uvL)+"  uvR="+fmt(i.uvR)+"  uvT="+fmt(i.uvT)+"  uvB="+fmt(i.uvB)+"\n"
+    +"归一化="+(S.norm==="w"?"全部÷宽":(S.norm==="h"?"全部÷高":"按轴"))+"  uvL="+fmt(i.uvL)+"  uvR="+fmt(i.uvR)+"  uvT="+fmt(i.uvT)+"  uvB="+fmt(i.uvB)+"\n"
     +"texture 左/右/上/下/中宽高: "+fmt(i.texLW)+" / "+fmt(i.texRW)+" / "+fmt(i.texTH)+" / "+fmt(i.texBH)+" / "+fmt(i.texCW)+" / "+fmt(i.texCH)+"\n"
-    +"stepTop="+fmt(i.stepTop)+"  stepLeft="+fmt(i.stepLeft)+"  (quads="+g.quads.length+")\n\n"+diag;
+    +"tiles: top="+fmt(i.topTile)+" bottom="+fmt(i.bottomTile)+" left="+fmt(i.leftTile)+" right="+fmt(i.rightTile)+" center="+fmt(i.centerW)+"x"+fmt(i.centerH)+"\n"
+    +"stepTop="+fmt(i.stepTop)+"  stepLeft="+fmt(i.stepLeft)+"  (quads="+g.quads.length+")\n"
+    +"段数：top="+(counts.top||0)+" bottom="+(counts.bottom||0)+" left="+(counts.left||0)+" right="+(counts.right||0)+" center="+(counts.center||0)+"  [容差取整:"+(S.tol?"开":"关")+"]\n\n"+diag;
+}
+function drawOverlay(g){
+  var ov=document.getElementById("ov"), gl=document.getElementById("gl"); if(!ov||!gl) return;
+  ov.width=S.W; ov.height=S.H;
+  var dw=gl.clientWidth||S.W, dh=gl.clientHeight||S.H;
+  ov.style.width=dw+"px"; ov.style.height=dh+"px";
+  var ox=ov.getContext("2d"); ox.clearRect(0,0,S.W,S.H);
+  if(!S.wire) return;
+  function P(i){return g.pts[i];}
+  ox.strokeStyle="rgba(255,51,230,0.95)"; ox.lineWidth=1;
+  for(var i=0;i<g.quads.length;i++){
+    var q=g.quads[i],a=P(q.a),b=P(q.b),c=P(q.c),d=P(q.d);
+    ox.beginPath();ox.moveTo(a.x,a.y);ox.lineTo(b.x,b.y);ox.lineTo(c.x,c.y);ox.lineTo(d.x,d.y);ox.closePath();ox.stroke();
+  }
+  var groups={};
+  for(var i=0;i<g.quads.length;i++){
+    var q=g.quads[i],a=P(q.a),b=P(q.b),c=P(q.c),d=P(q.d);
+    var tag=q.tag.split("#")[0];
+    var x0=Math.min(a.x,b.x,c.x,d.x),x1=Math.max(a.x,b.x,c.x,d.x);
+    var y0=Math.min(a.y,b.y,c.y,d.y),y1=Math.max(a.y,b.y,c.y,d.y);
+    (groups[tag]||(groups[tag]=[])).push({x0:x0,x1:x1,y0:y0,y1:y1});
+  }
+  ox.strokeStyle="rgba(255,40,40,0.98)"; ox.lineWidth=3;
+  ox.font="12px ui-monospace,Consolas,monospace";
+  for(var tag in groups){
+    var bs=groups[tag]; if(bs.length<=1) continue;
+    var xs=[],ys=[];
+    for(var k=0;k<bs.length;k++){xs.push(bs[k].x0,bs[k].x1);ys.push(bs[k].y0,bs[k].y1);}
+    xs=xs.filter(function(v,i,arr){return arr.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+    ys=ys.filter(function(v,i,arr){return arr.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+    var minY=Math.min.apply(null,bs.map(function(b){return b.y0;})),maxY=Math.max.apply(null,bs.map(function(b){return b.y1;}));
+    var minX=Math.min.apply(null,bs.map(function(b){return b.x0;})),maxX=Math.max.apply(null,bs.map(function(b){return b.x1;}));
+    for(var j=1;j<xs.length-1;j++){var x=xs[j];ox.beginPath();ox.moveTo(x,minY);ox.lineTo(x,maxY);ox.stroke();ox.fillStyle="#ffdf5d";ox.fillText("split x="+Math.round(x),x+4,minY+14);}
+    for(var j=1;j<ys.length-1;j++){var y=ys[j];ox.beginPath();ox.moveTo(minX,y);ox.lineTo(maxX,y);ox.stroke();ox.fillStyle="#ffdf5d";ox.fillText("split y="+Math.round(y),minX+4,y-4);}
+  }
+}
+function cssRepeat(v){return String(v).toLowerCase();}
+function updateCss(){
+  var el=document.getElementById("cssBox"); if(!el) return;
+  el.style.width=(S.W-S.L-S.R)+"px";
+  el.style.height=(S.H-S.T-S.B)+"px";
+  el.style.borderWidth=S.T+"px "+S.R+"px "+S.B+"px "+S.L+"px";
+  el.style.borderImageSource='url("'+(img.getAttribute("data-src")||"border.png")+'")';
+  el.style.borderImageSlice=S.ST+" "+S.SR+" "+S.SB+" "+S.SL+(S.fill?" fill":"");
+  el.style.borderImageRepeat=cssRepeat(S.rx)+" "+cssRepeat(S.ry);
+  el.style.borderImageWidth="1";
 }
 function readState(){
   S.W=+document.getElementById("W").value; S.H=+document.getElementById("H").value;
@@ -257,16 +349,21 @@ function readState(){
   S.fill=document.getElementById("FILL").checked;
   S.rx=document.getElementById("RX").value; S.ry=document.getElementById("RY").value;
   S.wire=document.getElementById("WIRE").checked;
+  var tol=document.getElementById("TOL"); S.tol=tol?tol.checked:false;
+  var norm=document.getElementById("NORM"); S.norm=norm?norm.value:"axis";
   render();
 }
 function setPreset(kind){
-  if(kind==="origxy"){S.W=920;S.H=203;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  if(kind==="origxy"){S.W=920;S.H=203;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;setImage("border.png");IMG_W=632;IMG_H=208;}
   if(kind==="fail"){S.rx="Repeat";S.ry="Stretch";}
   if(kind==="work"){S.rx="Stretch";S.ry="Stretch";}
   if(kind==="space"){S.rx="Space";S.ry="Space";}
-  if(kind==="xy"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=40;S.B=40;S.ST=40;S.SR=560;S.SB=40;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
-  if(kind==="xy0"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
-  if(kind==="xy0b"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";}
+  if(kind==="xy"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=40;S.B=40;S.ST=40;S.SR=560;S.SB=40;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;setImage("border.png");IMG_W=632;IMG_H=208;}
+  if(kind==="xy0"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;setImage("border.png");IMG_W=632;IMG_H=208;}
+  if(kind==="xy0b"){S.W=920;S.H=460;S.L=60;S.R=560;S.T=0;S.B=0;S.ST=0;S.SR=560;S.SB=0;S.SL=60;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;setImage("border.png");IMG_W=632;IMG_H=208;}
+  if(kind==="case2"){S.W=836;S.H=839;S.L=0;S.R=0;S.T=770;S.B=35;S.ST=770;S.SR=0;S.SB=35;S.SL=0;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;S.norm="axis";S.wire=true;setImage("case2.png");IMG_W=836;IMG_H=839;}
+  if(kind==="case2w"){S.W=836;S.H=839;S.L=0;S.R=0;S.T=770;S.B=35;S.ST=770;S.SR=0;S.SB=35;S.SL=0;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;S.norm="w";S.wire=true;setImage("case2.png");IMG_W=836;IMG_H=839;}
+  if(kind==="case2real"){S.W=836;S.H=839;S.L=0;S.R=0;S.T=770;S.B=35;S.ST=0.9178*839;S.SR=0;S.SB=0.0417*839;S.SL=0;S.fill=true;S.rx="Repeat";S.ry="Repeat";S.tol=false;S.norm="axis";S.wire=true;setImage("case2.png");IMG_W=836;IMG_H=839;}
   document.getElementById("W").value=S.W; document.getElementById("H").value=S.H;
   document.getElementById("BL").value=S.L; document.getElementById("BR").value=S.R;
   document.getElementById("BT").value=S.T; document.getElementById("BB").value=S.B;
@@ -275,15 +372,23 @@ function setPreset(kind){
   document.getElementById("FILL").checked=S.fill;
   document.getElementById("RX").value=S.rx; document.getElementById("RY").value=S.ry;
   document.getElementById("WIRE").checked=S.wire;
+  var tol=document.getElementById("TOL"); if(tol) tol.checked=S.tol;
+  var norm=document.getElementById("NORM"); if(norm) norm.value=S.norm;
   render();
 }
 var els=document.querySelectorAll("#panel input,#panel select");
 for(var i=0;i<els.length;i++){els[i].addEventListener("input",readState);els[i].addEventListener("change",readState);}
 var bs=document.querySelectorAll("button[data-preset]");
 for(var i=0;i<bs.length;i++){(function(b){b.addEventListener("click",function(){setPreset(b.getAttribute("data-preset"));});})(bs[i]);}
+var imsel=document.getElementById("IMG");
+if(imsel) imsel.addEventListener("change",function(){var nm=imsel.value,sz=IMG_SIZES[nm];if(sz){IMG_W=sz[0];IMG_H=sz[1];}setImage(nm);render();});
 readState();
+window.addEventListener("resize",function(){ render(); });
+requestAnimationFrame(function(){ render(); });
 window.__diag=function(){var g=buildGeometry();var reg={};for(var i=0;i<g.quads.length;i++){var q=g.quads[i];var k=q.tag.split("#")[0];reg[k]=(reg[k]||0)+area(g,q);}return {steps:{top:fmt(g.info.stepTop),left:fmt(g.info.stepLeft)},regions:reg};};
 window.__setPreset=setPreset;
+window.__setImage=setImage;
+window.__img=img;
 window.__dump=function(){var g=buildGeometry();var out=[];for(var i=0;i<g.quads.length;i++){var q=g.quads[i],ids=[q.a,q.b,q.c,q.d],vmin=1e9,vmax=-1e9,ymin=1e9,ymax=-1e9,xmin=1e9,xmax=-1e9;for(var k=0;k<4;k++){var pt=g.pts[ids[k]];vmin=Math.min(vmin,pt.v);vmax=Math.max(vmax,pt.v);ymin=Math.min(ymin,pt.y);ymax=Math.max(ymax,pt.y);xmin=Math.min(xmin,pt.x);xmax=Math.max(xmax,pt.x);}out.push({tag:q.tag.split("#")[0],x:[xmin,xmax],y:[ymin,ymax],v:[+vmin.toFixed(4),+vmax.toFixed(4)]});}return out;};
 })();
 </script>

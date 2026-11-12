@@ -548,7 +548,22 @@ fn center_axis(
     match rtype {
         ImageRepeatOption::Stretch => out.push((lo, hi, uv_lo, uv_hi)),
         ImageRepeatOption::Repeat => {
-            let count = (region / tile).ceil();
+            let ratio = region / tile;
+            let near = ratio.round();
+            // 4 位小数归一化会带来约 0.03px 的误差，使 region/tile 略大于整数；
+            // f32 也会有类似抖动。误差在半个像素内就按整数倍精确等分，避免 ceil 多切一块。
+            let diff_px = (ratio - near).abs() * region;
+            if near >= 1.0 && diff_px <= 0.5 {
+                let n = near as i32;
+                let step = region / near;
+                for i in 0..n {
+                    let p0 = lo + i as f32 * step;
+                    let p1 = if i == n - 1 { hi } else { p0 + step };
+                    out.push((p0, p1, uv_lo, uv_hi));
+                }
+                return out;
+            }
+            let count = ratio.ceil();
             if count <= 0.0 {
                 return out;
             }
